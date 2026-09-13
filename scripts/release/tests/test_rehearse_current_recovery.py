@@ -1,17 +1,53 @@
+import contextlib
 import io
+import json
 import os
 from pathlib import Path
 import subprocess
+import sqlite3
 import sys
 from tempfile import TemporaryDirectory
 import unittest
 from unittest import mock
 import urllib.error
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "release"))
 
 import rehearse_current_recovery as recovery
+
+
+class LegacyArchiveTests(unittest.TestCase):
+    def test_archive_contains_old_structure_and_preserves_business_data(self):
+        schema = ROOT / "server/tests/prototypes/conversation/testdata/schema-000001.sql"
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            database = root / "new.db"
+            with contextlib.closing(sqlite3.connect(database)) as connection, connection:
+                connection.executescript(schema.read_text(encoding="utf-8"))
+                connection.execute("ALTER TABLE plugin_kv ADD COLUMN expires_at_ms INTEGER")
+                connection.execute("INSERT INTO schema_metadata VALUES (1,'000002','2026-09-13T00:00:00Z')")
+                connection.execute("INSERT INTO auth_bootstrap_state VALUES (1,'fixture',?,?,'2026-09-13T00:00:00Z')",
+                                   (b"raylea-pwd:fixture:argon2id:fixture", b"fixture-signing-key"))
+                connection.execute("INSERT INTO plugin_kv VALUES ('recovery.fixture','cursor','42',2,'2026-09-13T00:00:00Z',NULL)")
+            archive = root / "new.zip"
+            with zipfile.ZipFile(archive, "x") as package:
+                package.write(database, "data/rayleabot.db")
+                package.writestr("backup-manifest.json", json.dumps({"db_schema_version": "000002"}))
+                package.writestr("data/plugins/recovery.fixture/state.json", '{"cursor":42}')
+            result, facts = recovery.legacy_archive(archive, root)
+            self.assertEqual(facts["schema_version"], "000001")
+            self.assertEqual(facts["plugin_cursor"], 42)
+            with zipfile.ZipFile(result) as package:
+                self.assertEqual(json.loads(package.read("backup-manifest.json"))["db_schema_version"], "000001")
+                restored = root / "restored.db"
+                restored.write_bytes(package.read("data/rayleabot.db"))
+                self.assertEqual(package.read("data/plugins/recovery.fixture/state.json"), b'{"cursor":42}')
+            with contextlib.closing(sqlite3.connect(restored)) as connection:
+                self.assertNotIn("expires_at_ms", [row[1] for row in connection.execute("PRAGMA table_info(plugin_kv)")])
+            with contextlib.closing(sqlite3.connect(database)) as connection:
+                self.assertEqual(connection.execute("SELECT version FROM schema_metadata").fetchone()[0], "000002")
 
 
 class RunningServerTests(unittest.TestCase):

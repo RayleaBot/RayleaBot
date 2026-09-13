@@ -1,0 +1,199 @@
+CREATE TABLE IF NOT EXISTS schema_metadata (
+    singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
+    version TEXT NOT NULL,
+    initialized_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_bootstrap_state (
+    singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
+    identifier TEXT NOT NULL,
+    secret_digest BLOB NOT NULL,
+    signing_key BLOB NOT NULL,
+    initialized_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS admin_sessions (
+    session_id TEXT PRIMARY KEY,
+    subject TEXT NOT NULL,
+    issued_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires_at
+    ON admin_sessions (expires_at);
+
+CREATE TABLE IF NOT EXISTS plugin_instances (
+    plugin_id TEXT PRIMARY KEY,
+    desired_state TEXT NOT NULL CHECK (desired_state IN ('enabled', 'disabled')),
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS plugin_packages (
+    plugin_id TEXT PRIMARY KEY,
+    source_type TEXT NOT NULL CHECK (source_type IN ('local_directory', 'local_zip', 'remote_url', 'catalog', 'development')),
+    source_ref TEXT NOT NULL,
+    version TEXT NOT NULL,
+    package_hash TEXT NOT NULL,
+    installed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS plugin_store_sources (
+    source_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL UNIQUE,
+    official INTEGER NOT NULL DEFAULT 0 CHECK (official IN (0, 1))
+);
+
+INSERT OR IGNORE INTO plugin_store_sources (source_id, name, url, official)
+VALUES ('official', 'RayleaBot 官方插件', 'https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.json', 1);
+
+CREATE TABLE IF NOT EXISTS plugin_store_catalog_cache (
+    source_id TEXT PRIMARY KEY REFERENCES plugin_store_sources(source_id) ON DELETE CASCADE,
+    catalog_json TEXT NOT NULL,
+    refreshed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+    task_id TEXT PRIMARY KEY,
+    task_type TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'succeeded', 'failed', 'cancelled', 'interrupted')),
+    progress INTEGER NOT NULL DEFAULT 0,
+    summary TEXT NOT NULL DEFAULT '',
+    started_at TEXT,
+    finished_at TEXT,
+    result_json TEXT,
+    error_json TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks (status);
+CREATE INDEX IF NOT EXISTS idx_tasks_task_type ON tasks (task_type);
+CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks (created_at);
+
+CREATE TABLE IF NOT EXISTS secret_store (
+    key TEXT PRIMARY KEY,
+    value BLOB NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS scheduler_jobs (
+    job_id TEXT PRIMARY KEY,
+    plugin_id TEXT NOT NULL,
+    log_label TEXT NOT NULL DEFAULT '',
+    cron_expr TEXT NOT NULL,
+    payload TEXT NOT NULL DEFAULT '{}',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    next_run TEXT NOT NULL,
+    last_run TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_duration_ms INTEGER NOT NULL DEFAULT 0,
+    last_error_code TEXT NOT NULL DEFAULT '',
+    last_error_message TEXT NOT NULL DEFAULT '',
+    last_error_at TEXT,
+    success_count INTEGER NOT NULL DEFAULT 0,
+    failure_count INTEGER NOT NULL DEFAULT 0,
+    timeout_count INTEGER NOT NULL DEFAULT 0,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    other_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_scheduler_jobs_next_run
+    ON scheduler_jobs (next_run) WHERE enabled = 1;
+
+CREATE INDEX IF NOT EXISTS idx_scheduler_jobs_plugin_id
+    ON scheduler_jobs (plugin_id);
+
+CREATE TABLE IF NOT EXISTS management_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_id TEXT NOT NULL,
+    boot_id TEXT NOT NULL DEFAULT '',
+    ts TEXT NOT NULL,
+    level TEXT NOT NULL CHECK (level IN ('debug', 'info', 'warn', 'error')),
+    source TEXT NOT NULL,
+    message TEXT NOT NULL,
+    plugin_id TEXT NOT NULL DEFAULT '',
+    request_id TEXT NOT NULL DEFAULT '',
+    details_json TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_management_logs_log_id
+    ON management_logs (log_id);
+
+CREATE INDEX IF NOT EXISTS idx_management_logs_ts
+    ON management_logs (ts DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_management_logs_plugin
+    ON management_logs (plugin_id, ts DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_management_logs_request
+    ON management_logs (request_id, ts DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_management_logs_source
+    ON management_logs (source, ts DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_management_logs_boot_ts
+    ON management_logs (boot_id, ts DESC, id DESC);
+
+CREATE TABLE IF NOT EXISTS plugin_kv (
+    plugin_id TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value_json TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (plugin_id, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_plugin_kv_plugin_id
+    ON plugin_kv (plugin_id);
+
+CREATE TABLE IF NOT EXISTS system_configs (
+    namespace TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (namespace, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_system_configs_namespace
+    ON system_configs (namespace);
+
+CREATE TABLE IF NOT EXISTS render_templates (
+    template_id TEXT PRIMARY KEY,
+    source_digest TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    source_type TEXT NOT NULL CHECK (source_type IN ('system', 'plugin')),
+    source_plugin_id TEXT,
+    source_local_id TEXT,
+    manifest_json TEXT NOT NULL,
+    html TEXT NOT NULL,
+    stylesheet TEXT NOT NULL,
+    input_schema_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_render_templates_source
+    ON render_templates (source_type, source_plugin_id);
+
+CREATE TABLE IF NOT EXISTS whitelist_state (
+    singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
+    enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+    updated_at TEXT NOT NULL
+);
+
+INSERT OR IGNORE INTO whitelist_state (singleton_id, enabled, updated_at)
+VALUES (1, 0, '1970-01-01T00:00:00Z');
+
+CREATE TABLE access_list_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    list_kind TEXT NOT NULL CHECK (list_kind IN ('blacklist', 'whitelist')),
+    source_protocol TEXT NOT NULL CHECK (source_protocol IN ('onebot11', 'qqofficial')),
+    source_adapter TEXT NOT NULL,
+    bot_id TEXT NOT NULL,
+    entry_type TEXT NOT NULL CHECK (entry_type IN ('user', 'group')),
+    target_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    CHECK ((source_protocol = 'onebot11' AND source_adapter = '' AND bot_id = '') OR (source_adapter <> '' AND bot_id <> '')),
+    UNIQUE (list_kind, source_protocol, source_adapter, bot_id, entry_type, target_id)
+);

@@ -114,7 +114,7 @@ def running_server(binary: Path, root: Path, port: int):
 
 
 def database_facts(path: Path) -> dict:
-    with sqlite3.connect(path) as connection:
+    with contextlib.closing(sqlite3.connect(path)) as connection:
         version, initialized_at = connection.execute(
             "SELECT version, initialized_at FROM schema_metadata WHERE singleton_id = 1"
         ).fetchone()
@@ -167,9 +167,44 @@ def package_hashes(root: Path) -> dict[str, str]:
             for path in sorted(root.rglob("*")) if path.is_file()}
 
 
+def legacy_archive(archive: Path, output: Path) -> tuple[Path, dict]:
+    """Create a real 000001 synthetic database, never relabel a newer database."""
+    fixture_schema = Path(__file__).resolve().parents[2] / "server/tests/prototypes/conversation/testdata/schema-000001.sql"
+    archived_database = output / "archived-current.db"
+    legacy_database = output / "archived-000001.db"
+    with zipfile.ZipFile(archive) as package:
+        archived_database.write_bytes(package.read("data/rayleabot.db"))
+        manifest = json.loads(package.read("backup-manifest.json"))
+    with contextlib.closing(sqlite3.connect(legacy_database)) as target, target:
+        target.executescript(fixture_schema.read_text(encoding="utf-8"))
+        target.execute("ATTACH DATABASE ? AS source", (str(archived_database),))
+        tables = [row[0] for row in target.execute(
+            "SELECT name FROM main.sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
+        for table in tables:
+            quoted = '"' + table.replace('"', '""') + '"'
+            columns = [row[1] for row in target.execute(f"PRAGMA main.table_info({quoted})")]
+            projection = ",".join('"' + name.replace('"', '""') + '"' for name in columns)
+            target.execute(f"DELETE FROM main.{quoted}")
+            target.execute(f"INSERT INTO main.{quoted} ({projection}) SELECT {projection} FROM source.{quoted}")
+        target.execute("UPDATE schema_metadata SET version='000001' WHERE singleton_id=1")
+        assert target.execute("PRAGMA quick_check").fetchone()[0] == "ok"
+    facts = database_facts(legacy_database)
+    manifest["db_schema_version"] = facts["schema_version"]
+    result = output / "backup-000001.zip"
+    with zipfile.ZipFile(archive) as source, zipfile.ZipFile(result, "x", zipfile.ZIP_DEFLATED) as target:
+        for entry in source.infolist():
+            data = source.read(entry)
+            if entry.filename == "data/rayleabot.db":
+                data = legacy_database.read_bytes()
+            elif entry.filename == "backup-manifest.json":
+                data = json.dumps(manifest).encode()
+            target.writestr(entry, data)
+    return result, facts
+
+
 def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = None,
              plugin_fixture: Path | None = None, observation_window_seconds: float = 0,
-             database_layout: str = "default") -> dict:
+             database_layout: str = "default", legacy_schema: bool = False) -> dict:
     """Use one current binary; output must be new and contains every synthetic artifact."""
     binary = binary.resolve(strict=True)
     if database_layout not in {"default", "custom", "absolute"}:
@@ -204,7 +239,7 @@ def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = Non
     # Plugin KV and files represent the persisted business state restored together.
     configured_database = Path(config["database"]["path"])
     database = configured_database if configured_database.is_absolute() else source / configured_database
-    with sqlite3.connect(database) as connection:
+    with contextlib.closing(sqlite3.connect(database)) as connection, connection:
         connection.execute(
             "INSERT INTO plugin_kv (plugin_id, key, value_json, size_bytes, updated_at) VALUES (?, ?, ?, ?, ?)",
             ("recovery.fixture", "cursor", "42", 2, "2026-09-10T00:00:00Z"),
@@ -224,6 +259,10 @@ def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = Non
         assert manifest["db_schema_version"] == before["schema_version"], manifest
         assert "data/plugins/recovery.fixture/state.json" in package.namelist()
 
+    archived_facts = before
+    if legacy_schema:
+        archive, archived_facts = legacy_archive(archive, output)
+
     # The target has no configuration or database before the restore command.
     run(binary, restored, "restore", str(archive))
     restored_config = yaml.safe_load((restored / "config/user.yaml").read_text(encoding="utf-8"))
@@ -234,7 +273,7 @@ def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = Non
     assert (restored / "data/plugins/recovery.fixture/state.json").read_bytes() == state_file.read_bytes()
     restored_database = restored / expected_config["database"]["path"]
     after = database_facts(restored_database)
-    assert before == after, (before, after)
+    assert archived_facts == after, (archived_facts, after)
     installed_hashes = package_hashes(source / "plugins/installed")
     assert package_hashes(restored / "plugins/installed") == installed_hashes
     for _ in range(2):
@@ -253,13 +292,20 @@ def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = Non
                     wait_for_plugin(origin, session["session_token"], plugin_id)
                 time.sleep(min(1, max(0, deadline - time.monotonic())))
     assert database_facts(restored_database) == before
+    migration_copies = list(restored_database.parent.glob(restored_database.name + ".pre-migration-000001-*.db"))
+    if archived_facts["schema_version"] != before["schema_version"]:
+        assert len(migration_copies) == 1, migration_copies
+        assert database_facts(migration_copies[0]) == archived_facts
     assert hashlib.sha256(database.read_bytes()).hexdigest() == source_database_digest
     result = {"archive": str(archive), "schema_version": before["schema_version"],
               "initialized_at": before["initialized_at"], "fresh_setup": True,
               "configuration_preserved": True, "plugin_data_preserved": True,
               "restored_login": True, "repeated_start_idempotent": True,
               "installed_plugin": plugin_id, "installed_package_files": len(installed_hashes),
-              "database_layout": database_layout, "restored_database_path": expected_config["database"]["path"]}
+              "database_layout": database_layout, "restored_database_path": expected_config["database"]["path"],
+              "source_schema_version": archived_facts["schema_version"],
+              "target_schema_version": before["schema_version"],
+              "migration_copies": [str(path) for path in migration_copies]}
     (output / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     return result
 
@@ -269,8 +315,10 @@ def main() -> None:
     parser.add_argument("--server", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="new directory for synthetic artifacts")
     parser.add_argument("--database-layout", choices=("default", "custom", "absolute"), default="default")
+    parser.add_argument("--legacy-schema", action="store_true", help="restore a synthetic 000001 archive and verify startup migration")
     arguments = parser.parse_args()
-    print(json.dumps(rehearse(arguments.server, arguments.output.resolve(), database_layout=arguments.database_layout), indent=2))
+    print(json.dumps(rehearse(arguments.server, arguments.output.resolve(), database_layout=arguments.database_layout,
+                             legacy_schema=arguments.legacy_schema), indent=2))
 
 
 if __name__ == "__main__":
