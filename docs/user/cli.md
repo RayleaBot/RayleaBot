@@ -17,6 +17,8 @@ CLI 提供本地离线恢复与运维命令。命令统一记为
 | `raylea plugin dev-sync --artifact <path> --source <path>` | 把已构建的开发插件 artifact 同步进本地插件安装目录；插件 ID 来自 artifact 根目录的 `info.json` |
 | `raylea version --json` | 输出当前构建版本、提交与产物标识 |
 | `raylea update check --json` | 读取发布版本信息，不下载或安装更新 |
+| `raylea update download` | 下载当前产物的更新包到缓存目录，不修改安装目录 |
+| `raylea update apply` | 在停服窗口原地安装更新包；失败后可重新执行 |
 | `raylea reset-admin` | 重置管理员凭据并重新进入初始化向导 |
 | `raylea backup` | 在停服窗口创建恢复用备份 |
 | `raylea restore <backup-path>` | 在停服窗口从指定备份包恢复配置、状态与插件目录 |
@@ -42,7 +44,9 @@ raylea-server -config <config/user.yaml> -config-schema <config.user.schema.json
 | `config validate` | 是 | 是 | 只读取并校验配置文件 |
 | `plugin dev-sync --artifact <path> --source <path>` | 否 | 是 | 两个参数均必填；需要数据库锁，在启动前或协调的重启窗口执行 |
 | `version --json` | 是 | 是 | 输出构建版本信息 |
-| `update check --json` | 是 | 否 | 需要网络访问受信发布来源 |
+| `update check --json` | 是 | 否 | 需要网络访问发布来源 |
+| `update download` | 是 | 是 | 需要网络访问发布来源，只写入 `cache/downloads/update/` |
+| `update apply` | 否 | 是 | 获取服务生命周期锁后逐个替换程序文件，不触碰配置、数据与插件 |
 | `reset-admin` | 否 | 是 | 必须在停服窗口执行 |
 | `backup` | 否 | 是 | 获取服务生命周期锁后创建离线备份；在线备份使用管理 API 的 `backup.create` 任务 |
 | `restore <backup-path>` | 否 | 是 | 备份路径必填，恢复导入必须在停服状态执行 |
@@ -56,7 +60,7 @@ raylea-server -config <config/user.yaml> -config-schema <config.user.schema.json
 - 配置命令只维护本地配置文件，不替代 Web 管理面的在线配置编辑。
 - Launcher 如需触发恢复、检查或备份能力，应优先复用 CLI 或共享后端逻辑。
 - `cleanup` 不触碰状态库、插件业务数据和用户配置。
-- `backup`、`restore`、`cleanup`、`reset-admin` 和离线插件同步都要求目标配置对应的服务已停止；锁被占用时命令失败并返回非零退出码。
+- `backup`、`restore`、`cleanup`、`reset-admin`、`update apply` 和离线插件同步都要求目标配置对应的服务已停止；锁被占用时命令失败并返回非零退出码。
 
 ## 当前环境检查重点
 

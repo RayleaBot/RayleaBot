@@ -45,7 +45,7 @@ func runVersion(cmd Command) int {
 
 func runUpdate(cmd Command) int {
 	if len(cmd.Args) == 0 {
-		cmd.Logger.Error("更新命令缺少子命令，用法 raylea update check --json")
+		cmd.Logger.Error("更新命令缺少子命令，用法 raylea update check --json | download | apply")
 		return 1
 	}
 	child := cmd
@@ -53,10 +53,23 @@ func runUpdate(cmd Command) int {
 	switch cmd.Args[0] {
 	case "check":
 		return runUpdateCheck(child)
+	case "download":
+		return runUpdateDownload(child)
+	case "apply":
+		return runLifecycleLocked(child, "离线更新", runUpdateApply)
 	default:
 		cmd.Logger.Error("未知更新子命令", "subcommand", cmd.Args[0])
 		return 1
 	}
+}
+
+func newUpdateChecker(cmd Command) *releaseupdate.Checker {
+	checker := releaseupdate.NewChecker()
+	if cmd.UpdateHTTPClient != nil {
+		checker.HTTPClient = cmd.UpdateHTTPClient
+		checker.DownloadClient = cmd.UpdateHTTPClient
+	}
+	return checker
 }
 
 func runUpdateCheck(cmd Command) int {
@@ -67,14 +80,10 @@ func runUpdateCheck(cmd Command) int {
 		cmd.Logger.Error("更新检查参数无效，用法 raylea update check --json")
 		return 1
 	}
-	checker := releaseupdate.NewChecker()
-	if cmd.UpdateHTTPClient != nil {
-		checker.HTTPClient = cmd.UpdateHTTPClient
-	}
 	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	result, err := checker.Check(ctx, repoRoot)
+	result, err := newUpdateChecker(cmd).Check(ctx, repoRoot)
 	if err != nil {
 		cmd.Logger.Error("检查更新失败", "code", releaseupdate.CodeOf(err), "err", err.Error())
 		return 1
@@ -92,6 +101,45 @@ func runUpdateCheck(cmd Command) int {
 		UpdateMode:       result.UpdateMode,
 		ReleasePageURL:   result.ReleasePageURL,
 	})
+}
+
+func runUpdateDownload(cmd Command) int {
+	if len(cmd.Args) != 0 {
+		cmd.Logger.Error("更新下载参数无效，用法 raylea update download")
+		return 1
+	}
+	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
+	result, archivePath, err := newUpdateChecker(cmd).Download(context.Background(), repoRoot)
+	if err != nil {
+		cmd.Logger.Error("下载更新失败", "code", releaseupdate.CodeOf(err), "err", displayLogError(repoRoot, err))
+		return 1
+	}
+	if result.Status != "update_available" {
+		cmd.Logger.Info("当前已是最新版本", "current_version", result.CurrentVersion)
+		return 0
+	}
+	cmd.Logger.Info("更新包已下载", "current_version", result.CurrentVersion,
+		"available_version", result.AvailableVersion, "archive_path", displayLogPath(repoRoot, archivePath))
+	return 0
+}
+
+func runUpdateApply(cmd Command) int {
+	if len(cmd.Args) != 0 {
+		cmd.Logger.Error("更新安装参数无效，用法 raylea update apply")
+		return 1
+	}
+	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
+	result, err := newUpdateChecker(cmd).Apply(context.Background(), repoRoot)
+	if err != nil {
+		cmd.Logger.Error("安装更新失败", "code", releaseupdate.CodeOf(err), "err", displayLogError(repoRoot, err))
+		return 1
+	}
+	if result.Status != "update_available" {
+		cmd.Logger.Info("当前已是最新版本", "current_version", result.CurrentVersion)
+		return 0
+	}
+	cmd.Logger.Info("更新已安装，重新启动服务后生效", "previous_version", result.CurrentVersion, "version", result.AvailableVersion)
+	return 0
 }
 
 func writeCommandJSON(cmd Command, value any) int {

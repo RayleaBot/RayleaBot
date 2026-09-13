@@ -547,6 +547,7 @@ func TestOfflineCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
 		{Name: "restore", ConfigPath: configPath, Logger: logger, Args: []string{"fixture.zip"}},
 		{Name: "cleanup", ConfigPath: configPath, Logger: logger},
 		{Name: "plugin", ConfigPath: configPath, Logger: logger, Args: []string{"dev-sync"}},
+		{Name: "update", ConfigPath: configPath, Logger: logger, Args: []string{"apply"}},
 	}
 	for _, command := range commands {
 		if code := Run(command); code != 1 {

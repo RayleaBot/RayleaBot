@@ -14,6 +14,8 @@ import (
 type Checker struct {
 	HTTPClient  *http.Client
 	ManifestURL string
+	// DownloadClient fetches release archives; nil uses the runtime resource client.
+	DownloadClient *http.Client
 }
 
 func NewChecker() *Checker {

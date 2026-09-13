@@ -1,0 +1,8 @@
+contract: contracts/cli-commands.yaml#commands.update.subcommands.apply
+case: ok
+input:
+  command: raylea update apply
+  mode: offline
+expect:
+  valid: true
+  exit_code: 0

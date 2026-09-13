@@ -55,6 +55,7 @@ func CodeOf(err error) string {
 type Artifact struct {
 	ArtifactID       string `json:"artifact_id"`
 	FileName         string `json:"file_name"`
+	DownloadURL      string `json:"download_url"`
 	ArchiveSizeBytes int64  `json:"archive_size_bytes"`
 	UpdateMode       string `json:"update_mode"`
 }

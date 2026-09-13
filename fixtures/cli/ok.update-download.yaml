@@ -1,0 +1,8 @@
+contract: contracts/cli-commands.yaml#commands.update.subcommands.download
+case: ok
+input:
+  command: raylea update download
+  mode: online
+expect:
+  valid: true
+  exit_code: 0

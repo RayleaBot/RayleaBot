@@ -105,7 +105,7 @@
   - `release_manifest.v2.json` 与 `build_info.json` 的正式字段结构
   - 发布脚本按 schema 严格生成与校验；读取端忽略未知字段，只校验实际使用的字段，插件格式版本仅供展示
 - `cli-commands.yaml`
-  - `config init / normalize / validate`、`reset-admin`、`backup`、`restore <backup-path>`、`doctor`、`cleanup`、`plugin dev-sync`、`version --json`、`update check --json` 的正式命令模型
+  - `config init / normalize / validate`、`reset-admin`、`backup`、`restore <backup-path>`、`doctor`、`cleanup`、`plugin dev-sync`、`version --json`、`update check --json`、`update download`、`update apply` 的正式命令模型
 
 ## 当前延后到后续版本的边界
 

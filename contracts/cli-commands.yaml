@@ -174,7 +174,7 @@ commands:
 
   update:
     name: update
-    summary: 检查可用版本并提供发布页。
+    summary: 检查、下载并安装发布版本。
     availability:
       online: true
       offline: true
@@ -199,6 +199,42 @@ commands:
           1: 网络或发布信息格式校验失败
         x-fixtures:
           - fixtures/cli/ok.update-check-json.yaml
+      download:
+        name: download
+        summary: 下载当前产物的更新包，不修改安装目录。
+        availability:
+          online: true
+          offline: true
+        description: >
+          按 build_info.json 的产物标识选择发布清单中的产物；已是最新版本时直接成功。
+          否则经 HTTPS 下载 download_url 到 cache/downloads/update/<file_name>，先写入 .part 文件，
+          字节数必须等于 archive_size_bytes；已有同尺寸文件直接复用。发布清单与更新包同源且经 HTTPS
+          传输，归档自带 CRC 或 gzip 校验，因此不校验摘要或签名。
+        exit_codes:
+          0: 已下载或已是最新版本
+          1: 网络、发布信息或下载大小校验失败
+        x-fixtures:
+          - fixtures/cli/ok.update-download.yaml
+      apply:
+        name: apply
+        summary: 停服后原地安装更新包。
+        availability:
+          online: false
+          offline: true
+        description: >
+          获取服务生命周期锁后检查版本；已是最新版本时直接成功且不修改文件。否则按需下载，
+          完整解压到 cache/update/staging/，校验 RayleaBot-v{version}-{artifact_id}/build_info.json
+          的版本与产物标识；解压或校验失败时删除缓存的更新包。随后逐个文件替换：已有文件移入
+          cache/update/replaced/，新文件移入原位置，build_info.json 最后写入。新版本不再包含的旧文件保留，
+          配置、数据、插件与运行时资源不受影响。替换失败不回滚，build_info.json 仍为旧版本，重新执行
+          update apply 或手动解压发布包覆盖即可。成功后清理暂存目录、更新包与 cache/update/replaced/，
+          Windows 上仍在运行的旧程序文件留待下次清理；数据库在下次启动时迁移。
+        exit_codes:
+          0: 已安装或已是最新版本
+          1: 服务未停止，或下载、解压、校验、替换失败
+        x-fixtures:
+          - fixtures/cli/ok.update-apply.offline.yaml
+          - fixtures/cli/invalid.update-apply.online.yaml
 
   reset-admin:
     name: reset-admin

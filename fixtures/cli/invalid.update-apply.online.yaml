@@ -1,0 +1,9 @@
+contract: contracts/cli-commands.yaml#commands.update.subcommands.apply
+case: invalid
+input:
+  command: raylea update apply
+  mode: online
+expect:
+  valid: false
+  exit_code: 1
+  reason: mode_unavailable
