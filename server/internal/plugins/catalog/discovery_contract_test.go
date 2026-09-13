@@ -15,6 +15,20 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
+func TestDiscoverProjectsMessagePriorityAndBlock(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	manifest := baseManifest("priority-fixture")
+	manifest["min_core_version"] = "0.6.0"
+	manifest["priority"] = 20
+	manifest["block"] = true
+	writeArtifact(t, filepath.Join(root, "plugins", "installed", "priority-fixture"), manifest, nil)
+	snapshot := discoverOne(t, root)
+	if !snapshot.Valid || snapshot.Priority != 20 || !snapshot.Block {
+		t.Fatalf("message policy not projected: %#v", snapshot)
+	}
+}
+
 func TestDiscoverProjectsManifestV3(t *testing.T) {
 	t.Parallel()
 

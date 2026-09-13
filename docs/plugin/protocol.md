@@ -81,6 +81,10 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 
 `plugin.event_canceled` 表示请求或生命周期取消，调度统计计入 `other`；`plugin.event_timeout` 表示确实超过事件处理时限。两者不能通过重放消息动作自动恢复。
 
+### 消息传播
+
+消息按插件的 `priority` 降序分层，同层并发；成功终态的 `propagation: stop|continue` 覆盖静态 `block`。正优先级消息订阅者先于命令声明者接收匹配的命令消息，零优先级普通订阅者仍不接收已定向的命令。同名命令权限、名单、菜单与冷却保持现有规则。低层在上层完成前已占据原 FIFO 位置，发送失败不改写终态传播决定。
+
 ### 隐式插件私有动作
 
 以下动作不要求 manifest 权限：

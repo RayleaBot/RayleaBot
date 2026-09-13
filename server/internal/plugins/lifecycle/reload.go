@@ -124,7 +124,7 @@ func (c *Controller) reloadPluginAsync(pluginID, taskID string) {
 	activationErr := c.settings.Activate(ctx, pluginID, payload.Config, func() error {
 		latest, _ := c.plugins.Get(pluginID)
 		var swapErr error
-		retired, swapErr = c.dispatcher.SwapPlugin(pluginID, newManager, spec.Events, latest.Commands, spec.EffectiveConcurrency)
+		retired, swapErr = c.dispatcher.SwapPlugin(pluginID, newManager, spec.Events, latest.Commands, spec.EffectiveConcurrency, dispatch.MessagePolicy{Priority: latest.Priority, Block: latest.Block})
 		if swapErr != nil {
 			return swapErr
 		}

@@ -4,8 +4,36 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
+
+func TestPositiveSubscriberRunsBeforeCommandDeclarer(t *testing.T) {
+	for _, notHandled := range []bool{false, true} {
+		d := New(nil, nil, nil, 8)
+		observer := &fakeDeliverer{}
+		if notHandled {
+			observer.err = &plugins.Error{Code: errorcodes.PluginNotHandled, Message: "fixture"}
+			observer.delivery.ErrorCode = errorcodes.PluginNotHandled
+		}
+		command, ordinary := &fakeDeliverer{}, &fakeDeliverer{}
+		d.Register("observer", observer, []string{"message.group"}, nil, 1, MessagePolicy{Priority: 1, Block: true})
+		d.Register("command", command, []string{"message.group"}, []plugins.Command{{Name: "command", Aliases: []string{"alias"}}}, 1, MessagePolicy{Priority: 100})
+		d.Register("ordinary", ordinary, []string{"message.group"}, nil, 1)
+		results := d.Dispatch(t.Context(), testEvent(), "alias")
+		if len(results) != 2 || results[0].PluginID != "observer" || results[1].PluginID != "command" {
+			t.Fatalf("command candidates=%#v", results)
+		}
+		completed := waitCompletion(t, results[1])
+		if notHandled && !completed.Success || !notHandled && !completed.Skipped {
+			t.Fatalf("command completion=%#v", completed)
+		}
+		if ordinary.eventCount() != 0 {
+			t.Fatal("zero-priority ordinary subscriber received directed command")
+		}
+		d.Close()
+	}
+}
 
 func TestLayeredAdmissionPreservesFIFOAcrossCandidateSets(t *testing.T) {
 	d := New(nil, nil, nil, 8)

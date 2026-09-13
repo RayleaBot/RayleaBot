@@ -28,6 +28,8 @@ err := rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(
 
 每个事件只能发送一次 `Result`、`Fail`、`Send`、`SendText` 或 `Reply` 终态。`Reply` 仍使用 protocol v3 的统一 `message.send` action。
 
+消息处理可用 `event.ResultWithPropagation(nil, rayleabot.PropagationStop)` 停止后续优先级，或用 `PropagationContinue` 覆盖 manifest 的 block。同层已经执行的动作不会撤销；非消息事件不能指定传播结果。
+
 `event.Actions()` 提供 request-bound typed helpers：
 
 - 非终态消息、日志、KV、文件、HTTP、配置写入、插件列表和 secret。

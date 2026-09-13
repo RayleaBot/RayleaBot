@@ -309,7 +309,7 @@ func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot,
 	if max := c.config().Runtime.MaxConcurrentTasksPerPlugin; max > 0 && concurrency > max {
 		concurrency = max
 	}
-	if !c.dispatcher.Register(pluginID, manager, snapshot.Events, snapshot.Commands, concurrency) {
+	if !c.dispatcher.Register(pluginID, manager, snapshot.Events, snapshot.Commands, concurrency, dispatch.MessagePolicy{Priority: snapshot.Priority, Block: snapshot.Block}) {
 		return dispatch.ErrClosed
 	}
 	return nil

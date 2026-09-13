@@ -21,6 +21,8 @@ type manifestDocument struct {
 	MinCoreVersion  string                     `json:"min_core_version"`
 	Metadata        manifestMetadata           `json:"metadata"`
 	Concurrency     int                        `json:"concurrency"`
+	Priority        int                        `json:"priority"`
+	Block           bool                       `json:"block"`
 	Events          []string                   `json:"events"`
 	Permissions     map[string]json.RawMessage `json:"permissions"`
 	DefaultConfig   map[string]any             `json:"default_config"`
@@ -156,6 +158,7 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 		Author: manifest.Metadata.Author, License: manifest.License,
 		ManifestVersion: manifest.ManifestVersion, MinCoreVersion: manifest.MinCoreVersion,
 		Concurrency: manifest.Concurrency, Events: append([]string(nil), manifest.Events...),
+		Priority: manifest.Priority, Block: manifest.Block,
 		Permissions: permissions, Webhooks: webhooks, CommandGroups: groups,
 		Description: manifest.Metadata.Description, Icon: manifest.Metadata.Icon,
 		Repo: manifest.Metadata.Repo, Homepage: manifest.Metadata.Homepage,

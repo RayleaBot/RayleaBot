@@ -99,6 +99,8 @@ type Snapshot struct {
 	ManifestVersion        string
 	MinCoreVersion         string
 	Concurrency            int
+	Priority               int
+	Block                  bool
 	Events                 []string
 	Permissions            map[string]bool
 	Webhooks               []WebhookScope

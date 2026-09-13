@@ -398,15 +398,23 @@ func (state *runtimeState) waitHandlers() error {
 }
 
 func (event *EventContext) Result(data any) error {
+	return event.result(data, "")
+}
+
+func (event *EventContext) result(data any, propagation string) error {
+	if data == nil {
+		data = map[string]any{}
+	}
 	raw, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("rayleabot: marshal result: %w", err)
 	}
 	return event.writeTerminal(protocolFrame{
-		Type:      "result",
-		RequestID: event.RequestID,
-		Status:    "success",
-		Data:      raw,
+		Type:        "result",
+		RequestID:   event.RequestID,
+		Status:      "success",
+		Data:        raw,
+		Propagation: propagation,
 	})
 }
 

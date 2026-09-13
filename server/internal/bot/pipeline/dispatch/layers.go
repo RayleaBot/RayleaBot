@@ -8,9 +8,10 @@ import (
 )
 
 type messageCandidate struct {
-	id     string
-	slot   *pluginSlot
-	policy MessagePolicy
+	id            string
+	slot          *pluginSlot
+	policy        MessagePolicy
+	beforeCommand bool
 }
 type layerDelivery struct {
 	result DeliveryResult
@@ -26,9 +27,20 @@ type messageLayer struct {
 func (d *Dispatcher) messageCandidates(event chatevent.Event, command string) []messageCandidate {
 	ids := d.selectTargets(event, command)
 	result := make([]messageCandidate, 0, len(ids))
+	directed := false
+	selected := make(map[string]bool, len(ids))
 	for _, id := range ids {
 		slot := d.slots[id]
+		selected[id] = true
+		directed = directed || command != "" && slotDeclaresCommand(slot, command)
 		result = append(result, messageCandidate{id: id, slot: slot, policy: slot.messagePolicy})
+	}
+	if directed {
+		for id, slot := range d.slots {
+			if !selected[id] && slotIsDeliverable(slot) && slot.messagePolicy.Priority > 0 && slotAcceptsEvent(slot, event.EventType) {
+				result = append(result, messageCandidate{id: id, slot: slot, policy: slot.messagePolicy, beforeCommand: true})
+			}
+		}
 	}
 	return result
 }
@@ -44,6 +56,9 @@ func (d *Dispatcher) dispatchLayered(ctx context.Context, event chatevent.Event,
 	candidates := d.messageCandidates(event, command)
 	d.mu.RUnlock()
 	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].beforeCommand != candidates[j].beforeCommand {
+			return candidates[i].beforeCommand
+		}
 		if candidates[i].policy.Priority != candidates[j].policy.Priority {
 			return candidates[i].policy.Priority > candidates[j].policy.Priority
 		}
@@ -56,7 +71,7 @@ func (d *Dispatcher) dispatchLayered(ctx context.Context, event chatevent.Event,
 	var layers []messageLayer
 	results := make([]DeliveryResult, 0, len(candidates))
 	for i, candidate := range candidates {
-		if i == 0 || candidate.policy.Priority != candidates[i-1].policy.Priority {
+		if i == 0 || candidate.policy.Priority != candidates[i-1].policy.Priority || candidate.beforeCommand != candidates[i-1].beforeCommand {
 			var gate *layerGate
 			if i > 0 {
 				gate = &layerGate{done: make(chan struct{})}
