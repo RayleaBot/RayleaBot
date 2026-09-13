@@ -23,7 +23,7 @@ OUTPUT_KEYS = (
 )
 
 DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", "DESIGN.md", "design-qa.md"}
-DOC_AUX_FILES = {".impeccable/design.json"}
+DOC_AUX_FILES = {".impeccable/design.json", ".impeccable/config.json"}
 TOOLCHAIN_ROOT_FILES = {".env.example", ".gitattributes", ".gitignore", ".tool-versions", "Makefile", "start.bat", "start.sh"}
 SERVER_STRUCTURE_INPUTS = {"docs/engineering/manual-sql-exceptions.json"}
 
@@ -242,6 +242,7 @@ def self_test() -> None:
         (["design-qa.md"], {"docs": True, "docs_only": True}),
         (["docs/engineering/manual-sql-exceptions.json"], {"server": True, "ci": True, "docs": True, "docs_only": False}),
         ([".impeccable/design.json"], {"docs": True, "docs_only": True}),
+        ([".impeccable/config.json"], {"docs": True, "docs_only": True, "server": False, "web": False, "launcher": False, "ci": False}),
         (["design/tokens.json"], {"web": True, "launcher": True, "docs": True, "ci": True, "docs_only": False}),
         (["launcher/internal/contractversions/versions.generated.go"], {"launcher": True, "contracts": True}),
         (["sdk/vue/src/contract.generated.ts"], {"sdk": True, "contracts": True}),
