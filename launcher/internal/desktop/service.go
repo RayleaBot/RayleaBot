@@ -123,6 +123,21 @@ func (s *Service) CheckForUpdates() error {
 	return nil
 }
 
+// ApplyUpdate installs the available release and exits once the updated
+// Launcher has been started.
+func (s *Service) ApplyUpdate() error {
+	coordinator, _, err := s.dependencies()
+	if err != nil {
+		return err
+	}
+	go func() {
+		if coordinator.ApplyUpdate() {
+			s.requestExit()
+		}
+	}()
+	return nil
+}
+
 func (s *Service) OpenWebUI(targetPath string) error {
 	coordinator, _, err := s.dependencies()
 	if err != nil {

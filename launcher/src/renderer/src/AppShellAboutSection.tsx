@@ -1,5 +1,5 @@
 import { Button, MessageBar, MessageBarBody, MessageBarTitle } from "@fluentui/react-components";
-import { ArrowClockwise20Regular, Open20Regular } from "@fluentui/react-icons";
+import { ArrowClockwise20Regular, ArrowDownload20Regular, Open20Regular } from "@fluentui/react-icons";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { formatReleaseVersion } from "./AppShell.shared";
@@ -8,6 +8,7 @@ import { RayleaMark } from "./RayleaMark";
 type AppShellAboutSectionProps = {
   snapshot: LauncherSnapshot;
   controlsDisabled: boolean;
+  onApplyUpdate: () => void;
   onCheckForUpdates: () => void;
   onOpenReleasePage: () => void;
   onOpenRepositoryPage: () => void;
@@ -18,6 +19,8 @@ function buildVersionHint(releaseCheck: LauncherSnapshot["launcher"]["releaseChe
   switch (releaseCheck.status) {
     case "checking":
       return "正在检查更新";
+    case "updating":
+      return releaseCheck.summary || "正在更新";
     case "update_available":
       return latestVersion ? `有新版本 ${latestVersion}` : "有新版本";
     case "failed":
@@ -30,6 +33,7 @@ function buildVersionHint(releaseCheck: LauncherSnapshot["launcher"]["releaseChe
 export function AppShellAboutSection({
   snapshot,
   controlsDisabled,
+  onApplyUpdate,
   onCheckForUpdates,
   onOpenReleasePage,
   onOpenRepositoryPage,
@@ -37,7 +41,9 @@ export function AppShellAboutSection({
   const releaseCheck = snapshot.launcher.releaseCheck;
   const currentVersion = formatReleaseVersion(releaseCheck.currentVersion);
   const versionHint = buildVersionHint(releaseCheck);
-  const guidedRelease = Boolean(releaseCheck.releasePageUrl) && (releaseCheck.updateAvailable || !releaseCheck.canCheck);
+  const updating = releaseCheck.status === "updating";
+  const canApplyUpdate = releaseCheck.updateAvailable && !updating && releaseCheck.status !== "checking";
+  const guidedRelease = Boolean(releaseCheck.releasePageUrl) && !releaseCheck.canCheck;
   const updateButtonLabel = guidedRelease ? "打开发布页" : releaseCheck.status === "checking" ? "检查中" : "检查更新";
   const updateDisabled = controlsDisabled || releaseCheck.status === "checking" || (!guidedRelease && !releaseCheck.canCheck);
   const showUpdateAction = releaseCheck.canCheck || guidedRelease || releaseCheck.status === "checking";
@@ -56,7 +62,23 @@ export function AppShellAboutSection({
             </div>
           </div>
           <div className="about-panel__actions">
-            {showUpdateAction ? (
+            {updating ? (
+              <Button appearance="primary" icon={<ArrowDownload20Regular />} disabled>
+                正在更新
+              </Button>
+            ) : canApplyUpdate ? (
+              <>
+                <Button
+                  appearance="primary"
+                  icon={<ArrowDownload20Regular />}
+                  disabled={controlsDisabled}
+                  onClick={onApplyUpdate}
+                >
+                  立即更新
+                </Button>
+                <Button appearance="secondary" icon={<Open20Regular />} onClick={onOpenReleasePage}>发布页</Button>
+              </>
+            ) : showUpdateAction ? (
               <Button
                 appearance="secondary"
                 icon={guidedRelease ? <Open20Regular /> : <ArrowClockwise20Regular />}

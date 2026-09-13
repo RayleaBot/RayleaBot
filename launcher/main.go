@@ -51,7 +51,22 @@ type appHost struct {
 	externalStopTimeout time.Duration
 }
 
+// relaunchWaitPID reads the updating Launcher this process must outlive.
+func relaunchWaitPID(args []string) (int, bool) {
+	for index := 0; index+1 < len(args); index++ {
+		if args[index] == desktop.WaitForPIDFlag {
+			pid, err := strconv.Atoi(args[index+1])
+			return pid, err == nil && pid > 0
+		}
+	}
+	return 0, false
+}
+
 func main() {
+	// Wails exits a second instance immediately, so wait before it takes the lock.
+	if pid, ok := relaunchWaitPID(os.Args[1:]); ok {
+		desktop.WaitForProcessExit(pid)
+	}
 	devServerURL, err := frontend.ResolveDevServer(os.Getenv("FRONTEND_DEVSERVER_URL"), frontend.ProductionBuild)
 	if err != nil {
 		log.Fatal(err)

@@ -146,6 +146,7 @@ describe("Launcher workspace presentation", () => {
       <AppShellAboutSection
         snapshot={configuredSnapshot}
         controlsDisabled={false}
+        onApplyUpdate={noop}
         onCheckForUpdates={noop}
         onOpenReleasePage={noop}
         onOpenRepositoryPage={noop}
@@ -157,7 +158,8 @@ describe("Launcher workspace presentation", () => {
     expect(screen.getByRole("button", { name: "GitHub" })).toBeEnabled();
   });
 
-  test("opens the release page for guided updates", () => {
+  test("offers one-click update and the release page when a newer version exists", () => {
+    const onApplyUpdate = vi.fn();
     const onOpenReleasePage = vi.fn();
     const snapshot = createLauncherSnapshot({
       launcher: {
@@ -176,14 +178,47 @@ describe("Launcher workspace presentation", () => {
       <AppShellAboutSection
         snapshot={snapshot}
         controlsDisabled={false}
+        onApplyUpdate={onApplyUpdate}
         onCheckForUpdates={noop}
         onOpenReleasePage={onOpenReleasePage}
         onOpenRepositoryPage={noop}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "打开发布页" }));
+    fireEvent.click(screen.getByRole("button", { name: "立即更新" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布页" }));
+    expect(onApplyUpdate).toHaveBeenCalledOnce();
     expect(onOpenReleasePage).toHaveBeenCalledOnce();
+  });
+
+  test("keeps the update action disabled while an update runs", () => {
+    const snapshot = createLauncherSnapshot({
+      launcher: {
+        releaseCheck: {
+          status: "updating",
+          currentVersion: "0.3.0",
+          latestVersion: "0.4.0",
+          summary: "正在下载更新。",
+          updateAvailable: true,
+          canCheck: false,
+        },
+      },
+    });
+
+    render(
+      <AppShellAboutSection
+        snapshot={snapshot}
+        controlsDisabled={false}
+        onApplyUpdate={noop}
+        onCheckForUpdates={noop}
+        onOpenReleasePage={noop}
+        onOpenRepositoryPage={noop}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "正在更新" })).toBeDisabled();
+    expect(screen.getByText("正在下载更新。")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "立即更新" })).not.toBeInTheDocument();
   });
 
   test("offers the release page for platform-guided builds", () => {
@@ -204,6 +239,7 @@ describe("Launcher workspace presentation", () => {
       <AppShellAboutSection
         snapshot={snapshot}
         controlsDisabled={false}
+        onApplyUpdate={noop}
         onCheckForUpdates={noop}
         onOpenReleasePage={onOpenReleasePage}
         onOpenRepositoryPage={noop}
@@ -233,6 +269,7 @@ describe("Launcher workspace presentation", () => {
       <AppShellAboutSection
         snapshot={snapshot}
         controlsDisabled={false}
+        onApplyUpdate={noop}
         onCheckForUpdates={noop}
         onOpenReleasePage={noop}
         onOpenRepositoryPage={noop}

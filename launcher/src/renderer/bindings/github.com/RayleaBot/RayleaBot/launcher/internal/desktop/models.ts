@@ -151,6 +151,7 @@ export enum ReleaseCheckStatus {
     ReleaseDisabled = "disabled",
     ReleaseIdle = "idle",
     ReleaseChecking = "checking",
+    ReleaseUpdating = "updating",
     ReleaseUpToDate = "up_to_date",
     ReleaseUpdateAvailable = "update_available",
     ReleaseFailed = "failed",

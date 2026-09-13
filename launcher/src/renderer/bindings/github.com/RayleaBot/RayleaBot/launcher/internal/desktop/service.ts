@@ -9,6 +9,14 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+/**
+ * ApplyUpdate installs the available release and exits once the updated
+ * Launcher has been started.
+ */
+export function ApplyUpdate(): $CancellablePromise<void> {
+    return $Call.ByName("github.com/RayleaBot/RayleaBot/launcher/internal/desktop.Service.ApplyUpdate");
+}
+
 export function CheckForUpdates(): $CancellablePromise<void> {
     return $Call.ByName("github.com/RayleaBot/RayleaBot/launcher/internal/desktop.Service.CheckForUpdates");
 }

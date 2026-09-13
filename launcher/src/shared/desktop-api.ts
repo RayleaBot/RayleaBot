@@ -15,6 +15,7 @@ export interface LauncherDesktopApi {
   stop(): Promise<void>;
   resetAdmin(): Promise<void>;
   checkForUpdates(): Promise<void>;
+  applyUpdate(): Promise<void>;
   openWebUi(targetPath?: string): Promise<void>;
   openReleasePage(): Promise<void>;
   openRepositoryPage(): Promise<void>;

@@ -111,6 +111,7 @@ describe("App", () => {
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
       checkForUpdates: vi.fn(async () => undefined),
+      applyUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -158,6 +159,7 @@ describe("App", () => {
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
       checkForUpdates: vi.fn(async () => undefined),
+      applyUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -204,6 +206,7 @@ describe("App", () => {
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
       checkForUpdates: vi.fn(async () => undefined),
+      applyUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -234,6 +237,66 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "重启服务" })).not.toBeInTheDocument();
   });
 
+  test("confirms before starting a one-click update", async () => {
+    let initialized = false;
+    const applyUpdate = vi.fn(async () => undefined);
+    const updateSnapshot = createLauncherSnapshot({
+      launcher: {
+        ...loadedSnapshot.launcher,
+        releaseCheck: {
+          status: "update_available",
+          currentVersion: "0.3.0",
+          latestVersion: "0.4.0",
+          releasePageUrl: "https://example.invalid/releases/v0.4.0",
+          updateAvailable: true,
+          canCheck: true,
+        },
+      },
+    });
+    installDesktopApi({
+      getPlatform: vi.fn(async () => "win32-x64"),
+      getSnapshot: vi.fn(async () => (initialized ? updateSnapshot : blankSnapshot)),
+      initialize: vi.fn(async () => {
+        initialized = true;
+      }),
+      refresh: vi.fn(async () => undefined),
+      start: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+      resetAdmin: vi.fn(async () => undefined),
+      openWebUi: vi.fn(async () => undefined),
+      openReleasePage: vi.fn(async () => undefined),
+      checkForUpdates: vi.fn(async () => undefined),
+      applyUpdate,
+      openLogsDirectory: vi.fn(async () => undefined),
+      saveSettings: vi.fn(async () => undefined),
+      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
+      chooseInstallationRoot: vi.fn(async () => null),
+      chooseServerExecutable: vi.fn(async () => null),
+      chooseConfigFile: vi.fn(async () => null),
+      chooseWorkdir: vi.fn(async () => null),
+      exitApplication: vi.fn(async () => undefined),
+      minimize: vi.fn(async () => undefined),
+      maximize: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+      closeConfirmResponse: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => false),
+      onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
+      onShowExitConfirm: vi.fn(() => () => undefined),
+      hasPendingCloseConfirm: vi.fn(async () => false),
+      onShowExternalStopConfirm: vi.fn(() => () => undefined),
+      hasPendingExternalStopConfirm: vi.fn(async () => false),
+    } as LauncherDesktopApi);
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByText("关于应用"));
+    fireEvent.click(await screen.findByRole("button", { name: "立即更新" }));
+    expect(applyUpdate).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: "安装更新" }));
+    await waitFor(() => expect(applyUpdate).toHaveBeenCalledOnce());
+  });
+
   test("keeps first-run setup inside the normal running flow", async () => {
     let initialized = false;
     const openWebUi = vi.fn(async () => undefined);
@@ -250,6 +313,7 @@ describe("App", () => {
       openWebUi,
       openReleasePage: vi.fn(async () => undefined),
       checkForUpdates: vi.fn(async () => undefined),
+      applyUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -315,6 +379,7 @@ describe("App", () => {
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
       checkForUpdates: vi.fn(async () => undefined),
+      applyUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
       previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
@@ -375,6 +440,7 @@ describe("App", () => {
       stop: vi.fn(async () => undefined),
       resetAdmin: vi.fn(async () => undefined),
       checkForUpdates: vi.fn(async () => undefined),
+      applyUpdate: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
       openRepositoryPage: vi.fn(async () => undefined),
@@ -433,6 +499,7 @@ describe("App", () => {
       stop: vi.fn(async () => undefined),
       resetAdmin: vi.fn(async () => undefined),
       checkForUpdates: vi.fn(async () => undefined),
+      applyUpdate: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
       openRepositoryPage: vi.fn(async () => undefined),

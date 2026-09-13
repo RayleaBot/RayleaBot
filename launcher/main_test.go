@@ -80,3 +80,14 @@ func TestExternalStopConfirmationTimesOutWhenRendererDoesNotRespond(t *testing.T
 		t.Fatal("confirmation remained pending after its timeout")
 	}
 }
+
+func TestRelaunchWaitPIDReadsUpdatingLauncher(t *testing.T) {
+	if pid, ok := relaunchWaitPID([]string{"--wait-for-pid", "42"}); !ok || pid != 42 {
+		t.Fatalf("relaunchWaitPID = %d, %v", pid, ok)
+	}
+	for _, args := range [][]string{nil, {"--wait-for-pid"}, {"--wait-for-pid", "0"}, {"--wait-for-pid", "x"}} {
+		if _, ok := relaunchWaitPID(args); ok {
+			t.Fatalf("accepted %v", args)
+		}
+	}
+}

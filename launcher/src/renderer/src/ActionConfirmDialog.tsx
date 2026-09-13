@@ -8,9 +8,9 @@ import {
   DialogSurface,
   DialogTitle,
 } from "@fluentui/react-components";
-import { Delete20Regular, Stop20Regular } from "@fluentui/react-icons";
+import { ArrowDownload20Regular, Delete20Regular, Stop20Regular } from "@fluentui/react-icons";
 
-export type ConfirmedLauncherAction = "reset-admin" | "stop-external";
+export type ConfirmedLauncherAction = "reset-admin" | "stop-external" | "apply-update";
 
 type ActionConfirmDialogProps = {
   action: ConfirmedLauncherAction | null;
@@ -32,6 +32,13 @@ const actionCopy = {
     detail: "该服务由其他进程启动。确认后，启动器会请求它停止运行。",
     confirm: "停止服务",
     icon: <Stop20Regular />,
+  },
+  "apply-update": {
+    title: "安装更新",
+    lead: "确认下载并安装新版本？",
+    detail: "启动器会停止服务，覆盖安装目录中的程序文件后重新打开；配置、数据和已安装插件保持不变。建议先创建备份。",
+    confirm: "安装更新",
+    icon: <ArrowDownload20Regular />,
   },
 } satisfies Record<ConfirmedLauncherAction, {
   title: string;

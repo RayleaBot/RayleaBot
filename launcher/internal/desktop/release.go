@@ -61,11 +61,7 @@ func (r *ReleaseFeed) getSnapshot(force bool, goos, goarch string) ReleaseCheckS
 		r.cached.ReleasePageURL = repositoryURL + "/releases/latest"
 		return r.cached
 	}
-	serverName := "raylea-server"
-	if goos == "windows" {
-		serverName += ".exe"
-	}
-	stdout, _, err := runHelper(filepath.Join(r.basePath, serverName), "-config", filepath.Join(r.basePath, "config", "user.yaml"), "update", "check", "--json")
+	stdout, _, err := r.runServer(goos, releaseCheckTimeout, "update", "check", "--json")
 	if err != nil {
 		r.cached = ReleaseCheckSnapshot{Status: "failed", CurrentVersion: info.Version, Summary: "检查更新失败。", Detail: "无法获取发布信息，请稍后重试或打开发布页。", ErrorCode: "launcher.update_check_failed", CanCheck: true, ReleasePageURL: repositoryURL + "/releases/latest"}
 		return r.cached
@@ -134,8 +130,18 @@ func launcherArtifactID(goos, goarch string) string {
 	}
 }
 
-func runHelper(executable string, args ...string) (string, string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+// runServer runs a server CLI command against this installation's configuration.
+func (r *ReleaseFeed) runServer(goos string, timeout time.Duration, args ...string) (string, string, error) {
+	serverName := "raylea-server"
+	if goos == "windows" {
+		serverName += ".exe"
+	}
+	commandArgs := append([]string{"-config", filepath.Join(r.basePath, "config", "user.yaml")}, args...)
+	return runHelper(timeout, filepath.Join(r.basePath, serverName), commandArgs...)
+}
+
+func runHelper(timeout time.Duration, executable string, args ...string) (string, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	command := exec.CommandContext(ctx, executable, args...)
 	configureChildProcess(command)
@@ -143,7 +149,7 @@ func runHelper(executable string, args ...string) (string, string, error) {
 	command.Stdout, command.Stderr = &stdout, &stderr
 	err := command.Run()
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		err = errors.New("版本检查超时")
+		err = errors.New("命令执行超时")
 	}
 	return stdout.String(), stderr.String(), err
 }

@@ -176,6 +176,10 @@ export function App() {
       respondToExternalStopConfirm(true);
       return;
     }
+    if (action === "apply-update") {
+      void runAction(action, () => window.rayleaLauncher.applyUpdate());
+      return;
+    }
     void runAction(action, () => window.rayleaLauncher.resetAdmin());
   }, [respondToExternalStopConfirm, runAction]);
 
@@ -301,6 +305,7 @@ export function App() {
       onStop={() => runAction("stop", () => window.rayleaLauncher.stop())}
       onOpenWeb={() => runAction("open-web", () => window.rayleaLauncher.openWebUi())}
       onOpenTasks={() => runAction("open-web", () => window.rayleaLauncher.openWebUi("/logs?source=tasks"))}
+      onApplyUpdate={() => setConfirmedAction("apply-update")}
       onCheckForUpdates={() => runAction("check-updates", () => window.rayleaLauncher.checkForUpdates())}
       onOpenReleasePage={() => runAction("open-release-page", () => window.rayleaLauncher.openReleasePage())}
       onOpenRepositoryPage={() => runAction("open-repository-page", () => window.rayleaLauncher.openRepositoryPage())}

@@ -54,6 +54,7 @@ const (
 	ReleaseDisabled        ReleaseCheckStatus = "disabled"
 	ReleaseIdle            ReleaseCheckStatus = "idle"
 	ReleaseChecking        ReleaseCheckStatus = "checking"
+	ReleaseUpdating        ReleaseCheckStatus = "updating"
 	ReleaseUpToDate        ReleaseCheckStatus = "up_to_date"
 	ReleaseUpdateAvailable ReleaseCheckStatus = "update_available"
 	ReleaseFailed          ReleaseCheckStatus = "failed"

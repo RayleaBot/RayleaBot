@@ -19,6 +19,10 @@ func configureChildProcess(command *exec.Cmd) {
 	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 }
 
+// configureDetachedProcess needs no flags: the Launcher is not in a job object,
+// so a process it starts outlives it.
+func configureDetachedProcess(*exec.Cmd) {}
+
 func superviseProcess(process *os.Process) (func(), error) {
 	if process == nil {
 		return nil, errors.New("服务进程不可用")

@@ -18,4 +18,8 @@ const (
 	quickHealthProbeTimeout     = 2 * time.Second
 	endpointConnectTimeout      = 400 * time.Millisecond
 	offlineOperationTimeout     = 15 * time.Second
+	releaseCheckTimeout         = 30 * time.Second
+	updateDownloadTimeout       = 30 * time.Minute
+	updateApplyTimeout          = 10 * time.Minute
+	relaunchWaitTimeout         = 30 * time.Second
 )

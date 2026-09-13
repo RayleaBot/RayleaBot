@@ -27,6 +27,13 @@ describe("Wails desktop snapshot bridge", () => {
     expect(normalized.launcher.runtimePrepare?.resources).toEqual([]);
   });
 
+  test("accepts the updating release status", () => {
+    const snapshot = createLauncherSnapshot() as unknown as desktopModels.LauncherSnapshot;
+    snapshot.launcher.releaseCheck.status = "updating" as desktopModels.ReleaseCheckStatus;
+
+    expect(normalizeWailsSnapshot(snapshot).launcher.releaseCheck.status).toBe("updating");
+  });
+
   test("rejects enum drift instead of silently passing an incompatible snapshot", () => {
     const snapshot = createLauncherSnapshot() as unknown as desktopModels.LauncherSnapshot;
     snapshot.launcher.processLifecycle = "booting" as desktopModels.LauncherProcessLifecycle;

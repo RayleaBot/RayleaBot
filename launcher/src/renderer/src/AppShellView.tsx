@@ -31,6 +31,7 @@ export type AppShellViewProps = {
   onStop: () => void;
   onOpenWeb: () => void;
   onOpenTasks: () => void;
+  onApplyUpdate: () => void;
   onCheckForUpdates: () => void;
   onOpenReleasePage: () => void;
   onOpenRepositoryPage: () => void;
@@ -66,6 +67,7 @@ export function AppShellView({
   onStop,
   onOpenWeb,
   onOpenTasks,
+  onApplyUpdate,
   onCheckForUpdates,
   onOpenReleasePage,
   onOpenRepositoryPage,
@@ -161,6 +163,7 @@ export function AppShellView({
               <AppShellAboutSection
                 snapshot={snapshot}
                 controlsDisabled={controlsDisabled}
+                onApplyUpdate={onApplyUpdate}
                 onCheckForUpdates={onCheckForUpdates}
                 onOpenReleasePage={onOpenReleasePage}
                 onOpenRepositoryPage={onOpenRepositoryPage}
