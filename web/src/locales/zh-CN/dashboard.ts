@@ -28,7 +28,7 @@ export const dashboard = {
     notChecked: '尚未读取更新状态。',
     currentVersion: '当前版本 {version}。',
     upToDate: '当前版本 {version} 已是最新版本。',
-    guidedAvailable: '版本 {version} 可用，请前往发布页下载更新。',
+    guidedAvailable: '版本 {version} 可用，可在启动器中一键更新；服务端包停服后运行 raylea-server update apply。',
     checkUnavailable: '当前构建不提供更新检查，请前往项目发布页查看版本。',
     states: {
       disabled: '自动检查不可用',
