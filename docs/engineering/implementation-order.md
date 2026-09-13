@@ -4,7 +4,7 @@
 
 ## 1. 固定正式契约
 
-新增或改变 HTTP、WebSocket、schema、状态、错误码、事件、插件协议、CLI 或 release metadata 的正式语义时，先更新对应 `contracts/`，再实现受影响行为。实现修复若只是恢复现有契约约定，直接修实现并按风险验证。
+正式语义变化与实现修复的先后规则见根 [`AGENTS.md`](../../AGENTS.md) 的 Hard Rules。
 
 契约应同时固定：
 
@@ -72,7 +72,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 
 ## 7. 接入 Web、Launcher、CLI 与 SDK
 
-- Web 只消费正式 API/WebSocket，不保存 bearer token，不从日志推断状态。
+- Web 只消费正式 API/WebSocket，不保存 bearer token。
 - Launcher 负责本机进程、系统集成、更新确认与安装编排，不复制 Web 业务页或 server 状态机。
 - CLI 复用 server/update 核心，提供离线、脚本化和恢复入口。
 - SDK 只暴露正式协议；生成物由 CI 检查修改、删除和新增漂移。
