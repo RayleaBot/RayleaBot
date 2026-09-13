@@ -6,10 +6,10 @@
 
 | 产物 | 入口 | 更新方式 |
 | --- | --- | --- |
-| `windows-x64-full` | `RayleaLauncher.exe` | 发布页引导更新 |
-| `linux-x64-full` | `RayleaLauncher` | 发布页引导更新 |
-| `macos-arm64-full` | `RayleaLauncher.app` | 发布页引导更新 |
-| `linux-x64-server` | `raylea-server` | 发布页引导或手动更新 |
+| `windows-x64-full` | `RayleaLauncher.exe` | Launcher 一键更新 |
+| `linux-x64-full` | `RayleaLauncher` | Launcher 一键更新 |
+| `macos-arm64-full` | `RayleaLauncher.app` | Launcher 一键更新 |
+| `linux-x64-server` | `raylea-server` | 停服后执行 `raylea-server update apply` |
 
 GitHub 自动生成的源代码压缩包不是正式运行时产物。
 
@@ -28,7 +28,7 @@ Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Mi
 
 ## 更新
 
-Launcher 在后台检查更新，发现新版本后提供发布页入口。各产物的手动更新步骤见 [Delivery and Upgrade](../release/delivery-and-upgrade.md)。
+Launcher 在后台检查更新，发现新版本后可在“关于应用”中一键更新；服务端包停服后执行 `raylea-server update apply`。更新流程、手动覆盖步骤与更新策略见 [Delivery and Upgrade](../release/delivery-and-upgrade.md)。
 
 Linux Launcher 使用系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，完整包不内嵌这些发行版组件。启动前按包内 `LINUX-RUNTIME.md` 或 [Linux Desktop Runtime](../release/linux-desktop-runtime.md) 安装所需系统包；无桌面环境时使用 `linux-x64-server`。
 

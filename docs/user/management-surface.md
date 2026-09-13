@@ -60,7 +60,7 @@
 ## 页面联动
 
 - 系统状态页的协议提醒和近期变化会提供到协议中心、日志中心和插件详情的入口。
-- 系统状态页通过 `GET /api/update/status` 读取正式更新状态，通过 `POST /api/update/check` 触发受信发布元数据检查；Web 不下载或安装更新。
+- 系统状态页通过 `GET /api/update/status` 读取正式更新状态，通过 `POST /api/update/check` 触发发布元数据检查；Web 不下载或安装更新，桌面完整包在 Launcher 中一键更新，服务端包停服后执行 `raylea-server update apply`。
 - 订阅中心插件详情页提供订阅状态、用户解析和立即检查入口。
 - 协议中心首页展示已配置连接和运行状态。“添加连接”在弹窗中选择协议、填写配置，保存时才创建实例；取消不会写入配置。高级设置按需展开，包含连接标识、QQ 沙箱环境或所有连接共用的重连策略。
 - `/protocols?adapter={id}` 打开指定连接的配置弹窗，`/protocols?view=compatibility` 打开兼容矩阵。旧的 `/protocols/onebot11/{id}`、`/protocols/qqofficial/{id}` 和 `/protocols/compatibility` 地址会转到对应弹窗，共用协议中心页签。

@@ -20,7 +20,7 @@
 
 - Server 是在线的状态来源；Web 与 Launcher 只保存临时视图。
 - Adapter、`bot/pipeline/chatpolicy` Ingress、Bridge、Dispatcher、Runtime Manager 和 Local Action Service 各有单一职责。
-- 插件代码信任、浏览器会话、Launcher control 和发布更新是独立信任边界。
+- 插件代码信任、浏览器会话和 Launcher control 是独立信任边界；发布更新只依赖 HTTPS 发布源，理由见 [Delivery and Upgrade](../release/delivery-and-upgrade.md)。
 - Tasks 和 Scheduler 各自只有唯一的写入路径，并把最终状态持久化。
 
 从 [Platform Architecture](./platform-architecture.md) 进入组件与信任总览，从 [Message Flow](./message-flow.md) 进入事件链路。

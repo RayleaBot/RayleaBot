@@ -36,7 +36,7 @@
 
 Windows Launcher 需要系统安装 Microsoft Edge WebView2 Runtime，Linux 桌面 Launcher 需要 GTK 3 和 WebKit2GTK 4.1；对应完整包内的 `WINDOWS-RUNTIME.md`、`LINUX-RUNTIME.md` 提供安装说明。
 
-Launcher 提供更新检查与发布页入口，各平台的手动更新步骤见 [`docs/release/delivery-and-upgrade.md`](./docs/release/delivery-and-upgrade.md)。
+Launcher 发现新版本后可一键更新，服务端包停服后执行 `raylea-server update apply`；更新方式与更新策略见 [`docs/release/delivery-and-upgrade.md`](./docs/release/delivery-and-upgrade.md)。
 
 完整部署说明见 [`docs/user/deployment.md`](./docs/user/deployment.md)。
 

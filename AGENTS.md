@@ -19,6 +19,7 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 - 程序分支依赖稳定的 code、枚举或结构化 details，不比对面向读者的 message 或界面文案。
 - 优先搜索现有实现并复用；新依赖须说明必要性，不引入平行技术栈。不升级冻结版本线，除非任务明确要求并同步 baseline、工程文件、lockfile、CI 与发布说明。
 - 不在配置响应、fixtures、examples、日志、文档或测试快照中暴露真实凭据。
+- 核心发布更新、数据库迁移与恢复不增加 SHA-256 摘要、签名、回滚、迁移前副本或独立更新程序；发布清单宽松读取、严格发布，理由见 `docs/release/delivery-and-upgrade.md`。
 - 可能并发读写的共享可变状态必须由原子快照或锁保护。
 - 完成前运行能证明本次改动正确性的最小验证，按改动面选择的命令见 `docs/engineering/quality-gates.md`；生成、构建和运行任务还需确认预期产物或效果。
 

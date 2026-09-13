@@ -95,7 +95,7 @@ flowchart LR
 | Task Registry | admission、执行状态、有序持久化和关闭 drain | 为队列已满请求创建 pending task |
 | Scheduler | revision、到期检查和插件事件触发 | 直接发送聊天消息 |
 | Render Service | 模板校验、Chromium、artifact、资源摘要和缓存 | 插件自建并行截图链路 |
-| Launcher | 本机进程、预检、更新检查和安装确认 | 在线业务状态或 Web 页面复制 |
+| Launcher | 本机进程、预检、更新检查与一键更新编排 | 在线业务状态或 Web 页面复制 |
 
 ## 数据与资源
 
@@ -113,7 +113,7 @@ flowchart LR
 
 ## 部署边界
 
-`raylea-server` 在 Server 模式提供 HTTP/WebSocket、事件链和插件子系统，在 CLI 模式复用同一领域服务执行诊断、备份、恢复和更新校验。Launcher 以子进程托管 server，并通过独立 control token 管理本机进程。
+`raylea-server` 在 Server 模式提供 HTTP/WebSocket、事件链和插件子系统，在 CLI 模式复用同一领域服务执行诊断、备份、恢复、更新检查与更新安装。Launcher 以子进程托管 server，并通过独立 control token 管理本机进程。
 
 单实例与本地 SQLite 是正式部署模型。多实例、高可用、远程状态库和新的客户端控制面需要独立 contract 与一致性设计。
 
