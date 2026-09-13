@@ -3184,7 +3184,6 @@
           "enum": [
             "finished",
             "expired",
-            "canceled",
             "replaced",
             "policy_changed",
             "delivery_failed",
@@ -3412,7 +3411,8 @@
     "fixtures/plugin-protocol/ok.session-input.yaml",
     "fixtures/plugin-protocol/ok.session-closed.yaml",
     "fixtures/plugin-protocol/invalid.session-unrelated-event.yaml",
-    "fixtures/plugin-protocol/invalid.session-closed-reason.yaml"
+    "fixtures/plugin-protocol/invalid.session-closed-reason.yaml",
+    "fixtures/plugin-protocol/invalid.session-closed-user-canceled.yaml"
   ],
   "$comment": "Protocol v3 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and requires explicit permissions only for elevated host actions.",
   "x-action-result-schemas": {

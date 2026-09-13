@@ -15,8 +15,8 @@ stateDiagram-v2
     claimed --> handling: 实际开始，turn 加一
     handling --> waiting: 成功终态提交重新等待
     registered --> closed: 父事件失败，缓冲回放
-    waiting --> closed: 取消、期限或所有者退出
-    claimed --> closed: 取消、期限或所有者退出
+    waiting --> closed: 插件结束、期限或所有者退出
+    claimed --> closed: 插件结束、期限或所有者退出
     handling --> closed: 无提案、失败或达到轮数上限
     closed --> [*]: 释放占用
 ```
@@ -43,7 +43,6 @@ stateDiagram-v2
 | 同名 everyone/super_admin 命令 | 各候选授权；公共候选不继承另一声明的权限 | C3 |
 | 白名单命中且黑名单命中 | 保留命令名单的白名单旁路关系；会话续接使用明确的名单准入模式，不伪造空命令 | C3/D3 |
 | 普通消息、未知命令、菜单、会话回复 | 前置过滤均覆盖，过滤事件不含 session | C3/D3 |
-| 当前完整前缀加“取消对话” | 名单准入后、过滤前检查取消权；普通“取消”和“0”留给业务 | D3 |
 | 群级对话收到其他成员输入 | 只重新检查实际参与者的名单准入；参与者不继承发起者权限 | D3 |
 | 同一个输入同时命中 user 与 conversation | user 优先；拒绝的会话输入不回落普通订阅 | D1/D3 |
 | 旧 SDK 普通订阅者 | 普通消息 payload 不增加 session；session.closed 仅向主动登记并请求通知的原代际投递 | D3/E3 |
