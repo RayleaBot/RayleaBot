@@ -135,14 +135,6 @@ for (const file of agentsFiles) {
   }
 }
 
-const SKILL_BUDGET = 100;
-for (const file of skillFiles) {
-  const lines = countLines(readFileSync(file, "utf-8"));
-  if (lines > SKILL_BUDGET) {
-    addIssue(file, `line count ${lines} exceeds budget ${SKILL_BUDGET}`);
-  }
-}
-
 // ── 3. Backtick path existence ───────────────────────────────────────────────
 
 const SHELL_CHARS = /[|&;<>$(){}[\]`\\]/;

@@ -8,6 +8,7 @@ import test from "node:test";
 const checker = new URL("../check-agent-docs.mjs", import.meta.url);
 const skillPath = ".agents/skills/fixture-workflow/SKILL.md";
 const skill = "---\nname: fixture-workflow\ndescription: Check synthetic repository fixtures.\n---\n";
+const upstreamSkillPath = ".agents/skills/impeccable/SKILL.md";
 
 async function runCheck(t, overrides = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "rayleabot-agent-docs-"));
@@ -105,7 +106,6 @@ for (const [name, budget] of [
   ["AGENTS.md", 150],
   ["CLAUDE.md", 40],
   ["docs/AGENTS.md", 120],
-  [skillPath, 100],
 ]) {
   test(`retains the line budget for ${name}`, async (t) => {
     const result = await runCheck(t, {
@@ -117,6 +117,37 @@ for (const [name, budget] of [
     assert.match(result.output, new RegExp(`\\b${budget + 1}\\b`));
   });
 }
+
+for (const name of [skillPath, upstreamSkillPath]) {
+  test(`accepts a long skill without a line budget: ${name}`, async (t) => {
+    const result = await runCheck(t, {
+      [name]: `${skill}${"Workflow guidance.\n".repeat(200)}`,
+    });
+    assert.equal(result.status, 0, result.output);
+  });
+}
+
+test("still checks referenced paths in a long skill", async (t) => {
+  const result = await runCheck(t, {
+    [skillPath]: `${skill}${"Workflow guidance.\n".repeat(200)}Read \`docs/missing.md\`.\n`,
+  });
+  assert.equal(result.status, 1, result.output);
+  assert.ok(result.output.includes(skillPath), result.output);
+  assert.ok(result.output.includes("docs/missing.md"), result.output);
+  assert.ok(!result.output.includes("exceeds budget"), result.output);
+});
+
+test("still checks and redacts suspected credentials in a long skill", async (t) => {
+  const syntheticValue = "a".repeat(32);
+  const result = await runCheck(t, {
+    [upstreamSkillPath]: `${skill}${"Workflow guidance.\n".repeat(200)}token = ${syntheticValue}\n`,
+  });
+  assert.equal(result.status, 1, result.output);
+  assert.ok(result.output.includes(upstreamSkillPath), result.output);
+  assert.match(result.output, /possible secret/);
+  assert.ok(!result.output.includes(syntheticValue));
+  assert.ok(!result.output.includes("exceeds budget"), result.output);
+});
 
 test("reports a suspected credential location without echoing its value", async (t) => {
   const syntheticValue = "a".repeat(32);
