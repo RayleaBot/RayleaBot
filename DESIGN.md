@@ -225,7 +225,7 @@ Web 产品弹窗、抽屉、菜单、说明弹层与选择器浮层使用不透�
 
 **The Web Overlay Stack Rule.** Web 弹窗与抽屉遮罩从 1200 起按打开顺序递增 20，内容位于所属遮罩上方 1 层；嵌套菜单、说明弹层和选择器继承所属层级再加 5，Tooltip 加 8。未嵌套菜单、说明弹层、选择器和 Tooltip 的基准为 1100，Toast 为 1600，使退出中的菜单留在新打开的抽屉下方。这些 Web 局部层级不改变共享基础层级或 Launcher。
 
-认证入口参考 Apple 的 [Liquid Glass 材质](https://developer.apple.com/videos/play/wwdc2025/219/)，在静态壁纸上使用通透面板、圆角透镜折射与边缘高光。支持 SVG backdrop 的 Chromium 路径使用几何法线图驱动折射，仅附加 1.2px 模糊；WebKit 与 Gecko 使用固定 5px 模糊、112% 饱和度的透明材质降级。这是浏览器适配，具体效果遵循浏览器能力。颜色通过现有认证主题 token 的 CSS `color-mix()` 局部派生；浅色面板表面色占 9%、高光占 18%，暗色分别为 18% 与 12%，浅色辅文与底部链接局部加深以保持对比度，不改变共享品牌 token。
+认证入口参考 Apple 的 [Liquid Glass 材质](https://developer.apple.com/videos/play/wwdc2025/219/)，在静态壁纸上使用通透面板、圆角透镜折射与边缘高光。这是浏览器适配，具体效果遵循浏览器能力；颜色由现有认证主题 token 局部派生，不改变共享品牌 token。折射路径、模糊、饱和度与颜色比例见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。
 
 不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层与认证面板使用完整不透明表面。内容可读性与操作反馈不依赖玻璃效果。
 
@@ -311,11 +311,11 @@ Web 持续提示使用 [`AppAlert`](web/src/components/AppAlert.vue) 的紧凑�
 
 [`AppCard`](web/src/components/AppCard.vue) 使用实色表面、中性边界和无阴影默认样式，标题区与正文通过分隔线区分。默认正文内边距为 20px，紧凑尺寸为 16px；flat 分区保持透明背景，highlight 用人工关注语义表达需要判断的内容。重试面板保留原因说明和直接操作，管理上下文操作使用可换行的按钮组。
 
-插件卡片展示包内图标、名称及其后的版本、描述、安装来源类型、信任、运行状态和健康提示；图标缺失或加载失败时使用共享折叶 Logo。ID、作者与安装根目录保留在概要或详情。卡片底部提供概要、详情、重载和启停四个图标入口，每个入口具有可访问名称与提示；指令与别名在既有概要、详情中查看，不外显为卡片内容。该集合是有任务意义的卡片布局，不要求其他数据页采用卡片。
+插件集合是有任务意义的对象卡片布局，不要求其他数据页采用卡片；卡片构成、图标回退、操作入口与点击目标见 [Web 界面规范](docs/design/web-management-ui.md)。
 
 插件启停按钮继续使用 switch 语义，读出当前状态和下一步动作，忙碌时禁用重复操作。详情中的控制台保留动态行高虚拟列表、底部跟随、筛选和清空入口，流向、级别与请求标识紧邻对应正文。指令面板展示有效名称、别名、冲突、用法和权限，不把全部别名挤入插件集合卡片。
 
-协议连接卡片以已连接账号为主体，展示 56px 头像、用户名和 QQ 号或官方机器人 ID；未知账号与头像加载失败使用默认头像，连接标识不代替平台账号。协议类型与文字状态位于顶部，连接标识、配置与删除入口位于底部；未连接或身份未知时补充运行摘要。卡片最小高度为 240px，内边距为 20px，长名称、号码与摘要允许换行增高，同排操作区底部对齐。已保存配置与当前运行状态分别说明，需要重启的变更在列表上方提示；卡片不将保存成功推断为连接已运行。
+协议连接卡片以已连接账号为主体，连接标识不代替平台账号；已保存配置与当前运行状态分别说明，需要重启的变更在列表上方提示，卡片不将保存成功推断为连接已运行。头像、尺寸、布局与操作入口见 [Web 界面规范](docs/design/web-management-ui.md)。
 
 ### Data tables and details
 
@@ -355,11 +355,11 @@ Web 产品组件基于 Vue 3、Reka UI 2.10.4、仓库持有的 shadcn-vue / rek
 
 ### Authentication
 
-登录、首次初始化与凭据恢复指引共享最大宽度 448px 的居中单栏面板，保留折叶品牌与 Noto Sans SC，凭据表单使用 AppField、AppInput、AppButton 和 AppAlert。静态青瓷玻璃壁纸运行时加载无损 [celadon-glass.webp](web/src/assets/auth/celadon-glass.webp)，原始 [PNG](web/src/assets/auth/celadon-glass.png) 保留内嵌生成提示词作为来源记录。壁纸覆盖视口并底部对齐。背景和面板不随指针移动；鼠标仅改变边缘高光位置，reduced-motion 下保持静态。离屏 Canvas 只在面板尺寸或圆角变化时生成几何法线图，空闲时没有持续绘制循环。
+登录、首次初始化与凭据恢复指引共享居中单栏面板，保留折叶品牌与 Noto Sans SC，凭据表单使用 AppField、AppInput、AppButton 和 AppAlert。静态青瓷玻璃壁纸与面板不随指针移动，鼠标仅改变边缘高光位置，空闲时没有持续绘制循环。
 
-面板与控件尺寸、入场动画参数、低高度视口、reduced-motion 与 forced-colors 行为见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。认证区域文字选区使用现有品牌填充与对应前景。
+面板与控件尺寸、壁纸资源、法线图生成、入场动画参数、低高度视口、reduced-motion 与 forced-colors 行为见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。认证区域文字选区使用现有品牌填充与对应前景。
 
-[`AuthCredentialsForm`](web/src/components/auth/AuthCredentialsForm.vue) 的标签、输入与错误保持关联，账号和密码使用相同控件高度与局部焦点样式。密码可见性按钮为 44px，具有可访问名称和按下状态；提交期间输入、显示开关和提交按钮均禁用，字段校验失败时聚焦首个错误输入。认证专用 CSS 变量由 [preferences/auth.ts](web/src/preferences/auth.ts) 映射，玻璃材质保持在 AuthLayout 内。
+[`AuthCredentialsForm`](web/src/components/auth/AuthCredentialsForm.vue) 的标签、输入与错误保持关联，账号和密码使用相同控件高度与局部焦点样式。密码可见性按钮具有可访问名称和按下状态；提交期间输入、显示开关和提交按钮均禁用，字段校验失败时聚焦首个错误输入。认证专用 CSS 变量由 [preferences/auth.ts](web/src/preferences/auth.ts) 映射，玻璃材质保持在 AuthLayout 内。
 
 “忘记密钥？”在登录面板内打开本机重置指引，返回时保留已填凭据并将焦点归还入口；重置由 Launcher 或停服后的 CLI 完成。入口、步骤与字段反馈见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。
 
