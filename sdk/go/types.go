@@ -54,6 +54,7 @@ type Event struct {
 	Message        Message
 	Webhook        *Webhook
 	Payload        map[string]any
+	Session        *SessionRef
 	Raw            json.RawMessage
 }
 

@@ -32,6 +32,7 @@ func (err *ActionError) Error() string {
 }
 
 type runtimeClient struct {
+	callbacks     sessionCallbacks
 	writer        jsonWriter
 	pendingMu     sync.Mutex
 	pending       map[string]*pendingAction
@@ -123,6 +124,7 @@ func (client *runtimeClient) rejectPending(err error) {
 	pending := client.pending
 	client.pending = make(map[string]*pendingAction)
 	client.pendingMu.Unlock()
+	client.callbacks.close()
 	for id, action := range pending {
 		action.event.finishAction(id)
 		action.response <- protocolFrame{

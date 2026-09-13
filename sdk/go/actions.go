@@ -135,10 +135,12 @@ type MessageSendRequest struct {
 	SourceAdapter string `json:"source_adapter,omitempty"`
 	// SourceProtocol constrains the protocol of SourceAdapter. On its own it
 	// must select exactly one enabled instance; replies use their event ID.
-	SourceProtocol string     `json:"source_protocol,omitempty"`
-	TargetType     string     `json:"target_type"`
-	TargetID       string     `json:"target_id"`
-	Message        MessageOut `json:"message"`
+	SourceProtocol          string     `json:"source_protocol,omitempty"`
+	TargetType              string     `json:"target_type"`
+	TargetID                string     `json:"target_id"`
+	ReplyToEventID          string     `json:"reply_to_event_id,omitempty"`
+	FallbackToSendIfMissing bool       `json:"fallback_to_send_if_missing,omitempty"`
+	Message                 MessageOut `json:"message"`
 }
 
 type MessageOut struct {

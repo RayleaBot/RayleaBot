@@ -58,6 +58,16 @@ artifact、manifest、运行时协议和 UI bridge 分别从对应契约生成�
 
 插件应直接执行绝对路径，在变量缺失时报告媒体能力不可用，不重复打包 FFmpeg。
 
+### 回调式会话
+
+`event.Ask(ctx, prompt, options, next)` 登记等待、以非终态动作发送提示，并成功结束当前事件；返回后应结束当前 Handler。next 是 `HandlerFunc`，接收下一条消息的新 EventContext。回调中再次 Ask 会复用当前对话 ID；scope 只用于新建，业务步骤保存在闭包中。
+
+`SessionWaitOptions` 提供 Scope、整秒 Timeout 和可选的 NotifyOnExpire。零 Timeout 使用宿主默认值；负数、非整秒或超过 600 秒会报错。等待期间不占旧请求的执行许可；本地超时回收回调，不使用已结束的 Context 发动作。提示发送失败时撤销登记并返回错误，调用方应将错误返回给 Handler 收尾。
+
+可选超时通知进入普通 Handler 的 `session.expired` 分支，通过 `event.Event.Session` 读取引用；可以使用该新 Context 发送超时提示。回调本身只接收消息回复。通知丢失不会保留等待回调，已失效回调的迟到消息也不会转交普通业务处理器。
+
+需要自行处理会话事件时使用 `event.Actions().SessionWait`，成功结束当前事件后在 Handler 读取 `event.Event.Session`。再次等待传 SessionID；新建不传。`SessionFinish` 可在同一插件进程的任意活动事件中结束等待。回调缓存只是本地续接映射，宿主仍持有正式路由与期限。
+
 ## raylea-plugin
 
 统一工具位于 `sdk/go/cmd/raylea-plugin`：

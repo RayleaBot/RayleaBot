@@ -248,6 +248,10 @@ func (state *runtimeState) decodeEvent(frame protocolFrame) (Event, error) {
 		return Event{}, protocolError("invalid event payload")
 	}
 	event.Payload = application.Payload
+	if wire.Payload != nil && wire.Payload.Session != nil {
+		ref := wire.Payload.Session
+		event.Session = &SessionRef{SessionID: ref.SessionID, Scope: ref.Scope, ExpiresAtMS: ref.ExpiresAtMs}
+	}
 	return event, nil
 }
 
@@ -270,6 +274,19 @@ func (state *runtimeState) applyControlEvent(event Event) error {
 }
 
 func (state *runtimeState) startEvent(ctx context.Context, requestID string, event Event) {
+	handler := state.handler.Handle
+	if event.Session != nil {
+		if event.EventType == "session.expired" {
+			state.client.callbacks.forget(event.Session.SessionID)
+		} else if event.EventType == "message.group" || event.EventType == "message.private" {
+			callback, owned := state.client.callbacks.take(*event.Session)
+			if callback != nil {
+				handler = callback
+			} else if owned {
+				handler = func(context.Context, *EventContext) error { return nil }
+			}
+		}
+	}
 	state.handlers.Add(1)
 	go func() {
 		defer state.handlers.Done()
@@ -291,7 +308,7 @@ func (state *runtimeState) startEvent(ctx context.Context, requestID string, eve
 				}
 			}
 		}()
-		err := state.handler.Handle(ctx, eventContext)
+		err := handler(ctx, eventContext)
 		if err != nil {
 			if ctx.Err() != nil {
 				state.logger.Debug("plugin event canceled during shutdown", "request_id", requestID)
