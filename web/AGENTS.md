@@ -16,6 +16,6 @@
 
 ## Browser Verification
 
-- 受保护页面使用有效管理会话验证，登录方法参考 `web/tests/e2e/web-ui.spec.ts` 的 helper；登录页截图不能证明目标页面正常。
-- mock 后端也通过正式登录接口建立会话，不能只写本地存储；真实后端使用已授权的本地凭据。
+- 受保护页面使用有效管理会话验证，登录方法参考 `web/tests/production/management.real.spec.ts`；登录页截图不能证明目标页面正常。
+- 会话通过正式初始化与登录接口建立，不能只写本地存储；真实后端使用已授权的本地凭据。
 - 不为视觉验证修改 router guard、session store 或 API 鉴权；临时日志、快照与 trace 不进入提交。

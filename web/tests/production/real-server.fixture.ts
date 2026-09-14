@@ -49,8 +49,9 @@ async function stopServer(server: ChildProcess, url: string, controlToken: strin
   try { await exited } finally { clearTimeout(timer) }
 }
 
-export const test = base.extend<{ server: Server; configPanel: boolean }, { serverBinary: string }>({
+export const test = base.extend<{ server: Server; configPanel: boolean; buildInfo: boolean }, { serverBinary: string }>({
   configPanel: [false, { option: true }],
+  buildInfo: [false, { option: true }],
   serverBinary: [async ({}, use) => {
     const root = await mkdtemp(path.join(os.tmpdir(), tempPrefix))
     try {
@@ -59,7 +60,7 @@ export const test = base.extend<{ server: Server; configPanel: boolean }, { serv
       await use(binary)
     } finally { await removeFixtureRoot(root) }
   }, { scope: 'worker', timeout: 120_000 }],
-  server: [async ({ serverBinary, configPanel }, use, testInfo) => {
+  server: [async ({ serverBinary, configPanel, buildInfo }, use, testInfo) => {
     const root = await mkdtemp(path.join(os.tmpdir(), tempPrefix))
     const configPath = path.join(root, 'config', 'user.yaml')
     const setupToken = randomBytes(32).toString('base64url')
@@ -76,6 +77,7 @@ export const test = base.extend<{ server: Server; configPanel: boolean }, { serv
       await writeFile(configPath, YAML.stringify(config))
       await cp(path.join(repoRoot, 'web', 'dist'), path.join(root, 'web', 'dist'), { recursive: true })
       await cp(path.join(repoRoot, 'templates'), path.join(root, 'templates'), { recursive: true })
+      if (buildInfo) await writeFile(path.join(root, 'build_info.json'), JSON.stringify({ version: '0.7.0' }))
       if (configPanel) {
         const source = path.join(repoRoot, 'examples/plugins/example-config-panel')
         const destination = path.join(root, 'plugins/installed/example-config-panel')

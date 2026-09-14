@@ -113,7 +113,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 - 类型检查：`pnpm run typecheck`
 - 构建：`pnpm build`
 - 单元测试：`pnpm test`
-- E2E：`pnpm test:e2e`
+- E2E：`pnpm test:e2e:production`
 
 ### Launcher
 
