@@ -1,12 +1,7 @@
 package webhook
 
 import (
-	"context"
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -74,37 +69,6 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			return
 		}
 
-		replayDecision := s.evaluateReplayProtection(pluginID, route, registration.ReplayProtection, r)
-		if replayDecision.reject {
-			httpapi.WriteError(w, r, replayDecision.code, map[string]any{
-				"plugin_id": pluginID,
-				"route":     route,
-			})
-			return
-		}
-
-		if !s.validateWebhookAuth(r.Context(), registration, r.Header.Get(registration.Header), replayDecision.timestampRaw, replayDecision.eventID, body) {
-			httpapi.WriteError(w, r, errorcodes.PermissionDenied, nil)
-			return
-		}
-
-		// Authentication succeeded: atomically claim the (route, event_id)
-		// slot. peek + commitIfAbsent replaces a single observe so a
-		// failed-signature request cannot poison the dedup cache, and the
-		// commit step refuses concurrent legitimate retries that share the
-		// same event_id so replay protection holds under racing callers.
-		if replayDecision.dedupKey != "" {
-			if !s.dedup.commitIfAbsent(replayDecision.dedupKey, s.now(), replayDecision.dedupTTL) {
-				if registration.ReplayProtection.Enforce {
-					httpapi.WriteError(w, r, errorcodes.PluginWebhookReplayRejected, map[string]any{
-						"plugin_id": pluginID,
-						"route":     route,
-					})
-					return
-				}
-			}
-		}
-
 		if !s.dispatcher.HasDeliverablePlugin(pluginID) {
 			if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID); err != nil {
 				s.logger.Warn(
@@ -118,24 +82,8 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 		}
 
 		nowTime := s.now()
-		eventID := replayDecision.eventID
-		if strings.TrimSpace(eventID) == "" {
-			eventID = fmt.Sprintf("webhook-%s-%d", route, nowTime.UnixNano())
-		}
-		webhookMeta := &chatevent.Webhook{
-			Route:      route,
-			ReceivedAt: nowTime.Unix(),
-		}
-		if replayDecision.timestamp > 0 {
-			clientTimestamp := replayDecision.timestamp
-			webhookMeta.ClientTimestamp = &clientTimestamp
-		}
-		if strings.TrimSpace(replayDecision.eventID) != "" {
-			webhookMeta.ClientEventID = replayDecision.eventID
-		}
-
 		result := s.dispatcher.DispatchToPlugin(r.Context(), pluginID, chatevent.Event{
-			EventID:        eventID,
+			EventID:        fmt.Sprintf("webhook-%s-%d", route, nowTime.UnixNano()),
 			SourceProtocol: "webhook",
 			SourceAdapter:  "webhook.gateway",
 			EventType:      "webhook.received",
@@ -149,8 +97,8 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 				ID:   webhookRemoteIP(r.RemoteAddr),
 				Role: "remote",
 			},
-			Webhook:    webhookMeta,
-			RawPayload: s.buildWebhookRawPayload(r, route, body),
+			Webhook:    &chatevent.Webhook{Route: route, ReceivedAt: nowTime.Unix()},
+			RawPayload: buildWebhookRawPayload(r, route, body),
 		})
 		if result.Outcome != dispatch.OutcomeDelivered {
 			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
@@ -158,29 +106,6 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 		}
 
 		httpapi.WriteJSON(w, http.StatusAccepted, map[string]any{"accepted": true})
-	}
-}
-
-func (s *Service) validateWebhookAuth(ctx context.Context, registration Registration, presented, timestampRaw, eventID string, body []byte) bool {
-	secretValue, err := s.secrets.Get(ctx, registration.SecretRef)
-	if err != nil {
-		return false
-	}
-
-	switch registration.AuthStrategy {
-	case "fixed_token":
-		return hmac.Equal([]byte(strings.TrimSpace(presented)), secretValue)
-	case "hmac_sha256":
-		sum := hmac.New(sha256.New, secretValue)
-		_, _ = sum.Write([]byte(timestampRaw))
-		_, _ = sum.Write([]byte("\n"))
-		_, _ = sum.Write([]byte(eventID))
-		_, _ = sum.Write([]byte("\n"))
-		_, _ = sum.Write(body)
-		expected := registration.SignaturePrefix + hex.EncodeToString(sum.Sum(nil))
-		return hmac.Equal([]byte(strings.TrimSpace(presented)), []byte(expected))
-	default:
-		return false
 	}
 }
 
@@ -223,7 +148,9 @@ func webhookRemoteIP(remoteAddr string) string {
 	return remoteAddr
 }
 
-func (s *Service) buildWebhookRawPayload(r *http.Request, route string, body []byte) any {
+// buildWebhookRawPayload keeps the exact request body so plugins can verify
+// signatures over the bytes the caller signed.
+func buildWebhookRawPayload(r *http.Request, route string, body []byte) any {
 	payload := map[string]any{
 		"route":        route,
 		"method":       r.Method,
@@ -235,14 +162,6 @@ func (s *Service) buildWebhookRawPayload(r *http.Request, route string, body []b
 		return payload
 	}
 
-	contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
-	if strings.Contains(contentType, "application/json") {
-		var decoded any
-		if err := json.Unmarshal(body, &decoded); err == nil {
-			payload["body_json"] = decoded
-			return payload
-		}
-	}
 	if utf8.Valid(body) {
 		payload["body_text"] = string(body)
 		return payload

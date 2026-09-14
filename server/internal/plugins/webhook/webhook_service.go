@@ -5,37 +5,23 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/go-chi/chi/v5"
 )
 
-type ReplayProtection struct {
-	TimestampHeader  string
-	EventIDHeader    string
-	ToleranceSeconds int
-	Enforce          bool
-}
-
+// Registration is one manifest webhook route. The host only forwards the
+// request; plugins verify signatures and handle duplicate deliveries.
 type Registration struct {
-	PluginID         string
-	Route            string
-	Methods          []string
-	AuthStrategy     string
-	Header           string
-	SecretRef        string
-	SignaturePrefix  string
-	SourceIPs        []string
-	MaxBodyBytes     int
-	URL              string
-	ReplayProtection ReplayProtection
+	PluginID     string
+	Route        string
+	Methods      []string
+	SourceIPs    []string
+	MaxBodyBytes int
 }
 
 type Registry struct {
@@ -50,7 +36,6 @@ type RuntimeEnsurer interface {
 type Deps struct {
 	Logger     *slog.Logger
 	Registry   *Registry
-	Secrets    secrets.Store
 	Plugins    plugins.CatalogView
 	Dispatcher *dispatch.Dispatcher
 	Runtime    RuntimeEnsurer
@@ -59,18 +44,15 @@ type Deps struct {
 type Service struct {
 	logger     *slog.Logger
 	registry   *Registry
-	secrets    secrets.Store
 	plugins    plugins.CatalogView
 	dispatcher *dispatch.Dispatcher
 	runtime    RuntimeEnsurer
-
-	dedup *replayCache
-	now   func() time.Time
+	now        func() time.Time
 }
 
 func New(deps Deps) (*Service, error) {
-	if deps.Registry == nil || deps.Secrets == nil || deps.Plugins == nil || deps.Dispatcher == nil || deps.Runtime == nil {
-		return nil, errors.New("plugin webhook service requires registry, secrets, plugin catalog, dispatcher, and runtime")
+	if deps.Registry == nil || deps.Plugins == nil || deps.Dispatcher == nil || deps.Runtime == nil {
+		return nil, errors.New("plugin webhook service requires registry, plugin catalog, dispatcher, and runtime")
 	}
 	logger := deps.Logger
 	if logger == nil {
@@ -79,11 +61,9 @@ func New(deps Deps) (*Service, error) {
 	return &Service{
 		logger:     logger,
 		registry:   deps.Registry,
-		secrets:    deps.Secrets,
 		plugins:    deps.Plugins,
 		dispatcher: deps.Dispatcher,
 		runtime:    deps.Runtime,
-		dedup:      newReplayCache(),
 		now:        time.Now,
 	}, nil
 }
@@ -103,15 +83,7 @@ func (r *Registry) SyncSnapshots(snapshots []plugins.Snapshot) {
 		for _, webhook := range snapshot.Webhooks {
 			registration := Registration{
 				PluginID: snapshot.PluginID, Route: webhook.Route, Methods: []string{http.MethodPost},
-				AuthStrategy: webhook.AuthStrategy, Header: webhook.Header, SecretRef: webhook.SecretRef,
-				SignaturePrefix: webhook.SignaturePrefix, SourceIPs: append([]string(nil), webhook.SourceCIDRs...),
-				MaxBodyBytes: webhook.MaxBodyBytes,
-				ReplayProtection: ReplayProtection{
-					TimestampHeader:  webhook.ReplayProtection.TimestampHeader,
-					EventIDHeader:    webhook.ReplayProtection.EventIDHeader,
-					ToleranceSeconds: webhook.ReplayProtection.ToleranceSeconds,
-					Enforce:          webhook.ReplayProtection.Enforce,
-				},
+				SourceIPs: append([]string(nil), webhook.SourceCIDRs...), MaxBodyBytes: webhook.MaxBodyBytes,
 			}
 			r.items[webhookKey(registration.PluginID, registration.Route)] = registration
 		}
@@ -140,142 +112,4 @@ func (r *Registry) Get(pluginID, route string) (Registration, bool) {
 
 func webhookKey(pluginID, route string) string {
 	return strings.TrimSpace(pluginID) + "\x00" + strings.TrimSpace(route)
-}
-
-// replayDecision summarises the replay-protection outcome for a single
-// webhook request. When reject is false the request continues into HMAC
-// validation; the parsed timestamp / event id are reused to assemble the
-// downstream plugin event so the plugin sees consistent identifiers. The
-// dedup key + ttl are populated when peek-then-commit is in play so the
-// caller can mark the (route, event_id) as seen only after authentication
-// succeeds.
-type replayDecision struct {
-	reject       bool
-	code         string
-	timestamp    int64
-	timestampRaw string
-	eventID      string
-	dedupKey     string
-	dedupTTL     time.Duration
-}
-
-// replayCache is the in-memory LRU+TTL set the webhook service uses to
-// detect duplicate (route, event_id) pairs within the replay tolerance
-// window. Reads, writes, and eviction all live under a single mutex; the
-// expected cardinality stays in the low thousands per route.
-type replayCache struct {
-	mu    sync.Mutex
-	items map[string]time.Time
-}
-
-func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayProtection, r *http.Request) replayDecision {
-	timestampRaw := strings.TrimSpace(r.Header.Get(cfg.TimestampHeader))
-	eventID := strings.TrimSpace(r.Header.Get(cfg.EventIDHeader))
-	decision := replayDecision{timestampRaw: timestampRaw, eventID: eventID}
-
-	if timestampRaw == "" || eventID == "" {
-		if cfg.Enforce {
-			decision.reject = true
-			decision.code = errorcodes.PluginWebhookReplayRejected
-		}
-		return decision
-	}
-
-	timestamp, parseErr := strconv.ParseInt(timestampRaw, 10, 64)
-	if parseErr != nil {
-		if cfg.Enforce {
-			decision.reject = true
-			decision.code = errorcodes.PluginWebhookTimestampSkew
-		}
-		return decision
-	}
-	decision.timestamp = timestamp
-
-	now := s.now().Unix()
-	tolerance := int64(cfg.ToleranceSeconds)
-	if tolerance <= 0 {
-		tolerance = 300
-	}
-	if now-timestamp > tolerance || timestamp-now > tolerance {
-		if cfg.Enforce {
-			decision.reject = true
-			decision.code = errorcodes.PluginWebhookTimestampSkew
-		}
-		return decision
-	}
-
-	dedupKey := webhookKey(pluginID, route) + "\x00" + eventID
-	ttl := time.Duration(2*tolerance) * time.Second
-	decision.dedupKey = dedupKey
-	decision.dedupTTL = ttl
-	if s.dedup.peek(dedupKey, s.now(), ttl) {
-		if cfg.Enforce {
-			decision.reject = true
-			decision.code = errorcodes.PluginWebhookReplayRejected
-		}
-		return decision
-	}
-
-	return decision
-}
-
-func newReplayCache() *replayCache {
-	return &replayCache{items: make(map[string]time.Time)}
-}
-
-// peek reports whether the given key would be treated as a duplicate at
-// observedAt without mutating the cache. Use it for the read-only check
-// before authentication; the authoritative duplicate decision is made
-// later by commitIfAbsent under a single critical section.
-func (c *replayCache) peek(key string, observedAt time.Time, ttl time.Duration) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.purgeExpiredLocked(observedAt, ttl)
-
-	seenAt, ok := c.items[key]
-	if !ok {
-		return false
-	}
-	return observedAt.Sub(seenAt) <= ttl
-}
-
-// commitIfAbsent atomically checks for a live duplicate and, if none is
-// found, records the key as seen at observedAt. It returns true when the
-// caller is the unique winner for the (key, ttl) window and may proceed,
-// and false when another concurrent request already won the slot.
-//
-// Callers must invoke commitIfAbsent only after authentication has
-// succeeded. Splitting the duplicate check into peek + commit would leave
-// a race where two authenticated callers both peek empty before either
-// commits; commitIfAbsent collapses both steps under one lock so replay
-// protection holds even under concurrent legitimate retries.
-func (c *replayCache) commitIfAbsent(key string, observedAt time.Time, ttl time.Duration) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.purgeExpiredLocked(observedAt, ttl)
-
-	if seenAt, ok := c.items[key]; ok {
-		if observedAt.Sub(seenAt) <= ttl {
-			return false
-		}
-	}
-	c.items[key] = observedAt
-	return true
-}
-
-func (c *replayCache) purgeExpiredLocked(observedAt time.Time, ttl time.Duration) {
-	for cached, seenAt := range c.items {
-		if observedAt.Sub(seenAt) > ttl {
-			delete(c.items, cached)
-		}
-	}
-}
-
-// Reset drops every cached entry. Intended for tests.
-func (c *replayCache) Reset() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.items = make(map[string]time.Time)
 }

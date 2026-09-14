@@ -4059,20 +4059,11 @@ components:
     PluginWebhookScope:
       type: object
       additionalProperties: false
-      required: [id, route, auth_strategy, header, secret_ref, replay_protection]
+      required: [id, route]
       properties:
         id:
           type: string
         route:
-          type: string
-        auth_strategy:
-          type: string
-          enum: [fixed_token, hmac_sha256]
-        header:
-          type: string
-        secret_ref:
-          type: string
-        signature_prefix:
           type: string
         source_cidrs:
           type: array
@@ -4081,23 +4072,6 @@ components:
         max_body_bytes:
           type: integer
           minimum: 1
-        replay_protection:
-          $ref: '#/components/schemas/PluginWebhookReplayProtection'
-
-    PluginWebhookReplayProtection:
-      type: object
-      additionalProperties: false
-      required: [timestamp_header, event_id_header, tolerance_seconds, enforce]
-      properties:
-        timestamp_header:
-          type: string
-        event_id_header:
-          type: string
-        tolerance_seconds:
-          type: integer
-          minimum: 1
-        enforce:
-          type: boolean
 
 
     PluginScreenshot:

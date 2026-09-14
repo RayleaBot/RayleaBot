@@ -20,17 +20,7 @@
       {
         "id": "updates",
         "route": "updates",
-        "auth_strategy": "hmac_sha256",
-        "header": "X-Raylea-Signature",
-        "secret_ref": "webhook.signing_key",
-        "signature_prefix": "sha256=",
-        "max_body_bytes": 1048576,
-        "replay_protection": {
-          "timestamp_header": "X-Raylea-Timestamp",
-          "event_id_header": "X-Raylea-Event-ID",
-          "tolerance_seconds": 300,
-          "enforce": true
-        }
+        "max_body_bytes": 1048576
       }
     ]
   },

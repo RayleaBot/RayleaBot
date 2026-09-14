@@ -72,7 +72,7 @@ PRESENCE_FIELDS = {
     ("ProtocolKVGetResultFrame", "expires_at_ms"),
     ("ProtocolActionSessionWaitFrame", "notify_on_expire"),
     ("ProtocolActionSessionWaitFrame", "timeout_seconds"),
-    ("ProtocolWebhookFrame", "client_timestamp"), ("ProtocolPayloadFrame", "bots"),
+    ("ProtocolPayloadFrame", "bots"),
     ("ProtocolPayloadFrame", "config"), ("ProtocolActionMessageSendFrame", "source_adapter"),
     ("ProtocolActionMessageSendFrame", "reply_to_event_id"),
     ("ProtocolActionMessageSendFrame", "message"),
@@ -184,7 +184,7 @@ class GoModels:
         elif category == "string":
             result = "string"
         elif category == "integer":
-            result = "int64" if name in {"timestamp", "time", "received_at", "client_timestamp", "expires_at_ms"} else "int"
+            result = "int64" if name in {"timestamp", "time", "received_at", "expires_at_ms"} else "int"
         elif category == "number":
             result = "float64"
         elif category == "boolean":

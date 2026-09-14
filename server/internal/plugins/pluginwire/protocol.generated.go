@@ -73,10 +73,8 @@ type ProtocolMessageFrame struct {
 }
 
 type ProtocolWebhookFrame struct {
-	Route           string `json:"route"`
-	ReceivedAt      int64  `json:"received_at"`
-	ClientTimestamp *int64 `json:"client_timestamp,omitempty"`
-	ClientEventID   string `json:"client_event_id,omitempty"`
+	Route      string `json:"route"`
+	ReceivedAt int64  `json:"received_at"`
 }
 
 type ProtocolPayloadFrame struct {

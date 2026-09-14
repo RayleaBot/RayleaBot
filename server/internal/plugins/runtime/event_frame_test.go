@@ -132,7 +132,6 @@ func TestBuildEventFramePreservesEmptyConfigSnapshot(t *testing.T) {
 func TestBuildEventFrameProjectsWebhookMetadataAtEventRoot(t *testing.T) {
 	t.Parallel()
 
-	clientTimestamp := int64(1700000000)
 	frame := BuildEventFrame(chatevent.Event{
 		EventID:        "webhook-event-1",
 		SourceProtocol: "webhook",
@@ -140,10 +139,8 @@ func TestBuildEventFrameProjectsWebhookMetadataAtEventRoot(t *testing.T) {
 		EventType:      "webhook.received",
 		Timestamp:      1700000001,
 		Webhook: &chatevent.Webhook{
-			Route:           "github",
-			ReceivedAt:      1700000001,
-			ClientTimestamp: &clientTimestamp,
-			ClientEventID:   "github-delivery-1",
+			Route:      "github",
+			ReceivedAt: 1700000001,
 		},
 	}, "request-1")
 

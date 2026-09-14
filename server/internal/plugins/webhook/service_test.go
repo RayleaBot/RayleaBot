@@ -30,17 +30,13 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 		Valid:             true,
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
-		Webhooks: []plugins.WebhookScope{{
-			ID: "github", Route: "github", AuthStrategy: "fixed_token",
-			Header: "X-Webhook-Token", SecretRef: "webhook.github.secret",
-		}},
+		Webhooks:          []plugins.WebhookScope{{ID: "github", Route: "github"}},
 	}})
 	registry := NewRegistry()
 	registry.SyncSnapshots(pluginCatalog.List())
 
 	service, err := New(Deps{
 		Registry:   registry,
-		Secrets:    &staticSecretStore{values: map[string][]byte{"webhook.github.secret": []byte("fixture-token")}},
 		Plugins:    pluginCatalog,
 		Dispatcher: dispatcher,
 		Runtime:    ensurer,
@@ -58,7 +54,6 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create webhook request: %v", err)
 	}
-	request.Header.Set("X-Webhook-Token", "fixture-token")
 
 	response, err := server.Client().Do(request)
 	if err != nil {
@@ -123,26 +118,6 @@ func (r *webhookRuntime) DeliverEvent(_ context.Context, event chatevent.Event) 
 
 func (r *webhookRuntime) Snapshot() pluginruntime.Snapshot {
 	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
-}
-
-type staticSecretStore struct {
-	values map[string][]byte
-}
-
-func (s *staticSecretStore) Get(_ context.Context, key string) ([]byte, error) {
-	return s.values[key], nil
-}
-
-func (s *staticSecretStore) Set(context.Context, string, []byte) error {
-	return nil
-}
-
-func (s *staticSecretStore) Delete(context.Context, string) error {
-	return nil
-}
-
-func (s *staticSecretStore) List(context.Context) ([]string, error) {
-	return nil, nil
 }
 
 // ReadyForEvents reports whether this target can accept a plugin event.

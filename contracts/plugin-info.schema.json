@@ -153,27 +153,13 @@
     "webhook": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "route", "auth_strategy", "header", "secret_ref", "replay_protection"],
+      "description": "Route-only forwarding. The host checks source_cidrs and max_body_bytes and delivers request headers with the raw body; plugins verify signatures and handle duplicate deliveries.",
+      "required": ["id", "route"],
       "properties": {
         "id": { "$ref": "#/$defs/stable_id" },
         "route": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9_-]{0,31})$" },
-        "auth_strategy": { "type": "string", "enum": ["fixed_token", "hmac_sha256"] },
-        "header": { "type": "string", "pattern": "^[A-Za-z0-9-]+$" },
-        "secret_ref": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$" },
-        "signature_prefix": { "type": "string" },
         "source_cidrs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-        "max_body_bytes": { "type": "integer", "minimum": 1, "maximum": 10485760 },
-        "replay_protection": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["timestamp_header", "event_id_header", "tolerance_seconds", "enforce"],
-          "properties": {
-            "timestamp_header": { "type": "string", "pattern": "^[A-Za-z0-9-]+$" },
-            "event_id_header": { "type": "string", "pattern": "^[A-Za-z0-9-]+$" },
-            "tolerance_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
-            "enforce": { "type": "boolean" }
-          }
-        }
+        "max_body_bytes": { "type": "integer", "minimum": 1, "maximum": 10485760 }
       }
     }
   },

@@ -95,12 +95,12 @@ flowchart LR
     LC -->|"scheduler.trigger"| D["Dispatcher"]
     D --> R["Target Runtime"]
 
-    H["Webhook caller"] -->|"token / HMAC"| WH["Plugin Webhook Service"]
+    H["Webhook caller"] -->|"POST route"| WH["Plugin Webhook Service"]
     WH -->|"event_type=webhook.received + webhook field"| D
 ```
 
 Scheduler 以插件 ID、任务 ID 和 revision 维护单一串行 mutation path。旧 trigger 不能覆盖或复活更新后的 job。Scheduler 只投递 `scheduler.trigger`，消息仍由插件通过正式出站 action 发送。
 
-Plugin Webhook Service 验证 route、token/HMAC 和目标插件后，构造 `event_type=webhook.received` 的事件；来源元数据放在该事件的 `webhook` 字段，其中 `route` 与 `received_at` 必填。Webhook 事件定向进入 Dispatcher，不经过 OneBot11 Bridge。
+Plugin Webhook Service 按 route 找到目标插件并检查来源与正文上限后，构造 `event_type=webhook.received` 的事件；来源元数据放在该事件的 `webhook` 字段，其中 `route` 与 `received_at` 必填。Webhook 事件定向进入 Dispatcher，不经过 OneBot11 Bridge。
 
 其他平台内部事件如 `config.changed`、`bot.identities.changed` 和 `management.action` 也可按目标直接进入 Dispatcher，但仍使用同一 runtime、local action 和出站链路。

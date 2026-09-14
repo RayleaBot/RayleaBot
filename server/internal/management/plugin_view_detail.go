@@ -7,15 +7,10 @@ import (
 )
 
 type WebhookScopeResponse struct {
-	ID               string                          `json:"id"`
-	Route            string                          `json:"route"`
-	AuthStrategy     string                          `json:"auth_strategy"`
-	Header           string                          `json:"header"`
-	SecretRef        string                          `json:"secret_ref"`
-	SignaturePrefix  string                          `json:"signature_prefix,omitempty"`
-	SourceCIDRs      []string                        `json:"source_cidrs,omitempty"`
-	MaxBodyBytes     int                             `json:"max_body_bytes,omitempty"`
-	ReplayProtection plugins.WebhookReplayProtection `json:"replay_protection"`
+	ID           string   `json:"id"`
+	Route        string   `json:"route"`
+	SourceCIDRs  []string `json:"source_cidrs,omitempty"`
+	MaxBodyBytes int      `json:"max_body_bytes,omitempty"`
 }
 
 type ScreenshotResponse struct {
@@ -56,10 +51,7 @@ func buildPluginWebhooks(snapshot plugins.Snapshot) []WebhookScopeResponse {
 	for _, scope := range snapshot.Webhooks {
 		response = append(response, WebhookScopeResponse{
 			ID: strings.TrimSpace(scope.ID), Route: strings.TrimSpace(scope.Route),
-			AuthStrategy: strings.TrimSpace(scope.AuthStrategy), Header: strings.TrimSpace(scope.Header),
-			SecretRef: strings.TrimSpace(scope.SecretRef), SignaturePrefix: strings.TrimSpace(scope.SignaturePrefix),
 			SourceCIDRs: normalizeStringList(scope.SourceCIDRs), MaxBodyBytes: scope.MaxBodyBytes,
-			ReplayProtection: scope.ReplayProtection,
 		})
 	}
 	return response

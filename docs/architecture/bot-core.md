@@ -13,7 +13,7 @@ App、Chat Policy Ingress、Bridge、Dispatcher、Runtime Manager、Local Action
 | Plugin Lifecycle Controller | 负责发现、注册、启停、重载、崩溃恢复和生命周期编排 |
 | Adapter Service | 位于 `bot/adapters`，持有所有适配器实例，负责启停、配置 reload、领域快照、协议查询、OneBot 回连与 Webhook 协议入口 |
 | Management Events | 位于 `management/events`，负责管理 Frame、初始快照、事件投影和连接订阅生命周期 |
-| Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和事件投递 |
+| Plugin Webhook Service | 负责插件 webhook 路由注册、按需拉起和事件投递 |
 | Config Manager | 负责配置读取、校验、覆盖与热更新入口 |
 
 共享插件模型与展示摘要位于 `plugins`，SQLite 实现在 `plugins/catalog`；命令触发器和空对象等传输形态由管理边界投影。`platform/health` 仅保存中性诊断问题，readiness 由 `operations/system` 组合，HTTP 状态映射由 `management` 处理。`platform/runtimepaths` 只推导路径，插件发现参数由 catalog 管理；启动不自动删除失败安装保留的恢复目录。

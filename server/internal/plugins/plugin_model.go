@@ -44,22 +44,10 @@ type CommandGroup struct {
 }
 
 type WebhookScope struct {
-	ID               string                  `json:"id"`
-	Route            string                  `json:"route"`
-	AuthStrategy     string                  `json:"auth_strategy"`
-	Header           string                  `json:"header"`
-	SecretRef        string                  `json:"secret_ref"`
-	SignaturePrefix  string                  `json:"signature_prefix,omitempty"`
-	SourceCIDRs      []string                `json:"source_cidrs,omitempty"`
-	MaxBodyBytes     int                     `json:"max_body_bytes,omitempty"`
-	ReplayProtection WebhookReplayProtection `json:"replay_protection"`
-}
-
-type WebhookReplayProtection struct {
-	TimestampHeader  string `json:"timestamp_header"`
-	EventIDHeader    string `json:"event_id_header"`
-	ToleranceSeconds int    `json:"tolerance_seconds"`
-	Enforce          bool   `json:"enforce"`
+	ID           string   `json:"id"`
+	Route        string   `json:"route"`
+	SourceCIDRs  []string `json:"source_cidrs,omitempty"`
+	MaxBodyBytes int      `json:"max_body_bytes,omitempty"`
 }
 
 type Screenshot struct {

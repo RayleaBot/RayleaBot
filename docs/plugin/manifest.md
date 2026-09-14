@@ -61,9 +61,9 @@ manifest 不声明宿主权限。插件进程是管理员确认安装的完全�
 
 ## 静态 Webhook
 
-`webhooks` 的每项声明包含稳定 `id`、路由、鉴权策略、请求头、secret 引用、正文上限和重放保护。宿主从有效 manifest 自动注册 `POST /api/webhooks/{plugin_id}/{route}`，完成来源、鉴权和重放检查后投递 `webhook.received`。
+`webhooks` 的每项声明包含稳定 `id`、路由，以及可选的来源 CIDR 与正文上限。宿主从有效 manifest 自动注册 `POST /api/webhooks/{plugin_id}/{route}`，只按路由转发：检查来源与正文上限后投递 `webhook.received`，不做鉴权与重放检查。
 
-`webhook.received` 事件的 `raw_payload` 携带已校验请求的路由、方法、请求头、查询参数和正文。运行时不能新增或修改 webhook 路由。
+`webhook.received` 事件的 `raw_payload` 携带请求的路由、方法、请求头、查询参数和原始正文（有效 UTF-8 为 `body_text`，否则为 `body_base64`）；插件按对方平台规则自行验签并处理重复投递。运行时不能新增或修改 webhook 路由。
 
 ## 模板与管理页
 

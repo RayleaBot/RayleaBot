@@ -636,13 +636,13 @@
                 },
                 "raw_payload": {
                   "type": "object",
-                  "description": "Present only for webhook.received events; carries the accepted request route, method, headers, query, and body.",
+                  "description": "Present only for webhook.received events; carries the request route, method, content type, headers, query, and the exact body as body_text when it is valid UTF-8 or body_base64 otherwise.",
                   "additionalProperties": true
                 },
                 "webhook": {
                   "type": "object",
                   "additionalProperties": false,
-                  "description": "Only present for webhook.received events. Carries normalized replay-protection metadata derived from the inbound request headers and the server clock.",
+                  "description": "Only present for webhook.received events. Carries the webhook route and the server ingestion time.",
                   "required": [
                     "route",
                     "received_at"
@@ -656,16 +656,6 @@
                       "type": "integer",
                       "minimum": 0,
                       "description": "Server-side ingestion timestamp in seconds since the unix epoch."
-                    },
-                    "client_timestamp": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "Client-supplied timestamp from the replay_protection.timestamp_header value. Omitted only when the route is in grace mode (enforce=false) and the header was absent."
-                    },
-                    "client_event_id": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "Client-supplied event id from the replay_protection.event_id_header value. Omitted only when the route is in grace mode and the header was absent; in that case the platform falls back to a server-generated event id and exposes it in the parent event_id field."
                     }
                   }
                 }

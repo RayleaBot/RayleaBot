@@ -100,12 +100,11 @@ func TestWirePresenceRoundTrip(t *testing.T) {
 	if !strings.Contains(string(data), `"value":null`) {
 		t.Fatalf("null omitted: %s", data)
 	}
-	zero := int64(0)
-	data, err = json.Marshal(ProtocolWebhookFrame{Route: "hook", ClientTimestamp: &zero})
+	data, err = json.Marshal(ProtocolWebhookFrame{Route: "hook"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `"client_timestamp":0`) || !strings.Contains(string(data), `"received_at":0`) {
+	if !strings.Contains(string(data), `"received_at":0`) {
 		t.Fatalf("zero omitted: %s", data)
 	}
 	disabled := false

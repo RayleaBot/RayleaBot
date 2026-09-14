@@ -75,15 +75,10 @@ type manifestManagementUI struct {
 }
 
 type manifestWebhook struct {
-	ID               string                          `json:"id"`
-	Route            string                          `json:"route"`
-	AuthStrategy     string                          `json:"auth_strategy"`
-	Header           string                          `json:"header"`
-	SecretRef        string                          `json:"secret_ref"`
-	SourceCIDRs      []string                        `json:"source_cidrs"`
-	MaxBodyBytes     int                             `json:"max_body_bytes"`
-	SignaturePrefix  string                          `json:"signature_prefix"`
-	ReplayProtection plugins.WebhookReplayProtection `json:"replay_protection"`
+	ID           string   `json:"id"`
+	Route        string   `json:"route"`
+	SourceCIDRs  []string `json:"source_cidrs"`
+	MaxBodyBytes int      `json:"max_body_bytes"`
 }
 
 func decodeManifest(document any) (manifestDocument, error) {
@@ -130,10 +125,8 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 	webhooks := make([]plugins.WebhookScope, 0, len(manifest.Webhooks))
 	for _, webhook := range manifest.Webhooks {
 		webhooks = append(webhooks, plugins.WebhookScope{
-			ID: webhook.ID, Route: webhook.Route, AuthStrategy: webhook.AuthStrategy,
-			Header: webhook.Header, SecretRef: webhook.SecretRef, SignaturePrefix: webhook.SignaturePrefix,
+			ID: webhook.ID, Route: webhook.Route,
 			SourceCIDRs: append([]string(nil), webhook.SourceCIDRs...), MaxBodyBytes: webhook.MaxBodyBytes,
-			ReplayProtection: webhook.ReplayProtection,
 		})
 	}
 	var managementUI *plugins.ManagementUI

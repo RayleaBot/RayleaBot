@@ -130,10 +130,8 @@ func BuildEventFrame(event chatevent.Event, requestID string) pluginwire.EventFr
 	}
 	if event.Webhook != nil {
 		frame.Event.Webhook = &pluginwire.ProtocolWebhookFrame{
-			Route:           event.Webhook.Route,
-			ReceivedAt:      event.Webhook.ReceivedAt,
-			ClientTimestamp: event.Webhook.ClientTimestamp,
-			ClientEventID:   event.Webhook.ClientEventID,
+			Route:      event.Webhook.Route,
+			ReceivedAt: event.Webhook.ReceivedAt,
 		}
 	}
 	if event.RawPayload != nil {

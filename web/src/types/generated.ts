@@ -1859,20 +1859,8 @@ export interface components {
         PluginWebhookScope: {
             id: string;
             route: string;
-            /** @enum {string} */
-            auth_strategy: "fixed_token" | "hmac_sha256";
-            header: string;
-            secret_ref: string;
-            signature_prefix?: string;
             source_cidrs?: string[];
             max_body_bytes?: number;
-            replay_protection: components["schemas"]["PluginWebhookReplayProtection"];
-        };
-        PluginWebhookReplayProtection: {
-            timestamp_header: string;
-            event_id_header: string;
-            tolerance_seconds: number;
-            enforce: boolean;
         };
         PluginScreenshot: components["schemas"]["screenshot"];
         PluginManagementUISummary: {

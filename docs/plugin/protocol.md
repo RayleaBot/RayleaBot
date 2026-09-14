@@ -163,7 +163,7 @@ QQ 官方机器人事件的原生投影位于 `event.payload.qq_official`，包�
 
 ### Webhook
 
-Webhook 路由由 manifest 静态声明。协议没有运行时暴露 webhook 的 action。请求通过宿主鉴权与重放检查后以 `webhook.received` 投递。
+Webhook 路由由 manifest 静态声明。协议没有运行时暴露 webhook 的 action。宿主只按路由转发，请求头与原始正文随 `webhook.received` 投递，插件自行验签。
 
 ### 浏览器会话
 

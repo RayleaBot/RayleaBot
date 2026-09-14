@@ -94,13 +94,7 @@ func TestDiscoverProjectsSingleManagementEntryAndStaticWebhook(t *testing.T) {
 		},
 	}
 	manifest["webhooks"] = []any{map[string]any{
-		"id": "updates", "route": "updates", "auth_strategy": "hmac_sha256",
-		"header": "X-Raylea-Signature", "secret_ref": "webhook.signing_key", "signature_prefix": "sha256=",
-		"source_cidrs": []string{"192.0.2.0/24"}, "max_body_bytes": 1048576,
-		"replay_protection": map[string]any{
-			"timestamp_header": "X-Raylea-Timestamp", "event_id_header": "X-Raylea-Event-ID",
-			"tolerance_seconds": 300, "enforce": true,
-		},
+		"id": "updates", "route": "updates", "source_cidrs": []string{"192.0.2.0/24"}, "max_body_bytes": 1048576,
 	}}
 	writeArtifact(t, pluginRoot, manifest, map[string][]byte{"ui/index.html": []byte("<!doctype html><title>Control</title>")})
 
@@ -117,9 +111,6 @@ func TestDiscoverProjectsSingleManagementEntryAndStaticWebhook(t *testing.T) {
 	webhook := snapshot.Webhooks[0]
 	if webhook.ID != "updates" || webhook.Route != "updates" || webhook.SourceCIDRs[0] != "192.0.2.0/24" || webhook.MaxBodyBytes != 1048576 {
 		t.Fatalf("webhook = %#v", webhook)
-	}
-	if !webhook.ReplayProtection.Enforce || webhook.ReplayProtection.ToleranceSeconds != 300 {
-		t.Fatalf("replay protection = %#v", webhook.ReplayProtection)
 	}
 }
 

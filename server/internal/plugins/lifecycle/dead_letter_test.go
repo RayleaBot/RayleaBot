@@ -32,14 +32,7 @@ func TestHandleCrashDeadLetterPreservesStaticWebhooks(t *testing.T) {
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
-		Webhooks: []plugins.WebhookScope{{
-			ID: "github", Route: "github", AuthStrategy: "fixed_token",
-			Header: "X-Token", SecretRef: "secret_repo",
-			ReplayProtection: plugins.WebhookReplayProtection{
-				TimestampHeader: "X-Timestamp", EventIDHeader: "X-Event-Id",
-				ToleranceSeconds: 300, Enforce: true,
-			},
-		}},
+		Webhooks:          []plugins.WebhookScope{{ID: "github", Route: "github"}},
 	}})
 	dispatcher := dispatch.New(logger, nil, nil, 16)
 	registry := pluginwebhook.NewRegistry()

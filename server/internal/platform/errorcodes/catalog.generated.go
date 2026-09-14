@@ -76,8 +76,6 @@ const (
 	PluginStoreSourceImmutable                 = "plugin.store_source_immutable"
 	PluginTrustedCodeConfirmationRequired      = "plugin.trusted_code_confirmation_required"
 	PluginUninstallFailed                      = "plugin.uninstall_failed"
-	PluginWebhookReplayRejected                = "plugin.webhook_replay_rejected"
-	PluginWebhookTimestampSkew                 = "plugin.webhook_timestamp_skew"
 	ReleaseManifestInvalid                     = "release.manifest_invalid"
 	DiagnosticAuthUnavailable                  = "auth.unavailable"
 	DiagnosticConfigNotAccessible              = "config.not_accessible"
@@ -177,7 +175,5 @@ var catalog = map[string]Definition{
 	PluginStoreSourceImmutable:                {Code: PluginStoreSourceImmutable, HTTPStatus: 409, Message: "官方插件源不能修改或删除", Retryable: false, Surfaces: "http"},
 	PluginTrustedCodeConfirmationRequired:     {Code: PluginTrustedCodeConfirmationRequired, HTTPStatus: 403, Message: "必须确认该插件将作为完全可信的本地代码运行", Retryable: false, Surfaces: "http,task"},
 	PluginUninstallFailed:                     {Code: PluginUninstallFailed, HTTPStatus: 409, Message: "插件卸载失败", Retryable: true, Surfaces: "http,websocket,task"},
-	PluginWebhookReplayRejected:               {Code: PluginWebhookReplayRejected, HTTPStatus: 401, Message: "插件 Webhook 请求已被识别为重复事件", Retryable: false, Surfaces: "http"},
-	PluginWebhookTimestampSkew:                {Code: PluginWebhookTimestampSkew, HTTPStatus: 401, Message: "插件 Webhook 请求时间戳超出容忍窗口", Retryable: false, Surfaces: "http"},
 	ReleaseManifestInvalid:                    {Code: ReleaseManifestInvalid, HTTPStatus: 502, Message: "发布清单无效", Retryable: false, Surfaces: "http,task,cli"},
 }

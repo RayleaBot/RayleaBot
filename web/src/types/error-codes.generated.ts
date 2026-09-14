@@ -297,14 +297,6 @@ export const errorCatalog = {
     "httpStatus": 409,
     "retryable": true
   },
-  "plugin.webhook_replay_rejected": {
-    "httpStatus": 401,
-    "retryable": false
-  },
-  "plugin.webhook_timestamp_skew": {
-    "httpStatus": 401,
-    "retryable": false
-  },
   "release.manifest_invalid": {
     "httpStatus": 502,
     "retryable": false
@@ -392,9 +384,7 @@ export const errorMessages = {
     "store_source_conflict": "插件源地址已存在",
     "store_source_immutable": "官方插件源不能修改或删除",
     "trusted_code_confirmation_required": "必须确认该插件将作为完全可信的本地代码运行",
-    "uninstall_failed": "插件卸载失败",
-    "webhook_replay_rejected": "插件 Webhook 请求已被识别为重复事件",
-    "webhook_timestamp_skew": "插件 Webhook 请求时间戳超出容忍窗口"
+    "uninstall_failed": "插件卸载失败"
   },
   "release": {
     "manifest_invalid": "发布清单无效"

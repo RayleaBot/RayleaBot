@@ -7,7 +7,7 @@
   "commands": [],
   "min_core_version": "0.7.0",
   "metadata": {
-    "description": "Go example plugin demonstrating statically declared webhooks and gated raw payload delivery.",
+    "description": "Go example plugin demonstrating route-forwarded webhooks with request headers and the raw body.",
     "author": "raylea"
   },
   "events": [
@@ -16,17 +16,7 @@
   "webhooks": [
     {
       "id": "github",
-      "route": "github",
-      "auth_strategy": "hmac_sha256",
-      "header": "X-Hub-Signature-256",
-      "secret_ref": "webhook.github.secret",
-      "signature_prefix": "sha256=",
-      "replay_protection": {
-        "timestamp_header": "X-Webhook-Timestamp",
-        "event_id_header": "X-Webhook-Event-ID",
-        "tolerance_seconds": 300,
-        "enforce": true
-      }
+      "route": "github"
     }
   ]
 }

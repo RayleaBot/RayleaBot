@@ -42,8 +42,6 @@ type Message struct {
 }
 
 type Webhook struct {
-	Route           string
-	ReceivedAt      int64
-	ClientTimestamp *int64
-	ClientEventID   string
+	Route      string
+	ReceivedAt int64
 }

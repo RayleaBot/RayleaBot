@@ -204,7 +204,6 @@ func buildPluginWebhookGateway(
 	return pluginwebhook.New(pluginwebhook.Deps{
 		Logger:     runtimeState.RuntimeLogger(),
 		Registry:   pluginStack.Webhooks,
-		Secrets:    platform.Secrets,
 		Plugins:    pluginStack.Plugins,
 		Dispatcher: eventStack.Dispatcher,
 		Runtime:    lifecycle,
