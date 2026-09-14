@@ -24,7 +24,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 
 ### R3 OneBot 兼容矩阵
 
-删除 `/api/protocols/onebot11/compatibility`、Web 兼容面板和发布包中针对该接口的 smoke 检查。矩阵内容改为用户文档中的静态表格。
+管理面不再展示兼容矩阵。删除 `/api/protocols/onebot11/compatibility`、`server/internal/bot/adapters/protocol_compatibility.go` 中写死的矩阵数据、Web 兼容面板和发布包中针对该接口的 smoke 检查。矩阵内容只保留在开发文档 `docs/dev/onebot-compatibility.md`，由开发文档索引提供入口；界面规范、工程基线与质量门禁中关于兼容矩阵的描述同步删除。
 
 ### R4 运行指标
 
@@ -133,7 +133,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 | --- | --- | --- | --- | --- |
 | R1 | 恢复只做完整性与版本校验，删除人工确认、审计与摘要展示 | — | ⬜ 待处理 | |
 | R2 | Launcher 宽松解码，删除响应与依赖清单校验及生成模型 | R1 | ⬜ 待处理 | |
-| R3 | 删除 OneBot 兼容矩阵接口、面板与 smoke，改为文档表格 | — | ⬜ 待处理 | |
+| R3 | 管理面不再展示兼容矩阵，删除接口、面板与 smoke，矩阵只保留在开发文档 | — | ⬜ 待处理 | |
 | R4 | 删除 Prometheus 指标接口与依赖 | — | ⬜ 待处理 | |
 | R5 | 删除出站熔断与每插件限流 | — | ⬜ 待处理 | |
 | R6 | 删除错误码本地化键与 Web 映射 | — | ⬜ 待处理 | |
