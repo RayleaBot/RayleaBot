@@ -21,12 +21,13 @@ import (
 )
 
 const (
-	maxRenderImageResourceBytes      int64 = 16 << 20
-	maxRenderImageResourceTotalBytes int64 = 96 << 20
-	renderImageResourceTimeout             = 30 * time.Second
-	renderImageResourceConcurrency         = 4
-	maxRenderImageResourceRedirects        = 3
-	renderImageResourceUserAgent           = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
+	maxRenderImageResourceBytes       int64 = 16 << 20
+	maxRenderImageResourceTotalBytes  int64 = 96 << 20
+	renderImageResourceTimeout              = 30 * time.Second
+	renderImageResourceRequestTimeout       = 10 * time.Second
+	renderImageResourceConcurrency          = 4
+	maxRenderImageResourceRedirects         = 3
+	renderImageResourceUserAgent            = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
 )
 
 var errRenderImageResourceUnavailable = errors.New("render.image resource is unavailable")
@@ -59,13 +60,8 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 
 	resourceCtx, cancel := context.WithTimeout(ctx, renderImageResourceTimeout)
 	defer cancel()
-	cfg := currentConfig(deps)
-	client := newHTTPClient(httpClientConfig{
-		Timeout:              currentHTTPTimeout(cfg),
-		MaxRetries:           0,
-		MaxResponseBodyBytes: maxRenderImageResourceBytes,
-		AllowPrivateHosts:    append([]string(nil), cfg.HTTP.AllowPrivateHosts...),
-	})
+	client := newHTTPClient(renderImageResourceRequestTimeout, maxRenderImageResourceBytes)
+	defer client.close()
 	results := make([]renderImageResourceFetchResult, len(req.Action.RenderResources))
 	semaphore := make(chan struct{}, renderImageResourceConcurrency)
 	var wait sync.WaitGroup
@@ -148,8 +144,7 @@ func downloadRenderImageResourceCandidate(ctx context.Context, client *httpClien
 			return RenderImageResource{}, "filesystem", err
 		}
 		hash := sha256.New()
-		response, requestErr := client.do(ctx, httpClientRequest{
-			Method:             "GET",
+		response, requestErr := client.get(ctx, httpClientRequest{
 			URL:                currentURL,
 			Headers:            renderImageResourceHeaders(referer),
 			ResponseBodyWriter: io.MultiWriter(file, hash),

@@ -367,31 +367,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       ],
     },
     {
-      key: 'http',
-      title: t('config.sections.http'),
-      fields: [
-        {
-          path: 'http.timeout_seconds',
-          label: t('config.fields.httpTimeoutSeconds'),
-          type: 'number',
-          unit: t('config.units.second'),
-          description: t('config.descriptions.httpTimeoutSeconds'),
-        },
-        {
-          path: 'http.max_retries',
-          label: t('config.fields.httpMaxRetries'),
-          type: 'number',
-          description: t('config.descriptions.httpMaxRetries'),
-        },
-        {
-          path: 'http.allow_private_hosts',
-          label: t('config.fields.httpAllowPrivateHosts'),
-          type: 'list',
-          description: t('config.descriptions.httpAllowPrivateHosts'),
-        },
-      ],
-    },
-    {
       key: 'web',
       title: t('config.sections.web'),
       fields: [

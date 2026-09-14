@@ -87,7 +87,7 @@
     - `secret.read`、`secret.write` 和 `secret.delete` 只在调用插件自己的 secret 命名空间内读取、覆盖或删除；值保存在宿主本地 secret store，读取结果仅返回调用插件。
     - `browser.launch` 启动或附着插件专属的宿主托管浏览器会话，宿主按插件隔离 profile、应用启动硬化、限制同一 profile 同时只有一个会话，并在生命周期到期或 `browser.close` 时关闭；返回的 `debugger_url` 是该会话的浏览器级 CDP WebSocket 端点。
     - `browser.close` 关闭调用插件自己启动的会话并释放其持久 profile。
-    - `render.image` 支持系统模板 ID、调用插件自动发现的模板短 ID，以及平台经统一 HTTPS、DNS/重定向复查、SSRF/私网和资源限制预取后交给 Chromium 的请求级临时图片资源
+    - `render.image` 支持系统模板 ID、调用插件自动发现的模板短 ID，以及平台按 HTTPS、超时和资源上限预取后交给 Chromium 的请求级临时图片资源
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
   - `session.wait` 和 `session.finish` 固定为必须携带父事件的私有动作；新建和本轮再次等待使用互斥形状，由对话 ID 和当前父事件识别归属。`payload.session` 只包含对话 ID、scope 和期限，业务状态由插件维护。`session.expired` 是显式请求后的尽力超时通知，不参与普通订阅广播。
   - 当前已固定 OneBot 单动作能力，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`

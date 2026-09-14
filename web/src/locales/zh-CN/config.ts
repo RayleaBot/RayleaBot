@@ -29,7 +29,7 @@ export const config = {
       access: { title: '基础与访问', description: '设置服务连接方式与管理界面的访问范围。', advancedTitle: '会话与高级访问', advancedDescription: '登录保护、初始化限制与插件页面来源。' },
       render: { title: '图片生成', description: '调整输出格式、图片清晰度与生成耗时。', advancedTitle: '性能与浏览器', advancedDescription: '并发、队列和浏览器启动参数。' },
       scheduler: { title: '调度', description: '设置定时任务使用的时区。', advancedTitle: '高级设置', advancedDescription: '' },
-      runtime: { title: '运行与请求', description: '调整插件任务与 HTTP 请求的运行参数。', advancedTitle: '进程、队列与网络边界', advancedDescription: '初始化、IPC、重试退避与访问限制。' },
+      runtime: { title: '插件运行', description: '调整插件任务的运行参数。', advancedTitle: '进程与队列', advancedDescription: '初始化、IPC 与重试退避。' },
       data: { title: '数据与存储', description: '管理数据库位置与缓存保留时间。', advancedTitle: '数据库与容量限制', advancedDescription: '数据库引擎、键值存储与文件大小上限。' },
       logs: { title: '日志', description: '设置日志记录与保留时间。', advancedTitle: '高级设置', advancedDescription: '' },
     },
@@ -75,7 +75,6 @@ export const config = {
     user: '用户',
     group: '群组',
     adapter: '适配器',
-    http: 'HTTP',
     web: '管理界面',
   },
   fields: {
@@ -133,9 +132,6 @@ export const config = {
     adapterReconnectMultiplier: '重连倍率',
     adapterReconnectMaxSeconds: '最大重连时间（秒）',
     adapterReconnectJitterRatio: '重连抖动比例',
-    httpTimeoutSeconds: '请求超时',
-    httpMaxRetries: '最大重试次数',
-    httpAllowPrivateHosts: '允许的私有地址',
     webPluginUiOriginTemplate: '插件页面域名模板',
   },
   options: {
@@ -201,9 +197,6 @@ export const config = {
     dataDownloadCacheRetentionDays: '离线 cleanup 命令只清理超过该天数的下载缓存。',
     logLevel: '控制日志输出的最低级别；低于该级别的日志被忽略。',
     logRetentionDays: 'SQLite 管理日志记录的保留天数；超出后自动裁剪。',
-    httpTimeoutSeconds: '插件发起 HTTP 请求的默认超时。',
-    httpMaxRetries: '插件 HTTP 请求失败时的最大重试次数。',
-    httpAllowPrivateHosts: '允许插件访问的私有或局域网地址白名单，每行一项；默认禁止访问私网以避免 SSRF。',
     webPluginUiOriginTemplate: '插件管理页面使用的独立来源模板，必须包含 {plugin_host}。本机可留空；内网插件页面需将对应域名解析到服务器。',
   },
   rateLimit: {

@@ -141,7 +141,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 | R8 | 逐帧校验仅限开发插件，删除 IPC 与日志限流配置 | — | ☑️ 已完成 | 宿主只对 development 来源插件校验入站帧，删除出站与 SDK 逐帧校验及 SDK 的校验生成物；删除 IPC 突发与待处理上限、初始化总预算和插件日志限流及其配置；Server 与 SDK 构建、vet、lint、测试，Web 类型检查与单测，strict contracts、生成器 verify 与文档检查通过 |
 | R9 | 安装合并为一次请求，删除检查时效与格式嗅探 | — | ☑️ 已完成 | 本地与商店安装各为一次请求，删除检查接口、检查时效、三个错误码与二进制格式和可执行位嗅探，入口可执行位由安装器设置；商店条目提供首次安装与来源变化两种确认原因；Server 构建、vet、lint、全量测试，Web 类型检查与单测，strict contracts 与文档检查通过 |
 | P1 | 协议与 manifest 升为 v4，删除宿主权限体系 | R9 | ☑️ 已完成 | manifest 与插件协议升为 v4，删除 manifest 权限、全部权限名、本地动作与出站发送的权限检查、`plugin.permission_denied`、`init.effective_permissions` 以及 Web、Vue SDK bridge 与 Go SDK 的权限展示；webhook 事件始终携带原始请求，旧合同 manifest 显示为合同不受支持，备份清单继续接受 v3；Server 与 SDK 构建、vet、lint、全量测试，Web 类型检查与单测，Launcher vet 与测试，strict contracts、生成器 verify、脚本测试与文档检查通过 |
-| P2 | 删除 `http.request` 与 `http` 配置段 | P1 | ⬜ 待处理 | |
+| P2 | 删除 `http.request` 与 `http` 配置段 | P1 | ☑️ 已完成 | 删除 `http.request` 动作、协议定义与 fixture、Go SDK `HTTPRequest`、`http` 配置段及管理面表单；渲染资源预取改用固定的单次超时、单项与总量上限，不再拦截私网地址，示例插件改用自带 HTTP 客户端；Server 与 SDK 构建、vet、lint、全量测试，Web 类型检查与单测，strict contracts、生成器 verify、脚本测试与文档检查通过 |
 | P3 | 删除 `storage.file`，注入插件数据目录 | P1 | ⬜ 待处理 | |
 | P4 | 管理页同源加载与 CSP，退役 bridge v3 | P1 | ⬜ 待处理 | |
 | P5 | Webhook 只做路由转发并携带请求头与原始正文 | P1 | ⬜ 待处理 | |

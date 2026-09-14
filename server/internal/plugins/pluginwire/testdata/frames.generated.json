@@ -824,38 +824,6 @@
     ]
   },
   {
-    "name": "ok.http-request.yaml",
-    "valid": true,
-    "frames": [
-      {
-        "type": "action",
-        "request_id": "action-http-1",
-        "action": "http.request",
-        "data": {
-          "method": "GET",
-          "url": "https://example.com/data.json",
-          "timeout_seconds": 10
-        }
-      },
-      {
-        "type": "result",
-        "request_id": "action-http-1",
-        "status": "success",
-        "data": {
-          "status_code": 200,
-          "headers": {
-            "Content-Type": "application/json"
-          },
-          "set_cookies": [
-            "visitor=fixture; Path=/; Expires=Wed, 09 Jun 2032 10:18:14 GMT",
-            "session=fixture; Path=/; HttpOnly"
-          ],
-          "body_text": "{}"
-        }
-      }
-    ]
-  },
-  {
     "name": "ok.init.yaml",
     "valid": true,
     "frames": [

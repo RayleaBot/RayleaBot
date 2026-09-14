@@ -290,50 +290,6 @@ func parseStorageFileAction(raw json.RawMessage) (*plugins.Action, error) {
 	}
 }
 
-func parseHTTPRequestAction(raw json.RawMessage) (*plugins.Action, error) {
-	frame, err := decodeActionFrame[pluginwire.ProtocolActionHTTPRequestFrame](raw, "http.request")
-	if err != nil {
-		return nil, err
-	}
-
-	method := strings.ToUpper(strings.TrimSpace(frame.Method))
-	switch method {
-	case "GET", "HEAD", "POST", "PUT", "PATCH", "DELETE":
-	default:
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported http.request method", nil)
-	}
-
-	targetURL := strings.TrimSpace(frame.URL)
-	if targetURL == "" {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required http.request fields", nil)
-	}
-
-	body, err := decodeExclusiveTextOrBase64(frame.BodyText, frame.BodyBase64, false)
-	if err != nil {
-		return nil, err
-	}
-	if (method == "GET" || method == "HEAD") && len(body) > 0 {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported http.request body for method", nil)
-	}
-
-	timeoutSeconds := 0
-	if frame.TimeoutSeconds != nil {
-		timeoutSeconds = *frame.TimeoutSeconds
-		if timeoutSeconds <= 0 {
-			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid http.request timeout_seconds", nil)
-		}
-	}
-
-	return &plugins.Action{
-		Kind:               "http.request",
-		HTTPMethod:         method,
-		HTTPURL:            targetURL,
-		HTTPHeaders:        maps.Clone(frame.Headers),
-		HTTPTimeoutSeconds: timeoutSeconds,
-		HTTPBody:           body,
-	}, nil
-}
-
 func parseGovernanceBlacklistReadAction(raw json.RawMessage) (*plugins.Action, error) {
 	if err := parseEmptyObjectAction(raw, "governance.blacklist.read"); err != nil {
 		return nil, err

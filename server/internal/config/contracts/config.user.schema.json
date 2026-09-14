@@ -24,7 +24,6 @@
     "user",
     "group",
     "adapter",
-    "http",
     "web"
   ],
   "properties": {
@@ -591,51 +590,6 @@
           "maximum": 1,
           "default": 0.2,
           "x-apply-policy": "adapter_reload"
-        }
-      }
-    },
-    "http": {
-      "type": "object",
-      "additionalProperties": true,
-      "required": [
-        "timeout_seconds",
-        "max_retries",
-        "allow_private_hosts",
-        "max_response_body_bytes"
-      ],
-      "properties": {
-        "timeout_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 10,
-          "description": "Default HTTP request timeout for plugin-issued requests. Default: 10.",
-          "x-apply-policy": "hot_reload"
-        },
-        "max_retries": {
-          "type": "integer",
-          "minimum": 0,
-          "default": 1,
-          "description": "Maximum retry count for plugin HTTP requests after the initial attempt. GET/HEAD requests retry on transport errors and 408/429/502/503/504 responses. Default: 1.",
-          "x-apply-policy": "hot_reload"
-        },
-        "allow_private_hosts": {
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9.-]+$"
-          },
-          "uniqueItems": true,
-          "description": "Allow-list of private or LAN hosts that plugins may reach; private networks are blocked by default to prevent SSRF.",
-          "x-apply-policy": "hot_reload"
-        },
-        "max_response_body_bytes": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 67108864,
-          "default": 4194304,
-          "description": "Maximum decompressed response body accepted from a plugin-issued HTTP request. Default: 4194304.",
-          "x-apply-policy": "hot_reload"
         }
       }
     },

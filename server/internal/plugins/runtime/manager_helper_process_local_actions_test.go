@@ -230,12 +230,12 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 		firstRequestID, _ := firstEvent["request_id"].(string)
 		writeHelperFrame(map[string]any{
 			"type":              "action",
-			"request_id":        "slow_http_1",
+			"request_id":        "slow_action_1",
 			"parent_request_id": firstRequestID,
-			"action":            "http.request",
+			"action":            "storage.kv",
 			"data": map[string]any{
-				"method": "GET",
-				"url":    "https://example.com/slow",
+				"operation": "get",
+				"key":       "slow",
 			},
 		})
 		secondEvent := helperReadFrame(scanner, 5)
@@ -248,7 +248,7 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 				"session": "fast",
 			},
 		})
-		slowResponse := helperExpectFrameType(scanner, "slow_http_1", "result", 6)
+		slowResponse := helperExpectFrameType(scanner, "slow_action_1", "result", 6)
 		if data, ok := slowResponse["data"].(map[string]any); !ok || data["status_code"] != float64(200) {
 			os.Exit(206)
 		}

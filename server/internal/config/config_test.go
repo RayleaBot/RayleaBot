@@ -611,12 +611,6 @@ func newPlanningConfigDocument() map[string]any {
 			"reconnect_jitter_ratio":    0.2,
 			"connect_timeout_seconds":   15,
 		},
-		"http": map[string]any{
-			"timeout_seconds":         10,
-			"max_retries":             2,
-			"max_response_body_bytes": int64(4194304),
-			"allow_private_hosts":     []string{},
-		},
 		"web": map[string]any{
 			"plugin_ui_origin_template": "",
 		},

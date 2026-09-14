@@ -22,7 +22,6 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 		"user":             configUserDocument(cfg),
 		"group":            configGroupDocument(cfg),
 		"adapter":          configAdapterDocument(cfg),
-		"http":             configHTTPDocument(cfg),
 		"web":              configWebDocument(cfg),
 	}
 }
@@ -205,15 +204,6 @@ func configAdapterDocument(cfg Config) map[string]any {
 		"reconnect_multiplier":      cfg.Adapter.ReconnectMultiplier,
 		"reconnect_max_seconds":     cfg.Adapter.ReconnectMaxSeconds,
 		"reconnect_jitter_ratio":    cfg.Adapter.ReconnectJitterRatio,
-	}
-}
-
-func configHTTPDocument(cfg Config) map[string]any {
-	return map[string]any{
-		"timeout_seconds":         cfg.HTTP.TimeoutSeconds,
-		"max_retries":             cfg.HTTP.MaxRetries,
-		"max_response_body_bytes": cfg.HTTP.MaxResponseBodyBytes,
-		"allow_private_hosts":     append([]string{}, cfg.HTTP.AllowPrivateHosts...),
 	}
 }
 

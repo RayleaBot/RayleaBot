@@ -1201,9 +1201,6 @@
           "$ref": "#/$defs/action_storage_file"
         },
         {
-          "$ref": "#/$defs/action_http_request"
-        },
-        {
           "$ref": "#/$defs/action_scheduler_create"
         },
         {
@@ -1553,160 +1550,6 @@
         }
       }
     },
-    "action_http_request_no_body_data": {
-      "description": "http.request results follow #/$defs/http_response_data. Set-Cookie fields are preserved individually in set_cookies and excluded from the joined headers object.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "method",
-        "url"
-      ],
-      "properties": {
-        "method": {
-          "type": "string",
-          "enum": [
-            "GET",
-            "HEAD",
-            "POST",
-            "PUT",
-            "PATCH",
-            "DELETE"
-          ]
-        },
-        "url": {
-          "type": "string",
-          "minLength": 1
-        },
-        "headers": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "timeout_seconds": {
-          "type": "integer",
-          "minimum": 1
-        }
-      }
-    },
-    "action_http_request_text_body_data": {
-      "description": "http.request results follow #/$defs/http_response_data.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "method",
-        "url",
-        "body_text"
-      ],
-      "properties": {
-        "method": {
-          "type": "string",
-          "enum": [
-            "POST",
-            "PUT",
-            "PATCH",
-            "DELETE"
-          ]
-        },
-        "url": {
-          "type": "string",
-          "minLength": 1
-        },
-        "headers": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "timeout_seconds": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "body_text": {
-          "type": "string"
-        }
-      }
-    },
-    "action_http_request_base64_body_data": {
-      "description": "http.request results follow #/$defs/http_response_data.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "method",
-        "url",
-        "body_base64"
-      ],
-      "properties": {
-        "method": {
-          "type": "string",
-          "enum": [
-            "POST",
-            "PUT",
-            "PATCH",
-            "DELETE"
-          ]
-        },
-        "url": {
-          "type": "string",
-          "minLength": 1
-        },
-        "headers": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "timeout_seconds": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "body_base64": {
-          "type": "string"
-        }
-      }
-    },
-    "http_response_data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "status_code",
-        "headers",
-        "set_cookies"
-      ],
-      "properties": {
-        "status_code": {
-          "type": "integer",
-          "minimum": 100,
-          "maximum": 599
-        },
-        "headers": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "set_cookies": {
-          "type": "array",
-          "description": "Each Set-Cookie response field in received order, without joining or splitting its contents. Empty when no cookies are set. Sensitive; never log these values.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "body_text": {
-          "type": "string"
-        },
-        "body_base64": {
-          "type": "string",
-          "contentEncoding": "base64"
-        }
-      },
-      "not": {
-        "required": [
-          "body_text",
-          "body_base64"
-        ]
-      }
-    },
     "action_logger_write": {
       "allOf": [
         {
@@ -1824,48 +1667,6 @@
                 },
                 {
                   "$ref": "#/$defs/action_storage_file_list_data"
-                }
-              ]
-            }
-          }
-        }
-      ],
-      "unevaluatedProperties": false
-    },
-    "action_http_request": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/common"
-        },
-        {
-          "type": "object",
-          "required": [
-            "type",
-            "action",
-            "data"
-          ],
-          "properties": {
-            "type": {
-              "const": "action"
-            },
-            "parent_request_id": {
-              "type": "string",
-              "minLength": 1
-            },
-            "action": {
-              "type": "string",
-              "const": "http.request"
-            },
-            "data": {
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/action_http_request_no_body_data"
-                },
-                {
-                  "$ref": "#/$defs/action_http_request_text_body_data"
-                },
-                {
-                  "$ref": "#/$defs/action_http_request_base64_body_data"
                 }
               ]
             }
@@ -2327,7 +2128,7 @@
       "minLength": 1,
       "maxLength": 4096,
       "pattern": "^https://",
-      "description": "HTTPS image URL fetched by the platform. User information and fragments are rejected at runtime; the target and every redirect are revalidated against the host SSRF and private-network policy."
+      "description": "HTTPS image URL fetched by the platform. User information and fragments are rejected at runtime; every redirect must remain HTTPS."
     },
     "render_image_resource": {
       "type": "object",
@@ -3375,7 +3176,6 @@
     "fixtures/plugin-protocol/invalid.config-changed-noop.yaml",
     "fixtures/plugin-protocol/ok.message-send.yaml",
     "fixtures/plugin-protocol/ok.storage-file.yaml",
-    "fixtures/plugin-protocol/ok.http-request.yaml",
     "fixtures/plugin-protocol/ok.governance-blacklist-read.yaml",
     "fixtures/plugin-protocol/ok.governance-scoped-write.yaml",
     "fixtures/plugin-protocol/invalid.governance-write-without-scope.yaml",
@@ -3433,7 +3233,6 @@
   ],
   "$comment": "Protocol v4 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and exposes host actions to every trusted plugin process without manifest permissions.",
   "x-action-result-schemas": {
-    "http.request": "#/$defs/http_response_data",
     "session.wait": "#/$defs/session_wait_result",
     "session.finish": "#/$defs/session_finish_result",
     "storage.kv.get": "#/$defs/storage_kv_get_result",

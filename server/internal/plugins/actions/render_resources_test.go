@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -35,14 +34,7 @@ func TestPrefetchRenderImageResourcesUsesRefererAndFallbackURL(t *testing.T) {
 	}))
 	defer server.Close()
 
-	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{
-		CurrentConfig: func() config.Config {
-			return config.Config{HTTP: config.HTTPConfig{
-				TimeoutSeconds:    5,
-				AllowPrivateHosts: []string{"127.0.0.1"},
-			}}
-		},
-	}, ActionRequest{
+	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-request",
 		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{
@@ -81,7 +73,7 @@ func TestPrefetchRenderImageResourcesUsesRefererAndFallbackURL(t *testing.T) {
 	}
 }
 
-func TestPrefetchRenderImageResourcesAllowsConfiguredPrivateHost(t *testing.T) {
+func TestPrefetchRenderImageResourcesAllowsPrivateHost(t *testing.T) {
 	t.Parallel()
 
 	content := append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte("fixture-suffix-host")...)
@@ -91,14 +83,7 @@ func TestPrefetchRenderImageResourcesAllowsConfiguredPrivateHost(t *testing.T) {
 	}))
 	defer server.Close()
 
-	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{
-		CurrentConfig: func() config.Config {
-			return config.Config{HTTP: config.HTTPConfig{
-				TimeoutSeconds:    5,
-				AllowPrivateHosts: []string{"127.0.0.1"},
-			}}
-		},
-	}, ActionRequest{
+	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-suffix",
 		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{
@@ -115,29 +100,7 @@ func TestPrefetchRenderImageResourcesAllowsConfiguredPrivateHost(t *testing.T) {
 	}
 }
 
-func TestPrefetchRenderImageResourcesRejectsPrivateHostWithoutServerAllowlist(t *testing.T) {
-	t.Parallel()
-
-	_, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{
-		CurrentConfig: func() config.Config {
-			return config.Config{HTTP: config.HTTPConfig{TimeoutSeconds: 1}}
-		},
-	}, ActionRequest{
-		PluginID:  "plugin.render",
-		RequestID: "render-resource-scope",
-		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{
-			ID:  "media-0",
-			URL: "https://127.0.0.1/image.jpg",
-		}}},
-	})
-	cleanup()
-	var runtimeErr *plugins.Error
-	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.invalid_request" {
-		t.Fatalf("error = %#v", err)
-	}
-}
-
-func TestPrefetchRenderImageResourcesRevalidatesRedirectSafety(t *testing.T) {
+func TestPrefetchRenderImageResourcesRejectsNonHTTPSRedirect(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -146,14 +109,7 @@ func TestPrefetchRenderImageResourcesRevalidatesRedirectSafety(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{
-		CurrentConfig: func() config.Config {
-			return config.Config{HTTP: config.HTTPConfig{
-				TimeoutSeconds:    5,
-				AllowPrivateHosts: []string{"127.0.0.1"},
-			}}
-		},
-	}, ActionRequest{
+	_, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-redirect-scope",
 		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{

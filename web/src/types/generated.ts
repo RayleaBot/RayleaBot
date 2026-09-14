@@ -2392,30 +2392,6 @@ export interface components {
             } & {
                 [key: string]: unknown;
             };
-            http: {
-                /**
-                 * @description Default HTTP request timeout for plugin-issued requests. Default: 10.
-                 * @default 10
-                 */
-                timeout_seconds: number;
-                /**
-                 * @description Maximum retry count for plugin HTTP requests after the initial attempt. GET/HEAD requests retry on transport errors and 408/429/502/503/504 responses. Default: 1.
-                 * @default 1
-                 */
-                max_retries: number;
-                /**
-                 * @description Allow-list of private or LAN hosts that plugins may reach; private networks are blocked by default to prevent SSRF.
-                 * @default []
-                 */
-                allow_private_hosts: string[];
-                /**
-                 * @description Maximum decompressed response body accepted from a plugin-issued HTTP request. Default: 4194304.
-                 * @default 4194304
-                 */
-                max_response_body_bytes: number;
-            } & {
-                [key: string]: unknown;
-            };
             web: {
                 /**
                  * @description Optional origin template for isolated plugin management pages. Must contain {plugin_host}; an empty value uses the local plugin page origin.

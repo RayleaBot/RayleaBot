@@ -19,7 +19,6 @@ type Config struct {
 	User          UserConfig        `json:"user" yaml:"user"`
 	Group         GroupConfig       `json:"group" yaml:"group"`
 	Adapter       AdapterConfig     `json:"adapter" yaml:"adapter"`
-	HTTP          HTTPConfig        `json:"http" yaml:"http"`
 	Web           WebConfig         `json:"web" yaml:"web"`
 }
 
@@ -132,13 +131,6 @@ type StorageConfig struct {
 	KVTotalLimitMB           int `json:"kv_total_limit_mb" yaml:"kv_total_limit_mb"`
 	FileMaxBytes             int `json:"file_max_bytes" yaml:"file_max_bytes"`
 	PluginWorkDirSoftLimitMB int `json:"plugin_workdir_soft_limit_mb" yaml:"plugin_workdir_soft_limit_mb"`
-}
-
-type HTTPConfig struct {
-	TimeoutSeconds       int      `json:"timeout_seconds" yaml:"timeout_seconds"`
-	MaxRetries           int      `json:"max_retries" yaml:"max_retries"`
-	MaxResponseBodyBytes int64    `json:"max_response_body_bytes" yaml:"max_response_body_bytes"`
-	AllowPrivateHosts    []string `json:"allow_private_hosts" yaml:"allow_private_hosts"`
 }
 
 type RuntimeConfig struct {

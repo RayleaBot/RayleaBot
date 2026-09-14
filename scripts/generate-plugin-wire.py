@@ -48,7 +48,6 @@ MODELS = {
     "ProtocolActionLoggerWriteFrame": "/$defs/action_logger_write_data",
     "ProtocolActionStorageKVFrame": "/$defs/action_storage_kv/allOf/1/properties/data",
     "ProtocolActionStorageFileFrame": "/$defs/action_storage_file/allOf/1/properties/data",
-    "ProtocolActionHTTPRequestFrame": "/$defs/action_http_request/allOf/1/properties/data",
     "ProtocolActionPluginListFrame": "/$defs/action_plugin_list_data",
     "ProtocolActionSecretReadFrame": "/$defs/action_secret_read_data",
     "ProtocolActionSecretWriteFrame": "/$defs/action_secret_write_data",
@@ -79,12 +78,10 @@ PRESENCE_FIELDS = {
     ("ProtocolActionMessageSendFrame", "reply_to_event_id"),
     ("ProtocolActionMessageSendFrame", "message"),
     ("ProtocolActionGovernanceWhitelistWriteFrame", "enabled"),
-    ("ProtocolActionHTTPRequestFrame", "timeout_seconds"),
 }
 for model, fields in {
     "ProtocolActionStorageKVFrame": ["key", "prefix"],
     "ProtocolActionStorageFileFrame": ["path", "prefix", "content_text", "content_base64"],
-    "ProtocolActionHTTPRequestFrame": ["body_text", "body_base64"],
     "ProtocolActionGovernanceBlacklistWriteFrame": ["entry_type", "target_id", "reason"],
     "ProtocolActionGovernanceWhitelistWriteFrame": ["entry_type", "target_id", "reason"],
 }.items():

@@ -72,8 +72,7 @@ func TestWireBoundaries(t *testing.T) {
 		{"decimal timestamp", `{"type":"event","request_id":"e","event":{"event_id":"e","source_protocol":"system","source_adapter":"scheduler","event_type":"scheduler.trigger","timestamp":0.5}}`, false},
 		{"explicit null value", `{"type":"action","request_id":"a","action":"storage.kv","data":{"operation":"set","key":"k","value":null}}`, true},
 		{"absent value", `{"type":"action","request_id":"a","action":"storage.kv","data":{"operation":"set","key":"k"}}`, false},
-		{"exclusive HTTP body", `{"type":"action","request_id":"a","action":"http.request","data":{"method":"POST","url":"https://example.com","body_text":"x","body_base64":"eA=="}}`, false},
-		{"nested unknown", `{"type":"action","request_id":"a","action":"http.request","data":{"method":"GET","url":"https://example.com","extra":true}}`, false},
+		{"nested unknown", `{"type":"action","request_id":"a","action":"logger.write","data":{"level":"info","message":"x","extra":true}}`, false},
 		{"unknown envelope", `{"type":"ping","request_id":"p","extra":false}`, false},
 		{"double JSON", `{"type":"ping","request_id":"p"}{}`, false},
 	}

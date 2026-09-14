@@ -381,12 +381,6 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"reconnect_max_seconds":     120,
 			"reconnect_jitter_ratio":    0.2,
 		},
-		"http": map[string]any{
-			"timeout_seconds":         10,
-			"max_retries":             2,
-			"max_response_body_bytes": 4194304,
-			"allow_private_hosts":     []any{},
-		},
 		"web": map[string]any{
 			"plugin_ui_origin_template": "",
 		},

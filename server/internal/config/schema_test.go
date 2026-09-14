@@ -51,7 +51,6 @@ func TestPluginProtocolInitFixturesValidate(t *testing.T) {
 		"ok.init.yaml",
 		"edge.init-empty-identities.yaml",
 		"ok.config-changed.yaml",
-		"ok.http-request.yaml",
 	} {
 		name := name
 		t.Run(name, func(t *testing.T) {

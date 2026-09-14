@@ -258,7 +258,7 @@ codes:
     code: platform.upstream_response_too_large
     domain: platform
     message: 上游响应超过大小限制
-    description: A plugin-issued HTTP response exceeded the configured decoded body or fixed header limit and was rejected without retry.
+    description: A render.image resource response exceeded the fixed body, header, or total resource limit and was rejected.
     http_status: 502
     retryable: false
     applies_to: [http, websocket, plugin_protocol, task]

@@ -225,22 +225,6 @@ func (actions *Actions) FileList(ctx context.Context, prefix string) (ActionResu
 	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "list", Prefix: prefix})
 }
 
-type HTTPRequest struct {
-	Method         string            `json:"method"`
-	URL            string            `json:"url"`
-	Headers        map[string]string `json:"headers,omitempty"`
-	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
-	BodyText       string            `json:"body_text,omitempty"`
-	BodyBase64     string            `json:"body_base64,omitempty"`
-}
-
-func (actions *Actions) HTTPRequest(ctx context.Context, request HTTPRequest) (ActionResult, error) {
-	if request.BodyText != "" && request.BodyBase64 != "" {
-		return nil, errors.New("rayleabot: HTTPRequest accepts at most one body representation")
-	}
-	return actions.callResult(ctx, "http.request", request)
-}
-
 type ConfigWriteRequest struct {
 	Values map[string]any `json:"values"`
 }

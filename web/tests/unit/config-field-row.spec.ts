@@ -88,7 +88,7 @@ describe('ConfigFieldRow', () => {
 
   it('splits multiline textarea into a list for list fields', async () => {
     const wrapper = mountField(
-      { path: 'http.allow_private_hosts', label: 'hosts', type: 'list' },
+      { path: 'admin.super_admins', label: 'super admins', type: 'list' },
       ['10.0.0.1'],
     )
     const textarea = wrapper.find('textarea')

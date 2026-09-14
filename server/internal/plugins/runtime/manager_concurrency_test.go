@@ -28,7 +28,7 @@ func TestManagerDeliverEventConcurrentSessionsDoNotBlockOnSlowLocalAction(t *tes
 			if pluginID != "helper-plugin" {
 				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
 			}
-			if action.Kind != "http.request" {
+			if action.Kind != "storage.kv" {
 				t.Fatalf("unexpected local action kind: %#v", action)
 			}
 			startedSlow <- requestID
@@ -55,7 +55,7 @@ func TestManagerDeliverEventConcurrentSessionsDoNotBlockOnSlowLocalAction(t *tes
 
 	select {
 	case requestID := <-startedSlow:
-		if requestID != "slow_http_1" {
+		if requestID != "slow_action_1" {
 			t.Fatalf("unexpected slow request_id: %q", requestID)
 		}
 	case <-time.After(runtimeTestDuration(500 * time.Millisecond)):
@@ -135,17 +135,6 @@ func TestParseStorageFileActionWriteText(t *testing.T) {
 	if string(action.StorageContent) != "hello file" {
 		t.Fatalf("unexpected storage content: %#v", action.StorageContent)
 	}
-}
-
-func TestParseHTTPRequestActionRejectsGetWithBody(t *testing.T) {
-	t.Parallel()
-
-	_, err := ParseLocalAction("http.request", json.RawMessage(`{
-		"method": "GET",
-		"url": "https://api.example.test/v1/data",
-		"body_text": "denied"
-	}`))
-	assertProtocolViolation(t, err)
 }
 
 func TestParseLocalMessageSendAction(t *testing.T) {

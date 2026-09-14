@@ -102,11 +102,6 @@ request:
       reconnect_multiplier: 2
       reconnect_max_seconds: 120
       reconnect_jitter_ratio: 0.2
-    http:
-      timeout_seconds: 10
-      max_retries: 2
-      max_response_body_bytes: 4194304
-      allow_private_hosts: []
     web:
 
       plugin_ui_origin_template: ""
@@ -213,11 +208,6 @@ response:
         reconnect_multiplier: 2
         reconnect_max_seconds: 120
         reconnect_jitter_ratio: 0.2
-      http:
-        timeout_seconds: 10
-        max_retries: 2
-        max_response_body_bytes: 4194304
-        allow_private_hosts: []
       web:
 
         plugin_ui_origin_template: ""

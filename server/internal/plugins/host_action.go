@@ -46,11 +46,6 @@ type Action struct {
 	SessionTimeoutSeconds     int
 	SessionNotifyOnExpire     *bool
 	StorageContent            []byte
-	HTTPMethod                string
-	HTTPURL                   string
-	HTTPHeaders               map[string]string
-	HTTPTimeoutSeconds        int
-	HTTPBody                  []byte
 	SchedulerTaskID           string
 	SchedulerLogLabel         string
 	SchedulerCron             string

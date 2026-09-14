@@ -91,12 +91,6 @@ export function createConfigDocumentFixture(configure?: ConfigureConfigDocument)
       reconnect_max_seconds: 120,
       reconnect_jitter_ratio: 0.2,
     },
-    http: {
-      timeout_seconds: 10,
-      max_retries: 2,
-      allow_private_hosts: [],
-      max_response_body_bytes: 4194304,
-    },
     web: {
       plugin_ui_origin_template: '',
     },

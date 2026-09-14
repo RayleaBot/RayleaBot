@@ -33,7 +33,6 @@ func defaultRegistrarItems() []registrar {
 		secretMutationRegistrar("secret.delete"),
 		browserLaunchRegistrar(),
 		browserCloseRegistrar(),
-		httpRequestRegistrar(),
 		renderImageRegistrar(),
 		messageSendRegistrar(),
 		logWriteRegistrar(),

@@ -26,7 +26,7 @@
   ],
   "min_core_version": "0.7.0",
   "metadata": {
-    "description": "Go example plugin demonstrating HTTP requests and implicit private file storage.",
+    "description": "Go example plugin demonstrating its own HTTP client and private file storage.",
     "author": "raylea"
   },
   "events": [

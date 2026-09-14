@@ -273,15 +273,6 @@ type ProtocolActionStorageFileFrame struct {
 	Prefix        *string `json:"prefix,omitempty"`
 }
 
-type ProtocolActionHTTPRequestFrame struct {
-	Method         string            `json:"method"`
-	URL            string            `json:"url"`
-	Headers        map[string]string `json:"headers,omitempty"`
-	TimeoutSeconds *int              `json:"timeout_seconds,omitempty"`
-	BodyText       *string           `json:"body_text,omitempty"`
-	BodyBase64     *string           `json:"body_base64,omitempty"`
-}
-
 type ProtocolActionPluginListFrame struct {
 	Visibility string `json:"visibility,omitempty"`
 }

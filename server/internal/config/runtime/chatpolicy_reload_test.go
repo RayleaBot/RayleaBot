@@ -39,11 +39,6 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 			FileMaxBytes:             2048,
 			PluginWorkDirSoftLimitMB: 32,
 		},
-		HTTP: config.HTTPConfig{
-			TimeoutSeconds:    10,
-			MaxRetries:        0,
-			AllowPrivateHosts: []string{},
-		},
 		Log: config.LogConfig{Level: "info"},
 		Message: config.MessageConfig{
 			RateLimitPerTarget: "1/1h",
@@ -83,11 +78,6 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 			FileMaxBytes:             8192,
 			PluginWorkDirSoftLimitMB: 64,
 		},
-		HTTP: config.HTTPConfig{
-			TimeoutSeconds:    15,
-			MaxRetries:        2,
-			AllowPrivateHosts: []string{"127.0.0.1"},
-		},
 		Log: config.LogConfig{Level: "info"},
 		Message: config.MessageConfig{
 			RateLimitPerTarget: "2/1h",
@@ -110,12 +100,6 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	}
 	if cfg.Storage.FileMaxBytes != 8192 || cfg.Storage.PluginWorkDirSoftLimitMB != 64 {
 		t.Fatalf("storage config was not hot reloaded: %+v", cfg.Storage)
-	}
-	if cfg.HTTP.TimeoutSeconds != 15 || cfg.HTTP.MaxRetries != 2 {
-		t.Fatalf("http config was not hot reloaded: %+v", cfg.HTTP)
-	}
-	if len(cfg.HTTP.AllowPrivateHosts) != 1 || cfg.HTTP.AllowPrivateHosts[0] != "127.0.0.1" {
-		t.Fatalf("http allow_private_hosts was not hot reloaded: %+v", cfg.HTTP.AllowPrivateHosts)
 	}
 	waitCtx, cancelWait := context.WithTimeout(context.Background(), time.Second)
 	defer cancelWait()
