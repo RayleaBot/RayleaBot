@@ -187,6 +187,6 @@ Go SDK 提供 `event.SendText`、`event.Send`、`event.Reply`、`event.Result` �
 
 ## 相关文档
 
-- [Event Model](../architecture/event-model.md)
+- [Architecture Overview](../architecture/README.md)
 - [Plugin Manifest](./manifest.md)
 - [Plugin SDK](./sdk/README.md)

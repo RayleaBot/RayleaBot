@@ -1,19 +1,17 @@
 # Engineering Docs
 
-本目录说明 RayleaBot 的工程治理：固定版本线、目录职责、实施顺序和质量门禁。
+本目录说明 RayleaBot 的工程治理：固定版本线、默认命令、质量门禁与人工 smoke。
 
 ## 阅读入口
 
 | 文档 | 主题 |
 | --- | --- |
 | [baseline.md](./baseline.md) | 固定版本线、默认命令、目录职责与固定的技术选型 |
-| [implementation-order.md](./implementation-order.md) | 长期依赖顺序、状态归属与跨层边界 |
-| [quality-gates.md](./quality-gates.md) | 默认验证命令、CI 门禁与发布回归 |
-| [collection-pagination.md](./collection-pagination.md) | 管理集合分页、数据库读取与事件刷新边界 |
-| [web-admin-baseline.md](./web-admin-baseline.md) | Web 管理面 Reka UI、自有组件与 Motion for Vue 工程基线 |
+| [quality-gates.md](./quality-gates.md) | 按改动面的验证、CI 门禁与发布验收 |
+| [manual-smoke.md](./manual-smoke.md) | 需要外部平台凭据或人工操作的 smoke 登记 |
 | [`../CHANGELOGS/`](../CHANGELOGS/README.md) | 历史版本能力归档 |
 
 ## 维护规则
 
 - 工程基线变化必须同步对应工程文件和 CI。
-- 本目录负责约束实现边界和协作规则，不替代正式契约。
+- 本目录约束实现边界和协作规则，不复述代码或页面结构，也不替代正式契约。

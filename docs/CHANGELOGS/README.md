@@ -20,7 +20,7 @@
 
 - 已交付版本的正式范围以本目录归档为准。
 - 工程基线、目录职责、固定版本线见 [`../engineering/baseline.md`](../engineering/baseline.md)。
-- 长期依赖顺序与实现边界见 [`../engineering/implementation-order.md`](../engineering/implementation-order.md)。
+- 组件职责与演进边界见 [`../architecture/README.md`](../architecture/README.md)。
 - 对外接口、错误码、release metadata 以 `contracts/` 为准。
 
 ## 维护原则

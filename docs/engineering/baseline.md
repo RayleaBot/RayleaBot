@@ -43,7 +43,7 @@ Go、Node.js、Python、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 
 
 Windows / Linux 的 FFmpeg 固定使用 BtbN [2026-08-31 月末构建](https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-08-31-13-27)，保留 9.0.1 维护线与 full GPL 变体。按[上游保留规则](https://github.com/BtbN/FFmpeg-Builds#release-retention-policy)，月末构建保留两年，普通日构建只保留最近 14 版；固定日期 URL 不代表永久可用。每次分发前仍需验证来源与 SHA-256，更新构建时同步资源版本、归档摘要和入口路径。
 
-Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理和工程命令见 [`web-admin-baseline.md`](./web-admin-baseline.md)。
+Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`DESIGN.md`](../../DESIGN.md)，工程约束见 [`web/AGENTS.md`](../../web/AGENTS.md)。
 
 ## 工具链获取
 
@@ -137,7 +137,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 | --- | --- |
 | `contracts/` | 对外正式契约根目录 |
 | `docs/engineering/` | 工程基线、CI、实施顺序、治理规则 |
-| `docs/architecture/` | 架构、状态模型、事件模型、边界说明 |
+| `docs/architecture/` | 组件职责、消息主流程与状态归属概览 |
 | `docs/dev/` | 开发、调试、诊断、贡献流程 |
 | `docs/plugin/` | 插件 manifest、协议、生命周期 |
 | `docs/plugin/sdk/` | Go 插件 SDK、构建器与 Vue 管理页 SDK 说明 |

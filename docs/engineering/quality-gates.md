@@ -30,7 +30,7 @@
 | CI 脚本 | `python scripts/ci/detect_changes.py --self-test` 与 `scripts/tests/` 中对应测试 | 两平台 `ci-self-check` |
 | 依赖变化 | 对应工程的安装、类型检查与测试 | `python scripts/release/generate_third_party_notices.py --check --output THIRD_PARTY_NOTICES.md`、`pnpm audit` |
 
-Race 测试需要 CGO 与 C 编译器；本机缺少时由 CI 覆盖，并在结果中说明未在本地运行。[实施顺序第 9 节](./implementation-order.md#9-验收与发布)是发布验收范围，不作为日常改动的默认清单。
+Race 测试需要 CGO 与 C 编译器；本机缺少时由 CI 覆盖，并在结果中说明未在本地运行。[发布验收](#发布验收)是发布前的验收范围，不作为日常改动的默认清单。
 
 ## CI 工作流
 
@@ -60,9 +60,22 @@ Nightly 的 Server 测试一次运行同时启用 race 和 atomic coverage，覆
 
 PR 的关键并发包 race 覆盖 App、配置应用、事件管线、插件 Catalog/Runtime/Lifecycle、广播、协议事件、OneBot 回调和存储快照；完整包清单由 `ci.yml` 维护。Server、契约或 CI 规则变化触发服务端门禁；`go.work.sum` 触发工作区相关消费者。跨目录重命名同时按来源和目标路径识别影响范围。
 
-Web E2E 只运行 `real-server` project，独立使用临时目录、SQLite 和动态端口，覆盖静态路由、登录与账户更新、插件安装与启停、配置及密钥遮罩、插件全局设置、治理作用域与名单增删、调度列表、日志详情和实际示例插件 iframe；视觉细节不写 E2E。覆盖范围和运行方式见 [Web 端到端验证](./web-testing.md)。
+Web E2E 只运行 `real-server` project，独立使用临时目录、SQLite 和动态端口，覆盖静态路由、登录与账户更新、插件安装与启停、配置及密钥遮罩、插件全局设置、治理作用域与名单增删、调度列表、日志详情和实际示例插件 iframe；视觉细节不写 E2E。在 `web/` 执行 `corepack pnpm run test:e2e:production` 构建 Web 与示例插件 UI 并运行用例；需要安装本地插件包的用例写入临时 `build_info.json`，使最低 Core 版本检查可以执行。
 
 Nightly 的 `release-dry-run` 在构建 Server 后执行 `python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/current-recovery-rehearsal`。输出目录必须不存在，保存合成数据、恢复包、进程日志和结果 JSON；验证空目录初始化、当前格式备份、恢复到空目录、登录、配置与插件数据一致性，以及重复启动幂等。
+
+## 发布验收
+
+发布前按受影响面完成：
+
+- strict contracts 与生成物漂移；
+- 目标包 `-race`、Server 测试与构建、二进制漏洞扫描；
+- Web 与 Launcher 类型检查、测试、构建和风险对应的 E2E；
+- SDK 打包与全新环境安装；
+- 发布归档、许可证声明与 smoke；
+- doctor、文档链接与 `git diff --check`。
+
+只有退出码不能证明真实产物时，继续检查生成文件、归档内容或运行效果。
 
 ## 验证原则
 

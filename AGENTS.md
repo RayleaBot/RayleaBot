@@ -27,7 +27,7 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 
 - 对外接口与协议：`contracts/README.md` 及对应契约。
 - 工具链、固定版本线与默认命令：`docs/engineering/baseline.md` 和对应工程脚本。
-- 长期依赖顺序与跨层边界：`docs/engineering/implementation-order.md`、`docs/architecture/`。
+- 组件职责、消息主流程与状态归属：`docs/architecture/README.md`。
 - 产品目标与范围：`docs/RayleaBot机器人项目规划.md`。
 - 用户操作与管理面：`docs/user/`。
 

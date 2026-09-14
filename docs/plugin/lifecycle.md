@@ -26,9 +26,25 @@
 - 插件启用时由 per-plugin runtime manager 启动子进程并完成 `init -> init_ack` 握手；通过 `init.bots` 提供按适配器实例区分的身份列表，后续 `bot.identities.changed` 替换该列表。
 - 运行中通过 `ping/pong` 保活。
 - 停止时先停止接收新事件，等待活跃会话排空，再发送 `shutdown`。
-- 异常退出、退避重试与需人工恢复的用户可见状态映射见 [State Model](../architecture/state-model.md)。进入需人工恢复状态后，平台同步移除该插件已注册的 webhook 路由。
+- 异常退出、退避重试与需人工恢复对应下文的插件状态。进入需人工恢复状态后，平台同步移除该插件已注册的 webhook 路由。
 - `POST /api/plugins/{plugin_id}/recover` 触发受控冷启动尝试：服务端重置 crash 计数并重新拉起 runtime。
 - 热重载保持正式的 start-before-stop / zero-gap reload 语义。
+
+## 插件状态
+
+管理 HTTP、管理 WebSocket、`plugin.list` 本地动作与诊断使用同一组插件状态：
+
+| 状态 | 含义 |
+| --- | --- |
+| `disabled` | 插件未启用，运行时未启动 |
+| `enabled` | 插件已启用，等待运行时启动或当前未运行 |
+| `starting` | 运行时正在创建或握手，可能尚无进程句柄 |
+| `running` | 已完成握手并可处理事件 |
+| `stopping` | 运行时正在停止，退出尚未确认 |
+| `failed` | 初始化失败、运行时崩溃、等待自动重试或需要人工恢复 |
+| `invalid` | manifest 无效或插件 ID 冲突 |
+
+`state_diagnosis.kind` 细分异常：`invalid_manifest`、`plugin_id_conflict`、`initialization_failed`、`crashed`、`retrying` 与 `recovery_required`。进入 `recovery_required` 后可通过 `POST /api/plugins/{plugin_id}/recover` 触发受控冷启动。
 
 ## 安装、升级与卸载
 
@@ -60,4 +76,4 @@
 - [Plugin Manifest](./manifest.md)
 - [Protocol](./protocol.md)
 - [Plugin Store and Independent Development](./store-and-development.md)
-- [State Model](../architecture/state-model.md)
+- [Architecture Overview](../architecture/README.md)
