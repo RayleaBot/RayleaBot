@@ -21,10 +21,6 @@ class ChangeClassificationTests(unittest.TestCase):
             (["go.work.sum"], {"server", "sdk", "release", "ci"}),
             (["scripts/process_output.py"], {"server", "web", "launcher", "release", "ci"}),
             ([".gitattributes"], {"server", "web", "launcher", "ci"}),
-            (["docs/engineering/manual-sql-exceptions.json"], {"server", "ci", "docs"}),
-            (["docs/notes.md", "docs/engineering/manual-sql-exceptions.json"], {"server", "ci", "docs"}),
-            ([".\\docs\\engineering\\manual-sql-exceptions.json"], {"server", "ci", "docs"}),
-            (["design-qa.md"], {"docs", "docs_only"}),
         ]
         for paths, expected in cases:
             with self.subTest(paths=paths):
@@ -57,9 +53,8 @@ class ChangeClassificationTests(unittest.TestCase):
             source = root / "server/example.go"
             source.parent.mkdir()
             source.write_text("package example\n", encoding="utf-8")
-            registry = root / "docs/engineering/manual-sql-exceptions.json"
-            registry.parent.mkdir(parents=True)
-            registry.write_text("{}\n", encoding="utf-8")
+            (root / "docs").mkdir()
+            (root / ".tool-versions").write_text("golang 1.26.6\n", encoding="utf-8")
             git("add", ".")
             git("commit", "--quiet", "-m", "base")
             base = git("rev-parse", "HEAD")
@@ -69,9 +64,9 @@ class ChangeClassificationTests(unittest.TestCase):
             renamed = git("rev-parse", "HEAD")
             self.assertEqual(classify_diff(base, renamed), {"server", "docs"})
 
-            git("rm", "docs/engineering/manual-sql-exceptions.json")
-            git("commit", "--quiet", "-m", "remove checker input")
-            self.assertEqual(classify_diff(renamed, git("rev-parse", "HEAD")), {"server", "ci", "docs"})
+            git("rm", "--quiet", ".tool-versions")
+            git("commit", "--quiet", "-m", "remove toolchain input")
+            self.assertEqual(classify_diff(renamed, git("rev-parse", "HEAD")), {"server", "web", "launcher", "ci"})
 
 
 if __name__ == "__main__":

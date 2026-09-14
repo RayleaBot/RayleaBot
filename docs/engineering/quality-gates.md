@@ -58,9 +58,9 @@ Race 测试需要 CGO 与 C 编译器；本机缺少时由 CI 覆盖，并在结
 | `release.yml` | `windows-latest`、`ubuntu-latest`、`macos-26` | Tag 门禁 | 构建四种正式 artifact，校验 release metadata、协议读取接口、模板预览、recovery drill 与交付 smoke |
 | `self-host-smoke.yml` | `windows-latest`、`ubuntu-latest`、`macos-26` | 否 | 对四种 artifact 运行长期自托管、诊断与恢复探针 |
 
-Nightly 的 Server 测试一次运行同时启用 race 和 atomic coverage，覆盖全部 Go 包。SQL 例外的复审日期到期产生维护提示；登记缺失、字段无效、文件不存在或与实际 SQL 使用不符仍阻止结构检查。
+Nightly 的 Server 测试一次运行同时启用 race 和 atomic coverage，覆盖全部 Go 包。
 
-PR 的关键并发包 race 覆盖 App、配置应用、事件管线、插件 Catalog/Runtime/Lifecycle、广播、协议事件、OneBot 回调和存储快照；完整包清单由 `ci.yml` 维护。Server、契约或 CI 规则变化触发服务端门禁；`go.work.sum` 触发工作区相关消费者，SQL 例外登记变化触发 Server 与 CI 自检。跨目录重命名同时按来源和目标路径识别影响范围。
+PR 的关键并发包 race 覆盖 App、配置应用、事件管线、插件 Catalog/Runtime/Lifecycle、广播、协议事件、OneBot 回调和存储快照；完整包清单由 `ci.yml` 维护。Server、契约或 CI 规则变化触发服务端门禁；`go.work.sum` 触发工作区相关消费者。跨目录重命名同时按来源和目标路径识别影响范围。
 
 Web 生产构建 E2E 只运行 `real-server` project，独立使用临时目录、SQLite 和动态端口，覆盖静态路由、鉴权与账户更新、配置及密钥遮罩、插件全局设置、治理作用域与名单增删、调度列表、日志详情和实际示例插件 iframe。开发模式的 `ui-fixtures` project 保留受控网络、消息节奏和展示数据；写入后的固定快照由测试指定，不承担 Server 规则的证明。覆盖范围和运行方式见 [Web 端到端验证](./web-testing.md)。`RAYLEA_E2E_WEB_PORT` 可隔离开发模式的 Web 端口。
 

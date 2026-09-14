@@ -101,41 +101,7 @@ for (const file of agentsFiles) {
   }
 }
 
-// ── 2. Line count budgets ──────────────────────────────────────────────────
-
-function countLines(text) {
-  const parts = text.split(/\r?\n/);
-  if (parts.length > 0 && parts[parts.length - 1] === "") parts.pop();
-  return parts.length;
-}
-
-const rootAgents = join(ROOT, "AGENTS.md");
-const rootClaude = join(ROOT, "CLAUDE.md");
-
-if (existsSync(rootAgents)) {
-  const lines = countLines(readFileSync(rootAgents, "utf-8"));
-  if (lines > 150) {
-    addIssue(rootAgents, `line count ${lines} exceeds budget 150`);
-  }
-}
-
-if (existsSync(rootClaude)) {
-  const lines = countLines(readFileSync(rootClaude, "utf-8"));
-  if (lines > 40) {
-    addIssue(rootClaude, `line count ${lines} exceeds budget 40`);
-  }
-}
-
-const LOCAL_AGENTS_BUDGET = 120;
-for (const file of agentsFiles) {
-  if (file === rootAgents) continue;
-  const lines = countLines(readFileSync(file, "utf-8"));
-  if (lines > LOCAL_AGENTS_BUDGET) {
-    addIssue(file, `line count ${lines} exceeds budget ${LOCAL_AGENTS_BUDGET}`);
-  }
-}
-
-// ── 3. Backtick path existence ───────────────────────────────────────────────
+// ── 2. Backtick path existence ───────────────────────────────────────────────
 
 const SHELL_CHARS = /[|&;<>$(){}[\]`\\]/;
 const URL_PROTOCOL = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
@@ -207,7 +173,7 @@ for (const file of [...agentsFiles, ...claudeFiles, ...skillFiles]) {
   }
 }
 
-// ── 4. Secret-like strings ───────────────────────────────────────────────────
+// ── 3. Secret-like strings ───────────────────────────────────────────────────
 
 const SECRET_KEYWORDS = /\b(secret|token|cookie|password|api_key|credential|auth|ck)\b/i;
 const EXPLICIT_FAKE = /\b(fixture-only-secret|example-token|example-secret|fake-secret|test-secret|dummy-token|dummy-secret|placeholder-token|placeholder-secret|mock-token|mock-secret|sample-token|sample-secret|your-token|your-secret|xxx|xxxx|xxxxx|replace-me|changeme|not-set|unset|none|null|undefined|empty|string|number|boolean|true|false)\b/i;

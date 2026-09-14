@@ -102,24 +102,8 @@ test("reports missing referenced paths after removing the skill index gate", asy
   assert.ok(result.output.includes("docs/missing.md"), result.output);
 });
 
-for (const [name, budget] of [
-  ["AGENTS.md", 150],
-  ["CLAUDE.md", 40],
-  ["docs/AGENTS.md", 120],
-]) {
-  test(`retains the line budget for ${name}`, async (t) => {
-    const result = await runCheck(t, {
-      "docs/CLAUDE.md": "@AGENTS.md\n",
-      [name]: "@AGENTS.md\n".repeat(budget + 1),
-    });
-    assert.equal(result.status, 1, result.output);
-    assert.ok(result.output.includes(name), result.output);
-    assert.match(result.output, new RegExp(`\\b${budget + 1}\\b`));
-  });
-}
-
 for (const name of [skillPath, upstreamSkillPath]) {
-  test(`accepts a long skill without a line budget: ${name}`, async (t) => {
+  test(`accepts a long skill: ${name}`, async (t) => {
     const result = await runCheck(t, {
       [name]: `${skill}${"Workflow guidance.\n".repeat(200)}`,
     });
@@ -134,7 +118,6 @@ test("still checks referenced paths in a long skill", async (t) => {
   assert.equal(result.status, 1, result.output);
   assert.ok(result.output.includes(skillPath), result.output);
   assert.ok(result.output.includes("docs/missing.md"), result.output);
-  assert.ok(!result.output.includes("exceeds budget"), result.output);
 });
 
 test("still checks and redacts suspected credentials in a long skill", async (t) => {
@@ -146,7 +129,6 @@ test("still checks and redacts suspected credentials in a long skill", async (t)
   assert.ok(result.output.includes(upstreamSkillPath), result.output);
   assert.match(result.output, /possible secret/);
   assert.ok(!result.output.includes(syntheticValue));
-  assert.ok(!result.output.includes("exceeds budget"), result.output);
 });
 
 test("reports a suspected credential location without echoing its value", async (t) => {

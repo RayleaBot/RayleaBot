@@ -45,7 +45,7 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 
 ## Instruction Maintenance
 
-- 同一规则在最接近责任方的位置维护；改动指令时复核重复、冲突和引用，并运行 agent-docs 检查脚本，它校验 CLAUDE bridge、行数预算、反引号路径存在性与疑似凭据。
+- 同一规则在最接近责任方的位置维护；改动指令时复核重复、冲突和引用，并运行 agent-docs 检查脚本，它校验 CLAUDE bridge、反引号路径存在性与疑似凭据。
 - 重复问题优先修代码、测试或就近说明；只有跨任务反复出现且无法直接发现的稳定约束才进入 AGENTS。原因消失或已有可靠实现约束时，删除对应规则。
 
 ## Git and Review

@@ -39,6 +39,8 @@ func NewConfigSQLiteRepository(store *storage.Store) (*ConfigSQLiteRepository, e
 	}, nil
 }
 
+// Read builds its query by hand because the key IN clause has a variable length;
+// namespace-wide reads and writes use sqlcgen.
 func (r *ConfigSQLiteRepository) Read(ctx context.Context, pluginID string, keys []string) (map[string]any, error) {
 	if len(keys) == 0 {
 		return map[string]any{}, nil

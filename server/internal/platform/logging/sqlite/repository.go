@@ -55,6 +55,8 @@ func (r *Repository) SaveSummary(ctx context.Context, summary logging.Summary) e
 	return nil
 }
 
+// ListSummaries, ListPage and hasRows build SQL by hand: optional filters and
+// variable IN clauses cannot be expressed in sqlc. Fixed-shape queries use sqlcgen.
 func (r *Repository) ListSummaries(ctx context.Context, query logging.Query) ([]logging.Summary, error) {
 	limit := query.Limit
 	if limit <= 0 {

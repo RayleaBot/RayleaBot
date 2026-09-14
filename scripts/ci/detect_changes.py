@@ -22,10 +22,9 @@ OUTPUT_KEYS = (
     "ci",
 )
 
-DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", "DESIGN.md", "design-qa.md"}
+DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", "DESIGN.md"}
 DOC_AUX_FILES = {".impeccable/design.json", ".impeccable/config.json"}
 TOOLCHAIN_ROOT_FILES = {".env.example", ".gitattributes", ".gitignore", ".tool-versions", "Makefile", "start.bat", "start.sh"}
-SERVER_STRUCTURE_INPUTS = {"docs/engineering/manual-sql-exceptions.json"}
 
 
 def normalize_path(path: str) -> str:
@@ -71,8 +70,6 @@ def diff_files(base: str | None, head: str | None) -> list[str]:
 
 
 def is_docs_path(path: str) -> bool:
-    if path in SERVER_STRUCTURE_INPUTS:
-        return False
     if path in DOC_ROOT_FILES or path in DOC_AUX_FILES:
         return True
     if path.startswith("docs/"):
@@ -185,11 +182,6 @@ def classify(files: list[str]) -> dict[str, bool]:
             matched = True
         if path == "scripts/check-server-structure.py":
             result["server"] = True
-        if path in SERVER_STRUCTURE_INPUTS:
-            result["server"] = True
-            result["ci"] = True
-            result["docs"] = True
-            matched = True
         if path.startswith(".devcontainer/") or path in TOOLCHAIN_ROOT_FILES:
             result["server"] = True
             result["web"] = True
@@ -239,8 +231,6 @@ def self_test() -> None:
     cases = [
         (["docs/test.md"], {"docs": True, "docs_only": True}),
         (["DESIGN.md"], {"docs": True, "docs_only": True}),
-        (["design-qa.md"], {"docs": True, "docs_only": True}),
-        (["docs/engineering/manual-sql-exceptions.json"], {"server": True, "ci": True, "docs": True, "docs_only": False}),
         ([".impeccable/design.json"], {"docs": True, "docs_only": True}),
         ([".impeccable/config.json"], {"docs": True, "docs_only": True, "server": False, "web": False, "launcher": False, "ci": False}),
         (["design/tokens.json"], {"web": True, "launcher": True, "docs": True, "ci": True, "docs_only": False}),

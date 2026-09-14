@@ -149,6 +149,8 @@ func (r *templateRepository) GetCurrentSource(ctx context.Context, id string) (s
 	return row.SourceDigest, source, nil
 }
 
+// removeExcept builds its NOT IN clause by hand because the keep list has a
+// variable length.
 func (r *templateRepository) removeExcept(ctx context.Context, condition string, args []any, column string, keep []string) error {
 	query := `DELETE FROM render_templates WHERE ` + condition
 	if len(keep) > 0 {

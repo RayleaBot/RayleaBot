@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
 import re
 import sys
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 
 MODULE = "github.com/RayleaBot/RayleaBot/server"
@@ -38,7 +36,6 @@ def main() -> int:
 
     errors: list[str] = []
     warnings: list[str] = []
-    manual_sql_exceptions = load_manual_sql_exceptions(root, errors, warnings)
 
     check_plugin_boundaries(files, errors)
     check_adapter_boundaries(files, errors)
@@ -46,7 +43,7 @@ def main() -> int:
     check_disallowed_dirs(server_internal, root, errors)
     check_package_names(files, warnings)
     check_process_exit_calls(files, errors)
-    check_manual_sql_exceptions(files, root, manual_sql_exceptions, errors)
+    check_management_sql(files, errors)
 
     for message in warnings:
         print(f"WARN {message}")
@@ -178,87 +175,12 @@ def check_process_exit_calls(files: list[GoFile], errors: list[str]) -> None:
             errors.append(f"{file.rel} calls os.Exit or log.Fatal outside cmd")
 
 
-def load_manual_sql_exceptions(root: Path, errors: list[str], warnings: list[str]) -> dict[str, str]:
-    registry_path = root / "docs" / "engineering" / "manual-sql-exceptions.json"
-    try:
-        raw = registry_path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        errors.append(f"{registry_path.relative_to(root).as_posix()} is missing")
-        return {}
-
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        errors.append(f"{registry_path.relative_to(root).as_posix()} is invalid JSON: {exc}")
-        return {}
-
-    allowed_files = parsed.get("allowed_files")
-    if not isinstance(allowed_files, dict):
-        errors.append(f"{registry_path.relative_to(root).as_posix()} must contain an allowed_files object")
-        return {}
-
-    registry: dict[str, str] = {}
-    for rel, entry in allowed_files.items():
-        if not isinstance(rel, str):
-            errors.append(f"{registry_path.relative_to(root).as_posix()} has an invalid manual SQL entry")
-            continue
-        if not isinstance(entry, dict):
-            errors.append(f"{registry_path.relative_to(root).as_posix()} entry {rel} must be an object")
-            continue
-        category = entry.get("category")
-        reason = entry.get("reason")
-        owner = entry.get("owner")
-        target_action = entry.get("target_action")
-        revisit_after = entry.get("revisit_after")
-        if category not in {"A", "B", "C", "D"}:
-            errors.append(f"{registry_path.relative_to(root).as_posix()} entry {rel} has invalid category")
-        for field_name, value in {
-            "reason": reason,
-            "owner": owner,
-            "target_action": target_action,
-            "revisit_after": revisit_after,
-        }.items():
-            if not isinstance(value, str) or not value.strip():
-                errors.append(f"{registry_path.relative_to(root).as_posix()} entry {rel} missing {field_name}")
-        if isinstance(revisit_after, str) and revisit_after.strip():
-            try:
-                revisit_date = date.fromisoformat(revisit_after.strip())
-            except ValueError:
-                errors.append(
-                    f"{registry_path.relative_to(root).as_posix()} entry {rel} has invalid revisit_after; expected YYYY-MM-DD"
-                )
-            else:
-                if revisit_date < date.today():
-                    warnings.append(
-                        f"{registry_path.relative_to(root).as_posix()} entry {rel} is due for review since {revisit_date.isoformat()}"
-                    )
-        if not isinstance(reason, str) or not reason.strip():
-            continue
-        registry[rel.replace("\\", "/")] = reason.strip()
-    return registry
-
-
-def check_manual_sql_exceptions(files: list[GoFile], root: Path, registry: dict[str, str], errors: list[str]) -> None:
-    raw_sql_files: set[str] = set()
+def check_management_sql(files: list[GoFile], errors: list[str]) -> None:
     for file in files:
-        if file.is_test or file.is_generated or file.package_dir.startswith("internal/sqlcgen"):
+        if file.is_test or file.is_generated or not within_package(file.package_dir, "internal/management"):
             continue
-        text = file.path.read_text(encoding="utf-8")
-        if RAW_SQL_CALL_RE.search(text):
-            raw_sql_files.add(file.rel)
-
-    for rel in sorted(raw_sql_files):
-        if "/management/" in rel:
-            errors.append(f"{rel} uses handwritten SQL in management handler layer")
-        if rel not in registry:
-            errors.append(f"{rel} uses handwritten SQL but is not listed in docs/engineering/manual-sql-exceptions.json")
-
-    for rel in sorted(registry):
-        path = root / Path(rel)
-        if not path.exists():
-            errors.append(f"docs/engineering/manual-sql-exceptions.json references missing file {rel}")
-        elif rel not in raw_sql_files:
-            errors.append(f"docs/engineering/manual-sql-exceptions.json lists {rel}, but no handwritten SQL was found")
+        if RAW_SQL_CALL_RE.search(file.path.read_text(encoding="utf-8")):
+            errors.append(f"{file.rel} uses handwritten SQL in management handler layer")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
 import tempfile
 import unittest
@@ -16,28 +15,17 @@ sys.modules[SPEC.name] = structure
 SPEC.loader.exec_module(structure)
 
 
-class ManualSQLReviewTests(unittest.TestCase):
-    def test_review_deadline_warns_but_invalid_metadata_fails(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            registry = root / "docs/engineering/manual-sql-exceptions.json"
-            registry.parent.mkdir(parents=True)
-            entry = {
-                "category": "A", "reason": "dynamic table selection",
-                "owner": "storage", "target_action": "review query builder",
-                "revisit_after": "2000-01-01",
-            }
-            for deadline, valid in [("2000-01-01", True), ("invalid-date", False)]:
-                with self.subTest(deadline=deadline):
-                    entry["revisit_after"] = deadline
-                    registry.write_text(json.dumps({"allowed_files": {"server/internal/store.go": entry}}), encoding="utf-8")
-                    errors: list[str] = []
-                    warnings: list[str] = []
-                    allowed = structure.load_manual_sql_exceptions(root, errors, warnings)
-                    self.assertEqual(bool(errors), not valid)
-                    if valid:
-                        self.assertIn("server/internal/store.go", allowed)
-                        self.assertEqual(len(warnings), 1)
+class ManagementSQLTests(unittest.TestCase):
+    def test_handwritten_sql_is_rejected_only_in_management_layer(self) -> None:
+        for package, invalid in [("management", True), ("management/events", True), ("storage", False)]:
+            with self.subTest(package=package), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                source = root / "server/internal" / package / "query.go"
+                source.parent.mkdir(parents=True)
+                source.write_text(f"package {source.parent.name}\nfunc run() {{ db.QueryContext(ctx, q) }}\n", encoding="utf-8")
+                errors: list[str] = []
+                structure.check_management_sql(structure.collect_go_files(root, root / "server/internal"), errors)
+                self.assertEqual(len(errors), int(invalid), errors)
 
 
 class PluginBoundaryTests(unittest.TestCase):

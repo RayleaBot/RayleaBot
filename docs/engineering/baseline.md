@@ -67,7 +67,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 | 运行指标 | `github.com/prometheus/client_golang` + 受 admin session 保护的 `/api/system/metrics` |
 | 日志 | `log/slog` |
 | 配置解析 | `gopkg.in/yaml.v3` |
-| 数据访问 | `database/sql` + repository / service 分层 + `internal/sqlcqueries` → `internal/sqlcgen` 的 sqlc 生成主路径；必须保留的手写 SQL 登记在 `docs/engineering/manual-sql-exceptions.json` |
+| 数据访问 | `database/sql` + repository / service 分层 + `internal/sqlcqueries` → `internal/sqlcgen` 的 sqlc 生成主路径；sqlc 无法表达的动态查询与 SQLite 维护语句保留手写，并在调用处注释原因 |
 | Web 路由 | Vue Router `5.x` |
 | Web 全局状态 | Pinia `4.x`，由各领域 store 维护管理状态 |
 | Web HTTP | `lib/http.ts` 统一维护 RayleaBot 鉴权、错误与下载语义 |
