@@ -145,6 +145,8 @@ type EntryView struct {
 	LatestRelease    *ReleaseView `json:"latest_release,omitempty"`
 	InstalledVersion string       `json:"installed_version,omitempty"`
 	InstallState     string       `json:"install_state"`
+	// ConfirmationReasons lists why installing needs trusted-code confirmation.
+	ConfirmationReasons []string `json:"confirmation_reasons"`
 }
 
 type Query struct {
@@ -173,26 +175,13 @@ type SourceInput struct {
 	URL  string `json:"url"`
 }
 
-type InspectionRequest struct {
-	SourceID string
-	PluginID string
-}
-
-type InspectionResult struct {
-	Inspection           plugins.InstallInspection `json:"inspection"`
-	ConfirmationRequired bool                      `json:"confirmation_required"`
-	ConfirmationReasons  []string                  `json:"confirmation_reasons"`
-}
-
 type InstallRequest struct {
 	PluginID             string
-	InspectionID         string
-	PackageSHA256        string
+	SourceID             string
 	TrustedCodeConfirmed bool
 }
 
 type Installer interface {
-	plugins.InstallInspector
 	plugins.InstallCoordinator
 }
 
@@ -213,7 +202,6 @@ type ServiceAPI interface {
 	List(Query) (ListResult, error)
 	Get(string, string) (DetailResult, bool)
 	Refresh(context.Context, string) (SourceView, error)
-	Inspect(context.Context, InspectionRequest) (InspectionResult, error)
 	Install(context.Context, InstallRequest) (string, error)
 }
 

@@ -37,17 +37,10 @@ func (s *InstallService) SyncDevelopment(ctx context.Context, artifactPath, sour
 			return "", false, nil
 		}
 	}
-	inspection, err := s.Inspect(ctx, plugins.InstallRequest{
+	taskID, err := s.Accept(ctx, plugins.InstallRequest{
 		SourceType: "development", Source: sourcePath,
 		ResolvedSourceType: "local_directory", ResolvedSource: artifactPath,
 		ReplaceExisting: true,
-	})
-	if err != nil {
-		return "", false, err
-	}
-	taskID, err := s.Accept(ctx, plugins.InstallAcceptance{
-		InspectionID: inspection.InspectionID, PackageSHA256: inspection.PackageSHA256,
-		TrustedCodeConfirmed: true,
 	})
 	return taskID, err == nil, err
 }

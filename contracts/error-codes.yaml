@@ -384,33 +384,6 @@ codes:
     retryable: true
     applies_to: [http, websocket, task]
 
-  plugin.install_inspection_required:
-    code: plugin.install_inspection_required
-    domain: plugin
-    message: 请先检查插件包并确认信任
-    description: Plugin installation was requested without a current inspection id and matching package digest.
-    http_status: 409
-    retryable: false
-    applies_to: [http, task]
-
-  plugin.install_inspection_expired:
-    code: plugin.install_inspection_expired
-    domain: plugin
-    message: 插件包检查结果已过期
-    description: The supplied plugin inspection id expired before installation admission.
-    http_status: 409
-    retryable: true
-    applies_to: [http, task]
-
-  plugin.install_digest_mismatch:
-    code: plugin.install_digest_mismatch
-    domain: plugin
-    message: 插件包与检查结果不一致
-    description: The package digest no longer matches the inspected package and installation was rejected.
-    http_status: 409
-    retryable: false
-    applies_to: [http, task]
-
   plugin.artifact_invalid:
     code: plugin.artifact_invalid
     domain: plugin

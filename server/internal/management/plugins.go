@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
@@ -33,59 +32,9 @@ type pluginTaskAcceptedResponse struct {
 }
 
 type pluginInstallRequest struct {
-	InspectionID         string `json:"inspection_id"`
-	PackageSHA256        string `json:"package_sha256"`
+	SourceType           string `json:"source_type"`
+	Source               string `json:"source"`
 	TrustedCodeConfirmed bool   `json:"trusted_code_confirmed"`
-}
-
-type pluginInstallInspectionRequest struct {
-	SourceType string `json:"source_type"`
-	Source     string `json:"source"`
-}
-
-type pluginInstallSourceResponse struct {
-	SourceType string `json:"source_type"`
-	Source     string `json:"source"`
-}
-
-type pluginInstallInspectionPluginResponse struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	Author      string `json:"author"`
-	License     string `json:"license"`
-	SourceLabel string `json:"source_label"`
-}
-
-type pluginInstallInspectionResponse struct {
-	InspectionID   string                                `json:"inspection_id"`
-	ExpiresAt      time.Time                             `json:"expires_at"`
-	PackageSHA256  string                                `json:"package_sha256"`
-	Source         pluginInstallSourceResponse           `json:"source"`
-	Plugin         pluginInstallInspectionPluginResponse `json:"plugin"`
-	Permissions    map[string]bool                       `json:"permissions"`
-	TargetPlatform string                                `json:"target_platform"`
-	Backend        pluginInstallBackendResponse          `json:"backend"`
-	UI             pluginInstallUIResponse               `json:"ui"`
-	Artifact       pluginArtifactValidationResponse      `json:"artifact"`
-}
-
-type pluginInstallBackendResponse struct {
-	Entry string `json:"entry"`
-	Path  string `json:"path"`
-	Size  int64  `json:"size"`
-}
-
-type pluginInstallUIResponse struct {
-	Enabled   bool   `json:"enabled"`
-	Entry     string `json:"entry,omitempty"`
-	FileCount int    `json:"file_count"`
-}
-
-type pluginArtifactValidationResponse struct {
-	Valid           bool   `json:"valid"`
-	ArtifactVersion string `json:"artifact_version"`
-	FileCount       int    `json:"file_count"`
 }
 
 type DesiredStateController interface {
@@ -125,7 +74,6 @@ func registerPluginReadRoutes(router chi.Router, catalog plugins.CatalogView) {
 }
 
 func registerPluginInstallRoutes(router chi.Router, catalog plugins.CatalogView, installer plugins.InstallCoordinator) {
-	router.Post("/api/plugins/install/inspect", newInstallInspectHandler(catalog, installer))
 	router.Post("/api/plugins/install", newInstallHandler(installer))
 }
 
@@ -188,86 +136,24 @@ func newDetailHandler(catalog plugins.CatalogView) http.HandlerFunc {
 	}
 }
 
-func newInstallInspectHandler(catalog plugins.CatalogView, installer plugins.InstallCoordinator) http.HandlerFunc {
+func newInstallHandler(installer plugins.InstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req pluginInstallInspectionRequest
+		var req pluginInstallRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil || !validPluginInstallSource(req.SourceType, req.Source) {
 			httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
-		inspector, ok := installer.(plugins.InstallInspector)
-		if !ok || inspector == nil {
-			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
-			return
-		}
-		inspection, err := inspector.Inspect(r.Context(), plugins.InstallRequest{
-			SourceType:          req.SourceType,
-			Source:              req.Source,
-			TrustedCodeRequired: true,
-		})
-		if err != nil {
-			writePluginInstallError(w, r, err)
-			return
-		}
-		if _, exists := catalog.Get(inspection.PluginID); exists {
-			httpapi.WriteError(w, r, errorcodes.PluginInstallFailed, map[string]any{"plugin_id": inspection.PluginID})
-			return
-		}
-		httpapi.WriteJSON(w, http.StatusOK, buildInstallInspectionResponse(inspection))
-	}
-}
-
-func buildInstallInspectionResponse(inspection plugins.InstallInspection) pluginInstallInspectionResponse {
-	return pluginInstallInspectionResponse{
-		InspectionID:  inspection.InspectionID,
-		ExpiresAt:     inspection.ExpiresAt,
-		PackageSHA256: inspection.PackageSHA256,
-		Source: pluginInstallSourceResponse{
-			SourceType: inspection.SourceType,
-			Source:     inspection.Source,
-		},
-		Plugin: pluginInstallInspectionPluginResponse{
-			ID:          inspection.PluginID,
-			Name:        inspection.PluginName,
-			Version:     inspection.Version,
-			Author:      inspection.Author,
-			License:     inspection.License,
-			SourceLabel: inspection.SourceLabel,
-		},
-		Permissions:    plugins.ClonePermissions(inspection.Permissions),
-		TargetPlatform: inspection.TargetPlatform,
-		Backend: pluginInstallBackendResponse{
-			Entry: inspection.Backend.Entry,
-			Path:  inspection.Backend.Path,
-			Size:  inspection.Backend.Size,
-		},
-		UI:       pluginInstallUIResponse{Enabled: inspection.UI.Enabled, Entry: inspection.UI.Entry, FileCount: inspection.UI.FileCount},
-		Artifact: pluginArtifactValidationResponse{Valid: inspection.Artifact.Valid, ArtifactVersion: inspection.Artifact.Version, FileCount: inspection.Artifact.FileCount},
-	}
-}
-
-func newInstallHandler(installer plugins.InstallCoordinator) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req pluginInstallRequest
-		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
-			return
-		}
-
 		if !req.TrustedCodeConfirmed {
 			writePluginInstallError(w, r, plugins.ErrTrustedCodeConfirmation)
 			return
 		}
-		if strings.TrimSpace(req.InspectionID) == "" || strings.TrimSpace(req.PackageSHA256) == "" {
-			writePluginInstallError(w, r, plugins.ErrInstallInspectionRequired)
-			return
-		}
 
 		if installer != nil {
-			taskID, err := installer.Accept(r.Context(), plugins.InstallAcceptance{
-				InspectionID:         req.InspectionID,
-				PackageSHA256:        req.PackageSHA256,
-				TrustedCodeConfirmed: req.TrustedCodeConfirmed,
+			taskID, err := installer.Accept(r.Context(), plugins.InstallRequest{
+				SourceType:           req.SourceType,
+				Source:               req.Source,
+				TrustedCodeRequired:  true,
+				TrustedCodeConfirmed: true,
 			})
 			if err != nil {
 				writePluginInstallError(w, r, err)
@@ -292,12 +178,6 @@ func writePluginInstallError(w http.ResponseWriter, r *http.Request, err error) 
 		httpapi.WriteError(w, r, errorcodes.PlatformTaskQueueFull, nil)
 	case errors.Is(err, plugins.ErrTrustedCodeConfirmation):
 		httpapi.WriteError(w, r, errorcodes.PluginTrustedCodeConfirmationRequired, nil)
-	case errors.Is(err, plugins.ErrInstallInspectionExpired):
-		httpapi.WriteError(w, r, errorcodes.PluginInstallInspectionExpired, nil)
-	case errors.Is(err, plugins.ErrInstallDigestMismatch):
-		httpapi.WriteError(w, r, errorcodes.PluginInstallDigestMismatch, nil)
-	case errors.Is(err, plugins.ErrInstallInspectionRequired):
-		httpapi.WriteError(w, r, errorcodes.PluginInstallInspectionRequired, nil)
 	case pluginservice.InstallErrorCode(err) == errorcodes.PluginPackageResourceLimitExceeded:
 		httpapi.WriteError(w, r, errorcodes.PluginPackageResourceLimitExceeded, nil)
 	case pluginservice.InstallErrorCode(err) == errorcodes.PluginPackageUnsafeEntry:

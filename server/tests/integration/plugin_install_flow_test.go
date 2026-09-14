@@ -71,42 +71,9 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	inspectionBody, err := json.Marshal(map[string]any{
-		"source_type": "local_directory",
-		"source":      sourceDir,
-	})
-	if err != nil {
-		t.Fatalf("marshal install inspection request: %v", err)
-	}
-
-	inspectionRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api/plugins/install/inspect", bytes.NewReader(inspectionBody))
-	if err != nil {
-		t.Fatalf("create install inspection request: %v", err)
-	}
-	inspectionRequest.Header.Set("Authorization", "Bearer "+token)
-	inspectionRequest.Header.Set("Content-Type", "application/json")
-
-	inspectionResponse, err := server.Client().Do(inspectionRequest)
-	if err != nil {
-		t.Fatalf("perform install inspection request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(inspectionResponse.Body.Close)
-	if inspectionResponse.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected install inspection status: got %d want 200", inspectionResponse.StatusCode)
-	}
-	inspection := decodeBody(t, readAll(t, inspectionResponse))
-	inspectionID, ok := inspection["inspection_id"].(string)
-	if !ok || inspectionID == "" {
-		t.Fatalf("unexpected install inspection id: %#v", inspection)
-	}
-	packageSHA256, ok := inspection["package_sha256"].(string)
-	if !ok || packageSHA256 == "" {
-		t.Fatalf("unexpected install package digest: %#v", inspection)
-	}
-
 	requestBody, err := json.Marshal(map[string]any{
-		"inspection_id":          inspectionID,
-		"package_sha256":         packageSHA256,
+		"source_type":            "local_directory",
+		"source":                 sourceDir,
 		"trusted_code_confirmed": true,
 	})
 	if err != nil {

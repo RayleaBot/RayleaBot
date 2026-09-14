@@ -120,67 +120,33 @@ func TestServiceRejectsInvalidCustomSource(t *testing.T) {
 	}
 }
 
-func TestServiceInspectionRequiresConfirmationOnlyForNewTrust(t *testing.T) {
+func TestServiceInstallRequiresConfirmationOnlyForNewTrust(t *testing.T) {
 	platform, err := pluginartifact.CurrentPlatform()
 	if err != nil {
 		t.Fatal(err)
 	}
 	payload := catalogJSON(platform)
 	repository := newMemoryRepository(payload)
-	installer := &stubInstaller{inspection: plugins.InstallInspection{
-		InspectionID:  strings.Repeat("a", 64),
-		ExpiresAt:     time.Now().Add(time.Minute),
-		PackageSHA256: strings.Repeat("b", 64),
-		PluginID:      "raylea.echo",
-		PluginName:    "Echo",
-		Version:       "0.4.0",
-		Permissions:   map[string]bool{"message.send": true},
-	}}
+	installer := &stubInstaller{}
 	service := newTestService(t, emptyCatalog{}, installer, repository, staticCatalogTransport(payload))
-	first, err := service.Inspect(context.Background(), InspectionRequest{SourceID: OfficialSourceID, PluginID: "raylea.echo"})
-	if err != nil {
+	listed, err := service.List(Query{SourceID: OfficialSourceID})
+	if err != nil || len(listed.Items) != 1 || len(listed.Items[0].ConfirmationReasons) != 1 || listed.Items[0].ConfirmationReasons[0] != "first_install" {
+		t.Fatalf("first install reasons = %#v, %v", listed.Items, err)
+	}
+	if _, err := service.Install(context.Background(), InstallRequest{PluginID: "raylea.echo", SourceID: OfficialSourceID}); !errors.Is(err, plugins.ErrTrustedCodeConfirmation) || installer.accepted.Source != "" {
+		t.Fatalf("unconfirmed install error = %v, request = %#v", err, installer.accepted)
+	}
+	if _, err := service.Install(context.Background(), InstallRequest{PluginID: "raylea.echo", SourceID: OfficialSourceID, TrustedCodeConfirmed: true}); err != nil {
 		t.Fatal(err)
 	}
-	if !first.ConfirmationRequired || len(first.ConfirmationReasons) != 1 || first.ConfirmationReasons[0] != "first_install" {
-		t.Fatalf("first inspection = %#v", first)
-	}
-	if _, err := service.Install(context.Background(), InstallRequest{
-		PluginID:      "raylea.echo",
-		InspectionID:  first.Inspection.InspectionID,
-		PackageSHA256: first.Inspection.PackageSHA256,
-	}); !errors.Is(err, plugins.ErrTrustedCodeConfirmation) {
-		t.Fatalf("unconfirmed install error = %v", err)
+	if installer.accepted.ExpectedPluginID != "raylea.echo" || installer.accepted.ExpectedVersion != "0.4.0" || installer.accepted.ResolvedSourceType != "remote_url" {
+		t.Fatalf("store install request = %#v", installer.accepted)
 	}
 
-	installed := fixedCatalog{snapshot: plugins.Snapshot{
-		PluginID: "raylea.echo", Version: "0.3.0", PackageSourceType: "catalog", PackageSourceRef: OfficialSourceID,
-		Permissions: map[string]bool{"message.send": true},
-	}}
-	installer = &stubInstaller{inspection: installer.inspection}
-	service = newTestService(t, installed, installer, repository, staticCatalogTransport(payload))
-	update, err := service.Inspect(context.Background(), InspectionRequest{SourceID: OfficialSourceID, PluginID: "raylea.echo"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if update.ConfirmationRequired {
-		t.Fatalf("same-source update unexpectedly requires confirmation: %#v", update)
-	}
-	if _, err := service.Install(context.Background(), InstallRequest{
-		PluginID:      "raylea.echo",
-		InspectionID:  update.Inspection.InspectionID,
-		PackageSHA256: update.Inspection.PackageSHA256,
-	}); err != nil {
+	installed := fixedCatalog{snapshot: plugins.Snapshot{PluginID: "raylea.echo", Version: "0.3.0", PackageSourceType: "catalog", PackageSourceRef: OfficialSourceID}}
+	service = newTestService(t, installed, &stubInstaller{}, repository, staticCatalogTransport(payload))
+	if _, err := service.Install(context.Background(), InstallRequest{PluginID: "raylea.echo", SourceID: OfficialSourceID}); err != nil {
 		t.Fatalf("same-source update failed: %v", err)
-	}
-}
-
-func TestPermissionsExpanded(t *testing.T) {
-	current := map[string]bool{"http.request": true}
-	if permissionsExpanded(current, map[string]bool{"http.request": true}) {
-		t.Fatal("unchanged permission was classified as expansion")
-	}
-	if !permissionsExpanded(current, map[string]bool{"http.request": true, "message.send": true}) {
-		t.Fatal("new permission was not classified as expansion")
 	}
 }
 
@@ -312,19 +278,11 @@ func staticCatalogTransport(payload []byte) http.RoundTripper {
 }
 
 type stubInstaller struct {
-	inspection plugins.InstallInspection
-	accepted   plugins.InstallAcceptance
+	accepted plugins.InstallRequest
 }
 
-func (s *stubInstaller) Inspect(_ context.Context, request plugins.InstallRequest) (plugins.InstallInspection, error) {
-	inspection := s.inspection
-	inspection.SourceType = request.SourceType
-	inspection.Source = request.Source
-	return inspection, nil
-}
-
-func (s *stubInstaller) Accept(_ context.Context, acceptance plugins.InstallAcceptance) (string, error) {
-	s.accepted = acceptance
+func (s *stubInstaller) Accept(_ context.Context, request plugins.InstallRequest) (string, error) {
+	s.accepted = request
 	return "task-1", nil
 }
 

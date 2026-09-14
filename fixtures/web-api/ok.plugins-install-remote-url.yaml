@@ -5,8 +5,8 @@ request:
   method: POST
   path: /api/plugins/install
   body:
-    inspection_id: inspection_fixture_weather_remote_0003
-    package_sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    source_type: remote_url
+    source: https://example.com/plugins/weather-1.0.0-windows-x64.zip
     trusted_code_confirmed: true
 response:
   status: 202
@@ -17,4 +17,4 @@ expect:
   notes:
     - The server downloads the ZIP archive before proceeding with the same install pipeline.
     - Only HTTPS URLs are accepted.
-    - The byte-identical package must have been inspected and explicitly trusted.
+    - The request confirms that the plugin runs as fully trusted local code.

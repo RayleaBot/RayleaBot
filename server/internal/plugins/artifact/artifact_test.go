@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestVerifyAcceptsCurrentPlatformAndRejectsBrokenEntry(t *testing.T) {
+func TestVerifyAcceptsCurrentPlatformAndRejectsMissingEntry(t *testing.T) {
 	root := makeTestArtifact(t, true)
 	platform, err := CurrentPlatform()
 	if err != nil {
@@ -22,11 +22,11 @@ func TestVerifyAcceptsCurrentPlatformAndRejectsBrokenEntry(t *testing.T) {
 	if verified.Manifest.ID != "artifact-test" || !verified.UIAvailable || len(verified.UIEntries) != 1 {
 		t.Fatalf("unexpected verified artifact: %#v", verified)
 	}
-	if err := os.WriteFile(verified.BackendPath, []byte("broken executable"), 0o755); err != nil {
+	if err := os.Remove(verified.BackendPath); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Verify(root, Options{ExpectedPlatform: platform}); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("broken entry Verify() error = %v, want ErrInvalid", err)
+		t.Fatalf("missing entry Verify() error = %v, want ErrInvalid", err)
 	}
 }
 

@@ -66,8 +66,8 @@ func taskStatusPtr(status tasks.Status) *tasks.Status {
 	return &status
 }
 
-func (s *InstallService) cleanupInstallInspection(job installJob, cause error) error {
-	if job.inspection == nil {
+func (s *InstallService) cleanupInstallCandidate(job installJob, cause error) error {
+	if job.candidate == nil {
 		return cause
 	}
 	var failure *operationError
@@ -76,7 +76,7 @@ func (s *InstallService) cleanupInstallInspection(job installJob, cause error) e
 	if failure != nil && failure.state == "rollback_failed" {
 		return cause
 	}
-	cleanupErr := s.deps.removeAll(job.inspection.workingRoot)
+	cleanupErr := s.deps.removeAll(job.candidate.workingRoot)
 	if cleanupErr == nil {
 		return cause
 	}
@@ -109,7 +109,7 @@ func (s *InstallService) reportInstallResult(job installJob, pluginName string, 
 			FinishedAt: &now,
 			Result: &tasks.ResultSummary{
 				Summary: "插件“" + pluginName + "”安装完成",
-				Details: map[string]any{"plugin_id": job.inspection.snapshot.PluginID, "plugin_name": pluginName, "source_type": job.request.SourceType, "source_ref": job.request.Source},
+				Details: map[string]any{"plugin_id": job.candidate.snapshot.PluginID, "plugin_name": pluginName, "source_type": job.request.SourceType, "source_ref": job.request.Source},
 			},
 		})
 	case errors.Is(err, context.Canceled):

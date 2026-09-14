@@ -33,7 +33,7 @@
 ## 安装、升级与卸载
 
 - 插件安装、卸载和重载统一走后台任务模型。
-- 安装只接受单根目录 ZIP 或已经构建好的 artifact 目录。安装器先校验 manifest v3、artifact v2、最低 Core 版本、实际文件、资源上限、平台、后端二进制格式、Unix executable bit 和 UI 入口，再原子替换目标目录。
+- 安装只接受单根目录 ZIP 或已经构建好的 artifact 目录。安装器先校验 manifest v3、artifact v2、最低 Core 版本、实际文件、资源上限、平台和 UI 入口，设置 Unix 平台入口的可执行位，再原子替换目标目录。
 - 商店安装额外校验目录中的归档摘要、插件 ID、版本和来源身份；首次安装、来源变化或权限扩大时，Web 必须取得用户对本机原生代码的显式确认。
 - manifest v2、artifact v1、错误平台、篡改文件、错误二进制、缺失 UI 文件及包含额外文件的包都会被拒绝。
 - 升级重新执行完整 artifact 校验，并重新读取 permissions。启用插件的新包完成初始化后，安装任务才成功；后处理失败时尝试恢复旧包、旧 package metadata、旧模板和原 desired state。

@@ -90,10 +90,10 @@ func artifactPlatformForTest(t *testing.T) string {
 	return platform
 }
 
-func TestBuildSpecRejectsBrokenArtifactEntry(t *testing.T) {
+func TestBuildSpecRejectsMissingArtifactEntry(t *testing.T) {
 	_, snapshot := runtimeTestArtifact(t)
 	entryPath := snapshot.PackageRootPath + string(filepath.Separator) + filepath.FromSlash(runtimeBackendRelative(t))
-	if err := os.WriteFile(entryPath, []byte("not an executable"), 0o755); err != nil {
+	if err := os.Remove(entryPath); err != nil {
 		t.Fatal(err)
 	}
 	_, err := BuildSpec(snapshot, "", minimalRuntimeConfig())

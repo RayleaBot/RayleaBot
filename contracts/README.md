@@ -42,7 +42,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已固定的管理 HTTP 接口
-  - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot、OneBot target / identity resolution、plugin lifecycle、插件商店、安装检查与可信代码确认、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system / metrics、scheduler、recovery、runtime bootstrap、render templates 以及更新状态与检查入口
+  - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot、OneBot target / identity resolution、plugin lifecycle、插件商店、可信代码确认与安装、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system / metrics、scheduler、recovery、runtime bootstrap、render templates 以及更新状态与检查入口
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
   - 黑白名单条目必须携带 `scope`。`global` 只允许 `onebot11`，`source_adapter` 与 `bot_id` 均为空；`instance` 必须同时提供协议、实例 ID 和 bot ID。读取聚合所有作用域，写入与删除按完整作用域定位；实例规则与同协议的全局规则均可命中。白名单启用开关仍作用于整个服务。
@@ -62,7 +62,7 @@
   - command `permission` 省略时使用 `permission.default_level`
 - `plugin-artifact.schema.json`
   - artifact v2 的目标平台与原生入口边界
-  - `artifact.json` 不重复插件身份或文件清单；安装器扫描实际内容并检查路径、入口与二进制格式
+  - `artifact.json` 不重复插件身份或文件清单；安装器扫描实际内容并检查路径与入口
 - `plugin-store-catalog.schema.json`
   - 官方或自定义静态商店目录结构，固定当前版本、最低核心版本和可用平台的资产 URL 与归档摘要
   - 官方身份只能由默认官方来源和安装元数据授予，不能由插件 manifest、目录名或仓库名推断

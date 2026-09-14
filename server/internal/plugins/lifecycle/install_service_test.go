@@ -36,7 +36,7 @@ func TestInstallServiceInstallsLocalDirectoryAndRefreshesCatalog(t *testing.T) {
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
 	defer func(release func() error) { _ = release() }(service.Close)
 
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
+	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -104,7 +104,7 @@ func TestInstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 		return nil
 	})
 
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
+	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -147,7 +147,7 @@ func TestInstallServiceFailsWhenAfterSuccessCallbackFails(t *testing.T) {
 		return fmt.Errorf("sync plugin render template callback-fail-weather: source conflict")
 	})
 
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
+	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -184,7 +184,7 @@ func TestInstallServiceAtomicallyReplacesInstalledPlugin(t *testing.T) {
 	defer func(release func() error) { _ = release() }(service.Close)
 
 	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "replace-initial"), "replace-weather")
-	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
+	initialTask, err := acceptInstall(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
 	if err != nil {
 		t.Fatalf("install initial plugin: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestInstallServiceAtomicallyReplacesInstalledPlugin(t *testing.T) {
 	setUpdatedInstallSourceVersion(t, replacement)
 	stopped := make(chan string, 1)
 	service.SetBeforeReplace(func(_ context.Context, pluginID string) error { stopped <- pluginID; return nil })
-	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
+	replaceTask, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
 		ResolvedSource: replacement, ReplaceExisting: true,
 	})
@@ -230,7 +230,7 @@ func TestInstallServiceRestoresLastGoodPluginAndMetadataWhenReplacementFinalizat
 	defer func(release func() error) { _ = release() }(service.Close)
 
 	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rollback-initial"), "rollback-weather")
-	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
+	initialTask, err := acceptInstall(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
 	if err != nil {
 		t.Fatalf("install initial plugin: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestInstallServiceRestoresLastGoodPluginAndMetadataWhenReplacementFinalizat
 	rolledBack := make(chan string, 1)
 	service.SetAfterRollback(func(_ context.Context, pluginID string) error { rolledBack <- pluginID; return nil })
 	service.SetAfterSuccess(func(context.Context, string) error { return errors.New("template finalization failed") })
-	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
+	replaceTask, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
 		ResolvedSource: replacement, ReplaceExisting: true,
 	})
@@ -281,7 +281,7 @@ func TestInstallServiceResumesLastGoodPluginWhenReplacementRenameFails(t *testin
 	defer func(release func() error) { _ = release() }(service.Close)
 
 	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rename-rollback-initial"), "rename-rollback-weather")
-	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
+	initialTask, err := acceptInstall(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
 	if err != nil {
 		t.Fatalf("install initial plugin: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestInstallServiceResumesLastGoodPluginWhenReplacementRenameFails(t *testin
 
 	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rename-rollback-next"), "rename-rollback-weather")
 	setUpdatedInstallSourceVersion(t, replacement)
-	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
+	replaceTask, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
 		ResolvedSource: replacement, ReplaceExisting: true,
 	})
@@ -340,7 +340,7 @@ func TestInstallServiceRetriesTransientReplacementRename(t *testing.T) {
 	defer func(release func() error) { _ = release() }(service.Close)
 
 	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "retry-initial"), "retry-weather")
-	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
+	initialTask, err := acceptInstall(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
 	if err != nil {
 		t.Fatalf("install initial plugin: %v", err)
 	}
@@ -362,7 +362,7 @@ func TestInstallServiceRetriesTransientReplacementRename(t *testing.T) {
 
 	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "retry-next"), "retry-weather")
 	setUpdatedInstallSourceVersion(t, replacement)
-	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
+	replaceTask, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
 		ResolvedSource: replacement, ReplaceExisting: true,
 	})
@@ -429,7 +429,7 @@ func TestInstallServiceInstallsLocalZip(t *testing.T) {
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer func(release func() error) { _ = release() }(service.Close)
 
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
+	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "local_zip",
 		Source:     archivePath,
 	})
@@ -464,7 +464,7 @@ func TestInstallServiceRejectsCatalogArchiveMismatch(t *testing.T) {
 			registry := tasks.NewRegistry()
 			service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 			defer func(release func() error) { _ = release() }(service.Close)
-			_, err := service.Inspect(context.Background(), plugins.InstallRequest{
+			_, err := service.Accept(context.Background(), plugins.InstallRequest{
 				SourceType:            "catalog",
 				Source:                "official/catalog-integrity-weather@0.1.0/windows-x64",
 				ResolvedSourceType:    "local_zip",
@@ -472,7 +472,7 @@ func TestInstallServiceRejectsCatalogArchiveMismatch(t *testing.T) {
 				ExpectedArchiveSHA256: testCase.expectedHash,
 			})
 			if InstallErrorCode(err) != "plugin.store_integrity_mismatch" {
-				t.Fatalf("Inspect() error = %v, want plugin.store_integrity_mismatch", err)
+				t.Fatalf("Accept() error = %v, want plugin.store_integrity_mismatch", err)
 			}
 		})
 	}
@@ -489,7 +489,7 @@ func TestInstallServiceMapsRemoteDownloadLimitToStableError(t *testing.T) {
 	})
 	defer func(release func() error) { _ = release() }(service.Close)
 
-	_, err := service.Inspect(context.Background(), plugins.InstallRequest{
+	_, err := service.Accept(context.Background(), plugins.InstallRequest{
 		SourceType: "remote_url",
 		Source:     "https://downloads.example/plugin.zip",
 	})
@@ -501,36 +501,24 @@ func TestInstallServiceMapsRemoteDownloadLimitToStableError(t *testing.T) {
 	}
 }
 
-func TestInstallServiceBindsAcceptanceToInspectionDigestAndTrust(t *testing.T) {
+func TestInstallServiceRequiresTrustedCodeConfirmationBeforeReadingPackage(t *testing.T) {
 	t.Parallel()
 
 	registry := tasks.NewRegistry()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "inspect-src"), "inspect-weather")
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "trust-src"), "trust-weather")
 	service, _ := newInstallTestService(t, t.TempDir(), registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer func(release func() error) { _ = release() }(service.Close)
 
 	request := plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir, TrustedCodeRequired: true}
-	inspection, err := service.Inspect(context.Background(), request)
-	if err != nil {
-		t.Fatalf("Inspect failed: %v", err)
-	}
-	acceptance := plugins.InstallAcceptance{InspectionID: inspection.InspectionID, PackageSHA256: inspection.PackageSHA256}
-	if _, err := service.Accept(context.Background(), acceptance); !errors.Is(err, plugins.ErrTrustedCodeConfirmation) {
-		t.Fatalf("untrusted acceptance error = %v", err)
-	}
-
-	acceptance.TrustedCodeConfirmed = true
-	acceptance.PackageSHA256 = strings.Repeat("f", 64)
-	if _, err := service.Accept(context.Background(), acceptance); !errors.Is(err, plugins.ErrInstallDigestMismatch) {
-		t.Fatalf("digest mismatch error = %v", err)
+	if _, err := service.Accept(context.Background(), request); !errors.Is(err, plugins.ErrTrustedCodeConfirmation) {
+		t.Fatalf("untrusted install error = %v", err)
 	}
 	if len(registry.List()) != 0 {
-		t.Fatal("rejected inspection created a task")
+		t.Fatal("unconfirmed install created a task")
 	}
-
-	acceptance.PackageSHA256 = inspection.PackageSHA256
-	if _, err := service.Accept(context.Background(), acceptance); err != nil {
-		t.Fatalf("accept inspected package: %v", err)
+	request.TrustedCodeConfirmed = true
+	if _, err := service.Accept(context.Background(), request); err != nil {
+		t.Fatalf("accept confirmed package: %v", err)
 	}
 }
 
@@ -556,17 +544,17 @@ func TestInstallServiceRejectsFullQueueBeforeTaskCreation(t *testing.T) {
 	})
 
 	request := plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir}
-	if _, err := acceptInspected(t, service, request); err != nil {
+	if _, err := acceptInstall(t, service, request); err != nil {
 		t.Fatalf("submit running install: %v", err)
 	}
 	<-started
 	for index := 0; index < 32; index++ {
-		if _, err := acceptInspected(t, service, request); err != nil {
+		if _, err := acceptInstall(t, service, request); err != nil {
 			t.Fatalf("submit queued install %d: %v", index, err)
 		}
 	}
 	before := len(registry.List())
-	if _, err := acceptInspected(t, service, request); !errors.Is(err, tasks.ErrQueueFull) {
+	if _, err := acceptInstall(t, service, request); !errors.Is(err, tasks.ErrQueueFull) {
 		t.Fatalf("queue-full error = %v, want tasks.ErrQueueFull", err)
 	}
 	if after := len(registry.List()); after != before {
@@ -676,7 +664,7 @@ func TestInstallServiceRejectsInvalidRenderTemplatePackage(t *testing.T) {
 	})
 	defer func(release func() error) { _ = release() }(service.Close)
 
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
+	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -706,7 +694,7 @@ func TestInstallServiceInstallsRenderTemplatePackage(t *testing.T) {
 	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
 	defer func(release func() error) { _ = release() }(service.Close)
 
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
+	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -740,7 +728,7 @@ func TestInstallServiceRejectsInvalidRenderTemplateManifest(t *testing.T) {
 	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
 	defer func(release func() error) { _ = release() }(service.Close)
 
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
+	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -774,7 +762,7 @@ func TestInstallServiceFailsDuplicatePluginID(t *testing.T) {
 	service, _ := newInstallTestService(t, repoRoot, registry, existing, &stubInstallRepository{}, installerDeps{})
 	defer func(release func() error) { _ = release() }(service.Close)
 
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
+	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -810,7 +798,7 @@ func TestInstallServiceCancelsRunningTask(t *testing.T) {
 	})
 	defer func(release func() error) { _ = release() }(service.Close)
 
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
+	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
 		Source:     sourceDir,
 	})
@@ -859,9 +847,9 @@ func TestInstallServiceRejectsLegacyRuntimeManifest(t *testing.T) {
 
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer func(release func() error) { _ = release() }(service.Close)
-	_, err = service.Inspect(context.Background(), plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir})
+	_, err = service.Accept(context.Background(), plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir})
 	if InstallErrorCode(err) != "plugin.contract_unsupported" {
-		t.Fatalf("Inspect() error = %v, want plugin.contract_unsupported", err)
+		t.Fatalf("Accept() error = %v, want plugin.contract_unsupported", err)
 	}
 }
 
@@ -889,9 +877,9 @@ func TestInstallServiceRejectsIncompatibleMinimumCoreVersion(t *testing.T) {
 
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer func(release func() error) { _ = release() }(service.Close)
-	_, err = service.Inspect(context.Background(), plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir})
+	_, err = service.Accept(context.Background(), plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir})
 	if InstallErrorCode(err) != "plugin.core_version_incompatible" {
-		t.Fatalf("Inspect() error = %v, want plugin.core_version_incompatible", err)
+		t.Fatalf("Accept() error = %v, want plugin.core_version_incompatible", err)
 	}
 }
 
@@ -943,7 +931,7 @@ func TestInstallRejectsUnknownCoreVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "weather"), "weather")
-	_, err := service.Inspect(t.Context(), plugins.InstallRequest{SourceType: "local_directory", Source: source})
+	_, err := service.Accept(t.Context(), plugins.InstallRequest{SourceType: "local_directory", Source: source})
 	if InstallErrorCode(err) != "plugin.core_version_incompatible" {
 		t.Fatalf("unknown build accepted an installation: %v", err)
 	}
@@ -963,20 +951,12 @@ type stubInstallRepository struct {
 	deletedPackage string
 }
 
-func acceptInspected(t *testing.T, service *InstallService, request plugins.InstallRequest) (string, error) {
+func acceptInstall(t *testing.T, service *InstallService, request plugins.InstallRequest) (string, error) {
 	t.Helper()
 	if request.SourceType == "local_directory" {
 		refreshInstallArtifact(t, request.Source)
 	}
-	inspection, err := service.Inspect(context.Background(), request)
-	if err != nil {
-		return "", err
-	}
-	return service.Accept(context.Background(), plugins.InstallAcceptance{
-		InspectionID:         inspection.InspectionID,
-		PackageSHA256:        inspection.PackageSHA256,
-		TrustedCodeConfirmed: true,
-	})
+	return service.Accept(context.Background(), request)
 }
 
 func (r *stubInstallRepository) LoadDesiredStates(context.Context) (map[string]string, error) {

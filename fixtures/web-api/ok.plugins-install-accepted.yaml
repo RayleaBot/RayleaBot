@@ -5,8 +5,8 @@ request:
   method: POST
   path: /api/plugins/install
   body:
-    inspection_id: inspection_fixture_weather_local_0001
-    package_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    source_type: local_zip
+    source: C:/plugins/weather.zip
     trusted_code_confirmed: true
 response:
   status: 202

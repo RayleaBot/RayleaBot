@@ -3,7 +3,6 @@ package management
 import (
 	"context"
 	"encoding/json"
-	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -15,8 +14,8 @@ type testInstallCoordinator struct {
 	registry *tasks.Registry
 }
 
-func (c testInstallCoordinator) Accept(_ context.Context, _ plugins.InstallAcceptance) (string, error) {
-	return c.registry.Create("plugin.install", "install inspected plugin")
+func (c testInstallCoordinator) Accept(_ context.Context, _ plugins.InstallRequest) (string, error) {
+	return c.registry.Create("plugin.install", "install plugin")
 }
 
 func (testInstallCoordinator) Cancel(string) bool { return false }
@@ -31,8 +30,8 @@ func setupInstallRouter() (chi.Router, *tasks.Registry) {
 
 func trustedInstallRequest() pluginInstallRequest {
 	return pluginInstallRequest{
-		InspectionID:         strings.Repeat("i", 64),
-		PackageSHA256:        strings.Repeat("a", 64),
+		SourceType:           "local_zip",
+		Source:               "C:/plugins/weather.zip",
 		TrustedCodeConfirmed: true,
 	}
 }

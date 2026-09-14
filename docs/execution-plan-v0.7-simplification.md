@@ -139,7 +139,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 | R6 | 删除错误码本地化键与 Web 映射 | — | ☑️ 已完成 | 契约、样例、生成器与校验器同步；Server 构建、vet、lint、全量测试，Web 类型检查与受影响单测，strict contracts、生成器 verify 与 Python 测试通过 |
 | R7 | 删除密钥加密层并迁移到 `000003` | — | ☑️ 已完成 | secret 以明文保存在独立存储，迁移步骤支持 Go 函数，`000002 → 000003` 解密旧值并删除密钥行，解密失败时保留密钥与密文；备份清单接受 `000003`；Server 构建、vet、lint、全量测试，strict contracts、runtime schema verify 与文档检查通过 |
 | R8 | 逐帧校验仅限开发插件，删除 IPC 与日志限流配置 | — | ☑️ 已完成 | 宿主只对 development 来源插件校验入站帧，删除出站与 SDK 逐帧校验及 SDK 的校验生成物；删除 IPC 突发与待处理上限、初始化总预算和插件日志限流及其配置；Server 与 SDK 构建、vet、lint、测试，Web 类型检查与单测，strict contracts、生成器 verify 与文档检查通过 |
-| R9 | 安装合并为一次请求，删除检查时效与格式嗅探 | — | ⬜ 待处理 | |
+| R9 | 安装合并为一次请求，删除检查时效与格式嗅探 | — | ☑️ 已完成 | 本地与商店安装各为一次请求，删除检查接口、检查时效、三个错误码与二进制格式和可执行位嗅探，入口可执行位由安装器设置；商店条目提供首次安装与来源变化两种确认原因；Server 构建、vet、lint、全量测试，Web 类型检查与单测，strict contracts 与文档检查通过 |
 | P1 | 协议与 manifest 升为 v4，删除宿主权限体系 | R9 | ⬜ 待处理 | |
 | P2 | 删除 `http.request` 与 `http` 配置段 | P1 | ⬜ 待处理 | |
 | P3 | 删除 `storage.file`，注入插件数据目录 | P1 | ⬜ 待处理 | |

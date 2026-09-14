@@ -38,17 +38,10 @@ type catalogSnapshot struct {
 	entriesByID map[string]Entry
 }
 
-type pendingInspection struct {
-	pluginID             string
-	expiresAt            time.Time
-	confirmationRequired bool
-}
-
 type Service struct {
 	mu               sync.RWMutex
 	snapshots        map[string]catalogSnapshot
 	sources          map[string]Source
-	pending          map[string]pendingInspection
 	installed        plugins.CatalogView
 	installer        Installer
 	repository       Repository
@@ -84,7 +77,6 @@ func New(ctx context.Context, installed plugins.CatalogView, installer Installer
 	service := &Service{
 		snapshots:        make(map[string]catalogSnapshot, len(sources)),
 		sources:          make(map[string]Source, len(sources)),
-		pending:          make(map[string]pendingInspection),
 		installed:        installed,
 		installer:        installer,
 		repository:       repository,
@@ -228,7 +220,7 @@ func (s *Service) List(query Query) (ListResult, error) {
 		if !matchesQuery(entry, query) {
 			continue
 		}
-		items = append(items, s.projectEntry(entry, installed[entry.ID]))
+		items = append(items, s.projectEntry(entry, installed[entry.ID], s.confirmationReasons(snapshot.source.ID, entry.ID)))
 	}
 	sortEntryViews(items, query.Sort)
 	total := len(items)
@@ -261,7 +253,7 @@ func (s *Service) Get(sourceID, pluginID string) (DetailResult, bool) {
 		return DetailResult{}, false
 	}
 	installed := installedVersions(s.installed)
-	view := s.projectEntry(entry, installed[entry.ID])
+	view := s.projectEntry(entry, installed[entry.ID], s.confirmationReasons(snapshot.source.ID, entry.ID))
 	var currentRelease *ReleaseView
 	if entry.CurrentRelease != nil {
 		release := s.projectRelease(*entry.CurrentRelease)
@@ -290,138 +282,70 @@ func (s *Service) Refresh(ctx context.Context, sourceID string) (SourceView, err
 	return cloneSourceView(snapshot.status), nil
 }
 
-func (s *Service) Inspect(ctx context.Context, request InspectionRequest) (InspectionResult, error) {
+func (s *Service) Install(ctx context.Context, request InstallRequest) (string, error) {
 	if s.installer == nil {
-		return InspectionResult{}, errorWithCode(CodeCatalogUnavailable, ErrCatalogUnavailable)
+		return "", errorWithCode(CodeCatalogUnavailable, ErrCatalogUnavailable)
 	}
 	snapshot, ok := s.snapshot(request.SourceID)
 	if !ok {
-		return InspectionResult{}, ErrSourceNotFound
+		return "", ErrSourceNotFound
 	}
 	entry, ok := snapshot.entriesByID[strings.TrimSpace(request.PluginID)]
 	if !ok {
-		return InspectionResult{}, ErrEntryNotFound
+		return "", ErrEntryNotFound
 	}
 	release, asset, ok := s.resolveRelease(entry)
 	if !ok {
-		return InspectionResult{}, errorWithCode(CodeReleaseUnavailable, ErrReleaseUnavailable)
+		return "", errorWithCode(CodeReleaseUnavailable, ErrReleaseUnavailable)
 	}
-	installRequest := plugins.InstallRequest{
+	if len(s.confirmationReasons(snapshot.source.ID, entry.ID)) > 0 && !request.TrustedCodeConfirmed {
+		return "", plugins.ErrTrustedCodeConfirmation
+	}
+	return s.installer.Accept(ctx, plugins.InstallRequest{
 		SourceType:            "catalog",
 		Source:                snapshot.source.ID,
-		SourceLabel:           snapshot.source.Name,
 		ResolvedSourceType:    "remote_url",
 		ResolvedSource:        asset.URL,
 		ExpectedArchiveSHA256: asset.ArchiveSHA256,
+		ExpectedPluginID:      entry.ID,
+		ExpectedVersion:       release.Version,
 		ReplaceExisting:       s.pluginInstalled(entry.ID),
-		TrustedCodeRequired:   true,
-	}
-	inspection, err := s.installer.Inspect(ctx, installRequest)
-	if err != nil {
-		return InspectionResult{}, err
-	}
-	if inspection.PluginID != entry.ID || inspection.Version != release.Version {
-		return InspectionResult{}, errorWithCode(CodeIntegrityMismatch, ErrIntegrityMismatch)
-	}
-	reasons := s.confirmationReasons(snapshot.source.ID, inspection)
-	result := InspectionResult{
-		Inspection:           inspection,
-		ConfirmationRequired: len(reasons) > 0,
-		ConfirmationReasons:  reasons,
-	}
-	s.mu.Lock()
-	s.cleanupPendingLocked(s.options.Now().UTC())
-	s.pending[inspection.InspectionID] = pendingInspection{
-		pluginID:             entry.ID,
-		expiresAt:            inspection.ExpiresAt,
-		confirmationRequired: result.ConfirmationRequired,
-	}
-	s.mu.Unlock()
-	return result, nil
-}
-
-func (s *Service) Install(ctx context.Context, request InstallRequest) (string, error) {
-	s.mu.Lock()
-	s.cleanupPendingLocked(s.options.Now().UTC())
-	pending, ok := s.pending[strings.TrimSpace(request.InspectionID)]
-	if !ok {
-		s.mu.Unlock()
-		return "", plugins.ErrInstallInspectionRequired
-	}
-	if pending.pluginID != strings.TrimSpace(request.PluginID) {
-		s.mu.Unlock()
-		return "", plugins.ErrInstallDigestMismatch
-	}
-	if pending.confirmationRequired && !request.TrustedCodeConfirmed {
-		s.mu.Unlock()
-		return "", plugins.ErrTrustedCodeConfirmation
-	}
-	s.mu.Unlock()
-	taskID, err := s.installer.Accept(ctx, plugins.InstallAcceptance{
-		InspectionID:         request.InspectionID,
-		PackageSHA256:        request.PackageSHA256,
-		TrustedCodeConfirmed: true,
 	})
-	if err != nil {
-		return "", err
-	}
-	s.mu.Lock()
-	delete(s.pending, request.InspectionID)
-	s.mu.Unlock()
-	return taskID, nil
 }
 
-func (s *Service) confirmationReasons(sourceID string, inspection plugins.InstallInspection) []string {
+// confirmationReasons reports why installing an entry needs trusted-code
+// confirmation: a first install or a change of catalog source.
+func (s *Service) confirmationReasons(sourceID, pluginID string) []string {
 	if s.installed == nil {
 		return []string{"first_install"}
 	}
-	current, ok := s.installed.Get(inspection.PluginID)
+	current, ok := s.installed.Get(pluginID)
 	if !ok {
 		return []string{"first_install"}
 	}
-	reasons := make([]string, 0, 2)
 	if current.PackageSourceType != "catalog" || current.PackageSourceRef != sourceID {
-		reasons = append(reasons, "source_changed")
+		return []string{"source_changed"}
 	}
-	if permissionsExpanded(current.Permissions, inspection.Permissions) {
-		reasons = append(reasons, "permissions_expanded")
-	}
-	return reasons
+	return []string{}
 }
 
-func permissionsExpanded(current, next map[string]bool) bool {
-	for name := range next {
-		if !current[name] {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *Service) cleanupPendingLocked(now time.Time) {
-	for id, pending := range s.pending {
-		if !pending.expiresAt.After(now) {
-			delete(s.pending, id)
-		}
-	}
-}
-
-func (s *Service) projectEntry(entry Entry, installedVersion string) EntryView {
+func (s *Service) projectEntry(entry Entry, installedVersion string, confirmationReasons []string) EntryView {
 	view := EntryView{
-		ID:               entry.ID,
-		Name:             entry.Name,
-		Summary:          entry.Summary,
-		Description:      entry.Description,
-		Publisher:        entry.Publisher,
-		RepositoryURL:    entry.RepositoryURL,
-		Homepage:         entry.Homepage,
-		IconURL:          entry.IconURL,
-		License:          entry.License,
-		Keywords:         append([]string(nil), entry.Keywords...),
-		Recommended:      entry.Recommended,
-		Category:         entry.Category,
-		InstalledVersion: installedVersion,
-		InstallState:     "unpublished",
+		ID:                  entry.ID,
+		Name:                entry.Name,
+		Summary:             entry.Summary,
+		Description:         entry.Description,
+		Publisher:           entry.Publisher,
+		RepositoryURL:       entry.RepositoryURL,
+		Homepage:            entry.Homepage,
+		IconURL:             entry.IconURL,
+		License:             entry.License,
+		Keywords:            append([]string(nil), entry.Keywords...),
+		Recommended:         entry.Recommended,
+		Category:            entry.Category,
+		InstalledVersion:    installedVersion,
+		InstallState:        "unpublished",
+		ConfirmationReasons: confirmationReasons,
 	}
 	if entry.CurrentRelease == nil {
 		if installedVersion != "" {

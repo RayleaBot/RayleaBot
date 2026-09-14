@@ -26,6 +26,7 @@ response:
           compatible: true
           asset_available: true
         install_state: available
+        confirmation_reasons: [first_install]
     total: 1
     source:
       id: official

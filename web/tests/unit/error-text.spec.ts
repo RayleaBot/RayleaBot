@@ -12,9 +12,6 @@ describe('error text helpers', () => {
   it.each([
     ['platform.task_queue_full', 'errors.platform.task_queue_full'],
     ['plugin.install_failed', 'errors.plugin.install_failed'],
-    ['plugin.install_inspection_required', 'errors.plugin.install_inspection_required'],
-    ['plugin.install_inspection_expired', 'errors.plugin.install_inspection_expired'],
-    ['plugin.install_digest_mismatch', 'errors.plugin.install_digest_mismatch'],
     ['plugin.trusted_code_confirmation_required', 'errors.plugin.trusted_code_confirmation_required'],
     ['plugin.package_resource_limit_exceeded', 'errors.plugin.package_resource_limit_exceeded'],
     ['plugin.package_unsafe_entry', 'errors.plugin.package_unsafe_entry'],

@@ -47,7 +47,6 @@ export const fixtures = {
   pluginList: await readFixture('fixtures/web-api/ok.plugins-list-response.yaml'),
   pluginStoreList: await readFixture('fixtures/web-api/ok.plugin-store-list.yaml'),
   pluginStoreSources: await readFixture('fixtures/web-api/ok.plugin-store-sources.yaml'),
-  pluginStoreInspection: await readFixture('fixtures/web-api/ok.plugin-store-inspection.yaml'),
   pluginStoreSourceRefresh: await readFixture('fixtures/web-api/ok.plugin-store-source-refresh.yaml'),
   pluginDetail: await readFixture('fixtures/web-api/ok.plugin-detail-response.yaml'),
   pluginDetailManagementUI: await readFixture('fixtures/web-api/ok.plugin-detail-response.management-ui.yaml'),

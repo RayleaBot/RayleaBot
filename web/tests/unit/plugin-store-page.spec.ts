@@ -38,6 +38,7 @@ const echoPlugin = {
     asset_available: true,
   },
   install_state: 'available' as const,
+  confirmation_reasons: ['first_install' as const],
 }
 
 describe('PluginStoreView', () => {
@@ -45,7 +46,7 @@ describe('PluginStoreView', () => {
     setActivePinia(createPinia())
   })
 
-  it('shows inspected permissions before accepting a first installation', async () => {
+  it('confirms trusted code before a first installation', async () => {
     const store = usePluginStore()
     store.items = [echoPlugin]
     store.sources = [officialSource]
@@ -54,25 +55,6 @@ describe('PluginStoreView', () => {
     vi.spyOn(store, 'fetchSources').mockResolvedValue(store.sources)
     vi.spyOn(store, 'fetchEntries').mockResolvedValue({ items: store.items, total: 1, source: officialSource })
     vi.spyOn(store, 'refreshSource').mockResolvedValue(officialSource)
-    vi.spyOn(store, 'inspect').mockImplementation(async () => {
-      store.installing = { 'raylea.echo': true }
-      return {
-      inspection: {
-        inspection_id: 'i'.repeat(64),
-        expires_at: '2026-09-03T00:15:00Z',
-        package_sha256: 'a'.repeat(64),
-        source: { source_type: 'catalog', source: 'official' },
-        plugin: { id: 'raylea.echo', name: 'Echo', version: '0.4.0', author: 'raylea', license: 'MIT', source_label: 'RayleaBot 官方插件' },
-        permissions: { 'message.send': true },
-        target_platform: 'windows-x64',
-        backend: { entry: 'bin/raylea.echo.exe', path: 'bin/raylea.echo.exe', size: 1024 },
-        ui: { enabled: false, file_count: 0 },
-        artifact: { valid: true, artifact_version: '2', file_count: 4 },
-      },
-      confirmation_required: true,
-        confirmation_reasons: ['first_install'],
-      }
-    })
     const install = vi.spyOn(store, 'install').mockResolvedValue({ task_id: 'task-store-install' })
 
     const wrapper = mount(PluginStoreView, { global: { plugins: [getActivePinia()!] } })
@@ -81,15 +63,13 @@ describe('PluginStoreView', () => {
     await flushPromises()
 
     expect(install).not.toHaveBeenCalled()
-    expect(store.installing['raylea.echo']).toBe(false)
-    expect(document.body.textContent).toContain('message.send')
+    expect(document.body.textContent).toContain('首次安装')
     const okButton = document.body.querySelector('[role=dialog] button[data-variant=default]') as HTMLButtonElement
     okButton.click()
     await flushPromises()
 
     expect(install).toHaveBeenCalledWith('raylea.echo', {
-      inspection_id: 'i'.repeat(64),
-      package_sha256: 'a'.repeat(64),
+      source_id: 'official',
       trusted_code_confirmed: true,
     })
   })

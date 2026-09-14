@@ -10,8 +10,6 @@ import { usePluginsStore } from '@/stores/plugins'
 import type {
   PluginStoreDetailResponse,
   PluginStoreEntry,
-  PluginStoreInspectionRequest,
-  PluginStoreInspectionResponse,
   PluginStoreInstallRequest,
   PluginStoreListResponse,
   PluginStoreSource,
@@ -105,19 +103,6 @@ export const usePluginStore = defineStore('plugin-store', () => {
     return await apiRequest<PluginStoreDetailResponse>(apiPath('/api/plugin-store/plugins/{plugin_id}', { plugin_id: pluginId }, params))
   }
 
-  async function inspect(pluginId: string, payload: PluginStoreInspectionRequest) {
-    installing.value = { ...installing.value, [pluginId]: true }
-    try {
-      return await apiRequest<PluginStoreInspectionResponse>(
-        apiPath('/api/plugin-store/plugins/{plugin_id}/inspect', { plugin_id: pluginId }),
-        { method: 'POST', body: payload },
-      )
-    } catch (cause) {
-      installing.value = { ...installing.value, [pluginId]: false }
-      throw cause
-    }
-  }
-
   function install(pluginId: string, payload: PluginStoreInstallRequest): Promise<TaskAcceptedResponse> {
     const pending = installRequests.get(pluginId)
     if (pending) return pending
@@ -144,10 +129,6 @@ export const usePluginStore = defineStore('plugin-store', () => {
     })()
     installRequests.set(pluginId, request)
     return request
-  }
-
-  function finishInspection(pluginId: string) {
-    if (!installRequests.has(pluginId)) installing.value = { ...installing.value, [pluginId]: false }
   }
 
   async function refreshSource(sourceId: string) {
@@ -232,8 +213,6 @@ export const usePluginStore = defineStore('plugin-store', () => {
     loadMore,
     refreshEntries,
     fetchSources,
-    finishInspection,
-    inspect,
     install,
     refreshSource,
     saveSource,

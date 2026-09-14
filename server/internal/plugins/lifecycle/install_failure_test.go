@@ -23,7 +23,7 @@ func TestInstallRollbackFailuresRemainFailedAndRetainRecoveryFiles(t *testing.T)
 			service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 			t.Cleanup(func() { _ = service.Close() })
 			initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "initial"), "weather")
-			initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
+			initialTask, err := acceptInstall(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -32,11 +32,11 @@ func TestInstallRollbackFailuresRemainFailedAndRetainRecoveryFiles(t *testing.T)
 			}
 			next := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "next"), "weather")
 			setUpdatedInstallSourceVersion(t, next)
-			inspection, err := service.Inspect(t.Context(), plugins.InstallRequest{SourceType: "local_directory", Source: next, ReplaceExisting: true})
+			candidate, err := service.prepareCandidate(t.Context(), plugins.InstallRequest{SourceType: "local_directory", Source: next, ReplaceExisting: true})
 			if err != nil {
 				t.Fatal(err)
 			}
-			workdir := service.inspections[inspection.InspectionID].workingRoot
+			workdir := candidate.workingRoot
 			resumeCount := 0
 			service.SetAfterSuccess(func(context.Context, string) error { return context.Canceled })
 			service.SetAfterRollback(func(context.Context, string) error {
@@ -60,7 +60,7 @@ func TestInstallRollbackFailuresRemainFailedAndRetainRecoveryFiles(t *testing.T)
 				}
 				return nil
 			})
-			taskID, err := service.Accept(t.Context(), plugins.InstallAcceptance{InspectionID: inspection.InspectionID, PackageSHA256: inspection.PackageSHA256})
+			taskID, err := service.enqueue(candidate)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -97,7 +97,7 @@ func TestInstallCleanupFailureReportsCommitted(t *testing.T) {
 	})
 	t.Cleanup(func() { _ = service.Close() })
 	source := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "source"), "weather")
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: source})
+	taskID, err := acceptInstall(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: source})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,14 +117,13 @@ func TestInstallRollbackPreservesPrimaryAndRestorationCauses(t *testing.T) {
 	service, _ := newInstallTestService(t, t.TempDir(), tasks.NewRegistry(), nil, &stubInstallRepository{}, installerDeps{})
 	t.Cleanup(func() { _ = service.Close() })
 	source := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "source"), "weather")
-	inspection, err := service.Inspect(t.Context(), plugins.InstallRequest{SourceType: "local_directory", Source: source})
+	candidate, err := service.prepareCandidate(t.Context(), plugins.InstallRequest{SourceType: "local_directory", Source: source})
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry := service.inspections[inspection.InspectionID]
 	service.SetAfterSuccess(func(context.Context, string) error { return primary })
 	service.SetAfterRollback(func(context.Context, string) error { return restore })
-	err = service.runInstall(installJob{ctx: t.Context(), request: entry.request, inspection: entry})
+	err = service.runInstall(installJob{ctx: t.Context(), request: candidate.request, candidate: candidate})
 	if !errors.Is(err, primary) || !errors.Is(err, restore) {
 		t.Fatalf("lost primary or rollback cause: %v", err)
 	}

@@ -60,7 +60,7 @@ func TestManagementJSONRequestBoundaries(t *testing.T) {
 	})
 	system := NewSystemHandlers(diagnosticsTestSystem{})
 	market := PluginStoreRoutes{Service: emptyPluginStoreService{}}
-	installer := &inspectionInstaller{}
+	installer := &recordingInstaller{}
 	artifactRoot := t.TempDir()
 	artifact := filepath.Join(artifactRoot, "artifact")
 	if err := os.Mkdir(artifact, 0o755); err != nil {
@@ -89,10 +89,8 @@ func TestManagementJSONRequestBoundaries(t *testing.T) {
 		{name: "plugin secrets put", handler: ui.HandlePluginSecretsPut(), body: `{"values":{"fixture.key":"fixture-only-secret"}}`, status: 200},
 		{name: "plugin secrets delete", handler: ui.HandlePluginSecretsDelete(), body: `{"keys":["fixture.key"]}`, status: 200},
 		{name: "plugin action", handler: ui.HandlePluginManagementAction(), body: `{"action":"fixture","payload":` + dynamicValues + `}`, status: 200},
-		{name: "plugin inspect", handler: newInstallInspectHandler(catalog, installer), body: `{"source_type":"local_zip","source":"fixture.zip"}`, status: 200},
 		{name: "plugin install", handler: newInstallHandler(installer), body: string(installBody), status: 202},
-		{name: "store inspect", handler: market.inspect(), body: `{"source_id":"fixture"}`, status: 200},
-		{name: "store install", handler: market.install(), body: string(installBody), status: 202},
+		{name: "store install", handler: market.install(), body: `{"source_id":"fixture","trusted_code_confirmed":true}`, status: 202},
 		{name: "store create source", handler: market.createSource(), body: `{"name":"fixture","url":"https://example.invalid/catalog.json"}`, status: 201},
 		{name: "store update source", handler: market.updateSource(), body: `{"name":"fixture","url":"https://example.invalid/catalog.json"}`, status: 200},
 		{name: "runtime bootstrap", handler: system.HandleSystemRuntimeBootstrap(), body: `{"resources":["chromium"]}`, status: 202, allowEmpty: true},

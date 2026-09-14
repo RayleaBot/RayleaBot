@@ -562,19 +562,7 @@ test('plugin management flow covers install, manifest detail and console recover
   const installDialog = page.getByRole('dialog', { name: '安装插件' })
   await expect(installDialog).toBeVisible()
   await installDialog.getByRole('textbox').fill('C:/plugins/weather.zip')
-  const inspectionResponsePromise = page.waitForResponse((response) => (
-    response.request().method() === 'POST'
-    && response.url().endsWith('/api/plugins/install/inspect')
-  ))
-  await installDialog.getByRole('button', { name: '检查插件包' }).click()
-  expect((await inspectionResponsePromise).status()).toBe(200)
-  await expect(installDialog.getByRole('checkbox', { name: /我已核对来源、目标平台、artifact 摘要和权限/ })).toBeVisible()
-  await expect(installDialog.getByText('Weather Package（example.weather-package）')).toBeVisible()
-  await expect(installDialog.getByText('a'.repeat(64))).toBeVisible()
-  await expect(installDialog.getByText(/v2.*8/)).toBeVisible()
-  await expect(installDialog.getByText('http.request', { exact: true })).toBeVisible()
-  await expect(installDialog.getByText('message.send', { exact: true })).toBeVisible()
-  await installDialog.getByRole('checkbox', { name: /我已核对来源、目标平台、artifact 摘要和权限/ }).check()
+  await installDialog.getByRole('checkbox', { name: /我信任此插件包/ }).check()
   const completedInstall = page.waitForResponse(response => response.request().method() === 'GET' && response.url().includes('/api/system/tasks/task_plugin_install_0001'))
   await installDialog.getByRole('button', { name: '开始安装' }).click()
 
@@ -1935,7 +1923,7 @@ test('plugin store manages sources and confirms first installs', async ({ page, 
 
   await page.getByTestId('plugin-store-install-raylea.echo').click()
   const confirmDialog = page.getByRole('dialog', { name: '确认安装插件' })
-  await expect(confirmDialog.getByText('message.send', { exact: true })).toBeVisible()
+  await expect(confirmDialog.getByText('首次安装', { exact: true })).toBeVisible()
   const installResponsePromise = page.waitForResponse(response => (
     response.request().method() === 'POST'
     && response.url().endsWith('/api/plugin-store/plugins/raylea.echo/install')

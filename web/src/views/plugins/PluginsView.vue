@@ -57,11 +57,10 @@ interface PluginHealthNotice {
 
 const navigate = useMotionNavigation()
 const pluginsStore = usePluginsStore()
-const { actionPending, error, inspectionPending, installPending, loading, sortedItems, total, nextCursor, loadingMore } = storeToRefs(pluginsStore)
+const { actionPending, error, installPending, loading, sortedItems, total, nextCursor, loadingMore } = storeToRefs(pluginsStore)
 const {
   installDialogVisible,
   installForm,
-  installInspection,
   resetInstallDialog,
   submitInstall,
   trustedCodeConfirmed,
@@ -84,7 +83,6 @@ const sourceOptions = computed(() => [
   { value: 'community', label: t('plugins.filter.sourceCommunity') },
 ])
 const filterSource = ref<'all' | 'official' | 'community'>('all')
-const inspectionPermissionNames = computed(() => Object.keys(installInspection.value?.permissions ?? {}).sort())
 
 const pageErrorToast = computed(() => (
   error.value
@@ -379,7 +377,7 @@ async function reloadPlugin(pluginId: string) {
     <AppDialog
       :open="installDialogVisible"
       :title="t('plugins.installDialogTitle')"
-      :busy="inspectionPending || installPending"
+      :busy="installPending"
       @close="installDialogVisible = false"
       @after-close="resetInstallDialog"
     >
@@ -399,46 +397,22 @@ async function reloadPlugin(pluginId: string) {
           <AppInput v-model="installForm.source" />
         </AppField>
 
-        <template v-if="installInspection">
-          <AppAlert
-            tone="warning"
-            :title="t('plugins.inspection.trustTitle')"
-            :description="t('plugins.inspection.trustDescription')"
-          />
+        <AppAlert
+          tone="warning"
+          :title="t('plugins.installTrust.title')"
+          :description="t('plugins.installTrust.description')"
+        />
 
-          <AppDetails class="install-inspection">
-            <AppDetailItem :label="t('plugins.fields.plugin')">{{ t('plugins.inspection.pluginValue', { name: installInspection.plugin.name, id: installInspection.plugin.id }) }}</AppDetailItem>
-            <AppDetailItem :label="t('plugins.fields.version')">{{ installInspection.plugin.version }}</AppDetailItem>
-            <AppDetailItem :label="t('plugins.fields.author')">{{ installInspection.plugin.author }}</AppDetailItem>
-            <AppDetailItem :label="t('plugins.inspection.license')">{{ installInspection.plugin.license }}</AppDetailItem>
-            <AppDetailItem :label="t('plugins.fields.source')">{{ installInspection.plugin.source_label }}</AppDetailItem>
-            <AppDetailItem :label="t('plugins.inspection.packageDigest')"><code>{{ installInspection.package_sha256 }}</code></AppDetailItem>
-            <AppDetailItem :label="t('plugins.inspection.targetPlatform')">{{ installInspection.target_platform }}</AppDetailItem>
-            <AppDetailItem :label="t('plugins.inspection.backend')"><code>{{ installInspection.backend.path }}</code> · {{ installInspection.backend.size }} bytes</AppDetailItem>
-            <AppDetailItem :label="t('plugins.inspection.managementPage')">{{ installInspection.ui.enabled ? t('plugins.inspection.managementPageValue', { entry: installInspection.ui.entry, count: installInspection.ui.file_count }) : t('plugins.inspection.none') }}</AppDetailItem>
-            <AppDetailItem :label="t('plugins.inspection.artifact')">{{ installInspection.artifact.valid ? t('plugins.inspection.artifactValue', { version: installInspection.artifact.artifact_version, count: installInspection.artifact.file_count }) : t('plugins.inspection.artifactInvalid') }}</AppDetailItem>
-            <AppDetailItem :label="t('plugins.inspection.expiresAt')">{{ installInspection.expires_at }}</AppDetailItem>
-          </AppDetails>
-
-          <div class="install-inspection-list">
-            <strong>{{ t('plugins.inspection.permissions') }}</strong>
-            <div>
-              <AppTag v-for="permission in inspectionPermissionNames" :key="permission">{{ permission }}</AppTag>
-              <span v-if="inspectionPermissionNames.length === 0">{{ t('plugins.store.confirm.noPermissions') }}</span>
-            </div>
-          </div>
-
-          <div class="app-field-group">
-            <AppCheckbox v-model="trustedCodeConfirmed">
-              {{ t('plugins.inspection.confirmTrust') }}
-            </AppCheckbox>
-          </div>
-        </template>
+        <div class="app-field-group">
+          <AppCheckbox v-model="trustedCodeConfirmed">
+            {{ t('plugins.installTrust.confirm') }}
+          </AppCheckbox>
+        </div>
       </div>
       <template #footer>
         <div class="flex justify-end gap-3">
-          <AppButton :disabled="inspectionPending || installPending" @click="installDialogVisible = false">{{ t('dashboard.previewCancel') }}</AppButton>
-          <AppButton variant="default" :loading="inspectionPending || installPending" :disabled="!installForm.source.trim() || Boolean(installInspection && !trustedCodeConfirmed)" @click="submitInstall">{{ installInspection ? t('plugins.installSubmit') : t('plugins.inspection.inspect') }}</AppButton>
+          <AppButton :disabled="installPending" @click="installDialogVisible = false">{{ t('dashboard.previewCancel') }}</AppButton>
+          <AppButton variant="default" :loading="installPending" :disabled="!installForm.source.trim() || !trustedCodeConfirmed" @click="submitInstall">{{ t('plugins.installSubmit') }}</AppButton>
         </div>
       </template>
     </AppDialog>
@@ -721,27 +695,6 @@ async function reloadPlugin(pluginId: string) {
 
 .drawer-card {
   margin-top: 12px;
-}
-
-.install-inspection {
-  margin-top: 16px;
-}
-
-.install-inspection code {
-  overflow-wrap: anywhere;
-  font-size: 13px;
-}
-
-.install-inspection-list {
-  display: grid;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.install-inspection-list > div {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
 }
 
 .drawer-section {

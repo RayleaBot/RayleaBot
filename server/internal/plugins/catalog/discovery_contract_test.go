@@ -166,20 +166,20 @@ func TestDiscoverKeepsUnsupportedManifestVisibleAndDisabled(t *testing.T) {
 	}
 }
 
-func TestDiscoverMarksBrokenArtifactEntryInvalid(t *testing.T) {
+func TestDiscoverMarksMissingArtifactEntryInvalid(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
 	pluginRoot := filepath.Join(root, "plugins", "installed", "tampered")
 	writeArtifact(t, pluginRoot, baseManifest("tampered"), nil)
 	entry := artifactEntry(t, "tampered")
-	if err := os.WriteFile(filepath.Join(pluginRoot, filepath.FromSlash(entry)), []byte("not an executable"), 0o755); err != nil {
+	if err := os.Remove(filepath.Join(pluginRoot, filepath.FromSlash(entry))); err != nil {
 		t.Fatal(err)
 	}
 
 	snapshot := discoverOne(t, root)
 	if snapshot.Valid || snapshot.DisplayState != plugins.DisplayStateInvalidManifest || strings.TrimSpace(snapshot.ValidationSummary) == "" {
-		t.Fatalf("broken snapshot = %#v", snapshot)
+		t.Fatalf("missing entry snapshot = %#v", snapshot)
 	}
 }
 

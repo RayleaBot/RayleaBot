@@ -926,23 +926,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/plugin-store/plugins/{plugin_id}/inspect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Download and inspect the selected plugin release before installation. */
-        post: operations["inspectPluginStoreEntry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/plugin-store/plugins/{plugin_id}/install": {
         parameters: {
             query?: never;
@@ -952,7 +935,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Install a previously inspected plugin artifact. */
+        /** Download, verify and install the current catalog release from the selected source. */
         post: operations["installPluginStoreEntry"];
         delete?: never;
         options?: never;
@@ -1051,23 +1034,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/plugins/install/inspect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Inspect a prebuilt plugin artifact and freeze its digest, target platform, metadata and permissions before trust confirmation. */
-        post: operations["inspectPluginInstall"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/plugins/install": {
         parameters: {
             query?: never;
@@ -1077,7 +1043,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start asynchronous plugin installation from a local source. */
+        /** Verify a plugin package and start asynchronous installation. */
         post: operations["installPlugin"];
         delete?: never;
         options?: never;
@@ -1870,6 +1836,8 @@ export interface components {
             installed_version?: string;
             /** @enum {string} */
             install_state: "unpublished" | "available" | "installed" | "update_available" | "incompatible";
+            /** @description Reasons installation needs explicit trusted-code confirmation; empty when an update keeps the same source. */
+            confirmation_reasons: ("first_install" | "source_changed")[];
         };
         PluginStoreListResponse: {
             items: components["schemas"]["PluginStoreEntry"][];
@@ -1883,17 +1851,9 @@ export interface components {
             current_release: components["schemas"]["PluginStoreReleaseSummary"] | null;
             source: components["schemas"]["PluginStoreSource"];
         };
-        PluginStoreInspectionRequest: {
-            source_id: string;
-        };
-        PluginStoreInspectionResponse: {
-            inspection: components["schemas"]["PluginInstallInspectionResponse"];
-            confirmation_required: boolean;
-            confirmation_reasons: ("first_install" | "source_changed" | "permissions_expanded")[];
-        };
         PluginStoreInstallRequest: {
-            inspection_id: string;
-            package_sha256: string;
+            source_id: string;
+            /** @description Must be true when the store entry lists confirmation reasons. */
             trusted_code_confirmed: boolean;
         };
         PluginWebhookScope: {
@@ -2003,58 +1963,11 @@ export interface components {
             changed_keys: string[];
             configured: components["schemas"]["PluginSecretStatus"];
         };
-        PluginInstallSource: {
+        PluginInstallRequest: {
             /** @enum {string} */
             source_type: "local_zip" | "local_directory" | "remote_url";
             /** @description Local filesystem path to the plugin package or directory, or an HTTPS URL to a remote ZIP archive. */
             source: string;
-        };
-        PluginInstallInspectionRequest: components["schemas"]["PluginInstallSource"];
-        PluginInstallSourceSummary: {
-            /** @enum {string} */
-            source_type: "local_zip" | "local_directory" | "remote_url" | "catalog";
-            source: string;
-        };
-        PluginInstallInspectionResponse: {
-            inspection_id: string;
-            /** Format: date-time */
-            expires_at: string;
-            package_sha256: string;
-            source: components["schemas"]["PluginInstallSourceSummary"];
-            plugin: {
-                id: string;
-                name: string;
-                version: string;
-                author: string;
-                license: string;
-                source_label: string;
-            };
-            permissions: components["schemas"]["PluginPermissions"];
-            target_platform: components["schemas"]["PluginPlatform"];
-            backend: components["schemas"]["PluginInstallBackend"];
-            ui: components["schemas"]["PluginInstallUI"];
-            artifact: components["schemas"]["PluginArtifactValidation"];
-        };
-        PluginInstallBackend: {
-            entry: string;
-            path: string;
-            size: number;
-        };
-        PluginInstallUI: {
-            enabled: boolean;
-            entry?: string;
-            file_count: number;
-        };
-        PluginArtifactValidation: {
-            /** @constant */
-            valid: true;
-            /** @constant */
-            artifact_version: "2";
-            file_count: number;
-        };
-        PluginInstallRequest: {
-            inspection_id: string;
-            package_sha256: string;
             /**
              * @description Explicit acknowledgement that a third-party plugin backend runs as fully trusted local code.
              * @constant
@@ -4200,37 +4113,6 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    inspectPluginStoreEntry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                plugin_id: components["parameters"]["PluginId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PluginStoreInspectionRequest"];
-            };
-        };
-        responses: {
-            /** @description Inspected artifact, declared permissions and trust confirmation requirement. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PluginStoreInspectionResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
     installPluginStoreEntry: {
         parameters: {
             query?: never;
@@ -4481,34 +4363,6 @@ export interface operations {
             401: components["responses"]["Error"];
             409: components["responses"]["Error"];
             429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    inspectPluginInstall: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PluginInstallInspectionRequest"];
-            };
-        };
-        responses: {
-            /** @description Time-limited inspection result for a byte-identical plugin package. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PluginInstallInspectionResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            413: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

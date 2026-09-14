@@ -55,10 +55,7 @@ const (
 	PluginEventCanceled                        = "plugin.event_canceled"
 	PluginEventTimeout                         = "plugin.event_timeout"
 	PluginInitTimeout                          = "plugin.init_timeout"
-	PluginInstallDigestMismatch                = "plugin.install_digest_mismatch"
 	PluginInstallFailed                        = "plugin.install_failed"
-	PluginInstallInspectionExpired             = "plugin.install_inspection_expired"
-	PluginInstallInspectionRequired            = "plugin.install_inspection_required"
 	PluginInternalError                        = "plugin.internal_error"
 	PluginManagementActionFailed               = "plugin.management_action_failed"
 	PluginNotHandled                           = "plugin.not_handled"
@@ -160,10 +157,7 @@ var catalog = map[string]Definition{
 	PluginEventCanceled:                       {Code: PluginEventCanceled, HTTPStatus: 0, Message: "插件事件处理已取消", Retryable: false, Surfaces: "plugin_protocol,websocket,task,logs"},
 	PluginEventTimeout:                        {Code: PluginEventTimeout, HTTPStatus: 0, Message: "插件事件处理超时", Retryable: true, Surfaces: "plugin_protocol,websocket,task"},
 	PluginInitTimeout:                         {Code: PluginInitTimeout, HTTPStatus: 0, Message: "插件初始化超时", Retryable: true, Surfaces: "plugin_protocol,websocket,task"},
-	PluginInstallDigestMismatch:               {Code: PluginInstallDigestMismatch, HTTPStatus: 409, Message: "插件包与检查结果不一致", Retryable: false, Surfaces: "http,task"},
 	PluginInstallFailed:                       {Code: PluginInstallFailed, HTTPStatus: 409, Message: "插件安装失败", Retryable: true, Surfaces: "http,websocket,task"},
-	PluginInstallInspectionExpired:            {Code: PluginInstallInspectionExpired, HTTPStatus: 409, Message: "插件包检查结果已过期", Retryable: true, Surfaces: "http,task"},
-	PluginInstallInspectionRequired:           {Code: PluginInstallInspectionRequired, HTTPStatus: 409, Message: "请先检查插件包并确认信任", Retryable: false, Surfaces: "http,task"},
 	PluginInternalError:                       {Code: PluginInternalError, HTTPStatus: 0, Message: "插件内部处理异常", Retryable: false, Surfaces: "plugin_protocol,websocket,task"},
 	PluginManagementActionFailed:              {Code: PluginManagementActionFailed, HTTPStatus: 502, Message: "插件管理操作执行失败", Retryable: false, Surfaces: "http"},
 	PluginNotHandled:                          {Code: PluginNotHandled, HTTPStatus: 0, Message: "插件声明不处理该事件", Retryable: false, Surfaces: "plugin_protocol"},

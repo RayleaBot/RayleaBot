@@ -15,7 +15,7 @@ func TestInvalidInstallRequestsReturnExpectedErrors(t *testing.T) {
 		status           int
 	}{
 		{"malformed JSON", `{invalid`, "platform.invalid_request", 400},
-		{"missing inspection digest", `{"inspection_id":"` + strings.Repeat("i", 64) + `","trusted_code_confirmed":true}`, "plugin.install_inspection_required", 409},
+		{"untrusted source", `{"source_type":"local_zip","source":"C:/plugins/weather.zip","trusted_code_confirmed":false}`, "plugin.trusted_code_confirmation_required", 403},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			router := chi.NewRouter()

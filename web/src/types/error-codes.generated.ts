@@ -213,21 +213,9 @@ export const errorCatalog = {
     "httpStatus": null,
     "retryable": true
   },
-  "plugin.install_digest_mismatch": {
-    "httpStatus": 409,
-    "retryable": false
-  },
   "plugin.install_failed": {
     "httpStatus": 409,
     "retryable": true
-  },
-  "plugin.install_inspection_expired": {
-    "httpStatus": 409,
-    "retryable": true
-  },
-  "plugin.install_inspection_required": {
-    "httpStatus": 409,
-    "retryable": false
   },
   "plugin.internal_error": {
     "httpStatus": null,
@@ -388,10 +376,7 @@ export const errorMessages = {
     "event_canceled": "插件事件处理已取消",
     "event_timeout": "插件事件处理超时",
     "init_timeout": "插件初始化超时",
-    "install_digest_mismatch": "插件包与检查结果不一致",
     "install_failed": "插件安装失败",
-    "install_inspection_expired": "插件包检查结果已过期",
-    "install_inspection_required": "请先检查插件包并确认信任",
     "internal_error": "插件内部处理异常",
     "management_action_failed": "插件管理操作执行失败",
     "not_handled": "插件声明不处理该事件",

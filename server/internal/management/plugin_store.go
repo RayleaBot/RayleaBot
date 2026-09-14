@@ -21,19 +21,8 @@ type PluginStoreRoutes struct {
 	Service market.ServiceAPI
 }
 
-type pluginStoreInspectionRequest struct {
-	SourceID string `json:"source_id"`
-}
-
-type pluginStoreInspectionResponse struct {
-	Inspection           pluginInstallInspectionResponse `json:"inspection"`
-	ConfirmationRequired bool                            `json:"confirmation_required"`
-	ConfirmationReasons  []string                        `json:"confirmation_reasons"`
-}
-
 type pluginStoreInstallRequest struct {
-	InspectionID         string `json:"inspection_id"`
-	PackageSHA256        string `json:"package_sha256"`
+	SourceID             string `json:"source_id"`
 	TrustedCodeConfirmed bool   `json:"trusted_code_confirmed"`
 }
 
@@ -48,7 +37,6 @@ func (routes PluginStoreRoutes) RegisterProtectedRoutes(router chi.Router) {
 	}
 	router.Get("/api/plugin-store/plugins", routes.list())
 	router.Get("/api/plugin-store/plugins/{plugin_id}", routes.detail())
-	router.Post("/api/plugin-store/plugins/{plugin_id}/inspect", routes.inspect())
 	router.Post("/api/plugin-store/plugins/{plugin_id}/install", routes.install())
 	router.Get("/api/plugin-store/sources", routes.listSources())
 	router.Post("/api/plugin-store/sources", routes.createSource())
@@ -94,29 +82,6 @@ func (routes PluginStoreRoutes) detail() http.HandlerFunc {
 	}
 }
 
-func (routes PluginStoreRoutes) inspect() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var request pluginStoreInspectionRequest
-		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
-			return
-		}
-		result, err := routes.Service.Inspect(r.Context(), market.InspectionRequest{
-			SourceID: strings.TrimSpace(request.SourceID),
-			PluginID: chi.URLParam(r, "plugin_id"),
-		})
-		if err != nil {
-			writePluginStoreError(w, r, err)
-			return
-		}
-		httpapi.WriteJSON(w, http.StatusOK, pluginStoreInspectionResponse{
-			Inspection:           buildInstallInspectionResponse(result.Inspection),
-			ConfirmationRequired: result.ConfirmationRequired,
-			ConfirmationReasons:  append([]string(nil), result.ConfirmationReasons...),
-		})
-	}
-}
-
 func (routes PluginStoreRoutes) install() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request pluginStoreInstallRequest
@@ -126,8 +91,7 @@ func (routes PluginStoreRoutes) install() http.HandlerFunc {
 		}
 		taskID, err := routes.Service.Install(r.Context(), market.InstallRequest{
 			PluginID:             chi.URLParam(r, "plugin_id"),
-			InspectionID:         strings.TrimSpace(request.InspectionID),
-			PackageSHA256:        strings.TrimSpace(request.PackageSHA256),
+			SourceID:             strings.TrimSpace(request.SourceID),
 			TrustedCodeConfirmed: request.TrustedCodeConfirmed,
 		})
 		if err != nil {
@@ -219,11 +183,7 @@ func writePluginStoreError(w http.ResponseWriter, r *http.Request, err error) {
 		httpapi.WriteError(w, r, errorcodes.PluginStoreSourceConflict, nil)
 	case errors.Is(err, market.ErrSourceInvalid):
 		httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
-	case errors.Is(err, plugins.ErrTrustedCodeConfirmation),
-		errors.Is(err, plugins.ErrInstallInspectionRequired),
-		errors.Is(err, plugins.ErrInstallInspectionExpired),
-		errors.Is(err, plugins.ErrInstallDigestMismatch),
-		errors.Is(err, tasks.ErrQueueFull):
+	case errors.Is(err, plugins.ErrTrustedCodeConfirmation), errors.Is(err, tasks.ErrQueueFull):
 		writePluginInstallError(w, r, err)
 	case market.ErrorCode(err) == market.CodeCatalogUnavailable:
 		httpapi.WriteError(w, r, market.CodeCatalogUnavailable, nil)

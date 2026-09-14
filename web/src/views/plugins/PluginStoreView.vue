@@ -38,7 +38,6 @@ import { usePluginsStore } from '@/stores/plugins'
 import { usePluginStore, type PluginStoreSort } from '@/stores/plugin-store'
 import type {
   PluginStoreEntry,
-  PluginStoreInspectionResponse,
   PluginStoreSourceInput,
 } from '@/types/api'
 
@@ -53,7 +52,6 @@ const sort = ref<PluginStoreSort>('recommended')
 const sourceId = ref('official')
 const confirmationOpen = ref(false)
 const selectedPlugin = ref<PluginStoreEntry | null>(null)
-const selectedInspection = ref<PluginStoreInspectionResponse | null>(null)
 const sourceManagerOpen = ref(false)
 const pendingSourceRemoval = ref<string | null>(null)
 const sourceRemoving = ref(false)
@@ -71,7 +69,6 @@ let pageActive = true
 let activated = false
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
 
-const permissionNames = computed(() => Object.keys(selectedInspection.value?.inspection.permissions ?? {}).sort())
 const updateablePlugins = computed(() => items.value.filter(item => item.install_state === 'update_available'))
 const selectedSource = computed(() => sources.value.find(item => item.id === sourceId.value) ?? source.value)
 
@@ -117,41 +114,30 @@ async function refreshSource() {
 }
 
 async function requestInstall(plugin: PluginStoreEntry) {
-  try {
-    const inspection = await store.inspect(plugin.id, {
-      source_id: sourceId.value,
-    })
-    if (!inspection.confirmation_required) {
-      await acceptInspection(plugin, inspection, false)
-      return
-    }
-    store.finishInspection(plugin.id)
+  if (plugin.confirmation_reasons.length > 0) {
     selectedPlugin.value = plugin
-    selectedInspection.value = inspection
     confirmationOpen.value = true
+    return
+  }
+  try {
+    await installEntry(plugin, false)
   } catch (cause) {
-    store.finishInspection(plugin.id)
     notifyError(getDisplayErrorMessage(cause))
   }
 }
 
-async function acceptInspection(
-  plugin: PluginStoreEntry,
-  inspection: PluginStoreInspectionResponse,
-  trustedCodeConfirmed: boolean,
-) {
+async function installEntry(plugin: PluginStoreEntry, trustedCodeConfirmed: boolean) {
   await store.install(plugin.id, {
-    inspection_id: inspection.inspection.inspection_id,
-    package_sha256: inspection.inspection.package_sha256,
+    source_id: sourceId.value,
     trusted_code_confirmed: trustedCodeConfirmed,
   })
   notifySuccess(t('plugins.store.feedback.accepted'))
 }
 
 async function confirmInstall() {
-  if (!selectedPlugin.value || !selectedInspection.value) return
+  if (!selectedPlugin.value) return
   try {
-    const installation = acceptInspection(selectedPlugin.value, selectedInspection.value, true)
+    const installation = installEntry(selectedPlugin.value, true)
     closeConfirmation()
     await installation
   } catch (cause) {
@@ -161,9 +147,7 @@ async function confirmInstall() {
 
 function closeConfirmation() { confirmationOpen.value = false }
 function resetConfirmation() {
-  if (selectedPlugin.value) store.finishInspection(selectedPlugin.value.id)
   selectedPlugin.value = null
-  selectedInspection.value = null
 }
 
 async function updateAll() {
@@ -173,23 +157,17 @@ async function updateAll() {
   let skipped = 0
   try {
     for (const plugin of updateablePlugins.value) {
+      if (plugin.confirmation_reasons.length > 0) {
+        skipped++
+        continue
+      }
       try {
-        const inspection = await store.inspect(plugin.id, {
-          source_id: sourceId.value,
-        })
-        if (inspection.confirmation_required) {
-          store.finishInspection(plugin.id)
-          skipped++
-          continue
-        }
         await store.install(plugin.id, {
-          inspection_id: inspection.inspection.inspection_id,
-          package_sha256: inspection.inspection.package_sha256,
+          source_id: sourceId.value,
           trusted_code_confirmed: false,
         })
         accepted++
       } catch {
-        store.finishInspection(plugin.id)
         skipped++
       }
     }
@@ -396,18 +374,12 @@ onMounted(() => {
         :title="t('plugins.store.confirm.warning')"
         :description="t('plugins.store.confirm.description', { name: selectedPlugin?.name ?? '' })"
       />
-      <AppDetails v-if="selectedInspection" class="confirm-details">
+      <AppDetails v-if="selectedPlugin" class="confirm-details">
         <AppDetailItem :label="t('plugins.fields.version')">
-          {{ formatPluginVersion(selectedInspection.inspection.plugin.version) }}
+          {{ formatPluginVersion(selectedPlugin.latest_release?.version) }}
         </AppDetailItem>
-        <AppDetailItem :label="t('plugins.fields.source')">
-          {{ selectedInspection.inspection.plugin.source_label }}
-        </AppDetailItem>
-        <AppDetailItem :label="t('plugins.fields.permissions')">
-          <div class="permission-list">
-            <AppTag v-for="permission in permissionNames" :key="permission">{{ permission }}</AppTag>
-            <span v-if="permissionNames.length === 0">{{ t('plugins.store.confirm.noPermissions') }}</span>
-          </div>
+        <AppDetailItem :label="t('plugins.store.confirm.reason')">
+          {{ selectedPlugin.confirmation_reasons.map(reason => t(`plugins.store.confirm.reasons.${reason}`)).join('、') }}
         </AppDetailItem>
       </AppDetails>
     <template #footer><div class="flex justify-end gap-3"><AppButton :disabled="Boolean(selectedPlugin && installing[selectedPlugin.id])" @click="closeConfirmation">{{ t('shell.cancel') }}</AppButton><AppButton variant="default" :loading="Boolean(selectedPlugin && installing[selectedPlugin.id])" @click="confirmInstall">{{ t('plugins.store.confirm.action') }}</AppButton></div></template>

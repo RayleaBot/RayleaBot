@@ -60,7 +60,7 @@ describe('plugin store', () => {
     expect(store.source?.id).toBe('official')
   })
 
-  it('passes the accepted inspection handle to the install endpoint', async () => {
+  it('passes the source and trust confirmation to the install endpoint', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse({ task_id: 'task-store-install' }, 202))
       .mockResolvedValueOnce(jsonResponse({ task_id: 'task-store-install', status: 'succeeded' }))
@@ -69,15 +69,13 @@ describe('plugin store', () => {
 
     const store = usePluginStore()
     await store.install('raylea.echo', {
-      inspection_id: 'i'.repeat(64),
-      package_sha256: 'a'.repeat(64),
+      source_id: 'official',
       trusted_code_confirmed: false,
     })
 
     const [, request] = fetchMock.mock.calls[0]
     expect(JSON.parse(String(request.body))).toEqual({
-      inspection_id: 'i'.repeat(64),
-      package_sha256: 'a'.repeat(64),
+      source_id: 'official',
       trusted_code_confirmed: false,
     })
     expect(store.installing['raylea.echo']).toBe(false)
@@ -96,7 +94,7 @@ describe('plugin store', () => {
     vi.stubGlobal('fetch', fetchMock)
     const store = usePluginStore()
     await store.fetchEntries()
-    const pending = store.install('echo', { inspection_id: 'fixture', package_sha256: 'fixture', trusted_code_confirmed: true })
+    const pending = store.install('echo', { source_id: 'official', trusted_code_confirmed: true })
     await flushPromises()
     expect(store.installing.echo).toBe(true)
     expect(store.items[0]?.installed_version).toBe('1.0.0')
@@ -113,7 +111,7 @@ describe('plugin store', () => {
       .mockResolvedValueOnce(jsonResponse({ task_id: 'task-failed', status: 'failed', error_code: 'plugin.internal_error' }))
       .mockResolvedValueOnce(jsonResponse({ items: [] })))
     const store = usePluginStore()
-    await expect(store.install('echo', { inspection_id: 'fixture', package_sha256: 'fixture', trusted_code_confirmed: true })).rejects.toMatchObject({ code: 'plugin.internal_error' })
+    await expect(store.install('echo', { source_id: 'official', trusted_code_confirmed: true })).rejects.toMatchObject({ code: 'plugin.internal_error' })
     expect(store.installing.echo).toBe(false)
   })
 

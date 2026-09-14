@@ -22,20 +22,20 @@ type installTransaction struct {
 }
 
 func (s *InstallService) runInstall(job installJob) error {
-	if job.inspection == nil {
-		return installError(codeInvalidRequest, "插件安装缺少有效检查结果", "插件安装缺少有效检查结果")
+	if job.candidate == nil {
+		return installError(codeInvalidRequest, "插件安装缺少已校验的安装包", "插件安装缺少已校验的安装包")
 	}
 	if err := job.ctx.Err(); err != nil {
 		return err
 	}
 	s.registry.Update(job.taskID, tasks.Update{Progress: intPtr(20), Summary: stringPtr("检查插件配置")})
-	operationCtx, release, err := s.operations.Acquire(job.ctx, job.inspection.snapshot.PluginID)
+	operationCtx, release, err := s.operations.Acquire(job.ctx, job.candidate.snapshot.PluginID)
 	if err != nil {
 		return err
 	}
 	defer release()
 	job.ctx = operationCtx
-	tx := installTransaction{service: s, job: job, snapshot: job.inspection.snapshot, metadata: job.inspection.metadata}
+	tx := installTransaction{service: s, job: job, snapshot: job.candidate.snapshot, metadata: job.candidate.metadata}
 	if err := tx.validateCandidate(); err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (tx *installTransaction) validateCandidate() error {
 	if err != nil {
 		return installError(codePluginPlatformMismatch, err.Error(), "插件包与当前平台不匹配")
 	}
-	if _, err := artifact.Verify(job.inspection.candidateDir, artifact.Options{ExpectedPlatform: platform}); err != nil {
+	if _, err := artifact.Verify(job.candidate.candidateDir, artifact.Options{ExpectedPlatform: platform}); err != nil {
 		if errors.Is(err, artifact.ErrPlatformMismatch) {
 			return installError(codePluginPlatformMismatch, err.Error(), "插件包与当前平台不匹配")
 		}
@@ -90,7 +90,7 @@ func (tx *installTransaction) prepareTarget() error {
 		return installError(codePluginInstallFailed, "创建插件安装目录失败", "创建插件安装目录失败")
 	}
 	tx.finalTarget = filepath.Join(s.installedRoot, tx.snapshot.PluginID)
-	tx.previousTarget = filepath.Join(job.inspection.workingRoot, "previous")
+	tx.previousTarget = filepath.Join(job.candidate.workingRoot, "previous")
 	_, err := s.deps.stat(tx.finalTarget)
 	if err == nil && !job.request.ReplaceExisting {
 		return installError(codePluginInstallFailed, "检测到同 ID 插件，安装被拒绝", "检测到同 ID 插件")
@@ -129,7 +129,7 @@ func (tx *installTransaction) activateFiles() error {
 		}
 		tx.previousMoved = true
 	}
-	if err := s.renameInstallPath(job.ctx, job.inspection.candidateDir, tx.finalTarget); err != nil {
+	if err := s.renameInstallPath(job.ctx, job.candidate.candidateDir, tx.finalTarget); err != nil {
 		return tx.activationFailure("install", err)
 	}
 	return nil

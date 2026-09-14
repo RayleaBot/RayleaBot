@@ -19,6 +19,7 @@ response:
       keywords: [fortune]
       recommended: true
       install_state: unpublished
+      confirmation_reasons: [first_install]
     current_release: null
     source:
       id: official

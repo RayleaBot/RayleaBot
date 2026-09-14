@@ -9,42 +9,6 @@ test.beforeEach(async ({ page, request }) => {
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 })
 
-test('canceling installation keeps the inspection visible through exit and performs no install', async ({ page }) => {
-  let installations = 0
-  page.on('request', request => {
-    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/plugins/install') installations++
-  })
-  await page.goto('/plugins')
-  await page.locator('.plugins-toolbar').getByRole('button', { name: '安装插件', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: '安装插件' })
-  await dialog.getByRole('textbox').fill('C:/plugins/weather.zip')
-  await dialog.getByRole('button', { name: '检查插件包' }).click()
-  await expect(dialog.getByText('Weather Package（example.weather-package）')).toBeVisible()
-  const closing = page.evaluate(() => new Promise<number[]>((resolve) => {
-    const counts: number[] = []
-    const started = performance.now()
-    const sample = () => {
-      const dialog = document.querySelector<HTMLElement>('[data-slot=app-dialog]')
-      if (dialog) {
-        const opacity = Number(getComputedStyle(dialog).opacity)
-        if (opacity > 0.01 && opacity < 0.95) counts.push(dialog.querySelectorAll('.app-detail-item').length)
-      }
-      if (performance.now() - started > 500) resolve(counts)
-      else requestAnimationFrame(sample)
-    }
-    requestAnimationFrame(sample)
-  }))
-  await dialog.getByRole('button', { name: '取消', exact: true }).click()
-  const counts = await closing
-  expect(counts.length).toBeGreaterThan(0)
-  expect(counts.every(count => count > 0)).toBe(true)
-  expect(installations).toBe(0)
-  await expect(dialog).toHaveCount(0)
-  await page.locator('.plugins-toolbar').getByRole('button', { name: '安装插件', exact: true }).click()
-  await expect(dialog.getByRole('textbox')).toHaveValue('')
-  await expect(dialog.getByRole('checkbox')).toHaveCount(0)
-})
-
 test('plugin source creation and nested removal confirmations preserve cancellation', async ({ page }) => {
   const sources = await (await page.request.get('/api/plugin-store/sources')).json()
   const created = { id: 'fixture-source', name: '测试目录', url: 'https://plugins.example/reka-catalog.json', official: false, cached: true, entry_count: 0, refreshed_at: '2026-09-07T00:00:00Z' }

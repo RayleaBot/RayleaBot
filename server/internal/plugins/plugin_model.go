@@ -7,10 +7,7 @@ import (
 )
 
 var (
-	ErrInstallInspectionRequired = errors.New("plugin install inspection required")
-	ErrInstallInspectionExpired  = errors.New("plugin install inspection expired")
-	ErrInstallDigestMismatch     = errors.New("plugin install digest mismatch")
-	ErrTrustedCodeConfirmation   = errors.New("trusted code confirmation required")
+	ErrTrustedCodeConfirmation = errors.New("trusted code confirmation required")
 )
 
 type CatalogView interface {
@@ -176,63 +173,18 @@ type PackageMetadataLoader interface {
 type InstallRequest struct {
 	SourceType            string
 	Source                string
-	SourceLabel           string
 	ResolvedSourceType    string
 	ResolvedSource        string
 	ExpectedArchiveSHA256 string
 	ReplaceExisting       bool
 	TrustedCodeRequired   bool
-}
-
-type InstallBackendInspection struct {
-	Entry string
-	Path  string
-	Size  int64
-}
-
-type InstallUIInspection struct {
-	Enabled   bool
-	Entry     string
-	FileCount int
-}
-
-type ArtifactInspection struct {
-	Valid     bool
-	Version   string
-	FileCount int
-}
-
-type InstallInspection struct {
-	InspectionID   string
-	ExpiresAt      time.Time
-	PackageSHA256  string
-	SourceType     string
-	Source         string
-	PluginID       string
-	PluginName     string
-	Version        string
-	Author         string
-	License        string
-	SourceLabel    string
-	Permissions    map[string]bool
-	TargetPlatform string
-	Backend        InstallBackendInspection
-	UI             InstallUIInspection
-	Artifact       ArtifactInspection
-}
-
-type InstallInspector interface {
-	Inspect(context.Context, InstallRequest) (InstallInspection, error)
-}
-
-type InstallAcceptance struct {
-	InspectionID         string
-	PackageSHA256        string
-	TrustedCodeConfirmed bool
+	TrustedCodeConfirmed  bool
+	ExpectedPluginID      string
+	ExpectedVersion       string
 }
 
 type InstallCoordinator interface {
-	Accept(context.Context, InstallAcceptance) (string, error)
+	Accept(context.Context, InstallRequest) (string, error)
 	Cancel(string) bool
 	Close() error
 }

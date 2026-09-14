@@ -86,7 +86,7 @@ func TestInstallTransactionExcludesRuntimeMutationsAndAllowsSynchronousCallbacks
 		<-resume
 		return nil
 	}
-	taskID, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: source, ReplaceExisting: true})
+	taskID, err := acceptInstall(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: source, ReplaceExisting: true})
 	if err != nil {
 		t.Fatal(err)
 	}

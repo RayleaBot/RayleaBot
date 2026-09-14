@@ -67,15 +67,14 @@ catalog 不复制历史 Release，不维护撤回状态、资产大小、manifes
 }
 ```
 
-安装器独立扫描 ZIP 或展开目录，以实际文件内容执行校验。检查内容包括路径逃逸、符号链接、大小写冲突、资源上限、必需文件、原生入口、目标平台、二进制格式和可选管理页入口。商店下载额外核对 catalog 中唯一保留的归档 SHA-256。
+安装器独立扫描 ZIP 或展开目录，以实际文件内容执行校验。检查内容包括路径逃逸、符号链接、大小写冲突、资源上限、必需文件、原生入口、目标平台和可选管理页入口，并由安装器设置 Unix 平台入口文件的可执行位。商店下载额外核对 catalog 中唯一保留的归档 SHA-256。
 
-检查通过后，Server 返回短期 inspection，Web 展示插件身份、版本、来源、平台和实际权限。以下情况要求管理员确认本地原生代码风险：
+检查、确认与安装在同一个请求中完成：Server 校验通过后直接创建安装任务，校验失败时请求返回错误且不创建任务。商店条目通过 `confirmation_reasons` 列出需要管理员确认本地原生代码风险的原因：
 
 - 首次安装；
-- 安装来源变化；
-- 新版本扩大权限。
+- 安装来源变化。
 
-同一来源且权限未扩大的更新直接提交安装任务。手动目录、ZIP 和远程 ZIP 始终经过检查与确认。确认请求只提交 inspection ID、检查时的包 SHA-256 与确认状态，不重复提交来源或插件身份。
+同一来源的更新不需要确认，可直接提交或批量更新。手动目录、ZIP 和远程 ZIP 在提交前都要求确认插件作为完全可信的本地代码运行。
 
 安装使用同卷 staging 和原子替换。更新保留原 desired state；任一步失败时恢复旧目录、安装元数据、模板和运行状态。
 
@@ -90,10 +89,9 @@ catalog 不复制历史 Release，不维护撤回状态、资产大小、manifes
 - `POST /api/plugin-store/sources/{source_id}/refresh`
 - `GET /api/plugin-store/plugins?source_id=...`
 - `GET /api/plugin-store/plugins/{plugin_id}?source_id=...`
-- `POST /api/plugin-store/plugins/{plugin_id}/inspect`
 - `POST /api/plugin-store/plugins/{plugin_id}/install`
 
-Web 路由 `/plugins/store` 提供来源切换和管理、手动刷新、搜索排序、分类与图标、安装状态、检查确认和可直接执行的批量更新。详情 API 暂时保留，当前 Web 不增加单独详情页。
+Web 路由 `/plugins/store` 提供来源切换和管理、手动刷新、搜索排序、分类与图标、安装状态、安装确认和可直接执行的批量更新。详情 API 暂时保留，当前 Web 不增加单独详情页。
 
 页面打开时会在保留现有结果的同时后台刷新当前来源；刷新失败继续显示最后成功目录，不切换到错误页。
 
@@ -146,7 +144,7 @@ Web 路由 `/plugins/store` 提供来源切换和管理、手动刷新、搜索�
 raylea-server plugin dev-sync --artifact <expanded-artifact> --source <plugin-repo>
 ```
 
-两种入口复用正式 inspect、accept、原子替换和 package metadata 流程，把来源记录为 `development`。相同来源和安装内容直接跳过，已有插件保留 desired state，新插件启用。在线同步等待插件初始化，失败时恢复旧产物与运行时。增量缓存、监听范围和环境复用说明见[本地启动](../dev/README.md#增量构建与环境复用)。
+两种入口复用正式安装请求、原子替换和 package metadata 流程，把来源记录为 `development`。相同来源和安装内容直接跳过，已有插件保留 desired state，新插件启用。在线同步等待插件初始化，失败时恢复旧产物与运行时。增量缓存、监听范围和环境复用说明见[本地启动](../dev/README.md#增量构建与环境复用)。
 
 ## 防偏移规则
 
@@ -159,7 +157,7 @@ raylea-server plugin dev-sync --artifact <expanded-artifact> --source <plugin-re
 | 开发 CLI | `contracts/cli-commands.yaml` |
 | 安装状态与来源元数据 | Server repository、migration 与 catalog 视图 |
 
-评审相关变更时应确认 Web 未绕过 Server 读取目录或安装包，目录失败不会清空缓存，manifest 不能自报官方身份，安装仍经过 inspection，更新失败保留旧产物，开发流未直接运行源码目录，核心发布包不含业务插件，并且 contracts、fixtures、嵌入 schema、生成类型、实现、测试和本文同步更新。
+评审相关变更时应确认 Web 未绕过 Server 读取目录或安装包，目录失败不会清空缓存，manifest 不能自报官方身份，安装仍经过 artifact 校验，更新失败保留旧产物，开发流未直接运行源码目录，核心发布包不含业务插件，并且 contracts、fixtures、嵌入 schema、生成类型、实现、测试和本文同步更新。
 
 ## 相关文档
 

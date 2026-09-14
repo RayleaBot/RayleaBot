@@ -1,9 +1,6 @@
 package artifact
 
 import (
-	"debug/elf"
-	"debug/macho"
-	"debug/pe"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -237,43 +234,11 @@ func validateBinary(path, platform string) error {
 		return invalid("backend must be a regular file", nil)
 	}
 	switch platform {
-	case "windows-x64":
-		file, err := pe.Open(path)
-		if err != nil {
-			return invalid("backend is not a valid PE executable", err)
-		}
-		defer func(release func() error) { _ = release() }(file.Close)
-		if file.Machine != pe.IMAGE_FILE_MACHINE_AMD64 {
-			return invalid("backend PE architecture must be amd64", nil)
-		}
-	case "linux-x64":
-		if info.Mode().Perm()&0o111 == 0 {
-			return invalid("Unix backend is not executable", nil)
-		}
-		file, err := elf.Open(path)
-		if err != nil {
-			return invalid("backend is not a valid ELF executable", err)
-		}
-		defer func(release func() error) { _ = release() }(file.Close)
-		if file.Machine != elf.EM_X86_64 {
-			return invalid("backend ELF architecture must be x86_64", nil)
-		}
-	case "macos-arm64":
-		if info.Mode().Perm()&0o111 == 0 {
-			return invalid("Unix backend is not executable", nil)
-		}
-		file, err := macho.Open(path)
-		if err != nil {
-			return invalid("backend is not a valid Mach-O executable", err)
-		}
-		defer func(release func() error) { _ = release() }(file.Close)
-		if file.Cpu != macho.CpuArm64 {
-			return invalid("backend Mach-O architecture must be arm64", nil)
-		}
+	case "windows-x64", "linux-x64", "macos-arm64":
+		return nil
 	default:
 		return fmt.Errorf("%w: unsupported package target %s", ErrPlatformMismatch, platform)
 	}
-	return nil
 }
 
 func readJSON(path string) ([]byte, any, error) {

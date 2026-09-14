@@ -106,9 +106,6 @@ func (emptyPluginStoreService) Get(string, string) (market.DetailResult, bool) {
 func (emptyPluginStoreService) Refresh(context.Context, string) (market.SourceView, error) {
 	return market.SourceView{}, nil
 }
-func (emptyPluginStoreService) Inspect(context.Context, market.InspectionRequest) (market.InspectionResult, error) {
-	return market.InspectionResult{}, nil
-}
 func (emptyPluginStoreService) Install(context.Context, market.InstallRequest) (string, error) {
 	return "", nil
 }

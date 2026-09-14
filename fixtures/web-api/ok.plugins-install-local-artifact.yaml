@@ -5,8 +5,8 @@ request:
   method: POST
   path: /api/plugins/install
   body:
-    inspection_id: inspection_fixture_weather_local_0002
-    package_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    source_type: local_directory
+    source: C:/plugins/weather-artifact
     trusted_code_confirmed: true
 response:
   status: 202

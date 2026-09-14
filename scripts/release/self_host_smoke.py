@@ -897,19 +897,21 @@ def request_plugin_state_change(base_url: str, token: str, plugin_id: str, actio
         raise SmokeError(f"plugin {action} did not return its current detail")
 
 
+def fixture_plugin_id(fixture: Path) -> str:
+    with zipfile.ZipFile(fixture) as archive:
+        manifest = next(name for name in archive.namelist() if name.count("/") <= 1 and name.rsplit("/", 1)[-1] == "info.json")
+        return json.loads(archive.read(manifest))["id"]
+
+
 def exercise_plugin_acceptance(root: Path, base_url: str, token: str, plugin_fixture: Path,
                                server_pid: int, temporary_root: Path,
                                browser_owners: list[BrowserOwnership]) -> dict[str, object]:
     headers = bearer_headers(token)
-    inspected = request_json(f"{base_url}api/plugins/install/inspect", method="POST",
-                             body={"source_type": "local_zip", "source": str(plugin_fixture.resolve(strict=True))},
-                             headers=headers)
-    plugin_id = inspected["plugin"]["id"]
+    plugin_id = fixture_plugin_id(plugin_fixture)
     if plugin_id != "raylea.echo":
         raise SmokeError("self-host acceptance requires the external native echo fixture")
     accepted = request_json(f"{base_url}api/plugins/install", method="POST", expected_status=202,
-                            body={"inspection_id": inspected["inspection_id"],
-                                  "package_sha256": inspected["package_sha256"], "trusted_code_confirmed": True},
+                            body={"source_type": "local_zip", "source": str(plugin_fixture.resolve(strict=True)), "trusted_code_confirmed": True},
                             headers=headers)
     wait_plugin_task(base_url, token, accepted, "plugin.install")
     installed = root / "plugins/installed" / plugin_id

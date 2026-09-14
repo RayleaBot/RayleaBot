@@ -32,7 +32,6 @@ const (
 	maxPluginArchiveExpandBytes = 512 * 1024 * 1024
 	maxPluginArchiveRatio       = 100
 	maxPluginDownloadRedirects  = 5
-	pluginInspectionTTL         = 10 * time.Minute
 	installRenameAttempts       = 10
 	installRenameRetryDelay     = 100 * time.Millisecond
 )
@@ -72,11 +71,10 @@ type InstallService struct {
 	baseCtx    context.Context
 	baseCancel context.CancelFunc
 
-	mu          sync.Mutex
-	closed      bool
-	cancels     map[string]context.CancelFunc
-	inspections map[string]*installInspectionEntry
-	deps        installerDeps
+	mu      sync.Mutex
+	closed  bool
+	cancels map[string]context.CancelFunc
+	deps    installerDeps
 
 	afterSuccess            func(context.Context, string) error
 	afterRollback           func(context.Context, string) error
@@ -94,10 +92,10 @@ type InstallOptions struct {
 }
 
 type installJob struct {
-	taskID     string
-	request    plugins.InstallRequest
-	inspection *installInspectionEntry
-	ctx        context.Context
+	taskID    string
+	request   plugins.InstallRequest
+	candidate *installCandidate
+	ctx       context.Context
 }
 
 func NewInstallService(
@@ -177,7 +175,6 @@ func newInstallService(
 		baseCtx:                 baseCtx,
 		baseCancel:              baseCancel,
 		cancels:                 map[string]context.CancelFunc{},
-		inspections:             map[string]*installInspectionEntry{},
 		deps:                    deps,
 	}
 
@@ -238,10 +235,6 @@ func (s *InstallService) Close() error {
 		return nil
 	}
 	s.closed = true
-	for id, inspection := range s.inspections {
-		delete(s.inspections, id)
-		inspection.cleanup()
-	}
 	cancels := make([]context.CancelFunc, 0, len(s.cancels))
 	for _, cancel := range s.cancels {
 		cancels = append(cancels, cancel)
@@ -266,8 +259,8 @@ func (s *InstallService) run() {
 			for {
 				select {
 				case job := <-s.jobs:
-					if job.inspection != nil {
-						job.inspection.cleanup()
+					if job.candidate != nil {
+						job.candidate.cleanup()
 					}
 				default:
 					return
@@ -285,16 +278,16 @@ func (s *InstallService) execute(job installJob) {
 
 	snapshot, ok := s.registry.Get(job.taskID)
 	if !ok || snapshot.Status == tasks.StatusCancelled {
-		if job.inspection != nil {
-			job.inspection.cleanup()
+		if job.candidate != nil {
+			job.candidate.cleanup()
 		}
 		return
 	}
 
 	startedAt := s.deps.now().UTC()
 	pluginName := "未知插件"
-	if job.inspection != nil {
-		pluginName = installPluginName(job.inspection.snapshot)
+	if job.candidate != nil {
+		pluginName = installPluginName(job.candidate.snapshot)
 	}
 	s.registry.Update(job.taskID, tasks.Update{
 		Status:    taskStatusPtr(tasks.StatusRunning),
@@ -303,7 +296,7 @@ func (s *InstallService) execute(job installJob) {
 		StartedAt: &startedAt,
 	})
 
-	err := s.cleanupInstallInspection(job, s.runInstall(job))
+	err := s.cleanupInstallCandidate(job, s.runInstall(job))
 	s.reportInstallResult(job, pluginName, err)
 }
 

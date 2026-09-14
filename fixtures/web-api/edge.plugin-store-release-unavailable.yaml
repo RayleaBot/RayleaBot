@@ -1,11 +1,12 @@
 contract: contracts/web-api.openapi.yaml
 case: edge
-description: Store inspection fails when no artifact exists for the current platform.
+description: Store installation fails when no artifact exists for the current platform.
 request:
   method: POST
-  path: /api/plugin-store/plugins/raylea.fortune/inspect
+  path: /api/plugin-store/plugins/raylea.fortune/install
   body:
     source_id: official
+    trusted_code_confirmed: true
 response:
   status: 409
   body:

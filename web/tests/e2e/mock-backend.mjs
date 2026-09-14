@@ -1108,12 +1108,6 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
-  const pluginStoreInspectMatch = pathname.match(/^\/api\/plugin-store\/plugins\/([^/]+)\/inspect$/)
-  if (pluginStoreInspectMatch && request.method === 'POST') {
-    json(response, 200, structuredClone(fixtures.pluginStoreInspection.response.body))
-    return
-  }
-
   const pluginStoreRefreshMatch = pathname.match(/^\/api\/plugin-store\/sources\/([^/]+)\/refresh$/)
   if (pluginStoreRefreshMatch && request.method === 'POST') {
     json(response, 200, structuredClone(fixtures.pluginStoreSourceRefresh.response.body))
@@ -1161,50 +1155,6 @@ const server = http.createServer(async (request, response) => {
       return
     }
     json(response, fixtures.updateCheck.response.status, structuredClone(fixtures.updateCheck.response.body))
-    return
-  }
-
-  if (pathname === '/api/plugins/install/inspect' && request.method === 'POST') {
-    const payload = await parseBody(request)
-    const inspectionId = 'inspection_mock_weather_package_0000001'
-    const packageSha256 = 'a'.repeat(64)
-    json(response, 200, {
-      inspection_id: inspectionId,
-      expires_at: '2026-07-10T12:15:00Z',
-      package_sha256: packageSha256,
-      source: {
-        source_type: payload.source_type,
-        source: payload.source,
-      },
-      plugin: {
-        id: 'example.weather-package',
-        name: 'Weather Package',
-        version: '1.0.0',
-        author: 'example',
-        license: 'MIT',
-        source_label: payload.source_type === 'remote_url' ? 'example.com' : '本地插件包',
-      },
-      permissions: {
-        'http.request': {},
-        'message.send': {},
-      },
-      target_platform: 'windows-x64',
-      backend: {
-        entry: 'bin/weather',
-        path: 'bin/weather.exe',
-        size: 3145728,
-      },
-      ui: {
-        enabled: true,
-        entry: 'ui/index.html',
-        file_count: 4,
-      },
-      artifact: {
-        valid: true,
-        artifact_version: '2',
-        file_count: 8,
-      },
-    })
     return
   }
 

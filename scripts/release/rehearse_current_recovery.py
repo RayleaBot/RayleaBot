@@ -140,12 +140,15 @@ def wait_for_plugin(origin: str, token: str, plugin_id: str) -> None:
     raise TimeoutError("recovery fixture did not reach running")
 
 
+def fixture_plugin_id(fixture: Path) -> str:
+    with zipfile.ZipFile(fixture) as archive:
+        manifest = next(name for name in archive.namelist() if name.count("/") <= 1 and name.rsplit("/", 1)[-1] == "info.json")
+        return json.loads(archive.read(manifest))["id"]
+
+
 def install_fixture(origin: str, token: str, fixture: Path) -> str:
-    inspection = request(origin, "/api/plugins/install/inspect", token=token,
-                         data={"source_type": "local_zip", "source": str(fixture.resolve(strict=True))})
     task = request(origin, "/api/plugins/install", token=token,
-                   data={"inspection_id": inspection["inspection_id"],
-                         "package_sha256": inspection["package_sha256"], "trusted_code_confirmed": True})
+                   data={"source_type": "local_zip", "source": str(fixture.resolve(strict=True)), "trusted_code_confirmed": True})
     deadline = time.monotonic() + 30
     while True:
         status = request(origin, f"/api/system/tasks/{task['task_id']}", token=token)["status"]
@@ -156,7 +159,7 @@ def install_fixture(origin: str, token: str, fixture: Path) -> str:
         if time.monotonic() >= deadline:
             raise TimeoutError("recovery fixture install did not complete")
         time.sleep(0.1)
-    plugin_id = inspection["plugin"]["id"]
+    plugin_id = fixture_plugin_id(fixture)
     request(origin, f"/api/plugins/{plugin_id}/enable", token=token, data={})
     wait_for_plugin(origin, token, plugin_id)
     return plugin_id

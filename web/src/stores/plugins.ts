@@ -11,8 +11,6 @@ import type {
   PluginDetail,
   PluginDetailResponse,
   PluginInstallRequest,
-  PluginInstallInspectionRequest,
-  PluginInstallInspectionResponse,
   PluginListResponse,
   PluginState,
   PluginSettingsResponse,
@@ -43,7 +41,6 @@ export const usePluginsStore = defineStore('plugins', () => {
   const settingsLoading = ref<Record<string, boolean>>({})
   const settingsSaving = ref<Record<string, boolean>>({})
   const installPending = ref(false)
-  const inspectionPending = ref(false)
   const iconRevision = ref(0)
   const detailGenerations = new Map<string, number>()
   let detailRequestVersion = 0
@@ -447,18 +444,6 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  async function inspectPlugin(payload: PluginInstallInspectionRequest) {
-    inspectionPending.value = true
-    try {
-      return await apiRequest<PluginInstallInspectionResponse>('/api/plugins/install/inspect', {
-        method: 'POST',
-        body: payload,
-      })
-    } finally {
-      inspectionPending.value = false
-    }
-  }
-
   function getSettings(pluginId: string) {
     return settingsByPluginId.value[pluginId] ?? {}
   }
@@ -474,7 +459,6 @@ export const usePluginsStore = defineStore('plugins', () => {
     error,
     items,
     installPending,
-    inspectionPending,
     listLoaded,
     iconRevision,
     loading,
@@ -493,7 +477,6 @@ export const usePluginsStore = defineStore('plugins', () => {
     getPluginDisplayName,
     getPluginLabel,
     installPlugin,
-    inspectPlugin,
     uninstallPlugin,
     updateSettings,
     upsert,
