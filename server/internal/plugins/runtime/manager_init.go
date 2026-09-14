@@ -32,7 +32,7 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 
 		select {
 		case line := <-readCh:
-			status, payload, err := m.parseInitResponse(line, handle.Spec.PluginID, requestID)
+			status, payload, err := m.parseInitResponse(line, handle.Spec.PluginID, requestID, handle.Spec.ValidateFrames)
 			if err != nil {
 				return err
 			}
@@ -61,9 +61,11 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 	}
 }
 
-func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string) (InitResponseStatus, []string, *plugins.Error) {
-	if err := validatePluginFrame(line); err != nil {
-		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an invalid init response", err)
+func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string, validate bool) (InitResponseStatus, []string, *plugins.Error) {
+	if validate {
+		if err := validatePluginFrame(line); err != nil {
+			return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an invalid init response", err)
+		}
 	}
 	var envelope pluginwire.FrameEnvelope
 	if err := json.Unmarshal(line, &envelope); err != nil {

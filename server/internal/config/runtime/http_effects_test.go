@@ -61,9 +61,8 @@ func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
 			QueueMaxLength:          32,
 		},
 		Log: config.LogConfig{
-			Level:              "info",
-			RetentionDays:      7,
-			RateLimitPerPlugin: "200/10s",
+			Level:         "info",
+			RetentionDays: 7,
 		},
 		User: config.UserConfig{
 			CommandRateLimit: "10/60s",
@@ -101,9 +100,8 @@ func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
 			QueueMaxLength:          32,
 		},
 		Log: config.LogConfig{
-			Level:              "debug",
-			RetentionDays:      7,
-			RateLimitPerPlugin: "200/10s",
+			Level:         "debug",
+			RetentionDays: 7,
 		},
 		User: config.UserConfig{
 			CommandRateLimit: "1/1h",

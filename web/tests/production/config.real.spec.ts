@@ -21,29 +21,12 @@ async function scrollConfigSectionIntoView(page: import('@playwright/test').Page
   await page.locator(`[data-section-key="${sectionKey}"]`).first().scrollIntoViewIfNeeded()
 }
 
-async function fillRateLimit(
-  page: import('@playwright/test').Page,
-  label: string,
-  count: string,
-  windowValue: string,
-  unit?: '秒' | '分钟' | '小时',
-) {
-  await page.getByLabel(`${label} 次数`).fill(count)
-  await page.getByLabel(`${label} 时间窗口`).fill(windowValue)
-  if (unit) {
-    await page.getByLabel(`${label} 单位`).click()
-    await page.getByRole('option', { name: unit, exact: true }).click()
-  }
-}
-
-test('config page edits general IPC rate limit with split inputs', async ({ page, request }) => {
-
+test('config page reports restart-required runtime changes from the server', async ({ page }) => {
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
 
   await scrollConfigSectionIntoView(page, 'runtime')
-  await fillRateLimit(page, 'IPC 突发限制', '180', '5')
-  await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
+  await page.getByLabel('插件待处理事件上限', { exact: true }).fill('32')
   await expect(page.locator('#config-save-status')).toContainText('含重启后生效的更改')
 
   const [saved] = await Promise.all([
@@ -53,8 +36,9 @@ test('config page edits general IPC rate limit with split inputs', async ({ page
     )),
     page.getByRole('button', { name: '保存更改' }).click(),
   ])
-  expect((await saved.json()).apply_effects.restart_required_fields).toContain('runtime.ipc_action_burst_limit')
+  expect((await saved.json()).apply_effects.restart_required_fields).toContain('runtime.max_pending_events_per_plugin')
 
+  await page.reload()
   await scrollConfigSectionIntoView(page, 'runtime')
-  await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
+  await expect(page.getByLabel('插件待处理事件上限', { exact: true })).toHaveValue('32')
 })

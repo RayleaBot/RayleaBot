@@ -2356,11 +2356,6 @@ export interface components {
                  */
                 plugin_init_timeout_seconds: number;
                 /**
-                 * @description Cumulative initialization time budget for one runtime reconciliation pass across all enabled plugins; remaining plugins skip initialization when the budget is exhausted. Default: 300.
-                 * @default 300
-                 */
-                plugin_init_max_total_seconds: number;
-                /**
                  * @description Maximum time a plugin may take to process one event; expired events are dropped. Default: 60.
                  * @default 60
                  */
@@ -2375,16 +2370,6 @@ export interface components {
                  * @default 4
                  */
                 max_pending_control_events_per_plugin: number;
-                /**
-                 * @description Maximum simultaneously outstanding local-action IPC requests per plugin. Rejected requests receive platform.rate_limited without starting a goroutine. Recent request-id history is bounded by the same value. Default: 256.
-                 * @default 256
-                 */
-                ipc_pending_actions_max: number;
-                /**
-                 * @description Per-plugin admission rate for local-action IPC requests, expressed as count per fixed time window. Rejected requests receive platform.rate_limited.
-                 * @default 100/1s
-                 */
-                ipc_action_burst_limit: components["schemas"]["rateLimit"];
                 /**
                  * @description Plugin stderr output rate limit in bytes per second; excess output is truncated. Default: 262144.
                  * @default 262144
@@ -2463,8 +2448,6 @@ export interface components {
                  * @default 7
                  */
                 retention_days: number;
-                /** @default 200/10s */
-                rate_limit_per_plugin: components["schemas"]["rateLimit"];
             } & {
                 [key: string]: unknown;
             };

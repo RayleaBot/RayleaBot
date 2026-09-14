@@ -118,7 +118,6 @@ func buildLocalActionService(
 		MessageSender:        localaction.OutboundMessageSender(eventStack.Dispatcher),
 		Renderer:             localaction.RendererFromService(renderer),
 		ResolveOneBotAdapter: eventStack.ResolveOneBotAdapter,
-		PluginLogLimiter:     pluginStack.PluginLogLimiter,
 		Governance:           governanceService,
 	})
 }

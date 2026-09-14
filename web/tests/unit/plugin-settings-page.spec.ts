@@ -3,7 +3,6 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { notifySuccess } from '@/adapter/feedback'
-import RateLimitInput from '@/components/config/RateLimitInput.vue'
 import { t } from '@/i18n'
 import PluginSettingsPage from '@/views/plugins/PluginSettingsView.vue'
 import { useConfigStore } from '@/stores/config'
@@ -42,7 +41,6 @@ describe('PluginSettingsPage', () => {
         apply_effects: {
           applied_now: [
             'command.prefixes',
-            'log.rate_limit_per_plugin',
             'render.footer_template',
             'storage.plugin_workdir_soft_limit_mb',
           ],
@@ -67,7 +65,6 @@ describe('PluginSettingsPage', () => {
       'update:modelValue',
       ['/', '!'],
     )
-    await wrapper.getComponent(RateLimitInput).vm.$emit('update:value', '300/10s')
     await wrapper.get('textarea').setValue('Footer {{plugin_name}}')
     await wrapper.get(`[aria-label="${t('config.fields.storagePluginWorkdirSoftLimitMb')}"]`).setValue('512')
     await flushPromises()
@@ -84,7 +81,6 @@ describe('PluginSettingsPage', () => {
     expect(saveSpy).toHaveBeenCalledTimes(1)
     const submitted = saveSpy.mock.calls[0][0]
     expect(submitted.command.prefixes).toEqual(['/', '!'])
-    expect(submitted.log.rate_limit_per_plugin).toBe('300/10s')
     expect(submitted.render.footer_template).toBe('Footer {{plugin_name}}')
     expect(submitted.storage.plugin_workdir_soft_limit_mb).toBe(512)
     expect(submitted.server.host).toBe('127.0.0.1')

@@ -231,14 +231,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
           description: t('config.descriptions.runtimePluginInitTimeoutSeconds'),
         },
         {
-          path: 'runtime.plugin_init_max_total_seconds',
-          restartRequired: true,
-          label: t('config.fields.runtimePluginInitMaxTotalSeconds'),
-          type: 'number',
-          unit: t('config.units.second'),
-          description: t('config.descriptions.runtimePluginInitMaxTotalSeconds'),
-        },
-        {
           path: 'runtime.plugin_event_timeout_seconds',
           restartRequired: true,
           label: t('config.fields.runtimePluginEventTimeoutSeconds'),
@@ -259,20 +251,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
           label: t('config.fields.runtimeMaxPendingControlEventsPerPlugin'),
           type: 'number',
           description: t('config.descriptions.runtimeMaxPendingControlEventsPerPlugin'),
-        },
-        {
-          path: 'runtime.ipc_pending_actions_max',
-          restartRequired: true,
-          label: t('config.fields.runtimeIpcPendingActionsMax'),
-          type: 'number',
-          description: t('config.descriptions.runtimeIpcPendingActionsMax'),
-        },
-        {
-          path: 'runtime.ipc_action_burst_limit',
-          restartRequired: true,
-          label: t('config.fields.runtimeIpcActionBurstLimit'),
-          type: 'rateLimit',
-          description: t('config.descriptions.runtimeIpcActionBurstLimit'),
         },
         {
           path: 'runtime.stderr_rate_limit_bytes_per_second',
@@ -441,17 +419,6 @@ export function getPluginSettingsConfigSections(): ConfigSectionDefinition[] {
           label: t('config.fields.commandPrefixes'),
           type: 'list',
           description: t('plugins.settings.hints.commandPrefixes'),
-        },
-      ],
-    },
-    {
-      key: 'log',
-      title: t('plugins.settings.sections.log'),
-      fields: [
-        {
-          path: 'log.rate_limit_per_plugin',
-          label: t('config.fields.logRateLimitPerPlugin'),
-          type: 'rateLimit',
         },
       ],
     },

@@ -172,44 +172,6 @@ describe('ConfigPage', () => {
     expect(submitted.render.device_scale_percent).toBe(200)
   })
 
-  it('edits general IPC rate limit with split inputs', async () => {
-    const store = useConfigStore()
-    store.document = createConfigDocumentFixture()
-
-    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-    const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
-      config: store.document,
-      redacted_fields: [],
-      restart_required: true,
-      apply_effects: {
-        applied_now: [],
-        reloaded_now: [],
-        restart_required_fields: ['runtime.ipc_action_burst_limit'],
-      },
-    })
-
-    const wrapper = mount(ConfigPage, {
-      global: {
-        plugins: [getActivePinia()!],
-      },
-    })
-
-    await flushPromises()
-
-    await selectCategory(wrapper, 'runtime', true)
-    await getConfigFieldRow(wrapper, 'runtime.ipc_action_burst_limit').vm.$emit('update:value', '200/10s')
-    await flushPromises()
-
-    const saveButton = wrapper.get('[data-testid=config-save]')
-    expect(saveButton).toBeTruthy()
-    await saveButton!.trigger('click')
-
-    expect(saveSpy).toHaveBeenCalledTimes(1)
-    const submitted = saveSpy.mock.calls[0][0]
-    expect(submitted.runtime.ipc_action_burst_limit).toBe('200/10s')
-    expect(submitted.message.rate_limit_per_target).toBe('5/5s')
-  })
-
   it('reflects dirty state in the floating save button', async () => {
     const store = useConfigStore()
     store.document = createConfigDocumentFixture()

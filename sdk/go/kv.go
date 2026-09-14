@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/sdk/go/internal/pluginwire"
 )
 
 type KVSetOptions struct {
@@ -30,9 +28,6 @@ func (actions *Actions) KVSetWithOptions(ctx context.Context, key string, value 
 	}{Operation: "set", Key: key, Value: value, TTLSeconds: int64(options.TTL / time.Second)}
 	var response json.RawMessage
 	if err := actions.Call(ctx, "storage.kv", request, &response); err != nil {
-		return KVSetResult{}, err
-	}
-	if err := pluginwire.ValidateActionResult("storage.kv.set", response); err != nil {
 		return KVSetResult{}, err
 	}
 	var result KVSetResult

@@ -63,9 +63,6 @@ func (writer *jsonWriter) write(frame protocolFrame) error {
 	if err != nil {
 		return fmt.Errorf("marshal protocol frame: %w", err)
 	}
-	if err := pluginwire.Validate(payload, maxProtocolFrameBytes); err != nil {
-		return fmt.Errorf("invalid outgoing plugin frame: %w", err)
-	}
 	payload = append(payload, '\n')
 	writer.mu.Lock()
 	defer writer.mu.Unlock()

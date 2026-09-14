@@ -337,12 +337,9 @@
       "additionalProperties": true,
       "required": [
         "plugin_init_timeout_seconds",
-        "plugin_init_max_total_seconds",
         "plugin_event_timeout_seconds",
         "max_pending_events_per_plugin",
         "max_pending_control_events_per_plugin",
-        "ipc_pending_actions_max",
-        "ipc_action_burst_limit",
         "stderr_rate_limit_bytes_per_second",
         "max_concurrent_tasks_per_plugin",
         "crash_backoff_initial_seconds",
@@ -356,13 +353,6 @@
           "minimum": 1,
           "default": 30,
           "description": "Wall-clock deadline for one plugin's load and init handshake. init_progress frames do not extend the deadline. Default: 30.",
-          "x-apply-policy": "restart_required"
-        },
-        "plugin_init_max_total_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 300,
-          "description": "Cumulative initialization time budget for one runtime reconciliation pass across all enabled plugins; remaining plugins skip initialization when the budget is exhausted. Default: 300.",
           "x-apply-policy": "restart_required"
         },
         "plugin_event_timeout_seconds": {
@@ -384,19 +374,6 @@
           "minimum": 1,
           "default": 4,
           "description": "Independent priority queue bound for plugin.started, config.changed, bot.identities.changed, and management.action events per plugin. Default: 4.",
-          "x-apply-policy": "restart_required"
-        },
-        "ipc_pending_actions_max": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 256,
-          "description": "Maximum simultaneously outstanding local-action IPC requests per plugin. Rejected requests receive platform.rate_limited without starting a goroutine. Recent request-id history is bounded by the same value. Default: 256.",
-          "x-apply-policy": "restart_required"
-        },
-        "ipc_action_burst_limit": {
-          "$ref": "#/$defs/rateLimit",
-          "default": "100/1s",
-          "description": "Per-plugin admission rate for local-action IPC requests, expressed as count per fixed time window. Rejected requests receive platform.rate_limited.",
           "x-apply-policy": "restart_required"
         },
         "stderr_rate_limit_bytes_per_second": {
@@ -504,8 +481,7 @@
       "additionalProperties": true,
       "required": [
         "level",
-        "retention_days",
-        "rate_limit_per_plugin"
+        "retention_days"
       ],
       "properties": {
         "level": {
@@ -526,10 +502,6 @@
           "default": 7,
           "description": "Retention in days for persisted management log rows in SQLite; older rows are pruned. Default: 7.",
           "x-apply-policy": "hot_reload"
-        },
-        "rate_limit_per_plugin": {
-          "$ref": "#/$defs/rateLimit",
-          "default": "200/10s"
         }
       }
     },

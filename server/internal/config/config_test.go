@@ -571,12 +571,9 @@ func newPlanningConfigDocument() map[string]any {
 		},
 		"runtime": map[string]any{
 			"plugin_init_timeout_seconds":           30,
-			"plugin_init_max_total_seconds":         300,
 			"plugin_event_timeout_seconds":          60,
 			"max_pending_events_per_plugin":         16,
 			"max_pending_control_events_per_plugin": 4,
-			"ipc_pending_actions_max":               256,
-			"ipc_action_burst_limit":                "100/1s",
 			"stderr_rate_limit_bytes_per_second":    262144,
 			"max_concurrent_tasks_per_plugin":       4,
 			"crash_backoff_initial_seconds":         2,
@@ -594,9 +591,8 @@ func newPlanningConfigDocument() map[string]any {
 			"download_cache_retention_days": 15,
 		},
 		"log": map[string]any{
-			"level":                 "info",
-			"retention_days":        7,
-			"rate_limit_per_plugin": "200/10s",
+			"level":          "info",
+			"retention_days": 7,
 		},
 		"message": map[string]any{
 			"rate_limit_per_target": "5/5s",

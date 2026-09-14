@@ -9,20 +9,6 @@ import (
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
-func TestReferencedFieldRetainsItsApplyPolicyOverride(t *testing.T) {
-	t.Parallel()
-	current, _, err := internalconfig.Load(filepath.Join(t.TempDir(), "config", "user.yaml"), "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	next := current
-	next.Runtime.IPCActionBurstLimit = "180/5s"
-	effects := ClassifyApplyEffects(current, next)
-	if !slices.Equal(effects.RestartRequiredFields, []string{"runtime.ipc_action_burst_limit"}) || len(effects.AppliedNow) != 0 {
-		t.Fatalf("field-specific policy was replaced by the rateLimit definition: %#v", effects)
-	}
-}
-
 func TestMetadataRejectsRecursiveReferences(t *testing.T) {
 	t.Parallel()
 	for _, definition := range []string{
@@ -163,21 +149,16 @@ func TestHotReloadConsumersOnlyReceiveOwnedChanges(t *testing.T) {
 
 	renderer := &configApplyCounter{}
 	outbound := &configApplyCounter{}
-	pluginLog := &configApplyCounter{}
 	service := NewService(Deps{
-		CurrentConfig:    func() internalconfig.Config { return current },
-		SetConfig:        func(cfg internalconfig.Config) { current = cfg },
-		Renderer:         renderer,
-		OutboundLimiter:  outbound,
-		PluginLogLimiter: pluginLog,
+		CurrentConfig:   func() internalconfig.Config { return current },
+		SetConfig:       func(cfg internalconfig.Config) { current = cfg },
+		Renderer:        renderer,
+		OutboundLimiter: outbound,
 	})
 
 	service.ApplyHotReloadableFields(next)
 
 	if renderer.calls != 1 || outbound.calls != 1 {
 		t.Fatalf("renderer=%d outbound=%d, want one apply each", renderer.calls, outbound.calls)
-	}
-	if pluginLog.calls != 0 {
-		t.Fatalf("plugin log=%d, want no apply", pluginLog.calls)
 	}
 }

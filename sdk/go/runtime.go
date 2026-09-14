@@ -109,17 +109,6 @@ func (state *runtimeState) run(ctx context.Context, in io.Reader) error {
 	scanner.Buffer(make([]byte, 64*1024), maxProtocolFrameBytes+1)
 	initialized := false
 	for scanner.Scan() {
-		if err := pluginwire.Validate(scanner.Bytes(), maxProtocolFrameBytes); err != nil {
-			var envelope pluginwire.FrameEnvelope
-			if initialized && json.Unmarshal(scanner.Bytes(), &envelope) == nil && envelope.Type == "event" && envelope.RequestID != "" {
-				if writeErr := state.sendError(envelope.RequestID, "plugin.protocol_violation", "host event violates the protocol schema"); writeErr != nil {
-					return writeErr
-				}
-				continue
-			}
-			state.client.rejectPending(err)
-			return fmt.Errorf("rayleabot: invalid incoming protocol frame: %w", err)
-		}
 		var frame protocolFrame
 		if err := json.Unmarshal(scanner.Bytes(), &frame); err != nil {
 			state.client.rejectPending(err)

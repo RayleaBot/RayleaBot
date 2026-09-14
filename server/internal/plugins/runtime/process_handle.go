@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 type ProcessSpec struct {
@@ -21,10 +20,8 @@ type ProcessSpec struct {
 	EventTimeout         time.Duration
 	ShutdownGrace        time.Duration
 	EffectiveConcurrency int
-	IPCPendingActionsMax int
-	IPCActionBurstCount  int
-	IPCActionBurstWindow time.Duration
 	IPCMessageMaxBytes   int
+	ValidateFrames       bool
 }
 
 type Handle struct {
@@ -150,10 +147,6 @@ func writeJSONLineWithLimit(writer io.Writer, value any, maxBytes int) error {
 	}
 	if maxBytes > 0 && len(encoded) > maxBytes {
 		return fmt.Errorf("%w: encoded frame has %d bytes, limit %d", errProtocolFrameTooLarge, len(encoded), maxBytes)
-	}
-
-	if err := pluginwire.Validate(encoded, maxBytes); err != nil {
-		return fmt.Errorf("invalid outgoing plugin frame: %w", err)
 	}
 
 	encoded = append(encoded, '\n')

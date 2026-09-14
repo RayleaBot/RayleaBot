@@ -4,85 +4,10 @@ import (
 	"context"
 	"sort"
 	"strings"
-	"sync"
-	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
-
-const defaultPluginLogRateLimit = "200/10s"
-
-type PluginLogLimiter struct {
-	mu      sync.Mutex
-	now     func() time.Time
-	limit   config.RateLimit
-	records map[string][]time.Time
-}
-
-func NewPluginLogLimiter(cfg config.Config) *PluginLogLimiter {
-	return &PluginLogLimiter{
-		now:     time.Now,
-		limit:   parsePluginLogRateLimit(cfg),
-		records: make(map[string][]time.Time),
-	}
-}
-
-func (l *PluginLogLimiter) ApplyConfig(cfg config.Config) {
-	l.SetLimit(parsePluginLogRateLimit(cfg))
-}
-
-func (l *PluginLogLimiter) SetLimit(limit config.RateLimit) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.limit = limit
-	if len(l.records) == 0 {
-		return
-	}
-	now := l.now().UTC()
-	for pluginID, entries := range l.records {
-		l.records[pluginID] = prunePluginLogEntries(entries, now, l.limit.Window)
-		if len(l.records[pluginID]) == 0 {
-			delete(l.records, pluginID)
-		}
-	}
-}
-
-func (l *PluginLogLimiter) Allow(pluginID string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	now := l.now().UTC()
-	entries := prunePluginLogEntries(l.records[pluginID], now, l.limit.Window)
-	if len(entries) >= l.limit.Count {
-		l.records[pluginID] = entries
-		return false
-	}
-	l.records[pluginID] = append(entries, now)
-	return true
-}
-
-func prunePluginLogEntries(entries []time.Time, now time.Time, window time.Duration) []time.Time {
-	if window <= 0 {
-		return nil
-	}
-	cutoff := now.Add(-window)
-	index := 0
-	for index < len(entries) && entries[index].Before(cutoff) {
-		index++
-	}
-	return append([]time.Time(nil), entries[index:]...)
-}
-
-func parsePluginLogRateLimit(cfg config.Config) config.RateLimit {
-	limit, err := config.ParseRateLimit(strings.TrimSpace(cfg.Log.RateLimitPerPlugin))
-	if err == nil {
-		return limit
-	}
-	limit, _ = config.ParseRateLimit(defaultPluginLogRateLimit)
-	return limit
-}
 
 func logWriteRegistrar() registrar {
 	return registrar{
@@ -96,9 +21,6 @@ func logWriteRegistrar() registrar {
 }
 
 func executeLogWrite(deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.PluginLogLimiter != nil && !deps.PluginLogLimiter.Allow(req.PluginID) {
-		return nil, &plugins.Error{Code: errorcodes.PlatformRateLimited, Message: "plugin log throughput exceeded the configured platform limit"}
-	}
 	if deps.Logger == nil {
 		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "logger.write is not available"}
 	}

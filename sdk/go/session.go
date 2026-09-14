@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/sdk/go/internal/pluginwire"
 )
 
 type SessionRef struct {
@@ -35,9 +33,6 @@ func (actions *Actions) SessionWait(ctx context.Context, options SessionWaitOpti
 	if err := actions.Call(ctx, "session.wait", request, &data); err != nil {
 		return SessionRef{}, err
 	}
-	if err := pluginwire.ValidateActionResult("session.wait", data); err != nil {
-		return SessionRef{}, err
-	}
 	var ref SessionRef
 	if err := json.Unmarshal(data, &ref); err != nil {
 		return SessionRef{}, err
@@ -52,9 +47,6 @@ func (actions *Actions) SessionFinish(ctx context.Context, id string) (bool, err
 	}
 	var data json.RawMessage
 	if err := actions.Call(ctx, "session.finish", map[string]any{"session_id": id}, &data); err != nil {
-		return false, err
-	}
-	if err := pluginwire.ValidateActionResult("session.finish", data); err != nil {
 		return false, err
 	}
 	var result struct {

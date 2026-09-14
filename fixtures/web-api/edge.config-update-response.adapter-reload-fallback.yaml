@@ -70,12 +70,9 @@ request:
       timezone: "Asia/Shanghai"
     runtime:
       plugin_init_timeout_seconds: 30
-      plugin_init_max_total_seconds: 300
       plugin_event_timeout_seconds: 60
       max_pending_events_per_plugin: 16
       max_pending_control_events_per_plugin: 4
-      ipc_pending_actions_max: 256
-      ipc_action_burst_limit: 100/1s
       stderr_rate_limit_bytes_per_second: 262144
       max_concurrent_tasks_per_plugin: 4
       crash_backoff_initial_seconds: 2
@@ -92,7 +89,6 @@ request:
     log:
       level: info
       retention_days: 7
-      rate_limit_per_plugin: 200/10s
     message:
       rate_limit_per_target: 5/5s
     user:
@@ -185,12 +181,9 @@ response:
         timezone: "Asia/Shanghai"
       runtime:
         plugin_init_timeout_seconds: 30
-        plugin_init_max_total_seconds: 300
         plugin_event_timeout_seconds: 60
         max_pending_events_per_plugin: 16
         max_pending_control_events_per_plugin: 4
-        ipc_pending_actions_max: 256
-        ipc_action_burst_limit: 100/1s
         stderr_rate_limit_bytes_per_second: 262144
         max_concurrent_tasks_per_plugin: 4
         crash_backoff_initial_seconds: 2
@@ -207,7 +200,6 @@ response:
       log:
         level: info
         retention_days: 7
-        rate_limit_per_plugin: 200/10s
       message:
         rate_limit_per_target: 5/5s
       user:

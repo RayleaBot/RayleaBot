@@ -19,18 +19,11 @@ func (c *Controller) reconcileRuntime(ctx context.Context) {
 	if c.plugins == nil {
 		return
 	}
-	budgetCtx, cancel := context.WithTimeout(ctx, runtimeInitBudget(c.config().Runtime))
-	defer cancel()
-
 	for _, snapshot := range c.plugins.List() {
 		if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
 			continue
 		}
-		if err := budgetCtx.Err(); err != nil {
-			c.logLifecycleWarn("plugin runtime reconcile skipped after cumulative init budget", snapshot.PluginID, err)
-			continue
-		}
-		if err := c.ensurePluginRunning(budgetCtx, snapshot.PluginID); err != nil {
+		if err := c.ensurePluginRunning(ctx, snapshot.PluginID); err != nil {
 			c.logLifecycleWarn("plugin runtime reconcile failed", snapshot.PluginID, err)
 		}
 	}
@@ -359,12 +352,4 @@ func runtimeInitTimeout(cfg config.RuntimeConfig) time.Duration {
 		seconds = 30
 	}
 	return time.Duration(seconds+5) * time.Second
-}
-
-func runtimeInitBudget(cfg config.RuntimeConfig) time.Duration {
-	seconds := cfg.PluginInitMaxTotalSeconds
-	if seconds <= 0 {
-		seconds = 300
-	}
-	return time.Duration(seconds) * time.Second
 }

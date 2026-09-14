@@ -278,11 +278,13 @@ func shallowCloneMap(raw map[string]any) map[string]any {
 	return cloned
 }
 
-// parseRuntimeFrame validates one runtime line against the protocol schema and
-// decodes it once into the union frame every router reads from.
-func parseRuntimeFrame(line []byte) (pluginwire.Frame, error) {
-	if err := validatePluginFrame(line); err != nil {
-		return pluginwire.Frame{}, errorf(codePluginProtocolViolation, "plugin returned an invalid protocol frame", err)
+// parseRuntimeFrame decodes one runtime line into the union frame every router
+// reads from. Development plugins also have each frame checked against the schema.
+func parseRuntimeFrame(line []byte, validate bool) (pluginwire.Frame, error) {
+	if validate {
+		if err := validatePluginFrame(line); err != nil {
+			return pluginwire.Frame{}, errorf(codePluginProtocolViolation, "plugin returned an invalid protocol frame", err)
+		}
 	}
 	var frame pluginwire.Frame
 	if err := json.Unmarshal(line, &frame); err != nil {

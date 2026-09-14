@@ -31,7 +31,7 @@ describe('ConfigFieldRow', () => {
   })
 
   it('shows separate default hints for an empty rate limit without filling either input', () => {
-    const wrapper = mountField({ path: 'runtime.ipc_action_burst_limit', label: 'IPC', type: 'rateLimit', defaultValue: '100/1s' }, undefined)
+    const wrapper = mountField({ path: 'user.command_rate_limit', label: 'Limit', type: 'rateLimit', defaultValue: '100/1s' }, undefined)
     const inputs = wrapper.findAll('input')
     expect(inputs.map(input => input.attributes('placeholder'))).toEqual(['100', '1'])
     expect(inputs.map(input => (input.element as HTMLInputElement).value)).toEqual(['', ''])
@@ -40,17 +40,17 @@ describe('ConfigFieldRow', () => {
   })
 
   it('preserves an incomplete rate-limit edit through remount and resets on discard', async () => {
-    const field = { path: 'runtime.ipc_action_burst_limit', label: 'IPC', type: 'rateLimit' as const, defaultValue: '100/1s' }
+    const field = { path: 'user.command_rate_limit', label: 'Limit', type: 'rateLimit' as const, defaultValue: '100/1s' }
     const wrapper = mountField(field, '100/1s')
-    await wrapper.get('input[aria-label="IPC 次数"]').setValue('')
+    await wrapper.get('input[aria-label="Limit 次数"]').setValue('')
     const incomplete = wrapper.emitted('update:value')?.at(-1)?.[0]
     expect(incomplete).toBe('/1s')
     wrapper.unmount()
     const restored = mountField(field, incomplete)
-    expect((restored.get('input[aria-label="IPC 次数"]').element as HTMLInputElement).value).toBe('')
-    expect((restored.get('input[aria-label="IPC 时间窗口"]').element as HTMLInputElement).value).toBe('1')
+    expect((restored.get('input[aria-label="Limit 次数"]').element as HTMLInputElement).value).toBe('')
+    expect((restored.get('input[aria-label="Limit 时间窗口"]').element as HTMLInputElement).value).toBe('1')
     await restored.setProps({ value: '100/1s' })
-    expect((restored.get('input[aria-label="IPC 次数"]').element as HTMLInputElement).value).toBe('100')
+    expect((restored.get('input[aria-label="Limit 次数"]').element as HTMLInputElement).value).toBe('100')
     restored.unmount()
   })
 

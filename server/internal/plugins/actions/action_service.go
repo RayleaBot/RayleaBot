@@ -22,7 +22,6 @@ type Deps struct {
 	MessageSender        MessageSendFunc
 	Renderer             Renderer
 	ResolveOneBotAdapter func(sourceAdapter, sourceProtocol string) (OneBotAdapter, error)
-	PluginLogLimiter     *PluginLogLimiter
 	Governance           GovernanceService
 }
 

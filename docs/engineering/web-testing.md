@@ -11,7 +11,7 @@
 | 场景 | 当前验证入口 | 核对结果 |
 | --- | --- | --- |
 | 生产静态资源、保护路由、登录、治理作用域、配置落盘、日志详情 | [`management.real.spec.ts`](../../web/tests/production/management.real.spec.ts) | 真实 HTTP 响应与 UI 操作结果一致；同目标 ID 的不同机器人规则互不覆盖 |
-| IPC 限流 | [`config.real.spec.ts`](../../web/tests/production/config.real.spec.ts) | Server 返回实际的即时应用与需重启字段，刷新后读取持久化结果 |
+| 配置需重启字段 | [`config.real.spec.ts`](../../web/tests/production/config.real.spec.ts) | Server 返回实际的即时应用与需重启字段，刷新后读取持久化结果 |
 | Cookie/CSRF、全局插件配置、空适配器与空调度列表 | [`settings.real.spec.ts`](../../web/tests/production/settings.real.spec.ts) | 未初始化状态互相隔离；无 CSRF 的写入拒绝；保存后刷新仍保留配置 |
 | 管理员密码与用户名更新 | [`account.real.spec.ts`](../../web/tests/production/account.real.spec.ts) | 当前密码由真实 Server 检查，更新使会话失效，新凭据能够重新登录 |
 | 协议连接草稿、配置保存与密钥遮罩 | [`adapters.real.spec.ts`](../../web/tests/production/adapters.real.spec.ts) | 不完整或取消的表单不发写请求；新连接保存后的重启提示与遮罩结果来自 Server；后续编辑保留被遮罩密钥 |

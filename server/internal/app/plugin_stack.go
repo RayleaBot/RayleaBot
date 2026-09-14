@@ -9,7 +9,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
@@ -42,7 +41,6 @@ type PluginStackState struct {
 	PluginFiles       *pluginstore.FileService
 	PluginKV          pluginstore.KVRepository
 	Webhooks          *pluginwebhook.Registry
-	PluginLogLimiter  *localaction.PluginLogLimiter
 	RefreshManifest   func(context.Context, string) (plugins.Snapshot, error)
 }
 
@@ -71,7 +69,6 @@ func buildPluginStack(deps pluginStackDeps) (PluginStackState, error) {
 		PluginFiles:      pluginFileService,
 		PluginKV:         pluginKVRepository,
 		Webhooks:         webhookRegistry,
-		PluginLogLimiter: localaction.NewPluginLogLimiter(deps.Config),
 		RefreshManifest:  buildManifestRefresh(deps, pluginRepository, pluginConfigRepository),
 	}, nil
 }

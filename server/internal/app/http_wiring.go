@@ -55,7 +55,6 @@ func buildHTTP(deps httpBuildDeps) (appHTTPState, error) {
 		Logs:              platformState.Logs,
 		LogRepository:     platformState.LogRepository,
 		Renderer:          renderer,
-		PluginLogLimiter:  pluginState.PluginLogLimiter,
 		OutboundLimiter:   eventState.OutboundLimiter,
 		Protocol:          services.Protocol,
 		EventIngress:      services.EventIngress,

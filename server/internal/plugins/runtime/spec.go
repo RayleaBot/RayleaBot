@@ -39,10 +39,9 @@ type Spec struct {
 	EventTimeout         time.Duration
 	ShutdownGrace        time.Duration
 	EffectiveConcurrency int
-	IPCPendingActionsMax int
-	IPCActionBurstCount  int
-	IPCActionBurstWindow time.Duration
 	IPCMessageMaxBytes   int
+	// ValidateFrames enables per-frame protocol schema checks for development plugins.
+	ValidateFrames bool
 }
 
 func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.RuntimeConfig) (Spec, error) {
@@ -88,10 +87,6 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 	}
 
 	initTimeout := durationFromSeconds(runtimeConfig.PluginInitTimeoutSeconds, 10)
-	burstLimit, err := config.ParseRateLimit(runtimeConfig.IPCActionBurstLimit)
-	if err != nil {
-		burstLimit, _ = config.ParseRateLimit("100/1s")
-	}
 
 	return Spec{
 		PluginID:             snapshot.PluginID,
@@ -108,10 +103,8 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 		EventTimeout:         durationFromSeconds(runtimeConfig.PluginEventTimeoutSeconds, 5),
 		ShutdownGrace:        durationFromSeconds(runtimeConfig.ShutdownGraceSeconds, 5),
 		EffectiveConcurrency: effectivePluginConcurrency(snapshot.Concurrency, runtimeConfig.MaxConcurrentTasksPerPlugin),
-		IPCPendingActionsMax: positiveInt(runtimeConfig.IPCPendingActionsMax, 256),
-		IPCActionBurstCount:  burstLimit.Count,
-		IPCActionBurstWindow: burstLimit.Window,
 		IPCMessageMaxBytes:   positiveInt(runtimeConfig.IPCMessageMaxBytes, 8*1024*1024),
+		ValidateFrames:       snapshot.PackageSourceType == "development",
 	}, nil
 }
 

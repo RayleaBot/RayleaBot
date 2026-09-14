@@ -27,7 +27,6 @@ type Service struct {
 	logRepository      logging.Repository
 	addRedactionValues func(...string)
 	renderer           configConsumer
-	pluginLogLimiter   configConsumer
 	outboundLimiter    configConsumer
 	protocol           configProtocolReloader
 	eventIngress       configEventIngress
@@ -46,7 +45,6 @@ type Deps struct {
 	LogRepository      logging.Repository
 	AddRedactionValues func(...string)
 	Renderer           configConsumer
-	PluginLogLimiter   configConsumer
 	OutboundLimiter    configConsumer
 	Protocol           configProtocolReloader
 	EventIngress       configEventIngress
@@ -78,7 +76,6 @@ func NewService(deps Deps) *Service {
 		logRepository:      deps.LogRepository,
 		addRedactionValues: deps.AddRedactionValues,
 		renderer:           deps.Renderer,
-		pluginLogLimiter:   deps.PluginLogLimiter,
 		outboundLimiter:    deps.OutboundLimiter,
 		protocol:           protocol,
 		eventIngress:       deps.EventIngress,

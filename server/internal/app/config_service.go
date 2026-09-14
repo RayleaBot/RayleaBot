@@ -9,7 +9,6 @@ import (
 	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
-	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
@@ -30,7 +29,6 @@ type configServiceDeps struct {
 	Logs              *logging.Stream
 	LogRepository     logging.Repository
 	Renderer          *render.Service
-	PluginLogLimiter  *localaction.PluginLogLimiter
 	OutboundLimiter   interface{ ApplyConfig(config.Config) }
 	Protocol          *adapterservice.Service
 	EventIngress      *chatpolicy.Ingress
@@ -50,7 +48,6 @@ func newConfigService(deps configServiceDeps) *configruntime.Service {
 		LogRepository:      deps.LogRepository,
 		AddRedactionValues: deps.Runtime.AddRedactionValues,
 		Renderer:           deps.Renderer,
-		PluginLogLimiter:   deps.PluginLogLimiter,
 		OutboundLimiter:    deps.OutboundLimiter,
 		Protocol:           deps.Protocol,
 		EventIngress:       deps.EventIngress,

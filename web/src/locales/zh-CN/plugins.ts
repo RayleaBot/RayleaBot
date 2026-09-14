@@ -96,7 +96,6 @@ export const plugins = {
     title: '全局插件设置',
     sections: {
       command: '命令入口',
-      log: '日志保护',
       message: '消息保护',
       render: '模板说明',
       storage: '插件存储',

@@ -138,7 +138,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 | R5 | 删除出站熔断与每插件限流 | — | ☑️ 已完成 | 出站只保留按目标限流；删除熔断器、每插件限流与两个配置键，同步契约、样例、配置热更新、限流页与配置工作台；Server 构建、vet、lint、全量测试、strict contracts 与受影响 Web 测试通过 |
 | R6 | 删除错误码本地化键与 Web 映射 | — | ☑️ 已完成 | 契约、样例、生成器与校验器同步；Server 构建、vet、lint、全量测试，Web 类型检查与受影响单测，strict contracts、生成器 verify 与 Python 测试通过 |
 | R7 | 删除密钥加密层并迁移到 `000003` | — | ☑️ 已完成 | secret 以明文保存在独立存储，迁移步骤支持 Go 函数，`000002 → 000003` 解密旧值并删除密钥行，解密失败时保留密钥与密文；备份清单接受 `000003`；Server 构建、vet、lint、全量测试，strict contracts、runtime schema verify 与文档检查通过 |
-| R8 | 逐帧校验仅限开发插件，删除 IPC 与日志限流配置 | — | ⬜ 待处理 | |
+| R8 | 逐帧校验仅限开发插件，删除 IPC 与日志限流配置 | — | ☑️ 已完成 | 宿主只对 development 来源插件校验入站帧，删除出站与 SDK 逐帧校验及 SDK 的校验生成物；删除 IPC 突发与待处理上限、初始化总预算和插件日志限流及其配置；Server 与 SDK 构建、vet、lint、测试，Web 类型检查与单测，strict contracts、生成器 verify 与文档检查通过 |
 | R9 | 安装合并为一次请求，删除检查时效与格式嗅探 | — | ⬜ 待处理 | |
 | P1 | 协议与 manifest 升为 v4，删除宿主权限体系 | R9 | ⬜ 待处理 | |
 | P2 | 删除 `http.request` 与 `http` 配置段 | P1 | ⬜ 待处理 | |

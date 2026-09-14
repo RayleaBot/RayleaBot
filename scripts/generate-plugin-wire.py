@@ -345,16 +345,19 @@ def generate():
         cases = ", ".join(json.dumps(value) for value in values)
         action_kinds += f"\nfunc {name}(kind string) bool {{\nswitch kind {{\ncase {cases}:\nreturn true\ndefault:\nreturn false\n}}\n}}\n"
     outputs[ROOT / "server/internal/plugins/pluginwire/action_kinds.generated.go"] = gofmt(action_kinds)
-    for directory in ["server/internal/plugins/pluginwire", "sdk/go/internal/pluginwire"]:
-        outputs[ROOT / directory / "protocol.generated.go"] = models
-        outputs[ROOT / directory / "codec.generated.go"] = codec
-        outputs[ROOT / directory / "protocol.schema.json"] = source
-        outputs[ROOT / directory / "codec.generated_test.go"] = gofmt(HEADER + (ROOT / "scripts/templates/pluginwire_test.go").read_text(encoding="utf-8"))
-        vectors = []
-        for path in sorted((ROOT / "fixtures/plugin-protocol").glob("*.yaml")):
-            fixture = yaml.safe_load(path.read_text(encoding="utf-8"))
-            vectors.append({"name": path.name, "valid": fixture["expect"]["valid"], "frames": fixture["frames"]})
-        outputs[ROOT / directory / "testdata/frames.generated.json"] = (json.dumps(vectors, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    # The SDK decodes frames with the models only. The host keeps the schema,
+    # codec and vectors to validate frames from development plugins.
+    outputs[ROOT / "sdk/go/internal/pluginwire/protocol.generated.go"] = models
+    wire = ROOT / "server/internal/plugins/pluginwire"
+    outputs[wire / "protocol.generated.go"] = models
+    outputs[wire / "codec.generated.go"] = codec
+    outputs[wire / "protocol.schema.json"] = source
+    outputs[wire / "codec.generated_test.go"] = gofmt(HEADER + (ROOT / "scripts/templates/pluginwire_test.go").read_text(encoding="utf-8"))
+    vectors = []
+    for path in sorted((ROOT / "fixtures/plugin-protocol").glob("*.yaml")):
+        fixture = yaml.safe_load(path.read_text(encoding="utf-8"))
+        vectors.append({"name": path.name, "valid": fixture["expect"]["valid"], "frames": fixture["frames"]})
+    outputs[wire / "testdata/frames.generated.json"] = (json.dumps(vectors, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     versions = {}
     for name, file, pointer in [
         ("PluginProtocolVersion", "plugin-protocol.schema.json", "/$defs/init/allOf/1/properties/protocol_version/const"),
@@ -413,7 +416,7 @@ def sync_owned_data(outputs, verify):
     stale = []
     for directory in [
         "server/internal/plugins/pluginwire", "sdk/go/internal/pluginwire",
-        "server/internal/plugins/pluginwire/testdata", "sdk/go/internal/pluginwire/testdata",
+        "server/internal/plugins/pluginwire/testdata",
         "server/internal/platform/redact/testdata", "sdk/go/testdata",
     ]:
         for pattern in ("*.schema.json", "*.generated.json"):

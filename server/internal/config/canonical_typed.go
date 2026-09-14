@@ -246,12 +246,9 @@ func configSchedulerDocument(cfg Config) map[string]any {
 func configRuntimeDocument(cfg Config) map[string]any {
 	return map[string]any{
 		"plugin_init_timeout_seconds":           cfg.Runtime.PluginInitTimeoutSeconds,
-		"plugin_init_max_total_seconds":         cfg.Runtime.PluginInitMaxTotalSeconds,
 		"plugin_event_timeout_seconds":          cfg.Runtime.PluginEventTimeoutSeconds,
 		"max_pending_events_per_plugin":         cfg.Runtime.MaxPendingEventsPerPlugin,
 		"max_pending_control_events_per_plugin": cfg.Runtime.MaxPendingControlEvents,
-		"ipc_pending_actions_max":               cfg.Runtime.IPCPendingActionsMax,
-		"ipc_action_burst_limit":                cfg.Runtime.IPCActionBurstLimit,
 		"stderr_rate_limit_bytes_per_second":    cfg.Runtime.StderrRateLimitBytesPerSec,
 		"max_concurrent_tasks_per_plugin":       cfg.Runtime.MaxConcurrentTasksPerPlugin,
 		"crash_backoff_initial_seconds":         cfg.Runtime.CrashBackoffInitialSeconds,
@@ -278,8 +275,7 @@ func configDataDocument(cfg Config) map[string]any {
 
 func configLogDocument(cfg Config) map[string]any {
 	return map[string]any{
-		"level":                 cfg.Log.Level,
-		"retention_days":        cfg.Log.RetentionDays,
-		"rate_limit_per_plugin": cfg.Log.RateLimitPerPlugin,
+		"level":          cfg.Log.Level,
+		"retention_days": cfg.Log.RetentionDays,
 	}
 }

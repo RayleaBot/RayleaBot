@@ -72,42 +72,6 @@ func TestKVTTLFromDecodedWireAction(t *testing.T) {
 	}
 }
 
-func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
-	t.Parallel()
-
-	buffer := &bytes.Buffer{}
-	testConfig := config.Config{
-		Log: config.LogConfig{
-			RateLimitPerPlugin: "1/1h",
-		},
-	}
-	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Logger = slog.New(slog.NewJSONHandler(buffer, nil))
-	deps.RedactText = func(text string) string {
-		return text
-	}
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
-		"notice-logger": {"logger.write": true},
-	}}
-	deps.PluginLogLimiter = localaction.NewPluginLogLimiter(config.Config{Log: config.LogConfig{RateLimitPerPlugin: "1/1h"}})
-	application := localaction.New(deps)
-
-	if _, err := application.Execute(context.Background(), "notice-logger", "req_local_2", plugins.Action{
-		Kind:       "logger.write",
-		LogLevel:   "info",
-		LogMessage: "first log",
-	}, chatevent.Event{}); err != nil {
-		t.Fatalf("first logger.write failed: %v", err)
-	}
-
-	_, err := application.Execute(context.Background(), "notice-logger", "req_local_3", plugins.Action{
-		Kind:       "logger.write",
-		LogLevel:   "info",
-		LogMessage: "second log",
-	}, chatevent.Event{})
-	assertRuntimeErrorCode(t, err, "platform.rate_limited")
-}
-
 func TestExecuteStorageKVRoundTrip(t *testing.T) {
 	t.Parallel()
 
