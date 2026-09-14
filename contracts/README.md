@@ -32,7 +32,7 @@
   - `backup-manifest.json` 的正式机器可校验结构
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
   - `core_version` 从有效的安装产物 `build_info.json` 读取；缺失或无效时记为 `unknown`。未知版本不参与升降级排序；恢复仍按清单检查配置、数据库与插件合同版本。有最低 core 版本要求的插件须确认兼容后才能安装。
-  - 本机 `plugin dev-sync` 和受控开发同步接口允许未标版本的源码构建接收 `development` artifact；此路径不声称已验证最低 core 版本，仍执行 manifest、artifact、平台、权限与协议握手检查。普通安装和商店安装不使用此例外。
+  - 本机 `plugin dev-sync` 和受控开发同步接口允许未标版本的源码构建接收 `development` artifact；此路径不声称已验证最低 core 版本，仍执行 manifest、artifact、平台与协议握手检查。普通安装和商店安装不使用此例外。
   - 配置与数据库 schema 版本从实际归档内容读取：配置为 `4`，备份契约接受数据库 `000001`、`000002`、`000003`；没有归档数据库时明确记录 `absent`。可前向迁移的旧结构在首次启动时迁移，迁移日志记录源版本与目标版本。初始化元数据、配置与业务数据一起恢复。
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
@@ -41,7 +41,7 @@
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已固定的管理 HTTP 接口
-  - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot、OneBot target / identity resolution、plugin lifecycle、插件商店、可信代码确认与安装、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system / metrics、scheduler、recovery、runtime bootstrap、render templates 以及更新状态与检查入口
+  - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot、OneBot target / identity resolution、plugin lifecycle、插件商店、可信代码确认与安装、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system、scheduler、recovery、runtime bootstrap、render templates 以及更新状态与检查入口
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
   - 黑白名单条目必须携带 `scope`。`global` 只允许 `onebot11`，`source_adapter` 与 `bot_id` 均为空；`instance` 必须同时提供协议、实例 ID 和 bot ID。读取聚合所有作用域，写入与删除按完整作用域定位；实例规则与同协议的全局规则均可命中。白名单启用开关仍作用于整个服务。

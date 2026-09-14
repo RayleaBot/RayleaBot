@@ -1,6 +1,6 @@
 # RayleaBot Plugin Management Surface
 
-本规范定义插件包内管理页与 Web 宿主工作区的视觉边界。项目级视觉语义以根目录 [`DESIGN.md`](../../DESIGN.md) 为准；插件页面能力、静态资源和 bridge 行为以 [`Plugin Management UI`](../plugin/management-ui.md) 与正式 contracts 为准。
+本规范定义插件包内管理页与 Web 宿主工作区的视觉边界。项目级视觉语义以根目录 [`DESIGN.md`](../../DESIGN.md) 为准；插件页面能力、静态资源与同源管理 API 调用以 [`Plugin Management UI`](../plugin/management-ui.md) 与正式 contracts 为准。
 
 ## 适用范围
 
@@ -14,7 +14,7 @@
 - 运行期页面只读取插件包内的 HTML、CSS 和 JavaScript 静态产物，不加载宿主组件运行时或全局 store。
 - 官方页面由独立插件仓库使用 Vue 3、TypeScript、Vite 和 `@rayleabot/plugin-ui` 构建；组件依赖随页面产物打包，不由宿主提供共享运行时。
 - 第三方页面不得假设宿主 CSS custom properties、字体资源或框架组件可用。
-- 页面业务交互继续只使用正式 bridge 和受保护管理接口，不增加视觉专用旁路。
+- 页面业务交互只使用受保护的管理接口，不增加视觉专用旁路。
 - iframe 内部的配色、字体、布局和组件由插件产物维护。
 
 ## 主题兼容
@@ -58,7 +58,7 @@
 ## 验收条件
 
 - 官方页面在系统亮暗主题下具有完整、等价且可读的状态与操作。
-- 第三方页面不依赖宿主内部 CSS、store、token 或未声明 bridge 字段。
+- 第三方页面不依赖宿主内部 CSS、store 或 token。
 - 宿主加载、错误、可信确认和 iframe 边界符合 Web 界面规范。
 - 官方页面与宿主工作区符合 [`DESIGN.md`](../../DESIGN.md) 的 Do's and Don'ts；宿主浮层使用不透明表面。
-- 视觉规范不改变插件 manifest、静态资源路由、bridge 消息或管理 API。
+- 视觉规范不改变插件 manifest、静态资源路由、CSP 或管理 API。

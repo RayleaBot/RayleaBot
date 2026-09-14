@@ -43,9 +43,9 @@ Race 测试需要 CGO 与 C 编译器；本机缺少时由 CI 覆盖，并在结
 ## 当前门禁层次
 
 - PR 默认门禁覆盖 contracts-lite、Server 测试/构建/核心 lint、关键并发包 race、Windows 锁与浏览器进程回归、Web 与 Launcher typecheck/test/build、Go/Vue 插件 SDK、示例、design-system、third-party-notices、agent-docs、CI 自检和必需结果汇总。
-- `contracts/**`、`fixtures/**`、`examples/**`、`sdk/**` 与 `plugins/**` 变更会触发 `ci.yml` 对应 job，同步执行 Web 与 Launcher 的 OpenAPI 生成类型漂移检查。
+- `contracts/**`、`fixtures/**`、`examples/**`、`sdk/**` 与 `plugins/**` 变更会触发 `ci.yml` 对应 job，同步执行 Web 的 OpenAPI 生成类型漂移检查；Launcher 的 Wails 绑定漂移检查随 Launcher 改动触发。
 - Web 与 Launcher Renderer 的 Playwright E2E 由 `nightly.yml` 自动执行；本版恢复演练只在 `nightly.yml` 的 release dry-run 中执行。
-- 发布门禁覆盖正式产物矩阵、release metadata、packaged `/api/adapters` 与模板预览工作区全流程。
+- 发布门禁覆盖正式产物矩阵、release metadata 与归档 smoke，归档 smoke 检查归档条目与运行环境准备前提。
 - 高成本依赖审计和长时段巡检保留在 `nightly.yml` 或发布门禁，不挤占每个 PR 的默认门禁预算。
 
 ## 当前工作流矩阵
