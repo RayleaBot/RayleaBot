@@ -22,7 +22,7 @@ func TestBuildProducesPlatformArtifact(t *testing.T) {
 	platform := testPlatform(t)
 	manifest := map[string]any{
 		"id": "test-plugin", "name": "Test", "version": "0.4.0", "manifest_version": "4",
-		"min_core_version": "0.4.0", "license": "MIT",
+		"min_core_version": "0.7.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
@@ -76,7 +76,7 @@ func TestBuildAcceptsCommandBelowCmd(t *testing.T) {
 	platform := testPlatform(t)
 	manifest := map[string]any{
 		"id": "raylea.test-plugin", "name": "Test", "version": "0.4.0", "manifest_version": "4",
-		"min_core_version": "0.4.0", "license": "MIT",
+		"min_core_version": "0.7.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
@@ -97,7 +97,7 @@ func TestDevelopmentAssemblyReusesBackendAndUIWithoutArchive(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module fixture.local/plugin\n\ngo 1.26.6\n")
 	writeTestFile(t, filepath.Join(pluginDir, "main.go"), "package main\nfunc main() {}\n")
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "fixture license\n")
-	writeTestFile(t, filepath.Join(pluginDir, "info.json"), `{"id":"development-fixture","name":"Fixture","version":"0.4.0","manifest_version":"4","min_core_version":"0.4.0","license":"MIT"}`)
+	writeTestFile(t, filepath.Join(pluginDir, "info.json"), `{"id":"development-fixture","name":"Fixture","version":"0.4.0","manifest_version":"4","min_core_version":"0.7.0","license":"MIT"}`)
 	first, err := Build(t.Context(), Config{PluginDir: pluginDir, OutputDir: t.TempDir(), TargetPlatform: testPlatform(t), KeepExpandedArtifact: true})
 	if err != nil {
 		t.Fatal(err)
@@ -138,7 +138,7 @@ func TestBuildProducesAllSupportedTargetArtifacts(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	manifest := map[string]any{
 		"id": "cross-platform-plugin", "name": "Cross Platform", "version": "0.4.0", "manifest_version": "4",
-		"min_core_version": "0.4.0", "license": "MIT",
+		"min_core_version": "0.7.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
@@ -186,7 +186,7 @@ func TestPackAndInspectAlreadyBuiltNativeExecutable(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	manifest := map[string]any{
 		"id": "native-plugin", "name": "Native", "version": "0.4.0", "manifest_version": "4",
-		"min_core_version": "0.4.0", "license": "MIT",
+		"min_core_version": "0.7.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
@@ -225,7 +225,7 @@ func TestInspectProjectAcceptsManifestV3AndRejectsLegacyManifest(t *testing.T) {
 	pluginDir := t.TempDir()
 	manifest := map[string]any{
 		"id": "project-plugin", "name": "Project", "version": "0.4.0", "manifest_version": "4",
-		"min_core_version": "0.4.0", "license": "MIT",
+		"min_core_version": "0.7.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
@@ -282,7 +282,7 @@ func TestBuildWorkspaceNoticesKeepDeclaredSDKVersion(t *testing.T) {
 	platform := testPlatform(t)
 	manifest := map[string]any{
 		"id": "workspace-plugin", "name": "Workspace", "version": "0.4.0", "manifest_version": "4",
-		"min_core_version": "0.4.0", "license": "MIT",
+		"min_core_version": "0.7.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
@@ -427,5 +427,14 @@ func writeTestFile(t *testing.T, path, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestValidateManifestRequiresManifestV4CoreVersion(t *testing.T) {
+	for version, valid := range map[string]bool{"0.6.9": false, "0.7.0-alpha": false, "0.7.0": true, "0.7.1-rc.1": true, "0.10.0": true, "1.0.0": true} {
+		manifest := Manifest{ID: "fixture", Name: "Fixture", Version: "1.0.0", ManifestVersion: ManifestVersion, License: "MIT", MinCoreVersion: version}
+		if err := validateManifest(manifest, ""); (err == nil) != valid {
+			t.Fatalf("validateManifest(min_core_version %q) error = %v, want valid %v", version, err, valid)
+		}
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -256,12 +257,19 @@ func finalizeArtifact(root, staging, outputDir string, manifest Manifest, entry,
 	}, nil
 }
 
+// coreVersionBeforeManifestV4 matches min_core_version values older than the
+// first core that accepts manifest v4, including 0.7.0 prereleases.
+var coreVersionBeforeManifestV4 = regexp.MustCompile(`^0\.([0-6]\.|7\.0-)`)
+
 func validateManifest(manifest Manifest, platform string) error {
 	if manifest.ID == "" || manifest.Name == "" || manifest.Version == "" || manifest.MinCoreVersion == "" || manifest.License == "" {
 		return errors.New("pluginbuild: manifest id, name, version, license and min_core_version are required")
 	}
 	if manifest.ManifestVersion != ManifestVersion {
 		return fmt.Errorf("pluginbuild: manifest_version must be %s", ManifestVersion)
+	}
+	if coreVersionBeforeManifestV4.MatchString(manifest.MinCoreVersion) {
+		return fmt.Errorf("pluginbuild: manifest_version %s requires min_core_version 0.7.0 or later", ManifestVersion)
 	}
 	if strings.TrimSpace(platform) == "" {
 		return nil

@@ -89,7 +89,7 @@ func WriteGoPluginArtifact(t testing.TB, root, pluginID, version string) string 
 	ensureEchoFixture(t)
 	manifestDocument := map[string]any{
 		"id": pluginID, "name": pluginID, "version": version,
-		"manifest_version": "4", "min_core_version": "0.4.0",
+		"manifest_version": "4", "min_core_version": "0.7.0",
 		"license": "MIT", "metadata": map[string]any{"description": "Native artifact fixture", "author": "raylea"},
 		"events": []string{},
 	}

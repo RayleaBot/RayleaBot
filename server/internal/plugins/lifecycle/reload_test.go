@@ -363,7 +363,7 @@ func writeLifecyclePluginManifest(t *testing.T, path, usage string) {
   "version": "0.4.0",
   "manifest_version": "4",
   "license": "MIT",
-  "min_core_version": "0.4.0",
+  "min_core_version": "0.7.0",
   "metadata": {"description": "Subscription hub", "author": "raylea"},
   "commands": [
     {

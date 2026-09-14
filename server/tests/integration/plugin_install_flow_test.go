@@ -22,7 +22,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
-	testutil.WriteBuildInfo(t, repoRoot, "0.4.0")
+	testutil.WriteBuildInfo(t, repoRoot, "0.7.0")
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
 	pluginSchemaPath := testutil.RepoPath(t, "contracts", "plugin-info.schema.json")
 	examplesRoot := filepath.Join(repoRoot, "examples", "plugins")

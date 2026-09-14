@@ -19,7 +19,6 @@ func TestDiscoverProjectsMessagePriorityAndBlock(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
 	manifest := baseManifest("priority-fixture")
-	manifest["min_core_version"] = "0.6.0"
 	manifest["priority"] = 20
 	manifest["block"] = true
 	writeArtifact(t, filepath.Join(root, "plugins", "installed", "priority-fixture"), manifest, nil)
@@ -225,7 +224,7 @@ func compileSchema(t *testing.T) *config.Validator {
 func baseManifest(pluginID string) map[string]any {
 	return map[string]any{
 		"id": pluginID, "name": pluginID, "version": "0.4.0", "manifest_version": "4",
-		"license": "MIT", "min_core_version": "0.4.0",
+		"license": "MIT", "min_core_version": "0.7.0",
 		"metadata": map[string]any{"description": "fixture plugin", "author": "raylea"},
 		"events":   []string{},
 	}

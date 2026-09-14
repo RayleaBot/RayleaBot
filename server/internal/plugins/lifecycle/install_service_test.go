@@ -885,7 +885,7 @@ func TestInstallServiceRejectsIncompatibleMinimumCoreVersion(t *testing.T) {
 
 func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Registry, initial []plugins.Snapshot, repository plugins.DesiredStateRepository, deps installerDeps) (*InstallService, *plugincatalog.Catalog) {
 	t.Helper()
-	testutil.WriteBuildInfo(t, repoRoot, "0.4.0")
+	testutil.WriteBuildInfo(t, repoRoot, "0.7.0")
 
 	validator, err := config.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
 	if err != nil {
@@ -1058,7 +1058,7 @@ func writeInstallSourcePlugin(t *testing.T, root, pluginID string) string {
 		"version":          "0.1.0",
 		"manifest_version": "4",
 		"license":          "MIT",
-		"min_core_version": "0.4.0",
+		"min_core_version": "0.7.0",
 		"metadata": map[string]any{
 			"description": "test plugin",
 			"author":      "raylea",

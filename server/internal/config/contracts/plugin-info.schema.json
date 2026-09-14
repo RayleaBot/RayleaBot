@@ -12,7 +12,7 @@
     "version": { "$ref": "#/$defs/semver" },
     "manifest_version": { "type": "string", "const": "4" },
     "license": { "type": "string", "minLength": 1 },
-    "min_core_version": { "$ref": "#/$defs/semver" },
+    "min_core_version": { "$ref": "#/$defs/semver", "description": "Manifest v4 requires RayleaBot 0.7.0 or later; earlier versions and 0.7.0 prereleases are rejected." },
     "metadata": { "$ref": "#/$defs/metadata" },
     "concurrency": { "type": "integer", "minimum": 1, "maximum": 128, "default": 1 },
     "priority": { "$ref": "#/$defs/message_priority" },
@@ -32,10 +32,7 @@
     "webhooks": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/webhook" } }
   },
   "allOf": [
-    {
-      "if": { "anyOf": [{ "required": ["priority"] }, { "required": ["block"] }] },
-      "then": { "properties": { "min_core_version": { "not": { "anyOf": [{ "pattern": "^0\\.[0-5]\\." }, { "pattern": "^0\\.6\\.0-" }] } } } }
-    }
+    { "properties": { "min_core_version": { "not": { "anyOf": [{ "pattern": "^0\\.[0-6]\\." }, { "pattern": "^0\\.7\\.0-" }] } } } }
   ],
   "$defs": {
     "message_priority": { "type": "integer", "minimum": -1000, "maximum": 1000, "default": 0, "description": "Incoming-message priority: greater first, equal priorities concurrent. A positive-priority message subscriber that does not declare a matched command also receives that command message before its declarers. Other event types retain their existing dispatch behavior." },
@@ -172,7 +169,8 @@
     "fixtures/plugin-info/invalid.command-group-reference.json",
     "fixtures/plugin-info/ok.priority-block.json",
     "fixtures/plugin-info/invalid.priority-range.json",
-    "fixtures/plugin-info/invalid.priority-old-core.json",
+    "fixtures/plugin-info/invalid.min-core-before-v4.json",
+    "fixtures/plugin-info/invalid.min-core-prerelease.json",
     "fixtures/plugin-info/invalid.filter-stage.json"
   ]
 }

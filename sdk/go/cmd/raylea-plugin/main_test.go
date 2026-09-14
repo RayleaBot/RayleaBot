@@ -34,7 +34,7 @@ func TestPackResolvesRelativeInputsAgainstPluginRoot(t *testing.T) {
 	}
 	manifest := map[string]any{
 		"id": "native-plugin", "name": "Native Plugin", "version": "0.4.0",
-		"manifest_version": "4", "min_core_version": "0.4.0", "license": "MIT",
+		"manifest_version": "4", "min_core_version": "0.7.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.Marshal(manifest)
 	if err := os.WriteFile(filepath.Join(pluginRoot, "info.json"), manifestBytes, 0o644); err != nil {
