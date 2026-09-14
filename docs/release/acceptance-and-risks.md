@@ -6,7 +6,7 @@
 
 | 风险 | 控制 |
 | --- | --- |
-| 插件包伪造、篡改或宿主能力扩大 | manifest/artifact 校验、商店归档摘要、实际文件扫描、目标平台检查、权限展示、必要的可信代码确认和归档资源上限 |
+| 插件包伪造或篡改 | manifest/artifact 校验、商店归档摘要、ZIP 路径与单根目录检查、目标平台检查、可信代码确认和归档资源上限 |
 | 插件直接网络、文件或子进程行为 | 安装和更新前明确提示完全可信本地代码；当前没有插件 OS 强沙盒，只启用来源与代码均可信的版本 |
 | Chromium、FFmpeg、SQLite、聊天适配器或原生插件进程故障 | readiness、diagnostics、结构化错误和受控重试 |
 
@@ -21,7 +21,7 @@
 - 四种归档的 `LICENSE`、`THIRD_PARTY_NOTICES.md`、metadata 与 artifact smoke；
 - doctor、agent docs、文档链接和 `git diff --check`。
 
-插件验收以 manifest v4、JSONL protocol v4 与 artifact v2 为准。负向用例必须拒绝不符合这些契约的输入、错误平台、篡改摘要、错误二进制、缺失 UI 资源和非单根目录 ZIP。正式包检查必须确认不存在插件源码、源码 SDK、`node_modules` 与托管语言运行时。
+插件验收以 manifest v4、JSONL protocol v4 与 artifact v2 为准。负向用例必须拒绝不符合这些契约的输入、错误平台、篡改的商店归档摘要、缺失 UI 资源和非单根目录 ZIP。正式包检查必须确认不存在插件源码、源码 SDK、`node_modules` 与托管语言运行时。
 
 ## 更新检查与恢复验收
 
@@ -42,4 +42,4 @@
 
 ## 范围与限制
 
-当前范围之外的能力见[项目章程](../RayleaBot机器人项目规划.md)的非目标。插件商店消费 HTTPS 静态目录并校验资产归档 SHA-256；第三方插件是用户按来源与权限要求确认后执行的完全可信本地代码。
+当前范围之外的能力见[项目章程](../RayleaBot机器人项目规划.md)的非目标。插件商店消费 HTTPS 静态目录并校验资产归档 SHA-256；第三方插件是用户确认来源后执行的完全可信本地代码。

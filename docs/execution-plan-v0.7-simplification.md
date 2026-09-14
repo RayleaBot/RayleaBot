@@ -152,7 +152,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 | G5 | 删除 Web 与 Launcher 的视觉细节 E2E，Web 收敛为 real-server 冒烟 | R1,R3,P4 | ☑️ 已完成 | 删除 Web `ui-fixtures` project、模拟后端与全部受控浏览器用例，Web E2E 只保留 real-server 冒烟并新增插件安装与启停用例；Launcher Renderer E2E 删除窗口尺寸、标题字体与减少动态效果用例，保留初始化失败流程；同步质量门禁、工程基线、Web 端到端验证文档与 `web/AGENTS.md`；Web 类型检查与单测、real-server E2E、Launcher E2E、文档与 agent docs 检查通过 |
 | G6 | 开发工作区契约移出，删除 SBOM 生成 | — | ☑️ 已完成 | 工作区文件由开发脚本校验；独立 SDK 构建器测试改为检查 notices 中的工作区 SDK 版本；strict contracts、契约校验器测试、开发启动回归与文档链接检查通过 |
 | G7 | 架构与工程文档合并 | R1-R9,P1-P5,G1-G6 | ☑️ 已完成 | `docs/architecture/` 合并为一份概览，只保留组件职责、消息主流程、状态归属与演进边界；删除实施顺序文档，发布验收并入质量门禁、独立设计边界并入概览；工程目录只保留工程基线、质量门禁与人工 smoke，删除集合分页、Web 工程基线与 Web 端到端验证文档，仍有效的约束移入 `web/AGENTS.md` 与质量门禁；插件状态表移入插件生命周期文档；文档链接、agent docs 与设计 token 检查通过 |
-| E1 | 总验收与发布说明 | 全部 | ⬜ 待处理 | |
+| E1 | 总验收与发布说明 | 全部 | ☑️ 已完成 | 新增 0.7.0 候选发布说明，合并未单独发布的 0.6 变化，写明插件协议 v4 的破坏性变化、已删除配置字段、数据库迁移与插件重建要求；修正插件开发与发布验收文档中残留的权限声明与二进制嗅探描述；Server 构建、vet、lint 与全量测试，Go SDK 与 Launcher Go 测试，11 个仓库内示例插件构建与 vet，strict contracts 与四个生成器校验，Web 类型重生成无漂移、类型检查与单测，Launcher Renderer、Vue SDK 与示例管理页测试，real-server Web E2E 10 项，Python 与 Node 脚本测试，发布说明、文档链接、agent docs 与变更检测自检通过；遗留术语扫描无残留 |
 
 R 组与 G1、G2、G4、G6 互不依赖，可先行。P 组集中在一个协议版本内完成，仓库内示例随各项改用新 SDK。
 
