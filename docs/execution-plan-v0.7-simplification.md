@@ -148,7 +148,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 | G1 | 收窄契约校验范围 | — | ☑️ 已完成 | strict contracts、契约校验器 Python 测试、OpenAPI 集成测试、agent-docs 与文档链接检查通过 |
 | G2 | 删除行数预算与 SQL 例外登记，修正变更检测 | — | ☑️ 已完成 | agent-docs、服务端结构检查、结构与变更检测 7 项 Python 测试、变更检测自检和文档链接检查通过；手写 SQL 原因写在调用处注释 |
 | G3 | 删除自托管长时 smoke 与产物验证工作流，恢复验证只留一处 | R3 | ☑️ 已完成 | 删除 `self-host-smoke.yml`、`artifact-validation.yml`、`self_host_smoke.py` 与打包恢复演练 `recovery_drill.py` 及其测试；发布构建只保留归档 smoke，不再构建恢复插件夹具；恢复验证只保留 nightly 的 `rehearse_current_recovery.py`；发布脚本测试、脚本测试、变更检测自检与文档检查通过 |
-| G4 | 设计规格去像素化，删除颜色字面量扫描 | — | ⬜ 待处理 | |
+| G4 | 设计规格去像素化，删除颜色字面量扫描 | — | ☑️ 已完成 | `DESIGN.md` 正文与 Web 界面规范删除像素值、逐控件尺寸与视口像素断点，只保留布局与交互原则，尺寸以 token 与组件代码为准；设计 token 生成器删除全仓颜色字面量与退役颜色扫描及允许清单，继续生成 `DESIGN.md` 前置数据与 Impeccable 设计文件；生成器 check、文档链接与 agent docs 检查通过 |
 | G5 | 删除 Web 与 Launcher 的视觉细节 E2E，Web 收敛为 real-server 冒烟 | R1,R3,P4 | ⬜ 待处理 | |
 | G6 | 开发工作区契约移出，删除 SBOM 生成 | — | ☑️ 已完成 | 工作区文件由开发脚本校验；独立 SDK 构建器测试改为检查 notices 中的工作区 SDK 版本；strict contracts、契约校验器测试、开发启动回归与文档链接检查通过 |
 | G7 | 架构与工程文档合并 | R1-R9,P1-P5,G1-G6 | ⬜ 待处理 | |

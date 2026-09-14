@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url'
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(scriptDirectory, '..')
 const tokenPath = path.join(repositoryRoot, 'design', 'tokens.json')
-const allowlistPath = path.join(repositoryRoot, 'design', 'color-literal-allowlist.json')
 const checkMode = process.argv.includes('--check')
 
 const source = JSON.parse(fs.readFileSync(tokenPath, 'utf8'))
@@ -15,8 +14,6 @@ if (typeof mark.viewBox !== 'string' || !Array.isArray(mark.paths) || !mark.path
   || mark.paths.some((part) => typeof part.d !== 'string' || !(part.opacity >= 0 && part.opacity <= 1))) {
   throw new Error('design/mark.json must contain a viewBox and finite-opacity vector paths')
 }
-const literalAllowlist = JSON.parse(fs.readFileSync(allowlistPath, 'utf8'))
-const allowedLiteralFiles = new Set(Object.keys(literalAllowlist.files ?? {}))
 const changedFiles = []
 const errors = []
 
@@ -763,82 +760,7 @@ function validateContrast() {
   assertContrast('Dark focus ring', themes.dark.focus, themes.dark.surface, 3, 9.16)
 }
 
-function walkFiles(startPath) {
-  if (!fs.existsSync(startPath)) {
-    return []
-  }
-  const stats = fs.statSync(startPath)
-  if (stats.isFile()) {
-    return [startPath]
-  }
-  return fs.readdirSync(startPath, { withFileTypes: true }).flatMap((entry) => {
-    if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === '.git') {
-      return []
-    }
-    return walkFiles(path.join(startPath, entry.name))
-  })
-}
-
-function normalizedRelativePath(absolutePath) {
-  return path.relative(repositoryRoot, absolutePath).replaceAll('\\', '/')
-}
-
-function scanRetiredColors() {
-  const retiredColors = ['#66ccff', '#0a6e94', '#122032', '#264763', '#7fd6ff', '#d6f5ff']
-  const scanRoots = ['DESIGN.md', '.impeccable/design.json', 'design', 'docs/design', 'web/src', 'launcher/src', 'templates']
-  for (const absolutePath of scanRoots.flatMap((relativePath) => walkFiles(path.join(repositoryRoot, relativePath)))) {
-    const relativePath = normalizedRelativePath(absolutePath)
-    if (allowedLiteralFiles.has(relativePath)) {
-      continue
-    }
-    const content = fs.readFileSync(absolutePath, 'utf8').toLowerCase()
-    for (const retiredColor of retiredColors) {
-      if (content.includes(retiredColor)) {
-        errors.push(`${relativePath} still contains retired color ${retiredColor.toUpperCase()}`)
-      }
-    }
-  }
-}
-
-function scanProductColorLiterals() {
-  const generatedFiles = new Set([
-    'web/src/preferences/theme-tokens.generated.ts',
-    'web/src/styles/_theme-tokens.generated.scss',
-    'launcher/src/shared/launcher-theme-tokens.generated.ts',
-  ])
-  const extensions = new Set(['.css', '.html', '.scss', '.ts', '.tsx', '.vue'])
-  for (const absolutePath of ['web/src', 'launcher/src', 'templates'].flatMap((relativePath) => walkFiles(path.join(repositoryRoot, relativePath)))) {
-    const relativePath = normalizedRelativePath(absolutePath)
-    if (generatedFiles.has(relativePath) || allowedLiteralFiles.has(relativePath) || !extensions.has(path.extname(absolutePath))) {
-      continue
-    }
-    const lines = fs.readFileSync(absolutePath, 'utf8').split(/\r?\n/)
-    lines.forEach((line, index) => {
-      const matches = [
-        ...(line.match(/#[\da-f]{6}(?:[\da-f]{2})?\b/ig) ?? []),
-        ...(line.match(/\b(?:rgb|rgba|hsl|hsla)\s*\(/ig) ?? []),
-        ...(line.match(/(?<![-\w])(?:white|black)(?![-\w])/ig) ?? []),
-      ]
-      if (matches.length > 0) {
-        errors.push(`${relativePath}:${index + 1} bypasses semantic tokens with ${matches.join(', ')}`)
-      }
-    })
-  }
-}
-
-function validateLiteralAllowlist() {
-  for (const [relativePath, reason] of Object.entries(literalAllowlist.files ?? {})) {
-    if (!fs.existsSync(path.join(repositoryRoot, relativePath))) {
-      errors.push(`${relativePath} is listed in the color literal allowlist but does not exist`)
-    }
-    if (typeof reason !== 'string' || reason.trim().length < 12) {
-      errors.push(`${relativePath} needs a specific color literal allowlist reason`)
-    }
-  }
-}
-
 validateContrast()
-validateLiteralAllowlist()
 
 stageOutput('web/src/preferences/theme-tokens.generated.ts', renderWebTokens())
 stageOutput('web/src/styles/_theme-tokens.generated.scss', renderWebScss())
@@ -866,16 +788,11 @@ stageOutput('DESIGN.md', updateDesignDocument(fs.readFileSync(designPath, 'utf8'
 const impeccablePath = path.join(repositoryRoot, '.impeccable', 'design.json')
 stageOutput('.impeccable/design.json', updateImpeccable(fs.readFileSync(impeccablePath, 'utf8')))
 
-if (checkMode) {
-  scanRetiredColors()
-  scanProductColorLiterals()
-}
-
 if (errors.length > 0) {
   console.error(errors.map((error) => `- ${error}`).join('\n'))
   process.exitCode = 1
 } else if (checkMode) {
-  console.log('Design tokens, contrast checks, and color drift checks are current.')
+  console.log('Design tokens and contrast checks are current.')
 } else if (changedFiles.length > 0) {
   console.log(`Generated ${changedFiles.join(', ')}`)
 } else {

@@ -156,9 +156,9 @@ Web 工程职责见 [Web 管理面工程基线](docs/engineering/web-admin-basel
 - 亮暗主题、键盘操作和窄屏呈现保持等价操作能力。
 - 管理工作区的状态、表单、列表与日志采用不透明表面；玻璃用于浮层，认证入口采用独立的 Liquid Glass 浏览器适配。
 
-本文件的 token 前置数据由 [design/tokens.json](design/tokens.json) 生成。它是机器值的唯一来源，采用 base → semantic light/dark → component 结构；[生成脚本](scripts/generate-design-tokens.mjs) 同时维护 Web、Launcher、favicon、共享字体 CSS 与 [.impeccable/design.json](.impeccable/design.json)。运行 `node scripts/generate-design-tokens.mjs` 更新生成物，运行 `node scripts/generate-design-tokens.mjs --check` 校验漂移、指定对比度与颜色边界。原生图标由独立的 [图标生成脚本](scripts/generate-launcher-icons.mjs) 维护。
+本文件的 token 前置数据由 [design/tokens.json](design/tokens.json) 生成。它是机器值的唯一来源，采用 base → semantic light/dark → component 结构；[生成脚本](scripts/generate-design-tokens.mjs) 同时维护 Web、Launcher、favicon、共享字体 CSS 与 [.impeccable/design.json](.impeccable/design.json)。运行 `node scripts/generate-design-tokens.mjs` 更新生成物，运行 `node scripts/generate-design-tokens.mjs --check` 校验生成物漂移与指定对比度。原生图标由独立的 [图标生成脚本](scripts/generate-launcher-icons.mjs) 维护。
 
-前置数据、共享字体 CSS 与 sidecar 均由生成器维护，不直接编辑；sidecar 的 narrative 提取概述、关键特征、命名规则及 Do/Don't 列表。sidecar 的通用组件预览表达共享基础，Web 产品组件的局部尺寸、焦点与浮层生命周期以本文对应规则和组件源码为准。应用局部映射在正文与界面规范中说明，不改变共享基础 token 的含义。
+前置数据、共享字体 CSS 与 sidecar 均由生成器维护，不直接编辑；sidecar 的 narrative 提取概述、关键特征、命名规则及 Do/Don't 列表。sidecar 的通用组件预览表达共享基础，Web 产品组件的尺寸以组件源码为准，焦点与浮层生命周期以本文对应规则为准。应用局部映射在正文与界面规范中说明，不改变共享基础 token 的含义。
 
 ## Colors
 
@@ -196,12 +196,12 @@ Web 工程职责见 [Web 管理面工程基线](docs/engineering/web-admin-basel
 
 ### Hierarchy
 
-- **Headline**：管理页面标题保持紧凑（20–22px），项目主标题 token 为 22px；认证面板标题使用局部字号（28px，窄屏 26px）。
-- **Title / Section**：分区、面板与组标题（18px / 16px）。
-- **Body**：正文与标准控件（14px）。
-- **Label / Mono**：标签、表头与技术元数据（13px）。
-- 辅助元数据使用最小一级字号（12px）；关键操作不用该级字号。少量真实主状态可以使用 token 中的 26px 级，不形成巨型指标区。
-- 连续说明正文最大宽度为 72ch；表格、日志和技术工作区按内容需要延展。
+- **Headline**：管理页面标题保持紧凑，使用前置 token 的标题级；认证面板标题使用局部字号。
+- **Title / Section**：分区、面板与组标题。
+- **Body**：正文与标准控件。
+- **Label / Mono**：标签、表头与技术元数据。
+- 辅助元数据使用最小一级字号；关键操作不用该级字号。少量真实主状态可以使用 token 中较大的字号级，不形成巨型指标区。
+- 连续说明正文限制行宽；表格、日志和技术工作区按内容需要延展。
 
 ### Named Rules
 
@@ -209,23 +209,23 @@ Web 工程职责见 [Web 管理面工程基线](docs/engineering/web-admin-basel
 
 ## Layout
 
-桌面 Web 使用持久导航（244px，收起后 64px）与紧凑页头（60px）；页头提供面包屑、搜索与“更多操作”，设置和全屏收纳在菜单中。主题与账户菜单位于侧栏底部，软件名后显示构建版本。991px 及以下通过左侧导航抽屉提供相同入口，目标宽度为 280px；偏好从右侧抽屉打开，目标宽度为 380px。Launcher 默认窗口为 1280×720，最小为 760×560，按可用工作区与最小尺寸约束调整；窗口包含原生标题栏（44px）、带文字导航（184px）与单一主工作区。具体界面规则见 [Web](docs/design/web-management-ui.md) 与 [Launcher](docs/design/launcher-design-system.md)。
+桌面 Web 使用可收起的持久导航与紧凑页头；页头提供面包屑、搜索与“更多操作”，设置和全屏收纳在菜单中。主题与账户菜单位于侧栏底部，软件名后显示构建版本。窄屏通过左侧导航抽屉提供相同入口，偏好从右侧抽屉打开。Launcher 窗口按可用工作区与最小尺寸约束调整，包含原生标题栏、带文字导航与单一主工作区。尺寸以组件代码为准，具体界面规则见 [Web](docs/design/web-management-ui.md) 与 [Launcher](docs/design/launcher-design-system.md)。
 
 间距使用前置 token 的 xs 至 xxl 标尺。独立任务可以使用完整有边界表面，同一任务内的字段、日志和数据行通过间距与分隔线组织。页面主操作位于稳定位置，状态总览保持连续横条，列表按真实内容排列。
 
-插件集合与协议连接使用独立对象卡片网格，同排卡片等高、操作栏底部对齐，长元数据与健康提示允许内容自然增高；不通过裁掉状态或缩小触控目标保证固定数量。插件筛选、全局插件设置、治理表单、通用配置工作台与协议中心弹窗的断点、尺寸和保存入口见 [Web 界面规范](docs/design/web-management-ui.md)。
+插件集合与协议连接使用独立对象卡片网格，同排卡片等高、操作栏底部对齐，长元数据与健康提示允许内容自然增高；不通过裁掉状态或缩小触控目标保证固定数量。插件筛选、全局插件设置、治理表单、通用配置工作台与协议中心弹窗的布局和保存入口见 [Web 界面规范](docs/design/web-management-ui.md)。
 
-窄屏通过抽屉、换行与单列流调整结构；手机保留必要纵向滚动。技术表、长路径与日志可以在自身区域横向查看，普通页面不依赖整页横向滚动。正文和关键控件不随视口任意缩小，窄屏或粗指针交互目标使用至少 44px。
+窄屏通过抽屉、换行与单列流调整结构；手机保留必要纵向滚动。技术表、长路径与日志可以在自身区域横向查看，普通页面不依赖整页横向滚动。正文和关键控件不随视口任意缩小，窄屏或粗指针环境使用触控尺寸的交互目标。
 
 ## Elevation & Depth
 
-实色表面、精确边界与留白提供主要层级。管理工作区的表单、列表、日志和常规内容保持不透明。菜单、选择器浮层、抽屉和 Dialog 可使用静态玻璃：表面色占 90%，背景模糊固定为 12px；不随指针、滚动或动画改变模糊半径。浮层阴影表达覆盖关系，两套主题的阴影与 sticky、menu、drawer、modal、toast、emergency 层级由 sidecar 记录。
+实色表面、精确边界与留白提供主要层级。管理工作区的表单、列表、日志和常规内容保持不透明。菜单、选择器浮层、抽屉和 Dialog 可使用静态玻璃，不随指针、滚动或动画改变模糊半径。浮层阴影表达覆盖关系，两套主题的阴影与 sticky、menu、drawer、modal、toast、emergency 层级由 sidecar 记录。
 
-Web 产品弹窗、抽屉、菜单、说明弹层与选择器浮层使用不透明的 raised surface，覆盖内容的表面消费现有浮层阴影，不增加玻璃或背景模糊。遮罩由现有语义色以 42% 占比和透明色混合，浅色使用正文色、暗色使用画布色。Tooltip 使用正文色作底、表面色作文字，保持独立的高对比提示。
+Web 产品弹窗、抽屉、菜单、说明弹层与选择器浮层使用不透明的 raised surface，覆盖内容的表面消费现有浮层阴影，不增加玻璃或背景模糊。遮罩由现有语义色和透明色混合，浅色使用正文色、暗色使用画布色。Tooltip 使用正文色作底、表面色作文字，保持独立的高对比提示。
 
 **The Web Overlay Stack Rule.** Web 弹窗与抽屉遮罩从 1200 起按打开顺序递增 20，内容位于所属遮罩上方 1 层；嵌套菜单、说明弹层和选择器继承所属层级再加 5，Tooltip 加 8。未嵌套菜单、说明弹层、选择器和 Tooltip 的基准为 1100，Toast 为 1600，使退出中的菜单留在新打开的抽屉下方。这些 Web 局部层级不改变共享基础层级或 Launcher。
 
-认证入口参考 Apple 的 [Liquid Glass 材质](https://developer.apple.com/videos/play/wwdc2025/219/)，在静态壁纸上使用通透面板、圆角透镜折射与边缘高光。这是浏览器适配，具体效果遵循浏览器能力；颜色由现有认证主题 token 局部派生，不改变共享品牌 token。折射路径、模糊、饱和度与颜色比例见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。
+认证入口参考 Apple 的 [Liquid Glass 材质](https://developer.apple.com/videos/play/wwdc2025/219/)，在静态壁纸上使用通透面板、圆角透镜折射与边缘高光。这是浏览器适配，具体效果遵循浏览器能力；颜色由现有认证主题 token 局部派生，不改变共享品牌 token。折射路径与降级方式见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。
 
 不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层与认证面板使用完整不透明表面。内容可读性与操作反馈不依赖玻璃效果。
 
@@ -237,9 +237,9 @@ Web 产品弹窗、抽屉、菜单、说明弹层与选择器浮层使用不透�
 
 ## Shapes
 
-标准控件使用温和圆角（8px），独立任务表面与浮层采用较宽圆角（12px）；紧凑组件使用小圆角（4px / 6px），状态胶囊使用 full。认证面板圆角为 36px，窄屏为 28px，凭据输入和主按钮为 16px；这些局部圆角不作为通用控件标准。
+标准控件使用温和圆角（md），独立任务表面与浮层采用较宽圆角（lg）；紧凑组件使用小圆角（xs / sm），状态胶囊使用 full。认证面板、凭据输入和主按钮使用更大的局部圆角，这些局部圆角不作为通用控件标准。
 
-Web 产品按钮、输入框与选择器使用现有 lg 圆角（12px），居中产品弹窗采用局部圆角（桌面 16px，639px 及以下 14px）。配置、兼容矩阵、搜索与确认弹窗共享该形状，内部字段通过间距与分隔线分组。左右抽屉贴齐视口边缘、使用直角；底部抽屉只有上方两个角为 16px。菜单与 Toast 使用 12px 圆角，Tooltip 使用现有 md 圆角（8px），Web 状态与分类标签使用紧凑的 6px 圆角。
+Web 产品按钮、输入框与选择器使用现有 lg 圆角，居中产品弹窗采用略大的局部圆角。配置、搜索与确认弹窗共享该形状，内部字段通过间距与分隔线分组。左右抽屉贴齐视口边缘、使用直角；底部抽屉只有上方两个角为圆角。菜单与 Toast 使用 lg 圆角，Tooltip 使用现有 md 圆角，Web 状态与分类标签使用紧凑的 sm 圆角。
 
 品牌标识为四个色面组成的几何折叶，形状以 [design/mark.json](design/mark.json) 为唯一母版。Web、Launcher 与 favicon 共享该几何；色面随品牌角色或单色环境映射。Launcher 功能图标使用 Fluent Regular，品牌标识不承担操作或状态含义。
 
@@ -249,17 +249,17 @@ Web 产品按钮、输入框与选择器使用现有 lg 圆角（12px），居�
 
 ### Buttons
 
-主按钮只强调当前工作流的主要动作，使用青瓷填充、对应前景与标准控件圆角。次级操作使用中性边界或轻量背景，人工关注和危险操作各用独立语义。默认、悬停、焦点、按下、禁用和加载状态均保留明确反馈。共享基础桌面高度为 36px，窄屏或粗指针目标为 44px。Launcher 在管理面可用时以打开管理面为主操作，否则提供启动操作；停止操作使用危险次级样式并遵循确认规则。
+主按钮只强调当前工作流的主要动作，使用青瓷填充、对应前景与标准控件圆角。次级操作使用中性边界或轻量背景，人工关注和危险操作各用独立语义。默认、悬停、焦点、按下、禁用和加载状态均保留明确反馈。按钮高度由组件 token 提供，窄屏或粗指针环境使用触控尺寸目标。Launcher 在管理面可用时以打开管理面为主操作，否则提供启动操作；停止操作使用危险次级样式并遵循确认规则。
 
-Web 使用 [`AppButton`](web/src/components/AppButton.vue)：默认样式为中性描边，主要动作显式使用青瓷填充；危险动作使用淡危险底色与危险文字。默认和图标按钮均为 40px 高，粗指针下最小高度为 44px。加载状态保留动作文字，同时禁用重复提交并显示忙碌语义；减少动态效果或强制颜色时保留静态反馈。
+Web 使用 [`AppButton`](web/src/components/AppButton.vue)：默认样式为中性描边，主要动作显式使用青瓷填充；危险动作使用淡危险底色与危险文字。默认和图标按钮高度一致，粗指针下使用触控尺寸。加载状态保留动作文字，同时禁用重复提交并显示忙碌语义；减少动态效果或强制颜色时保留静态反馈。
 
 ### Inputs / Fields
 
-常规业务字段采用实色表面，认证字段使用所属面板的局部玻璃材质；两者均保留完整控件边界和持续可见标签。错误说明关联字段，禁用状态保持可读，占位文本不承担标签职责。Web 字段焦点由原有 1px 边框和 1px 内侧描边组成，不向控件外扩张；认证字段使用同样的几何与所属面板的颜色。forced-colors 下使用内侧系统焦点轮廓。
+常规业务字段采用实色表面，认证字段使用所属面板的局部玻璃材质；两者均保留完整控件边界和持续可见标签。错误说明关联字段，禁用状态保持可读，占位文本不承担标签职责。Web 字段焦点由原有边框和内侧描边组成，不向控件外扩张；认证字段使用同样的几何与所属面板的颜色。forced-colors 下使用内侧系统焦点轮廓。
 
-Web 使用 [`AppField`](web/src/components/AppField.vue) 关联持续可见标签、控件和错误说明，字段内部间距为 8px，字段尾部间距为 24px；标签为 14px，说明为 13px。[`AppInput`](web/src/components/AppInput.vue) 与 [`AppSelect`](web/src/components/AppSelect.vue) 默认高度为 40px，粗指针下至少 44px；多选文字可换行并自然增高。密码显示开关保留可访问名称和按下状态，错误通过文字与 `aria-invalid` 一起表达；支持清空的输入框在清空后保留输入焦点。认证字段使用 Authentication 中的局部尺寸与材质。
+Web 使用 [`AppField`](web/src/components/AppField.vue) 关联持续可见标签、控件和错误说明，标签与说明沿用正文与标签字号层级。[`AppInput`](web/src/components/AppInput.vue) 与 [`AppSelect`](web/src/components/AppSelect.vue) 在粗指针下使用触控尺寸；多选文字可换行并自然增高。密码显示开关保留可访问名称和按下状态，错误通过文字与 `aria-invalid` 一起表达；支持清空的输入框在清空后保留输入焦点。认证字段使用 Authentication 中的局部尺寸与材质。
 
-独立编辑字段通过 `AppField floating` 使用框内浮动标签，取消重复的框外标题。单行控件高度为 56px，标签在空值且未聚焦时位于框内；聚焦、已有值或自动填充时上移为 12px 标签，输入内容位于其下。说明与错误留在控件下方，密码显示按钮、前缀图标和必填语义继续保留。登录、初始化、账户修改、协议连接、插件安装与来源编辑、全局插件设置中的普通字段，以及日志的单值筛选采用此模式。配置工作台的左右说明行、复合限流、开关、多值条目、多选筛选和原生日期时间范围保持外置标签。
+独立编辑字段通过 `AppField floating` 使用框内浮动标签，取消重复的框外标题。标签在空值且未聚焦时位于框内；聚焦、已有值或自动填充时上移为小号标签，输入内容位于其下。说明与错误留在控件下方，密码显示按钮、前缀图标和必填语义继续保留。登录、初始化、账户修改、协议连接、插件安装与来源编辑、全局插件设置中的普通字段，以及日志的单值筛选采用此模式。配置工作台的左右说明行、复合限流、开关、多值条目、多选筛选和原生日期时间范围保持外置标签。
 
 AppInput 的布局容器样式与内层字段样式分开，前缀图标不接收指针操作，也不替代标签。AppSelect 保留字符串、数字和布尔值的原类型，尚未包含在选项中的已选值继续显示；异步选项到达后更新显示名称。可清除的多选在清除后将焦点归还选择器。[`AppNumberInput`](web/src/components/AppNumberInput.vue) 按业务需要启用可空值，不将空白输入自动当作零；限流字段分别标注次数、时间窗和单位，窄屏使用单列。
 
@@ -269,7 +269,7 @@ AppInput 的布局容器样式与内层字段样式分开，前缀图标不接�
 
 **The Tag Delimiter Rule.** 标签输入通过 Enter 或离开输入框确认条目，只按业务显式提供的分隔符拆分输入与粘贴。全局指令前缀保留字面逗号；菜单中心按其既有字段规则使用逗号、中文逗号和空格分隔，不把该规则扩散到其他标签字段。
 
-**The Web Product Focus Rule.** Web 字段通过边界着色与 1px 内侧描边显示焦点；错误字段使用危险语义。按钮、导航、页签和分段选择使用 2px 内侧轮廓，偏移统一由 `--focus-outline-offset: -2px` 提供；实心主按钮使用对应前景色。基础控件不使用向外扩张的焦点或错误光环，不叠加多层轮廓；字段容器不另加聚焦外框。强制颜色模式保留系统可见焦点，Launcher 遵循自身平台规范。
+**The Web Product Focus Rule.** Web 字段通过边界着色与内侧描边显示焦点；错误字段使用危险语义。按钮、导航、页签和分段选择使用内侧轮廓，偏移统一由 `--focus-outline-offset` 提供；实心主按钮使用对应前景色。基础控件不使用向外扩张的焦点或错误光环，不叠加多层轮廓；字段容器不另加聚焦外框。强制颜色模式保留系统可见焦点，Launcher 遵循自身平台规范。
 
 ### Navigation
 
@@ -281,19 +281,19 @@ AppInput 的布局容器样式与内层字段样式分开，前缀图标不接�
 
 ### Tabs and segmented controls
 
-[`AppTabs`](web/src/components/AppTabs.vue) 用于抽屉内等局部分区，采用 Reka 自动激活与 44px 高的标签目标；选中项使用青瓷文字和 2px 底线，标签列表可横向滚动。[`AppSegmented`](web/src/components/AppSegmented.vue) 用于主题、密度、页面切换和内容宽度等单选偏好：等宽选项排列在中性背景上，选中项使用实色表面、中性边界和轻阴影，默认目标高 36px，粗指针下至少 44px。两者保留禁用和可见键盘焦点；工作区页签的手动激活规则不套用于局部偏好标签。
+[`AppTabs`](web/src/components/AppTabs.vue) 用于抽屉内等局部分区，采用 Reka 自动激活与触控尺寸的标签目标；选中项使用青瓷文字和底线，标签列表可横向滚动。[`AppSegmented`](web/src/components/AppSegmented.vue) 用于主题、密度、页面切换和内容宽度等单选偏好：等宽选项排列在中性背景上，选中项使用实色表面、中性边界和轻阴影，粗指针下使用触控尺寸。两者保留禁用和可见键盘焦点；工作区页签的手动激活规则不套用于局部偏好标签。
 
 AppTabs 的标签可附带数量标记，标题区的额外操作承载当前分区筛选。菜单预览和插件详情控制台显式启用 keepAlive，切换时隐藏内容并保留节点；普通局部分区按实际需要决定是否常驻，不以重建预览或控制台来完成视觉切换。
 
 ### Menus and transient feedback
 
-[`AppDropdown`](web/src/components/AppDropdown.vue) 统一按钮菜单与右键菜单，最小宽度为 180px、最大为 360px，并保留至少 8px 的视口碰撞余量；超长菜单在自身区域滚动。菜单项采用中性高亮，危险动作使用独立危险语义，粗指针目标至少 44px。主题菜单在 system、light、dark 之间选择，并以文字和勾选标记共同表达当前偏好。
+[`AppDropdown`](web/src/components/AppDropdown.vue) 统一按钮菜单与右键菜单，宽度随内容限制在合理范围内并保留视口碰撞余量；超长菜单在自身区域滚动。菜单项采用中性高亮，危险动作使用独立危险语义，粗指针下使用触控尺寸目标。主题菜单在 system、light、dark 之间选择，并以文字和勾选标记共同表达当前偏好。
 
-[`AppTooltip`](web/src/components/AppTooltip.vue) 在 450ms 延迟后提供简短补充说明，宽度随内容展开，上限为 20rem 或视口宽度减 24px 中的较小值；普通短标签不压成单字竖排，多行配置帮助按内容换行。提示不替代触发器的可访问名称。搜索使用目标宽度为 640px 的居中弹窗，打开后聚焦输入框，结果展示页面名称与路径，支持上下选择、Enter 导航和 Escape 关闭。
+[`AppTooltip`](web/src/components/AppTooltip.vue) 在 450ms 延迟后提供简短补充说明，宽度随内容展开并受视口限制；普通短标签不压成单字竖排，多行配置帮助按内容换行。提示不替代触发器的可访问名称。搜索使用居中弹窗，打开后聚焦输入框，结果展示页面名称与路径，支持上下选择、Enter 导航和 Escape 关闭。
 
-[`AppPopover`](web/src/components/AppPopover.vue) 通过点击打开说明或紧凑筛选表单，支持受控开关、方向、对齐和目标宽度。默认位于触发器下方并左对齐，目标宽度为 360px，实际宽度不超过视口减 24px。内容使用实色表面、16px 内边距、13px 正文与可选标题，层级遵循共享 Web 浮层规则；持续可见的标签和必要字段反馈仍留在表单内。
+[`AppPopover`](web/src/components/AppPopover.vue) 通过点击打开说明或紧凑筛选表单，支持受控开关、方向、对齐和目标宽度。默认位于触发器下方并左对齐，宽度不超过视口。内容使用实色表面、紧凑正文与可选标题，层级遵循共享 Web 浮层规则；持续可见的标签和必要字段反馈仍留在表单内。
 
-[`AppToastHost`](web/src/components/AppToastHost.vue) 在右上方显示最多四条即时反馈，通知宽度不超过 380px，并保留窄屏边距。每条提示包含语义图标、可换行正文和手动关闭入口；普通提示停留 4.5 秒，错误提示为 7 秒，关闭后保留 160ms 退场。持续问题留在页面状态中，不依赖短暂 Toast 承载。[`AppSpinner`](web/src/components/AppSpinner.vue) 提供状态文字或辅助技术可读名称，[`AppSkeleton`](web/src/components/AppSkeleton.vue) 提供忙碌语义；reduced-motion 或 forced-colors 下停止旋转、脉冲和提示过渡。
+[`AppToastHost`](web/src/components/AppToastHost.vue) 在右上方显示最多四条即时反馈，通知限制宽度并保留窄屏边距。每条提示包含语义图标、可换行正文和手动关闭入口；普通提示停留 4.5 秒，错误提示为 7 秒，关闭后保留 160ms 退场。持续问题留在页面状态中，不依赖短暂 Toast 承载。[`AppSpinner`](web/src/components/AppSpinner.vue) 提供状态文字或辅助技术可读名称，[`AppSkeleton`](web/src/components/AppSkeleton.vue) 提供忙碌语义；reduced-motion 或 forced-colors 下停止旋转、脉冲和提示过渡。
 
 ### Chips / Status
 
@@ -301,7 +301,7 @@ Web 持续提示使用 [`AppAlert`](web/src/components/AppAlert.vue) 的紧凑�
 
 状态标签同时呈现文字或图标，不能只显示色点。标签表达状态和筛选，不替代操作按钮。关注提示、异常和空态提供原因、影响、可执行动作或必要前置条件。日志无匹配结果时说明为空，并提供调整筛选或等待新日志的方向。
 
-首页保留状态、就绪检查和恢复兼容性的任务分工。恢复确认按 review ID 选择对应事项，待确认数量、备注和提交入口保持相邻，未选事项时禁用确认；复查与运行时初始化使用独立操作。通用故障页通过 [`AppFallback`](web/src/components/fallback/AppFallback.vue) 复用返回首页与重试控件，重试期间保留忙碌反馈。
+首页保留状态与就绪检查的任务分工；复查与运行环境准备使用独立操作。通用故障页通过 [`AppFallback`](web/src/components/fallback/AppFallback.vue) 复用返回首页与重试控件，重试期间保留忙碌反馈。
 
 [`AppStatusTag`](web/src/components/AppStatusTag.vue) 使用 AppBadge 的语义颜色、文字和辅助圆点表达状态；[`AppTag`](web/src/components/AppTag.vue) 关闭圆点，用于指令、分类、权限和数量等紧凑信息。别名、权限与来源不因使用同一标签外形而被解释为运行状态。
 
@@ -309,7 +309,7 @@ Web 持续提示使用 [`AppAlert`](web/src/components/AppAlert.vue) 的紧凑�
 
 容器使用项目级表面与结构边界，正文按自然高度排列。字段组不层层包成卡片，日志只保留一个外框，其内部使用行分隔与独立正文滚动区。
 
-[`AppCard`](web/src/components/AppCard.vue) 使用实色表面、中性边界和无阴影默认样式，标题区与正文通过分隔线区分。默认正文内边距为 20px，紧凑尺寸为 16px；flat 分区保持透明背景，highlight 用人工关注语义表达需要判断的内容。重试面板保留原因说明和直接操作，管理上下文操作使用可换行的按钮组。
+[`AppCard`](web/src/components/AppCard.vue) 使用实色表面、中性边界和无阴影默认样式，标题区与正文通过分隔线区分。正文提供默认与紧凑两种内边距；flat 分区保持透明背景，highlight 用人工关注语义表达需要判断的内容。重试面板保留原因说明和直接操作，管理上下文操作使用可换行的按钮组。
 
 插件集合是有任务意义的对象卡片布局，不要求其他数据页采用卡片；卡片构成、图标回退、操作入口与点击目标见 [Web 界面规范](docs/design/web-management-ui.md)。
 
@@ -319,21 +319,21 @@ Web 持续提示使用 [`AppAlert`](web/src/components/AppAlert.vue) 的紧凑�
 
 ### Data tables and details
 
-[`AppDataTable`](web/src/components/AppDataTable.vue) 使用原生 table、列标题和辅助技术可读的表名；列定义提供标识、标签、宽度和对齐，业务单元格保留自己的内容与操作。表格使用 13px 正文、中性表头和行分隔，长内容可换行，宽表只在内部区域横向滚动；首次加载展示骨架，空数据提供对应空态。
+[`AppDataTable`](web/src/components/AppDataTable.vue) 使用原生 table、列标题和辅助技术可读的表名；列定义提供标识、标签、宽度和对齐，业务单元格保留自己的内容与操作。表格使用紧凑正文、中性表头和行分隔，长内容可换行，宽表只在内部区域横向滚动；首次加载展示骨架，空数据提供对应空态。
 
 [`AppDetails`](web/src/components/AppDetails.vue) 与 [`AppDetailItem`](web/src/components/AppDetailItem.vue) 使用定义列表呈现安装检查、来源和属性等键值信息。标签列使用中性淡面，值列允许路径、摘要和长标识换行，各项通过分隔线组织。
 
-名单表格使用 760px 最小宽度，并在自己的区域横向滚动；类型列宽 120px，行内新增保留类型、目标、说明与操作。字段错误通过 `aria-invalid`、关联说明和可读错误文字一起表达。复制入口预留图标空间，以透明度反馈状态，避免复制前后改变列宽。
+名单表格保留最小宽度并在自己的区域横向滚动；行内新增保留类型、目标、说明与操作。字段错误通过 `aria-invalid`、关联说明和可读错误文字一起表达。复制入口预留图标空间，以透明度反馈状态，避免复制前后改变列宽。
 
-调度任务使用原生表格，最小宽度为 1450px，右侧操作列固定在自身滚动区内；639px 及以下保留既有任务摘要列表与查看、触发入口。任务详情使用目标宽度为 800px 的居中 AppDialog，错误说明通过 AppPopover 查看，状态统计条随数据直接更新。
+调度任务使用原生表格，右侧操作列固定在自身滚动区内；窄屏保留既有任务摘要列表与查看、触发入口。任务详情使用居中 AppDialog，错误说明通过 AppPopover 查看，状态统计条随数据直接更新。
 
 ### Logs and diagnostic detail
 
 实时与历史日志保持各自的列表、筛选和滚动职责。高级筛选通过受控说明弹层编辑协议、插件多选和请求标识，历史范围使用本地日期时间输入。清除筛选、分页、底部跟随和手动滚动沿用现有工作区状态，持续新增日志不逐条播放入场动画。
 
-**The Log Row Density Rule.** 实时与历史日志的行级标签使用 AppTag 的 small 尺寸，垂直内边距为 2px。虚拟列表以 80px 为常规行的估算高度，并测量实际行高；换行正文允许自然增高，虚拟列表维护滚动锚点与底部跟随。
+**The Log Row Density Rule.** 实时与历史日志的行级标签使用 AppTag 的 small 尺寸。虚拟列表以常规行高作为估算值，并测量实际行高；换行正文允许自然增高，虚拟列表维护滚动锚点与底部跟随。
 
-[`ManagementLogDetailDrawer`](web/src/components/logs/ManagementLogDetailDrawer.vue) 在大于 960px 且宿主尺寸可用时呈现非模态桌面窗口，目标宽度为 680px，位置与拖动范围按宿主可用尺寸约束。页头使用普通二级标题“日志详情”，来源、级别、协议和时间排列在其下；正文在窗口内滚动，原日志列表继续可操作。窄屏或缺少有效宿主尺寸时使用右侧 AppDrawer，并沿用模态抽屉的退出和焦点规则。
+[`ManagementLogDetailDrawer`](web/src/components/logs/ManagementLogDetailDrawer.vue) 在宽屏且宿主尺寸可用时呈现非模态桌面窗口，位置与拖动范围按宿主可用尺寸约束。页头使用普通二级标题“日志详情”，来源、级别、协议和时间排列在其下；正文在窗口内滚动，原日志列表继续可操作。窄屏或缺少有效宿主尺寸时使用右侧 AppDrawer，并沿用模态抽屉的退出和焦点规则。
 
 **The Log Detail Exit Rule.** 日志详情的展示层保留关闭前最后一份摘要、正文、加载或错误内容，直到桌面窗口的 after-leave 或移动抽屉的 afterClose 完成后清理；控制器继续独立管理正式选中状态与请求缓存。关闭后恢复到仍有效的日志行；非模态桌面窗口不夺走用户已转移到其他控件的焦点。
 
@@ -343,9 +343,9 @@ Web 产品组件基于 Vue 3、Reka UI 2.10.4、仓库持有的 shadcn-vue / rek
 
 协议中心的“添加连接”先在配置弹窗内展示协议名称与说明，选择后在同一弹窗填写配置；“更换协议”返回选择步骤。常用地址、凭据、接收消息和启用状态优先展示，连接标识、沙箱、共用重连策略、令牌兼容选项与运行诊断按适用条件逐级展开。高级字段出错时展开对应区域并聚焦错误控件。保存和取消留在固定页脚，正文独立滚动；共享重连参数明确说明影响所有连接。
 
-[`AppDialog`](web/src/components/AppDialog.vue) 的居中模式以 CSS 固定定位保持视口中心，桌面左右至少留 16px、上下至少留 24px，639px 及以下四周至少留 12px。标题、说明与关闭按钮留在页头，操作留在页脚；正文长度变化时按实测内容高度过渡，达到视口上限后只滚动正文。兼容矩阵沿用同一弹窗，其表格在自身区域横向滚动并固定能力名称列，手机显示横向滚动提示。
+[`AppDialog`](web/src/components/AppDialog.vue) 的居中模式以 CSS 固定定位保持视口中心，四周保留视口边距，窄屏收紧边距。标题、说明与关闭按钮留在页头，操作留在页脚；正文长度变化时按实测内容高度过渡，达到视口上限后只滚动正文。
 
-[`AppDrawer`](web/src/components/AppDrawer.vue) 复用 AppDialog 的左侧、右侧或底部呈现。左右抽屉固定高度为 100dvh，宽度不超过视口减 24px；正文填充余下高度并独立滚动，页头与页脚保持可达。底部呈现贴齐视口底边、左右铺满，高度随实测内容变化，最大为视口高度减 24px。只有左右抽屉固定高度，居中弹窗和底部面板继续由 Motion 管理实测高度，避免不同呈现互相覆盖定位和动画样式。
+[`AppDrawer`](web/src/components/AppDrawer.vue) 复用 AppDialog 的左侧、右侧或底部呈现。左右抽屉占满视口高度，宽度受视口限制；正文填充余下高度并独立滚动，页头与页脚保持可达。底部呈现贴齐视口底边、左右铺满，高度随实测内容变化，不超过视口高度。只有左右抽屉固定高度，居中弹窗和底部面板继续由 Motion 管理实测高度，避免不同呈现互相覆盖定位和动画样式。
 
 **The Web Dialog Lifecycle Rule.** AppDialog 与 AppDrawer 在关闭动画完成前保留 Reka 内容、遮罩、焦点约束与业务内容；由 Motion 的 animationComplete 完成退场后再释放层级、触发 afterClose 并归还焦点，调用方不得随 open 变为 false 提前卸载内容。打开时保存明确的备用焦点入口；原触发项已卸载，或 afterClose 已清理删除候选对象时，仍归还到该有效入口。嵌套确认和选择器服从所属层级；确认弹窗使用 alertdialog，并将初始焦点放在取消操作。忙碌状态阻止关闭与重复提交，未保存修改通过确认弹窗处理。
 
@@ -357,7 +357,7 @@ Web 产品组件基于 Vue 3、Reka UI 2.10.4、仓库持有的 shadcn-vue / rek
 
 登录、首次初始化与凭据恢复指引共享居中单栏面板，保留折叶品牌与 Noto Sans SC，凭据表单使用 AppField、AppInput、AppButton 和 AppAlert。静态青瓷玻璃壁纸与面板不随指针移动，鼠标仅改变边缘高光位置，空闲时没有持续绘制循环。
 
-面板与控件尺寸、壁纸资源、法线图生成、入场动画参数、低高度视口、reduced-motion 与 forced-colors 行为见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。认证区域文字选区使用现有品牌填充与对应前景。
+壁纸资源、法线图生成、入场动画、低高度视口、reduced-motion 与 forced-colors 行为见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。认证区域文字选区使用现有品牌填充与对应前景。
 
 [`AuthCredentialsForm`](web/src/components/auth/AuthCredentialsForm.vue) 的标签、输入与错误保持关联，账号和密码使用相同控件高度与局部焦点样式。密码可见性按钮具有可访问名称和按下状态；提交期间输入、显示开关和提交按钮均禁用，字段校验失败时聚焦首个错误输入。认证专用 CSS 变量由 [preferences/auth.ts](web/src/preferences/auth.ts) 映射，玻璃材质保持在 AuthLayout 内。
 
@@ -367,13 +367,13 @@ Web 产品组件基于 Vue 3、Reka UI 2.10.4、仓库持有的 shadcn-vue / rek
 
 控件反馈采用 100–160ms 的短节奏，工作区采用 180–220ms，浮层采用 200–220ms；当前共有反馈、Web 内容切换、Launcher 工作区和浮层分别使用 160ms、200ms、220ms 和 220ms。动画主要改变 opacity / transform 或控件状态属性，服务于选择、层级切换和显隐，持续日志不逐条播放进入动画。Web 居中弹窗和底部面板另对实测内容高度进行过渡，以保持字段展开和异步内容变化时的定位关系。
 
-AppDialog 与 AppDrawer 入场为 220ms、退场为 160ms，沿用现有缓动 `cubic-bezier(0.16, 1, 0.3, 1)`。居中模式改变透明度与缩放（0.96 ↔ 1），CSS 定位负责居中，Motion 负责显隐和实测高度；左右抽屉保持缩放为 1，以透明度和最多 24px 的水平位移表现打开方向，底部面板使用最多 24px 的垂直位移。reduced-motion 或 forced-colors 下时长为零、缩放为 1、位移为零，同时保留完整关闭生命周期与焦点归还；forced-colors 下保留系统表面边界。
+AppDialog 与 AppDrawer 入场为 220ms、退场为 160ms，沿用现有缓动 `cubic-bezier(0.16, 1, 0.3, 1)`。居中模式改变透明度与缩放（0.96 ↔ 1），CSS 定位负责居中，Motion 负责显隐和实测高度；左右抽屉保持缩放为 1，以透明度和短距离水平位移表现打开方向，底部面板使用短距离垂直位移。reduced-motion 或 forced-colors 下时长为零、缩放为 1、位移为零，同时保留完整关闭生命周期与焦点归还；forced-colors 下保留系统表面边界。
 
 Web 工作区优先使用只捕获主内容的 View Transition，缺少能力时由统一的 Motion for Vue 入口降级，侧栏和页头保持可交互。菜单通过自身 CSS 状态过渡显隐（160ms），Toast 沿用同组过渡（进入 200ms、退出 160ms）；这些元素不叠加第二套 Motion 动画，减少动态效果或强制颜色时即时呈现。
 
 Web 主题切换由 Motion 驱动新主题快照，从操作入口以 420ms 展开；没有入口坐标时以 280ms 淡入。账户修改复用 AppDialog 的进入、取消退出、内容高度与焦点生命周期，可选用户名按需披露。两者在减少动态效果或强制颜色模式下即时呈现。
 
-非模态桌面日志窗口保留自身 CSS 透明度与水平位移过渡（220ms、18px），条目间的详情切换使用 160ms 淡化；它不叠加 AppDialog 的缩放和焦点锁。共享 reduced-motion 与 forced-colors 样式覆盖该窗口过渡。
+非模态桌面日志窗口保留自身 CSS 透明度与水平位移过渡（220ms），条目间的详情切换使用 160ms 淡化；它不叠加 AppDialog 的缩放和焦点锁。共享 reduced-motion 与 forced-colors 样式覆盖该窗口过渡。
 
 Launcher 工作区从可见透明度（0.88）进入，状态与内容在点击时更新；连续切换取消旧动画并从当前可见程度继续。导航持续可交互，reduced-motion 或 forced-colors 下立即完成。Web 与 Launcher 均保留 system、light、dark 主题偏好，手动选择可持久化，不使用按时钟自动切换配置。动效时长不代表帧率或性能承诺。
 
@@ -381,7 +381,7 @@ Launcher 工作区从可见透明度（0.88）进入，状态与内容在点击�
 
 **The Fold Mark Rule.** 折叶由同一几何母版生成，品牌不代替状态图标或导航文字。
 
-插件页面、聊天卡片与渲染模板拥有独立内容和样式边界；其管理面 Host 使用本体系。独立 iframe 不继承宿主 CSS、字体或组件运行时，内部页面保留自身组件库；主题和尺寸通过既有桥接协议同步，详见 [插件管理面](docs/design/plugin-management-surface.md)。
+插件页面、聊天卡片与渲染模板拥有独立内容和样式边界；其管理面 Host 使用本体系。独立 iframe 不继承宿主 CSS、字体或组件运行时，内部页面保留自身组件库；页面与宿主同源加载，主题由 Vue SDK 读取宿主主题变量同步，详见 [插件管理面](docs/design/plugin-management-surface.md)。
 
 **The Embedded Content Rule.** 需要连续工作的预览和控制台通过 AppTabs 的 keepAlive 保留隐藏节点；插件管理面 Host 使用 AppLoadingPanel 表达忙碌并暂时阻止内容交互，不因加载提示重建 iframe。Host 管理错误恢复和显式重载，独立插件页面管理自己的内部组件。
 

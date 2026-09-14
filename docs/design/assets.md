@@ -14,7 +14,7 @@
 
 正式模板由 `template.json` 指定 HTML 与 CSS，管理预览数据来自 `preview.json`；服务端在 `internal/render` 中读取和渲染这些文件。
 
-`templates/status.panel/preview.html` 保留为静态设计预览，在 `design/color-literal-allowlist.json` 中有明确用途。排行榜的独立 `preview.html` 没有模板声明、运行入口或设计工具引用，已移除；排行榜的正式 `template.html`、`styles.css`、输入 schema 和预览数据保留。
+`templates/status.panel/preview.html` 保留为静态设计预览。排行榜的独立 `preview.html` 没有模板声明、运行入口或设计工具引用，已移除；排行榜的正式 `template.html`、`styles.css`、输入 schema 和预览数据保留。
 
 ## 2026-09-10 核对记录
 

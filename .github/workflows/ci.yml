@@ -228,7 +228,7 @@ jobs:
         with:
           node-version: ${{ steps.toolchain.outputs.nodejs }}
 
-      - name: Check design token generation and color drift
+      - name: Check design token generation and contrast
         run: node scripts/generate-design-tokens.mjs --check
 
       - name: Check launcher icon generation
