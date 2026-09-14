@@ -20,7 +20,7 @@ export function getConfigWorkbenchGroups(): ConfigWorkbenchGroup[] {
     { key: 'scheduler', sections: ['scheduler'], common: ['scheduler.timezone'] },
     { key: 'runtime', sections: ['runtime', 'http'], common: ['runtime.plugin_event_timeout_seconds', 'runtime.max_concurrent_tasks_per_plugin', 'http.timeout_seconds', 'http.max_retries'] },
     { key: 'data', sections: ['database', 'storage', 'data'], common: ['database.path', 'data.download_cache_retention_days'] },
-    { key: 'logs', sections: ['log', 'message'], common: null },
+    { key: 'logs', sections: ['log'], common: null },
   ]
   return definitions.map(definition => ({
     key: definition.key,

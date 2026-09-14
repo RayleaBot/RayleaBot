@@ -77,8 +77,8 @@ func TestTransportNormalizationDoesNotHideInvalidInput(t *testing.T) {
 func TestRateLimitOverflowIsRejectedBeforePersistence(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "user.yaml")
 	document := defaultDocument()
-	document["message"].(map[string]any)["rate_limit_per_plugin"] = "999999999999999999999999999999/1s"
-	if _, _, err := SaveDocument(path, "", document); err == nil || !strings.Contains(err.Error(), "rate_limit_per_plugin") {
+	document["message"].(map[string]any)["rate_limit_per_target"] = "999999999999999999999999999999/1s"
+	if _, _, err := SaveDocument(path, "", document); err == nil || !strings.Contains(err.Error(), "rate_limit_per_target") {
 		t.Fatalf("overflowed rate limit result: %v", err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {

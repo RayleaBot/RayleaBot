@@ -62,7 +62,7 @@ App、Chat Policy Ingress、Bridge、Dispatcher、Runtime Manager、Local Action
 
 黑白名单共用 `permission.EntryRepository` 和 SQLite `access_list_entries`，由 `list_kind` 区分两类名单。条目按协议、adapter、bot、类型和目标 ID 唯一定位；OneBot 全局条目不指定 adapter / bot，实例条目精确匹配二者。白名单开关仍是服务级命令准入开关，开启后未匹配任何白名单规则的命令被拒绝。
 
-入站用户与群冷却按完整事件身份隔离。外发目标配额与熔断先解析实际 adapter / bot，再与会话类型及目标 ID 组成键；回复保留原事件的 bot 身份。插件外发配额继续按插件累计，约束插件在所有连接上的总发送量。
+入站用户与群冷却按完整事件身份隔离。外发目标配额先解析实际 adapter / bot，再与会话类型及目标 ID 组成键；回复保留原事件的 bot 身份。
 
 ## 调度与后台任务
 

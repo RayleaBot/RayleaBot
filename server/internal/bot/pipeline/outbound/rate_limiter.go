@@ -10,10 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
-const (
-	defaultMessageRateLimitPerPlugin = "20/10s"
-	defaultMessageRateLimitPerTarget = "5/5s"
-)
+const defaultMessageRateLimitPerTarget = "5/5s"
 
 // MessageLimitRequest identifies one outbound message for platform throttling.
 type MessageLimitRequest struct {
@@ -28,49 +25,35 @@ type MessageLimiter interface {
 	Wait(context.Context, MessageLimitRequest) error
 }
 
-// MessageRateLimiter enforces plugin and target outbound message limits.
+// MessageRateLimiter enforces the per-target outbound message limit. Platform
+// risk control reacts to one conversation being flooded, so the limit is keyed
+// by the resolved bot identity and conversation.
 type MessageRateLimiter struct {
-	pluginLimiter *windowLimiter
 	targetLimiter *windowLimiter
 }
 
 // NewMessageRateLimiter creates an outbound message limiter from user config.
 func NewMessageRateLimiter(cfg config.Config) *MessageRateLimiter {
-	limiter := &MessageRateLimiter{
-		pluginLimiter: newWindowLimiter(time.Now, parseOutboundRateLimit(cfg.Message.RateLimitPerPlugin, defaultMessageRateLimitPerPlugin)),
+	return &MessageRateLimiter{
 		targetLimiter: newWindowLimiter(time.Now, parseOutboundRateLimit(cfg.Message.RateLimitPerTarget, defaultMessageRateLimitPerTarget)),
 	}
-	return limiter
 }
 
 // ApplyConfig refreshes limiter settings from the latest saved config.
 func (l *MessageRateLimiter) ApplyConfig(cfg config.Config) {
-
-	pluginLimit := parseOutboundRateLimit(cfg.Message.RateLimitPerPlugin, defaultMessageRateLimitPerPlugin)
-	targetLimit := parseOutboundRateLimit(cfg.Message.RateLimitPerTarget, defaultMessageRateLimitPerTarget)
-	l.pluginLimiter.SetLimit(pluginLimit)
-	l.targetLimiter.SetLimit(targetLimit)
+	l.targetLimiter.SetLimit(parseOutboundRateLimit(cfg.Message.RateLimitPerTarget, defaultMessageRateLimitPerTarget))
 }
 
-// Wait blocks in FIFO order until the message can be sent or the configured
-// wait limit is reached.
+// Wait blocks in FIFO order until the message can be sent or the context ends.
 func (l *MessageRateLimiter) Wait(ctx context.Context, request MessageLimitRequest) error {
-
-	pluginID := strings.TrimSpace(request.PluginID)
-	if pluginID != "" {
-		if err := l.pluginLimiter.Wait(ctx, "plugin:"+pluginID); err != nil {
-			return rateLimitedError()
-		}
-	}
-
 	targetType := strings.TrimSpace(request.TargetType)
 	targetID := strings.TrimSpace(request.TargetID)
-	if targetType != "" && targetID != "" {
-		if err := l.targetLimiter.Wait(ctx, "target:"+request.Scope.Key(targetType, targetID)); err != nil {
-			return rateLimitedError()
-		}
+	if targetType == "" || targetID == "" {
+		return nil
 	}
-
+	if err := l.targetLimiter.Wait(ctx, "target:"+request.Scope.Key(targetType, targetID)); err != nil {
+		return rateLimitedError()
+	}
 	return nil
 }
 

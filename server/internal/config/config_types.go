@@ -65,9 +65,7 @@ type LogConfig struct {
 }
 
 type MessageConfig struct {
-	RateLimitPerPlugin    string `json:"rate_limit_per_plugin" yaml:"rate_limit_per_plugin"`
-	RateLimitPerTarget    string `json:"rate_limit_per_target" yaml:"rate_limit_per_target"`
-	CircuitBreakerSeconds int    `json:"circuit_breaker_seconds" yaml:"circuit_breaker_seconds"`
+	RateLimitPerTarget string `json:"rate_limit_per_target" yaml:"rate_limit_per_target"`
 }
 
 type UserConfig struct {

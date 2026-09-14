@@ -12,7 +12,6 @@ func validateRuntimeConstraints(cfg Config) error {
 	for _, field := range []struct{ name, value string }{
 		{"user.command_rate_limit", cfg.User.CommandRateLimit},
 		{"group.command_rate_limit", cfg.Group.CommandRateLimit},
-		{"message.rate_limit_per_plugin", cfg.Message.RateLimitPerPlugin},
 		{"message.rate_limit_per_target", cfg.Message.RateLimitPerTarget},
 		{"log.rate_limit_per_plugin", cfg.Log.RateLimitPerPlugin},
 		{"runtime.ipc_action_burst_limit", cfg.Runtime.IPCActionBurstLimit},

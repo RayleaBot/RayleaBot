@@ -389,19 +389,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       ],
     },
     {
-      key: 'message',
-      title: t('config.sections.message'),
-      fields: [
-        {
-          path: 'message.circuit_breaker_seconds',
-          label: t('config.fields.messageCircuitBreakerSeconds'),
-          type: 'number',
-          unit: t('config.units.second'),
-          description: t('config.descriptions.messageCircuitBreakerSeconds'),
-        },
-      ],
-    },
-    {
       key: 'http',
       title: t('config.sections.http'),
       fields: [
@@ -564,18 +551,6 @@ export function getRateLimitConfigSections(): ConfigSectionDefinition[] {
           label: t('rateLimits.fields.cooldownReply'),
           type: 'boolean',
           description: t('rateLimits.hints.cooldownReply'),
-        },
-      ],
-    },
-    {
-      key: 'plugin-message',
-      title: t('rateLimits.sections.pluginMessage'),
-      fields: [
-        {
-          path: 'message.rate_limit_per_plugin',
-          label: t('config.fields.messageRateLimitPerPlugin'),
-          type: 'rateLimit',
-          description: t('rateLimits.hints.pluginMessageRateLimit'),
         },
       ],
     },

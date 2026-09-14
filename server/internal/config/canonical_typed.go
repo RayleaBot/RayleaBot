@@ -49,25 +49,11 @@ func configBuiltinMenuPrefixes(cfg Config) []string {
 	return []string{}
 }
 
-func configMessageRateLimitPerPlugin(cfg Config) string {
-	if cfg.Message.RateLimitPerPlugin != "" {
-		return cfg.Message.RateLimitPerPlugin
-	}
-	return "20/10s"
-}
-
 func configMessageRateLimitPerTarget(cfg Config) string {
 	if cfg.Message.RateLimitPerTarget != "" {
 		return cfg.Message.RateLimitPerTarget
 	}
 	return "5/5s"
-}
-
-func configMessageCircuitBreakerSeconds(cfg Config) int {
-	if cfg.Message.CircuitBreakerSeconds > 0 {
-		return cfg.Message.CircuitBreakerSeconds
-	}
-	return 30
 }
 
 func configUserCommandRateLimit(cfg Config) string {
@@ -195,9 +181,7 @@ func configPermissionDocument(cfg Config) map[string]any {
 
 func configMessageDocument(cfg Config) map[string]any {
 	return map[string]any{
-		"rate_limit_per_plugin":   configMessageRateLimitPerPlugin(cfg),
-		"rate_limit_per_target":   configMessageRateLimitPerTarget(cfg),
-		"circuit_breaker_seconds": configMessageCircuitBreakerSeconds(cfg),
+		"rate_limit_per_target": configMessageRateLimitPerTarget(cfg),
 	}
 }
 

@@ -337,35 +337,9 @@ func TestHandleConfigPutHotReloadsOutboundLimiterMessageFields(t *testing.T) {
 		wantConfig  func(config.Config) bool
 	}{
 		{
-			name: "rate_limit_per_plugin",
-			baseMessage: config.MessageConfig{
-				RateLimitPerPlugin:    "1/1h",
-				RateLimitPerTarget:    "100/1s",
-				CircuitBreakerSeconds: 1,
-			},
-			mutate: func(t *testing.T, document map[string]any) {
-				messageSection(t, document)["rate_limit_per_plugin"] = "2/1h"
-			},
-			prime: outbound.MessageLimitRequest{PluginID: "weather", TargetType: "group", TargetID: "100"},
-			verify: func(t *testing.T, limiter *recordingConfigOutboundLimiter) {
-				t.Helper()
-				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-				defer cancel()
-				if err := limiter.Wait(ctx, outbound.MessageLimitRequest{PluginID: "weather", TargetType: "group", TargetID: "101"}); err != nil {
-					t.Fatalf("updated plugin rate limit was not applied to outbound limiter: %v", err)
-				}
-			},
-			wantPath: "message.rate_limit_per_plugin",
-			wantConfig: func(cfg config.Config) bool {
-				return cfg.Message.RateLimitPerPlugin == "2/1h"
-			},
-		},
-		{
 			name: "rate_limit_per_target",
 			baseMessage: config.MessageConfig{
-				RateLimitPerPlugin:    "100/1s",
-				RateLimitPerTarget:    "1/1h",
-				CircuitBreakerSeconds: 1,
+				RateLimitPerTarget: "1/1h",
 			},
 			mutate: func(t *testing.T, document map[string]any) {
 				messageSection(t, document)["rate_limit_per_target"] = "2/1h"
@@ -382,43 +356,6 @@ func TestHandleConfigPutHotReloadsOutboundLimiterMessageFields(t *testing.T) {
 			wantPath: "message.rate_limit_per_target",
 			wantConfig: func(cfg config.Config) bool {
 				return cfg.Message.RateLimitPerTarget == "2/1h"
-			},
-		},
-		{
-			name: "circuit_breaker_seconds",
-			baseMessage: config.MessageConfig{
-				RateLimitPerPlugin:    "100/1s",
-				RateLimitPerTarget:    "1/1h",
-				CircuitBreakerSeconds: 1,
-			},
-			mutate: func(t *testing.T, document map[string]any) {
-				messageSection(t, document)["circuit_breaker_seconds"] = 3
-			},
-			prime: outbound.MessageLimitRequest{PluginID: "weather", TargetType: "group", TargetID: "100"},
-			verify: func(t *testing.T, limiter *recordingConfigOutboundLimiter) {
-				t.Helper()
-				ctx, cancel := context.WithCancel(context.Background())
-				done := make(chan error, 1)
-				go func() {
-					done <- limiter.Wait(ctx, outbound.MessageLimitRequest{PluginID: "news", TargetType: "group", TargetID: "100"})
-				}()
-
-				select {
-				case err := <-done:
-					t.Fatalf("outbound wait ended before the updated circuit breaker window: %v", err)
-				case <-time.After(1300 * time.Millisecond):
-				}
-
-				cancel()
-				select {
-				case <-done:
-				case <-time.After(200 * time.Millisecond):
-					t.Fatal("outbound wait did not stop after test context was cancelled")
-				}
-			},
-			wantPath: "message.circuit_breaker_seconds",
-			wantConfig: func(cfg config.Config) bool {
-				return cfg.Message.CircuitBreakerSeconds == 3
 			},
 		},
 	}
@@ -552,9 +489,7 @@ func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageCon
 
 	document := configruntime.ConfigDocumentFromTyped(cfg)
 	messageDoc := messageSection(t, document)
-	messageDoc["rate_limit_per_plugin"] = message.RateLimitPerPlugin
 	messageDoc["rate_limit_per_target"] = message.RateLimitPerTarget
-	messageDoc["circuit_breaker_seconds"] = message.CircuitBreakerSeconds
 	cfg, summary, err := config.SaveDocument(configPath, schemaPath, document)
 	if err != nil {
 		t.Fatalf("save base config: %v", err)

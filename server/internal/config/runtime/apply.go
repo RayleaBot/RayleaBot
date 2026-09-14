@@ -328,7 +328,7 @@ type hotReloadTarget struct {
 func (s *Service) hotReloadTargets() []hotReloadTarget {
 	return []hotReloadTarget{
 		{paths: []string{"log.rate_limit_per_plugin"}, consumer: s.pluginLogLimiter},
-		{paths: []string{"message.rate_limit_per_plugin", "message.rate_limit_per_target", "message.circuit_breaker_seconds"}, consumer: s.outboundLimiter},
+		{paths: []string{"message.rate_limit_per_target"}, consumer: s.outboundLimiter},
 		{paths: []string{"render."}, consumer: s.renderer},
 	}
 }

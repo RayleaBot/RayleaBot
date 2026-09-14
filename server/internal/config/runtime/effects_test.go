@@ -159,7 +159,7 @@ func TestHotReloadConsumersOnlyReceiveOwnedChanges(t *testing.T) {
 	}
 	next := current
 	next.Render.QueueMaxLength = current.Render.QueueMaxLength + 1
-	next.Message.CircuitBreakerSeconds = current.Message.CircuitBreakerSeconds + 1
+	next.Message.RateLimitPerTarget = "7/5s"
 
 	renderer := &configApplyCounter{}
 	outbound := &configApplyCounter{}

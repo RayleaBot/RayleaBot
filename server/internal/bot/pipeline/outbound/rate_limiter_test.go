@@ -10,7 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
-func TestOutboundQuotaAndCircuitUseResolvedBotNamespace(t *testing.T) {
+func TestOutboundQuotaUsesResolvedBotNamespace(t *testing.T) {
 	botID := "bot-a"
 	policy := NewMessagePolicy(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "3/1h"}}, func(scope chatevent.IdentityScope) chatevent.IdentityScope {
 		scope.BotID = botID
@@ -18,103 +18,51 @@ func TestOutboundQuotaAndCircuitUseResolvedBotNamespace(t *testing.T) {
 	})
 	request := MessageLimitRequest{Scope: chatevent.IdentityScope{Kind: "instance", SourceProtocol: "qqofficial", SourceAdapter: "qq"}, TargetType: "group", TargetID: "same-id"}
 	for range 3 {
-		record, err := policy.Begin(t.Context(), request)
-		if err != nil {
+		if _, err := policy.Begin(t.Context(), request); err != nil {
 			t.Fatal(err)
 		}
-		record.Record(errors.New("send failed"))
 	}
 	botID = "bot-b"
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
-	record, err := policy.Begin(ctx, request)
+	admission, err := policy.Begin(ctx, request)
 	if err != nil {
-		t.Fatalf("another bot inherited quota or circuit: %v", err)
+		t.Fatalf("another bot inherited quota: %v", err)
 	}
-	record.Record(nil)
+	if admission.Scope.BotID != "bot-b" {
+		t.Fatalf("admission scope = %#v, want resolved bot-b", admission.Scope)
+	}
 }
 
-func TestOutboundProbeKeepsIdentityUntilItsResultIsRecorded(t *testing.T) {
-	botID := "bot-a"
-	policy := NewMessagePolicy(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "100/1h"}}, func(scope chatevent.IdentityScope) chatevent.IdentityScope {
-		scope.BotID = botID
-		return scope
-	})
-	now := time.Now()
-	policy.Breaker.now = func() time.Time { return now }
-	request := MessageLimitRequest{Scope: chatevent.IdentityScope{Kind: "instance", SourceProtocol: "qqofficial", SourceAdapter: "qq"}, TargetType: "group", TargetID: "same-id"}
-	for range 3 {
-		record, err := policy.Begin(t.Context(), request)
-		if err != nil {
-			t.Fatal(err)
-		}
-		record.Record(errors.New("send failed"))
-	}
-	if _, err := policy.Begin(t.Context(), request); err == nil {
-		t.Fatal("circuit stayed closed")
-	}
-	now = now.Add(time.Minute)
-	record, err := policy.Begin(t.Context(), request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	botID = "bot-b"
-	record.Record(nil)
-	botID = "bot-a"
-	record, err = policy.Begin(t.Context(), request)
-	if err != nil {
-		t.Fatalf("completed probe remained occupied after identity changed: %v", err)
-	}
-	record.Record(nil)
-}
+func TestMessageRateLimiterDelaysTargetMessagesUntilWindowAllows(t *testing.T) {
+	limiter := NewMessageRateLimiter(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "1/20ms"}})
 
-func TestMessageRateLimiterDelaysPluginMessagesUntilWindowAllows(t *testing.T) {
-	limiter := NewMessageRateLimiter(config.Config{
-		Message: config.MessageConfig{
-			RateLimitPerPlugin:    "1/20ms",
-			RateLimitPerTarget:    "100/1s",
-			CircuitBreakerSeconds: 1,
-		},
-	})
-
-	if err := limiter.Wait(context.Background(), MessageLimitRequest{PluginID: "weather", TargetType: "group", TargetID: "100"}); err != nil {
+	if err := limiter.Wait(context.Background(), MessageLimitRequest{TargetType: "group", TargetID: "100"}); err != nil {
 		t.Fatalf("first Wait() error = %v", err)
 	}
 
 	startedAt := time.Now()
-	if err := limiter.Wait(context.Background(), MessageLimitRequest{PluginID: "weather", TargetType: "private", TargetID: "200"}); err != nil {
+	if err := limiter.Wait(context.Background(), MessageLimitRequest{TargetType: "group", TargetID: "100"}); err != nil {
 		t.Fatalf("second Wait() error = %v", err)
 	}
 	if elapsed := time.Since(startedAt); elapsed < 15*time.Millisecond {
-		t.Fatalf("second Wait() elapsed = %s, want plugin window delay", elapsed)
+		t.Fatalf("second Wait() elapsed = %s, want target window delay", elapsed)
 	}
 }
 
 func TestMessageRateLimiterKeepsTargetsIndependent(t *testing.T) {
-	limiter := NewMessageRateLimiter(config.Config{
-		Message: config.MessageConfig{
-			RateLimitPerPlugin:    "100/1s",
-			RateLimitPerTarget:    "1/1h",
-			CircuitBreakerSeconds: 1,
-		},
-	})
+	limiter := NewMessageRateLimiter(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "1/1h"}})
 
-	if err := limiter.Wait(context.Background(), MessageLimitRequest{PluginID: "a", TargetType: "group", TargetID: "100"}); err != nil {
+	if err := limiter.Wait(context.Background(), MessageLimitRequest{TargetType: "group", TargetID: "100"}); err != nil {
 		t.Fatalf("first target Wait() error = %v", err)
 	}
-	if err := limiter.Wait(context.Background(), MessageLimitRequest{PluginID: "b", TargetType: "group", TargetID: "200"}); err != nil {
+	if err := limiter.Wait(context.Background(), MessageLimitRequest{TargetType: "group", TargetID: "200"}); err != nil {
 		t.Fatalf("different target Wait() error = %v", err)
 	}
 }
 
 func TestMessageRateLimiterReturnsPlatformRateLimitedAfterWaitLimit(t *testing.T) {
-	limiter := NewMessageRateLimiter(config.Config{
-		Message: config.MessageConfig{
-			RateLimitPerPlugin:    "100/1s",
-			RateLimitPerTarget:    "1/1h",
-			CircuitBreakerSeconds: 1,
-		},
-	})
+	limiter := NewMessageRateLimiter(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "1/1h"}})
 	if err := limiter.Wait(context.Background(), MessageLimitRequest{TargetType: "group", TargetID: "100"}); err != nil {
 		t.Fatalf("first Wait() error = %v", err)
 	}
@@ -132,47 +80,31 @@ func TestMessageRateLimiterReturnsPlatformRateLimitedAfterWaitLimit(t *testing.T
 }
 
 func TestMessageRateLimiterApplyConfigTakesEffect(t *testing.T) {
-	limiter := NewMessageRateLimiter(config.Config{
-		Message: config.MessageConfig{
-			RateLimitPerPlugin:    "1/1h",
-			RateLimitPerTarget:    "100/1s",
-			CircuitBreakerSeconds: 1,
-		},
-	})
+	limiter := NewMessageRateLimiter(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "1/1h"}})
 
-	if err := limiter.Wait(context.Background(), MessageLimitRequest{PluginID: "weather", TargetType: "group", TargetID: "100"}); err != nil {
+	if err := limiter.Wait(context.Background(), MessageLimitRequest{TargetType: "group", TargetID: "100"}); err != nil {
 		t.Fatalf("first Wait() error = %v", err)
 	}
 
-	limiter.ApplyConfig(config.Config{
-		Message: config.MessageConfig{
-			RateLimitPerPlugin:    "2/1h",
-			RateLimitPerTarget:    "100/1s",
-			CircuitBreakerSeconds: 1,
-		},
-	})
+	limiter.ApplyConfig(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "2/1h"}})
 
-	if err := limiter.Wait(context.Background(), MessageLimitRequest{PluginID: "weather", TargetType: "group", TargetID: "101"}); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if err := limiter.Wait(ctx, MessageLimitRequest{TargetType: "group", TargetID: "100"}); err != nil {
 		t.Fatalf("updated Wait() error = %v", err)
 	}
 }
 
 func TestMessageRateLimiterApplyConfigWakesQueuedMessages(t *testing.T) {
-	limiter := NewMessageRateLimiter(config.Config{
-		Message: config.MessageConfig{
-			RateLimitPerPlugin:    "1/1h",
-			RateLimitPerTarget:    "100/1s",
-			CircuitBreakerSeconds: 1,
-		},
-	})
+	limiter := NewMessageRateLimiter(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "1/1h"}})
 
-	if err := limiter.Wait(context.Background(), MessageLimitRequest{PluginID: "weather", TargetType: "group", TargetID: "100"}); err != nil {
+	if err := limiter.Wait(context.Background(), MessageLimitRequest{TargetType: "group", TargetID: "100"}); err != nil {
 		t.Fatalf("first Wait() error = %v", err)
 	}
 
 	done := make(chan error, 1)
 	go func() {
-		done <- limiter.Wait(context.Background(), MessageLimitRequest{PluginID: "weather", TargetType: "group", TargetID: "101"})
+		done <- limiter.Wait(context.Background(), MessageLimitRequest{TargetType: "group", TargetID: "100"})
 	}()
 
 	select {
@@ -181,13 +113,7 @@ func TestMessageRateLimiterApplyConfigWakesQueuedMessages(t *testing.T) {
 	case <-time.After(25 * time.Millisecond):
 	}
 
-	limiter.ApplyConfig(config.Config{
-		Message: config.MessageConfig{
-			RateLimitPerPlugin:    "2/1h",
-			RateLimitPerTarget:    "100/1s",
-			CircuitBreakerSeconds: 1,
-		},
-	})
+	limiter.ApplyConfig(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "2/1h"}})
 
 	select {
 	case err := <-done:

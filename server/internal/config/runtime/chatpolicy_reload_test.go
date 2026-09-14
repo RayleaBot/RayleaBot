@@ -3,6 +3,7 @@ package runtime_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
@@ -45,9 +46,7 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 		},
 		Log: config.LogConfig{Level: "info"},
 		Message: config.MessageConfig{
-			RateLimitPerPlugin:    "1/1h",
-			RateLimitPerTarget:    "100/1s",
-			CircuitBreakerSeconds: 1,
+			RateLimitPerTarget: "1/1h",
 		},
 	}
 	ingress := chatpolicy.NewIngress(chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return cfg }})
@@ -91,9 +90,7 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 		},
 		Log: config.LogConfig{Level: "info"},
 		Message: config.MessageConfig{
-			RateLimitPerPlugin:    "2/1h",
-			RateLimitPerTarget:    "100/1s",
-			CircuitBreakerSeconds: 1,
+			RateLimitPerTarget: "2/1h",
 		},
 	}).RestartRequired()
 	if restartRequired {
@@ -120,10 +117,12 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	if len(cfg.HTTP.AllowPrivateHosts) != 1 || cfg.HTTP.AllowPrivateHosts[0] != "127.0.0.1" {
 		t.Fatalf("http allow_private_hosts was not hot reloaded: %+v", cfg.HTTP.AllowPrivateHosts)
 	}
-	if err := limiter.Wait(context.Background(), outbound.MessageLimitRequest{
+	waitCtx, cancelWait := context.WithTimeout(context.Background(), time.Second)
+	defer cancelWait()
+	if err := limiter.Wait(waitCtx, outbound.MessageLimitRequest{
 		PluginID:   "weather",
 		TargetType: "group",
-		TargetID:   "20002",
+		TargetID:   "20001",
 	}); err != nil {
 		t.Fatalf("new outbound message limit was not applied: %v", err)
 	}

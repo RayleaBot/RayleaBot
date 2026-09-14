@@ -2619,15 +2619,8 @@ export interface components {
                 [key: string]: unknown;
             };
             message: {
-                /** @default 20/10s */
-                rate_limit_per_plugin: components["schemas"]["rateLimit"];
                 /** @default 5/5s */
                 rate_limit_per_target: components["schemas"]["rateLimit"];
-                /**
-                 * @description Per-target message circuit-breaker cooldown after three consecutive adapter send failures. The open state rejects sends with adapter.send_failed; after the cooldown, one half-open probe closes the circuit on success or reopens it on failure. Default: 30.
-                 * @default 30
-                 */
-                circuit_breaker_seconds: number;
             } & {
                 [key: string]: unknown;
             };

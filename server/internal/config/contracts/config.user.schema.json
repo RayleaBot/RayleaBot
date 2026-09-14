@@ -537,25 +537,12 @@
       "type": "object",
       "additionalProperties": true,
       "required": [
-        "rate_limit_per_plugin",
-        "rate_limit_per_target",
-        "circuit_breaker_seconds"
+        "rate_limit_per_target"
       ],
       "properties": {
-        "rate_limit_per_plugin": {
-          "$ref": "#/$defs/rateLimit",
-          "default": "20/10s"
-        },
         "rate_limit_per_target": {
           "$ref": "#/$defs/rateLimit",
           "default": "5/5s"
-        },
-        "circuit_breaker_seconds": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 30,
-          "description": "Per-target message circuit-breaker cooldown after three consecutive adapter send failures. The open state rejects sends with adapter.send_failed; after the cooldown, one half-open probe closes the circuit on success or reopens it on failure. Default: 30.",
-          "x-apply-policy": "hot_reload"
         }
       }
     },

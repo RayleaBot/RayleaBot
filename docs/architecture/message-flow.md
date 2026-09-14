@@ -82,7 +82,7 @@ Runtime Manager 不直接访问宿主管理存储、配置、secret、渲染、�
 
 ## 出站语义
 
-插件返回 `message.send` 后，Dispatcher 是唯一执行出口；回复通过同一动作的回复字段表达。Outbound 按插件和目标执行 admission、限流、熔断与冷却，并为每个获准动作发起一次发送。Adapter Send 把消息段转换为 OneBot11 `send_msg` 参数；WebSocket 可用时选择 WebSocket 并等待 echo，不可用时按配置选择 `http_api`。选定传输发送失败后返回正式错误，不自动重试。
+插件返回 `message.send` 后，Dispatcher 是唯一执行出口；回复通过同一动作的回复字段表达。Outbound 按目标执行 admission 与限流，并为每个获准动作发起一次发送。Adapter Send 把消息段转换为 OneBot11 `send_msg` 参数；WebSocket 可用时选择 WebSocket 并等待 echo，不可用时按配置选择 `http_api`。选定传输发送失败后返回正式错误，不自动重试。
 
 冷却提示、内置菜单和调度消息共享同一条 Outbound 与 Adapter Send 链路。
 

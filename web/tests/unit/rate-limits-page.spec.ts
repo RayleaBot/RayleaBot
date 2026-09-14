@@ -41,7 +41,6 @@ describe('RateLimitsPage', () => {
             'user.command_rate_limit',
             'group.command_rate_limit',
             'user.cooldown_reply',
-            'message.rate_limit_per_plugin',
             'message.rate_limit_per_target',
           ],
           reloaded_now: [],
@@ -64,7 +63,6 @@ describe('RateLimitsPage', () => {
     await getRateLimitInput(wrapper, '10/60s').vm.$emit('update:value', '20/60s')
     await getRateLimitInput(wrapper, '30/60s').vm.$emit('update:value', '60/60s')
     await wrapper.getComponent({ name: 'AppSwitch' }).vm.$emit('update:modelValue', false)
-    await getRateLimitInput(wrapper, '20/10s').vm.$emit('update:value', '30/10s')
     await getRateLimitInput(wrapper, '5/5s').vm.$emit('update:value', '12/1m')
     await flushPromises()
 
@@ -79,7 +77,6 @@ describe('RateLimitsPage', () => {
     expect(submitted.user.command_rate_limit).toBe('20/60s')
     expect(submitted.group.command_rate_limit).toBe('60/60s')
     expect(submitted.user.cooldown_reply).toBe(false)
-    expect(submitted.message.rate_limit_per_plugin).toBe('30/10s')
     expect(submitted.message.rate_limit_per_target).toBe('12/1m')
     expect(wrapper.find('[data-testid="rate-limits-unsaved-status"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="rate-limits-save-status"]').exists()).toBe(true)

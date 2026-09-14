@@ -6,7 +6,6 @@ import AppButton from '@/components/AppButton.vue'
 import {
   CircleCheckIcon,
   CircleAlertIcon,
-  MessageSquareIcon,
   BellIcon,
   SaveIcon,
   SendIcon,
@@ -59,14 +58,6 @@ const summaryCards = computed(() => [
     tone: 'default' as const,
   },
   {
-    key: 'plugin-message',
-    icon: MessageSquareIcon,
-    label: t('rateLimits.summary.pluginMessage'),
-    value: formatRateLimit(document.value?.message.rate_limit_per_plugin),
-    description: t('rateLimits.summary.pluginMessageMeta'),
-    tone: 'success' as const,
-  },
-  {
     key: 'target-message',
     icon: BellIcon,
     label: t('rateLimits.summary.targetMessage'),
@@ -88,8 +79,6 @@ function getSectionIcon(key: string) {
       return UsersIcon
     case 'cooldown-reply':
       return SendIcon
-    case 'plugin-message':
-      return MessageSquareIcon
     case 'target-message':
       return BellIcon
     default:

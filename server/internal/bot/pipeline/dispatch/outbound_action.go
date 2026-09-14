@@ -101,9 +101,6 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		action.SourceProtocol = admission.Scope.SourceProtocol
 	}
 	result, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
-	if admission.Record != nil {
-		admission.Record(err)
-	}
 	outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 		PluginID:    pluginID,
 		RequestID:   requestID,

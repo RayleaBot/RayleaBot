@@ -86,7 +86,6 @@ describe('PluginSettingsPage', () => {
     expect(submitted.command.prefixes).toEqual(['/', '!'])
     expect(submitted.log.rate_limit_per_plugin).toBe('300/10s')
     expect(submitted.render.footer_template).toBe('Footer {{plugin_name}}')
-    expect(submitted.message.rate_limit_per_plugin).toBe('20/10s')
     expect(submitted.storage.plugin_workdir_soft_limit_mb).toBe(512)
     expect(submitted.server.host).toBe('127.0.0.1')
     expect(wrapper.find('[data-testid="plugin-settings-unsaved-status"]').exists()).toBe(false)
