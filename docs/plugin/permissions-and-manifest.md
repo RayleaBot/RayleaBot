@@ -107,7 +107,7 @@
 - `target_platform`
 - `entry`
 
-插件身份、版本和管理面来自 `info.json`，不在 artifact 重复。入口必须是目标平台可执行格式；安装器直接扫描管理 UI、模板、资源、许可证、notices 和 SBOM 等实际文件。
+插件身份、版本和管理面来自 `info.json`，不在 artifact 重复。入口必须是目标平台可执行格式；安装器直接扫描管理 UI、模板、资源、许可证和 notices 等实际文件。
 
 统一工具 `raylea-plugin inspect/pack/build-go` 分别负责检查、通用原生打包和 Go 构建打包。
 

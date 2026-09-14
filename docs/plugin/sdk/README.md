@@ -97,7 +97,7 @@ plugin-example/
   info.json
 ```
 
-每个插件直接使用统一构建器，无需维护 `tools/build` 包装器。构建器自动收集 `ui/`、模板、资源、许可证、第三方 notices 和 SPDX SBOM，并生成 artifact v2 及单根 ZIP。
+每个插件直接使用统一构建器，无需维护 `tools/build` 包装器。构建器自动收集 `ui/`、模板、资源、许可证和第三方 notices，并生成 artifact v2 及单根 ZIP。
 
 正式目标平台：
 

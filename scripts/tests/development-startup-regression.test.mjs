@@ -40,7 +40,7 @@ test('standalone plugin builder can invoke Go inside the sanitized development e
     cwd: repository, env: developmentEnvironment,
   })
   const artifact = path.join(output, currentPluginPlatform(), 'startup.fixture')
-  for (const name of ['artifact.json', 'THIRD_PARTY_NOTICES.md', 'sbom.spdx.json']) {
+  for (const name of ['artifact.json', 'THIRD_PARTY_NOTICES.md']) {
     assert.ok((await fs.stat(path.join(artifact, name))).size > 0)
   }
   const inspection = JSON.parse((await execute(builder, ['inspect', '--artifact', artifact, '--target', currentPluginPlatform()], { env: developmentEnvironment })).stdout)

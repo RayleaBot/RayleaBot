@@ -154,7 +154,7 @@ raylea-server plugin dev-sync --artifact <expanded-artifact> --source <plugin-re
 | --- | --- |
 | manifest 与 artifact | `contracts/plugin-info.schema.json`、`contracts/plugin-artifact.schema.json` |
 | 商店目录 | `contracts/plugin-store-catalog.schema.json` |
-| 本地开发工作区 | `contracts/plugin-development-workspace.schema.json` |
+| 本地开发工作区 | `scripts/plugin-dev-workspace.mjs` 读取时校验 |
 | 商店 HTTP 与错误码 | `contracts/web-api.openapi.yaml`、`contracts/error-codes.yaml` |
 | 开发 CLI | `contracts/cli-commands.yaml` |
 | 安装状态与来源元数据 | Server repository、migration 与 catalog 视图 |

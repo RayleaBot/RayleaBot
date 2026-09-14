@@ -194,9 +194,6 @@ func Build(ctx context.Context, config Config) (Result, error) {
 	if err := writeNotices(pluginDir, root, modules); err != nil {
 		return Result{}, err
 	}
-	if err := writeSBOM(pluginDir, root, manifest, modules); err != nil {
-		return Result{}, err
-	}
 	return finalizeArtifact(root, staging, outputDir, manifest, entry, config.TargetPlatform, config.KeepExpandedArtifact, config.SkipArchive)
 }
 

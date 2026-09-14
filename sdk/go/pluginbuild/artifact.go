@@ -154,7 +154,6 @@ func copyPackDefaults(pluginDir, artifactRoot string) error {
 		{Source: "assets", Destination: "assets"},
 		{Source: "templates", Destination: "templates"},
 		{Source: "THIRD_PARTY_NOTICES.md", Destination: "THIRD_PARTY_NOTICES.md"},
-		{Source: "sbom.spdx.json", Destination: "sbom.spdx.json"},
 	} {
 		if _, err := os.Stat(filepath.Join(pluginDir, filepath.FromSlash(item.Source))); err != nil {
 			if os.IsNotExist(err) {

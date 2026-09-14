@@ -296,7 +296,7 @@ async function buildDevelopmentPlugins(pluginDev, pluginIDs) {
     const resourceInputs = async () => {
       const files = [binary, helper, path.join(plugin.path, "info.json"), path.join(plugin.path, "go.mod"), path.join(plugin.path, "go.sum"), ...scriptInputs];
       for (const name of ["assets", "templates", "LICENSES"]) files.push(...await treeInputs(path.join(plugin.path, name), { all: true }));
-      for (const name of await fsp.readdir(plugin.path)) if (/^(LICENSE|COPYING|NOTICE|THIRD_PARTY_NOTICES|sbom\.)/.test(name)) {
+      for (const name of await fsp.readdir(plugin.path)) if (/^(LICENSE|COPYING|NOTICE|THIRD_PARTY_NOTICES)/.test(name)) {
         const file = path.join(plugin.path, name);
         if ((await fsp.stat(file)).isFile()) files.push(file);
       }

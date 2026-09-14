@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 )
 
 type moduleInfo struct {
@@ -156,60 +155,4 @@ func readUIDependencies(pluginDir string) ([]dependencyInfo, error) {
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
 	return items, nil
-}
-
-func writeSBOM(pluginDir, root string, manifest Manifest, modules []moduleInfo) error {
-	uiDependencies, err := readUIDependencies(pluginDir)
-	if err != nil {
-		return err
-	}
-	packages := []map[string]any{{
-		"SPDXID":           "SPDXRef-Package-" + manifest.ID,
-		"name":             manifest.ID,
-		"versionInfo":      manifest.Version,
-		"downloadLocation": "NOASSERTION",
-		"filesAnalyzed":    false,
-		"licenseConcluded": "NOASSERTION",
-		"licenseDeclared":  "NOASSERTION",
-	}}
-	for index, module := range modules {
-		packages = append(packages, map[string]any{
-			"SPDXID":           fmt.Sprintf("SPDXRef-GoModule-%d", index+1),
-			"name":             module.Path,
-			"versionInfo":      module.Version,
-			"downloadLocation": "NOASSERTION",
-			"filesAnalyzed":    false,
-			"licenseConcluded": "NOASSERTION",
-			"licenseDeclared":  "NOASSERTION",
-		})
-	}
-	for index, dependency := range uiDependencies {
-		packages = append(packages, map[string]any{
-			"SPDXID":           fmt.Sprintf("SPDXRef-NPMPackage-%d", index+1),
-			"name":             dependency.Name,
-			"versionInfo":      dependency.Version,
-			"downloadLocation": "NOASSERTION",
-			"filesAnalyzed":    false,
-			"licenseConcluded": "NOASSERTION",
-			"licenseDeclared":  "NOASSERTION",
-		})
-	}
-	document := map[string]any{
-		"spdxVersion":       "SPDX-2.3",
-		"dataLicense":       "CC0-1.0",
-		"SPDXID":            "SPDXRef-DOCUMENT",
-		"name":              manifest.ID + "-" + manifest.Version,
-		"documentNamespace": "https://rayleabot.local/sbom/" + manifest.ID + "/" + manifest.Version,
-		"creationInfo": map[string]any{
-			"created":  time.Unix(0, 0).UTC().Format(time.RFC3339),
-			"creators": []string{"Tool: RayleaBot pluginbuild"},
-		},
-		"packages": packages,
-	}
-	data, err := json.MarshalIndent(document, "", "  ")
-	if err != nil {
-		return err
-	}
-	data = append(data, '\n')
-	return os.WriteFile(filepath.Join(root, "sbom.spdx.json"), data, 0o644)
 }

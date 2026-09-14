@@ -6,7 +6,7 @@
 
 安装器只接受平台预编译目录或单根目录 ZIP。`info.json` v3 描述语言无关插件合同，`artifact.json` v2 只固定目标平台和入口。安装器扫描实际文件；最低 Core 版本、平台、二进制格式、路径边界和 UI 入口全部通过后，才原子发布目录。
 
-Runtime Manager 直接启动 `bin/<plugin>[.exe]`，参数为空。服务端不运行 `go build`、`pnpm`、安装脚本或语言包管理器；路径必须是 artifact 根内的普通文件，Unix 后端必须有 executable bit。插件使用的随包辅助程序、数据、许可证、notices 与 SBOM 必须位于同一 artifact 根目录，并接受统一的实际文件扫描和资源上限检查。
+Runtime Manager 直接启动 `bin/<plugin>[.exe]`，参数为空。服务端不运行 `go build`、`pnpm`、安装脚本或语言包管理器；路径必须是 artifact 根内的普通文件，Unix 后端必须有 executable bit。插件使用的随包辅助程序、数据、许可证与 notices 必须位于同一 artifact 根目录，并接受统一的实际文件扫描和资源上限检查。
 
 ## 状态链路
 

@@ -61,7 +61,7 @@ func TestBuildProducesPlatformArtifact(t *testing.T) {
 			t.Fatalf("backend archive mode = %o, want 755", file.Mode().Perm())
 		}
 	}
-	for _, required := range []string{"artifact.json", "info.json", artifact.Entry, "LICENSE", "LICENSES/dependency.txt", "THIRD_PARTY_NOTICES.md", "sbom.spdx.json"} {
+	for _, required := range []string{"artifact.json", "info.json", artifact.Entry, "LICENSE", "LICENSES/dependency.txt", "THIRD_PARTY_NOTICES.md"} {
 		if !paths[required] {
 			t.Fatalf("artifact archive is missing %s", required)
 		}
@@ -117,7 +117,7 @@ func TestDevelopmentAssemblyReusesBackendAndUIWithoutArchive(t *testing.T) {
 	if result.ArchivePath != "" || result.ArchiveSHA256 != "" {
 		t.Fatalf("development build created ZIP: %#v", result)
 	}
-	for _, name := range []string{"artifact.json", "ui/index.html", "LICENSE", "THIRD_PARTY_NOTICES.md", "sbom.spdx.json"} {
+	for _, name := range []string{"artifact.json", "ui/index.html", "LICENSE", "THIRD_PARTY_NOTICES.md"} {
 		if _, err := os.Stat(filepath.Join(result.ArtifactDir, filepath.FromSlash(name))); err != nil {
 			t.Fatal(err)
 		}
@@ -270,7 +270,7 @@ func TestCopyAssetsCanMapAnInternalSourceToAStableArtifactPath(t *testing.T) {
 	}
 }
 
-func TestBuildWorkspaceSBOMKeepsDeclaredSDKVersion(t *testing.T) {
+func TestBuildWorkspaceNoticesKeepDeclaredSDKVersion(t *testing.T) {
 	root := t.TempDir()
 	pluginDir := filepath.Join(root, "plugin")
 	sdkDir := filepath.Join(root, "sdk")
@@ -301,25 +301,13 @@ func TestBuildWorkspaceSBOMKeepsDeclaredSDKVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
-	payload, err := os.ReadFile(filepath.Join(result.ArtifactDir, "sbom.spdx.json"))
+	payload, err := os.ReadFile(filepath.Join(result.ArtifactDir, "THIRD_PARTY_NOTICES.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var sbom struct {
-		Packages []struct {
-			Name    string `json:"name"`
-			Version string `json:"versionInfo"`
-		} `json:"packages"`
+	if !strings.Contains(string(payload), "- example.test/sdk v0.2.0\n") {
+		t.Fatalf("workspace SDK version missing from notices:\n%s", payload)
 	}
-	if err := json.Unmarshal(payload, &sbom); err != nil {
-		t.Fatal(err)
-	}
-	for _, item := range sbom.Packages {
-		if item.Name == "example.test/sdk" && item.Version == "v0.2.0" {
-			return
-		}
-	}
-	t.Fatalf("workspace SDK version missing from SBOM: %#v", sbom.Packages)
 }
 
 func TestResolvePNPMCommandUsesManagedNodeAndCorepack(t *testing.T) {

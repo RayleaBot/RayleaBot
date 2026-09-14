@@ -63,7 +63,7 @@
 
 开发依赖安装显式限制当前 OS、CPU 和 Linux libc。Vue SDK 镜像按内容同步文件，保留已有 `node_modules`。安装依赖的判断使用 package、lockfile、workspace 配置、SDK package 与工具链内容，不依赖文件更新时间。
 
-插件后端通过当前平台的 `go list` 输入图判定变化，包含本地依赖和 `go:embed` 文件。UI 修改只重建 UI 与 artifact；manifest、未嵌入 Go 的模板和资源修改只组装 artifact。开发 artifact 使用标准展开目录，不生成 ZIP；许可证、notices 和 SBOM 仍随产物保留。
+插件后端通过当前平台的 `go list` 输入图判定变化，包含本地依赖和 `go:embed` 文件。UI 修改只重建 UI 与 artifact；manifest、未嵌入 Go 的模板和资源修改只组装 artifact。开发 artifact 使用标准展开目录，不生成 ZIP；许可证和 notices 仍随产物保留。
 
 监听模式覆盖 Server、插件仓库、Go / Vue SDK、Go module / workspace 文件和开发工作区清单，按 500ms 窗口和插件 ID 合并变更；只有 Server 自身构建输入变化才重启 Server。README、测试、CI 文件与其他平台源码不触发无关编译；Go 实际嵌入的文件按构建输入处理。工作区增删或禁用条目会更新监听集合，移除条目不会自动卸载已安装插件。插件管理页使用增量静态构建，页面刷新后读取新资源。
 

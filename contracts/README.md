@@ -17,7 +17,6 @@
 - `plugin-info.schema.json`
 - `plugin-artifact.schema.json`
 - `plugin-store-catalog.schema.json`
-- `plugin-development-workspace.schema.json`
 - `plugin-management-ui.yaml`
 - `plugin-management-ui-bridge.schema.json`
 - `plugin-protocol.schema.json`
@@ -67,8 +66,6 @@
 - `plugin-store-catalog.schema.json`
   - 官方或自定义静态商店目录结构，固定当前版本、最低核心版本和可用平台的资产 URL 与归档摘要
   - 官方身份只能由默认官方来源和安装元数据授予，不能由插件 manifest、目录名或仓库名推断
-- `plugin-development-workspace.schema.json`
-  - workspace v2 的本地插件仓库路径和启用状态；插件 ID 从 `info.json` 推导
 - `plugin-management-ui.yaml`
   - 插件内置管理页的独立来源、只读静态资源、CSP、cookie、CORS 和管理 API 隔离边界
   - 本机模式默认派生 `p-<id-hash>.plugins.localhost`；LAN 与反向代理模式要求显式配置 `web.plugin_ui_origin_template`

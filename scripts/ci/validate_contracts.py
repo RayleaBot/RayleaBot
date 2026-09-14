@@ -60,7 +60,6 @@ REQUIRED_CONTRACT_FILES = {
     "websocket-events.yaml",
     "plugin-info.schema.json",
     "plugin-artifact.schema.json",
-    "plugin-development-workspace.schema.json",
     "plugin-management-ui.yaml",
     "plugin-management-ui-bridge.schema.json",
     "plugin-protocol.schema.json",
@@ -78,7 +77,6 @@ STRICT_FIXTURE_DIRS = [
     FIXTURES / "errors",
     FIXTURES / "plugin-info",
     FIXTURES / "plugin-artifact",
-    FIXTURES / "plugin-development-workspace",
     FIXTURES / "plugin-protocol",
     FIXTURES / "plugin-store-catalog",
     FIXTURES / "release-manifest",
@@ -91,7 +89,6 @@ JSON_SCHEMA_FIXTURE_AREAS = {
     "deps-manifest": "deps-manifest.schema.json",
     "plugin-info": "plugin-info.schema.json",
     "plugin-artifact": "plugin-artifact.schema.json",
-    "plugin-development-workspace": "plugin-development-workspace.schema.json",
     "release-manifest": "release-manifest.schema.json",
     "plugin-store-catalog": "plugin-store-catalog.schema.json",
 }
