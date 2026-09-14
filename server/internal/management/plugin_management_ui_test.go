@@ -137,6 +137,24 @@ func TestPluginUIAssetsAreServedFromThePluginPath(t *testing.T) {
 	}
 }
 
+func TestPluginUIScriptSourceFallsBackToSelfForIPv6Hosts(t *testing.T) {
+	t.Parallel()
+
+	router := newPluginUIAssetRouter(t)
+	for host, scriptSource := range map[string]string{
+		"127.0.0.1:8080": "script-src 127.0.0.1:8080/plugin-ui/example-config-panel/;",
+		"[::1]:8080":     "script-src 'self';",
+	} {
+		request := httptest.NewRequest(http.MethodGet, "/plugin-ui/example-config-panel/app.js", nil)
+		request.Host = host
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		if csp := recorder.Header().Get("Content-Security-Policy"); recorder.Code != http.StatusOK || !strings.Contains(csp, scriptSource) {
+			t.Fatalf("host %s = %d, Content-Security-Policy %q, want %q", host, recorder.Code, csp, scriptSource)
+		}
+	}
+}
+
 func TestPluginUIAssetsRejectEscapesAndUnknownPlugins(t *testing.T) {
 	t.Parallel()
 

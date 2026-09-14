@@ -3,11 +3,13 @@ description: >
   Plugin management pages are readonly static artifact files served on the
   management origin under a per-plugin path and embedded in an iframe. Pages
   call the management API directly with the operator session; the response
-  Content-Security-Policy limits scripts to the plugin UI path.
+  Content-Security-Policy limits scripts to the plugin UI path, or to the
+  management origin when the request Host is an IPv6 literal.
 
 x-fixtures:
   - fixtures/plugin-management-ui/ok.static-route.yaml
   - fixtures/plugin-management-ui/invalid.static-route-parent-escape.yaml
+  - fixtures/plugin-management-ui/edge.ipv6-host-script-src.yaml
 
 static_route:
   path_template: /plugin-ui/{plugin_id}/{asset_path}
@@ -40,6 +42,9 @@ static_route:
       base-uri: "'none'"
       form-action: "'self'"
       frame-ancestors: "'self'"
+    content_security_policy_ipv6_literal_host:
+      script-src: "'self'"
+      reason: CSP host-source expressions cannot contain IPv6 literals; external and inline scripts stay blocked, but scripts are no longer limited to the plugin UI path.
     x_content_type_options: nosniff
     referrer_policy: same-origin
   denied_behavior:

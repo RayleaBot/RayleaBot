@@ -30,7 +30,7 @@
 
 - 宿主以 iframe 嵌入 `/plugin-ui/{plugin_id}/{asset_path}`，该路径与管理面同源；资源只读取当前插件 artifact 的 `ui/` 目录，不提供目录枚举，不允许路径越界，也不做重定向。
 - 插件页面沿用管理面的登录会话直接调用管理 API。插件是管理员确认安装的可信本地代码，同源页面不再与管理面隔离。
-- 响应附带 `Content-Security-Policy`：`script-src` 只允许该插件 UI 路径，不允许内联脚本与 `eval`，并设置 `object-src 'none'` 与 `base-uri 'none'`；样式允许内联，图片允许 `data:`，网络请求只允许同源。`script-src` 按请求的 Host 生成，开发代理与反向代理需要原样转发浏览器访问的 Host。
+- 响应附带 `Content-Security-Policy`：`script-src` 只允许该插件 UI 路径，不允许内联脚本与 `eval`，并设置 `object-src 'none'` 与 `base-uri 'none'`；样式允许内联，图片允许 `data:`，网络请求只允许同源。`script-src` 按请求的 Host 生成，开发代理与反向代理需要原样转发浏览器访问的 Host。通过 IPv6 字面地址（如 `http://[::1]:8080`）访问时，CSP 无法写出该地址，`script-src` 回退为 `'self'`：外部脚本与内联脚本仍被拒绝，但不再限定到本插件路径。
 - CSP 用于缓解两类风险：插件页从外部 CDN 加载的脚本被投毒，以及插件页把聊天内容当 HTML 渲染导致的 XSS。页面仍应以文本方式显示聊天内容。
 
 ## 设置与密钥
