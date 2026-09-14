@@ -21,7 +21,7 @@ func createLegacyDatabase(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if _, err := db.Exec(string(data)); err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func migrationSchemaSQL(t *testing.T, db *sql.DB) map[string]string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	result := make(map[string]string)
 	for rows.Next() {
 		var kind, name, statement string
@@ -126,7 +126,7 @@ func TestMigrationUnknownVersionDoesNotWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if _, err := db.Exec("UPDATE schema_metadata SET version='000003'"); err != nil {
 		t.Fatal(err)
 	}
