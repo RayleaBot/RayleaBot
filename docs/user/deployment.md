@@ -40,7 +40,7 @@ Linux Launcher 使用系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，完整
 
 已有配置中的 `web.exposure_mode`、`web.public_origin`、`web.trusted_proxy_cidrs` 和 `web.setup_local_only` 已失效，读取时会被忽略，保存或规范化配置时会被清理。已有的 `server.host` 会保留，需要开放内网时将其设为 `0.0.0.0` 或具体内网地址。
 
-用户负责防火墙、网络隔离、端口映射及传输安全。应用按本机和局域网直连场景提供支持，管理访问不要求公开 origin、代理配置或 HTTPS。登录会话、CSRF 和 WebSocket Origin 校验按实际请求地址工作，代理转发头不参与客户端 IP 识别。
+用户负责防火墙、网络隔离、端口映射及传输安全。应用按本机和局域网直连场景提供支持，管理访问不要求公开 origin、代理配置或 HTTPS。登录会话、CSRF 和 WebSocket Origin 校验按实际请求地址工作，代理转发头不参与客户端 IP 识别。自行在服务前放置反向代理时，需要把浏览器访问的 Host 原样转发；Host 被改写后，写操作的 Origin 校验会失败，插件管理页的脚本也会被 CSP 拒绝。
 
 首次初始化需要一次性初始化 token；可从运行机器取得后在内网浏览器完成初始化。
 

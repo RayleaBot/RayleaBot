@@ -1,6 +1,6 @@
 import { resolve as resolvePath } from 'node:path'
 
-import { createBackendProxyOptions, createRayleaBotDevStatus, resolveBuildVersion, resolveClientBackendTarget, resolveClientWebSocketBaseUrl, resolveDevWebSocketBaseUrl, resolveServerFsAllow } from '../../vite.config'
+import { createBackendProxyOptions, createPluginUIProxyOptions, createRayleaBotDevStatus, resolveBuildVersion, resolveClientBackendTarget, resolveClientWebSocketBaseUrl, resolveDevWebSocketBaseUrl, resolveServerFsAllow } from '../../vite.config'
 
 describe('vite config', () => {
   it('uses the backend target only for development plugin pages', () => {
@@ -31,6 +31,14 @@ describe('vite config', () => {
     expect(createBackendProxyOptions('http://127.0.0.1:8080')).toMatchObject({
       target: 'http://127.0.0.1:8080',
       changeOrigin: true,
+      ws: false,
+    })
+  })
+
+  it('keeps the browser Host for plugin pages whose CSP is built from it', () => {
+    expect(createPluginUIProxyOptions('http://127.0.0.1:8080')).toMatchObject({
+      target: 'http://127.0.0.1:8080',
+      changeOrigin: false,
       ws: false,
     })
   })

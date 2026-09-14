@@ -154,6 +154,15 @@ export function createBackendProxyOptions(target: string): ProxyOptions {
   }
 }
 
+// Plugin page CSP is built from the request Host, so keep the browser-facing Host.
+export function createPluginUIProxyOptions(target: string): ProxyOptions {
+  return {
+    target,
+    changeOrigin: false,
+    ws: false,
+  }
+}
+
 export default defineConfig(({ command }) => {
   const clientWebSocketBaseUrl = resolveClientWebSocketBaseUrl(command, process.env.VITE_WS_BASE_URL, backendTarget)
   process.env.VITE_WS_BASE_URL = clientWebSocketBaseUrl
@@ -178,7 +187,8 @@ export default defineConfig(({ command }) => {
         allow: resolveServerFsAllow(process.cwd()),
       },
       proxy: {
-        '^/(api|healthz|readyz|plugin-ui)': createBackendProxyOptions(backendTarget),
+        '^/(api|healthz|readyz)': createBackendProxyOptions(backendTarget),
+        '^/plugin-ui/': createPluginUIProxyOptions(backendTarget),
       },
     },
     preview: {
