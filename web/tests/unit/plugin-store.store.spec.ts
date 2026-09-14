@@ -60,6 +60,27 @@ describe('plugin store', () => {
     expect(store.source?.id).toBe('official')
   })
 
+  it('creates and deletes custom sources through the source endpoints and reloads the list', async () => {
+    const custom = { id: 'custom', name: 'Custom', url: 'https://plugins.example/custom.json', official: false, cached: false, entry_count: 0 }
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(custom, 201))
+      .mockResolvedValueOnce(jsonResponse({ items: [custom] }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const store = usePluginStore()
+
+    await store.createSource({ name: custom.name, url: custom.url })
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/plugin-store/sources')
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'POST' })
+    expect(store.sources.map(source => source.id)).toEqual(['custom'])
+
+    await store.deleteSource('custom')
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/plugin-store/sources/custom')
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ method: 'DELETE' })
+    expect(store.sources).toEqual([])
+  })
+
   it('passes the source and trust confirmation to the install endpoint', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse({ task_id: 'task-store-install' }, 202))

@@ -60,7 +60,7 @@ Nightly 的 Server 测试一次运行同时启用 race 和 atomic coverage，覆
 
 PR 的关键并发包 race 覆盖 App、配置应用、事件管线、插件 Catalog/Runtime/Lifecycle、广播、协议事件、OneBot 回调和存储快照；完整包清单由 `ci.yml` 维护。Server、契约或 CI 规则变化触发服务端门禁；`go.work.sum` 触发工作区相关消费者。跨目录重命名同时按来源和目标路径识别影响范围。
 
-Web E2E 只运行 `real-server` project，独立使用临时目录、SQLite 和动态端口，覆盖静态路由、登录与账户更新、插件安装与启停、配置及密钥遮罩、插件全局设置、治理作用域与名单增删、调度列表、日志详情和实际示例插件 iframe；视觉细节不写 E2E。在 `web/` 执行 `corepack pnpm run test:e2e:production` 构建 Web 与示例插件 UI 并运行用例；需要安装本地插件包的用例写入临时 `build_info.json`，使最低 Core 版本检查可以执行。
+Web E2E 只运行 `real-server` project，独立使用临时目录、SQLite 和动态端口，覆盖静态路由、登录与账户更新、插件安装与启停、配置及密钥遮罩、插件全局设置、治理作用域与名单增删、调度列表、日志详情、状态页备份与诊断导出和实际示例插件 iframe；视觉细节不写 E2E。在 `web/` 执行 `corepack pnpm run test:e2e:production` 构建 Web 与示例插件 UI 并运行用例；需要安装本地插件包的用例写入临时 `build_info.json`，使最低 Core 版本检查可以执行。
 
 Nightly 的 `release-dry-run` 在构建 Server 后执行 `python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/current-recovery-rehearsal`。输出目录必须不存在，保存合成数据、恢复包、进程日志和结果 JSON；验证空目录初始化、当前格式备份、恢复到空目录、登录、配置与插件数据一致性，以及重复启动幂等。
 

@@ -117,6 +117,18 @@ describe('plugins store', () => {
     expect(store.getPluginDisplayName('weather')).toBe('Weather')
   })
 
+  it('keeps the plugin listed and releases pending state when uninstalling fails', async () => {
+    const store = usePluginsStore()
+    store.upsert({ id: 'weather', name: 'Weather', state: 'running' })
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ task_id: 'uninstall' }, 202))
+      .mockResolvedValueOnce(jsonResponse({ task_id: 'uninstall', status: 'failed', error_code: 'plugin.internal_error' }))
+      .mockResolvedValueOnce(jsonResponse({ items: [{ id: 'weather', name: 'Weather', role: 'community', state: 'running', commands: [], help: { groups: [] } }] })))
+    await expect(store.uninstallPlugin('weather')).rejects.toMatchObject({ code: 'plugin.internal_error' })
+    expect(store.items.map(item => item.id)).toEqual(['weather'])
+    expect(store.actionPending.weather).toBeNull()
+  })
+
   it('loads the plugin list once for passive navigation consumers while explicit refresh stays available', async () => {
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({
       items: [{
