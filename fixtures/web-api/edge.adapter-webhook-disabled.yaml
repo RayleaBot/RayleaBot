@@ -24,7 +24,6 @@ response:
     error:
       code: adapter.transport_unavailable
       message: 适配器传输当前不可用
-      message_key: errors.adapter.transport_unavailable
       request_id: req_fixture_unavailable
 expect:
   valid: true

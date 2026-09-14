@@ -87,9 +87,6 @@ func TestRecoverFromDeadLetterHandler_NotRecoverable(t *testing.T) {
 	if env.Error.Code != "plugin.not_recoverable" {
 		t.Fatalf("error.code = %q, want plugin.not_recoverable", env.Error.Code)
 	}
-	if env.Error.MessageKey != "errors.plugin.not_recoverable" {
-		t.Fatalf("error.message_key = %q, want errors.plugin.not_recoverable", env.Error.MessageKey)
-	}
 	if env.Error.Details["plugin_id"] != "weather" {
 		t.Fatalf("details.plugin_id = %#v, want weather", env.Error.Details["plugin_id"])
 	}

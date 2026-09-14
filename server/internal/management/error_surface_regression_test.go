@@ -31,7 +31,7 @@ func TestPluginStoreErrorCausesHaveDistinctHTTPMetadata(t *testing.T) {
 		response := httptest.NewRecorder()
 		writePluginStoreError(response, httptest.NewRequest("PUT", "/api/plugin-store/sources/fixture", nil), test.cause)
 		body := decodeErrorEnvelope(t, response.Body.Bytes())
-		if response.Code != test.status || body.Error.Code != test.code || body.Error.MessageKey != "errors."+test.code {
+		if response.Code != test.status || body.Error.Code != test.code {
 			t.Fatalf("status=%d body=%s", response.Code, response.Body)
 		}
 	}

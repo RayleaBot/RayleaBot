@@ -6,7 +6,7 @@ import { errorCatalog } from '@/types/error-codes.generated'
 
 describe('dynamic locale coverage', () => {
   it('has a message for every generated formal error code', () => {
-    for (const value of Object.values(errorCatalog)) expect(i18n.global.te(value.messageKey), value.messageKey).toBe(true)
+    for (const code of Object.keys(errorCatalog)) expect(i18n.global.te(`errors.${code}`), code).toBe(true)
   })
 
   it('covers the contract enums used as dynamic status labels', () => {

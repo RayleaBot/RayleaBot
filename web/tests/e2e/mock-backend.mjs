@@ -209,7 +209,7 @@ function collectionPage(items, params, text = item => JSON.stringify(item)) {
 function json(response, status, body) {
   if (body?.error) {
     const declaration = errorCodes[body.error.code]
-    if (!declaration?.applies_to.includes('http') || declaration.http_status !== status || declaration.message_key !== body.error.message_key) {
+    if (!declaration?.applies_to.includes('http') || declaration.http_status !== status) {
       throw new Error(`HTTP fixture contradicts error catalog: ${body.error.code} (${status})`)
     }
   }
@@ -276,7 +276,6 @@ function requireAuth(request, response) {
     error: {
       code: 'permission.authentication_required',
       message: '需要有效的管理会话',
-      message_key: 'errors.permission.authentication_required',
       request_id: 'req_auth_missing_fixture',
     },
   })
@@ -590,7 +589,6 @@ function errorEnvelope(code, message, requestId, details) {
     error: {
       code,
       message,
-      message_key: `errors.${code}`,
       request_id: requestId,
       ...(details ? { details } : {}),
     },
@@ -757,7 +755,6 @@ const server = http.createServer(async (request, response) => {
         error: {
           code: 'platform.invalid_request',
           message: '缺少初始化字段',
-          message_key: 'errors.platform.invalid_request',
           request_id: 'req_setup_admin_invalid',
         },
       })
@@ -1344,7 +1341,6 @@ const server = http.createServer(async (request, response) => {
     error: {
       code: 'platform.resource_not_found',
       message: 'mock route not found',
-      message_key: 'errors.platform.resource_not_found',
       request_id: 'req_mock_not_found',
     },
   })

@@ -5,9 +5,9 @@ input:
   codes:
     - code: adapter.auth_failed
       message: 协议鉴权失败
-      description: Missing message_key and applies_to on purpose.
+      description: Missing applies_to on purpose.
       http_status: 401
       retryable: false
 expect:
   valid: false
-  reason: Each error entry must include at least code, message_key, message, description, http_status, retryable, and applies_to.
+  reason: Each error entry must include at least code, message, description, http_status, retryable, and applies_to.

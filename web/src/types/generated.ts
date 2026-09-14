@@ -1201,7 +1201,6 @@ export interface components {
             error: {
                 code: string;
                 message: string;
-                message_key: string;
                 request_id: string;
                 details?: {
                     [key: string]: unknown;

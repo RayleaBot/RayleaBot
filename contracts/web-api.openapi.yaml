@@ -2436,13 +2436,11 @@ components:
         error:
           type: object
           additionalProperties: false
-          required: [code, message, message_key, request_id]
+          required: [code, message, request_id]
           properties:
             code:
               type: string
             message:
-              type: string
-            message_key:
               type: string
             request_id:
               type: string

@@ -120,7 +120,6 @@ response:
     error:
       code: platform.invalid_config
       message: 配置校验失败
-      message_key: errors.platform.invalid_config
       request_id: req_config_update_invalid
       details:
         fields:

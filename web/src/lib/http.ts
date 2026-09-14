@@ -7,7 +7,6 @@ export class ApiError extends Error {
   status: number
   requestId?: string
   details?: Record<string, unknown>
-  messageKey?: string
 
   constructor(
     message: string,
@@ -15,7 +14,6 @@ export class ApiError extends Error {
     code = 'platform.unknown',
     requestId?: string,
     details?: Record<string, unknown>,
-    messageKey?: string,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -23,7 +21,6 @@ export class ApiError extends Error {
     this.status = status
     this.requestId = requestId
     this.details = details
-    this.messageKey = messageKey
   }
 }
 
@@ -164,7 +161,6 @@ function createApiError(response: Response, payload: unknown) {
     errorEnvelope?.error.code,
     errorEnvelope?.error.request_id,
     errorEnvelope?.error.details,
-    errorEnvelope?.error.message_key,
   )
 }
 

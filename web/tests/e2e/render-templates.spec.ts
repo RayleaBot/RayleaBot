@@ -39,7 +39,7 @@ test('refreshing the catalog removes obsolete selections and their cached detail
     await route.fulfill({ response, json: { ...body, items, total: items.length, next_cursor: null } })
   })
   await page.route('**/api/system/render/templates/help.menu', route => route.fulfill({ status: 404, json: {
-    error: { code: 'platform.resource_not_found', message: 'fixture template removed', message_key: 'errors.platform.resource_not_found', request_id: 'fixture-template-removed' },
+    error: { code: 'platform.resource_not_found', message: 'fixture template removed', request_id: 'fixture-template-removed' },
   } }))
   await page.getByRole('button', { name: '刷新模板目录', exact: true }).click()
   await expect(page.locator('.template-nav-item[title="help.menu"]')).toHaveCount(0)

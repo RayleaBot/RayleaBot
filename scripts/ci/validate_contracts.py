@@ -425,10 +425,10 @@ def validate_plugin_protocol_fixtures() -> None:
 def error_entry_errors(entry: Any) -> list[str]:
     schema = {
         "type": "object",
-        "required": ["code", "message_key", "message", "description", "http_status", "retryable", "applies_to"],
+        "required": ["code", "message", "description", "http_status", "retryable", "applies_to"],
         "properties": {
             name: {"type": "string", "minLength": 1}
-            for name in ["code", "message_key", "message", "description"]
+            for name in ["code", "message", "description"]
         },
     }
     schema["properties"].update({
@@ -474,7 +474,7 @@ def error_fixture_errors(document: dict[str, Any], catalog: dict[str, Any]) -> l
         declared = catalog[code]
         if kind == "codes":
             errors.extend(f"{label}/{error}" for error in error_entry_errors(entry))
-            for field in ["message_key", "message", "http_status", "retryable", "applies_to"]:
+            for field in ["message", "http_status", "retryable", "applies_to"]:
                 value = entry.get(field)
                 expected = declared.get(field)
                 if field == "applies_to" and isinstance(value, list) and all(isinstance(item, str) for item in value):
@@ -492,8 +492,6 @@ def error_fixture_errors(document: dict[str, Any], catalog: dict[str, Any]) -> l
         else:
             if not isinstance(entry.get("message"), str) or not entry["message"].strip():
                 errors.append(f"{label}: error message must be non-empty")
-            if "message_key" in entry and entry["message_key"] != declared["message_key"]:
-                errors.append(f"{label}: message_key differs from catalog for {code}")
             if "applies_to" in entry and entry["applies_to"] not in declared["applies_to"]:
                 errors.append(f"{label}: error does not apply to {entry['applies_to']!r}")
             if "details" in entry:
@@ -944,8 +942,6 @@ def http_error_catalog_errors(response: dict[str, Any], catalog: dict[str, Any])
         errors.append(f"{code} does not apply to HTTP")
     if response.get("status") != declared["http_status"]:
         errors.append(f"{code} requires HTTP {declared['http_status']}, got {response.get('status')}")
-    if error.get("message_key") != declared["message_key"]:
-        errors.append(f"{code} message_key differs from the catalog")
     if "details" in error and "details_schema" in declared:
         errors.extend(f"details/{format_schema_error(item)}" for item in
                       Draft202012Validator(declared["details_schema"], format_checker=FormatChecker()).iter_errors(error["details"]))

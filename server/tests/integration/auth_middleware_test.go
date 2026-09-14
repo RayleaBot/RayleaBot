@@ -232,9 +232,6 @@ func TestPropertyInvalidAuthUniformRejection(t *testing.T) {
 		if message, ok := errorObj["message"].(string); !ok || strings.TrimSpace(message) == "" {
 			t.Fatalf("[%s] unexpected message: %v", sc.name, errorObj["message"])
 		}
-		if errorObj["message_key"] != "errors.permission.authentication_required" {
-			t.Fatalf("[%s] unexpected message_key: %v", sc.name, errorObj["message_key"])
-		}
 		reqID, ok := errorObj["request_id"].(string)
 		if !ok || !strings.HasPrefix(reqID, "req_") {
 			t.Fatalf("[%s] unexpected request_id: %v", sc.name, errorObj["request_id"])
@@ -558,9 +555,6 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 			}
 			if message, ok := errorObj["message"].(string); !ok || strings.TrimSpace(message) == "" {
 				t.Fatalf("unexpected message: %v", errorObj["message"])
-			}
-			if errorObj["message_key"] != "errors.permission.authentication_required" {
-				t.Fatalf("unexpected message_key: %v", errorObj["message_key"])
 			}
 			reqID, ok := errorObj["request_id"].(string)
 			if !ok || !strings.HasPrefix(reqID, "req_") {

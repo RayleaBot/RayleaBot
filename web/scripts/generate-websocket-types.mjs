@@ -161,7 +161,6 @@ export type ConnectionStatus = ${union(connectionStatuses)}
 export type WebSocketErrorPayload = {
   code: string
   message?: string
-  message_key: string
   details?: Record<string, unknown>
 }
 

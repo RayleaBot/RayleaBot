@@ -2,412 +2,330 @@
 
 export const errorCatalog = {
   "adapter.api_call_failed": {
-    "messageKey": "errors.adapter.api_call_failed",
     "httpStatus": 502,
     "retryable": true
   },
   "adapter.auth_failed": {
-    "messageKey": "errors.adapter.auth_failed",
     "httpStatus": 401,
     "retryable": false
   },
   "adapter.capability_unsupported": {
-    "messageKey": "errors.adapter.capability_unsupported",
     "httpStatus": 400,
     "retryable": false
   },
   "adapter.connection_failed": {
-    "messageKey": "errors.adapter.connection_failed",
     "httpStatus": 503,
     "retryable": true
   },
   "adapter.connection_lost": {
-    "messageKey": "errors.adapter.connection_lost",
     "httpStatus": 503,
     "retryable": true
   },
   "adapter.matrix_projection_failed": {
-    "messageKey": "errors.adapter.matrix_projection_failed",
     "httpStatus": 500,
     "retryable": true
   },
   "adapter.message_quota_exceeded": {
-    "messageKey": "errors.adapter.message_quota_exceeded",
     "httpStatus": 429,
     "retryable": true
   },
   "adapter.provider_extension_not_supported": {
-    "messageKey": "errors.adapter.provider_extension_not_supported",
     "httpStatus": 501,
     "retryable": false
   },
   "adapter.reply_target_missing": {
-    "messageKey": "errors.adapter.reply_target_missing",
     "httpStatus": 409,
     "retryable": false
   },
   "adapter.reply_window_expired": {
-    "messageKey": "errors.adapter.reply_window_expired",
     "httpStatus": 409,
     "retryable": false
   },
   "adapter.send_failed": {
-    "messageKey": "errors.adapter.send_failed",
     "httpStatus": 502,
     "retryable": true
   },
   "adapter.send_unconfirmed": {
-    "messageKey": "errors.adapter.send_unconfirmed",
     "httpStatus": 504,
     "retryable": false
   },
   "adapter.transport_forward_ws_connection_failed": {
-    "messageKey": "errors.adapter.transport_forward_ws_connection_failed",
     "httpStatus": 503,
     "retryable": true
   },
   "adapter.transport_forward_ws_session_lost": {
-    "messageKey": "errors.adapter.transport_forward_ws_session_lost",
     "httpStatus": 503,
     "retryable": true
   },
   "adapter.transport_http_api_auth_failed": {
-    "messageKey": "errors.adapter.transport_http_api_auth_failed",
     "httpStatus": 401,
     "retryable": false
   },
   "adapter.transport_http_api_invalid_response": {
-    "messageKey": "errors.adapter.transport_http_api_invalid_response",
     "httpStatus": 502,
     "retryable": true
   },
   "adapter.transport_http_api_request_failed": {
-    "messageKey": "errors.adapter.transport_http_api_request_failed",
     "httpStatus": 502,
     "retryable": true
   },
   "adapter.transport_not_implemented": {
-    "messageKey": "errors.adapter.transport_not_implemented",
     "httpStatus": 501,
     "retryable": false
   },
   "adapter.transport_reverse_ws_auth_failed": {
-    "messageKey": "errors.adapter.transport_reverse_ws_auth_failed",
     "httpStatus": 401,
     "retryable": false
   },
   "adapter.transport_reverse_ws_upgrade_failed": {
-    "messageKey": "errors.adapter.transport_reverse_ws_upgrade_failed",
     "httpStatus": 503,
     "retryable": true
   },
   "adapter.transport_unavailable": {
-    "messageKey": "errors.adapter.transport_unavailable",
     "httpStatus": 503,
     "retryable": false
   },
   "adapter.transport_webhook_auth_failed": {
-    "messageKey": "errors.adapter.transport_webhook_auth_failed",
     "httpStatus": 401,
     "retryable": false
   },
   "adapter.transport_webhook_duplicate_event": {
-    "messageKey": "errors.adapter.transport_webhook_duplicate_event",
     "httpStatus": 202,
     "retryable": false
   },
   "adapter.transport_webhook_invalid_payload": {
-    "messageKey": "errors.adapter.transport_webhook_invalid_payload",
     "httpStatus": 400,
     "retryable": false
   },
   "permission.authentication_required": {
-    "messageKey": "errors.permission.authentication_required",
     "httpStatus": 401,
     "retryable": false
   },
   "permission.blacklisted": {
-    "messageKey": "errors.permission.blacklisted",
     "httpStatus": null,
     "retryable": false
   },
   "permission.current_secret_invalid": {
-    "messageKey": "errors.permission.current_secret_invalid",
     "httpStatus": 403,
     "retryable": false
   },
   "permission.denied": {
-    "messageKey": "errors.permission.denied",
     "httpStatus": 403,
     "retryable": false
   },
   "permission.not_whitelisted": {
-    "messageKey": "errors.permission.not_whitelisted",
     "httpStatus": null,
     "retryable": false
   },
   "permission.unavailable": {
-    "messageKey": "errors.permission.unavailable",
     "httpStatus": null,
     "retryable": true
   },
   "platform.internal_error": {
-    "messageKey": "errors.platform.internal_error",
     "httpStatus": 500,
     "retryable": true
   },
   "platform.invalid_config": {
-    "messageKey": "errors.platform.invalid_config",
     "httpStatus": 400,
     "retryable": false
   },
   "platform.invalid_request": {
-    "messageKey": "errors.platform.invalid_request",
     "httpStatus": 400,
     "retryable": false
   },
   "platform.rate_limited": {
-    "messageKey": "errors.platform.rate_limited",
     "httpStatus": 429,
     "retryable": true
   },
   "platform.render_input_too_large": {
-    "messageKey": "errors.platform.render_input_too_large",
     "httpStatus": 413,
     "retryable": false
   },
   "platform.render_queue_full": {
-    "messageKey": "errors.platform.render_queue_full",
     "httpStatus": 429,
     "retryable": true
   },
   "platform.render_timeout": {
-    "messageKey": "errors.platform.render_timeout",
     "httpStatus": 504,
     "retryable": true
   },
   "platform.resource_busy": {
-    "messageKey": "errors.platform.resource_busy",
     "httpStatus": 409,
     "retryable": true
   },
   "platform.resource_missing": {
-    "messageKey": "errors.platform.resource_missing",
     "httpStatus": 503,
     "retryable": false
   },
   "platform.resource_not_found": {
-    "messageKey": "errors.platform.resource_not_found",
     "httpStatus": 404,
     "retryable": false
   },
   "platform.state_conflict": {
-    "messageKey": "errors.platform.state_conflict",
     "httpStatus": 409,
     "retryable": false
   },
   "platform.task_queue_full": {
-    "messageKey": "errors.platform.task_queue_full",
     "httpStatus": 429,
     "retryable": true
   },
   "platform.task_timeout": {
-    "messageKey": "errors.platform.task_timeout",
     "httpStatus": 504,
     "retryable": true
   },
   "platform.template_not_found": {
-    "messageKey": "errors.platform.template_not_found",
     "httpStatus": 404,
     "retryable": false
   },
   "platform.upstream_request_failed": {
-    "messageKey": "errors.platform.upstream_request_failed",
     "httpStatus": 502,
     "retryable": true
   },
   "platform.upstream_response_too_large": {
-    "messageKey": "errors.platform.upstream_response_too_large",
     "httpStatus": 502,
     "retryable": false
   },
   "platform.user_rate_limited": {
-    "messageKey": "errors.platform.user_rate_limited",
     "httpStatus": null,
     "retryable": true
   },
   "platform.value_too_large": {
-    "messageKey": "errors.platform.value_too_large",
     "httpStatus": 413,
     "retryable": false
   },
   "plugin.artifact_invalid": {
-    "messageKey": "errors.plugin.artifact_invalid",
     "httpStatus": 400,
     "retryable": false
   },
   "plugin.contract_unsupported": {
-    "messageKey": "errors.plugin.contract_unsupported",
     "httpStatus": 409,
     "retryable": false
   },
   "plugin.core_version_incompatible": {
-    "messageKey": "errors.plugin.core_version_incompatible",
     "httpStatus": 409,
     "retryable": false
   },
   "plugin.event_canceled": {
-    "messageKey": "errors.plugin.event_canceled",
     "httpStatus": null,
     "retryable": false
   },
   "plugin.event_timeout": {
-    "messageKey": "errors.plugin.event_timeout",
     "httpStatus": null,
     "retryable": true
   },
   "plugin.init_timeout": {
-    "messageKey": "errors.plugin.init_timeout",
     "httpStatus": null,
     "retryable": true
   },
   "plugin.install_digest_mismatch": {
-    "messageKey": "errors.plugin.install_digest_mismatch",
     "httpStatus": 409,
     "retryable": false
   },
   "plugin.install_failed": {
-    "messageKey": "errors.plugin.install_failed",
     "httpStatus": 409,
     "retryable": true
   },
   "plugin.install_inspection_expired": {
-    "messageKey": "errors.plugin.install_inspection_expired",
     "httpStatus": 409,
     "retryable": true
   },
   "plugin.install_inspection_required": {
-    "messageKey": "errors.plugin.install_inspection_required",
     "httpStatus": 409,
     "retryable": false
   },
   "plugin.internal_error": {
-    "messageKey": "errors.plugin.internal_error",
     "httpStatus": null,
     "retryable": false
   },
   "plugin.management_action_failed": {
-    "messageKey": "errors.plugin.management_action_failed",
     "httpStatus": 502,
     "retryable": false
   },
   "plugin.not_handled": {
-    "messageKey": "errors.plugin.not_handled",
     "httpStatus": null,
     "retryable": false
   },
   "plugin.not_recoverable": {
-    "messageKey": "errors.plugin.not_recoverable",
     "httpStatus": 409,
     "retryable": false
   },
   "plugin.package_resource_limit_exceeded": {
-    "messageKey": "errors.plugin.package_resource_limit_exceeded",
     "httpStatus": 413,
     "retryable": false
   },
   "plugin.package_unsafe_entry": {
-    "messageKey": "errors.plugin.package_unsafe_entry",
     "httpStatus": 400,
     "retryable": false
   },
   "plugin.permission_denied": {
-    "messageKey": "errors.plugin.permission_denied",
     "httpStatus": 403,
     "retryable": false
   },
   "plugin.platform_mismatch": {
-    "messageKey": "errors.plugin.platform_mismatch",
     "httpStatus": 409,
     "retryable": false
   },
   "plugin.protocol_violation": {
-    "messageKey": "errors.plugin.protocol_violation",
     "httpStatus": null,
     "retryable": false
   },
   "plugin.session_conflict": {
-    "messageKey": "errors.plugin.session_conflict",
     "httpStatus": null,
     "retryable": false
   },
   "plugin.settings_apply_failed": {
-    "messageKey": "errors.plugin.settings_apply_failed",
     "httpStatus": 409,
     "retryable": true
   },
   "plugin.shutdown": {
-    "messageKey": "errors.plugin.shutdown",
     "httpStatus": null,
     "retryable": false
   },
   "plugin.shutdown_timeout": {
-    "messageKey": "errors.plugin.shutdown_timeout",
     "httpStatus": null,
     "retryable": true
   },
   "plugin.stopping": {
-    "messageKey": "errors.plugin.stopping",
     "httpStatus": null,
     "retryable": false
   },
   "plugin.store_catalog_unavailable": {
-    "messageKey": "errors.plugin.store_catalog_unavailable",
     "httpStatus": 503,
     "retryable": true
   },
   "plugin.store_integrity_mismatch": {
-    "messageKey": "errors.plugin.store_integrity_mismatch",
     "httpStatus": 409,
     "retryable": false
   },
   "plugin.store_release_unavailable": {
-    "messageKey": "errors.plugin.store_release_unavailable",
     "httpStatus": 409,
     "retryable": false
   },
   "plugin.store_source_conflict": {
-    "messageKey": "errors.plugin.store_source_conflict",
     "httpStatus": 409,
     "retryable": false
   },
   "plugin.store_source_immutable": {
-    "messageKey": "errors.plugin.store_source_immutable",
     "httpStatus": 409,
     "retryable": false
   },
   "plugin.trusted_code_confirmation_required": {
-    "messageKey": "errors.plugin.trusted_code_confirmation_required",
     "httpStatus": 403,
     "retryable": false
   },
   "plugin.uninstall_failed": {
-    "messageKey": "errors.plugin.uninstall_failed",
     "httpStatus": 409,
     "retryable": true
   },
   "plugin.webhook_replay_rejected": {
-    "messageKey": "errors.plugin.webhook_replay_rejected",
     "httpStatus": 401,
     "retryable": false
   },
   "plugin.webhook_timestamp_skew": {
-    "messageKey": "errors.plugin.webhook_timestamp_skew",
     "httpStatus": 401,
     "retryable": false
   },
   "release.manifest_invalid": {
-    "messageKey": "errors.release.manifest_invalid",
     "httpStatus": 502,
     "retryable": false
   }

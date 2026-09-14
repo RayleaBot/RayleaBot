@@ -4,49 +4,42 @@ description: Core catalog excerpt with required fields and applicability metadat
 input:
   codes:
     - code: plugin.event_canceled
-      message_key: errors.plugin.event_canceled
       message: 插件事件处理已取消
       description: Lifecycle cancellation is not a deadline failure and must not automatically replay actions.
       http_status: null
       retryable: false
       applies_to: [plugin_protocol, websocket, task, logs]
     - code: adapter.send_unconfirmed
-      message_key: errors.adapter.send_unconfirmed
       message: 消息发送结果未确认
       description: No definitive receipt was obtained for a potentially dispatched message. Automatic resend is unsafe.
       http_status: 504
       retryable: false
       applies_to: [http, websocket, plugin_protocol, logs]
     - code: platform.task_timeout
-      message_key: errors.platform.task_timeout
       message: 后台任务超时
       description: A managed background task exceeded its absolute runtime limit.
       http_status: 504
       retryable: true
       applies_to: [http, websocket, task]
     - code: plugin.permission_denied
-      message_key: errors.plugin.permission_denied
       message: 插件访问未声明权限
       description: The plugin requested an elevated action that is absent from manifest permissions or outside its declared permission scope.
       http_status: 403
       retryable: false
       applies_to: [http, websocket, plugin_protocol, task]
     - code: plugin.core_version_incompatible
-      message_key: errors.plugin.core_version_incompatible
       message: 插件与当前 RayleaBot 版本不兼容
       description: The plugin min_core_version is newer than the running RayleaBot core version. Every installation source applies this admission check.
       http_status: 409
       retryable: false
       applies_to: [http, task, cli, readiness]
     - code: plugin.contract_unsupported
-      message_key: errors.plugin.contract_unsupported
       message: 插件合同版本不受支持
       description: The package or backup contains an unsupported plugin manifest, protocol, artifact, catalog, management bridge, or backup contract version. The package remains installed but invalid and its settings, secrets, KV, files, and published data remain intact.
       http_status: 409
       retryable: false
       applies_to: [http, task, cli, plugin_protocol, backup, restore, update, readiness]
     - code: adapter.api_call_failed
-      message_key: errors.adapter.api_call_failed
       message: 协议 API 调用失败
       description: An OneBot11 API action forwarded by the adapter failed, timed out, or returned a payload whose shape could not be interpreted as a usable response.
       http_status: 502

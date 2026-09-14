@@ -98,7 +98,7 @@ class ContractValidatorTests(unittest.TestCase):
     def test_error_catalog_fixtures_check_shape_and_stable_metadata(self) -> None:
         fixture = validator.load_yaml(validator.FIXTURES / "errors/ok.core-catalog.yaml")
         self.assertEqual(validator.error_fixture_errors(fixture, self.catalog), [])
-        for field, value in [("http_status", 418), ("retryable", "false"), ("message_key", "wrong.key"),
+        for field, value in [("http_status", 418), ("retryable", "false"),
                              ("applies_to", ["invented_surface"]), ("code", "unregistered.code")]:
             mutated = copy.deepcopy(fixture)
             mutated["input"]["codes"][0][field] = value
@@ -162,16 +162,14 @@ class ContractValidatorTests(unittest.TestCase):
         event["state_diagnosis"]["kind"] = "invented_state"
         self.assertTrue(validator.schema_errors_at_pointer(validator.CONTRACTS / "websocket-events.yaml", self.registry, pointer, event))
 
-    def test_http_error_code_status_scope_and_key_follow_catalog(self) -> None:
+    def test_http_error_code_status_and_scope_follow_catalog(self) -> None:
         response = {"status": 404, "body": {"error": {
-            "code": "platform.resource_not_found", "message_key": "errors.platform.resource_not_found",
+            "code": "platform.resource_not_found",
         }}}
         self.assertEqual(validator.http_error_catalog_errors(response, self.catalog), [])
         response["status"] = 503
         self.assertTrue(validator.http_error_catalog_errors(response, self.catalog))
         response["status"] = 404
-        response["body"]["error"]["message_key"] = "errors.platform.resource_missing"
-        self.assertTrue(validator.http_error_catalog_errors(response, self.catalog))
         response["body"]["error"]["code"] = "permission.unavailable"
         self.assertTrue(validator.http_error_catalog_errors(response, self.catalog))
         response["body"]["error"]["code"] = "unknown.error"

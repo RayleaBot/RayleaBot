@@ -115,10 +115,9 @@ func TestSetupAdminUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 	body := decodeBody(t, recorder.Body.Bytes())
 	assertErrorEnvelopeMatchesFixture(t, body, map[string]any{
 		"error": map[string]any{
-			"code":        "platform.internal_error",
-			"message":     "内部错误",
-			"message_key": "errors.platform.internal_error",
-			"request_id":  "fixture_request_id_placeholder",
+			"code":       "platform.internal_error",
+			"message":    "内部错误",
+			"request_id": "fixture_request_id_placeholder",
 		},
 	}, "platform.internal_error")
 }
@@ -212,9 +211,6 @@ func assertErrorEnvelopeMatchesFixture(t *testing.T, actual map[string]any, expe
 	if errorBody["message"] != expectedError["message"] {
 		t.Fatalf("unexpected error message: got %#v want %#v", errorBody["message"], expectedError["message"])
 	}
-	if errorBody["message_key"] != expectedError["message_key"] {
-		t.Fatalf("unexpected error message_key: got %#v want %#v", errorBody["message_key"], expectedError["message_key"])
-	}
 	requestID, ok := errorBody["request_id"].(string)
 	if !ok || !strings.HasPrefix(requestID, "req_") {
 		t.Fatalf("unexpected request_id: %#v", errorBody["request_id"])
@@ -229,9 +225,9 @@ func assertErrorEnvelopeMatchesFixture(t *testing.T, actual map[string]any, expe
 		t.Fatalf("unexpected error details: got %#v want %#v", actualDetails, expectedDetails)
 	}
 
-	wantLen := 4
+	wantLen := 3
 	if hasExpectedDetails {
-		wantLen = 5
+		wantLen = 4
 	}
 	if len(errorBody) != wantLen {
 		t.Fatalf("unexpected error body shape: %#v", errorBody)

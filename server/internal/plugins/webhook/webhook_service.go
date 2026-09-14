@@ -152,7 +152,6 @@ func webhookKey(pluginID, route string) string {
 type replayDecision struct {
 	reject       bool
 	code         string
-	messageKey   string
 	timestamp    int64
 	timestampRaw string
 	eventID      string
@@ -178,7 +177,6 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 		if cfg.Enforce {
 			decision.reject = true
 			decision.code = errorcodes.PluginWebhookReplayRejected
-			decision.messageKey = errorcodes.PluginWebhookReplayRejectedMessageKey
 		}
 		return decision
 	}
@@ -188,7 +186,6 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 		if cfg.Enforce {
 			decision.reject = true
 			decision.code = errorcodes.PluginWebhookTimestampSkew
-			decision.messageKey = errorcodes.PluginWebhookTimestampSkewMessageKey
 		}
 		return decision
 	}
@@ -203,7 +200,6 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 		if cfg.Enforce {
 			decision.reject = true
 			decision.code = errorcodes.PluginWebhookTimestampSkew
-			decision.messageKey = errorcodes.PluginWebhookTimestampSkewMessageKey
 		}
 		return decision
 	}
@@ -216,7 +212,6 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 		if cfg.Enforce {
 			decision.reject = true
 			decision.code = errorcodes.PluginWebhookReplayRejected
-			decision.messageKey = errorcodes.PluginWebhookReplayRejectedMessageKey
 		}
 		return decision
 	}

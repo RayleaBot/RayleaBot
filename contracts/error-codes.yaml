@@ -23,7 +23,6 @@ codes:
   plugin.session_conflict:
     code: plugin.session_conflict
     domain: plugin
-    message_key: errors.plugin.session_conflict
     message: 当前作用域已有对话，请先结束已有对话
     description: >
       A session.wait creation conflicts with the same full identity and scope.
@@ -36,7 +35,6 @@ codes:
   plugin.shutdown:
     code: plugin.shutdown
     domain: plugin
-    message_key: errors.plugin.shutdown
     message: 插件运行时已关闭，本地动作结果未确认
     description: >
       The SDK completes pending local-action waits when its host connection or runtime
@@ -49,7 +47,6 @@ codes:
   plugin.settings_apply_failed:
     code: plugin.settings_apply_failed
     domain: plugin
-    message_key: errors.plugin.settings_apply_failed
     message: 设置已保存，运行时应用失败，请重试保存或重载插件
     description: >
       Settings are committed, but command refresh or config.changed queue admission failed.
@@ -80,7 +77,6 @@ codes:
   permission.unavailable:
     code: permission.unavailable
     domain: permission
-    message_key: errors.permission.unavailable
     message: 暂时无法确认权限，本次操作未执行
     description: A required blacklist, whitelist, or whitelist-state read failed. Chat admission is denied without consuming cooldown or executing a command. An explicitly configured super administrator retains the documented bypass.
     http_status: null
@@ -90,7 +86,6 @@ codes:
   permission.current_secret_invalid:
     code: permission.current_secret_invalid
     domain: permission
-    message_key: errors.permission.current_secret_invalid
     message: 当前密码不正确
     description: An authenticated account credential change supplied an incorrect current password. The active session remains valid.
     http_status: 403
@@ -100,7 +95,6 @@ codes:
   platform.render_queue_full:
     code: platform.render_queue_full
     domain: platform
-    message_key: errors.platform.render_queue_full
     message: 渲染队列已满
     description: Render queue capacity was exhausted before the request could be accepted.
     http_status: 429
@@ -110,7 +104,6 @@ codes:
   platform.render_timeout:
     code: platform.render_timeout
     domain: platform
-    message_key: errors.platform.render_timeout
     message: 渲染任务超时
     description: A render request exceeded either queue wait timeout or execution timeout.
     http_status: 504
@@ -120,7 +113,6 @@ codes:
   platform.render_input_too_large:
     code: platform.render_input_too_large
     domain: platform
-    message_key: errors.platform.render_input_too_large
     message: 渲染输入超过大小限制
     description: The serialized render request data exceeded the allowed size limit before it could enter the render queue.
     http_status: 413
@@ -130,7 +122,6 @@ codes:
   platform.template_not_found:
     code: platform.template_not_found
     domain: platform
-    message_key: errors.platform.template_not_found
     message: 模板不存在
     description: The requested management render template could not be found in the controlled templates repository.
     http_status: 404
@@ -140,7 +131,6 @@ codes:
   platform.invalid_request:
     code: platform.invalid_request
     domain: platform
-    message_key: errors.platform.invalid_request
     message: 请求参数不合法
     description: Request parameters or body shape did not satisfy the formal contract.
     http_status: 400
@@ -150,7 +140,6 @@ codes:
   platform.invalid_config:
     code: platform.invalid_config
     domain: platform
-    message_key: errors.platform.invalid_config
     message: 配置校验失败
     description: Platform configuration did not satisfy the formal config schema or startup constraints.
     http_status: 400
@@ -160,7 +149,6 @@ codes:
   platform.internal_error:
     code: platform.internal_error
     domain: platform
-    message_key: errors.platform.internal_error
     message: 内部错误
     description: The platform could not complete a request because of an internal failure.
     http_status: 500
@@ -170,7 +158,6 @@ codes:
   platform.task_timeout:
     code: platform.task_timeout
     domain: platform
-    message_key: errors.platform.task_timeout
     message: 后台任务超时
     description: A managed background task exceeded its absolute runtime limit and was forcefully recovered.
     http_status: 504
@@ -180,7 +167,6 @@ codes:
   platform.task_queue_full:
     code: platform.task_queue_full
     domain: platform
-    message_key: errors.platform.task_queue_full
     message: 后台任务队列已满
     description: A bounded execution queue rejected admission before a task record was created.
     http_status: 429
@@ -190,7 +176,6 @@ codes:
   platform.rate_limited:
     code: platform.rate_limited
     domain: platform
-    message_key: errors.platform.rate_limited
     message: 触发平台级限流
     description: A platform-level rate limiter rejected the current action.
     http_status: 429
@@ -200,7 +185,6 @@ codes:
   platform.resource_busy:
     code: platform.resource_busy
     domain: platform
-    message_key: errors.platform.resource_busy
     message: 资源正被占用，请稍后重试
     description: A platform resource (such as a plugin browser profile) is held by another in-flight session; retry after it is released.
     http_status: 409
@@ -210,7 +194,6 @@ codes:
   platform.resource_missing:
     code: platform.resource_missing
     domain: platform
-    message_key: errors.platform.resource_missing
     message: 缺少必要资源
     description: A required runtime dependency was unavailable. A missing addressed resource uses platform.resource_not_found instead.
     http_status: 503
@@ -220,7 +203,6 @@ codes:
   platform.resource_not_found:
     code: platform.resource_not_found
     domain: platform
-    message_key: errors.platform.resource_not_found
     message: 请求的资源不存在
     description: The resource identified by the request does not exist, including plugins, plugin sources, files, and webhook registrations.
     http_status: 404
@@ -230,7 +212,6 @@ codes:
   platform.state_conflict:
     code: platform.state_conflict
     domain: platform
-    message_key: errors.platform.state_conflict
     message: 当前状态不允许执行该操作
     description: The request shape is valid but the current resource state or an in-flight operation prevents it from being applied.
     http_status: 409
@@ -240,7 +221,6 @@ codes:
   plugin.store_source_immutable:
     code: plugin.store_source_immutable
     domain: plugin
-    message_key: errors.plugin.store_source_immutable
     message: 官方插件源不能修改或删除
     description: An administrator attempted to modify or remove the built-in official plugin source.
     http_status: 409
@@ -250,7 +230,6 @@ codes:
   plugin.store_source_conflict:
     code: plugin.store_source_conflict
     domain: plugin
-    message_key: errors.plugin.store_source_conflict
     message: 插件源地址已存在
     description: Another configured plugin source already uses the requested URL.
     http_status: 409
@@ -260,7 +239,6 @@ codes:
   plugin.management_action_failed:
     code: plugin.management_action_failed
     domain: plugin
-    message_key: errors.plugin.management_action_failed
     message: 插件管理操作执行失败
     description: A delegated plugin management action failed to produce a successful result; the host does not expose the plugin's raw error or credentials.
     http_status: 502
@@ -270,7 +248,6 @@ codes:
   platform.upstream_request_failed:
     code: platform.upstream_request_failed
     domain: platform
-    message_key: errors.platform.upstream_request_failed
     message: 上游请求失败
     description: A protected management request could not complete because an upstream platform request failed.
     http_status: 502
@@ -280,7 +257,6 @@ codes:
   platform.upstream_response_too_large:
     code: platform.upstream_response_too_large
     domain: platform
-    message_key: errors.platform.upstream_response_too_large
     message: 上游响应超过大小限制
     description: A plugin-issued HTTP response exceeded the configured decoded body or fixed header limit and was rejected without retry.
     http_status: 502
@@ -290,7 +266,6 @@ codes:
   platform.value_too_large:
     code: platform.value_too_large
     domain: platform
-    message_key: errors.platform.value_too_large
     message: 写入值超过大小限制
     description: A requested value exceeded the configured platform storage size limit.
     http_status: 413
@@ -300,7 +275,6 @@ codes:
   platform.user_rate_limited:
     code: platform.user_rate_limited
     domain: platform
-    message_key: errors.platform.user_rate_limited
     message: 用户命令触发冷却限流
     description: A chat-side user command was rejected before plugin dispatch because the cooldown window was still active.
     http_status: null
@@ -310,7 +284,6 @@ codes:
   plugin.not_handled:
     code: plugin.not_handled
     domain: plugin
-    message_key: errors.plugin.not_handled
     message: 插件声明不处理该事件
     description: The plugin explicitly reported that it does not handle the current event.
     http_status: null
@@ -320,7 +293,6 @@ codes:
   plugin.internal_error:
     code: plugin.internal_error
     domain: plugin
-    message_key: errors.plugin.internal_error
     message: 插件内部处理异常
     description: The plugin failed while processing an accepted event or action.
     http_status: null
@@ -330,7 +302,6 @@ codes:
   plugin.init_timeout:
     code: plugin.init_timeout
     domain: plugin
-    message_key: errors.plugin.init_timeout
     message: 插件初始化超时
     description: The plugin did not complete init_ack within the allowed initialization window.
     http_status: null
@@ -340,7 +311,6 @@ codes:
   plugin.stopping:
     code: plugin.stopping
     domain: plugin
-    message_key: errors.plugin.stopping
     message: 插件正在停止，不再接受新动作
     description: The runtime has already started plugin shutdown and rejects newly submitted actions.
     http_status: null
@@ -350,7 +320,6 @@ codes:
   plugin.protocol_violation:
     code: plugin.protocol_violation
     domain: plugin
-    message_key: errors.plugin.protocol_violation
     message: 插件协议违规
     description: The plugin violated the JSONL protocol, message framing rules, or IPC backpressure limits.
     http_status: null
@@ -360,7 +329,6 @@ codes:
   plugin.event_timeout:
     code: plugin.event_timeout
     domain: plugin
-    message_key: errors.plugin.event_timeout
     message: 插件事件处理超时
     description: The plugin exceeded the allowed event handling duration.
     http_status: null
@@ -370,7 +338,6 @@ codes:
   plugin.event_canceled:
     code: plugin.event_canceled
     domain: plugin
-    message_key: errors.plugin.event_canceled
     message: 插件事件处理已取消
     description: The event was canceled by its owner or runtime lifecycle, not by exceeding its handling duration. Previously dispatched actions may have side effects; cancellation must not trigger automatic replay. Scheduler cancellation is counted as other.
     http_status: null
@@ -380,7 +347,6 @@ codes:
   plugin.shutdown_timeout:
     code: plugin.shutdown_timeout
     domain: plugin
-    message_key: errors.plugin.shutdown_timeout
     message: 插件优雅退出超时
     description: The plugin did not exit within the shutdown grace window and required forced termination.
     http_status: null
@@ -390,7 +356,6 @@ codes:
   plugin.install_failed:
     code: plugin.install_failed
     domain: plugin
-    message_key: errors.plugin.install_failed
     message: 插件安装失败
     description: >
       Plugin installation failed. Task details report unchanged before package mutation,
@@ -422,7 +387,6 @@ codes:
   plugin.install_inspection_required:
     code: plugin.install_inspection_required
     domain: plugin
-    message_key: errors.plugin.install_inspection_required
     message: 请先检查插件包并确认信任
     description: Plugin installation was requested without a current inspection id and matching package digest.
     http_status: 409
@@ -432,7 +396,6 @@ codes:
   plugin.install_inspection_expired:
     code: plugin.install_inspection_expired
     domain: plugin
-    message_key: errors.plugin.install_inspection_expired
     message: 插件包检查结果已过期
     description: The supplied plugin inspection id expired before installation admission.
     http_status: 409
@@ -442,7 +405,6 @@ codes:
   plugin.install_digest_mismatch:
     code: plugin.install_digest_mismatch
     domain: plugin
-    message_key: errors.plugin.install_digest_mismatch
     message: 插件包与检查结果不一致
     description: The package digest no longer matches the inspected package and installation was rejected.
     http_status: 409
@@ -452,7 +414,6 @@ codes:
   plugin.artifact_invalid:
     code: plugin.artifact_invalid
     domain: plugin
-    message_key: errors.plugin.artifact_invalid
     message: 插件产物结构或入口校验失败
     description: The artifact descriptor, package paths, backend executable, or management UI entry did not satisfy the frozen plugin artifact contract.
     http_status: 400
@@ -462,7 +423,6 @@ codes:
   plugin.platform_mismatch:
     code: plugin.platform_mismatch
     domain: plugin
-    message_key: errors.plugin.platform_mismatch
     message: 插件产物与当前平台不匹配
     description: The artifact target platform does not match the current operating system and architecture or is not declared by the plugin manifest.
     http_status: 409
@@ -472,7 +432,6 @@ codes:
   plugin.core_version_incompatible:
     code: plugin.core_version_incompatible
     domain: plugin
-    message_key: errors.plugin.core_version_incompatible
     message: 插件与当前 RayleaBot 版本不兼容
     description: The plugin min_core_version is newer than the running RayleaBot core version. Every installation source applies this admission check.
     http_status: 409
@@ -482,7 +441,6 @@ codes:
   plugin.contract_unsupported:
     code: plugin.contract_unsupported
     domain: plugin
-    message_key: errors.plugin.contract_unsupported
     message: 插件合同版本不受支持
     description: The package or backup contains an unsupported plugin manifest, protocol, artifact, catalog, management bridge, or backup contract version. The package remains installed but invalid and its settings, secrets, KV, files, and published data remain intact.
     http_status: 409
@@ -492,7 +450,6 @@ codes:
   plugin.trusted_code_confirmation_required:
     code: plugin.trusted_code_confirmation_required
     domain: plugin
-    message_key: errors.plugin.trusted_code_confirmation_required
     message: 必须确认该插件将作为完全可信的本地代码运行
     description: Installation requires explicit confirmation that the plugin backend executes as trusted local code with the user's local privileges, regardless of publisher verification.
     http_status: 403
@@ -502,7 +459,6 @@ codes:
   plugin.store_catalog_unavailable:
     code: plugin.store_catalog_unavailable
     domain: plugin
-    message_key: errors.plugin.store_catalog_unavailable
     message: 插件商店目录暂不可用
     description: The selected catalog could not be fetched, parsed, or validated; the last successful catalog remains active.
     http_status: 503
@@ -512,7 +468,6 @@ codes:
   plugin.store_release_unavailable:
     code: plugin.store_release_unavailable
     domain: plugin
-    message_key: errors.plugin.store_release_unavailable
     message: 当前平台没有可安装的插件商店产物
     description: The plugin is unpublished, incompatible, or has no artifact for the current platform.
     http_status: 409
@@ -522,7 +477,6 @@ codes:
   plugin.store_integrity_mismatch:
     code: plugin.store_integrity_mismatch
     domain: plugin
-    message_key: errors.plugin.store_integrity_mismatch
     message: 插件商店产物与目录摘要不一致
     description: The downloaded archive does not match the SHA-256 recorded by the selected catalog.
     http_status: 409
@@ -532,7 +486,6 @@ codes:
   plugin.package_resource_limit_exceeded:
     code: plugin.package_resource_limit_exceeded
     domain: plugin
-    message_key: errors.plugin.package_resource_limit_exceeded
     message: 插件包超过资源限制
     description: A remote archive exceeded the download, entry, per-file, expanded-size, or compression-ratio limit.
     http_status: 413
@@ -542,7 +495,6 @@ codes:
   plugin.package_unsafe_entry:
     code: plugin.package_unsafe_entry
     domain: plugin
-    message_key: errors.plugin.package_unsafe_entry
     message: 插件包包含不安全文件
     description: A plugin archive contains a path escape, symbolic link, device, FIFO, or another unsupported entry type.
     http_status: 400
@@ -552,7 +504,6 @@ codes:
   plugin.uninstall_failed:
     code: plugin.uninstall_failed
     domain: plugin
-    message_key: errors.plugin.uninstall_failed
     message: 插件卸载失败
     description: >
       Plugin uninstallation failed during runtime shutdown, directory removal, database cleanup,
@@ -583,7 +534,6 @@ codes:
   plugin.permission_denied:
     code: plugin.permission_denied
     domain: plugin
-    message_key: errors.plugin.permission_denied
     message: 插件访问未声明权限
     description: The plugin requested an elevated action that is absent from manifest permissions or outside its declared permission scope.
     http_status: 403
@@ -593,7 +543,6 @@ codes:
   plugin.webhook_replay_rejected:
     code: plugin.webhook_replay_rejected
     domain: plugin
-    message_key: errors.plugin.webhook_replay_rejected
     message: 插件 Webhook 请求已被识别为重复事件
     description: >
       The plugin webhook request carried an event id that matched a recently
@@ -608,7 +557,6 @@ codes:
   plugin.webhook_timestamp_skew:
     code: plugin.webhook_timestamp_skew
     domain: plugin
-    message_key: errors.plugin.webhook_timestamp_skew
     message: 插件 Webhook 请求时间戳超出容忍窗口
     description: >
       The client-supplied timestamp on a plugin webhook request was outside
@@ -623,7 +571,6 @@ codes:
   plugin.not_recoverable:
     code: plugin.not_recoverable
     domain: plugin
-    message_key: errors.plugin.not_recoverable
     message: 插件当前不可恢复
     description: >
       The plugin recovery endpoint only accepts failed plugins that require
@@ -636,7 +583,6 @@ codes:
   permission.denied:
     code: permission.denied
     domain: permission
-    message_key: errors.permission.denied
     message: 当前用户无权执行该操作
     description: The authenticated caller does not have permission for the requested command or management action.
     http_status: 403
@@ -646,7 +592,6 @@ codes:
   permission.authentication_required:
     code: permission.authentication_required
     domain: permission
-    message_key: errors.permission.authentication_required
     message: 请求认证未通过
     description: The management request lacks valid authentication or fails its required cookie, CSRF, Origin, or WebSocket admission binding. No protected handler is executed.
     http_status: 401
@@ -656,7 +601,6 @@ codes:
   permission.blacklisted:
     code: permission.blacklisted
     domain: permission
-    message_key: errors.permission.blacklisted
     message: 当前用户或群处于黑名单中
     description: The event source is blacklisted and the event must not be dispatched to plugins.
     http_status: null
@@ -666,7 +610,6 @@ codes:
   permission.not_whitelisted:
     code: permission.not_whitelisted
     domain: permission
-    message_key: errors.permission.not_whitelisted
     message: 当前用户或群不在白名单中
     description: Command dispatch admission is gated by the whitelist and the current user or group did not match any whitelist entry.
     http_status: null
@@ -677,7 +620,6 @@ codes:
   release.manifest_invalid:
     code: release.manifest_invalid
     domain: release
-    message_key: errors.release.manifest_invalid
     message: 发布清单无效
     description: The release metadata could not be fetched or does not satisfy the release contract.
     http_status: 502
@@ -695,7 +637,6 @@ codes:
   adapter.message_quota_exceeded:
     code: adapter.message_quota_exceeded
     domain: adapter
-    message_key: errors.adapter.message_quota_exceeded
     message: 主动推送额度已用完
     description: >
       The chat platform refused an actively pushed message because the bot has
@@ -708,7 +649,6 @@ codes:
   adapter.reply_window_expired:
     code: adapter.reply_window_expired
     domain: adapter
-    message_key: errors.adapter.reply_window_expired
     message: 消息回复时限已过
     description: >
       The chat platform refused a passive reply because the inbound message it
@@ -720,7 +660,6 @@ codes:
   adapter.capability_unsupported:
     code: adapter.capability_unsupported
     domain: adapter
-    message_key: errors.adapter.capability_unsupported
     message: 当前适配器不支持该能力
     description: >
       The requested action is formally defined but the connected chat adapter
@@ -733,7 +672,6 @@ codes:
   adapter.connection_failed:
     code: adapter.connection_failed
     domain: adapter
-    message_key: errors.adapter.connection_failed
     message: 协议连接建立失败
     description: The upstream protocol connection or initial handshake failed before the adapter became connected.
     http_status: 503
@@ -743,7 +681,6 @@ codes:
   adapter.connection_lost:
     code: adapter.connection_lost
     domain: adapter
-    message_key: errors.adapter.connection_lost
     message: 协议连接已断开
     description: An established reverse WebSocket session was lost while the adapter had already been running.
     http_status: 503
@@ -753,7 +690,6 @@ codes:
   adapter.auth_failed:
     code: adapter.auth_failed
     domain: adapter
-    message_key: errors.adapter.auth_failed
     message: 协议鉴权失败
     description: The upstream protocol handshake or API request was rejected with authentication or authorization failure.
     http_status: 401
@@ -763,7 +699,6 @@ codes:
   adapter.send_failed:
     code: adapter.send_failed
     domain: adapter
-    message_key: errors.adapter.send_failed
     message: 消息发送失败
     description: The adapter rejected a message or supported outbound action, or the protocol upstream explicitly reported failure. A dispatched request without a definitive receipt uses adapter.send_unconfirmed.
     http_status: 502
@@ -773,7 +708,6 @@ codes:
   adapter.send_unconfirmed:
     code: adapter.send_unconfirmed
     domain: adapter
-    message_key: errors.adapter.send_unconfirmed
     message: 消息发送结果未确认
     description: A message request may have reached the upstream but no definitive receipt was obtained because of cancellation, timeout, connection loss, or a missing or malformed success receipt. Delivery may still complete. Do not automatically resend or immediately delete referenced media files.
     http_status: 504
@@ -783,7 +717,6 @@ codes:
   adapter.api_call_failed:
     code: adapter.api_call_failed
     domain: adapter
-    message_key: errors.adapter.api_call_failed
     message: 协议 API 调用失败
     description: An OneBot11 API action forwarded by the adapter failed, timed out, or returned a payload whose shape could not be interpreted as a usable response.
     http_status: 502
@@ -793,7 +726,6 @@ codes:
   adapter.reply_target_missing:
     code: adapter.reply_target_missing
     domain: adapter
-    message_key: errors.adapter.reply_target_missing
     message: 回复目标不存在或已失效
     description: A requested reply target was missing, deleted, or no longer valid on the upstream platform.
     http_status: 409
@@ -803,7 +735,6 @@ codes:
   adapter.transport_reverse_ws_upgrade_failed:
     code: adapter.transport_reverse_ws_upgrade_failed
     domain: adapter
-    message_key: errors.adapter.transport_reverse_ws_upgrade_failed
     message: OneBot 回连升级失败
     description: The reverse WebSocket upgrade request could not be accepted as a valid OneBot transport session.
     http_status: 503
@@ -813,7 +744,6 @@ codes:
   adapter.transport_reverse_ws_auth_failed:
     code: adapter.transport_reverse_ws_auth_failed
     domain: adapter
-    message_key: errors.adapter.transport_reverse_ws_auth_failed
     message: OneBot 回连鉴权失败
     description: The reverse WebSocket callback request did not satisfy the configured OneBot access token requirement.
     http_status: 401
@@ -823,7 +753,6 @@ codes:
   adapter.transport_forward_ws_connection_failed:
     code: adapter.transport_forward_ws_connection_failed
     domain: adapter
-    message_key: errors.adapter.transport_forward_ws_connection_failed
     message: OneBot 主动连接建立失败
     description: RayleaBot failed to establish the configured forward WebSocket session to the OneBot upstream.
     http_status: 503
@@ -833,7 +762,6 @@ codes:
   adapter.transport_forward_ws_session_lost:
     code: adapter.transport_forward_ws_session_lost
     domain: adapter
-    message_key: errors.adapter.transport_forward_ws_session_lost
     message: OneBot 主动连接已断开
     description: An established forward WebSocket session was lost after the transport had become available.
     http_status: 503
@@ -843,7 +771,6 @@ codes:
   adapter.transport_http_api_request_failed:
     code: adapter.transport_http_api_request_failed
     domain: adapter
-    message_key: errors.adapter.transport_http_api_request_failed
     message: OneBot HTTP API 请求失败
     description: A OneBot HTTP API request could not be completed because the upstream endpoint was unavailable or returned a transport-level error.
     http_status: 502
@@ -853,7 +780,6 @@ codes:
   adapter.transport_http_api_auth_failed:
     code: adapter.transport_http_api_auth_failed
     domain: adapter
-    message_key: errors.adapter.transport_http_api_auth_failed
     message: OneBot HTTP API 鉴权失败
     description: The configured OneBot HTTP API endpoint rejected the current access token.
     http_status: 401
@@ -863,7 +789,6 @@ codes:
   adapter.transport_http_api_invalid_response:
     code: adapter.transport_http_api_invalid_response
     domain: adapter
-    message_key: errors.adapter.transport_http_api_invalid_response
     message: OneBot HTTP API 响应不合法
     description: The configured OneBot HTTP API endpoint returned a response that could not be parsed as a valid OneBot response envelope.
     http_status: 502
@@ -873,7 +798,6 @@ codes:
   adapter.transport_webhook_auth_failed:
     code: adapter.transport_webhook_auth_failed
     domain: adapter
-    message_key: errors.adapter.transport_webhook_auth_failed
     message: OneBot Webhook 鉴权失败
     description: The OneBot webhook request did not satisfy the configured access token requirement.
     http_status: 401
@@ -883,7 +807,6 @@ codes:
   adapter.transport_webhook_invalid_payload:
     code: adapter.transport_webhook_invalid_payload
     domain: adapter
-    message_key: errors.adapter.transport_webhook_invalid_payload
     message: OneBot Webhook 负载不合法
     description: The OneBot webhook request body could not be parsed or validated as a supported OneBot event payload.
     http_status: 400
@@ -893,7 +816,6 @@ codes:
   adapter.transport_webhook_duplicate_event:
     code: adapter.transport_webhook_duplicate_event
     domain: adapter
-    message_key: errors.adapter.transport_webhook_duplicate_event
     message: OneBot Webhook 重复事件已丢弃
     description: The OneBot webhook payload matched a recently accepted event and was dropped to avoid duplicate bridge delivery.
     http_status: 202
@@ -903,7 +825,6 @@ codes:
   adapter.transport_unavailable:
     code: adapter.transport_unavailable
     domain: adapter
-    message_key: errors.adapter.transport_unavailable
     message: 适配器传输当前不可用
     description: The addressed adapter transport is disabled or stopped and cannot accept requests. The payload itself has not been classified as invalid.
     http_status: 503
@@ -913,7 +834,6 @@ codes:
   adapter.transport_not_implemented:
     code: adapter.transport_not_implemented
     domain: adapter
-    message_key: errors.adapter.transport_not_implemented
     message: 当前协议传输模式尚未实现
     description: The requested OneBot transport is part of the frozen v0.2 contract surface but does not have a runnable adapter implementation yet.
     http_status: 501
@@ -923,7 +843,6 @@ codes:
   adapter.provider_extension_not_supported:
     code: adapter.provider_extension_not_supported
     domain: adapter
-    message_key: errors.adapter.provider_extension_not_supported
     message: 当前 provider 扩展能力尚未实现
     description: The requested NapCat or LuckyLillia provider-specific extension is formally named in the compatibility matrix but is not implemented by the current runtime path yet.
     http_status: 501
@@ -933,7 +852,6 @@ codes:
   adapter.matrix_projection_failed:
     code: adapter.matrix_projection_failed
     domain: adapter
-    message_key: errors.adapter.matrix_projection_failed
     message: 协议兼容矩阵生成失败
     description: The management surface failed to project the current OneBot compatibility matrix or protocol snapshot into the formal management response.
     http_status: 500

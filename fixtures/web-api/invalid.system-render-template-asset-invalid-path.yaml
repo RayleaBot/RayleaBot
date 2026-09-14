@@ -10,7 +10,6 @@ response:
     error:
       code: platform.resource_not_found
       message: "请求的资源不存在"
-      message_key: errors.platform.resource_not_found
       request_id: req_render_asset_invalid_path
       details:
         resource_type: render_template_asset

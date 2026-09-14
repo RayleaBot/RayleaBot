@@ -25,7 +25,7 @@ func TestErrorResponseUsesRegisteredHTTPMetadata(t *testing.T) {
 			if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 				t.Fatal(err)
 			}
-			if response.Code != definition.HTTPStatus || body.Error.Code != code || body.Error.Message != definition.Message || body.Error.MessageKey != definition.MessageKey || body.Error.RequestID == "" {
+			if response.Code != definition.HTTPStatus || body.Error.Code != code || body.Error.Message != definition.Message || body.Error.RequestID == "" {
 				t.Fatalf("response status=%d, body=%+v", response.Code, body)
 			}
 		})

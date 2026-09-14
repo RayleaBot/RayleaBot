@@ -13,7 +13,6 @@ response:
     error:
       code: platform.rate_limited
       message: 触发平台级限流
-      message_key: errors.platform.rate_limited
       request_id: req_session_login_rate_limited_0001
 expect:
   valid: true

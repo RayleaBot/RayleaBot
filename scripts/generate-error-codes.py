@@ -25,8 +25,8 @@ def generate(codes: dict, diagnostics: dict) -> dict[Path, str]:
     web: dict[str, dict] = {}
     names: set[str] = set()
     for code, entry in sorted(codes.items()):
-        if entry['code'] != code or entry['message_key'] != 'errors.' + code:
-            raise ValueError(f'{code}: inconsistent code/message_key')
+        if entry['code'] != code:
+            raise ValueError(f'{code}: inconsistent code')
         name = ''.join(part[:1].upper() + part[1:] for part in re.split(r'[._]', code))
         if name in names:
             raise ValueError(f'duplicate Go name: {name}')
@@ -36,15 +36,14 @@ def generate(codes: dict, diagnostics: dict) -> dict[Path, str]:
         if ('http' in surfaces) != (status != 0):
             raise ValueError(f'{code}: HTTP applicability and status must agree')
         constants.append(f'{name} = {quoted(code)}')
-        constants.append(f'{name}MessageKey = {quoted(entry["message_key"])}')
         definitions.append(
-            f'{name}: {{Code: {name}, HTTPStatus: {status}, MessageKey: {name}MessageKey, '
+            f'{name}: {{Code: {name}, HTTPStatus: {status}, '
             f'Message: {quoted(entry["message"])}, Retryable: {str(entry["retryable"]).lower()}, '
             f'Surfaces: {quoted(",".join(surfaces))}}},'
         )
         domain, key = code.split('.', 1)
         messages.setdefault(domain, {})[key] = entry['message']
-        web[code] = {'messageKey': entry['message_key'], 'httpStatus': entry['http_status'], 'retryable': entry['retryable']}
+        web[code] = {'httpStatus': entry['http_status'], 'retryable': entry['retryable']}
     for code, entry in sorted(diagnostics.items()):
         if code in codes or not isinstance(entry.get('description'), str) or not entry['description'].strip():
             raise ValueError(f'{code}: invalid or duplicated diagnostic identity')

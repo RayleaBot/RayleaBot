@@ -10,7 +10,6 @@ response:
     error:
       code: platform.state_conflict
       message: "当前状态不允许执行该操作"
-      message_key: errors.platform.state_conflict
       request_id: req_001
       details:
         plugin_id: weather

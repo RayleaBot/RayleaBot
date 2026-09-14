@@ -29,7 +29,7 @@
 
 [`fixture-data.mjs`](../../web/tests/e2e/fixture-data.mjs) 读取仓库契约样例。配置编辑场景只回显测试输入和预设应用结果；适配器状态直接取样例，不根据配置重算。
 
-模拟入口发送的 JSON 错误同时按 `contracts/error-codes.yaml` 检查 HTTP 适用范围、状态码和 `message_key`。断网场景返回带网关标记的空 `503` 响应，不伪造 Server 业务错误码。
+模拟入口发送的 JSON 错误同时按 `contracts/error-codes.yaml` 检查 HTTP 适用范围和状态码。断网场景返回带网关标记的空 `503` 响应，不伪造 Server 业务错误码。
 
 需要写入后重新读取的插件 settings、secret、插件源场景通过 [`fixture-responses.ts`](../../web/tests/e2e/fixture-responses.ts) 指定完整响应和后续读取快照。[`response-plan.mjs`](../../web/tests/e2e/response-plan.mjs) 只匹配方法与路径、切换快照，不解释请求正文，不重算 changed keys、secret 合并、治理去重、源信任或安装检查规则。测试应另外断言发出的请求和页面可观察结果；对固定响应本身的断言不能用来证明 Server 的安全或持久化行为。
 

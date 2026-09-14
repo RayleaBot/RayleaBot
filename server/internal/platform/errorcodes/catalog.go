@@ -7,7 +7,6 @@ import "strings"
 type Definition struct {
 	Code       string
 	HTTPStatus int
-	MessageKey string
 	Message    string
 	Retryable  bool
 	Surfaces   string

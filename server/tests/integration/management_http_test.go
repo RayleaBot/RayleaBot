@@ -271,10 +271,9 @@ func TestLauncherHandlersRejectForwardedHeadersAndOldTokenRoutesAreGone(t *testi
 			}
 			assertErrorEnvelopeMatchesFixture(t, decodeBody(t, readAll(t, resp)), map[string]any{
 				"error": map[string]any{
-					"code":        "permission.denied",
-					"message":     "当前用户无权执行该操作",
-					"message_key": "errors.permission.denied",
-					"request_id":  "fixture_request_id_placeholder",
+					"code":       "permission.denied",
+					"message":    "当前用户无权执行该操作",
+					"request_id": "fixture_request_id_placeholder",
 				},
 			}, "permission.denied")
 		})

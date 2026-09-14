@@ -63,13 +63,11 @@ envelope:
       type: string
     error:
       type: object
-      required: [code, message_key]
+      required: [code]
       properties:
         code:
           type: string
         message:
-          type: string
-        message_key:
           type: string
         details:
           type: object

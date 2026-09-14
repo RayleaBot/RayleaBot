@@ -12,7 +12,6 @@ response:
     error:
       code: permission.denied
       message: 当前用户无权执行该操作
-      message_key: errors.permission.denied
       request_id: req_launcher_shutdown_denied_0001
 expect:
   valid: true

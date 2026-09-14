@@ -16,6 +16,6 @@ class ErrorCodeGeneratorTests(unittest.TestCase):
             with self.subTest(status=status, surfaces=surfaces):
                 with self.assertRaisesRegex(ValueError, "HTTP applicability and status"):
                     generator.generate({"test.failure": {
-                        "code": "test.failure", "message_key": "errors.test.failure",
+                        "code": "test.failure",
                         "http_status": status, "applies_to": surfaces,
                     }}, {})

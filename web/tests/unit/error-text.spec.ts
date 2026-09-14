@@ -23,12 +23,10 @@ describe('error text helpers', () => {
     ['plugin.store_catalog_unavailable', 'errors.plugin.store_catalog_unavailable'],
     ['plugin.store_release_unavailable', 'errors.plugin.store_release_unavailable'],
     ['plugin.store_integrity_mismatch', 'errors.plugin.store_integrity_mismatch'],
-  ])('preserves the recovery message for %s through its code or message key', (code, localeKey) => {
+  ])('preserves the recovery message for %s through its code', (code, localeKey) => {
     const codeError = new ApiError('内部中文诊断', 409, code, undefined, { error: '详细诊断' })
-    const keyError = new ApiError('内部中文诊断', 409, undefined, undefined, undefined, `errors.${code}`)
 
     expect(getDisplayErrorMessage(codeError)).toBe(t(localeKey))
-    expect(getDisplayErrorMessage(keyError)).toBe(t(localeKey))
   })
 
   it('maps structured API errors without exposing raw backend text', () => {
@@ -37,8 +35,6 @@ describe('error text helpers', () => {
       400,
       'platform.invalid_request',
       'req_fixture',
-      undefined,
-      'errors.platform.invalid_request',
     )
 
     const result = getDisplayErrorMessage(error)
@@ -64,7 +60,6 @@ describe('error text helpers', () => {
       'platform.unknown',
       'req_fixture_unknown',
       { error: 'details 中文诊断' },
-      'errors.platform.unknown',
     )
     const fallback = getDisplayErrorMessage(new Error('boom'))
     const result = getDisplayErrorMessage(error)

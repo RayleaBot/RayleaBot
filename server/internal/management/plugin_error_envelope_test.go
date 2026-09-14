@@ -25,7 +25,7 @@ func TestInvalidInstallRequestsReturnExpectedErrors(t *testing.T) {
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, req)
 			env := decodeErrorEnvelope(t, rec.Body.Bytes())
-			if rec.Code != tc.status || env.Error.Code != tc.code || env.Error.MessageKey != "errors."+tc.code || env.Error.RequestID == "" {
+			if rec.Code != tc.status || env.Error.Code != tc.code || env.Error.RequestID == "" {
 				t.Fatalf("invalid error response: status=%d body=%s", rec.Code, rec.Body.String())
 			}
 		})

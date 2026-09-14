@@ -140,10 +140,9 @@ func TestSessionLoginRejectsMalformedRequest(t *testing.T) {
 	body := decodeBody(t, recorder.Body.Bytes())
 	assertErrorEnvelopeMatchesFixture(t, body, map[string]any{
 		"error": map[string]any{
-			"code":        "platform.invalid_request",
-			"message":     "请求参数不合法",
-			"message_key": "errors.platform.invalid_request",
-			"request_id":  "fixture_request_id_placeholder",
+			"code":       "platform.invalid_request",
+			"message":    "请求参数不合法",
+			"request_id": "fixture_request_id_placeholder",
 		},
 	}, "platform.invalid_request")
 }
@@ -205,10 +204,9 @@ func TestSessionLoginRejectsOversizedBody(t *testing.T) {
 	body := decodeBody(t, recorder.Body.Bytes())
 	assertErrorEnvelopeMatchesFixture(t, body, map[string]any{
 		"error": map[string]any{
-			"code":        "platform.invalid_request",
-			"message":     "请求参数不合法",
-			"message_key": "errors.platform.invalid_request",
-			"request_id":  "fixture_request_id_placeholder",
+			"code":       "platform.invalid_request",
+			"message":    "请求参数不合法",
+			"request_id": "fixture_request_id_placeholder",
 		},
 	}, "platform.invalid_request")
 }
@@ -238,10 +236,9 @@ func TestSessionLoginUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 	body := decodeBody(t, recorder.Body.Bytes())
 	assertErrorEnvelopeMatchesFixture(t, body, map[string]any{
 		"error": map[string]any{
-			"code":        "platform.internal_error",
-			"message":     "内部错误",
-			"message_key": "errors.platform.internal_error",
-			"request_id":  "fixture_request_id_placeholder",
+			"code":       "platform.internal_error",
+			"message":    "内部错误",
+			"request_id": "fixture_request_id_placeholder",
 		},
 	}, "platform.internal_error")
 }

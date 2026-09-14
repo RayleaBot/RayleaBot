@@ -21,7 +21,6 @@ response:
     error:
       code: permission.authentication_required
       message: "请求认证未通过"
-      message_key: errors.permission.authentication_required
       request_id: req_governance_blacklist_entry_unauthorized
 expect:
   valid: true

@@ -34,11 +34,10 @@ type ErrorEnvelope struct {
 }
 
 type ErrorBody struct {
-	Code       string         `json:"code"`
-	Message    string         `json:"message"`
-	MessageKey string         `json:"message_key"`
-	RequestID  string         `json:"request_id"`
-	Details    map[string]any `json:"details,omitempty"`
+	Code      string         `json:"code"`
+	Message   string         `json:"message"`
+	RequestID string         `json:"request_id"`
+	Details   map[string]any `json:"details,omitempty"`
 }
 
 type DomainError struct {
@@ -182,7 +181,7 @@ func WriteError(w http.ResponseWriter, r *http.Request, code string, details map
 		details = nil
 	}
 	statusCode := definition.HTTPStatus
-	code, message, messageKey := definition.Code, definition.Message, definition.MessageKey
+	code, message := definition.Code, definition.Message
 	requestID := ""
 	if r != nil {
 		requestID = RequestIDFromContext(r.Context())
@@ -196,11 +195,10 @@ func WriteError(w http.ResponseWriter, r *http.Request, code string, details map
 		statusCode,
 		ErrorEnvelope{
 			Error: ErrorBody{
-				Code:       code,
-				Message:    message,
-				MessageKey: messageKey,
-				RequestID:  requestID,
-				Details:    details,
+				Code:      code,
+				Message:   message,
+				RequestID: requestID,
+				Details:   details,
 			},
 		},
 	)

@@ -8,7 +8,6 @@ function unauthorizedResponse() {
       error: {
         code: 'permission.denied',
         message: '需要有效的管理会话',
-        message_key: 'errors.permission.denied',
         request_id: 'req_fixture_unauthorized',
       },
     }),

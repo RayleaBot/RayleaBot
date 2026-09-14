@@ -10,7 +10,6 @@ response:
     error:
       code: platform.invalid_request
       message: 请求参数不合法
-      message_key: errors.platform.invalid_request
       request_id: req_001
 expect:
   valid: true

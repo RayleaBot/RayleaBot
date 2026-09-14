@@ -122,7 +122,6 @@ response:
     error:
       code: platform.internal_error
       message: 平台内部错误
-      message_key: errors.platform.internal_error
       request_id: req_config_save
 expect:
   valid: true

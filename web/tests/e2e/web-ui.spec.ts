@@ -2223,7 +2223,7 @@ test('error recovery covers retry and uninstall failure', async ({ page, request
   await login(page)
   let listFailed = true
   let detailFailed = true
-  const failedResponse = { status: 500, json: { error: { code: 'platform.internal_error', message: 'scripted load failure', message_key: 'errors.platform.internal_error', request_id: 'fixture-load-failure' } } }
+  const failedResponse = { status: 500, json: { error: { code: 'platform.internal_error', message: 'scripted load failure', request_id: 'fixture-load-failure' } } }
   await page.route(/\/api\/plugins(?:\?.*)?$/, route => listFailed ? route.fulfill(failedResponse) : route.continue())
   await page.route('**/api/plugins/weather', route => detailFailed ? route.fulfill(failedResponse) : route.continue())
 
