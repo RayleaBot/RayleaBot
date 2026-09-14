@@ -210,12 +210,3 @@ func isLoopbackHost(host string) bool {
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
 }
-
-func appendUniqueString(values []string, candidate string) []string {
-	for _, value := range values {
-		if strings.EqualFold(value, candidate) {
-			return values
-		}
-	}
-	return append(values, candidate)
-}

@@ -42,9 +42,9 @@
   - 统一采用 `input + expect` 结构
   - 主要服务 artifact 目标平台与原生入口边界校验
 - `plugin-management-ui/`
-  - 对应 `contracts/plugin-management-ui.yaml` 与 `contracts/plugin-management-ui-bridge.schema.json`
+  - 对应 `contracts/plugin-management-ui.yaml`
   - 统一采用 `input + expect` 结构
-  - 主要服务管理页静态来源边界与 bridge v3 消息类型、窗口和 resize 边界校验
+  - 主要服务管理页同源静态路径、路径越界与 CSP 边界
 - `plugin-store-catalog/`
   - 对应 `contracts/plugin-store-catalog.schema.json`
   - 直接存放 catalog 文档样例

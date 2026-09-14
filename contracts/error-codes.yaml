@@ -415,7 +415,7 @@ codes:
     code: plugin.contract_unsupported
     domain: plugin
     message: 插件合同版本不受支持
-    description: The package or backup contains an unsupported plugin manifest, protocol, artifact, catalog, management bridge, or backup contract version. The package remains installed but invalid and its settings, secrets, KV, files, and published data remain intact.
+    description: The package or backup contains an unsupported plugin manifest, protocol, artifact, catalog, or backup contract version. The package remains installed but invalid and its settings, secrets, KV, files, and published data remain intact.
     http_status: 409
     retryable: false
     applies_to: [http, task, cli, plugin_protocol, backup, restore, update, readiness]

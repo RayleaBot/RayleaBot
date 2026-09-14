@@ -48,7 +48,7 @@ async function deleteSecret() {
 <template>
   <main>
     <h1>配置面板示例</h1>
-    <p class="intro">页面运行于插件独立域，只能通过 MessageChannel bridge v3 读写自身配置。</p>
+    <p class="intro">页面与管理面同源加载，通过 @rayleabot/plugin-ui 直接调用管理 API 读写自身配置。</p>
     <section>
       <label><span>默认城市</span><input v-model="draft.default_city" data-testid="default-city-input" /></label>
       <label><span>温度单位</span><select v-model="draft.unit" data-testid="unit-select"><option value="celsius">摄氏度</option><option value="fahrenheit">华氏度</option></select></label>

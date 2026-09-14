@@ -75,7 +75,6 @@ export const config = {
     user: '用户',
     group: '群组',
     adapter: '适配器',
-    web: '管理界面',
   },
   fields: {
     serverHost: '监听地址',
@@ -130,7 +129,6 @@ export const config = {
     adapterReconnectMultiplier: '重连倍率',
     adapterReconnectMaxSeconds: '最大重连时间（秒）',
     adapterReconnectJitterRatio: '重连抖动比例',
-    webPluginUiOriginTemplate: '插件页面域名模板',
   },
   options: {
     permissionEveryone: '所有人',
@@ -194,7 +192,6 @@ export const config = {
     dataDownloadCacheRetentionDays: '离线 cleanup 命令只清理超过该天数的下载缓存。',
     logLevel: '控制日志输出的最低级别；低于该级别的日志被忽略。',
     logRetentionDays: 'SQLite 管理日志记录的保留天数；超出后自动裁剪。',
-    webPluginUiOriginTemplate: '插件管理页面使用的独立来源模板，必须包含 {plugin_host}。本机可留空；内网插件页面需将对应域名解析到服务器。',
   },
   rateLimit: {
     count: '次数',

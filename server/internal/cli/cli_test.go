@@ -293,7 +293,6 @@ func TestRestoreRejectsIncompleteManifestBeforeExtraction(t *testing.T) {
 		PluginManifestVersion: recovery.PluginManifestVersion,
 		PluginProtocolVersion: recovery.PluginProtocolVersion,
 		PluginArtifactVersion: recovery.PluginArtifactVersion,
-		PluginUIBridgeVersion: recovery.PluginUIBridgeVersion,
 		Consistency:           "offline",
 		Directories: []recovery.BackupManifestDirectory{
 			recovery.Directory("config/user.yaml", "config"),
@@ -381,7 +380,6 @@ func TestRestoreRejectsPathTraversal(t *testing.T) {
 		PluginManifestVersion: recovery.PluginManifestVersion,
 		PluginProtocolVersion: recovery.PluginProtocolVersion,
 		PluginArtifactVersion: recovery.PluginArtifactVersion,
-		PluginUIBridgeVersion: recovery.PluginUIBridgeVersion,
 		Consistency:           "offline",
 		Directories: []recovery.BackupManifestDirectory{
 			recovery.Directory("config/user.yaml", "config"),

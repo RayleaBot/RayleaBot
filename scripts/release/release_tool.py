@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from artifact_ids_generated import ARTIFACT_WINDOWS_X64_FULL, ARTIFACT_LINUX_X64_SERVER
 from artifact_matrix import ARTIFACT_MATRIX
 from release_content import FORBIDDEN_DIRECTORY_NAMES, find_forbidden_paths, is_forbidden_file_name, should_skip_release_path
-from contract_versions_generated import PLUGIN_MANIFEST_VERSION, PLUGIN_UI_BRIDGE_VERSION
+from contract_versions_generated import PLUGIN_MANIFEST_VERSION
 
 
 RELEASE_METADATA_SCHEMA = Path(__file__).resolve().parents[2] / "contracts" / "release-manifest.schema.json"
@@ -182,7 +182,6 @@ def stage_release_root(
         "artifact_id": artifact_id,
         "built_at": built_at,
         "plugin_manifest_version": PLUGIN_MANIFEST_VERSION,
-        "plugin_ui_bridge_version": PLUGIN_UI_BRIDGE_VERSION,
     }
     if release_notes_ref:
         build_info["release_notes_ref"] = release_notes_ref
@@ -331,7 +330,6 @@ def build_release_metadata(
         "db_schema_version": db_schema_version,
         "plugin_protocol_version": plugin_protocol_version,
         "plugin_manifest_version": PLUGIN_MANIFEST_VERSION,
-        "plugin_ui_bridge_version": PLUGIN_UI_BRIDGE_VERSION,
         "artifacts": artifacts,
         "release_notes_ref": release_notes_ref,
     }

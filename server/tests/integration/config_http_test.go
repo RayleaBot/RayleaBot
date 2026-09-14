@@ -379,9 +379,6 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"reconnect_max_seconds":     120,
 			"reconnect_jitter_ratio":    0.2,
 		},
-		"web": map[string]any{
-			"plugin_ui_origin_template": "",
-		},
 	}
 
 	encoded, err := json.Marshal(payload)

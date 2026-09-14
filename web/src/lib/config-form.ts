@@ -359,20 +359,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
       ],
     },
-    {
-      key: 'web',
-      title: t('config.sections.web'),
-      fields: [
-        {
-          path: 'web.plugin_ui_origin_template',
-          label: t('config.fields.webPluginUiOriginTemplate'),
-          type: 'text',
-          description: t('config.descriptions.webPluginUiOriginTemplate'),
-          placeholder: 'https://{plugin_host}.plugins.example.com',
-          restartRequired: true,
-        },
-      ],
-    },
   ])
 }
 

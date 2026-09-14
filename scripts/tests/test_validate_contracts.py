@@ -39,11 +39,6 @@ class ContractValidatorTests(unittest.TestCase):
         cls.catalog = cls.documents[(validator.CONTRACTS / "error-codes.yaml").resolve()]["codes"]
         cls.mappings = validator.load_yaml(validator.EXAMPLES / "http/index.yaml")["examples"]
 
-    def bridge_errors(self, payload: object) -> list[str]:
-        return validator.schema_errors_at_pointer(
-            validator.CONTRACTS / "plugin-management-ui-bridge.schema.json", self.registry, "", payload,
-        )
-
     def test_devcontainer_base_images_follow_changed_tool_versions(self) -> None:
         versions = validator.read_tool_versions(validator.ROOT)
         dockerfile = (validator.ROOT / ".devcontainer/Dockerfile").read_text(encoding="utf-8")
@@ -57,29 +52,6 @@ class ContractValidatorTests(unittest.TestCase):
                     changed = dict(versions, **{tool: "9.8.7"})
                     with self.subTest(tool=tool), self.assertRaisesRegex(SystemExit, "base images must follow"):
                         validator.validate_devcontainer_versions(changed)
-
-    def test_bridge_valid_handoff_and_resize_boundary(self) -> None:
-        for name in ["ok.bridge-page-ready.json", "ok.bridge-host-connect.json", "ok.bridge-ui-resize.json"]:
-            with self.subTest(name=name):
-                fixture = validator.load_json(validator.FIXTURES / "plugin-management-ui" / name)
-                self.assertEqual(self.bridge_errors(fixture["input"]), [])
-
-    def test_bridge_rejects_bad_nonce_type_version_and_height(self) -> None:
-        ready = validator.load_json(validator.FIXTURES / "plugin-management-ui/ok.bridge-page-ready.json")["input"]
-        resize = validator.load_json(validator.FIXTURES / "plugin-management-ui/ok.bridge-ui-resize.json")["input"]
-        cases = [dict(ready, nonce="short"), dict(ready, version="2"), dict(ready, type="settings.delete")]
-        for height in [319, 1601, "600"]:
-            cases.append(dict(resize, payload={"height": height}))
-        for case in cases:
-            with self.subTest(case=case):
-                self.assertTrue(self.bridge_errors(case))
-
-    def test_bridge_protocol_requests_require_instance(self) -> None:
-        for name in ["ok.bridge-protocol-targets-reload.json", "ok.bridge-protocol-identities-resolve.json"]:
-            payload = validator.load_json(validator.FIXTURES / "plugin-management-ui" / name)["input"]
-            self.assertEqual(self.bridge_errors(payload), [])
-            payload["payload"].pop("adapter_id")
-            self.assertTrue(self.bridge_errors(payload))
 
     def test_error_catalog_fixtures_check_shape_and_stable_metadata(self) -> None:
         fixture = validator.load_yaml(validator.FIXTURES / "errors/ok.core-catalog.yaml")

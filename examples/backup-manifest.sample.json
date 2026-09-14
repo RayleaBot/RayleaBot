@@ -7,7 +7,6 @@
   "plugin_manifest_version": "4",
   "plugin_protocol_version": "4",
   "plugin_artifact_version": "2",
-  "plugin_ui_bridge_version": "3",
   "consistency": "offline",
   "plugins": [
     {

@@ -6,7 +6,7 @@
 
 ## 一、插件状态
 
-管理 HTTP、管理 WebSocket、插件管理页 bridge、`plugin.list` local action 和系统 metrics 使用统一插件状态：
+管理 HTTP、管理 WebSocket、插件管理页、`plugin.list` local action 和系统 metrics 使用统一插件状态：
 
 | 状态 | 含义 |
 | --- | --- |

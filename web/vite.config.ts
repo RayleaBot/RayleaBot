@@ -178,7 +178,7 @@ export default defineConfig(({ command }) => {
         allow: resolveServerFsAllow(process.cwd()),
       },
       proxy: {
-        '^/(api|healthz|readyz)': createBackendProxyOptions(backendTarget),
+        '^/(api|healthz|readyz|plugin-ui)': createBackendProxyOptions(backendTarget),
       },
     },
     preview: {

@@ -44,8 +44,6 @@ Linux Launcher 使用系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，完整
 
 首次初始化需要一次性初始化 token；可从运行机器取得后在内网浏览器完成初始化。
 
-插件自定义管理页使用独立域名隔离：本机可使用自动派生的 `p-<id-hash>.plugins.localhost:<port>`；内网访问需将 `web.plugin_ui_origin_template` 对应域名解析到运行机器。该设置只影响插件自定义页面，不限制主程序启动和管理访问。
-
 ## Linux systemd / LXC
 
 - `linux-x64-server` 包含 `systemd/rayleabot.service` 示例。

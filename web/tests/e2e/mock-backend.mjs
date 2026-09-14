@@ -1,7 +1,6 @@
 import { ResponsePlan } from './response-plan.mjs'
 import { listLogPage } from './fixture-log-pages.mjs'
 import http from 'node:http'
-import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFile } from 'node:fs/promises'
@@ -13,7 +12,6 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '..', '..', '..')
 const exampleConfigPanelRoot = path.join(repoRoot, 'examples', 'plugins', 'example-config-panel', 'ui', 'dist')
-const exampleConfigPanelHost = `p-${createHash('sha256').update('example-config-panel').digest('hex').slice(0, 16)}.plugins.localhost:4010`
 const configuredWebOrigin = String(process.env.RAYLEA_E2E_WEB_ORIGIN ?? 'http://127.0.0.1:4173').trim()
 if (!/^http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}$/.test(configuredWebOrigin)) {
   throw new Error('RAYLEA_E2E_WEB_ORIGIN must be a loopback HTTP origin')
@@ -608,14 +606,14 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
-  if (String(request.headers.host ?? '').toLowerCase() === exampleConfigPanelHost) {
-    if ((request.method !== 'GET' && request.method !== 'HEAD') || pathname.startsWith('/api/') || pathname.startsWith('/ws/')) {
-      json(response, 404, errorEnvelope('platform.resource_not_found', 'plugin origin has no API routes', 'req_plugin_ui_isolated'))
+  if (pathname.startsWith('/plugin-ui/example-config-panel/')) {
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      json(response, 404, errorEnvelope('platform.resource_not_found', 'plugin management page not found', 'req_plugin_ui_method'))
       return
     }
     let requestedPath = ''
     try {
-      requestedPath = pathname.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment)).join('/')
+      requestedPath = pathname.slice('/plugin-ui/example-config-panel/'.length).split('/').filter(Boolean).map((segment) => decodeURIComponent(segment)).join('/')
     } catch {
       json(response, 404, errorEnvelope('platform.resource_not_found', 'plugin management page not found', 'req_plugin_ui_invalid_path'))
       return
@@ -630,9 +628,9 @@ const server = http.createServer(async (request, response) => {
       response.writeHead(200, {
         'Content-Type': getContentType(filePath),
         'Cache-Control': 'no-store, max-age=0',
-        'Content-Security-Policy': `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors ${configuredWebOrigin}`,
+        'Content-Security-Policy': `default-src 'none'; script-src ${request.headers.host}/plugin-ui/example-config-panel/; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'`,
         'X-Content-Type-Options': 'nosniff',
-        'Referrer-Policy': 'no-referrer',
+        'Referrer-Policy': 'same-origin',
       })
       response.end(request.method === 'HEAD' ? undefined : file)
       return

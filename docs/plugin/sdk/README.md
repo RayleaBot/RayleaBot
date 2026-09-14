@@ -47,7 +47,7 @@ Server 与 Go SDK 的 wire 模型由 `scripts/generate-plugin-wire.py` 从正式
 
 生成器只负责传输结构投影：required 字段保留零值，语义需要区分缺省的字段使用指针或 RawMessage，KV 的显式 `null` 不等同于缺少 value。动作 data、动态配置和扩展 payload 保留 JSON 边界。Server 与 SDK 在实际收发时使用内嵌的同一 schema 校验分支、必填字段、整数、未知字段及帧字节上限；动作权限、请求关联和生命周期状态仍由各自运行时检查。`oneOf` 的结构投影不能代替这些校验。
 
-artifact、manifest、运行时协议和 UI bridge 分别从对应契约生成版本常量，不共用版本号。Go 与 JavaScript 的敏感文本脱敏通过 `scripts/testdata/redaction.json` 的共享向量校准。
+artifact、manifest 与运行时协议分别从对应契约生成版本常量，不共用版本号。Go 与 JavaScript 的敏感文本脱敏通过 `scripts/testdata/redaction.json` 的共享向量校准。
 
 动作调用前会检查 context 和事件终态。已发送动作在调用方停止等待后继续保留响应关联，终态等待宿主动作结算；超过 `ActionTimeout` 时不输出早于动作完成的终态，由宿主结束事件。已关闭事件不能继续调用 `event.Actions()` 发送动作。`adapter.send_unconfirmed` 和等待取消都不证明消息未发送，不能据此自动重试。
 
@@ -111,13 +111,12 @@ plugin-example/
 
 `sdk/vue` 提供私有 workspace package `@rayleabot/plugin-ui`：
 
-- `PluginUIBridgeClient` 完成 nonce-bound bridge v3 与 MessageChannel 握手。
-- `usePluginHost` 暴露初始化状态、配置、secret configured-state 和 bridge 请求。
-- 根组件建立一次连接并传给子组件；子组件卸载时可先取消所属操作，SDK 在组件树卸载后关闭连接。`invokeAction` 等待管理动作结果的上限为 60 秒。
-- `applyTheme` 把宿主主题 token 映射为插件 CSS variables。
-- `contract.generated.ts` 从 bridge v3 schema 生成类型。
+- `PluginUIClient` 从 `/plugin-ui/{plugin_id}/` 路径识别插件、从 `page` 参数读取页面 ID，并以当前会话直接调用插件范围的管理 API；写操作沿用管理面的 CSRF 头。
+- `usePluginHost` 暴露初始化状态、配置、secret configured-state 和客户端。
+- `invokeAction` 等待管理动作结果；`apiRequest` 调用其他管理接口，失败时抛出带稳定 `code` 的 `PluginUIError`。
+- `applyTheme` 把宿主主题变量映射为插件 CSS variables，`usePluginHost` 在宿主切换主题时同步更新。
 
-插件 UI 固定使用 Vue 3、TypeScript、Vite 和 `base: "./"`。所有页面共用 `management_ui.entry`，当前页面 ID 来自 `host.init.page.id`。页面不能读取管理 cookie、请求插件域 `/api` 或获取已保存 secret 明文。
+插件 UI 固定使用 Vue 3、TypeScript、Vite 和 `base: "./"`。所有页面共用 `management_ui.entry`，页面不能获取已保存 secret 明文。
 
 ## 本地联调
 

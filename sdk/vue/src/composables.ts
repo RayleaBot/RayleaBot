@@ -1,26 +1,17 @@
 import { computed, onUnmounted, readonly, ref, shallowRef } from 'vue'
 
-import { PluginUIBridgeClient } from './client'
-import type { HostInitPayload } from './contract.generated'
+import { hostDocument, PluginUIClient, readHostTheme } from './client'
+import type { HostInitPayload } from './client'
 
-export function usePluginHost(client = new PluginUIBridgeClient()) {
+export function usePluginHost(client = new PluginUIClient()) {
   const init = shallowRef<HostInitPayload | null>(null)
   const loading = ref(true)
   const error = shallowRef<Error | null>(null)
 
-  const applyHostInit = (payload: HostInitPayload) => {
-    init.value = payload
-    applyTheme(payload.theme.mode, payload.theme.tokens)
-  }
-
-  const stopHostInit = client.on('host.init', (message) => {
-    applyHostInit(message.payload as HostInitPayload)
-  })
-
-  const ready = client.connect()
+  const ready = client.loadContext()
     .then((payload) => {
-      applyHostInit(payload)
-      client.observeDocumentHeight()
+      init.value = payload
+      applyTheme(payload.theme.mode, payload.theme.tokens)
       return payload
     })
     .catch((cause: unknown) => {
@@ -31,10 +22,11 @@ export function usePluginHost(client = new PluginUIBridgeClient()) {
       loading.value = false
     })
 
-  onUnmounted(() => {
-    stopHostInit()
-    client.close()
+  const stopThemeSync = observeHostTheme(() => {
+    const theme = readHostTheme()
+    applyTheme(theme.mode, theme.tokens)
   })
+  onUnmounted(stopThemeSync)
 
   return {
     client,
@@ -47,10 +39,20 @@ export function usePluginHost(client = new PluginUIBridgeClient()) {
   }
 }
 
+export function observeHostTheme(onChange: () => void): () => void {
+  const root = hostDocument()?.documentElement
+  if (!root || root === document.documentElement || typeof MutationObserver === 'undefined') {
+    return () => undefined
+  }
+  const observer = new MutationObserver(onChange)
+  observer.observe(root, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] })
+  return () => observer.disconnect()
+}
+
 export function applyTheme(mode: 'light' | 'dark', tokens: Record<string, string>): void {
   const root = document.documentElement
   for (const [name, value] of Object.entries(tokens)) {
-    if (/^[a-z0-9-]+$/.test(name) && typeof value === 'string') {
+    if (/^[a-z0-9-]+$/.test(name) && typeof value === 'string' && value) {
       root.style.setProperty(`--raylea-${name}`, value)
     }
   }

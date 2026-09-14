@@ -12,7 +12,7 @@
 | [lifecycle.md](./lifecycle.md) | 插件来源、运行时支持、安装、重载和卸载边界 |
 | [manifest.md](./manifest.md) | manifest v4、事件、命令与静态资源声明 |
 | [protocol.md](./protocol.md) | JSONL 协议、消息语义和 local action RPC |
-| [management-ui.md](./management-ui.md) | Vue 管理页、独立插件域与 bridge v3 |
+| [management-ui.md](./management-ui.md) | Vue 管理页、同源加载与 CSP |
 | [sdk/README.md](./sdk/README.md) | Go 插件 SDK、artifact 构建器与 Vue UI SDK |
 
 ## 当前边界

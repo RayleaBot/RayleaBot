@@ -81,9 +81,6 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
       reconnect_max_seconds: 120,
       reconnect_jitter_ratio: 0.2,
     },
-    web: {
-      plugin_ui_origin_template: 'http://{plugin_host}.plugins.localhost:8080',
-    },
   }
 }
 
@@ -674,7 +671,6 @@ describe('PluginDetailPage', () => {
         label: '示例',
       },
       management_ui: {
-    origin_host: 'p-0102030405060708',
     entry: 'ui/index.html',
         pages: [
           {
@@ -721,14 +717,14 @@ describe('PluginDetailPage', () => {
     await vi.waitFor(() => {
       expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(true)
     })
-    expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).pathname).toBe('/index.html')
+    expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src') ?? '', 'http://127.0.0.1:8080').pathname).toBe('/plugin-ui/example-config-panel/index.html')
     expect(wrapper.find('.console-terminal').exists()).toBe(false)
 
     await router.push('/plugins/example-config-panel?panel=management-ui&management_page=secrets')
     await flushPromises()
 
     await vi.waitFor(() => {
-      expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).pathname).toBe('/index.html')
+      expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src') ?? '', 'http://127.0.0.1:8080').pathname).toBe('/plugin-ui/example-config-panel/index.html')
     })
 
     await router.push('/plugins/example-config-panel')
@@ -764,7 +760,6 @@ describe('PluginDetailPage', () => {
         label: '示例',
       },
       management_ui: {
-    origin_host: 'p-0102030405060708',
     entry: 'ui/index.html',
         pages: [
           {
@@ -806,7 +801,7 @@ describe('PluginDetailPage', () => {
     await vi.waitFor(() => {
       expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(true)
     })
-    expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).pathname).toBe('/index.html')
+    expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src') ?? '', 'http://127.0.0.1:8080').pathname).toBe('/plugin-ui/example-config-panel/index.html')
     expect(router.currentRoute.value.query).toEqual({ panel: 'management-ui', management_page: 'config' })
   })
 })

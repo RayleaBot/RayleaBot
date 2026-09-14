@@ -9,7 +9,7 @@
 3. 执行 `restore`。
 4. 重新启动服务。
 
-本版备份使用 backup manifest v3，记录当前配置格式 `4`、数据库结构 `000003`，以及插件 manifest/protocol `4`、artifact `2`、UI bridge `3`。插件 manifest/protocol 为 `3` 的旧备份仍可恢复，其中的 v3 插件保持禁用，使用新 SDK 重新构建后安装。恢复也接受数据库结构 `000001` 与 `000002`，并在首次启动时前向迁移。配置、SQLite 快照、插件业务数据和安装包一起恢复；未包含数据库时清单记录 `absent`，首次启动按当前结构初始化。
+本版备份使用 backup manifest v3，记录当前配置格式 `4`、数据库结构 `000003`，以及插件 manifest/protocol `4`、artifact `2`。插件 manifest/protocol 为 `3` 的旧备份仍可恢复，其中的 v3 插件保持禁用，使用新 SDK 重新构建后安装。恢复也接受数据库结构 `000001` 与 `000002`，并在首次启动时前向迁移。配置、SQLite 快照、插件业务数据和安装包一起恢复；未包含数据库时清单记录 `absent`，首次启动按当前结构初始化。
 
 `restore` 只写入未启动过的新目录：计划写入的配置、数据库及其 `-wal`/`-shm`/`-journal`、`data/` 与 `plugins/installed/` 下的文件已存在时，恢复直接拒绝且不写入任何文件。先停止目标服务并保留所需备份，再执行 `raylea-server -config <目标目录>/config/user.yaml restore <备份路径>`。恢复完成后使用同一配置启动，已有管理员凭据和插件持久化数据保持一致。
 

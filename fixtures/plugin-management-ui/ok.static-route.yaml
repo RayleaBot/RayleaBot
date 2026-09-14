@@ -1,13 +1,13 @@
 contract: contracts/plugin-management-ui.yaml
 case: ok
-description: A verified plugin artifact serves its Vue entry from the plugin-specific origin.
+description: A verified plugin artifact serves its Vue entry from the plugin path on the management origin.
 request:
   method: GET
-  host: p-0123456789abcdef.plugins.localhost:8080
-  path: /index.html
+  host: 127.0.0.1:8080
+  path: /plugin-ui/example-config-panel/index.html
 response:
   status: 200
   content_type: text/html
-  admin_cookie_received: false
+  content_security_policy_script_src: 127.0.0.1:8080/plugin-ui/example-config-panel/
 expect:
   valid: true

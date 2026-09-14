@@ -6,7 +6,6 @@ const (
 	PluginProtocolVersion = "4"
 	PluginManifestVersion = "4"
 	PluginArtifactVersion = "2"
-	PluginUIBridgeVersion = "3"
 	BackupManifestVersion = "3"
 	ConfigSchemaVersion   = "4"
 	DepsManifestVersion   = 5

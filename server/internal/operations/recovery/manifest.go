@@ -23,7 +23,6 @@ func BuildBackupManifest(repoRoot string, consistency string) BackupManifest {
 		PluginManifestVersion: PluginManifestVersion,
 		PluginProtocolVersion: PluginProtocolVersion,
 		PluginArtifactVersion: PluginArtifactVersion,
-		PluginUIBridgeVersion: PluginUIBridgeVersion,
 		Consistency:           strings.TrimSpace(consistency),
 		Plugins:               loadManifestPlugins(filepath.Join(repoRoot, "plugins", "installed")),
 	}

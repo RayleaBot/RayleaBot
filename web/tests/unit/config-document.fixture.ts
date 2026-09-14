@@ -89,9 +89,6 @@ export function createConfigDocumentFixture(configure?: ConfigureConfigDocument)
       reconnect_max_seconds: 120,
       reconnect_jitter_ratio: 0.2,
     },
-    web: {
-      plugin_ui_origin_template: '',
-    },
   } satisfies RuntimeConfigDocument
 
   configure?.(config)

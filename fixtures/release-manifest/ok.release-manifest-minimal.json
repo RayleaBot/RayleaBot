@@ -27,8 +27,7 @@
       }
     ],
     "release_notes_ref": "https://example.com/releases/v0.1.0",
-    "plugin_manifest_version": "4",
-    "plugin_ui_bridge_version": "3"
+    "plugin_manifest_version": "4"
   },
   "expect": {
     "valid": true

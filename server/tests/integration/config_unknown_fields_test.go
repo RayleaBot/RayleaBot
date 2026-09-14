@@ -18,7 +18,7 @@ func TestConfigPutIgnoresUnknownFields(t *testing.T) {
 	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.config-update-response.yaml"))
 	document := normalizeJSONMap(t, fixture.Request.Body)
 	document["obsolete_section"] = "ignored-config-marker"
-	document["web"].(map[string]any)["exposure_mode"] = "ignored-config-marker"
+	document["web"] = map[string]any{"plugin_ui_origin_template": "ignored-config-marker"}
 	document["adapters"].([]any)[0].(map[string]any)["obsolete_adapter_flag"] = "ignored-config-marker"
 	testutil.ConfigDocumentOneBot(t, document)["reverse_ws"].(map[string]any)["obsolete_transport_option"] = "ignored-config-marker"
 	payload, err := json.Marshal(document)

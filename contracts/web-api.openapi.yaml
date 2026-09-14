@@ -4105,12 +4105,8 @@ components:
     PluginManagementUISummary:
       type: object
       additionalProperties: false
-      required: [entry, pages, origin_host]
+      required: [entry, pages]
       properties:
-        origin_host:
-          type: string
-          pattern: '^p-[a-f0-9]{16}$'
-          description: Server-derived plugin host label for the isolated management page origin.
         entry:
           type: string
           pattern: '^[A-Za-z0-9._/-]+\.html$'

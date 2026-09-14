@@ -1876,8 +1876,6 @@ export interface components {
         };
         PluginScreenshot: components["schemas"]["screenshot"];
         PluginManagementUISummary: {
-            /** @description Server-derived plugin host label for the isolated management page origin. */
-            origin_host: string;
             entry: string;
             pages: components["schemas"]["PluginManagementUIPage"][];
         };
@@ -2379,15 +2377,6 @@ export interface components {
                 reconnect_max_seconds: number;
                 /** @default 0.2 */
                 reconnect_jitter_ratio: number;
-            } & {
-                [key: string]: unknown;
-            };
-            web: {
-                /**
-                 * @description Optional origin template for isolated plugin management pages. Must contain {plugin_host}; an empty value uses the local plugin page origin.
-                 * @default
-                 */
-                plugin_ui_origin_template: string | "" | unknown;
             } & {
                 [key: string]: unknown;
             };

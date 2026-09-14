@@ -88,7 +88,6 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
       reconnect_max_seconds: 120,
       reconnect_jitter_ratio: 0.2,
     },
-    web: {},
   }
 }
 

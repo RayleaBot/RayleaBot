@@ -21,7 +21,7 @@
 - 四种归档的 `LICENSE`、`THIRD_PARTY_NOTICES.md`、metadata、artifact smoke 和 recovery drill；
 - doctor、agent docs、文档链接和 `git diff --check`。
 
-插件验收以 manifest v4、JSONL protocol v4、artifact v2 和 bridge v3 为准。负向用例必须拒绝不符合这些契约的输入、错误平台、篡改摘要、错误二进制、缺失 UI 资源和非单根目录 ZIP。正式包检查必须确认不存在插件源码、源码 SDK、`node_modules` 与托管语言运行时。
+插件验收以 manifest v4、JSONL protocol v4 与 artifact v2 为准。负向用例必须拒绝不符合这些契约的输入、错误平台、篡改摘要、错误二进制、缺失 UI 资源和非单根目录 ZIP。正式包检查必须确认不存在插件源码、源码 SDK、`node_modules` 与托管语言运行时。
 
 ## 更新检查与恢复验收
 

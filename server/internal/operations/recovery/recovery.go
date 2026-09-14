@@ -6,20 +6,21 @@ const (
 	BackupManifestVersion = contractversions.BackupManifestVersion
 	PluginManifestVersion = contractversions.PluginManifestVersion
 	PluginProtocolVersion = contractversions.PluginProtocolVersion
-	PluginUIBridgeVersion = contractversions.PluginUIBridgeVersion
 	PluginArtifactVersion = contractversions.PluginArtifactVersion
 )
 
 type BackupManifest struct {
-	Version               string                    `json:"version"`
-	CreatedAt             string                    `json:"created_at"`
-	CoreVersion           string                    `json:"core_version"`
-	ConfigSchemaVersion   string                    `json:"config_schema_version"`
-	DBSchemaVersion       string                    `json:"db_schema_version"`
-	PluginManifestVersion string                    `json:"plugin_manifest_version"`
-	PluginProtocolVersion string                    `json:"plugin_protocol_version"`
-	PluginArtifactVersion string                    `json:"plugin_artifact_version"`
-	PluginUIBridgeVersion string                    `json:"plugin_ui_bridge_version"`
+	Version               string `json:"version"`
+	CreatedAt             string `json:"created_at"`
+	CoreVersion           string `json:"core_version"`
+	ConfigSchemaVersion   string `json:"config_schema_version"`
+	DBSchemaVersion       string `json:"db_schema_version"`
+	PluginManifestVersion string `json:"plugin_manifest_version"`
+	PluginProtocolVersion string `json:"plugin_protocol_version"`
+	PluginArtifactVersion string `json:"plugin_artifact_version"`
+	// PluginUIBridgeVersion is only present in archives created before the
+	// management bridge was retired; restore decodes and ignores it.
+	PluginUIBridgeVersion string                    `json:"plugin_ui_bridge_version,omitempty"`
 	Consistency           string                    `json:"consistency"`
 	Plugins               []BackupManifestPlugin    `json:"plugins,omitempty"`
 	Directories           []BackupManifestDirectory `json:"directories,omitempty"`

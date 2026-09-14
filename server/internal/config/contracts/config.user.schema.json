@@ -23,8 +23,7 @@
     "message",
     "user",
     "group",
-    "adapter",
-    "web"
+    "adapter"
   ],
   "properties": {
     "schema_version": {
@@ -577,30 +576,6 @@
         }
       }
     },
-    "web": {
-      "type": "object",
-      "additionalProperties": true,
-      "required": [
-        "plugin_ui_origin_template"
-      ],
-      "properties": {
-        "plugin_ui_origin_template": {
-          "type": "string",
-          "default": "",
-          "anyOf": [
-            {
-              "const": ""
-            },
-            {
-              "format": "uri",
-              "pattern": "^https?://[^/?#]*\\{plugin_host\\}[^/?#]*(:[0-9]{1,5})?$"
-            }
-          ],
-          "description": "Optional origin template for isolated plugin management pages. Must contain {plugin_host}; an empty value uses the local plugin page origin.",
-          "x-apply-policy": "restart_required"
-        }
-      }
-    },
     "adapters": {
       "type": "array",
       "default": [],
@@ -910,8 +885,7 @@
     "fixtures/config/invalid.scheduler-timezone-empty.json"
   ],
   "x-runtime-constraints": [
-    "admin.session_absolute_ttl_days must be greater than or equal to admin.session_ttl_days",
-    "web.plugin_ui_origin_template must contain {plugin_host} when non-empty"
+    "admin.session_absolute_ttl_days must be greater than or equal to admin.session_ttl_days"
   ],
   "$comment": "The canonical config document follows the planning-aligned section names and current runtime configuration groups."
 }

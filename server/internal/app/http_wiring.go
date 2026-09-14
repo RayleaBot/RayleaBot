@@ -3,11 +3,9 @@ package app
 import (
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
@@ -38,7 +36,6 @@ type serverDeps struct {
 	runtime  configRuntimeState
 	renderer *render.Service
 	routes   managementRouteState
-	pluginUI *managementapi.PluginManagementUIHandlers
 }
 
 func buildHTTP(deps httpBuildDeps) (appHTTPState, error) {
@@ -74,7 +71,6 @@ func buildHTTP(deps httpBuildDeps) (appHTTPState, error) {
 		runtime:  runtimeState,
 		renderer: renderer,
 		routes:   managementRoutes,
-		pluginUI: pluginManagementUIHandler,
 	})
 	return appHTTPState{
 		Router:   router,
@@ -93,9 +89,6 @@ func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandle
 
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
 	handler := http.Handler(router)
-	if deps.pluginUI != nil {
-		handler = deps.pluginUI.IsolatedOriginHandler(handler, buildPluginUIOriginOptions(cfg))
-	}
 	server := &http.Server{
 		Addr:              listenAddr,
 		Handler:           handler,
@@ -108,25 +101,6 @@ func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandle
 
 	logConfiguredServer(deps.runtime, deps.renderer, listenAddr)
 	return handler, server, handlers
-}
-
-func buildPluginUIOriginOptions(cfg config.Config) managementapi.PluginUIOriginOptions {
-	adminOrigins := managementDevelopmentOrigins(os.Getenv("RAYLEA_WEB_UI_BASE_URL"))
-	for _, host := range []string{"127.0.0.1", "localhost", "::1"} {
-		adminOrigins = appendUniqueString(adminOrigins, "http://"+net.JoinHostPort(host, strconv.Itoa(cfg.Server.Port)))
-	}
-	if addresses, err := net.InterfaceAddrs(); err == nil {
-		for _, address := range addresses {
-			if ip, _, err := net.ParseCIDR(address.String()); err == nil {
-				adminOrigins = appendUniqueString(adminOrigins, "http://"+net.JoinHostPort(ip.String(), strconv.Itoa(cfg.Server.Port)))
-			}
-		}
-	}
-	return managementapi.PluginUIOriginOptions{
-		OriginTemplate: cfg.Web.PluginUIOriginTemplate,
-		ServerPort:     cfg.Server.Port,
-		AdminOrigins:   adminOrigins,
-	}
 }
 
 func logConfiguredServer(state configRuntimeState, renderer *render.Service, listenAddr string) {

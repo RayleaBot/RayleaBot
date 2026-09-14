@@ -120,7 +120,6 @@ def classify(files: list[str]) -> dict[str, bool]:
         if path.startswith(("server/internal/plugins/pluginwire/", "sdk/go/internal/pluginwire/", "server/internal/platform/contractversions/", "launcher/internal/contractversions/")) or path in {
             "sdk/go/pluginbuild/versions.generated.go", "scripts/release/contract_versions_generated.py",
             "sdk/go/testdata/redaction.generated.json", "server/internal/platform/redact/testdata/redaction.generated.json",
-            "sdk/vue/src/contract.generated.ts", "web/src/types/plugin-management-ui.generated.ts",
             "server/internal/platform/deps/contracts/deps-manifest.schema.json",
         }:
             result["contracts"] = True
@@ -232,7 +231,6 @@ def self_test() -> None:
         ([".impeccable/config.json"], {"docs": True, "docs_only": True, "server": False, "web": False, "launcher": False, "ci": False}),
         (["design/tokens.json"], {"web": True, "launcher": True, "docs": True, "ci": True, "docs_only": False}),
         (["launcher/internal/contractversions/versions.generated.go"], {"launcher": True, "contracts": True}),
-        (["sdk/vue/src/contract.generated.ts"], {"sdk": True, "contracts": True}),
         (["scripts/generate-plugin-wire.py"], {"server": True, "sdk": True, "web": True, "launcher": True, "contracts": True, "release": True, "ci": True}),
         (["scripts/generate-design-tokens.mjs"], {"web": True, "launcher": True, "docs": True, "ci": True, "docs_only": False}),
         (["server/internal/app/app.go"], {"server": True, "docs_only": False}),

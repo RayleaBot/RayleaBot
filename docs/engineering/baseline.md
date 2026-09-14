@@ -150,7 +150,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 | `launcher/` | Wails 桌面启动器工程 |
 | `plugins/installed/` | 运行期统一安装目录；只保存经 artifact 校验的商店、社区或开发插件产物，不进入版本控制 |
 | `sdk/go/` | Go 插件 JSONL 客户端、typed local-action helpers 与 artifact 构建器 |
-| `sdk/vue/` | `@rayleabot/plugin-ui` bridge v3 client、composables、主题和 contract 类型 |
+| `sdk/vue/` | `@rayleabot/plugin-ui` 同源管理 API client、composables 与主题 |
 | `.deps/` | Chromium 与 FFmpeg / FFprobe 资源清单，以及按需展开后的资源目录 |
 | `config/` | 用户配置 |
 | `data/` | SQLite 状态库与运行数据 |

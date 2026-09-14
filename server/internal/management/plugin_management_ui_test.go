@@ -3,9 +3,7 @@ package management_test
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -73,135 +71,24 @@ func openPluginSecretStore(t *testing.T) secrets.Store {
 	return secretStore
 }
 
-func TestHandlePluginManagementUIStaticServesScopedAssets(t *testing.T) {
-	t.Parallel()
-
-	pluginDir := filepath.Join(t.TempDir(), "example-config-panel")
-	uiDir := filepath.Join(pluginDir, "ui")
-	if err := os.MkdirAll(uiDir, 0o755); err != nil {
-		t.Fatalf("os.MkdirAll: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(uiDir, "index.html"), []byte("<!doctype html><title>Config Panel</title>"), 0o644); err != nil {
-		t.Fatalf("os.WriteFile index.html: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(uiDir, "app.js"), []byte("console.log('config panel')"), 0o644); err != nil {
-		t.Fatalf("os.WriteFile app.js: %v", err)
-	}
-	binDir := filepath.Join(pluginDir, "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		t.Fatalf("os.MkdirAll bin: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(binDir, "example-config-panel"), []byte("go plugin fixture"), 0o755); err != nil {
-		t.Fatalf("os.WriteFile backend: %v", err)
-	}
-
-	handlers := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{Plugins: plugincatalog.New([]plugins.Snapshot{{
-		PluginID:            "example-config-panel",
-		Valid:               true,
-		RegistrationState:   "installed",
-		DesiredState:        "disabled",
-		RuntimeState:        "stopped",
-		PackageRootPath:     pluginDir,
-		ArtifactVersion:     "2",
-		ArtifactUIAvailable: true,
-		ManagementUI: &plugins.ManagementUI{
-			Entry: "ui/index.html",
-			Pages: []plugins.ManagementUIPage{
-				{ID: "config", Label: "配置页面"},
-			},
-		},
-	}})})
-	options := managementapi.PluginUIOriginOptions{ServerPort: 8080, AdminOrigins: []string{"http://127.0.0.1:8080"}}
-	origin, err := managementapi.PluginUIOrigin("example-config-panel", options)
-	if err != nil {
-		t.Fatalf("PluginUIOrigin: %v", err)
-	}
-	handler := handlers.IsolatedOriginHandler(http.NotFoundHandler(), options)
-
-	entryRequest := httptest.NewRequest(http.MethodGet, origin+"/", nil)
-	entryRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(entryRecorder, entryRequest)
-
-	if entryRecorder.Code != http.StatusOK {
-		t.Fatalf("entry status = %d, want 200; body=%s", entryRecorder.Code, entryRecorder.Body.String())
-	}
-	if body := entryRecorder.Body.String(); body != "<!doctype html><title>Config Panel</title>" {
-		t.Fatalf("unexpected entry body: %q", body)
-	}
-	assertPluginUIStaticNoStoreHeaders(t, entryRecorder.Header())
-
-	assetRequest := httptest.NewRequest(http.MethodGet, origin+"/app.js", nil)
-	assetRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(assetRecorder, assetRequest)
-
-	if assetRecorder.Code != http.StatusOK {
-		t.Fatalf("asset status = %d, want 200; body=%s", assetRecorder.Code, assetRecorder.Body.String())
-	}
-	if body := assetRecorder.Body.String(); body != "console.log('config panel')" {
-		t.Fatalf("unexpected asset body: %q", body)
-	}
-	assertPluginUIStaticNoStoreHeaders(t, assetRecorder.Header())
-
-	apiRequest := httptest.NewRequest(http.MethodGet, origin+"/api/config", nil)
-	apiRequest.Header.Set("Origin", "http://127.0.0.1:8080")
-	apiRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(apiRecorder, apiRequest)
-	if apiRecorder.Code != http.StatusNotFound {
-		t.Fatalf("plugin-origin API status = %d, want 404", apiRecorder.Code)
-	}
-	if got := apiRecorder.Header().Get("Access-Control-Allow-Origin"); got != "" {
-		t.Fatalf("plugin-origin API exposed CORS: %q", got)
-	}
-	if got := apiRecorder.Header().Values("Set-Cookie"); len(got) != 0 {
-		t.Fatalf("plugin-origin API set cookies: %#v", got)
-	}
-}
-
-func TestPluginUIOriginRejectsAdminOrigin(t *testing.T) {
-	t.Parallel()
-	pluginID := "example-config-panel"
-	digest := sha256.Sum256([]byte(pluginID))
-	pluginHost := fmt.Sprintf("p-%x", digest[:8])
-	template := "https://{plugin_host}.plugins.example.com"
-	adminOrigin := "https://" + pluginHost + ".plugins.example.com:443"
-	if _, err := managementapi.PluginUIOrigin(pluginID, managementapi.PluginUIOriginOptions{
-		OriginTemplate: template,
-		AdminOrigins:   []string{adminOrigin},
-	}); err == nil {
-		t.Fatal("PluginUIOrigin accepted the admin origin")
-	}
-}
-
-func assertPluginUIStaticNoStoreHeaders(t *testing.T, header http.Header) {
+func newPluginUIAssetRouter(t *testing.T) http.Handler {
 	t.Helper()
 
-	if got := header.Get("Cache-Control"); got != "no-store, max-age=0" {
-		t.Fatalf("Cache-Control = %q, want no-store, max-age=0", got)
-	}
-	if got := header.Get("X-Content-Type-Options"); got != "nosniff" {
-		t.Fatalf("X-Content-Type-Options = %q, want nosniff", got)
-	}
-	if got := header.Get("Content-Security-Policy"); !strings.Contains(got, "connect-src 'none'") || !strings.Contains(got, "frame-ancestors http://127.0.0.1:8080") {
-		t.Fatalf("unexpected Content-Security-Policy: %q", got)
-	}
-}
-
-func TestHandlePluginManagementUIStaticRejectsParentEscape(t *testing.T) {
-	t.Parallel()
-
 	pluginDir := filepath.Join(t.TempDir(), "example-config-panel")
-	uiDir := filepath.Join(pluginDir, "ui")
-	if err := os.MkdirAll(uiDir, 0o755); err != nil {
-		t.Fatalf("os.MkdirAll: %v", err)
+	files := map[string]string{
+		"ui/index.html":            "<!doctype html><title>Config Panel</title>",
+		"ui/app.js":                "console.log('config panel')",
+		"bin/example-config-panel": "go plugin fixture",
 	}
-	binDir := filepath.Join(pluginDir, "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		t.Fatalf("os.MkdirAll bin: %v", err)
+	for name, content := range files {
+		target := filepath.Join(pluginDir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := os.WriteFile(filepath.Join(binDir, "example-config-panel"), []byte("go plugin fixture"), 0o755); err != nil {
-		t.Fatalf("os.WriteFile backend: %v", err)
-	}
-
 	handlers := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{Plugins: plugincatalog.New([]plugins.Snapshot{{
 		PluginID:            "example-config-panel",
 		Valid:               true,
@@ -213,24 +100,57 @@ func TestHandlePluginManagementUIStaticRejectsParentEscape(t *testing.T) {
 		ArtifactUIAvailable: true,
 		ManagementUI: &plugins.ManagementUI{
 			Entry: "ui/index.html",
-			Pages: []plugins.ManagementUIPage{
-				{ID: "config", Label: "配置页面"},
-			},
+			Pages: []plugins.ManagementUIPage{{ID: "config", Label: "配置页面"}},
 		},
 	}})})
-	options := managementapi.PluginUIOriginOptions{ServerPort: 8080}
-	origin, err := managementapi.PluginUIOrigin("example-config-panel", options)
-	if err != nil {
-		t.Fatalf("PluginUIOrigin: %v", err)
+	router := chi.NewRouter()
+	handlers.RegisterPublicRoutes(router)
+	return router
+}
+
+func TestPluginUIAssetsAreServedFromThePluginPath(t *testing.T) {
+	t.Parallel()
+
+	router := newPluginUIAssetRouter(t)
+	for requestPath, body := range map[string]string{
+		"/plugin-ui/example-config-panel/":       "<!doctype html><title>Config Panel</title>",
+		"/plugin-ui/example-config-panel/app.js": "console.log('config panel')",
+	} {
+		request := httptest.NewRequest(http.MethodGet, requestPath, nil)
+		request.Host = "127.0.0.1:8080"
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+
+		if recorder.Code != http.StatusOK || recorder.Body.String() != body {
+			t.Fatalf("%s = %d %q", requestPath, recorder.Code, recorder.Body.String())
+		}
+		header := recorder.Header()
+		csp := header.Get("Content-Security-Policy")
+		for _, directive := range []string{"script-src 127.0.0.1:8080/plugin-ui/example-config-panel/;", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'self'"} {
+			if !strings.Contains(csp, directive) {
+				t.Fatalf("%s Content-Security-Policy = %q, missing %q", requestPath, csp, directive)
+			}
+		}
+		if header.Get("Cache-Control") != "no-store, max-age=0" || header.Get("X-Content-Type-Options") != "nosniff" {
+			t.Fatalf("%s headers = %#v", requestPath, header)
+		}
 	}
-	handler := handlers.IsolatedOriginHandler(http.NotFoundHandler(), options)
+}
 
-	request := httptest.NewRequest(http.MethodGet, origin+"/../bin/example-config-panel", nil)
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, request)
+func TestPluginUIAssetsRejectEscapesAndUnknownPlugins(t *testing.T) {
+	t.Parallel()
 
-	if recorder.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404", recorder.Code)
+	router := newPluginUIAssetRouter(t)
+	for _, requestPath := range []string{
+		"/plugin-ui/example-config-panel/../bin/example-config-panel",
+		"/plugin-ui/missing/index.html",
+		"/plugin-ui/example-config-panel/missing.js",
+	} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, requestPath, nil))
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("%s status = %d, want 404", requestPath, recorder.Code)
+		}
 	}
 }
 

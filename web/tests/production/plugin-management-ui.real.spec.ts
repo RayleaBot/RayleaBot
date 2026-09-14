@@ -26,16 +26,13 @@ test.beforeEach(async ({ request, server, baseURL }) => {
   expect(secrets.status()).toBe(200)
 })
 
-test('built plugin pages use the real Server port and complete the isolated handshake', async ({ page, request, baseURL }) => {
+test('built plugin pages load from the plugin path and call the management API directly', async ({ page, request }) => {
   await openPluginPage(page)
   const frame = page.getByTestId('plugin-management-ui-frame')
-  await expect(frame).toHaveAttribute('src', /^http:\/\/p-[a-f0-9]{16}\.plugins\.localhost:\d+\/index\.html\?/)
-  const frameURL = new URL((await frame.getAttribute('src'))!)
-  expect(frameURL.port).toBe(new URL(baseURL!).port)
-  const isolated = await request.get('/api/config', { headers: { Host: frameURL.host } })
-  expect(isolated.status()).toBe(404)
-  expect(isolated.headers()['set-cookie']).toBeUndefined()
-  expect(isolated.headers()['access-control-allow-origin']).toBeUndefined()
+  await expect(frame).toHaveAttribute('src', /^\/plugin-ui\/example-config-panel\/index\.html\?/)
+  const asset = await request.get('/plugin-ui/example-config-panel/index.html')
+  expect(asset.status()).toBe(200)
+  expect(asset.headers()['content-security-policy']).toContain('/plugin-ui/example-config-panel/')
   const plugin = page.frameLocator('[data-testid="plugin-management-ui-frame"]')
   await expect(plugin.getByTestId('settings-status')).toHaveText('配置已加载')
   await expect(plugin.getByTestId('default-city-input')).toHaveValue('上海')
@@ -52,7 +49,7 @@ test('built plugin pages use the real Server port and complete the isolated hand
 })
 
 test('a failed frame shows a contained recovery state and retry loads a new session', async ({ page }) => {
-  const frameURL = /\.plugins\.localhost:\d+\/index\.html/
+  const frameURL = /\/plugin-ui\/example-config-panel\/index\.html/
   await page.route(frameURL, (route) => route.abort())
   await openPluginPage(page)
   const recovery = page.getByRole('alert').filter({ hasText: '插件页面未打开' })

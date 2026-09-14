@@ -125,9 +125,6 @@
       "reconnect_multiplier": 2,
       "reconnect_max_seconds": 120,
       "reconnect_jitter_ratio": 0.2
-    },
-    "web": {
-      "plugin_ui_origin_template": ""
     }
   },
   "expect": {

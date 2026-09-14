@@ -609,9 +609,6 @@ func newPlanningConfigDocument() map[string]any {
 			"reconnect_jitter_ratio":    0.2,
 			"connect_timeout_seconds":   15,
 		},
-		"web": map[string]any{
-			"plugin_ui_origin_template": "",
-		},
 	}
 }
 

@@ -131,13 +131,6 @@
       "reconnect_max_seconds": 120,
       "reconnect_jitter_ratio": 0.2
     },
-    "web": {
-      "plugin_ui_origin_template": "",
-      "exposure_mode": "localhost_only",
-      "public_origin": "",
-      "setup_local_only": true,
-      "trusted_proxy_cidrs": []
-    },
     "obsolete_section": {
       "ignored": [
         null,

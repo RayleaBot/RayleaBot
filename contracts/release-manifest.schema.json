@@ -122,7 +122,6 @@
         "db_schema_version",
         "plugin_protocol_version",
         "plugin_manifest_version",
-        "plugin_ui_bridge_version",
         "artifacts",
         "release_notes_ref"
       ],
@@ -167,10 +166,6 @@
           "const": "4",
           "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
         },
-        "plugin_ui_bridge_version": {
-          "const": "3",
-          "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
-        },
         "artifacts": {
           "type": "array",
           "minItems": 1,
@@ -194,8 +189,7 @@
         "git_commit",
         "artifact_id",
         "built_at",
-        "plugin_manifest_version",
-        "plugin_ui_bridge_version"
+        "plugin_manifest_version"
       ],
       "properties": {
         "version": {
@@ -213,10 +207,6 @@
         },
         "plugin_manifest_version": {
           "const": "4",
-          "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
-        },
-        "plugin_ui_bridge_version": {
-          "const": "3",
           "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
         },
         "release_notes_ref": {

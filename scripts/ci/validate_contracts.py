@@ -61,7 +61,6 @@ REQUIRED_CONTRACT_FILES = {
     "plugin-info.schema.json",
     "plugin-artifact.schema.json",
     "plugin-management-ui.yaml",
-    "plugin-management-ui-bridge.schema.json",
     "plugin-protocol.schema.json",
     "plugin-store-catalog.schema.json",
     "release-manifest.schema.json",
@@ -513,19 +512,6 @@ def validate_error_fixtures(error_codes: dict[str, Any]) -> None:
         if document.get("contract") != "contracts/error-codes.yaml":
             fail(f"{path.relative_to(ROOT)}: error fixture must reference contracts/error-codes.yaml")
         require_fixture_outcome(path, fixture_expected_valid(path, document), error_fixture_errors(document, catalog))
-
-
-def validate_bridge_fixtures(registry: Registry) -> None:
-    contract_path = CONTRACTS / "plugin-management-ui-bridge.schema.json"
-    schema = require_object(load_json(contract_path), "management bridge schema")
-    Draft202012Validator.check_schema(schema)
-    for ref in schema.get("x-fixtures", []):
-        path = ROOT / ref
-        document = require_object(load_any(path), ref)
-        if document.get("contract") != contract_path.relative_to(ROOT).as_posix():
-            fail(f"{ref}: bridge fixture must reference its schema")
-        errors = schema_errors_at_pointer(contract_path, registry, "", document.get("input"))
-        require_fixture_outcome(path, fixture_expected_valid(path, document), errors)
 
 
 def pointer_escape(value: str) -> str:
@@ -1060,7 +1046,6 @@ def validate_contract_instances(web_api: dict[str, Any], websocket_events: dict[
     registry = build_contract_registry(contract_documents)
     validate_json_schema_fixtures()
     validate_plugin_protocol_fixtures()
-    validate_bridge_fixtures(registry)
     validate_error_fixtures(contract_documents[(CONTRACTS / "error-codes.yaml").resolve()])
     validate_openapi_fixtures(web_api, registry)
     validate_http_examples(web_api, registry)

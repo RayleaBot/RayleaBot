@@ -3,8 +3,8 @@ case: invalid
 description: Static route requests cannot escape the artifact UI root.
 request:
   method: GET
-  host: p-0123456789abcdef.plugins.localhost:8080
-  path: /../bin/example-config-panel
+  host: 127.0.0.1:8080
+  path: /plugin-ui/example-config-panel/../bin/example-config-panel
 response:
   status: 404
 expect:

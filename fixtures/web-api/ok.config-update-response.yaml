@@ -101,9 +101,6 @@ request:
       reconnect_multiplier: 2
       reconnect_max_seconds: 120
       reconnect_jitter_ratio: 0.2
-    web:
-
-      plugin_ui_origin_template: ""
 response:
   status: 200
   body:
@@ -206,9 +203,6 @@ response:
         reconnect_multiplier: 2
         reconnect_max_seconds: 120
         reconnect_jitter_ratio: 0.2
-      web:
-
-        plugin_ui_origin_template: ""
     redacted_fields:
       - adapters.onebot11.onebot11.forward_ws.access_token
       - adapters.onebot11.onebot11.http_api.access_token

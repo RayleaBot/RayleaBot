@@ -18,7 +18,6 @@
 - `plugin-artifact.schema.json`
 - `plugin-store-catalog.schema.json`
 - `plugin-management-ui.yaml`
-- `plugin-management-ui-bridge.schema.json`
 - `plugin-protocol.schema.json`
 - `release-manifest.schema.json`
 - `cli-commands.yaml`
@@ -67,12 +66,7 @@
   - 官方或自定义静态商店目录结构，固定当前版本、最低核心版本和可用平台的资产 URL 与归档摘要
   - 官方身份只能由默认官方来源和安装元数据授予，不能由插件 manifest、目录名或仓库名推断
 - `plugin-management-ui.yaml`
-  - 插件内置管理页的独立来源、只读静态资源、CSP、cookie、CORS 和管理 API 隔离边界
-  - 本机模式默认派生 `p-<id-hash>.plugins.localhost`；LAN 与反向代理模式要求显式配置 `web.plugin_ui_origin_template`
-- `plugin-management-ui-bridge.schema.json`
-  - Web 宿主页与插件内置 iframe 的 bridge v3 消息结构
-  - `page.ready` / `host.connect` 只用于校验窗口、来源和一次性 nonce 并转交一个 `MessagePort`，后续消息仅允许通过绑定端口
-  - secret 只暴露是否已配置，写操作仅支持覆盖与显式删除；`ui.resize` 的宿主有效范围为 320–1600px
+  - 插件内置管理页在管理面同源路径 `/plugin-ui/{plugin_id}/` 下的只读静态资源与 CSP 边界
 - `plugin-protocol.schema.json`
   - 插件 Runtime JSONL protocol v4
   - 当前固定 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`

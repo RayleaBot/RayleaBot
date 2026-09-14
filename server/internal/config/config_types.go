@@ -19,7 +19,6 @@ type Config struct {
 	User          UserConfig        `json:"user" yaml:"user"`
 	Group         GroupConfig       `json:"group" yaml:"group"`
 	Adapter       AdapterConfig     `json:"adapter" yaml:"adapter"`
-	Web           WebConfig         `json:"web" yaml:"web"`
 }
 
 type CommandConfig struct {
@@ -154,8 +153,4 @@ type RenderConfig struct {
 	QueueWaitTimeoutSeconds int      `json:"queue_wait_timeout_seconds" yaml:"queue_wait_timeout_seconds"`
 	QueueMaxLength          int      `json:"queue_max_length" yaml:"queue_max_length"`
 	FooterTemplate          string   `json:"footer_template" yaml:"footer_template"`
-}
-
-type WebConfig struct {
-	PluginUIOriginTemplate string `json:"plugin_ui_origin_template" yaml:"plugin_ui_origin_template"`
 }

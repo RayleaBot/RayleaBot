@@ -14,7 +14,6 @@
     "plugin_manifest_version",
     "plugin_protocol_version",
     "plugin_artifact_version",
-    "plugin_ui_bridge_version",
     "consistency",
     "directories"
   ],
@@ -75,7 +74,10 @@
     },
     "plugin_ui_bridge_version": {
       "type": "string",
-      "const": "3"
+      "enum": [
+        "3"
+      ],
+      "description": "Written only by archives created before the plugin management bridge was retired; restore accepts and ignores it."
     },
     "consistency": {
       "type": "string",

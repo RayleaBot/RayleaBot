@@ -24,9 +24,8 @@ type ScreenshotResponse struct {
 }
 
 type ManagementUIResponse struct {
-	OriginHost string                     `json:"origin_host"`
-	Entry      string                     `json:"entry"`
-	Pages      []ManagementUIPageResponse `json:"pages"`
+	Entry string                     `json:"entry"`
+	Pages []ManagementUIPageResponse `json:"pages"`
 }
 
 type ManagementUIPageResponse struct {
@@ -93,7 +92,7 @@ func buildPluginManagementUI(snapshot plugins.Snapshot) *ManagementUIResponse {
 		return nil
 	}
 
-	response := &ManagementUIResponse{Entry: strings.TrimSpace(snapshot.ManagementUI.Entry), OriginHost: pluginUIHost(snapshot.PluginID)}
+	response := &ManagementUIResponse{Entry: strings.TrimSpace(snapshot.ManagementUI.Entry)}
 	for _, page := range snapshot.ManagementUI.Pages {
 		pageID := strings.TrimSpace(page.ID)
 		pageLabel := strings.TrimSpace(page.Label)

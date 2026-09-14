@@ -93,11 +93,7 @@ func addUnknownConfigFields(t *testing.T, input map[string]any) {
 	t.Helper()
 	input["obsolete_section"] = map[string]any{"ignored": []any{nil, true, "unused"}}
 	input["server"].(map[string]any)["obsolete_port"] = nil
-	web := input["web"].(map[string]any)
-	web["exposure_mode"] = "localhost_only"
-	web["public_origin"] = ""
-	web["setup_local_only"] = true
-	web["trusted_proxy_cidrs"] = []any{}
+	input["web"] = map[string]any{"plugin_ui_origin_template": "", "exposure_mode": "localhost_only"}
 	adapter := input["adapters"].([]any)[0].(map[string]any)
 	adapter["obsolete_adapter_flag"] = true
 	planningOneBot(t, input)["reverse_ws"].(map[string]any)["obsolete_transport_option"] = map[string]any{"ignored": true}

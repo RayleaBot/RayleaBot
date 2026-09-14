@@ -3,8 +3,6 @@ package config
 import (
 	"fmt"
 	"net"
-	"net/url"
-	"slices"
 	"strings"
 )
 
@@ -32,26 +30,7 @@ func validateWebOptions(cfg Config) error {
 	if err := validateBindHost(cfg.Server.Host); err != nil {
 		return err
 	}
-	if template := strings.TrimSpace(cfg.Web.PluginUIOriginTemplate); template != "" {
-		if !strings.Contains(template, "{plugin_host}") {
-			return fmt.Errorf("web.plugin_ui_origin_template must contain {plugin_host}")
-		}
-		if !isStrictOrigin(strings.ReplaceAll(template, "{plugin_host}", "p-0123456789abcdef"), "http", "https") {
-			return fmt.Errorf("web.plugin_ui_origin_template must render to an HTTP(S) origin")
-		}
-	}
-
 	return nil
-}
-
-// isStrictOrigin reports whether raw is a bare origin (scheme and host only)
-// using one of the given schemes.
-func isStrictOrigin(raw string, schemes ...string) bool {
-	origin, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || origin.Host == "" || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
-		return false
-	}
-	return slices.Contains(schemes, origin.Scheme)
 }
 
 func validateBindHost(raw string) error {
