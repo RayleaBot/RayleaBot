@@ -38,7 +38,7 @@ SQLite 从 `server/internal/storage/schema.sql` 在事务内创建全新结构�
 
 - 服务端是正式状态来源，`healthz`、`readyz`、`setup/status`、`launcher/status` 和 `launcher/shutdown` 保持正式契约。
 - Launcher 通过受控进程编排启动 `raylea-server`，并直接调用本机 launcher surface。
-- `scripts/generate-launcher-api.py` 从 OpenAPI 的存活、就绪、系统状态与关闭响应生成 Go 模型及递归 schema 引用闭包。Go HTTP 边界验证必填、枚举、范围和未知字段后才生成 Wails 快照；Renderer 不再维护另一套服务响应校验。Launcher 的 OpenAPI TypeScript 产物只包含同一引用闭包，不进入运行时 bundle。
+- Launcher 与 Server 同包发布，版本一致。Go HTTP 边界限制响应大小，按手写结构解码并忽略未知字段；Renderer 使用 `launcher/src/shared/launcher-models.ts` 中对应的手写类型，不维护另一套服务响应校验。依赖清单由 Server 在准备资源前完整校验，Launcher 预检只检查自己读取的字段。
 - `desktop.Coordinator` 组装进程、设置、更新与监控；`startupGate` 独立持有启动许可、取消句柄和停止阻塞计数。快照组装与发布共享同一受保护状态，更新结果不会被一次较早的服务探测覆盖。
 - Launcher 快照分成两组数据：
   - `server`：`health`、`readiness`、`systemStatus`

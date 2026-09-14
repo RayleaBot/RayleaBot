@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -95,7 +96,7 @@ func inspectRuntimeManifest(root string) []EnvironmentCheckResult {
 	}
 
 	var manifest depsManifest
-	if validateManifestJSON(payload) != nil || json.Unmarshal(payload, &manifest) != nil {
+	if json.Unmarshal(payload, &manifest) != nil {
 		return []EnvironmentCheckResult{{
 			Scope: "preflight", Code: "deps.manifest_invalid", Title: "运行环境清单", Severity: "warning",
 			Summary: ".deps/manifest.json 内容无效。", Detail: fmt.Sprintf("检查路径：%s", manifestPath), Remediation: "请恢复 manifest_version 5 的运行环境清单。",
@@ -262,9 +263,32 @@ func findRuntimeTempRoots(parent, id, version string) []string {
 	return result
 }
 
+// resourceMetadataComplete checks the fields the preflight reads. The Server
+// validates the full manifest before it prepares a resource.
 func resourceMetadataComplete(resource depsResource) bool {
-	payload, err := json.Marshal(depsManifest{ManifestVersion: 5, Resources: []depsResource{resource}})
-	return err == nil && validateManifestJSON(payload) == nil
+	required := map[string][]string{"chromium": {"browser"}, "ffmpeg": {"ffmpeg", "ffprobe"}}[resource.Kind]
+	if _, err := hex.DecodeString(resource.SHA256); err != nil || len(resource.SHA256) != 64 {
+		return false
+	}
+	if resource.ID == "" || resource.Version == "" || resource.ArchiveFormat == "" || len(resource.Sources) == 0 || len(required) == 0 {
+		return false
+	}
+	for _, source := range resource.Sources {
+		if !strings.HasPrefix(source.URL, "https://") {
+			return false
+		}
+	}
+	for _, name := range required {
+		if len(resource.Entrypoints[name]) == 0 {
+			return false
+		}
+		for _, candidate := range resource.Entrypoints[name] {
+			if !validRelativeEntrypoint(candidate) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func validRelativeEntrypoint(value string) bool {

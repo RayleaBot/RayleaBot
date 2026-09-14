@@ -218,7 +218,6 @@ jobs:
         run: |
           python scripts/generate-error-codes.py --verify
           python scripts/generate-plugin-wire.py --verify
-          python scripts/generate-launcher-api.py --verify
           python scripts/ci/validate_contracts.py --mode=strict
 
   dependency-audit:

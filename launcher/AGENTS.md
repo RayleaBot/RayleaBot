@@ -12,7 +12,7 @@
 
 - 桌面桥以 Go service/model 为定义来源；变更后生成 Wails bindings，renderer 通过生成的 typed 接口调用，不手改生成文件。
 - `src/shared/` 可以保留前端校验与展示适配类型，不作为 Go 桥接定义的来源。
-- 服务端 API 类型由 `contracts/web-api.openapi.yaml` 生成至 `launcher/src/shared/web-api.generated.ts`，与 Wails 生成链分别跟随各自输入。
+- Launcher 读取的服务端响应结构在 Go desktop 层与 `launcher/src/shared/launcher-models.ts` 手写维护，只保留实际使用的字段；Wails 绑定由 `pnpm generate:wails` 生成。
 - 桥接输入有明确类型和校验，调用失败有明确错误路径，不吞异常或静默失败。
 
 ## State and Security

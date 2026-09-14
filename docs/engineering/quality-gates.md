@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | Server Go 代码 | `server/`：`go test ./<受影响包>/...`；装配或跨包流程变化时运行 `go test ./...` | 关键并发包 `-race`、golangci-lint（含 Windows 源码）、`govulncheck`、`server-windows` 回归 |
 | SQL 结构或查询 | `server/`：`sqlc generate`、`sqlc diff` 与受影响的存储测试 | — |
-| 契约、fixtures、examples | `python scripts/ci/validate_contracts.py --mode=strict`；按输入变化和实际依赖选择受影响的生成器：`node scripts/generate-runtime-schemas.mjs --verify`、`python scripts/generate-error-codes.py --verify`、`python scripts/generate-plugin-wire.py --verify`、`python scripts/generate-launcher-api.py --verify`；需要重新生成时去掉对应命令的 `--verify` | OpenAPI 或 WebSocket 变化时，Web 与 Launcher 的 `pnpm generate:types` 漂移检查 |
+| 契约、fixtures、examples | `python scripts/ci/validate_contracts.py --mode=strict`；按输入变化和实际依赖选择受影响的生成器：`node scripts/generate-runtime-schemas.mjs --verify`、`python scripts/generate-error-codes.py --verify`、`python scripts/generate-plugin-wire.py --verify`；需要重新生成时去掉对应命令的 `--verify` | OpenAPI 或 WebSocket 变化时，Web 的 `pnpm generate:types` 漂移检查 |
 | Web 代码 | `web/`：`pnpm run typecheck`、`pnpm test <受影响测试文件>`；构建配置变化时运行 `pnpm build` | `pnpm run check:indent`、完整 `pnpm test`、Playwright E2E |
 | Launcher renderer 代码 | `launcher/`：`pnpm exec tsc -p tsconfig.renderer.json --noEmit`、`node ../scripts/run-vitest.mjs run <受影响测试文件>` | 组合 `pnpm run typecheck` / `pnpm test`、`pnpm build`、Renderer E2E |
 | Launcher Go host / bridge | `launcher/`：`node scripts/run-go.mjs vet:platform ./<受影响包>/...`、`node scripts/run-go.mjs test:platform ./<受影响包>/...`；桥接定义变化时运行 `pnpm generate:wails` 和 renderer 类型检查 | 全量 Go vet/test、Wails bindings 漂移、`pnpm build` 与真实系统集成 |

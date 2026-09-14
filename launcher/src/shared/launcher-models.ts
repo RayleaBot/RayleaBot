@@ -1,5 +1,4 @@
 import type * as desktop from "../renderer/bindings/github.com/RayleaBot/RayleaBot/launcher/internal/desktop/models";
-import type { components } from "./web-api.generated";
 
 // Renderer objects use the string values of generated Go enums. Exclude Go's
 // zero enum value, which is not a usable UI state.
@@ -23,13 +22,43 @@ export type ReleaseCheckSnapshot = JsonModel<desktop.ReleaseCheckSnapshot>;
 export type RuntimePrepareResourceProgress = JsonModel<desktop.RuntimePrepareResourceProgress>;
 export type RuntimePrepareSnapshot = PresentSlices<JsonModel<desktop.RuntimePrepareSnapshot>>;
 
-export type LivenessStatusResponse = components["schemas"]["LivenessStatusResponse"];
-export type LauncherDiagnosticIssue = components["schemas"]["DiagnosticIssue"];
-export type LauncherReadinessSnapshot = components["schemas"]["ReadinessStatusResponse"];
-export type LauncherSystemStatusSnapshot = components["schemas"]["SystemStatusResponse"];
+// Server responses decoded by the Go desktop layer, which drops unknown fields.
+// These types list the values the renderer handles.
+export type LivenessStatusResponse = { status: "ok" };
+export type LauncherDiagnosticIssue = {
+  code: string;
+  severity: "ok" | "warning" | "error";
+  summary: string;
+  user_message?: string;
+  remediation?: string;
+  internal_reason?: string;
+  runtime_resources?: ("chromium" | "ffmpeg")[];
+};
+export type LauncherReadinessSnapshot = {
+  status: "ready" | "degraded" | "setup_required" | "failed";
+  reason?: string;
+  reason_codes?: string[];
+  checks?: { config?: string; database?: string; runtime?: string; render?: string };
+  issues?: LauncherDiagnosticIssue[];
+};
+export type LauncherAdapterStatus = {
+  id: string;
+  protocol: "onebot11" | "qqofficial";
+  enabled: boolean;
+  state: "idle" | "listening" | "connecting" | "connected" | "auth_failed" | "reconnecting" | "stopped";
+};
+export type LauncherSystemStatusSnapshot = {
+  status: "running" | "shutting_down";
+  adapters: LauncherAdapterStatus[];
+  active_plugins?: number;
+  running_plugins?: number;
+  failed_plugins?: number;
+  db_schema_version?: string;
+  uptime_seconds?: number;
+  health?: LauncherReadinessSnapshot;
+};
 
-// The host validates these server payloads against OpenAPI before publishing.
-// Retain the formal HTTP types across Wails' broader pointer/enum representation.
+// Retain these types across Wails' broader pointer/enum representation.
 export type LauncherServerSnapshot = Omit<desktop.LauncherServerSnapshot, "health" | "readiness" | "systemStatus"> & {
   health: LivenessStatusResponse | null;
   readiness: LauncherReadinessSnapshot | null;

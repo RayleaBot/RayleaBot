@@ -14,48 +14,34 @@ import (
 	"testing"
 )
 
-func TestManagementRejectsInvalidContractAtHTTPBoundary(t *testing.T) {
-	cases := []struct{ name, path, payload string }{
-		{"missing status", "/readyz", `{}`},
-		{"empty status", "/readyz", `{"status":""}`},
-		{"invalid readiness enum", "/readyz", `{"status":"future"}`},
-		{"null response", "/readyz", `null`},
-		{"unknown property", "/readyz", `{"status":"ready","legacy":true}`},
-		{"invalid nested severity", "/readyz", `{"status":"degraded","issues":[{"code":"x","severity":"fatal","summary":"x"}]}`},
-		{"empty runtime resources", "/readyz", `{"status":"degraded","issues":[{"code":"x","severity":"error","summary":"x","runtime_resources":[]}]}`},
-		{"multiple JSON values", "/readyz", `{"status":"ready"}{}`},
-		{"missing adapters", "/api/launcher/status", `{"status":"running"}`},
-		{"negative count", "/api/launcher/status", `{"status":"running","adapters":[],"active_plugins":-1}`},
-		{"fractional count", "/api/launcher/status", `{"status":"running","adapters":[],"active_plugins":0.5}`},
-		{"unknown adapter state", "/api/launcher/status", `{"status":"running","adapters":[{"id":"a","protocol":"onebot11","enabled":true,"state":"future"}]}`},
+func TestManagementDecodesServerResponsesLeniently(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/readyz" {
+			fmt.Fprint(w, `{"status":"future","legacy":true,"issues":[{"code":"x","severity":"fatal","summary":"x"}]}`)
+			return
+		}
+		fmt.Fprint(w, `{"status":"running","adapters":[{"id":"a","protocol":"future","enabled":true,"state":"future"}],"new_field":1}`)
+	}))
+	defer server.Close()
+	client := NewManagementClient(func() string { return "fixture" })
+	endpoint := ServerEndpoint{BaseURL: server.URL + "/"}
+	readiness, err := client.GetReadiness(context.Background(), endpoint)
+	if err != nil || readiness.Status != "future" || readiness.Issues[0].Severity != "fatal" {
+		t.Fatalf("readiness = %#v, %v", readiness, err)
 	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, c.payload) }))
-			defer server.Close()
-			client := NewManagementClient(func() string { return "fixture" })
-			endpoint := ServerEndpoint{BaseURL: server.URL + "/"}
-			var err error
-			if c.path == "/readyz" {
-				_, err = client.GetReadiness(context.Background(), endpoint)
-			} else {
-				_, err = client.GetLauncherStatus(context.Background(), endpoint)
-			}
-			var boundary *BoundaryError
-			if !errors.As(err, &boundary) || boundary.Code != "launcher.invalid_server_response" {
-				t.Fatalf("invalid response escaped: %v", err)
-			}
-		})
+	status, err := client.GetLauncherStatus(context.Background(), endpoint)
+	if err != nil || status.Adapters[0].State != "future" {
+		t.Fatalf("status = %#v, %v", status, err)
 	}
 }
 
 func TestManagementRetainsOpenDisplayCodeAndBoundsResponse(t *testing.T) {
 	payload := `{"status":"degraded","issues":[{"code":"future.display_diagnostic","severity":"warning","summary":"future diagnostic"}]}`
-	value, err := decodeServerResponse[ServerReadinessStatusResponse](strings.NewReader(payload), "ReadinessStatusResponse")
+	value, err := decodeServerResponse[ServerReadinessStatusResponse](strings.NewReader(payload))
 	if err != nil || value.Issues[0].Code != "future.display_diagnostic" {
 		t.Fatalf("open display code rejected: %#v %v", value, err)
 	}
-	_, err = decodeServerResponse[ServerReadinessStatusResponse](strings.NewReader(strings.Repeat(" ", maxManagementResponseBytes+1)), "ReadinessStatusResponse")
+	_, err = decodeServerResponse[ServerReadinessStatusResponse](strings.NewReader(strings.Repeat(" ", maxManagementResponseBytes+1)))
 	var boundary *BoundaryError
 	if !errors.As(err, &boundary) || boundary.Code != "launcher.response_too_large" {
 		t.Fatalf("oversize response accepted: %v", err)

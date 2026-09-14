@@ -88,7 +88,6 @@ jobs:
           node scripts/generate-runtime-schemas.mjs --verify
           python scripts/generate-error-codes.py --verify
           python scripts/generate-plugin-wire.py --verify
-          python scripts/generate-launcher-api.py --verify
           python scripts/ci/validate_contracts.py --self-test
           python scripts/ci/validate_contracts.py --mode=strict
 
@@ -345,13 +344,11 @@ jobs:
         working-directory: launcher
         run: pnpm audit --prod --audit-level=high --registry=https://registry.npmjs.org
 
-      - name: Check generated types drift
+      - name: Check Wails bindings drift
         working-directory: launcher
         run: |
-          python ../scripts/generate-launcher-api.py --verify
-          pnpm generate:types
           pnpm generate:wails
-          git diff --exit-code src/shared/web-api.generated.ts src/renderer/bindings
+          git diff --exit-code src/renderer/bindings
           untracked_bindings="$(git ls-files --others -- src/renderer/bindings)"
           if [ -n "$untracked_bindings" ]; then
             printf 'Untracked Wails bindings:\n%s\n' "$untracked_bindings"

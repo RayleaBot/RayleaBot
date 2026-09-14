@@ -119,3 +119,28 @@ func TestPassiveWorkdirInspectionDoesNotRecreateMissingDirectory(t *testing.T) {
 		t.Fatalf("passive workdir inspection changed the missing path: %v", err)
 	}
 }
+
+func TestResourceMetadataCompleteRequiresPreflightFields(t *testing.T) {
+	build := func() depsResource {
+		return depsResource{
+			ID: "ffmpeg", Kind: "ffmpeg", Version: "7.1", ArchiveFormat: "zip", SHA256: strings.Repeat("a", 64),
+			Sources:     []depsResourceSource{{Kind: "upstream", URL: "https://example.invalid/ffmpeg.zip"}},
+			Entrypoints: map[string][]string{"ffmpeg": {"bin/ffmpeg"}, "ffprobe": {"bin/ffprobe"}},
+		}
+	}
+	if !resourceMetadataComplete(build()) {
+		t.Fatal("complete resource rejected")
+	}
+	for name, mutate := range map[string]func(*depsResource){
+		"missing ffprobe":   func(r *depsResource) { delete(r.Entrypoints, "ffprobe") },
+		"unsafe entrypoint": func(r *depsResource) { r.Entrypoints["ffmpeg"] = []string{"../ffmpeg"} },
+		"plain http source": func(r *depsResource) { r.Sources[0].URL = "http://example.invalid/ffmpeg.zip" },
+		"short digest":      func(r *depsResource) { r.SHA256 = "abc" },
+	} {
+		resource := build()
+		mutate(&resource)
+		if resourceMetadataComplete(resource) {
+			t.Errorf("%s accepted", name)
+		}
+	}
+}

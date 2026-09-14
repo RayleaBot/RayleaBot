@@ -79,7 +79,7 @@ func (m *ManagementClient) IsHealthy(ctx context.Context, endpoint ServerEndpoin
 	if response.StatusCode != http.StatusOK {
 		return false
 	}
-	_, err = decodeServerResponse[ServerLivenessStatusResponse](response.Body, "LivenessStatusResponse")
+	_, err = decodeServerResponse[ServerLivenessStatusResponse](response.Body)
 	return err == nil
 }
 
@@ -92,7 +92,7 @@ func (m *ManagementClient) GetReadiness(ctx context.Context, endpoint ServerEndp
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusServiceUnavailable {
 		return nil, responseError(response)
 	}
-	return decodeServerResponse[ServerReadinessStatusResponse](response.Body, "ReadinessStatusResponse")
+	return decodeServerResponse[ServerReadinessStatusResponse](response.Body)
 }
 
 func (m *ManagementClient) GetLauncherStatus(ctx context.Context, endpoint ServerEndpoint) (*ServerSystemStatusResponse, error) {
@@ -104,7 +104,7 @@ func (m *ManagementClient) GetLauncherStatus(ctx context.Context, endpoint Serve
 	if response.StatusCode != http.StatusOK {
 		return nil, responseError(response)
 	}
-	return decodeServerResponse[ServerSystemStatusResponse](response.Body, "SystemStatusResponse")
+	return decodeServerResponse[ServerSystemStatusResponse](response.Body)
 }
 
 func (m *ManagementClient) Shutdown(ctx context.Context, endpoint ServerEndpoint) error {
@@ -116,7 +116,7 @@ func (m *ManagementClient) Shutdown(ctx context.Context, endpoint ServerEndpoint
 	if response.StatusCode != http.StatusAccepted {
 		return responseError(response)
 	}
-	payload, err := decodeServerResponse[ServerSystemShutdownResponse](response.Body, "SystemShutdownResponse")
+	payload, err := decodeServerResponse[ServerSystemShutdownResponse](response.Body)
 	if err != nil {
 		return err
 	}
