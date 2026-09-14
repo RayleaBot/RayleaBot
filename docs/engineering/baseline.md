@@ -139,7 +139,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 | `docs/engineering/` | 工程基线、CI、实施顺序、治理规则 |
 | `docs/architecture/` | 架构、状态模型、事件模型、边界说明 |
 | `docs/dev/` | 开发、调试、诊断、贡献流程 |
-| `docs/plugin/` | 插件 manifest、permissions、协议、生命周期 |
+| `docs/plugin/` | 插件 manifest、协议、生命周期 |
 | `docs/plugin/sdk/` | Go 插件 SDK、构建器与 Vue 管理页 SDK 说明 |
 | `docs/user/` | 用户安装、初始化、配置、运行、恢复 |
 | `docs/release/` | 版本说明、迁移说明、已知问题 |

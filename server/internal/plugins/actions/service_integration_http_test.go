@@ -14,7 +14,7 @@ import (
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 )
 
-func TestExecuteHTTPRequestUsesPermissionedScopeAndReturnsText(t *testing.T) {
+func TestExecuteHTTPRequestReturnsText(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -38,11 +38,6 @@ func TestExecuteHTTPRequestUsesPermissionedScopeAndReturnsText(t *testing.T) {
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &stubPermissionView{
-		permissions: map[string]map[string]bool{
-			"scope-cache": {"http.request": true},
-		},
-	}
 	application := localaction.New(deps)
 
 	result, err := application.Execute(context.Background(), "scope-cache", "req_http_1", plugins.Action{
@@ -77,11 +72,6 @@ func TestExecuteHTTPRequestRejectsPrivateHost(t *testing.T) {
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &stubPermissionView{
-		permissions: map[string]map[string]bool{
-			"scope-cache": {"http.request": true},
-		},
-	}
 	application := localaction.New(deps)
 
 	_, err := application.Execute(context.Background(), "scope-cache", "req_http_2", plugins.Action{

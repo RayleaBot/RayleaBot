@@ -2,7 +2,7 @@
   "id": "example-http-storage",
   "name": "Example HTTP Storage",
   "version": "0.2.0",
-  "manifest_version": "3",
+  "manifest_version": "4",
   "concurrency": 2,
   "license": "MIT",
   "default_config": {
@@ -24,7 +24,7 @@
       }
     }
   ],
-  "min_core_version": "0.4.0",
+  "min_core_version": "0.7.0",
   "metadata": {
     "description": "Go example plugin demonstrating HTTP requests and implicit private file storage.",
     "author": "raylea"
@@ -32,8 +32,5 @@
   "events": [
     "message.group",
     "message.private"
-  ],
-  "permissions": {
-    "http.request": true
-  }
+  ]
 }

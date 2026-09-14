@@ -47,7 +47,7 @@ func TestManagerStartInitAckSuccess(t *testing.T) {
 	if !ok || len(superAdmins) != 2 || superAdmins[0] != "9001" || superAdmins[1] != "9002" {
 		t.Fatalf("unexpected init super_admins: %#v", frames[0]["super_admins"])
 	}
-	if frames[0]["protocol_version"] != "3" || frames[0]["plugin_id"] != "helper-plugin" || frames[0]["concurrency"] != float64(1) {
+	if frames[0]["protocol_version"] != "4" || frames[0]["plugin_id"] != "helper-plugin" || frames[0]["concurrency"] != float64(1) {
 		t.Fatalf("unexpected init identity/concurrency: %#v", frames[0])
 	}
 	if config, ok := frames[0]["config"].(map[string]any); !ok || config["enabled"] != true {
@@ -601,7 +601,7 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 			if action.Kind != "logger.write" {
 				t.Fatalf("unexpected local action: %#v", action)
 			}
-			return nil, errorf("plugin.permission_denied", "permission not declared", nil)
+			return nil, errorf("platform.resource_missing", "resource missing", nil)
 		},
 	})
 	spec := helperSpec(t, "event-local-action-error-then-result", "")
@@ -614,8 +614,8 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("deliver event: %v", err)
 	}
-	if got, _ := delivery.Result["local_error_code"].(string); got != "plugin.permission_denied" {
-		t.Fatalf("local_error_code = %q, want %q", got, "plugin.permission_denied")
+	if got, _ := delivery.Result["local_error_code"].(string); got != "platform.resource_missing" {
+		t.Fatalf("local_error_code = %q, want %q", got, "platform.resource_missing")
 	}
 	assertRuntimeRunningWithoutCrash(t, manager, crashCh)
 
@@ -650,11 +650,11 @@ func TestManagerDeliverEventWritesLocalActionErrorDetailsAndContinues(t *testing
 				t.Fatalf("unexpected local action: %#v", action)
 			}
 			return nil, &plugins.Error{
-				Code:    "plugin.permission_denied",
-				Message: "permission not declared",
+				Code:    "platform.resource_missing",
+				Message: "resource missing",
 				Details: map[string]any{
-					"missing_permission": "logger.write",
-					"scope":              "management.logs:write",
+					"resource": "logger.write",
+					"scope":    "management.logs:write",
 				},
 			}
 		},
@@ -673,7 +673,7 @@ func TestManagerDeliverEventWritesLocalActionErrorDetailsAndContinues(t *testing
 	if !ok {
 		t.Fatalf("expected local_error_details map, got %#v", delivery.Result["local_error_details"])
 	}
-	if details["missing_permission"] != "logger.write" {
+	if details["resource"] != "logger.write" {
 		t.Fatalf("unexpected local error details: %#v", details)
 	}
 

@@ -21,12 +21,6 @@ input:
       http_status: 504
       retryable: true
       applies_to: [http, websocket, task]
-    - code: plugin.permission_denied
-      message: 插件访问未声明权限
-      description: The plugin requested an elevated action that is absent from manifest permissions or outside its declared permission scope.
-      http_status: 403
-      retryable: false
-      applies_to: [http, websocket, plugin_protocol, task]
     - code: plugin.core_version_incompatible
       message: 插件与当前 RayleaBot 版本不兼容
       description: The plugin min_core_version is newer than the running RayleaBot core version. Every installation source applies this admission check.

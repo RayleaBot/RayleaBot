@@ -34,7 +34,7 @@ func requireActionCode(t *testing.T, err error, want string) {
 	}
 }
 
-func TestBrowserActionErrorsAndPermissions(t *testing.T) {
+func TestBrowserActionErrors(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"browser.launch", "browser.close"} {
 		for _, tc := range []struct {
@@ -48,14 +48,11 @@ func TestBrowserActionErrorsAndPermissions(t *testing.T) {
 			{"cleanup failure", errors.New("fixture cleanup failure"), errorcodes.PluginInternalError},
 		} {
 			t.Run(kind+"/"+tc.name, func(t *testing.T) {
-				service := actions.New(actions.Deps{Permissions: permissionViewFor("fixture", kind), Browser: browserStub{tc.err}})
+				service := actions.New(actions.Deps{Browser: browserStub{tc.err}})
 				_, err := service.Execute(t.Context(), "fixture", "request", plugins.Action{Kind: kind}, chatevent.Event{})
 				requireActionCode(t, err, tc.code)
 			})
 		}
-		service := actions.New(actions.Deps{Browser: browserStub{}})
-		_, err := service.Execute(t.Context(), "fixture", "request", plugins.Action{Kind: kind}, chatevent.Event{})
-		requireActionCode(t, err, errorcodes.PluginPermissionDenied)
 	}
 }
 
@@ -79,7 +76,7 @@ func TestSecretMutationsKeepNamespacesAndReturnChangedKeys(t *testing.T) {
 	if _, err := service.SetSecrets(t.Context(), "other", map[string]string{"a": "other-fixture"}); err != nil {
 		t.Fatal(err)
 	}
-	host := actions.New(actions.Deps{Permissions: permissionViewFor("fixture", "secret.write", "secret.delete"), Settings: service})
+	host := actions.New(actions.Deps{Settings: service})
 	for _, action := range []plugins.Action{
 		{Kind: "secret.write", SecretValues: map[string]string{"z": "fixture-z", "a": "fixture-a"}},
 		{Kind: "secret.delete", SecretKeys: []string{"z", "a"}},
@@ -102,10 +99,6 @@ func TestSecretMutationsKeepNamespacesAndReturnChangedKeys(t *testing.T) {
 		_, err := host.Execute(t.Context(), "fixture", "request", action, chatevent.Event{})
 		requireActionCode(t, err, errorcodes.PluginProtocolViolation)
 	}
-	for _, kind := range []string{"secret.write", "secret.delete"} {
-		_, err := host.Execute(t.Context(), "other", "request", plugins.Action{Kind: kind}, chatevent.Event{})
-		requireActionCode(t, err, errorcodes.PluginPermissionDenied)
-	}
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +113,7 @@ func TestBrowserActionLifetimeUsesRuntimeOwner(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	host := actions.New(actions.Deps{Permissions: permissionViewFor("fixture", "browser.launch"), Browser: manager})
+	host := actions.New(actions.Deps{Browser: manager})
 	owner := make(chan struct{})
 	event, cancel := context.WithCancel(t.Context())
 	action := plugins.Action{Kind: "browser.launch", BrowserProfile: "login", BrowserMode: browser.ModeRemoteCDP, BrowserRemoteDebuggingURL: "ws://127.0.0.1/devtools/browser/fixture"}

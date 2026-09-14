@@ -23,9 +23,6 @@ func renderImageRegistrar() registrar {
 }
 
 func executeRenderImage(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "render.image") {
-		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: "render.image permission is not declared"}
-	}
 	if deps.Renderer == nil {
 		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "render.image service is not available"}
 	}
@@ -48,7 +45,7 @@ func executeRenderImage(ctx context.Context, deps Deps, req ActionRequest) (map[
 		Output:    req.Action.RenderOutput,
 		Data:      renderImageData(ctx, deps, req, templateID),
 		Resources: resources,
-		Plugin:    renderPluginContext(req.PluginID, deps.Permissions),
+		Plugin:    renderPluginContext(req.PluginID, deps.Plugins),
 	})
 	if err != nil {
 		logRenderImageFailure(deps, req, "render", templateID, err)
@@ -71,7 +68,7 @@ func renderImageActionError(err error) *plugins.Error {
 
 	code := renderErr.Code
 	switch code {
-	case errorcodes.PluginPermissionDenied,
+	case errorcodes.PluginProtocolViolation,
 		errorcodes.PlatformRenderQueueFull,
 		errorcodes.PlatformRenderTimeout,
 		errorcodes.PlatformRenderInputTooLarge,
@@ -153,14 +150,12 @@ func currentConfig(deps Deps) config.Config {
 	return deps.CurrentConfig()
 }
 
-func renderPluginContext(pluginID string, permissions interface {
-	ListPluginSnapshots() []plugins.Snapshot
-}) RenderPluginContext {
+func renderPluginContext(pluginID string, catalog PluginCatalog) RenderPluginContext {
 	context := RenderPluginContext{Name: strings.TrimSpace(pluginID)}
-	if permissions == nil {
+	if catalog == nil {
 		return context
 	}
-	for _, snapshot := range permissions.ListPluginSnapshots() {
+	for _, snapshot := range catalog.List() {
 		if snapshot.PluginID != pluginID {
 			continue
 		}

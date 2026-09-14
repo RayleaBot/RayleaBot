@@ -149,17 +149,16 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 	stopInitPipe := context.AfterFunc(initCtx, func() { _ = handle.Stdin.Close() })
 	defer stopInitPipe()
 	if err := handle.WriteJSONLine(pluginwire.InitFrame{
-		Timezone:             payload.Timezone,
-		ProtocolVersion:      pluginwire.ProtocolVersion,
-		Type:                 "init",
-		PluginID:             spec.PluginID,
-		RequestID:            requestID,
-		Bots:                 bots,
-		Config:               initConfig,
-		EffectivePermissions: append([]string{}, payload.Permissions...),
-		SuperAdmins:          append([]string{}, payload.SuperAdmins...),
-		CommandPrefixes:      append([]string(nil), payload.CommandPrefixes...),
-		Concurrency:          spec.EffectiveConcurrency,
+		Timezone:        payload.Timezone,
+		ProtocolVersion: pluginwire.ProtocolVersion,
+		Type:            "init",
+		PluginID:        spec.PluginID,
+		RequestID:       requestID,
+		Bots:            bots,
+		Config:          initConfig,
+		SuperAdmins:     append([]string{}, payload.SuperAdmins...),
+		CommandPrefixes: append([]string(nil), payload.CommandPrefixes...),
+		Concurrency:     spec.EffectiveConcurrency,
 	}); err != nil {
 		if initCtx.Err() != nil {
 			m.cleanupFailedStart(handle, codePluginInitTimeout, "plugin initialization timed out", initCtx.Err())

@@ -2,7 +2,7 @@
   "id": "echo-go",
   "name": "Echo",
   "version": "0.2.0",
-  "manifest_version": "3",
+  "manifest_version": "4",
   "license": "MIT",
   "commands": [
     {
@@ -20,7 +20,7 @@
       }
     }
   ],
-  "min_core_version": "0.4.0",
+  "min_core_version": "0.7.0",
   "metadata": {
     "description": "Echo plugin demonstrating command parsing and message segments",
     "author": "raylea"
@@ -28,8 +28,5 @@
   "events": [
     "message.group",
     "message.private"
-  ],
-  "permissions": {
-    "message.send": true
-  }
+  ]
 }

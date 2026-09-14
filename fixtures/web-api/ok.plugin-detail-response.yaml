@@ -20,10 +20,6 @@ response:
       events:
         - message.group
         - message.private
-      permissions:
-        http.request: true
-        render.image: true
-        message.send: true
       webhooks: []
       icon: assets/weather.svg
       repo: https://github.com/RayleaBot/plugins-weather

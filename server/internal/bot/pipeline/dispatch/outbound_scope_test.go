@@ -25,7 +25,6 @@ func TestOutboundAdmissionDoesNotRerouteAfterAdapterSwitch(t *testing.T) {
 	router := outbound.NewRouter(map[string]outbound.ActionSender{"a": first, "b": second}, map[string]string{"a": "qqofficial", "b": "qqofficial"}, func() config.Config { return cfg })
 	d := New(slog.Default(), router, nil, 1)
 	t.Cleanup(d.Close)
-	allowAllPermissions(d)
 	d.SetOutboundPolicy(outboundPolicyFunc(func(context.Context, outbound.MessageLimitRequest) (outbound.MessageAdmission, error) {
 		// Simulate a configuration change while quota admission was waiting.
 		cfg.Adapters[0].Enabled, cfg.Adapters[1].Enabled = false, true

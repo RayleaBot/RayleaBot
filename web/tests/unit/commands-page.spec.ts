@@ -117,7 +117,7 @@ describe('CommandsPage', () => {
     const later = makePlugin('later-command')
     governance.commandPolicy.commands = [{ plugin_id: later.id, plugin_name: later.name, command_id: later.id, command: later.id, aliases: [], trigger: { type: 'exact', names: [later.id] }, declared_permission: 'everyone', effective_permission: 'everyone', permission_source: 'declared' }]
     vi.mocked(apiRequest).mockImplementation(async path => {
-      if (path === '/api/plugins/later-command') return { plugin: { ...later, permissions: {}, webhooks: [] } } as never
+      if (path === '/api/plugins/later-command') return { plugin: { ...later, webhooks: [] } } as never
       if (path.includes('cursor=1')) return { items: [later], total: 2 } as never
       return { items: [first], total: 2, next_cursor: '1' } as never
     })

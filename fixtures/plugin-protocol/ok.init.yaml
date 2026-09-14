@@ -1,15 +1,13 @@
 contract: contracts/plugin-protocol.schema.json
 case: ok
 frames:
-- protocol_version: '3'
+- protocol_version: '4'
   plugin_id: raylea.echo
   type: init
   timezone: Asia/Shanghai
   request_id: init-1
   config:
     prefix: echo
-  effective_permissions:
-  - message.send
   super_admins:
   - '10001'
   command_prefixes:

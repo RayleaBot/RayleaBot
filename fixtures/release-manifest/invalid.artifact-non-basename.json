@@ -11,7 +11,7 @@
     "published_at": "2026-03-17T10:00:00Z",
     "config_schema_version": "3",
     "db_schema_version": "000001",
-    "plugin_protocol_version": "3",
+    "plugin_protocol_version": "4",
     "artifacts": [
       {
         "artifact_id": "windows-x64-full",
@@ -27,7 +27,7 @@
       }
     ],
     "release_notes_ref": "https://example.com/releases/v0.1.0",
-    "plugin_manifest_version": "3",
+    "plugin_manifest_version": "4",
     "plugin_ui_bridge_version": "3"
   },
   "expect": {

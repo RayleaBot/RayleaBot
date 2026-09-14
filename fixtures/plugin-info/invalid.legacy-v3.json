@@ -2,14 +2,18 @@
   "contract": "contracts/plugin-info.schema.json",
   "case": "invalid",
   "input": {
-    "id": "hello-native",
-    "name": "Hello Native",
+    "id": "legacy-native",
+    "name": "Legacy Native",
     "version": "1.0.0",
-    "manifest_version": "4",
+    "manifest_version": "3",
     "license": "MIT",
     "min_core_version": "0.5.0",
-    "events": [],
-    "priority": 1
+    "events": [
+      "message.group"
+    ],
+    "permissions": {
+      "message.send": true
+    }
   },
   "expect": {
     "valid": false

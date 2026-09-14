@@ -33,7 +33,6 @@ type runtimeState struct {
 	cancel          context.CancelFunc
 	botMu           sync.RWMutex
 	bots            []Bot
-	permissions     []string
 	superAdmins     []string
 	commandPrefixes []string
 	config          atomic.Pointer[configSnapshot]
@@ -52,7 +51,6 @@ type EventContext struct {
 	Bot             Bot
 	Bots            []Bot
 	Config          map[string]any
-	Permissions     []string
 	SuperAdmins     []string
 	CommandPrefixes []string
 
@@ -201,7 +199,6 @@ func (state *runtimeState) captureInit(frame protocolFrame) {
 	defer state.botMu.Unlock()
 	state.bots = append([]Bot{}, (*frame.Bots)...)
 	state.pluginID = strings.TrimSpace(frame.PluginID)
-	state.permissions = append([]string(nil), frame.EffectivePermissions...)
 	state.superAdmins = append([]string(nil), frame.SuperAdmins...)
 	state.commandPrefixes = append([]string(nil), frame.CommandPrefixes...)
 	if len(state.commandPrefixes) == 0 {
@@ -371,7 +368,6 @@ func (state *runtimeState) newEventContext(requestID string, event Event) *Event
 		Bot:             botForEvent(state.bots, event),
 		Bots:            append([]Bot{}, state.bots...),
 		Config:          cloneConfig(state.config.Load().values),
-		Permissions:     append([]string(nil), state.permissions...),
 		SuperAdmins:     append([]string(nil), state.superAdmins...),
 		CommandPrefixes: append([]string(nil), state.commandPrefixes...),
 		client:          state.client,

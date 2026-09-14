@@ -62,7 +62,6 @@ const (
 	PluginNotRecoverable                       = "plugin.not_recoverable"
 	PluginPackageResourceLimitExceeded         = "plugin.package_resource_limit_exceeded"
 	PluginPackageUnsafeEntry                   = "plugin.package_unsafe_entry"
-	PluginPermissionDenied                     = "plugin.permission_denied"
 	PluginPlatformMismatch                     = "plugin.platform_mismatch"
 	PluginProtocolViolation                    = "plugin.protocol_violation"
 	PluginSessionConflict                      = "plugin.session_conflict"
@@ -164,7 +163,6 @@ var catalog = map[string]Definition{
 	PluginNotRecoverable:                      {Code: PluginNotRecoverable, HTTPStatus: 409, Message: "插件当前不可恢复", Retryable: false, Surfaces: "http"},
 	PluginPackageResourceLimitExceeded:        {Code: PluginPackageResourceLimitExceeded, HTTPStatus: 413, Message: "插件包超过资源限制", Retryable: false, Surfaces: "http,task"},
 	PluginPackageUnsafeEntry:                  {Code: PluginPackageUnsafeEntry, HTTPStatus: 400, Message: "插件包包含不安全文件", Retryable: false, Surfaces: "http,task"},
-	PluginPermissionDenied:                    {Code: PluginPermissionDenied, HTTPStatus: 403, Message: "插件访问未声明权限", Retryable: false, Surfaces: "http,websocket,plugin_protocol,task"},
 	PluginPlatformMismatch:                    {Code: PluginPlatformMismatch, HTTPStatus: 409, Message: "插件产物与当前平台不匹配", Retryable: false, Surfaces: "http,task,readiness"},
 	PluginProtocolViolation:                   {Code: PluginProtocolViolation, HTTPStatus: 0, Message: "插件协议违规", Retryable: false, Surfaces: "plugin_protocol,websocket,task"},
 	PluginSessionConflict:                     {Code: PluginSessionConflict, HTTPStatus: 0, Message: "当前作用域已有对话，请先结束已有对话", Retryable: false, Surfaces: "plugin_protocol"},

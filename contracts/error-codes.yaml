@@ -504,15 +504,6 @@ codes:
     retryable: true
     applies_to: [http, websocket, task]
 
-  plugin.permission_denied:
-    code: plugin.permission_denied
-    domain: plugin
-    message: 插件访问未声明权限
-    description: The plugin requested an elevated action that is absent from manifest permissions or outside its declared permission scope.
-    http_status: 403
-    retryable: false
-    applies_to: [http, websocket, plugin_protocol, task]
-
   plugin.webhook_replay_rejected:
     code: plugin.webhook_replay_rejected
     domain: plugin

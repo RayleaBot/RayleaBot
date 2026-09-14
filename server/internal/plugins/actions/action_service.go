@@ -12,7 +12,7 @@ type Deps struct {
 	CurrentConfig        func() config.Config
 	Logger               *slog.Logger
 	RedactText           func(string) string
-	Permissions          PermissionView
+	Plugins              PluginCatalog
 	Settings             *settings.Service
 	PluginFiles          FileStore
 	PluginKV             KVRepository

@@ -1,17 +1,17 @@
-# Plugin Manifest and Permissions
+# Plugin Manifest
 
-本页说明 RayleaBot 插件 manifest v3、权限边界和静态声明。正式结构以 `contracts/plugin-info.schema.json` 与 `contracts/plugin-artifact.schema.json` 为准。
+本页说明 RayleaBot 插件 manifest v4 与静态声明。正式结构以 `contracts/plugin-info.schema.json` 与 `contracts/plugin-artifact.schema.json` 为准。
 
-## Manifest v3
+## Manifest v4
 
 必填字段：
 
 | 字段 | 含义 |
 | --- | --- |
 | `id`、`name`、`version` | 稳定插件 ID、展示名称和语义版本 |
-| `manifest_version` | 固定为 `"3"` |
+| `manifest_version` | 固定为 `"4"` |
 | `license` | 许可证标识 |
-| `min_core_version` | 能运行该插件的最低 RayleaBot 版本 |
+| `min_core_version` | 能运行该插件的最低 RayleaBot 版本；manifest v4 插件声明 `0.7.0` 或更高 |
 
 常用可选字段：
 
@@ -22,7 +22,6 @@
 | `priority` | 消息优先级，整数 -1000..1000，默认 `0`；值越大越早执行 |
 | `block` | 成功处理消息后默认阻断后续插件层，默认 `false` |
 | `events` | 静态事件订阅；省略或空数组表示不接收普通事件 |
-| `permissions` | 需要宿主授权的高权限或跨系统能力 |
 | `default_config` | 内联默认配置 |
 | `commands`、`command_groups`、`help` | 命令、真实命令分组和帮助标题/摘要 |
 | `management_ui` | 单一 UI 入口及页面 ID/标签 |
@@ -30,40 +29,15 @@
 
 插件运行时只要求 artifact 提供当前平台原生可执行文件，不绑定实现语言。插件角色不写入 manifest；Server 根据安装来源判定为 `official`、`community` 或 `development`。
 
-## 权限模型
+## 宿主能力
 
-`permissions` 只声明显式宿主权限。完整名称集合以 schema 的 `permission_name` 为准。
+manifest 不声明宿主权限。插件进程是管理员确认安装的完全可信本地代码，全部宿主动作对每个插件可用，宿主不提供操作系统沙箱。
 
-插件私有能力默认可用，不写入 `permissions`：
+- 私有日志、配置、KV、文件与会话动作始终按调用插件 ID 隔离，插件不能选择其他插件的命名空间，也不能通过文件根参数扩大访问范围。
+- 消息、治理、调度、渲染、浏览器会话、插件目录、密钥与 HTTP 等宿主动作只做参数与领域规则校验。
+- OneBot 单动作与 provider 扩展动作承载 OneBot11 的语义、可用性和参数形状，不跨聊天协议可移植；provider 扩展还取决于所连的 OneBot11 实现。
 
-- `logger.write`
-- `config.write`，以及 init/config.changed 提供的配置快照
-- `storage.kv`
-- `storage.file`
-- `session.wait`、`session.finish`
-
-这些能力始终按调用插件 ID 隔离。插件不能选择其他插件命名空间，也不能通过文件根参数扩大访问范围。
-
-需要显式权限的能力包括：
-
-- 消息、治理、调度、渲染、浏览器会话和插件目录等宿主动作。这类基础权限与聊天协议无关。
-- OneBot 单动作与 provider 扩展动作。这些名字承载 OneBot11 的语义、可用性和参数形状，不跨聊天协议可移植；provider 扩展还取决于所连的 OneBot11 实现。
-- `http.request`。
-- `secret.read`、`secret.write` 和 `secret.delete`。
-- `event.raw_payload`。
-
-未声明权限时，宿主返回 `plugin.permission_denied`。
-
-## HTTP 安全边界
-
-`http.request` 不包含插件级主机白名单。宿主统一执行：
-
-- 只接受 HTTPS 正式请求。
-- DNS 解析与每次重定向目标复查。
-- SSRF、环回、链路本地和私网地址拦截。
-- 超时、重试、响应体和渲染资源总量限制。
-
-插件进程是管理员信任的本地代码，不是操作系统沙箱；插件自行发起的网络、子进程和临时文件操作不经过宿主 action 校验。HTTPS 目录地址和归档摘要用于核对来源记录与包完整性，不构成代码安全证明。
+`http.request` 由宿主统一执行 HTTPS、DNS 与重定向复查、私网拦截、超时和响应体限制。插件自行发起的网络、子进程和临时文件操作不经过宿主 action 校验。HTTPS 目录地址和归档摘要用于核对来源记录与包完整性，不构成代码安全证明。
 
 ## 统一命令声明
 
@@ -89,7 +63,7 @@
 
 `webhooks` 的每项声明包含稳定 `id`、路由、鉴权策略、请求头、secret 引用、正文上限和重放保护。宿主从有效 manifest 自动注册 `POST /api/webhooks/{plugin_id}/{route}`，完成来源、鉴权和重放检查后投递 `webhook.received`。
 
-插件通过 `event.raw_payload` 决定是否接收已校验请求的原始正文。运行时不能新增或修改 webhook 路由。
+`webhook.received` 事件的 `raw_payload` 携带已校验请求的路由、方法、请求头、查询参数和正文。运行时不能新增或修改 webhook 路由。
 
 ## 模板与管理页
 

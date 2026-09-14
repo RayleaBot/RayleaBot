@@ -95,7 +95,7 @@ func TestInitializationDefaultsAndExplicitOverridesMatchHTTPAndActions(t *testin
 	if err := os.WriteFile(filepath.Join(pluginRoot, "artifact.json"), artifactDoc, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	manifest := map[string]any{"id": "settings-defaults", "name": "Settings", "version": "1.0.0", "manifest_version": "3", "min_core_version": "0.4.0", "license": "MIT", "metadata": map[string]any{"author": "fixture", "description": "Settings initialization probe"}, "events": []string{"config.changed", "management.action"}, "default_config": map[string]any{"city": "Beijing", "unit": "celsius", "fallback": "old"}}
+	manifest := map[string]any{"id": "settings-defaults", "name": "Settings", "version": "1.0.0", "manifest_version": "4", "min_core_version": "0.4.0", "license": "MIT", "metadata": map[string]any{"author": "fixture", "description": "Settings initialization probe"}, "events": []string{"config.changed", "management.action"}, "default_config": map[string]any{"city": "Beijing", "unit": "celsius", "fallback": "old"}}
 	writeManifest := func() {
 		data, err := json.Marshal(manifest)
 		if err != nil {

@@ -1056,7 +1056,7 @@ func writeInstallSourcePlugin(t *testing.T, root, pluginID string) string {
 		"id":               pluginID,
 		"name":             pluginID,
 		"version":          "0.1.0",
-		"manifest_version": "3",
+		"manifest_version": "4",
 		"license":          "MIT",
 		"min_core_version": "0.4.0",
 		"metadata": map[string]any{

@@ -5,7 +5,7 @@
     "id": "subscription-hub",
     "name": "Subscription Hub",
     "version": "1.0.0",
-    "manifest_version": "3",
+    "manifest_version": "4",
     "license": "MIT",
     "min_core_version": "0.4.0",
     "metadata": {
@@ -13,15 +13,6 @@
       "author": "raylea"
     },
     "events": ["message.group", "message.private", "scheduler.trigger"],
-    "permissions": {
-      "message.send": true,
-      "http.request": true,
-      "secret.read": true,
-      "secret.write": true,
-      "secret.delete": true,
-      "browser.launch": true,
-      "browser.close": true
-    },
     "commands": [
       {
         "id": "subscription-status",

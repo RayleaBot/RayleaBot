@@ -55,11 +55,19 @@
     },
     "plugin_manifest_version": {
       "type": "string",
-      "const": "3"
+      "enum": [
+        "3",
+        "4"
+      ],
+      "description": "Plugin contract version supported by the core that created the backup. Archives from version 3 remain restorable; their v3 packages stay unsupported until rebuilt."
     },
     "plugin_protocol_version": {
       "type": "string",
-      "const": "3"
+      "enum": [
+        "3",
+        "4"
+      ],
+      "description": "Plugin contract version supported by the core that created the backup. Archives from version 3 remain restorable; their v3 packages stay unsupported until rebuilt."
     },
     "plugin_artifact_version": {
       "type": "string",
@@ -178,11 +186,18 @@
         },
         "manifest_version": {
           "type": "string",
-          "const": "3"
+          "enum": [
+            "3",
+            "4"
+          ],
+          "description": "Manifest version read from the installed package."
         },
         "protocol_version": {
           "type": "string",
-          "const": "3"
+          "enum": [
+            "3",
+            "4"
+          ]
         },
         "artifact_version": {
           "type": "string",

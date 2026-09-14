@@ -2,7 +2,7 @@
   "id": "example-governance-control",
   "name": "Example Governance Control",
   "version": "0.2.0",
-  "manifest_version": "3",
+  "manifest_version": "4",
   "license": "MIT",
   "commands": [
     {
@@ -32,7 +32,7 @@
       }
     }
   ],
-  "min_core_version": "0.4.0",
+  "min_core_version": "0.7.0",
   "metadata": {
     "description": "Go example plugin demonstrating governance local actions.",
     "author": "raylea"
@@ -40,13 +40,5 @@
   "events": [
     "message.group",
     "message.private"
-  ],
-  "permissions": {
-    "message.send": true,
-    "governance.blacklist.read": true,
-    "governance.blacklist.write": true,
-    "governance.whitelist.read": true,
-    "governance.whitelist.write": true,
-    "governance.command_policy.read": true
-  }
+  ]
 }

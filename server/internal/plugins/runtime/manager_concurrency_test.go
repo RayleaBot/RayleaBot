@@ -678,7 +678,6 @@ func testInitPayload() InitPayload {
 			Nickname: "RayleaBot",
 		}},
 		Config:          map[string]any{"enabled": true},
-		Permissions:     []string{"message.send"},
 		SuperAdmins:     []string{"9001", "9002"},
 		CommandPrefixes: []string{"!", "/"},
 	}

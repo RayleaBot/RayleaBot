@@ -1874,11 +1874,6 @@ export interface components {
             tolerance_seconds: number;
             enforce: boolean;
         };
-        /** @constant */
-        PluginPermissionGrant: true;
-        PluginPermissions: {
-            [key: string]: components["schemas"]["PluginPermissionGrant"];
-        };
         PluginScreenshot: components["schemas"]["screenshot"];
         PluginManagementUISummary: {
             /** @description Server-derived plugin host label for the isolated management page origin. */
@@ -1895,7 +1890,6 @@ export interface components {
             min_core_version?: string;
             concurrency?: number;
             events?: string[];
-            permissions: components["schemas"]["PluginPermissions"];
             webhooks: components["schemas"]["PluginWebhookScope"][];
             /** Format: uri */
             repo?: string;

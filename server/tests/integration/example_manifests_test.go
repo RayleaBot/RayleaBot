@@ -41,44 +41,43 @@ func TestExamplePluginManifestsMatchContract(t *testing.T) {
 	}
 }
 
-func TestExamplePluginManifestsDeclareV3EventsAndPermissions(t *testing.T) {
+func TestExamplePluginManifestsDeclareV4Events(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		name            string
-		manifestPath    string
-		wantEvents      []string
-		wantPermissions []string
+		name         string
+		manifestPath string
+		wantEvents   []string
 	}{
 		{
 			name:         "echo go",
 			manifestPath: testutil.RepoPath(t, "examples", "plugins", "echo-go", "info.json"),
-			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"message.send"},
+			wantEvents:   []string{"message.group", "message.private"},
 		},
 		{
 			name:         "example HTTP storage",
 			manifestPath: testutil.RepoPath(t, "examples", "plugins", "example-http-storage", "info.json"),
-			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"http.request"},
+			wantEvents:   []string{"message.group", "message.private"},
 		},
 		{
 			name:         "example plugin list",
 			manifestPath: testutil.RepoPath(t, "examples", "plugins", "example-plugin-list", "info.json"),
-			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"message.send", "plugin.list"},
+			wantEvents:   []string{"message.group", "message.private"},
 		},
 		{
 			name:         "example render card",
 			manifestPath: testutil.RepoPath(t, "examples", "plugins", "example-render-card", "info.json"),
-			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"message.send", "render.image"},
+			wantEvents:   []string{"message.group", "message.private"},
 		},
 		{
 			name:         "example webhook",
 			manifestPath: testutil.RepoPath(t, "examples", "plugins", "example-webhook", "info.json"),
-			wantEvents:   []string{"webhook.received"}, wantPermissions: []string{"event.raw_payload"},
+			wantEvents:   []string{"webhook.received"},
 		},
 		{
 			name:         "notice logger",
 			manifestPath: testutil.RepoPath(t, "examples", "plugins", "notice-logger", "info.json"),
-			wantEvents:   []string{"notice.member_increase", "notice.member_decrease"}, wantPermissions: []string{},
+			wantEvents:   []string{"notice.member_increase", "notice.member_decrease"},
 		},
 	} {
 		tc := tc
@@ -95,15 +94,7 @@ func TestExamplePluginManifestsDeclareV3EventsAndPermissions(t *testing.T) {
 			if !reflect.DeepEqual(gotEvents, sortedStrings(tc.wantEvents)) {
 				t.Fatalf("events mismatch for %s: got %#v want %#v", tc.manifestPath, gotEvents, sortedStrings(tc.wantEvents))
 			}
-			permissionObject, _ := manifest["permissions"].(map[string]any)
-			gotPermissions := make([]string, 0, len(permissionObject))
-			for permission := range permissionObject {
-				gotPermissions = append(gotPermissions, permission)
-			}
-			if !reflect.DeepEqual(sortedStrings(gotPermissions), sortedStrings(tc.wantPermissions)) {
-				t.Fatalf("permissions mismatch for %s: got %#v want %#v", tc.manifestPath, gotPermissions, tc.wantPermissions)
-			}
-			for _, legacy := range []string{"capabilities", "capability_parameters", "http_hosts", "storage_roots", "render_templates"} {
+			for _, legacy := range []string{"capabilities", "capability_parameters", "http_hosts", "storage_roots", "render_templates", "permissions"} {
 				if _, exists := manifest[legacy]; exists {
 					t.Fatalf("legacy field %s leaked into %s", legacy, tc.manifestPath)
 				}

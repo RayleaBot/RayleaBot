@@ -49,7 +49,7 @@
 
 - 插件 ID、名称、版本和当前页面；
 - 当前设置与 secret 是否已配置的布尔映射；
-- 主题、语言和生效权限。
+- 主题和语言。
 
 `ui.resize` 可请求内容高度，宿主最终限制在 320–1600px。
 
@@ -83,6 +83,6 @@
 
 ## 相关文档
 
-- [Permissions and Manifest](./permissions-and-manifest.md)
+- [Plugin Manifest](./manifest.md)
 - [SDK](./sdk/README.md)
 - [Management Surface](../user/management-surface.md)

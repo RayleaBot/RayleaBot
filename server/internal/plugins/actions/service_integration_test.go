@@ -24,7 +24,7 @@ func boolPointer(value bool) *bool {
 	return &value
 }
 
-func TestExecutePluginPrivateKVWithoutDeclaredPermission(t *testing.T) {
+func TestExecutePluginPrivateKVReadsMissingKey(t *testing.T) {
 	t.Parallel()
 
 	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
@@ -39,7 +39,6 @@ func TestExecutePluginPrivateKVWithoutDeclaredPermission(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{}}
 	deps.PluginKV = repo
 	application := localaction.New(deps)
 
@@ -53,7 +52,7 @@ func TestExecutePluginPrivateKVWithoutDeclaredPermission(t *testing.T) {
 	}
 }
 
-func TestExecutePluginListUsesDeclaredPermission(t *testing.T) {
+func TestExecutePluginListReturnsCatalogPlugins(t *testing.T) {
 	t.Parallel()
 
 	testConfig := config.Config{}
@@ -68,7 +67,6 @@ func TestExecutePluginListUsesDeclaredPermission(t *testing.T) {
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 			RuntimeState:      "running",
-			Permissions:       map[string]bool{"plugin.list": true},
 			Commands: []plugins.Command{{
 				ID:           "echo",
 				Name:         "echo",
@@ -97,7 +95,7 @@ func TestExecutePluginListUsesDeclaredPermission(t *testing.T) {
 			}},
 		},
 	})
-	deps.Permissions = plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: catalogForActions})
+	deps.Plugins = catalogForActions
 	application := localaction.New(deps)
 
 	result, err := application.Execute(context.Background(), "raylea.echo", "req_local_plugin_list_1", plugins.Action{
@@ -283,7 +281,6 @@ func newPluginListVisibilityService(cfg config.Config) *localaction.Service {
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 			RuntimeState:      "running",
-			Permissions:       map[string]bool{"plugin.list": true},
 		},
 		{
 			PluginID:          "raylea.tools",
@@ -305,7 +302,7 @@ func newPluginListVisibilityService(cfg config.Config) *localaction.Service {
 			CommandGroups: []plugins.CommandGroup{{ID: "tools", Title: "工具", Commands: []string{"public", "admin", "super", "defaulted"}}},
 		},
 	})
-	deps.Permissions = plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: catalogForActions})
+	deps.Plugins = catalogForActions
 	application := localaction.New(deps)
 	return application
 }
@@ -406,12 +403,8 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 		PluginID:          "subscription-hub",
 		Valid:             true,
 		RegistrationState: "installed",
-		Permissions:       map[string]bool{"secret.read": true},
 	}})
 
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
-		"subscription-hub": {"secret.read": true},
-	}}
 	settingsService, settingsErr := settings.New(settings.Deps{Plugins: catalogForActions, Secrets: secretStore})
 	if settingsErr != nil {
 		t.Fatal(settingsErr)
@@ -448,9 +441,6 @@ func TestExecuteSecretReadRejectsInvalidKey(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
-		"subscription-hub": {"secret.read": true},
-	}}
 	application := localaction.New(deps)
 
 	_, err := application.Execute(context.Background(), "subscription-hub", "req_local_secret_invalid", plugins.Action{

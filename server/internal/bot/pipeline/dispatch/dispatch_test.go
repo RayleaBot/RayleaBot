@@ -876,7 +876,6 @@ func TestDispatchSkipsQueuedEventWhenRuntimeStopsBeforeDelivery(t *testing.T) {
 func TestDispatchActionExecution(t *testing.T) {
 	sender := &fakeSender{sent: make(chan chatevent.OutboundMessageSend, 1)}
 	d := New(slog.Default(), sender, nil, 16)
-	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: plugins.Delivery{
@@ -912,7 +911,6 @@ func TestDispatchActionExecution(t *testing.T) {
 func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
 	sender := &fakeSender{sent: make(chan chatevent.OutboundMessageSend, 1)}
 	d := New(slog.Default(), sender, nil, 16)
-	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: plugins.Delivery{
@@ -953,7 +951,6 @@ func TestDispatchActionExecutionUsesReplyTargetForOutboundLimiter(t *testing.T) 
 			TargetID:   "200",
 		},
 	}, 16)
-	allowAllPermissions(d)
 	d.SetOutboundPolicy(limiter)
 	defer d.Close()
 
@@ -987,7 +984,6 @@ func TestDispatchActionExecutionLogsRateLimitedOutcome(t *testing.T) {
 		err: &chatevent.SendError{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
 	}
 	d := New(logger, sender, nil, 16)
-	allowAllPermissions(d)
 	d.SetOutboundPolicy(limiter)
 	defer d.Close()
 

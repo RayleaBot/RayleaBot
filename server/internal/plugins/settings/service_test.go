@@ -62,7 +62,6 @@ func newFixture(t *testing.T, configure func(*settings.Deps), controlQueueSize .
 		PluginID: "weather", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
 		DefaultConfig:    map[string]any{"count": 3, "nested": map[string]any{"old": true}, "trigger_commands": []any{"old"}},
 		ManifestCommands: []plugins.Command{{ID: "query", TriggerType: "setting", SettingsKey: "trigger_commands", Permission: "everyone"}},
-		Permissions:      map[string]bool{"secret.read": true},
 	}
 	cat := catalog.New([]plugins.Snapshot{entry, {PluginID: "other", Valid: true, RegistrationState: "installed"}})
 	d := dispatch.New(slog.Default(), nil, nil, 128, controlQueueSize...)
@@ -77,7 +76,7 @@ func newFixture(t *testing.T, configure func(*settings.Deps), controlQueueSize .
 	if err != nil {
 		t.Fatal(err)
 	}
-	actionService := actions.New(actions.Deps{Settings: svc, Permissions: plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: cat})})
+	actionService := actions.New(actions.Deps{Settings: svc, Plugins: cat})
 	handlers := management.NewPluginManagementUIHandlers(management.PluginManagementUIDeps{Plugins: cat, Settings: svc})
 	router := chi.NewRouter()
 	handlers.RegisterProtectedRoutes(router)
@@ -320,12 +319,6 @@ func TestCredentialsAreAtomicPrivateAndHaveNoSettingsEffects(t *testing.T) {
 	result, err := f.actions.Execute(context.Background(), "weather", "secret", plugins.Action{Kind: "secret.read", SecretKey: "a"}, chatevent.Event{})
 	if err != nil || result["value"] != "fixture-a" {
 		t.Fatalf("private read: %#v %v", result, err)
-	}
-	denied := actions.New(actions.Deps{Settings: f.service})
-	_, err = denied.Execute(context.Background(), "weather", "denied", plugins.Action{Kind: "secret.read", SecretKey: "a"}, chatevent.Event{})
-	var actionErr *plugins.Error
-	if !errors.As(err, &actionErr) || actionErr.Code != errorcodes.PluginPermissionDenied {
-		t.Fatalf("missing permission accepted: %v", err)
 	}
 	if _, exists, err := f.service.ReadSecret(context.Background(), "other", "a"); err != nil || exists {
 		t.Fatalf("cross-plugin read: %v %v", exists, err)

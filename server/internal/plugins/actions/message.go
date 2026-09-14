@@ -19,12 +19,6 @@ func messageSendRegistrar() registrar {
 }
 
 func executeMessageSend(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "message.send") {
-		return nil, &plugins.Error{
-			Code:    errorcodes.PluginPermissionDenied,
-			Message: "message.send permission is not declared",
-		}
-	}
 	if deps.MessageSender == nil {
 		return nil, &plugins.Error{
 			Code:    errorcodes.PluginInternalError,

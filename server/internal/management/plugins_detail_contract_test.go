@@ -42,17 +42,14 @@ func TestGetPluginReturnsV3CommandProjection(t *testing.T) {
 	}
 }
 
-func TestGetPluginReturnsRichV3Metadata(t *testing.T) {
+func TestGetPluginReturnsRichManifestMetadata(t *testing.T) {
 	t.Parallel()
 	snapshot := plugins.Snapshot{
 		PluginID: "weather", Name: "Weather", Version: "1.4.2", Description: "天气查询",
 		Author: "raylea", License: "MIT", MinCoreVersion: "0.4.0", Concurrency: 3,
 		Priority: 25, Block: true,
 		Events: []string{"message.group"},
-		Permissions: map[string]bool{
-			"http.request": true, "secret.write": true,
-		},
-		Icon: "assets/weather.svg", Repo: "https://github.com/RayleaBot/plugins-weather",
+		Icon:   "assets/weather.svg", Repo: "https://github.com/RayleaBot/plugins-weather",
 		Homepage: "https://plugins.rayleabot.local/weather", Keywords: []string{"weather", "forecast"},
 		Screenshots: []plugins.Screenshot{{Path: "assets/overview.svg", Alt: "天气总览"}},
 		Valid:       true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
@@ -66,12 +63,8 @@ func TestGetPluginReturnsRichV3Metadata(t *testing.T) {
 	if plugin["version"] != "1.4.2" || plugin["min_core_version"] != "0.4.0" || plugin["concurrency"] != float64(3) {
 		t.Fatalf("metadata = %#v", plugin)
 	}
-	permissions := plugin["permissions"].(map[string]any)
 	if plugin["priority"] != float64(25) || plugin["block"] != true {
 		t.Fatalf("message policy = %#v", plugin)
-	}
-	if permissions["http.request"] != true {
-		t.Fatalf("permissions = %#v", permissions)
 	}
 	if _, exists := plugin["default_config"]; exists {
 		t.Fatalf("default_config leaked: %#v", plugin)

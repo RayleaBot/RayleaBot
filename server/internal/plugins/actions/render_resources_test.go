@@ -42,9 +42,6 @@ func TestPrefetchRenderImageResourcesUsesRefererAndFallbackURL(t *testing.T) {
 				AllowPrivateHosts: []string{"127.0.0.1"},
 			}}
 		},
-		Permissions: stubHTTPActionPermissions{
-			permissions: map[string]bool{"render.image": true, "http.request": true},
-		},
 	}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-request",
@@ -101,9 +98,6 @@ func TestPrefetchRenderImageResourcesAllowsConfiguredPrivateHost(t *testing.T) {
 				AllowPrivateHosts: []string{"127.0.0.1"},
 			}}
 		},
-		Permissions: stubHTTPActionPermissions{
-			permissions: map[string]bool{"render.image": true, "http.request": true},
-		},
 	}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-suffix",
@@ -127,9 +121,6 @@ func TestPrefetchRenderImageResourcesRejectsPrivateHostWithoutServerAllowlist(t 
 	_, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{
 		CurrentConfig: func() config.Config {
 			return config.Config{HTTP: config.HTTPConfig{TimeoutSeconds: 1}}
-		},
-		Permissions: stubHTTPActionPermissions{
-			permissions: map[string]bool{"render.image": true, "http.request": true},
 		},
 	}, ActionRequest{
 		PluginID:  "plugin.render",
@@ -161,9 +152,6 @@ func TestPrefetchRenderImageResourcesRevalidatesRedirectSafety(t *testing.T) {
 				TimeoutSeconds:    5,
 				AllowPrivateHosts: []string{"127.0.0.1"},
 			}}
-		},
-		Permissions: stubHTTPActionPermissions{
-			permissions: map[string]bool{"render.image": true, "http.request": true},
 		},
 	}, ActionRequest{
 		PluginID:  "plugin.render",

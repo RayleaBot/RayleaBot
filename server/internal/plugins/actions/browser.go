@@ -21,9 +21,6 @@ func browserLaunchRegistrar() registrar {
 }
 
 func executeBrowserLaunch(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "browser.launch") {
-		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: "browser.launch permission is not declared"}
-	}
 	if deps.Browser == nil {
 		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "browser session manager is not available"}
 	}
@@ -56,9 +53,6 @@ func browserCloseRegistrar() registrar {
 }
 
 func executeBrowserClose(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "browser.close") {
-		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: "browser.close permission is not declared"}
-	}
 	if deps.Browser == nil {
 		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "browser session manager is not available"}
 	}

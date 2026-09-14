@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -232,20 +231,10 @@ func (c *Controller) buildStartInputs(ctx context.Context, pluginID string) (plu
 		Timezone:        c.effectiveTimezone,
 		Bots:            c.botIdentities(),
 		Config:          settings,
-		Permissions:     pluginPermissionNames(snapshot),
 		SuperAdmins:     pluginRuntimeSuperAdmins(cfg),
 		CommandPrefixes: cfg.CommandPrefixes(),
 	}
 	return spec, payload, nil
-}
-
-func pluginPermissionNames(snapshot plugins.Snapshot) []string {
-	items := make([]string, 0, len(snapshot.Permissions))
-	for name := range snapshot.Permissions {
-		items = append(items, name)
-	}
-	sort.Strings(items)
-	return items
 }
 
 func pluginRuntimeSuperAdmins(cfg config.Config) []string {

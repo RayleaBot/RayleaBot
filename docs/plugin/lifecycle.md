@@ -33,10 +33,10 @@
 ## 安装、升级与卸载
 
 - 插件安装、卸载和重载统一走后台任务模型。
-- 安装只接受单根目录 ZIP 或已经构建好的 artifact 目录。安装器先校验 manifest v3、artifact v2、最低 Core 版本、实际文件、资源上限、平台和 UI 入口，设置 Unix 平台入口的可执行位，再原子替换目标目录。
-- 商店安装额外校验目录中的归档摘要、插件 ID、版本和来源身份；首次安装、来源变化或权限扩大时，Web 必须取得用户对本机原生代码的显式确认。
-- manifest v2、artifact v1、错误平台、篡改文件、错误二进制、缺失 UI 文件及包含额外文件的包都会被拒绝。
-- 升级重新执行完整 artifact 校验，并重新读取 permissions。启用插件的新包完成初始化后，安装任务才成功；后处理失败时尝试恢复旧包、旧 package metadata、旧模板和原 desired state。
+- 安装只接受单根目录 ZIP 或已经构建好的 artifact 目录。安装器先校验 manifest v4、artifact v2、最低 Core 版本、实际文件、资源上限、平台和 UI 入口，设置 Unix 平台入口的可执行位，再原子替换目标目录。
+- 商店安装额外校验目录中的归档摘要、插件 ID、版本和来源身份；首次安装或来源变化时，Web 必须取得用户对本机原生代码的显式确认。
+- manifest v3 及更早版本、artifact v1、错误平台、篡改文件、错误二进制、缺失 UI 文件及包含额外文件的包都会被拒绝。
+- 升级重新执行完整 artifact 校验。启用插件的新包完成初始化后，安装任务才成功；后处理失败时尝试恢复旧包、旧 package metadata、旧模板和原 desired state。
 - 安装或卸载失败通过任务错误的 `operation_state` 和 `failures` 标明实际结果与失败阶段。回滚未完成时保留 `.plugin-install-*` 工作目录及其中的旧包，启动不会自动删除这些恢复材料。
 - 卸载先确认插件停止，再移除包目录并清理元数据与模板。删除后的清理错误仍使任务失败，结果明确标为 `committed`；同一有效插件 ID 即使已无包目录，仍可再次提交卸载以重试清理。插件业务数据按卸载接口的正式选项处理，不存在私有语言运行环境。
 
@@ -53,11 +53,11 @@
 
 - 当前平台不支持插件间依赖解析。
 - 源码插件、安装脚本、托管语言运行时和旧合同兼容执行不在正式范围内。
-- 旧 manifest v2 / artifact v1 包可以随 backup manifest v3 保留并恢复，但保持禁用；设置、密钥、KV、文件和已发布数据不清除，安装当前合同包后继续使用。
+- manifest v3 及更早合同的包可以随备份保留并恢复，但显示为合同不受支持并保持禁用；设置、密钥、KV、文件和已发布数据不清除，使用新 SDK 重新构建并安装后继续使用。
 
 ## 相关文档
 
-- [Permissions and Manifest](./permissions-and-manifest.md)
+- [Plugin Manifest](./manifest.md)
 - [Protocol](./protocol.md)
 - [Plugin Store and Independent Development](./store-and-development.md)
 - [State Model](../architecture/state-model.md)

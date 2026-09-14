@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
-  "title": "RayleaBot Plugin JSONL Protocol v3",
+  "title": "RayleaBot Plugin JSONL Protocol v4",
   "description": "Language-neutral JSONL protocol. The init frame establishes protocol version and plugin identity; subsequent frames use the established process session and carry only message-local fields. Host request IDs are unique within a process session. Canceling a local action wait does not cancel the action on the host: the client consumes its eventual response and waits for outstanding actions before emitting an event terminal frame. If bounded draining expires, the client emits no terminal frame and lets the host expire the event. No new action may be emitted after an event starts closing.",
   "oneOf": [
     {
@@ -68,28 +68,6 @@
         "group"
       ]
     },
-    "base_permission_name": {
-      "type": "string",
-      "description": "Protocol-neutral host capabilities, available regardless of which chat adapter produced the event.",
-      "enum": [
-        "event.raw_payload",
-        "message.send",
-        "http.request",
-        "governance.blacklist.read",
-        "governance.blacklist.write",
-        "governance.whitelist.read",
-        "governance.whitelist.write",
-        "governance.command_policy.read",
-        "scheduler.create",
-        "render.image",
-        "plugin.list",
-        "secret.read",
-        "secret.write",
-        "secret.delete",
-        "browser.launch",
-        "browser.close"
-      ]
-    },
     "onebot_action_kind": {
       "type": "string",
       "description": "Host actions that map onto OneBot11 API calls. Their semantics, availability and argument shapes are defined by OneBot11 and are not portable to other chat protocols. Actions specific to a future protocol are introduced under their own protocol-scoped $def. Existing wire values in this set stay stable.",
@@ -148,20 +126,6 @@
         "provider.luckylillia.friend_groups.get"
       ]
     },
-    "permission_name": {
-      "type": "string",
-      "anyOf": [
-        {
-          "$ref": "#/$defs/base_permission_name"
-        },
-        {
-          "$ref": "#/$defs/onebot_action_kind"
-        },
-        {
-          "$ref": "#/$defs/provider_extension_action_kind"
-        }
-      ]
-    },
     "init": {
       "allOf": [
         {
@@ -174,7 +138,6 @@
             "protocol_version",
             "plugin_id",
             "config",
-            "effective_permissions",
             "super_admins",
             "command_prefixes",
             "timezone",
@@ -204,7 +167,7 @@
             },
             "protocol_version": {
               "type": "string",
-              "const": "3"
+              "const": "4"
             },
             "plugin_id": {
               "type": "string",
@@ -213,13 +176,6 @@
             "config": {
               "type": "object",
               "additionalProperties": true
-            },
-            "effective_permissions": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/permission_name"
-              },
-              "uniqueItems": true
             },
             "super_admins": {
               "type": "array",
@@ -497,7 +453,7 @@
                     },
                     "onebot": {
                       "type": "object",
-                      "description": "OneBot11 native fields as a closed normalized projection, not a passthrough of the raw upstream frame. Present only when source_protocol is onebot11; read it after checking source_protocol. Delivered to every subscriber and not gated by a permission, unlike the top-level raw_payload.",
+                      "description": "OneBot11 native fields as a closed normalized projection, not a passthrough of the raw upstream frame. Present only when source_protocol is onebot11; read it after checking source_protocol. Delivered to every subscriber.",
                       "additionalProperties": false,
                       "properties": {
                         "post_type": {
@@ -680,7 +636,7 @@
                 },
                 "raw_payload": {
                   "type": "object",
-                  "description": "Only present when the plugin manifest declares event.raw_payload.",
+                  "description": "Present only for webhook.received events; carries the accepted request route, method, headers, query, and body.",
                   "additionalProperties": true
                 },
                 "webhook": {
@@ -2443,7 +2399,7 @@
           "items": {
             "$ref": "#/$defs/render_image_resource"
           },
-          "description": "Optional platform-prefetched image resources. Using this field requires both render.image and http.request permissions. JPEG, PNG, GIF, and WebP are accepted. Each downloaded response body is limited to 16 MiB, retained resources are limited to 96 MiB per request, and all resource work shares a 30 second deadline. Fetch or image validation failure leaves the resource unresolved so the template's existing fallback remains visible; malformed input or permission violations reject the action."
+          "description": "Optional platform-prefetched image resources. JPEG, PNG, GIF, and WebP are accepted. Each downloaded response body is limited to 16 MiB, retained resources are limited to 96 MiB per request, and all resource work shares a 30 second deadline. Fetch or image validation failure leaves the resource unresolved so the template's existing fallback remains visible; malformed input rejects the action."
         },
         "data": {
           "type": "object",
@@ -3328,7 +3284,6 @@
         "type",
         "request_id",
         "config",
-        "effective_permissions",
         "super_admins",
         "command_prefixes",
         "timezone",
@@ -3476,7 +3431,7 @@
     "fixtures/plugin-protocol/invalid.propagation-value.yaml",
     "fixtures/plugin-protocol/invalid.propagation-local-result.yaml"
   ],
-  "$comment": "Protocol v3 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and requires explicit permissions only for elevated host actions.",
+  "$comment": "Protocol v4 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and exposes host actions to every trusted plugin process without manifest permissions.",
   "x-action-result-schemas": {
     "http.request": "#/$defs/http_response_data",
     "session.wait": "#/$defs/session_wait_result",

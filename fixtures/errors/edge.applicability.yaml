@@ -1,6 +1,6 @@
 contract: contracts/error-codes.yaml
 case: edge
-description: Applicability boundary examples for task timeout and plugin permission errors.
+description: Applicability boundary examples for task timeout and permission admission errors.
 input:
   cases:
     - code: permission.unavailable
@@ -9,9 +9,6 @@ input:
     - code: platform.task_timeout
       applies_to: [http, websocket, task]
       example_surface: asynchronous task execution
-    - code: plugin.permission_denied
-      applies_to: [http, websocket, plugin_protocol, task]
-      example_surface: plugin local action execution
     - code: permission.not_whitelisted
       applies_to: [plugin_protocol, logs]
       example_surface: command dispatch admission with whitelist enabled

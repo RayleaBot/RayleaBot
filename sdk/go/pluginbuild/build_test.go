@@ -21,7 +21,7 @@ func TestBuildProducesPlatformArtifact(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSES", "dependency.txt"), "dependency license\n")
 	platform := testPlatform(t)
 	manifest := map[string]any{
-		"id": "test-plugin", "name": "Test", "version": "0.4.0", "manifest_version": "3",
+		"id": "test-plugin", "name": "Test", "version": "0.4.0", "manifest_version": "4",
 		"min_core_version": "0.4.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
@@ -75,7 +75,7 @@ func TestBuildAcceptsCommandBelowCmd(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	platform := testPlatform(t)
 	manifest := map[string]any{
-		"id": "raylea.test-plugin", "name": "Test", "version": "0.4.0", "manifest_version": "3",
+		"id": "raylea.test-plugin", "name": "Test", "version": "0.4.0", "manifest_version": "4",
 		"min_core_version": "0.4.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
@@ -97,7 +97,7 @@ func TestDevelopmentAssemblyReusesBackendAndUIWithoutArchive(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module fixture.local/plugin\n\ngo 1.26.6\n")
 	writeTestFile(t, filepath.Join(pluginDir, "main.go"), "package main\nfunc main() {}\n")
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "fixture license\n")
-	writeTestFile(t, filepath.Join(pluginDir, "info.json"), `{"id":"development-fixture","name":"Fixture","version":"0.4.0","manifest_version":"3","min_core_version":"0.4.0","license":"MIT"}`)
+	writeTestFile(t, filepath.Join(pluginDir, "info.json"), `{"id":"development-fixture","name":"Fixture","version":"0.4.0","manifest_version":"4","min_core_version":"0.4.0","license":"MIT"}`)
 	first, err := Build(t.Context(), Config{PluginDir: pluginDir, OutputDir: t.TempDir(), TargetPlatform: testPlatform(t), KeepExpandedArtifact: true})
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func TestBuildProducesAllSupportedTargetArtifacts(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "cmd", "cross-platform-plugin", "main.go"), "package main\nfunc main() {}\n")
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	manifest := map[string]any{
-		"id": "cross-platform-plugin", "name": "Cross Platform", "version": "0.4.0", "manifest_version": "3",
+		"id": "cross-platform-plugin", "name": "Cross Platform", "version": "0.4.0", "manifest_version": "4",
 		"min_core_version": "0.4.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
@@ -185,7 +185,7 @@ func TestPackAndInspectAlreadyBuiltNativeExecutable(t *testing.T) {
 	pluginDir := t.TempDir()
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	manifest := map[string]any{
-		"id": "native-plugin", "name": "Native", "version": "0.4.0", "manifest_version": "3",
+		"id": "native-plugin", "name": "Native", "version": "0.4.0", "manifest_version": "4",
 		"min_core_version": "0.4.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
@@ -224,7 +224,7 @@ func TestPackAndInspectAlreadyBuiltNativeExecutable(t *testing.T) {
 func TestInspectProjectAcceptsManifestV3AndRejectsLegacyManifest(t *testing.T) {
 	pluginDir := t.TempDir()
 	manifest := map[string]any{
-		"id": "project-plugin", "name": "Project", "version": "0.4.0", "manifest_version": "3",
+		"id": "project-plugin", "name": "Project", "version": "0.4.0", "manifest_version": "4",
 		"min_core_version": "0.4.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
@@ -233,7 +233,7 @@ func TestInspectProjectAcceptsManifestV3AndRejectsLegacyManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InspectProject() error = %v", err)
 	}
-	if inspection.PluginID != "project-plugin" || inspection.ManifestVersion != "3" {
+	if inspection.PluginID != "project-plugin" || inspection.ManifestVersion != "4" {
 		t.Fatalf("unexpected project inspection: %#v", inspection)
 	}
 
@@ -281,7 +281,7 @@ func TestBuildWorkspaceNoticesKeepDeclaredSDKVersion(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	platform := testPlatform(t)
 	manifest := map[string]any{
-		"id": "workspace-plugin", "name": "Workspace", "version": "0.4.0", "manifest_version": "3",
+		"id": "workspace-plugin", "name": "Workspace", "version": "0.4.0", "manifest_version": "4",
 		"min_core_version": "0.4.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")

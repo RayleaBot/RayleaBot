@@ -43,10 +43,7 @@ type GovernanceService interface {
 	ReadCommandPolicy(context.Context) (governance.CommandPolicyResponse, error)
 }
 
-func requireGovernancePermission(ctx context.Context, deps Deps, req ActionRequest, permission string) (GovernanceService, error) {
-	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, permission) {
-		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: permission + " permission is not declared"}
-	}
+func governanceService(deps Deps) (GovernanceService, error) {
 	service := deps.Governance
 	if service == nil {
 		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "governance service is not available"}
@@ -66,7 +63,7 @@ func mapGovernanceRuntimeError(message string, err error) error {
 }
 
 func blacklistRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	service, err := requireGovernancePermission(ctx, deps, req, "governance.blacklist.read")
+	service, err := governanceService(deps)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +75,7 @@ func blacklistRead(ctx context.Context, deps Deps, req ActionRequest) (map[strin
 }
 
 func blacklistWrite(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	service, err := requireGovernancePermission(ctx, deps, req, "governance.blacklist.write")
+	service, err := governanceService(deps)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +97,7 @@ func blacklistWrite(ctx context.Context, deps Deps, req ActionRequest) (map[stri
 }
 
 func whitelistRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	service, err := requireGovernancePermission(ctx, deps, req, "governance.whitelist.read")
+	service, err := governanceService(deps)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +109,7 @@ func whitelistRead(ctx context.Context, deps Deps, req ActionRequest) (map[strin
 }
 
 func whitelistWrite(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	service, err := requireGovernancePermission(ctx, deps, req, "governance.whitelist.write")
+	service, err := governanceService(deps)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +140,7 @@ func whitelistWrite(ctx context.Context, deps Deps, req ActionRequest) (map[stri
 }
 
 func commandPolicyRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	service, err := requireGovernancePermission(ctx, deps, req, "governance.command_policy.read")
+	service, err := governanceService(deps)
 	if err != nil {
 		return nil, err
 	}

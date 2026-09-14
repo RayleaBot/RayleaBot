@@ -10,7 +10,6 @@ import (
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/bot/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
@@ -31,10 +30,9 @@ type pluginRuntimeDeps struct {
 }
 
 type pluginRuntime struct {
-	LocalActions   *localaction.Service
-	Settings       *settings.Service
-	Runtimes       *pluginruntime.Registry
-	PermissionView *plugins.PermissionView
+	LocalActions *localaction.Service
+	Settings     *settings.Service
+	Runtimes     *pluginruntime.Registry
 }
 
 func buildPluginRuntime(deps pluginRuntimeDeps) (pluginRuntime, error) {
@@ -51,8 +49,7 @@ func buildPluginRuntime(deps pluginRuntimeDeps) (pluginRuntime, error) {
 	if err != nil {
 		return pluginRuntime{}, err
 	}
-	permissionView := buildPluginPermissionView(deps.Plugins, deps.Events)
-	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, permissionView, deps.Governance, deps.Browser, settingsService)
+	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, deps.Governance, deps.Browser, settingsService)
 	var hooks pluginruntime.EventHooks
 	if registry := deps.Events.Conversations; registry != nil {
 		hooks = pluginruntime.EventHooks{
@@ -76,21 +73,10 @@ func buildPluginRuntime(deps pluginRuntimeDeps) (pluginRuntime, error) {
 		hooks,
 	)
 	return pluginRuntime{
-		LocalActions:   localActions,
-		Settings:       settingsService,
-		Runtimes:       runtimeRegistry,
-		PermissionView: permissionView,
+		LocalActions: localActions,
+		Settings:     settingsService,
+		Runtimes:     runtimeRegistry,
 	}, nil
-}
-
-func buildPluginPermissionView(pluginStack PluginStackState, eventStack EventState) *plugins.PermissionView {
-	permissionView := plugins.NewPermissionView(plugins.PermissionViewDeps{
-		Plugins: pluginStack.Plugins,
-	})
-	if eventStack.Dispatcher != nil {
-		eventStack.Dispatcher.SetPermissionChecker(permissionView.PermissionDeclared)
-	}
-	return permissionView
 }
 
 func buildLocalActionService(
@@ -99,7 +85,6 @@ func buildLocalActionService(
 	pluginStack PluginStackState,
 	eventStack EventState,
 	renderer *render.Service,
-	permissionView *plugins.PermissionView,
 	governanceService *governance.Service,
 	browserManager localaction.BrowserSessionManager,
 	settingsService *settings.Service,
@@ -108,7 +93,7 @@ func buildLocalActionService(
 		CurrentConfig:        runtimeState.CurrentConfig,
 		Logger:               runtimeState.RuntimeLogger(),
 		RedactText:           runtimeState.RedactString,
-		Permissions:          permissionView,
+		Plugins:              pluginStack.Plugins,
 		Settings:             settingsService,
 		PluginFiles:          pluginStack.PluginFiles,
 		PluginKV:             pluginStack.PluginKV,

@@ -51,7 +51,7 @@ func SendOutcome(err error) string {
 		return "canceled"
 	}
 	switch SendErrorCode(err) {
-	case errorcodes.PluginPermissionDenied, errorcodes.PermissionDenied, errorcodes.AdapterAuthFailed:
+	case errorcodes.PermissionDenied, errorcodes.AdapterAuthFailed:
 		return "permission_denied"
 	case errorcodes.AdapterReplyTargetMissing:
 		return "reply_target_missing"

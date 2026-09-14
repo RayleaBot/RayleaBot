@@ -35,8 +35,6 @@ func TestExecuteHTTPSendsExplicitRequestAndReturnsText(t *testing.T) {
 			MaxRetries:        0,
 			AllowPrivateHosts: []string{"127.0.0.1"},
 		},
-	}, stubHTTPActionPermissions{
-		permissions: map[string]bool{"http.request": true},
 	})
 	if err != nil {
 		t.Fatalf("executeHTTPRequest failed: %v", err)
@@ -66,8 +64,6 @@ func TestExecuteHTTPAllowsConfiguredPrivateHost(t *testing.T) {
 			MaxRetries:        0,
 			AllowPrivateHosts: []string{"127.0.0.1"},
 		},
-	}, stubHTTPActionPermissions{
-		permissions: map[string]bool{"http.request": true},
 	})
 	if err != nil {
 		t.Fatalf("executeHTTPRequest failed: %v", err)
@@ -83,9 +79,7 @@ func TestExecuteHTTPRejectsPrivateHostWithoutServerAllowlist(t *testing.T) {
 	_, err := executeHTTPRequest(context.Background(), "plugin.http", plugins.Action{
 		HTTPMethod: "GET",
 		HTTPURL:    "https://127.0.0.1/v1/data",
-	}, config.Config{HTTP: config.HTTPConfig{TimeoutSeconds: 5, MaxRetries: 0}}, stubHTTPActionPermissions{
-		permissions: map[string]bool{"http.request": true},
-	})
+	}, config.Config{HTTP: config.HTTPConfig{TimeoutSeconds: 5, MaxRetries: 0}})
 
 	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) {
@@ -111,24 +105,10 @@ func TestExecuteHTTPMapsOversizedResponseToStableError(t *testing.T) {
 		TimeoutSeconds:       5,
 		MaxResponseBodyBytes: 4,
 		AllowPrivateHosts:    []string{"127.0.0.1"},
-	}}, stubHTTPActionPermissions{
-		permissions: map[string]bool{"http.request": true},
-	})
+	}})
 
 	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.upstream_response_too_large" {
 		t.Fatalf("unexpected oversized response error: %#v", err)
 	}
-}
-
-type stubHTTPActionPermissions struct {
-	permissions map[string]bool
-}
-
-func (s stubHTTPActionPermissions) PermissionDeclared(_ context.Context, _ string, permission string) bool {
-	return s.permissions[permission]
-}
-
-func (s stubHTTPActionPermissions) ListPluginSnapshots() []plugins.Snapshot {
-	return nil
 }

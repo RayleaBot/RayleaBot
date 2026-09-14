@@ -67,7 +67,7 @@ func TestWireBoundaries(t *testing.T) {
 		name, frame string
 		valid       bool
 	}{
-		{"empty arrays", `{"type":"init","request_id":"i","protocol_version":"3","plugin_id":"p","timezone":"UTC","config":{},"effective_permissions":[],"super_admins":[],"command_prefixes":["/"],"concurrency":1,"bots":[]}`, true},
+		{"empty arrays", `{"type":"init","request_id":"i","protocol_version":"4","plugin_id":"p","timezone":"UTC","config":{},"super_admins":[],"command_prefixes":["/"],"concurrency":1,"bots":[]}`, true},
 		{"missing result status", `{"type":"result","request_id":"r","data":{}}`, false},
 		{"zero timestamp", `{"type":"event","request_id":"e","event":{"event_id":"e","source_protocol":"system","source_adapter":"scheduler","event_type":"scheduler.trigger","timestamp":0}}`, true},
 		{"decimal timestamp", `{"type":"event","request_id":"e","event":{"event_id":"e","source_protocol":"system","source_adapter":"scheduler","event_type":"scheduler.trigger","timestamp":0.5}}`, false},
@@ -118,7 +118,7 @@ func TestWirePresenceRoundTrip(t *testing.T) {
 	if !strings.Contains(string(data), `"enabled":false`) {
 		t.Fatalf("false omitted: %s", data)
 	}
-	frame := Frame{Type: "init", RequestID: "i", ProtocolVersion: ProtocolVersion, PluginID: "p", Timezone: "UTC", Config: map[string]any{}, EffectivePermissions: []string{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1, Bots: &[]BotIdentity{}}
+	frame := Frame{Type: "init", RequestID: "i", ProtocolVersion: ProtocolVersion, PluginID: "p", Timezone: "UTC", Config: map[string]any{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1, Bots: &[]BotIdentity{}}
 	data, err = json.Marshal(frame)
 	if err != nil {
 		t.Fatal(err)

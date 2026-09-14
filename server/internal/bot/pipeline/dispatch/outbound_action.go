@@ -14,7 +14,7 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 }
 
 // ExecuteOutboundAction sends one plugin message action through the shared
-// permission, rate-limit, metrics, and outbound logging path.
+// rate-limit, metrics, and outbound logging path.
 func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string, requestID string, event chatevent.Event, action chatevent.MessageCommand) (outbound.SendResult, error) {
 	if d == nil || d.sender == nil {
 		return outbound.SendResult{DeliveryKind: action.Kind}, &chatevent.SendError{
@@ -43,28 +43,6 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		Segments:       chatevent.CloneMessageSegments(action.MessageSegments),
 	}
 	targetLabel := buildOutboundTargetLabel(ctx, event, targetType, targetID, d.sender)
-	permission := action.Kind
-	if permission == "message.reply" {
-		permission = "message.send"
-	}
-	if !d.permissionDeclared(ctx, pluginID, permission) {
-		err := &chatevent.SendError{
-			Code:    errorcodes.PluginPermissionDenied,
-			Message: permission + " permission is not declared",
-		}
-		result := outbound.SendResult{
-			DeliveryKind: action.Kind,
-			TargetType:   targetType,
-			TargetID:     targetID,
-		}
-		outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
-			PluginID:    pluginID,
-			RequestID:   requestID,
-			CommandName: commandName,
-			TargetLabel: targetLabel,
-		}, attempt, result, err)
-		return result, err
-	}
 	limitTargetType, limitTargetID, limitScope := d.limitTargetForAction(action)
 	if strings.TrimSpace(limitTargetType) == "" {
 		limitTargetType = targetType
@@ -118,16 +96,6 @@ func (d *Dispatcher) beginOutboundSend(ctx context.Context, request outbound.Mes
 		return outbound.MessageAdmission{Scope: request.Scope}, nil
 	}
 	return policy.Begin(ctx, request)
-}
-
-func (d *Dispatcher) permissionDeclared(ctx context.Context, pluginID string, permission string) bool {
-	d.mu.RLock()
-	checker := d.permissionChecker
-	d.mu.RUnlock()
-	if checker == nil {
-		return false
-	}
-	return checker(ctx, pluginID, permission)
 }
 
 func (d *Dispatcher) limitTargetForAction(action chatevent.MessageCommand) (string, string, chatevent.IdentityScope) {

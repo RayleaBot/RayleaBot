@@ -18,11 +18,6 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-type routingPermissions struct{}
-
-func (routingPermissions) PermissionDeclared(context.Context, string, string) bool      { return true }
-func (routingPermissions) ListPluginSnapshots() []plugins.Snapshot                      { return nil }
-
 func oneBotRoutingEndpoint(t *testing.T, name string) (config.AdapterInstance, *atomic.Int32) {
 	t.Helper()
 	var calls atomic.Int32
@@ -98,7 +93,7 @@ func TestOneBotActionsUseConfiguredInstanceAndParent(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			service := actions.New(actions.Deps{Permissions: routingPermissions{}, ResolveOneBotAdapter: state.ResolveOneBotAdapter})
+			service := actions.New(actions.Deps{ResolveOneBotAdapter: state.ResolveOneBotAdapter})
 			result, err := service.Execute(t.Context(), "fixture", "action", *action, tc.parent)
 			if tc.want == "" {
 				var coded *plugins.Error
@@ -175,7 +170,7 @@ func TestOneBotActionsWithoutConfiguredOneBot(t *testing.T) {
 	for _, cfg := range []config.Config{{}, {Adapters: []config.AdapterInstance{{ID: "qq", Type: "qqofficial", Enabled: true, QQOfficial: &config.QQOfficialConfig{}}}}} {
 		state := buildEvents(eventDeps{Config: cfg, Logger: discardLogger()})
 		t.Cleanup(state.Close)
-		service := actions.New(actions.Deps{Permissions: routingPermissions{}, ResolveOneBotAdapter: state.ResolveOneBotAdapter})
+		service := actions.New(actions.Deps{ResolveOneBotAdapter: state.ResolveOneBotAdapter})
 		_, err := service.Execute(t.Context(), "fixture", "action", plugins.Action{Kind: "group.list"}, chatevent.Event{})
 		var coded *plugins.Error
 		if !errors.As(err, &coded) || coded.Code != "plugin.protocol_violation" {
@@ -257,7 +252,7 @@ func TestOneBotProviderActionUsesSelectedInstanceProvider(t *testing.T) {
 			t.Fatalf("provider identity was not discovered for %s", id)
 		}
 	}
-	service := actions.New(actions.Deps{Permissions: routingPermissions{}, ResolveOneBotAdapter: state.ResolveOneBotAdapter})
+	service := actions.New(actions.Deps{ResolveOneBotAdapter: state.ResolveOneBotAdapter})
 	for _, tc := range []struct {
 		kind    string
 		adapter string

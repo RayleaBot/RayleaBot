@@ -27,8 +27,6 @@ response:
         verified: false
       trust:
         level: unverified
-      permissions:
-        message.send: true
       webhooks: []
       commands:
         - id: weather

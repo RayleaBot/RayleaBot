@@ -48,12 +48,6 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 	if len(req.Action.RenderResources) == 0 {
 		return nil, func() {}, nil
 	}
-	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "http.request") {
-		return nil, func() {}, &plugins.Error{
-			Code:    errorcodes.PluginPermissionDenied,
-			Message: "render.image resources require the http.request permission",
-		}
-	}
 
 	workspace, err := os.MkdirTemp("", "rayleabot-render-resources-*")
 	if err != nil {

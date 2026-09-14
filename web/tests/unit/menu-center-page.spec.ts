@@ -85,7 +85,7 @@ describe('MenuCenterView', () => {
     configStore.document = config()
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
     vi.mocked(apiRequest).mockImplementation(async path => {
-      if (path === '/api/plugins/later-plugin') return { plugin: { ...later, permissions: {}, webhooks: [] } } as never
+      if (path === '/api/plugins/later-plugin') return { plugin: { ...later, webhooks: [] } } as never
       if (path.includes('cursor=1')) return { items: [later], total: 2 } as never
       return { items: [first], total: 2, next_cursor: '1' } as never
     })

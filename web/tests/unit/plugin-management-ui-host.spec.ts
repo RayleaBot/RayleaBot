@@ -71,7 +71,6 @@ function buildPlugin(overrides: Record<string, unknown> = {}): PluginDetail {
     command_groups: [],
     help: {},
     command_conflicts: [],
-    permissions: {},
     webhooks: [],
     ...overrides,
   } as unknown as PluginDetail
@@ -185,7 +184,7 @@ describe('PluginManagementUIHost bridge v3', () => {
   })
 
   it('requires an explicit adapter for target queries and sends only that instance path', async () => {
-    const wrapper = mountHost(buildPlugin({ permissions: { 'group.list': {}, 'friend.list': {} } }))
+    const wrapper = mountHost(buildPlugin())
     await flushPromises()
     const { channel } = await connectBridge(wrapper)
     const fetch = vi.mocked(window.fetch)
@@ -304,7 +303,6 @@ describe('PluginManagementUIHost bridge v3', () => {
         page: { id: 'config', label: '配置页面' },
         config: { default_city: '上海', unit: 'fahrenheit' },
         secrets_configured: { api_token: true, optional_token: false },
-        allowed_permissions: [],
       },
     })
     expect(JSON.stringify(init)).not.toContain('secret-value')

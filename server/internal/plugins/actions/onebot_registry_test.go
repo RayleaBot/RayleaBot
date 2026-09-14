@@ -20,16 +20,10 @@ func TestOneBotActionRegistryMatchesContractsAndClientHelpers(t *testing.T) {
 	repoRoot := filepath.Join("..", "..", "..", "..")
 	protocolActions := contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-protocol.schema.json"), "onebot_action_kind")
 	protocolProviderActions := contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-protocol.schema.json"), "provider_extension_action_kind")
-	infoPermissions := stringSet(contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"), "permission_name"))
 
 	registryActions, registryProviderActions := oneBotRegistryKinds()
 	assertStringSetEqual(t, "plugin protocol onebot actions", protocolActions, registryActions)
 	assertStringSetEqual(t, "plugin protocol provider actions", protocolProviderActions, registryProviderActions)
-	for _, action := range append(append([]string{}, registryActions...), registryProviderActions...) {
-		if !infoPermissions[action] {
-			t.Fatalf("plugin info permissions do not declare OneBot action %q", action)
-		}
-	}
 
 	goSDK := string(readRepoFile(t, filepath.Join(repoRoot, "sdk", "go", "actions.go")))
 	for _, kind := range append(append([]string{}, registryActions...), registryProviderActions...) {
@@ -49,9 +43,6 @@ func TestOneBotActionRegistrySpecsAreComplete(t *testing.T) {
 	for kind, spec := range actions.OneBotActionRegistry() {
 		if strings.TrimSpace(spec.Kind) == "" || spec.Kind != kind {
 			t.Fatalf("registry key %q has mismatched spec kind %q", kind, spec.Kind)
-		}
-		if spec.Permission != spec.Kind {
-			t.Fatalf("registry action %q permission = %q, want same action kind", kind, spec.Permission)
 		}
 		if spec.Project == nil {
 			t.Fatalf("registry action %q missing projector", kind)
@@ -94,47 +85,6 @@ func TestGroupMemberGetBypassesAdapterCache(t *testing.T) {
 	}
 }
 
-func TestBaseActionHandlersMatchLocalActionPermissions(t *testing.T) {
-	t.Parallel()
-
-	repoRoot := filepath.Join("..", "..", "..", "..")
-	protocolBase := contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-protocol.schema.json"), "base_permission_name")
-	infoPermissions := stringSet(contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"), "permission_name"))
-	for _, permission := range protocolBase {
-		if !infoPermissions[permission] {
-			t.Fatalf("plugin info permissions do not declare protocol permission %q", permission)
-		}
-	}
-
-	basePermissionSet := stringSet(protocolBase)
-	for _, implicit := range []string{"logger.write", "config.write", "storage.kv", "storage.file", "session.wait", "session.finish"} {
-		basePermissionSet[implicit] = true
-	}
-	kinds := actions.NewDefaultRegistry(actions.Deps{}).Kinds()
-	handlerKinds := map[string]bool{}
-	for _, kind := range kinds {
-		handlerKinds[kind] = true
-	}
-	for kind := range handlerKinds {
-		if _, ok := actions.LookupOneBotAction(kind); ok {
-			continue
-		}
-		if !basePermissionSet[kind] {
-			t.Fatalf("base local action handler %q is not declared as a base permission", kind)
-		}
-	}
-
-	nonLocalPermissions := map[string]bool{"event.raw_payload": true}
-	for _, permission := range protocolBase {
-		if nonLocalPermissions[permission] {
-			continue
-		}
-		if _, ok := handlerKinds[permission]; !ok {
-			t.Fatalf("base local action %q is missing a handler", permission)
-		}
-	}
-}
-
 func TestDefaultRegistryRegistersOneBotHandlers(t *testing.T) {
 	t.Parallel()
 
@@ -165,14 +115,6 @@ func contractEnum(t *testing.T, path string, defName string) []string {
 	items := append([]string(nil), definition.Enum...)
 	sort.Strings(items)
 	return items
-}
-
-func stringSet(items []string) map[string]bool {
-	set := make(map[string]bool, len(items))
-	for _, item := range items {
-		set[item] = true
-	}
-	return set
 }
 
 func oneBotRegistryKinds() ([]string, []string) {

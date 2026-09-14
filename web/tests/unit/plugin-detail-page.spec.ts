@@ -161,7 +161,7 @@ describe('PluginDetailPage', () => {
       id: 'weather', name: 'Weather', role: 'community', state: 'failed',
       state_diagnosis: { kind: 'initialization_failed', last_error_code: 'plugin.init_timeout', last_error_message: 'raw backend wording', recoverable: false },
       source: { root: 'plugins/installed', package_source_type: 'local_directory', package_source_ref: 'fixture', verified: false },
-      trust: { level: 'unverified' }, permissions: {}, webhooks: [], commands: [], command_groups: [], help: {}, command_conflicts: [],
+      trust: { level: 'unverified' }, webhooks: [], commands: [], command_groups: [], help: {}, command_conflicts: [],
     }
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(undefined)
     vi.spyOn(useConfigStore(), 'fetchConfig').mockResolvedValue(undefined)
@@ -272,7 +272,6 @@ describe('PluginDetailPage', () => {
       priority: 25,
       block: true,
     events: ['message.group'],
-    permissions: { 'http.request': true, 'render.image': true },
     webhooks: [],
       icon: 'assets/weather.svg',
       repo: 'https://github.com/RayleaBot/plugins-weather',
@@ -373,8 +372,6 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('https://plugins.rayleabot.local/weather')
     expect(wrapper.text()).toContain('assets/overview.svg')
     expect(wrapper.text()).toContain('天气总览卡片')
-  expect(wrapper.find('[title="原始权限：http.request"]').exists()).toBe(true)
-  expect(wrapper.find('[title="原始权限：render.image"]').exists()).toBe(true)
    expect(wrapper.text()).toContain('message.group')
     expect(wrapper.text()).toContain('查看今日运势')
     expect(wrapper.text()).toContain('所有成员')
@@ -695,7 +692,6 @@ describe('PluginDetailPage', () => {
     command_groups: [],
     help: {},
       command_conflicts: [],
-    permissions: {},
     webhooks: [],
     } as const
 
@@ -782,7 +778,6 @@ describe('PluginDetailPage', () => {
     command_groups: [],
     help: {},
       command_conflicts: [],
-    permissions: {},
     webhooks: [],
     } as const
 

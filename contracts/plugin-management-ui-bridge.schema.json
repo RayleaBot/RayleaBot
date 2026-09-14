@@ -462,8 +462,7 @@
         "config",
         "secrets_configured",
         "theme",
-        "language",
-        "allowed_permissions"
+        "language"
       ],
       "properties": {
         "plugin": {
@@ -485,14 +484,6 @@
         "language": {
           "type": "string",
           "minLength": 2
-        },
-        "allowed_permissions": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "uniqueItems": true
         }
       }
     },

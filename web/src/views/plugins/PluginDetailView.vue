@@ -31,8 +31,6 @@ import {
   formatPluginVersion,
   getPluginTrustLabel,
   getConnectionStatusLabel,
-  getPluginPermissionLabel,
-  getPluginPermissionRawTitle,
   getPluginRoleLabel,
   getPluginStateLabel,
 } from '@/lib/display'
@@ -190,7 +188,6 @@ const runtimeInfoRows = computed(() => [
   { key: 'priority', label: t('plugins.fields.priority'), value: currentPlugin.value?.priority ?? 0 },
   { key: 'block', label: t('plugins.fields.propagation'), value: t(currentPlugin.value?.block ? 'plugins.propagation.stop' : 'plugins.propagation.continue') },
 ])
-const permissionNames = computed(() => Object.keys(currentPlugin.value?.permissions ?? {}).sort())
 const detailErrorToast = computed(() => {
   if (operationError.value) {
     return {
@@ -547,20 +544,6 @@ onUnmounted(() => {
                           <dd>{{ item.value }}</dd>
                         </div>
                       </dl>
-                      <div class="metadata-section">
-                        <strong>{{ t('plugins.fields.permissions') }}</strong>
-                        <div v-if="permissionNames.length" class="tag-list">
-                          <AppTag
-                            v-for="permission in permissionNames"
-                            :key="permission"
-                            class="cap-tag"
-                            :title="getPluginPermissionRawTitle(permission)"
-                          >
-                            {{ getPluginPermissionLabel(permission) }}
-                          </AppTag>
-                        </div>
-                        <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                      </div>
                       <div class="metadata-section">
                         <strong>{{ t('plugins.fields.events') }}</strong>
                         <div v-if="hasItems(currentPlugin?.events)" class="tag-list">

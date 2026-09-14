@@ -4100,15 +4100,6 @@ components:
           type: boolean
 
 
-    PluginPermissionGrant:
-      type: boolean
-      const: true
-
-    PluginPermissions:
-      type: object
-      additionalProperties:
-        $ref: '#/components/schemas/PluginPermissionGrant'
-
     PluginScreenshot:
       $ref: ./plugin-info.schema.json#/$defs/screenshot
     PluginManagementUISummary:
@@ -4146,7 +4137,6 @@ components:
       type: object
       unevaluatedProperties: false
       required:
-      - permissions
       - webhooks
       properties:
         license:
@@ -4160,8 +4150,6 @@ components:
           type: array
           items:
             type: string
-        permissions:
-          $ref: '#/components/schemas/PluginPermissions'
         webhooks:
           type: array
           items:

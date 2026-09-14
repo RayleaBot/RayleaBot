@@ -134,7 +134,6 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			webhookMeta.ClientEventID = replayDecision.eventID
 		}
 
-		_, includeRawPayload := snapshot.Permissions["event.raw_payload"]
 		result := s.dispatcher.DispatchToPlugin(r.Context(), pluginID, chatevent.Event{
 			EventID:        eventID,
 			SourceProtocol: "webhook",
@@ -151,7 +150,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 				Role: "remote",
 			},
 			Webhook:    webhookMeta,
-			RawPayload: s.buildWebhookRawPayload(r, route, body, includeRawPayload),
+			RawPayload: s.buildWebhookRawPayload(r, route, body),
 		})
 		if result.Outcome != dispatch.OutcomeDelivered {
 			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
@@ -224,11 +223,7 @@ func webhookRemoteIP(remoteAddr string) string {
 	return remoteAddr
 }
 
-func (s *Service) buildWebhookRawPayload(r *http.Request, route string, body []byte, include bool) any {
-	if !include {
-		return nil
-	}
-
+func (s *Service) buildWebhookRawPayload(r *http.Request, route string, body []byte) any {
 	payload := map[string]any{
 		"route":        route,
 		"method":       r.Method,

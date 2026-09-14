@@ -59,9 +59,6 @@ func schedulerCreateRegistrar() registrar {
 }
 
 func executeSchedulerCreate(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "scheduler.create") {
-		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: "scheduler.create permission is not declared"}
-	}
 	if deps.Scheduler == nil {
 		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "scheduler engine is not available"}
 	}
@@ -92,10 +89,6 @@ func secretReadRegistrar() registrar {
 }
 
 func executeSecretRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "secret.read") {
-		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: "secret.read permission is not declared"}
-	}
-
 	key := req.Action.SecretKey
 	if !settings.ValidSecretKey(key) {
 		return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: "secret.read key is required"}
@@ -117,9 +110,6 @@ func executeSecretRead(ctx context.Context, deps Deps, req ActionRequest) (map[s
 func secretMutationRegistrar(kind string) registrar {
 	return registrar{kind: kind, factory: func(deps Deps) ActionHandler {
 		return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-			if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, kind) {
-				return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: kind + " permission is not declared"}
-			}
 			if deps.Settings == nil {
 				return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "secret store is not available"}
 			}

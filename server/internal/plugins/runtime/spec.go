@@ -19,7 +19,6 @@ type InitPayload struct {
 	Timezone        string
 	Bots            []chatevent.BotIdentity
 	Config          map[string]any
-	Permissions     []string
 	SuperAdmins     []string
 	CommandPrefixes []string
 }

@@ -21,7 +21,7 @@ describe('bounded collection pagination', () => {
     vi.stubGlobal('fetch', vi.fn(async (path: string) => {
       calls.push(path)
       const url = new URL(path, 'http://local.test')
-      if (url.pathname !== '/api/plugins') return json({ plugin: { ...all[204], permissions: {}, webhooks: [] } })
+      if (url.pathname !== '/api/plugins') return json({ plugin: { ...all[204], webhooks: [] } })
       const offset = Number(url.searchParams.get('cursor') || 0)
       return json({ items: all.slice(offset, offset + 100), total: all.length, ...(offset + 100 < all.length ? { next_cursor: String(offset + 100) } : {}) })
     }))
@@ -85,7 +85,7 @@ describe('bounded collection pagination', () => {
 
   it('updates known plugin state without injecting an unloaded plugin into the visible page', () => {
     const store = usePluginsStore()
-    const known = { ...plugin('off-page'), permissions: {}, webhooks: [] } as PluginDetail
+    const known = { ...plugin('off-page'), webhooks: [] } as PluginDetail
     store.rememberSummaries([known])
     store.detailsByPluginId = { 'off-page': known }
     store.upsert({ id: 'off-page', state: 'disabled' })

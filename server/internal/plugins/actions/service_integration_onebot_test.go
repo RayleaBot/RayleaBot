@@ -86,9 +86,6 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
-		"weather": {"message.history.get": true},
-	}}
 	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return shell, nil }
 	application := localaction.New(deps)
 
@@ -143,9 +140,6 @@ func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
-		"weather": {"provider.napcat.message_emoji.like.set": true},
-	}}
 	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
 	application := localaction.New(deps)
 
@@ -250,9 +244,6 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
-		"weather": {"provider.napcat.message_emoji.like.set": true},
-	}}
 	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return shell, nil }
 	application := localaction.New(deps)
 
@@ -285,24 +276,6 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	}
 }
 
-func TestExecuteOneBotLocalActionRejectsMissingPermission(t *testing.T) {
-	t.Parallel()
-
-	testConfig := config.Config{}
-	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
-	application := localaction.New(deps)
-
-	_, err := application.Execute(context.Background(), "weather", "req_provider", plugins.Action{
-		Kind: "message.history.get",
-		RawData: map[string]any{
-			"conversation_type": "group",
-			"conversation_id":   "456",
-		},
-	}, chatevent.Event{})
-	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
-}
-
 func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) {
 	t.Parallel()
 
@@ -316,9 +289,6 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
 	}})
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
-		"weather": {"message.history.get": true},
-	}}
 	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
 	application := localaction.New(deps)
 

@@ -115,7 +115,7 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
 	writeFile(t, filepath.Join(dataDir, "plugin-state", "settings.json"), `{"enabled":true}`)
 	writeFile(t, filepath.Join(dataDir, ".state", "cursor"), "42")
-	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-go","manifest_version":"3","version":"1.0.0","platforms":["windows-x64"]}`)
+	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-go","manifest_version":"4","version":"1.0.0","platforms":["windows-x64"]}`)
 	writeFile(t, filepath.Join(pluginsDir, "artifact.json"), `{"artifact_version":"2"}`)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))

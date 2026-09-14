@@ -4,7 +4,7 @@
 
 示例展示：
 
-- manifest v3 如何声明事件、权限和命令；
+- manifest v4 如何声明事件和命令；
 - 如何使用 `rayleabot.Run` 注册事件处理器；
 - 如何通过 `EventContext.Result` 返回一次终态响应；
 - 如何使用统一 `raylea-plugin build-go` 生成按平台分包的 artifact。

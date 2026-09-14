@@ -10,17 +10,16 @@ type FrameEnvelope struct {
 }
 
 type InitFrame struct {
-	Type                 string         `json:"type"`
-	RequestID            string         `json:"request_id"`
-	Timezone             string         `json:"timezone"`
-	CommandPrefixes      []string       `json:"command_prefixes"`
-	ProtocolVersion      string         `json:"protocol_version"`
-	PluginID             string         `json:"plugin_id"`
-	Config               map[string]any `json:"config"`
-	EffectivePermissions []string       `json:"effective_permissions"`
-	SuperAdmins          []string       `json:"super_admins"`
-	Concurrency          int            `json:"concurrency"`
-	Bots                 []BotIdentity  `json:"bots"`
+	Type            string         `json:"type"`
+	RequestID       string         `json:"request_id"`
+	Timezone        string         `json:"timezone"`
+	CommandPrefixes []string       `json:"command_prefixes"`
+	ProtocolVersion string         `json:"protocol_version"`
+	PluginID        string         `json:"plugin_id"`
+	Config          map[string]any `json:"config"`
+	SuperAdmins     []string       `json:"super_admins"`
+	Concurrency     int            `json:"concurrency"`
+	Bots            []BotIdentity  `json:"bots"`
 }
 
 type InitProgressFrame struct {
@@ -356,29 +355,28 @@ type ProtocolRenderImageResourceFrame struct {
 }
 
 type Frame struct {
-	Type                 string          `json:"type"`
-	RequestID            string          `json:"request_id"`
-	Timezone             string          `json:"timezone,omitempty"`
-	CommandPrefixes      []string        `json:"command_prefixes,omitempty"`
-	ProtocolVersion      string          `json:"protocol_version,omitempty"`
-	PluginID             string          `json:"plugin_id,omitempty"`
-	Config               map[string]any  `json:"config,omitempty"`
-	EffectivePermissions []string        `json:"effective_permissions,omitempty"`
-	SuperAdmins          []string        `json:"super_admins,omitempty"`
-	Concurrency          int             `json:"concurrency,omitempty"`
-	Bots                 *[]BotIdentity  `json:"bots,omitempty"`
-	Summary              string          `json:"summary,omitempty"`
-	Status               string          `json:"status,omitempty"`
-	ErrorMessage         string          `json:"error_message,omitempty"`
-	Event                json.RawMessage `json:"event,omitempty"`
-	ParentRequestID      string          `json:"parent_request_id,omitempty"`
-	Action               string          `json:"action,omitempty"`
-	Data                 json.RawMessage `json:"data,omitempty"`
-	Propagation          string          `json:"propagation,omitempty"`
-	Code                 string          `json:"code,omitempty"`
-	Message              string          `json:"message,omitempty"`
-	Details              map[string]any  `json:"details,omitempty"`
-	Reason               string          `json:"reason,omitempty"`
+	Type            string          `json:"type"`
+	RequestID       string          `json:"request_id"`
+	Timezone        string          `json:"timezone,omitempty"`
+	CommandPrefixes []string        `json:"command_prefixes,omitempty"`
+	ProtocolVersion string          `json:"protocol_version,omitempty"`
+	PluginID        string          `json:"plugin_id,omitempty"`
+	Config          map[string]any  `json:"config,omitempty"`
+	SuperAdmins     []string        `json:"super_admins,omitempty"`
+	Concurrency     int             `json:"concurrency,omitempty"`
+	Bots            *[]BotIdentity  `json:"bots,omitempty"`
+	Summary         string          `json:"summary,omitempty"`
+	Status          string          `json:"status,omitempty"`
+	ErrorMessage    string          `json:"error_message,omitempty"`
+	Event           json.RawMessage `json:"event,omitempty"`
+	ParentRequestID string          `json:"parent_request_id,omitempty"`
+	Action          string          `json:"action,omitempty"`
+	Data            json.RawMessage `json:"data,omitempty"`
+	Propagation     string          `json:"propagation,omitempty"`
+	Code            string          `json:"code,omitempty"`
+	Message         string          `json:"message,omitempty"`
+	Details         map[string]any  `json:"details,omitempty"`
+	Reason          string          `json:"reason,omitempty"`
 }
 
 func (frame Frame) MarshalJSON() ([]byte, error) {
@@ -420,13 +418,6 @@ func (frame Frame) MarshalJSON() ([]byte, error) {
 				return nil, err
 			}
 			object["config"] = value
-		}
-		if _, present := object["effective_permissions"]; !present {
-			value, err := json.Marshal(frame.EffectivePermissions)
-			if err != nil {
-				return nil, err
-			}
-			object["effective_permissions"] = value
 		}
 		if _, present := object["plugin_id"]; !present {
 			value, err := json.Marshal(frame.PluginID)
@@ -679,5 +670,5 @@ func (frame Frame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(object)
 }
 
-const ProtocolVersion = "3"
+const ProtocolVersion = "4"
 const DefaultMaxFrameBytes = 8388608

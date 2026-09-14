@@ -53,9 +53,9 @@
   - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`
   - 插件状态、诊断及命令运行态投影引用 OpenAPI 的同一 schema；命令触发器、权限级别、帮助与分组等声明字段引用 `plugin-info.schema.json` 的定义。静态 manifest 与含有效命令名的运行态投影保持各自的 required 字段。
 - `plugin-info.schema.json`
-  - 插件 `info.json` v3 的安装前静态校验、最低 Core 版本、事件、权限、命令、管理页与 webhook 边界
-  - 固定 `manifest_version: "3"`；运行语言、入口和目标平台由 artifact 提供
-  - `events` 静态声明普通事件订阅；`permissions` 只声明高权限或跨系统宿主能力
+  - 插件 `info.json` v4 的安装前静态校验、最低 Core 版本、事件、命令、管理页与 webhook 边界
+  - 固定 `manifest_version: "4"`；运行语言、入口和目标平台由 artifact 提供
+  - `events` 静态声明普通事件订阅；manifest 不声明宿主权限，全部宿主动作对可信插件进程可用
   - 当前已固定内联 `default_config`、metadata、统一 `commands`、真实 `command_groups`、帮助标题/摘要、单入口 `management_ui` 和静态 `webhooks`
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - `priority`（默认 0）与 `block`（默认 false）定义消息分层与阻断。正优先级消息订阅者可先于命令声明者接收命令消息；其他事件保留既有投递。成功终态的显式 propagation 覆盖 block，同名命令授权与冷却保持既有语义。
@@ -74,7 +74,7 @@
   - `page.ready` / `host.connect` 只用于校验窗口、来源和一次性 nonce 并转交一个 `MessagePort`，后续消息仅允许通过绑定端口
   - secret 只暴露是否已配置，写操作仅支持覆盖与显式删除；`ui.resize` 的宿主有效范围为 320–1600px
 - `plugin-protocol.schema.json`
-  - 插件 Runtime JSONL protocol v3
+  - 插件 Runtime JSONL protocol v4
   - 当前固定 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
   - `error` 帧由插件终态失败与平台 local action 失败共用，固定包含 `code`、`message`，可选 `details`
   - 只有 init 携带协议版本和插件身份；后续帧使用最小 envelope
@@ -92,7 +92,7 @@
   - `session.wait` 和 `session.finish` 固定为必须携带父事件的私有动作；新建和本轮再次等待使用互斥形状，由对话 ID 和当前父事件识别归属。`payload.session` 只包含对话 ID、scope 和期限，业务状态由插件维护。`session.expired` 是显式请求后的尽力超时通知，不参与普通订阅广播。
   - 当前已固定 OneBot 单动作能力，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`
   - 正式 `event.event_type` 以 schema 枚举为准，包含平台内部事件与 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
-  - `event.payload.onebot` 是形状闭合的 OneBot11 归一化投影（`additionalProperties: false`），字段集以 schema 为准；不需要 permission，与 permission-gated 的 `event.raw_payload` 无关
+  - `event.payload.onebot` 是形状闭合的 OneBot11 归一化投影（`additionalProperties: false`），字段集以 schema 为准；投递给所有订阅插件，与只出现在 webhook 事件中的 `event.raw_payload` 无关
   - inbound / outbound 消息段种类以 schema 枚举为准，随正式接入的适配器增长；宿主不会发出集合外的种类
   - 会话种类词表 `conversation_target_type` 当前为 `group`、`private`。出站 `message.send` / `message.reply` 严格校验并对未知值 fail-closed；入站 `event.target.type` 有意保持开放，另含 `system`、`bot` 等宿主内部种类，插件忽略不认识的种类。两个方向的 unknown 策略不同
   - 治理词表 `governance_entry_type`（`user`、`group`）与 `conversation_target_type` 是两套词表，`user` 不是 `private` 的别名

@@ -27,7 +27,6 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = permissionViewFor("help-menu", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderService(t, renderRoot))
 	application := localaction.New(deps)
 
@@ -77,9 +76,8 @@ func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
 		Version:           "1.0.0",
 		Valid:             true,
 		RegistrationState: "installed",
-		Permissions:       map[string]bool{"render.image": true},
 	}})
-	deps.Permissions = plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: catalogForActions})
+	deps.Plugins = catalogForActions
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, testutil.RepoRoot(t), renderRoot, runner))
 	application := localaction.New(deps)
 
@@ -130,7 +128,6 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
-	deps.Permissions = permissionViewFor("weather-card", "render.image")
 	deps.Renderer = localaction.RendererFromService(renderer)
 	application := localaction.New(deps)
 
@@ -190,7 +187,6 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
-	deps.Permissions = permissionViewFor("other-plugin", "render.image")
 	deps.Renderer = localaction.RendererFromService(renderer)
 	application := localaction.New(deps)
 
@@ -203,7 +199,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 			"title": "天气卡片",
 		},
 	}, chatevent.Event{})
-	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
+	assertRuntimeErrorCode(t, err, "plugin.protocol_violation")
 }
 
 func testPluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []render.PluginTemplateDeclaration {
@@ -233,7 +229,6 @@ func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = permissionViewFor("other-plugin", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, testutil.StaticRenderRunner{}))
 	application := localaction.New(deps)
 
@@ -246,7 +241,7 @@ func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
 			"title": "天气卡片",
 		},
 	}, chatevent.Event{})
-	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
+	assertRuntimeErrorCode(t, err, "plugin.protocol_violation")
 }
 
 func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
@@ -265,7 +260,6 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = permissionViewFor("help-menu", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
 	application := localaction.New(deps)
 
@@ -345,7 +339,6 @@ func TestExecuteRenderImageInjectsPrivateIdentityWithoutGroup(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = permissionViewFor("help-menu", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
 	application := localaction.New(deps)
 
@@ -418,7 +411,6 @@ func TestExecuteRenderImageKeepsPrivateSuperAdminBadge(t *testing.T) {
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = permissionViewFor("help-menu", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
 	application := localaction.New(deps)
 
@@ -479,7 +471,6 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = permissionViewFor("status-panel", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
 	application := localaction.New(deps)
 
@@ -597,7 +588,6 @@ func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) 
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = permissionViewFor("plain-card", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
 	application := localaction.New(deps)
 

@@ -100,9 +100,7 @@ func TestConversationExampleWithNativeSDKProcess(t *testing.T) {
 			snapshot.DesiredState = plugins.DesiredStateEnabled
 			snapshot.RuntimeState = "running"
 			view := catalog.New([]plugins.Snapshot{snapshot})
-			permissions := plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: view})
-			d.SetPermissionChecker(permissions.PermissionDeclared)
-			local := actions.New(actions.Deps{CurrentConfig: func() config.Config { return cfg }, Logger: logger, PluginKV: kv, Conversations: r, MessageSender: actions.OutboundMessageSender(d), Permissions: permissions})
+			local := actions.New(actions.Deps{CurrentConfig: func() config.Config { return cfg }, Logger: logger, PluginKV: kv, Conversations: r, MessageSender: actions.OutboundMessageSender(d), Plugins: view})
 			manager := pluginruntime.NewManager(logger, pluginruntime.Options{
 				ExecuteLocalAction: func(ctx context.Context, id, requestID string, action plugins.Action, event chatevent.Event) (map[string]any, error) {
 					if scenario == "timeout" && action.Kind == "session.wait" {
@@ -123,7 +121,7 @@ func TestConversationExampleWithNativeSDKProcess(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := manager.Start(t.Context(), spec, pluginruntime.InitPayload{Timezone: "UTC", Bots: []chatevent.BotIdentity{{SourceProtocol: "onebot11", SourceAdapter: "fixture", ID: "bot"}}, Config: map[string]any{}, Permissions: []string{"message.send"}, CommandPrefixes: []string{"/"}}); err != nil {
+			if err := manager.Start(t.Context(), spec, pluginruntime.InitPayload{Timezone: "UTC", Bots: []chatevent.BotIdentity{{SourceProtocol: "onebot11", SourceAdapter: "fixture", ID: "bot"}}, Config: map[string]any{}, CommandPrefixes: []string{"/"}}); err != nil {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() {

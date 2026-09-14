@@ -112,8 +112,6 @@ type deliveryContext struct {
 
 func (ctx deliveryContext) Value(key any) any { return ctx.values.Value(key) }
 
-type PermissionChecker func(context.Context, string, string) bool
-
 type OutboundPolicy interface {
 	Begin(context.Context, outbound.MessageLimitRequest) (outbound.MessageAdmission, error)
 }
@@ -137,20 +135,19 @@ type DispatcherStats struct {
 
 // Dispatcher manages per-plugin event queues and fan-out delivery.
 type Dispatcher struct {
-	failures          logging.FailureTracker
-	logger            *slog.Logger
-	sender            outbound.ActionSender
-	resolver          outbound.ReplyTargetResolver
-	outboundPolicy    OutboundPolicy
-	queueSize         int
-	controlQueueSize  int
-	mu                sync.RWMutex
-	admissionMu       sync.Mutex
-	layersDone        sync.WaitGroup
-	slots             map[string]*pluginSlot
-	retired           map[*pluginSlot]struct{}
-	closed            bool
-	permissionChecker PermissionChecker
+	failures         logging.FailureTracker
+	logger           *slog.Logger
+	sender           outbound.ActionSender
+	resolver         outbound.ReplyTargetResolver
+	outboundPolicy   OutboundPolicy
+	queueSize        int
+	controlQueueSize int
+	mu               sync.RWMutex
+	admissionMu      sync.Mutex
+	layersDone       sync.WaitGroup
+	slots            map[string]*pluginSlot
+	retired          map[*pluginSlot]struct{}
+	closed           bool
 
 	statsMu       sync.Mutex
 	delivered     uint64
@@ -188,11 +185,6 @@ func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.Re
 		retired:          make(map[*pluginSlot]struct{}),
 		dropsByReason:    make(map[string]map[string]uint64),
 	}
-}
-func (d *Dispatcher) SetPermissionChecker(checker PermissionChecker) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.permissionChecker = checker
 }
 func (d *Dispatcher) SetOutboundPolicy(policy OutboundPolicy) {
 	d.mu.Lock()

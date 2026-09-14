@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -47,6 +48,10 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 		RegistrationState: plugins.RegistrationStateInstalled,
 		DesiredState:      plugins.DesiredStateDisabled, RuntimeState: plugins.RuntimeStateStopped,
 		DisplayState: plugins.DisplayStateInvalidManifest,
+	}
+	if version, _ := raw["manifest_version"].(string); version != artifact.ManifestVersion {
+		invalidSnapshot.ValidationSummary = fmt.Sprintf("%v: manifest_version %q, supported %q", artifact.ErrContractUnsupported, version, artifact.ManifestVersion)
+		return invalidSnapshot, true, nil
 	}
 	if err := validator.Validate(document); err != nil {
 		invalidSnapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)

@@ -99,7 +99,6 @@ type Snapshot struct {
 	Priority               int
 	Block                  bool
 	Events                 []string
-	Permissions            map[string]bool
 	Webhooks               []WebhookScope
 	CommandGroups          []CommandGroup
 	Description            string
@@ -204,12 +203,6 @@ func CloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.ConflictPaths = append([]string(nil), snapshot.ConflictPaths...)
 	cloned.Events = append([]string(nil), snapshot.Events...)
 	cloned.Keywords = append([]string(nil), snapshot.Keywords...)
-	if len(snapshot.Permissions) > 0 {
-		cloned.Permissions = make(map[string]bool, len(snapshot.Permissions))
-		for name := range snapshot.Permissions {
-			cloned.Permissions[name] = true
-		}
-	}
 	if len(snapshot.Webhooks) > 0 {
 		cloned.Webhooks = cloneWebhookScopes(snapshot.Webhooks)
 	}
@@ -252,17 +245,6 @@ func CloneSettings(values map[string]any) map[string]any {
 	cloned := CloneMap(values)
 	if cloned == nil {
 		return map[string]any{}
-	}
-	return cloned
-}
-
-func ClonePermissions(values map[string]bool) map[string]bool {
-	if len(values) == 0 {
-		return map[string]bool{}
-	}
-	cloned := make(map[string]bool, len(values))
-	for name := range values {
-		cloned[name] = true
 	}
 	return cloned
 }

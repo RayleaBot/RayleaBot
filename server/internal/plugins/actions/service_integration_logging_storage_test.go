@@ -38,7 +38,7 @@ func TestKVTTLFromDecodedWireAction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	application := localaction.New(localaction.Deps{PluginKV: repo, CurrentConfig: func() config.Config { return config.Config{} }, Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), Permissions: &stubPermissionView{permissions: map[string]map[string]bool{}}})
+	application := localaction.New(localaction.Deps{PluginKV: repo, CurrentConfig: func() config.Config { return config.Config{} }, Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))})
 	call := func(pluginID, data string) map[string]any {
 		t.Helper()
 		action, err := pluginruntime.ParseLocalAction("storage.kv", json.RawMessage(data))
@@ -94,11 +94,6 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &stubPermissionView{
-		permissions: map[string]map[string]bool{
-			"notice-logger": {"storage.kv": true},
-		},
-	}
 	deps.PluginKV = repo
 	application := localaction.New(deps)
 
@@ -172,9 +167,6 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	catalogForActions := plugincatalog.New([]plugins.Snapshot{{PluginID: "weather", Valid: true, RegistrationState: "installed"}})
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
-		"weather": {"config.write": true},
-	}}
 	settingsService, settingsErr := settings.New(settings.Deps{Plugins: catalogForActions, Config: repo, RefreshCommands: localaction.RefreshCommands(catalogForActions, dispatcher), Notify: localaction.NotifyConfigChanged(dispatcher)})
 	if settingsErr != nil {
 		t.Fatal(settingsErr)
@@ -203,32 +195,6 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 	}
 }
 
-func TestExecuteGovernanceActionsRejectMissingPermission(t *testing.T) {
-	t.Parallel()
-
-	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
-	if err != nil {
-		t.Fatalf("storage.Open: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(store.Close)
-
-	testConfig := config.Config{}
-	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	blacklistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
-	whitelistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
-	whitelistState := permissionsqlite.NewWhitelistStateRepository(store.Read, store.Write)
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{}}
-	governanceEvents := managementevents.NewGovernanceService()
-	deps.Governance = governance.NewService(governance.Deps{CurrentConfig: deps.CurrentConfig, BlacklistRepo: blacklistRepo, WhitelistRepo: whitelistRepo, WhitelistState: whitelistState, NotifyChanged: governanceEvents.PublishChanged})
-	application := localaction.New(deps)
-
-	_, err = application.Execute(context.Background(), "governance-helper", "req_governance_unauthorized", plugins.Action{
-		Kind: "governance.blacklist.read",
-	}, chatevent.Event{})
-	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
-}
-
 func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -250,25 +216,11 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		Valid:             true,
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
-		Permissions: map[string]bool{
-			"governance.blacklist.read": true, "governance.blacklist.write": true,
-			"governance.whitelist.read": true, "governance.whitelist.write": true,
-			"governance.command_policy.read": true,
-		},
 		Commands: []plugins.Command{
 			{ID: "forecast", Name: "forecast", DisplayName: "forecast", TriggerType: "exact", TriggerNames: []string{"forecast", "fc"}, Permission: "group_admin", Aliases: []string{"fc"}},
 			{ID: "current", Name: "current", DisplayName: "current", TriggerType: "exact", TriggerNames: []string{"current"}},
 		},
 	}})
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
-		"governance-helper": {
-			"governance.blacklist.read":      true,
-			"governance.blacklist.write":     true,
-			"governance.whitelist.read":      true,
-			"governance.whitelist.write":     true,
-			"governance.command_policy.read": true,
-		},
-	}}
 	governanceEvents := managementevents.NewGovernanceService()
 	deps.Governance = governance.NewService(governance.Deps{CurrentConfig: deps.CurrentConfig, BlacklistRepo: blacklistRepo, WhitelistRepo: whitelistRepo, WhitelistState: whitelistState, NotifyChanged: governanceEvents.PublishChanged, Plugins: catalogForActions})
 	application := localaction.New(deps)
@@ -375,9 +327,6 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 	blacklistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
 	whitelistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
 	whitelistState := permissionsqlite.NewWhitelistStateRepository(store.Read, store.Write)
-	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
-		"governance-helper": {"governance.blacklist.write": true},
-	}}
 	governanceEvents := managementevents.NewGovernanceService()
 	deps.Governance = governance.NewService(governance.Deps{CurrentConfig: deps.CurrentConfig, BlacklistRepo: blacklistRepo, WhitelistRepo: whitelistRepo, WhitelistState: whitelistState, NotifyChanged: governanceEvents.PublishChanged})
 	application := localaction.New(deps)
@@ -438,9 +387,8 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 		Name:              "天气插件",
 		Valid:             true,
 		RegistrationState: "installed",
-		Permissions:       map[string]bool{"scheduler.create": true},
 	}})
-	deps.Permissions = plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: catalogForActions})
+	deps.Plugins = catalogForActions
 	deps.Scheduler = localaction.Scheduler(engine)
 	application := localaction.New(deps)
 

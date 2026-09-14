@@ -17,20 +17,13 @@ func httpRequestRegistrar() registrar {
 		kind: "http.request",
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-				return executeHTTPRequest(ctx, req.PluginID, req.Action, currentConfig(deps), deps.Permissions)
+				return executeHTTPRequest(ctx, req.PluginID, req.Action, currentConfig(deps))
 			}
 		},
 	}
 }
 
-func executeHTTPRequest(ctx context.Context, pluginID string, action plugins.Action, cfg config.Config, permissions PermissionView) (map[string]any, error) {
-	if permissions == nil || !permissions.PermissionDeclared(ctx, pluginID, "http.request") {
-		return nil, &plugins.Error{
-			Code:    errorcodes.PluginPermissionDenied,
-			Message: "http.request permission is not declared",
-		}
-	}
-
+func executeHTTPRequest(ctx context.Context, pluginID string, action plugins.Action, cfg config.Config) (map[string]any, error) {
 	client := newHTTPClient(httpClientConfig{
 		Timeout:              currentHTTPTimeout(cfg),
 		MaxRetries:           currentHTTPMaxRetries(cfg),

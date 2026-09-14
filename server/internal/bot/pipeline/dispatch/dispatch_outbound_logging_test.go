@@ -11,139 +11,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-func allowAllPermissions(dispatcher *Dispatcher) {
-	dispatcher.SetPermissionChecker(func(context.Context, string, string) bool { return true })
-}
-
-func TestDispatchActionExecutionRejectsWhenPermissionCheckerIsMissing(t *testing.T) {
-	t.Parallel()
-
-	logger, stream := newDispatchTestLogger()
-	sender := &fakeSender{}
-	d := New(logger, sender, nil, 16)
-	defer d.Close()
-
-	rt := &fakeDeliverer{delivery: plugins.Delivery{
-		RequestID: "req_runtime_delivery_missing_checker",
-		Action: &chatevent.MessageCommand{
-			Kind:       "message.send",
-			TargetType: "group",
-			TargetID:   "200",
-			MessageSegments: []chatevent.MessageSegment{{
-				Type: "text",
-				Data: map[string]any{"text": "should be denied"},
-			}},
-		},
-	}}
-	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
-	d.Dispatch(context.Background(), testEchoEvent(), "")
-
-	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
-		return summary.RequestID == "req_runtime_delivery_missing_checker"
-	})
-	if summary.Details["error_code"] != "plugin.permission_denied" {
-		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
-	}
-	sender.mu.Lock()
-	defer sender.mu.Unlock()
-	if len(sender.messages) != 0 || len(sender.replies) != 0 {
-		t.Fatalf("missing checker allowed outbound send: messages=%#v replies=%#v", sender.messages, sender.replies)
-	}
-}
-
-func TestDispatchActionExecutionRejectsMissingMessageSendPermission(t *testing.T) {
-	t.Parallel()
-
-	logger, stream := newDispatchTestLogger()
-	sender := &fakeSender{}
-	d := New(logger, sender, nil, 16)
-	d.SetPermissionChecker(func(_ context.Context, pluginID, permission string) bool {
-		return false
-	})
-	defer d.Close()
-
-	rt := &fakeDeliverer{delivery: plugins.Delivery{
-		RequestID: "req_runtime_delivery_permission_send",
-		Action: &chatevent.MessageCommand{
-			Kind:       "message.send",
-			TargetType: "group",
-			TargetID:   "200",
-			MessageSegments: []chatevent.MessageSegment{{
-				Type: "text",
-				Data: map[string]any{"text": "should be denied"},
-			}},
-		},
-	}}
-	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
-
-	d.Dispatch(context.Background(), testEchoEvent(), "")
-
-	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
-		return summary.RequestID == "req_runtime_delivery_permission_send"
-	})
-	if summary.Details["error_code"] != "plugin.permission_denied" {
-		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
-	}
-
-	sender.mu.Lock()
-	defer sender.mu.Unlock()
-	if len(sender.messages) != 0 {
-		t.Fatalf("unexpected outbound sends: %#v", sender.messages)
-	}
-	if len(sender.replies) != 0 {
-		t.Fatalf("unexpected outbound replies: %#v", sender.replies)
-	}
-}
-
-func TestDispatchActionExecutionRejectsMissingMessageReplyPermission(t *testing.T) {
-	t.Parallel()
-
-	logger, stream := newDispatchTestLogger()
-	sender := &fakeSender{}
-	d := New(logger, sender, fakeReplyTargets{
-		"evt_reply_target": {
-			MessageID:  "msg-1",
-			TargetType: "group",
-			TargetID:   "200",
-		},
-	}, 16)
-	d.SetPermissionChecker(func(_ context.Context, pluginID, permission string) bool {
-		return false
-	})
-	defer d.Close()
-
-	rt := &fakeDeliverer{delivery: plugins.Delivery{
-		RequestID: "req_runtime_delivery_permission_reply",
-		Action: &chatevent.MessageCommand{
-			Kind:           "message.reply",
-			ReplyToEventID: "evt_reply_target",
-			MessageSegments: []chatevent.MessageSegment{{
-				Type: "text",
-				Data: map[string]any{"text": "reply denied"},
-			}},
-		},
-	}}
-	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
-
-	d.Dispatch(context.Background(), testEchoEvent(), "")
-
-	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
-		return summary.RequestID == "req_runtime_delivery_permission_reply"
-	})
-	if summary.Details["error_code"] != "plugin.permission_denied" {
-		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
-	}
-
-	sender.mu.Lock()
-	defer sender.mu.Unlock()
-	if len(sender.messages) != 0 {
-		t.Fatalf("unexpected outbound sends: %#v", sender.messages)
-	}
-	if len(sender.replies) != 0 {
-		t.Fatalf("unexpected outbound replies: %#v", sender.replies)
-	}
-}
-
 func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 	t.Parallel()
 
@@ -152,7 +19,6 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 		sendResult: chatevent.SendMessageResult{MessageID: "send-100", SourceAdapter: "bot-one", SourceProtocol: "onebot11"},
 	}
 	d := New(logger, sender, nil, 16)
-	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: plugins.Delivery{
@@ -217,7 +83,6 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 		sendErr: &chatevent.SendError{Code: "adapter.send_failed", Message: "send rejected by upstream"},
 	}
 	d := New(logger, sender, nil, 16)
-	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: plugins.Delivery{
@@ -272,7 +137,6 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 		},
 	}
 	d := New(logger, sender, resolver, 16)
-	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: plugins.Delivery{
@@ -325,7 +189,6 @@ func TestDispatchLogsOutboundMessageWithoutCommandContext(t *testing.T) {
 		sendResult: chatevent.SendMessageResult{MessageID: "send-300"},
 	}
 	d := New(logger, sender, nil, 16)
-	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: plugins.Delivery{

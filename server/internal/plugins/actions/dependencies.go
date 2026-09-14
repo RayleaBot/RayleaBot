@@ -10,9 +10,8 @@ import (
 	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 )
 
-type PermissionView interface {
-	PermissionDeclared(context.Context, string, string) bool
-	ListPluginSnapshots() []plugins.Snapshot
+type PluginCatalog interface {
+	List() []plugins.Snapshot
 }
 
 type OneBotAdapter interface {

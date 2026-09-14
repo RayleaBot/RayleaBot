@@ -23,7 +23,7 @@ func TestHTTPActionPreservesSetCookieFields(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer upstream.Close()
-	result, err := executeHTTPRequest(context.Background(), "fixture", plugins.Action{HTTPMethod: "GET", HTTPURL: upstream.URL}, config.Config{HTTP: config.HTTPConfig{AllowPrivateHosts: []string{"127.0.0.1"}}}, stubHTTPActionPermissions{permissions: map[string]bool{"http.request": true}})
+	result, err := executeHTTPRequest(context.Background(), "fixture", plugins.Action{HTTPMethod: "GET", HTTPURL: upstream.URL}, config.Config{HTTP: config.HTTPConfig{AllowPrivateHosts: []string{"127.0.0.1"}}})
 	if err != nil {
 		t.Fatal(err)
 	}

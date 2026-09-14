@@ -13,7 +13,6 @@ import (
 
 type OneBotActionSpec struct {
 	Kind          string
-	Permission    string
 	Provider      string
 	APIName       string
 	Validate      func(map[string]any) error
@@ -34,7 +33,6 @@ func oneBotRegistrars() []registrar {
 					return executeOneBotAction(ctx, oneBotActionRequest{
 						PluginID:       req.PluginID,
 						Action:         req.Action,
-						Permissions:    deps.Permissions,
 						ParentEvent:    req.ParentEvent,
 						ResolveAdapter: deps.ResolveOneBotAdapter,
 					})
@@ -82,7 +80,6 @@ var oneBotActionProjectors = map[string]func(map[string]any) (string, map[string
 func oneBotActionSpecFromProtocol(baseSpec onebot11.ActionSpec) OneBotActionSpec {
 	spec := OneBotActionSpec{
 		Kind:          baseSpec.Kind,
-		Permission:    baseSpec.Permission,
 		Provider:      baseSpec.Provider,
 		APIName:       baseSpec.APIName,
 		CollectionKey: baseSpec.CollectionKey,
@@ -103,9 +100,6 @@ func oneBotActionSpecFromProtocol(baseSpec onebot11.ActionSpec) OneBotActionSpec
 }
 
 func normalizeOneBotActionSpec(spec OneBotActionSpec) OneBotActionSpec {
-	if spec.Permission == "" {
-		spec.Permission = spec.Kind
-	}
 	if spec.Result == nil {
 		spec.Result = func(result any) map[string]any {
 			return defaultResult(spec.CollectionKey, result)
@@ -144,7 +138,6 @@ type oneBotCodedError interface {
 type oneBotActionRequest struct {
 	PluginID       string
 	Action         plugins.Action
-	Permissions    PermissionView
 	ParentEvent    chatevent.Event
 	ResolveAdapter func(string, string) (OneBotAdapter, error)
 }
@@ -155,13 +148,6 @@ func executeOneBotAction(ctx context.Context, req oneBotActionRequest) (map[stri
 		return nil, &plugins.Error{
 			Code:    errorcodes.PluginProtocolViolation,
 			Message: "received unsupported local action kind",
-		}
-	}
-
-	if req.Permissions == nil || !req.Permissions.PermissionDeclared(ctx, req.PluginID, spec.Permission) {
-		return nil, &plugins.Error{
-			Code:    errorcodes.PluginPermissionDenied,
-			Message: spec.Permission + " permission is not declared",
 		}
 	}
 

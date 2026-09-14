@@ -2,7 +2,7 @@
   "id": "raylea.echo",
   "name": "Echo Fixture",
   "version": "0.2.0",
-  "manifest_version": "3",
+  "manifest_version": "4",
   "license": "MIT",
   "commands": [
     {
@@ -29,10 +29,5 @@
     "message.private",
     "config.changed",
     "scheduler.trigger"
-  ],
-  "permissions": {
-    "message.send": true,
-    "render.image": true,
-    "scheduler.create": true
-  }
+  ]
 }

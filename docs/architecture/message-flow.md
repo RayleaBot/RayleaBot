@@ -50,7 +50,7 @@ sequenceDiagram
 | 目标与队列 | Dispatcher | manifest events、command declarations、priority/block、per-plugin lanes |
 | 插件进程协议 | Runtime Manager | runtime snapshot 与 event session |
 | 插件自有工作 | Plugin | 进程内状态、进程创建的临时目录与辅助程序 |
-| 平台 action | Local Action Service | permissions 与领域服务 |
+| 平台 action | Local Action Service | 参数校验与领域服务 |
 | 出站限流与发送 | Outbound / Adapter | rate limit、reply target、transport snapshot |
 
 同一 `event.target` lane 保持 FIFO；不同目标可在插件并发度内并行。队列满时 Dispatcher 返回内部 `OutcomeDropped`，以 `queue_full` 原因计入观测摘要并丢弃该次投递；不会向原始入站调用方返回插件拒绝结果，也不会产生无归属的 pending 状态。

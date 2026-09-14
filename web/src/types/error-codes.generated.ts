@@ -241,10 +241,6 @@ export const errorCatalog = {
     "httpStatus": 400,
     "retryable": false
   },
-  "plugin.permission_denied": {
-    "httpStatus": 403,
-    "retryable": false
-  },
   "plugin.platform_mismatch": {
     "httpStatus": 409,
     "retryable": false
@@ -383,7 +379,6 @@ export const errorMessages = {
     "not_recoverable": "插件当前不可恢复",
     "package_resource_limit_exceeded": "插件包超过资源限制",
     "package_unsafe_entry": "插件包包含不安全文件",
-    "permission_denied": "插件访问未声明权限",
     "platform_mismatch": "插件产物与当前平台不匹配",
     "protocol_violation": "插件协议违规",
     "session_conflict": "当前作用域已有对话，请先结束已有对话",

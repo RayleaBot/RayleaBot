@@ -23,14 +23,10 @@ func pluginListRegistrar() registrar {
 }
 
 func executePluginList(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "plugin.list") {
-		return nil, &plugins.Error{
-			Code:    errorcodes.PluginPermissionDenied,
-			Message: "plugin.list permission is not declared",
-		}
+	if deps.Plugins == nil {
+		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "plugin catalog is not available"}
 	}
-
-	snapshots := deps.Permissions.ListPluginSnapshots()
+	snapshots := deps.Plugins.List()
 	conflicts := plugins.DetectCommandConflicts(snapshots)
 	items := make([]map[string]any, 0, len(snapshots))
 	for _, snapshot := range snapshots {

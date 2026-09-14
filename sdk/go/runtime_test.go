@@ -138,7 +138,7 @@ func TestRunAppliesControlEventsInInputOrderBeforeBusinessHandlers(t *testing.T)
 	writeFrame(t, encoder, protocolFrame{
 		ProtocolVersion: ProtocolVersion, Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
 		Bots: &[]Bot{{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "old-bot"}}, Config: map[string]any{"mode": "initial"},
-		EffectivePermissions: []string{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 4,
+		SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 4,
 	})
 	var frame protocolFrame
 	decodeFrame(t, decoder, &frame)
@@ -203,7 +203,7 @@ func TestRunRejectsConfigChangedWithoutSnapshotAndContinues(t *testing.T) {
 	decoder := json.NewDecoder(outputReader)
 	writeFrame(t, encoder, protocolFrame{Bots: &[]Bot{},
 		ProtocolVersion: ProtocolVersion, Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
-		Config: map[string]any{"mode": "initial"}, EffectivePermissions: []string{},
+		Config:      map[string]any{"mode": "initial"},
 		SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1,
 	})
 	var frame protocolFrame
@@ -258,7 +258,7 @@ func TestRunCorrelatesConcurrentLocalActionsAndSerializesTerminalFrames(t *testi
 	decoder := json.NewDecoder(outputReader)
 	writeFrame(t, encoder, protocolFrame{Bots: &[]Bot{},
 		ProtocolVersion: ProtocolVersion, Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init-1",
-		Config: map[string]any{"enabled": true}, EffectivePermissions: []string{},
+		Config:      map[string]any{"enabled": true},
 		SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 2,
 	})
 	var initAck protocolFrame
@@ -332,7 +332,7 @@ func TestRunEnforcesOneTerminalResponseAndIsolatesPanics(t *testing.T) {
 	decoder := json.NewDecoder(outputReader)
 	writeFrame(t, encoder, protocolFrame{Bots: &[]Bot{},
 		ProtocolVersion: ProtocolVersion, Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
-		Config: map[string]any{}, EffectivePermissions: []string{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1,
+		Config: map[string]any{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1,
 	})
 	var frame protocolFrame
 	decodeFrame(t, decoder, &frame)
@@ -413,9 +413,6 @@ func writeFrame(t *testing.T, encoder *json.Encoder, frame protocolFrame) {
 	if frame.Type == "init" {
 		if frame.Config == nil {
 			frame.Config = map[string]any{}
-		}
-		if frame.EffectivePermissions == nil {
-			frame.EffectivePermissions = []string{}
 		}
 		if frame.SuperAdmins == nil {
 			frame.SuperAdmins = []string{}

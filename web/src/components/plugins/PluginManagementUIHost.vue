@@ -249,7 +249,6 @@ function postHostInit() {
     secrets_configured: lastSecretsConfigured,
     theme: themePayload(),
     language: document.documentElement.lang || navigator.language || 'zh-CN',
-    allowed_permissions: Object.keys(props.plugin.permissions),
   }
   postPort('host.init', payload)
 }
@@ -428,13 +427,6 @@ async function deleteSecrets(keys: string[], id?: string) {
   } catch (error) { postError(error, id, session) }
 }
 
-function hasPermissions(permissions: string[], id?: string) {
-  const missing = permissions.filter((permission) => !(permission in props.plugin.permissions))
-  if (missing.length === 0) return true
-  postPort('error', { code: 'plugin.permission_denied', message: `插件未声明必要权限：${missing.join('、')}` }, id)
-  return false
-}
-
 async function triggerSchedulerJob(jobID: string, id?: string) {
   const session = bridgeSession
   try {
@@ -457,7 +449,6 @@ function protocolAdapterID(value: unknown, id?: string): string | null {
 async function reloadProtocolTargets(value: unknown, id?: string) {
   const adapterID = protocolAdapterID(value, id)
   if (adapterID === null) return
-  if (!hasPermissions(['group.list', 'friend.list'], id)) return
   const session = bridgeSession
   try {
     const response = await apiRequest<OneBot11ProtocolTargetsResponse>(apiPath('/api/adapters/{adapterID}/onebot11/targets', { adapterID }))
@@ -472,8 +463,6 @@ async function resolveProtocolIdentities(adapter: unknown, value: unknown, id?: 
     const record = toRecord(item)
     return (record?.target_type === 'group' || record?.target_type === 'private') && typeof record.target_id === 'string' && typeof record.user_id === 'string'
   }) : []
-  const permissions = [...(items.some((item) => item.target_type === 'group') ? ['group.member.get'] : []), ...(items.some((item) => item.target_type === 'private') ? ['user.info.get'] : [])]
-  if (!hasPermissions(permissions, id)) return
   const session = bridgeSession
   try {
     const response = await apiRequest<OneBot11IdentityResolveResponse>(apiPath('/api/adapters/{adapterID}/onebot11/identities/resolve', { adapterID }), { method: 'POST', body: { items } })

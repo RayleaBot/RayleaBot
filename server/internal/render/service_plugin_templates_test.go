@@ -309,7 +309,7 @@ func TestServiceResolvePluginTemplateChecksDottedPluginIDOwner(t *testing.T) {
 
 	_, err = service.ResolvePluginTemplate(context.Background(), "com", "plugin.com.weather.card")
 	var renderErr *Error
-	if !errors.As(err, &renderErr) || renderErr.Code != "plugin.permission_denied" {
-		t.Fatalf("expected plugin.permission_denied, got %v", err)
+	if !errors.As(err, &renderErr) || renderErr.Code != "plugin.protocol_violation" {
+		t.Fatalf("expected plugin.protocol_violation, got %v", err)
 	}
 }

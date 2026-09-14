@@ -3,8 +3,8 @@
 package contractversions
 
 const (
-	PluginProtocolVersion = "3"
-	PluginManifestVersion = "3"
+	PluginProtocolVersion = "4"
+	PluginManifestVersion = "4"
 	PluginArtifactVersion = "2"
 	PluginUIBridgeVersion = "3"
 	BackupManifestVersion = "3"

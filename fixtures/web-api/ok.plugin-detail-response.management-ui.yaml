@@ -15,7 +15,6 @@ response:
       description: Native example plugin demonstrating config snapshots and writes.
       author: raylea
       license: MIT
-      permissions: {}
       webhooks: []
       management_ui:
         origin_host: p-e9ed3879a86b8688

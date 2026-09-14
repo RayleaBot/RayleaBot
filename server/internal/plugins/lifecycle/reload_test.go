@@ -19,7 +19,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
-func TestReloadRefreshesManifestCommandsAndPermissions(t *testing.T) {
+func TestReloadRefreshesManifestCommands(t *testing.T) {
 	t.Parallel()
 
 	catalog := plugincatalog.New([]plugins.Snapshot{{
@@ -30,7 +30,6 @@ func TestReloadRefreshesManifestCommandsAndPermissions(t *testing.T) {
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
-		Permissions:       map[string]bool{"http.request": true},
 		Commands: []plugins.Command{{
 			ID: "subscribe-bilibili", DisplayName: "订阅 Bilibili 推送",
 			Name: "订阅b站推送", TriggerType: "exact", TriggerNames: []string{"订阅b站推送"},
@@ -57,7 +56,6 @@ func TestReloadRefreshesManifestCommandsAndPermissions(t *testing.T) {
 				RegistrationState: "installed",
 				DesiredState:      "enabled",
 				RuntimeState:      "stopped",
-				Permissions:       map[string]bool{"http.request": true, "message.send": true},
 				ManifestCommands: []plugins.Command{{
 					ID: "subscribe-bilibili", DisplayName: "订阅 Bilibili 推送",
 					Name: "订阅b站推送", TriggerType: "exact", TriggerNames: []string{"订阅b站推送"},
@@ -92,9 +90,6 @@ func TestReloadRefreshesManifestCommandsAndPermissions(t *testing.T) {
 	}
 	if got := snapshot.Help.Summary; got != "新帮助摘要" {
 		t.Fatalf("help summary = %q, want 新帮助摘要", got)
-	}
-	if len(snapshot.Permissions) != 2 {
-		t.Fatalf("permissions = %#v, want http.request and message.send", snapshot.Permissions)
 	}
 }
 
@@ -335,9 +330,6 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 	if got := refreshed.Commands[0].Usage; got != "/订阅b站推送 UID或昵称" {
 		t.Fatalf("command usage = %q, want UID或昵称", got)
 	}
-	if _, ok := refreshed.Permissions["http.request"]; !ok {
-		t.Fatalf("permissions = %#v, want http.request", refreshed.Permissions)
-	}
 }
 
 func compilePluginValidatorForLifecycleTest(t *testing.T) *config.Validator {
@@ -361,11 +353,10 @@ func writeLifecyclePluginManifest(t *testing.T, path, usage string) {
   "id": "raylea.subscription-hub",
   "name": "Subscription Hub",
   "version": "0.4.0",
-  "manifest_version": "3",
+  "manifest_version": "4",
   "license": "MIT",
   "min_core_version": "0.4.0",
   "metadata": {"description": "Subscription hub", "author": "raylea"},
-	"permissions": {"http.request": true},
   "commands": [
     {
       "id": "subscribe-bilibili",

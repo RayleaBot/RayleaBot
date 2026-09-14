@@ -115,7 +115,7 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/status.panel/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/index.html", names)
             self.assertEqual("https://example.invalid/releases/v0.1.0", build_info["release_notes_ref"])
-            self.assertEqual("3", build_info["plugin_manifest_version"])
+            self.assertEqual("4", build_info["plugin_manifest_version"])
             self.assertEqual("3", build_info["plugin_ui_bridge_version"])
 
             sidecar_path = archive_path.with_suffix(archive_path.suffix + ".artifact.json")
@@ -132,7 +132,7 @@ class ReleaseToolTests(unittest.TestCase):
                 built_at="2026-03-24T10:00:00Z",
                 config_schema_version="4",
                 db_schema_version="000001",
-                plugin_protocol_version="3",
+                plugin_protocol_version="4",
                 release_notes_ref="https://example.invalid/releases/v0.1.0",
                 download_base_url="https://example.invalid/releases/download/v0.1.0",
                 sidecars=[sidecar],
@@ -146,8 +146,8 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertEqual(manifest["artifacts"][0]["artifact_id"], "windows-x64-full")
             self.assertEqual(manifest["artifacts"][0]["smoke_profile"], "windows_full_smoke")
             self.assertEqual(2, manifest["manifest_version"])
-            self.assertEqual("3", manifest["plugin_protocol_version"])
-            self.assertEqual("3", manifest["plugin_manifest_version"])
+            self.assertEqual("4", manifest["plugin_protocol_version"])
+            self.assertEqual("4", manifest["plugin_manifest_version"])
             self.assertEqual("3", manifest["plugin_ui_bridge_version"])
             self.assertEqual("guided", manifest["artifacts"][0]["update_mode"])
             self.assertEqual("https://example.invalid/releases/download/v0.1.0/" + archive_path.name, manifest["artifacts"][0]["download_url"])
@@ -180,7 +180,7 @@ class ReleaseToolTests(unittest.TestCase):
                     built_at="2026-03-24T10:00:00Z",
                     config_schema_version="4",
                     db_schema_version="000001",
-                    plugin_protocol_version="3",
+                    plugin_protocol_version="4",
                     release_notes_ref="http://example.invalid/releases/v0.1.0",
                     download_base_url="https://example.invalid/releases/download/v0.1.0",
                     sidecars=[sidecar],

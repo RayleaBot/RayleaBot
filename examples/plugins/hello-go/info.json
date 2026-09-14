@@ -2,9 +2,9 @@
   "id": "hello-go",
   "name": "Hello Go",
   "version": "0.2.0",
-  "manifest_version": "3",
+  "manifest_version": "4",
   "license": "MIT",
-  "min_core_version": "0.4.0",
+  "min_core_version": "0.7.0",
   "metadata": {
     "description": "Contract-aligned Go example plugin for the minimum init and event/result flow.",
     "author": "raylea",
@@ -25,6 +25,5 @@
   },
   "events": [
     "message.group"
-  ],
-  "permissions": {}
+  ]
 }

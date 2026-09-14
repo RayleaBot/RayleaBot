@@ -299,7 +299,7 @@ describe('BasicLayout', () => {
       if (url.pathname.startsWith('/api/plugins/')) {
         const id = url.pathname.slice('/api/plugins/'.length)
         const detail = plugins.detailsByPluginId[id] ?? plugins.knownItems.find(item => item.id === id)
-        return { plugin: { ...detail, permissions: {}, webhooks: [] } } as never
+        return { plugin: { ...detail, webhooks: [] } } as never
       }
       const all = plugins.knownItems
       const query = url.searchParams.get('query')?.toLowerCase() ?? ''
@@ -394,7 +394,6 @@ describe('BasicLayout', () => {
       command_groups: [],
       help: {},
       command_conflicts: [],
-      permissions: {},
       webhooks: [],
     } as PluginDetail
     const weatherDetail = {
@@ -411,7 +410,6 @@ describe('BasicLayout', () => {
       command_groups: [],
       help: {},
       command_conflicts: [],
-      permissions: {},
       webhooks: [],
     } as PluginDetail
     vi.mocked(apiRequest).mockImplementation(async path => {

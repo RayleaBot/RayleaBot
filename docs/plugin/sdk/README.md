@@ -17,16 +17,16 @@ err := rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(
 ))
 ```
 
-插件 ID、并发度、权限、配置、管理员和命令前缀都来自 init。`EventContext` 提供：
+插件 ID、并发度、配置、管理员和命令前缀都来自 init。`EventContext` 提供：
 
 - 当前事件与 request ID。
 - 宿主分配的插件 ID。
 - 当前 Bot 身份。
 - 隔离的完整配置快照。
-- 生效权限、超级管理员和命令前缀。
+- 超级管理员和命令前缀。
 - 宿主当前生效的 `Location`；显示时间使用 `timestamp.In(event.Location)`，动作边界可通过 `event.Actions().TimeLocation()` 取得同一个时区。
 
-每个事件只能发送一次 `Result`、`Fail`、`Send`、`SendText` 或 `Reply` 终态。`Reply` 仍使用 protocol v3 的统一 `message.send` action。
+每个事件只能发送一次 `Result`、`Fail`、`Send`、`SendText` 或 `Reply` 终态。`Reply` 仍使用 protocol v4 的统一 `message.send` action。
 
 消息处理可用 `event.ResultWithPropagation(nil, rayleabot.PropagationStop)` 停止后续优先级，或用 `PropagationContinue` 覆盖 manifest 的 block。同层已经执行的动作不会撤销；非消息事件不能指定传播结果。
 
@@ -133,7 +133,7 @@ raylea-plugin build-go --plugin <plugin-root> --target linux-x64 --out dist
 
 ## 相关文档
 
-- [Plugin Manifest and Permissions](../permissions-and-manifest.md)
+- [Plugin Manifest](../manifest.md)
 - [Plugin Protocol](../protocol.md)
 - [Management UI](../management-ui.md)
 - [Plugin Store and Independent Development](../store-and-development.md)

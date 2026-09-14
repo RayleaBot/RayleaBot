@@ -2,7 +2,6 @@ package onebot11
 
 type ActionSpec struct {
 	Kind           string
-	Permission     string
 	Provider       string
 	APIName        string
 	CollectionKey  string
@@ -68,9 +67,6 @@ func Actions() []ActionSpec {
 }
 
 func normalizeSpec(spec ActionSpec) ActionSpec {
-	if spec.Permission == "" {
-		spec.Permission = spec.Kind
-	}
 	return cloneSpec(spec)
 }
 

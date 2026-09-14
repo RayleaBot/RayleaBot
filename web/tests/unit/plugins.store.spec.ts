@@ -53,7 +53,7 @@ describe('plugins store', () => {
 
   it('updates cached identity and invalidates detail-only fields when the package version changes', () => {
     const store = usePluginsStore()
-    const detail = { id: 'weather', name: 'Weather', version: '1', icon: 'old.svg', role: 'community', state: 'running', commands: [], command_groups: [], help: {}, permissions: {}, webhooks: [] } as PluginDetail
+    const detail = { id: 'weather', name: 'Weather', version: '1', icon: 'old.svg', role: 'community', state: 'running', commands: [], command_groups: [], help: {}, webhooks: [] } as PluginDetail
     store.items = [detail]
     store.detailsByPluginId = { weather: detail }
     store.upsert({ id: 'weather', name: '新名称', icon: 'new.svg', state: 'running' })
@@ -85,7 +85,7 @@ describe('plugins store', () => {
   it('removes metadata omitted by a refreshed full detail', async () => {
     const store = usePluginsStore()
     store.upsert({ id: 'weather', name: 'Weather', state: 'running', icon: 'old.svg', description: 'old description' })
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ plugin: { id: 'weather', name: 'Weather', state: 'running', role: 'community', commands: [], command_groups: [], help: {}, permissions: {}, webhooks: [] } })))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ plugin: { id: 'weather', name: 'Weather', state: 'running', role: 'community', commands: [], command_groups: [], help: {}, webhooks: [] } })))
     await store.ensureDetail('weather', { refresh: true })
     expect(store.items[0]?.icon).toBeUndefined()
     expect(store.items[0]?.description).toBeUndefined()
@@ -93,7 +93,7 @@ describe('plugins store', () => {
 
   it('refreshes same-version detail metadata after the catalog is refreshed', async () => {
     const store = usePluginsStore()
-    const plugin = { id: 'weather', name: 'Weather', version: '1', state: 'running', role: 'community', commands: [], command_groups: [], help: {}, permissions: {}, webhooks: [] }
+    const plugin = { id: 'weather', name: 'Weather', version: '1', state: 'running', role: 'community', commands: [], command_groups: [], help: {}, webhooks: [] }
     vi.stubGlobal('fetch', vi.fn()
       .mockResolvedValueOnce(jsonResponse({ plugin }))
       .mockResolvedValueOnce(jsonResponse({ items: [plugin] }))

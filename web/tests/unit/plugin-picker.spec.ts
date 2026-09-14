@@ -26,7 +26,7 @@ describe('paginated plugin consumers', () => {
     const store = usePluginsStore()
     store.items = [mainPage]
     vi.mocked(apiRequest).mockImplementation(async path => {
-      if (path === '/api/plugins/selected') return { plugin: { ...plugin('selected', '已选插件'), permissions: {}, webhooks: [] } } as never
+      if (path === '/api/plugins/selected') return { plugin: { ...plugin('selected', '已选插件'), webhooks: [] } } as never
       if (path.includes('cursor=1')) return { items: [plugin('second', '第二页插件')], total: 2 } as never
       return { items: [plugin('first', '第一页插件')], total: 2, next_cursor: '1' } as never
     })
@@ -78,7 +78,7 @@ describe('paginated plugin consumers', () => {
   })
 
   it('resolves only the visible log plugin and keeps its name after a page change', async () => {
-    vi.mocked(apiRequest).mockResolvedValue({ plugin: { ...plugin('off-page', '历史插件'), permissions: {}, webhooks: [] } })
+    vi.mocked(apiRequest).mockResolvedValue({ plugin: { ...plugin('off-page', '历史插件'), webhooks: [] } })
     const store = usePluginsStore()
     const wrapper = mount(ManagementLogRow, { props: { selected: false, item: { level: 'info', source: 'plugin', timestamp: '2026-09-10T00:00:00Z', message: 'fixture', plugin_id: 'off-page' } } })
     await flushPromises()

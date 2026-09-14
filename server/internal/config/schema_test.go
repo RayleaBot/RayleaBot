@@ -177,7 +177,7 @@ func TestFormalSchemaFixturesKeepRelativePathConstraints(t *testing.T) {
 				repoRoot,
 				"fixtures",
 				"plugin-info",
-				"invalid.legacy-v2.json",
+				"invalid.legacy-v3.json",
 			),
 			expectValid: false,
 		},

@@ -1,4 +1,4 @@
-# Plugin Protocol v3
+# Plugin Protocol v4
 
 RayleaBot 与插件进程使用 JSONL 通信。正式消息结构以 `contracts/plugin-protocol.schema.json` 为准。
 
@@ -20,12 +20,11 @@ RayleaBot 与插件进程使用 JSONL 通信。正式消息结构以 `contracts/
 | plugin → Server | `pong` | 保活响应 |
 | Server → plugin | `shutdown` | 受控退出 |
 
-只有 `init` 携带 `protocol_version: "3"` 和 `plugin_id`。后续帧不得重复协议版本、插件 ID、envelope 时间戳或事件订阅。
+只有 `init` 携带 `protocol_version: "4"` 和 `plugin_id`。后续帧不得重复协议版本、插件 ID、envelope 时间戳或事件订阅。
 
 `init` 同时提供：
 
 - 完整配置快照 `config`。
-- 生效权限 `effective_permissions`。
 - 身份列表 `bots`，元素包含 `source_adapter`、`source_protocol`、`id` 与可选 `nickname`；没有已知身份时为 `[]`。
 - OneBot11 QQ 超级管理员列表和命令前缀；列表不适用于 QQ 官方 openid。
 - 生效并发度。
@@ -113,7 +112,7 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 
 需要进程内条件写入时，由插件自行同步。宿主每 60 秒分批删除过期行，每批 1000 行；逻辑配额释放不表示 SQLite 文件立即缩小。
 
-### 显式权限动作
+### 宿主动作
 
 常用动作：
 
@@ -129,8 +128,6 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 - `render.image`
 - OneBot family actions
 - provider 扩展动作
-
-动作未在 manifest `permissions` 声明，或请求平台超出权限范围时，宿主返回 `plugin.permission_denied`。
 
 ### OneBot 与 provider 实例选择
 
@@ -197,5 +194,5 @@ Go SDK 提供 `event.SendText`、`event.Send`、`event.Reply`、`event.Result` �
 ## 相关文档
 
 - [Event Model](../architecture/event-model.md)
-- [Plugin Manifest and Permissions](./permissions-and-manifest.md)
+- [Plugin Manifest](./manifest.md)
 - [Plugin SDK](./sdk/README.md)

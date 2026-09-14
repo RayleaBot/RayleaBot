@@ -160,11 +160,11 @@
           "minLength": 1
         },
         "plugin_protocol_version": {
-          "const": "3",
+          "const": "4",
           "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
         },
         "plugin_manifest_version": {
-          "const": "3",
+          "const": "4",
           "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
         },
         "plugin_ui_bridge_version": {
@@ -212,7 +212,7 @@
           "format": "date-time"
         },
         "plugin_manifest_version": {
-          "const": "3",
+          "const": "4",
           "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
         },
         "plugin_ui_bridge_version": {

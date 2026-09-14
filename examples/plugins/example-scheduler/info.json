@@ -2,7 +2,7 @@
   "id": "example-scheduler",
   "name": "Example Scheduler",
   "version": "0.2.0",
-  "manifest_version": "3",
+  "manifest_version": "4",
   "license": "MIT",
   "commands": [
     {
@@ -19,7 +19,7 @@
       }
     }
   ],
-  "min_core_version": "0.4.0",
+  "min_core_version": "0.7.0",
   "metadata": {
     "description": "Go example plugin demonstrating scheduler.create.",
     "author": "raylea"
@@ -27,8 +27,5 @@
   "events": [
     "message.group",
     "scheduler.trigger"
-  ],
-  "permissions": {
-    "scheduler.create": true
-  }
+  ]
 }

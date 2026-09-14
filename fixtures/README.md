@@ -20,7 +20,7 @@
 - `plugin-info/`
   - 对应 `contracts/plugin-info.schema.json`
   - 统一采用 `input + expect` 结构
-  - 主要服务 schema validation、安装前静态检查、permissions 与静态声明边界，以及合同版本拒绝判断
+  - 主要服务 schema validation、安装前静态检查、静态声明边界，以及合同版本拒绝判断
 - `plugin-protocol/`
   - 对应 `contracts/plugin-protocol.schema.json`
   - 统一采用 `frames + expect` 结构

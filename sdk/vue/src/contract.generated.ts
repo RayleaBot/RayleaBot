@@ -66,7 +66,6 @@ export type HostInitPayload = {
       tokens: Record<string, string>
     }
   language: string
-  allowed_permissions: Array<string>
 }
 
 export type SettingsChangedPayload = {

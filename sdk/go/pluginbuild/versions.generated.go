@@ -4,5 +4,5 @@ package pluginbuild
 
 const (
 	ArtifactVersion = "2"
-	ManifestVersion = "3"
+	ManifestVersion = "4"
 )

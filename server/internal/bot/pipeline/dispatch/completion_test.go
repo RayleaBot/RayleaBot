@@ -83,7 +83,6 @@ func TestCompletionPreservesTerminalPropagationAfterSendFailure(t *testing.T) {
 	sender := &fakeSender{sendErr: errors.New("fixture send failed")}
 	d := New(nil, sender, nil, 1)
 	t.Cleanup(d.Close)
-	d.SetPermissionChecker(func(context.Context, string, string) bool { return true })
 	rt := &fakeDeliverer{delivery: plugins.Delivery{RequestID: "r", Propagation: "stop", Action: &chatevent.MessageCommand{Kind: "message.send", TargetType: "group", TargetID: "200", MessageSegments: []chatevent.MessageSegment{{Type: "text", Data: map[string]any{"text": "fixture"}}}}}}
 	d.Register("p", rt, nil, nil, 1)
 	got := waitCompletion(t, d.DispatchToPlugin(t.Context(), "p", testEvent()))

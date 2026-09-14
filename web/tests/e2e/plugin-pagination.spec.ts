@@ -21,7 +21,7 @@ test('secondary plugin consumers reach later pages without silently loading the 
       return
     }
     const plugin = plugins.find(item => url.pathname === `/api/plugins/${item.id}`)
-    if (plugin) { await route.fulfill({ json: { plugin: { ...plugin, permissions: {}, webhooks: [] } } }); return }
+    if (plugin) { await route.fulfill({ json: { plugin: { ...plugin, webhooks: [] } } }); return }
     await route.continue()
   })
   await page.goto('/login')

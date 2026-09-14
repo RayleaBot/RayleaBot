@@ -13,24 +13,23 @@ import (
 )
 
 type manifestDocument struct {
-	ID              string                     `json:"id"`
-	Name            string                     `json:"name"`
-	Version         string                     `json:"version"`
-	ManifestVersion string                     `json:"manifest_version"`
-	License         string                     `json:"license"`
-	MinCoreVersion  string                     `json:"min_core_version"`
-	Metadata        manifestMetadata           `json:"metadata"`
-	Concurrency     int                        `json:"concurrency"`
-	Priority        int                        `json:"priority"`
-	Block           bool                       `json:"block"`
-	Events          []string                   `json:"events"`
-	Permissions     map[string]json.RawMessage `json:"permissions"`
-	DefaultConfig   map[string]any             `json:"default_config"`
-	Commands        []manifestCommand          `json:"commands"`
-	CommandGroups   []manifestCommandGroup     `json:"command_groups"`
-	Help            *manifestHelp              `json:"help"`
-	ManagementUI    *manifestManagementUI      `json:"management_ui"`
-	Webhooks        []manifestWebhook          `json:"webhooks"`
+	ID              string                 `json:"id"`
+	Name            string                 `json:"name"`
+	Version         string                 `json:"version"`
+	ManifestVersion string                 `json:"manifest_version"`
+	License         string                 `json:"license"`
+	MinCoreVersion  string                 `json:"min_core_version"`
+	Metadata        manifestMetadata       `json:"metadata"`
+	Concurrency     int                    `json:"concurrency"`
+	Priority        int                    `json:"priority"`
+	Block           bool                   `json:"block"`
+	Events          []string               `json:"events"`
+	DefaultConfig   map[string]any         `json:"default_config"`
+	Commands        []manifestCommand      `json:"commands"`
+	CommandGroups   []manifestCommandGroup `json:"command_groups"`
+	Help            *manifestHelp          `json:"help"`
+	ManagementUI    *manifestManagementUI  `json:"management_ui"`
+	Webhooks        []manifestWebhook      `json:"webhooks"`
 }
 
 type manifestMetadata struct {
@@ -109,10 +108,6 @@ func manifestIdentity(document map[string]any) (id, name string) {
 }
 
 func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot string) (plugins.Snapshot, error) {
-	permissions, err := projectPermissions(manifest.Permissions)
-	if err != nil {
-		return plugins.Snapshot{}, err
-	}
 	commands := make([]plugins.Command, 0, len(manifest.Commands))
 	for _, command := range manifest.Commands {
 		commands = append(commands, plugins.Command{
@@ -159,7 +154,7 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 		ManifestVersion: manifest.ManifestVersion, MinCoreVersion: manifest.MinCoreVersion,
 		Concurrency: manifest.Concurrency, Events: append([]string(nil), manifest.Events...),
 		Priority: manifest.Priority, Block: manifest.Block,
-		Permissions: permissions, Webhooks: webhooks, CommandGroups: groups,
+		Webhooks: webhooks, CommandGroups: groups,
 		Description: manifest.Metadata.Description, Icon: manifest.Metadata.Icon,
 		Repo: manifest.Metadata.Repo, Homepage: manifest.Metadata.Homepage,
 		Keywords:     append([]string(nil), manifest.Metadata.Keywords...),
@@ -177,17 +172,6 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 	}
 	snapshot.Commands = ProjectCommands(snapshot, snapshot.DefaultConfig)
 	return snapshot, nil
-}
-
-func projectPermissions(values map[string]json.RawMessage) (map[string]bool, error) {
-	permissions := make(map[string]bool, len(values))
-	for name, raw := range values {
-		if string(raw) != "true" {
-			return nil, fmt.Errorf("permission %s must be true", name)
-		}
-		permissions[name] = true
-	}
-	return permissions, nil
 }
 
 func validateManifestSemantics(manifest manifestDocument) error {

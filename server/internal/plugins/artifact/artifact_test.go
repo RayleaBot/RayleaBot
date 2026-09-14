@@ -66,7 +66,7 @@ func makeTestArtifact(t *testing.T, withUI bool) string {
 	}
 	copyTestFile(t, executable, binaryPath, 0o755)
 	manifest := map[string]any{
-		"id": "artifact-test", "name": "Artifact test", "version": "0.4.0", "manifest_version": "3",
+		"id": "artifact-test", "name": "Artifact test", "version": "0.4.0", "manifest_version": "4",
 		"license": "MIT", "min_core_version": "0.4.0",
 	}
 	if withUI {

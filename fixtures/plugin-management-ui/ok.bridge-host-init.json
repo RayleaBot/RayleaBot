@@ -31,10 +31,7 @@
           "colorText": "#f5f5f5"
         }
       },
-      "language": "zh-CN",
-      "allowed_permissions": [
-        "message.send"
-      ]
+      "language": "zh-CN"
     }
   },
   "expect": {

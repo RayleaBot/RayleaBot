@@ -36,10 +36,6 @@ func TestDiscoverProjectsManifestV3(t *testing.T) {
 	pluginRoot := filepath.Join(root, "plugins", "installed", "subscription-hub")
 	manifest := baseManifest("subscription-hub")
 	manifest["events"] = []string{"message.group", "message.private"}
-	manifest["permissions"] = map[string]any{
-		"message.send": true,
-		"secret.write": true,
-	}
 	manifest["default_config"] = map[string]any{"help_commands": []string{"解析帮助", "链接帮助"}}
 	manifest["commands"] = []any{
 		map[string]any{
@@ -63,10 +59,10 @@ func TestDiscoverProjectsManifestV3(t *testing.T) {
 	writeArtifact(t, pluginRoot, manifest, nil)
 
 	snapshot := discoverOne(t, root)
-	if !snapshot.Valid || snapshot.ManifestVersion != "3" || snapshot.ArtifactVersion != "2" {
+	if !snapshot.Valid || snapshot.ManifestVersion != "4" || snapshot.ArtifactVersion != "2" {
 		t.Fatalf("unexpected contract projection: %#v", snapshot)
 	}
-	if len(snapshot.Events) != 2 || len(snapshot.Permissions) != 2 || len(snapshot.CommandGroups) != 2 {
+	if len(snapshot.Events) != 2 || len(snapshot.CommandGroups) != 2 {
 		t.Fatalf("manifest collections were not projected: %#v", snapshot)
 	}
 	if len(snapshot.Commands) != 3 {
@@ -237,10 +233,10 @@ func compileSchema(t *testing.T) *config.Validator {
 
 func baseManifest(pluginID string) map[string]any {
 	return map[string]any{
-		"id": pluginID, "name": pluginID, "version": "0.4.0", "manifest_version": "3",
+		"id": pluginID, "name": pluginID, "version": "0.4.0", "manifest_version": "4",
 		"license": "MIT", "min_core_version": "0.4.0",
 		"metadata": map[string]any{"description": "fixture plugin", "author": "raylea"},
-		"events":   []string{}, "permissions": map[string]any{},
+		"events":   []string{},
 	}
 }
 
