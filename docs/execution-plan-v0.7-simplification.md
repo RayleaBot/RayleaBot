@@ -105,9 +105,13 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 
 `docs/design/web-management-ui.md` 与 `DESIGN.md` 删除像素值与逐控件尺寸，只写布局与交互原则；尺寸以组件代码为准。设计 token 生成器删除全仓颜色字面量扫描与允许清单；`DESIGN.md` 头部与 Impeccable 设计文件继续生成，供设计工具读取。
 
-### G5 Web 端到端测试
+### G5 Web 与 Launcher 端到端测试
 
-保留 real-server 冒烟：登录、插件安装与启停、配置保存、日志查看。删除 ui-fixtures 项目、模拟后端，以及焦点外观、浮动标签、Reka 覆盖层、UI 加固等视觉细节用例，改由组件测试或人工检查。
+按根指令，视觉细节不写 E2E，交由人工审核。
+
+- Web 保留 real-server 冒烟：登录、插件安装与启停、配置保存、日志查看。删除 ui-fixtures 项目、模拟后端，以及焦点外观、浮动标签、Reka 覆盖层、UI 加固等视觉细节用例。
+- Launcher Renderer E2E 删除窗口尺寸下的控件位置、标题字体加载与减少动态效果用例，保留初始化失败流程。
+- 同步质量门禁与 Web 端到端验证文档中的覆盖说明。
 
 ### G6 插件开发工具
 
@@ -145,7 +149,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 | G2 | 删除行数预算与 SQL 例外登记，修正变更检测 | — | ⬜ 待处理 | |
 | G3 | 删除自托管长时 smoke 与产物验证工作流，恢复验证只留一处 | R3 | ⬜ 待处理 | |
 | G4 | 设计规格去像素化，删除颜色字面量扫描 | — | ⬜ 待处理 | |
-| G5 | Web E2E 收敛为 real-server 冒烟 | R1,R3,P4 | ⬜ 待处理 | |
+| G5 | 删除 Web 与 Launcher 的视觉细节 E2E，Web 收敛为 real-server 冒烟 | R1,R3,P4 | ⬜ 待处理 | |
 | G6 | 开发工作区契约移出，删除 SBOM 生成 | — | ⬜ 待处理 | |
 | G7 | 架构与工程文档合并 | R1-R9,P1-P5,G1-G6 | ⬜ 待处理 | |
 | E1 | 总验收与发布说明 | 全部 | ⬜ 待处理 | |
