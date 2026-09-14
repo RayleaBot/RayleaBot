@@ -17,7 +17,7 @@ func TestTerminalResultCarriesPropagation(t *testing.T) {
 
 func TestPropagationRejectsNonterminalAndNonmessageContext(t *testing.T) {
 	m := &Manager{}
-	if err := m.routeLocalActionFrameLocked(nil, pluginwire.Frame{Type: "action", Propagation: "stop"}); err == nil {
+	if _, err := m.routeLocalActionFrameLocked(nil, pluginwire.Frame{Type: "action", Propagation: "stop"}); err == nil {
 		t.Fatal("nonterminal propagation accepted")
 	}
 	if err := m.routeTerminalFrameLocked(&eventSession{event: chatevent.Event{EventType: "scheduler.trigger"}}, pluginwire.Frame{Type: "result", Propagation: "stop"}); err == nil {

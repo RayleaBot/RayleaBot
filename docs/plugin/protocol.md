@@ -74,7 +74,7 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 
 插件用 `action` 帧调用宿主能力；action 使用独立 `request_id`，并通过 `parent_request_id` 归属当前事件。宿主返回 `result` 或 `error`。
 
-同一事件可以有多个并发 action，但插件必须等待它们完成后再发送事件终态。
+同一事件可以有多个并发 action，但插件必须等待它们完成后再发送事件终态。每个插件进程同时未完成的 action 最多 256 个，超出的 action 立即返回可重试的 `platform.rate_limited`，不进入执行。
 
 取消本地等待不代表宿主动作已取消。SDK 保留已发出动作的响应关联，接收迟到响应；终态最多等待一个 `ActionTimeout`，仍有未结算动作时不发送终态。事件开始收尾后禁止新 action。未知或非法协议帧按协议违规处理。
 

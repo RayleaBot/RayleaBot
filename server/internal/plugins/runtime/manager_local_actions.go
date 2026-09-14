@@ -10,56 +10,82 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
-// maxLocalActionHistory bounds the request IDs remembered per event to reject reuse.
-const maxLocalActionHistory = 256
+const (
+	// maxLocalActionHistory bounds the request IDs remembered per event to reject reuse.
+	maxLocalActionHistory = 256
+	// maxPendingLocalActions bounds outstanding local actions per plugin process;
+	// further actions receive platform.rate_limited until earlier ones settle.
+	maxPendingLocalActions = 256
+)
 
-func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.Frame) *plugins.Error {
+type localActionRejection struct {
+	parentRequestID string
+	requestID       string
+	code            string
+	message         string
+	details         map[string]any
+}
+
+func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.Frame) (*localActionRejection, *plugins.Error) {
 	if frame.Propagation != "" {
-		return errorf(codePluginProtocolViolation, "nonterminal action cannot control propagation", nil)
+		return nil, errorf(codePluginProtocolViolation, "nonterminal action cannot control propagation", nil)
 	}
 	action, parentRequestID, err := m.parseLocalActionFrameLocked(handle, frame)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if action == nil && m.eventExpiredLocked(parentRequestID) {
-		return nil
+		return nil, nil
 	}
 
 	session := m.pendingEvents[parentRequestID]
 	if session == nil {
 		if m.eventExpiredLocked(parentRequestID) {
-			return nil
+			return nil, nil
 		}
-		return errorf(codePluginProtocolViolation, "plugin local action parent_request_id does not match an active event", nil)
+		return nil, errorf(codePluginProtocolViolation, "plugin local action parent_request_id does not match an active event", nil)
 	}
 	if frame.RequestID == session.requestID {
-		return errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
+		return nil, errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
 	}
 	if _, exists := session.localActionIDs[frame.RequestID]; exists {
-		return errorf(codePluginProtocolViolation, "plugin reused a local action request_id within one event delivery", nil)
+		return nil, errorf(codePluginProtocolViolation, "plugin reused a local action request_id within one event delivery", nil)
+	}
+	if m.pendingLocalActions >= maxPendingLocalActions {
+		return &localActionRejection{
+			parentRequestID: parentRequestID,
+			requestID:       frame.RequestID,
+			code:            codePlatformRateLimited,
+			message:         "plugin local action pending limit exceeded",
+			details:         map[string]any{"limit": maxPendingLocalActions},
+		}, nil
 	}
 
 	rememberLocalActionID(session, frame.RequestID, maxLocalActionHistory)
 	session.pendingActionIDs[frame.RequestID] = struct{}{}
 	session.pendingLocalAction++
+	m.pendingLocalActions++
 
 	go m.executeLocalAction(plugins.WithRuntimeDone(session.ctx, handle.Done()), handle, parentRequestID, frame.RequestID, *action, session.event)
-	return nil
+	return nil, nil
 }
 
+// rememberLocalActionID evicts the oldest settled ID once the history is full.
+// Pending IDs stay remembered, so the history exceeds the limit only while that
+// many actions are still outstanding.
 func rememberLocalActionID(session *eventSession, requestID string, limit int) {
 	if limit < 1 {
 		limit = 1
 	}
-	for len(session.localActionIDs) >= limit && len(session.localActionOrder) > 0 {
-		candidate := session.localActionOrder[0]
-		session.localActionOrder = session.localActionOrder[1:]
-		if _, pending := session.pendingActionIDs[candidate]; pending {
-			session.localActionOrder = append(session.localActionOrder, candidate)
-			continue
+	if len(session.localActionIDs) >= limit {
+		for index, candidate := range session.localActionOrder {
+			if _, pending := session.pendingActionIDs[candidate]; pending {
+				continue
+			}
+			delete(session.localActionIDs, candidate)
+			session.localActionOrder = append(session.localActionOrder[:index], session.localActionOrder[index+1:]...)
+			break
 		}
-		delete(session.localActionIDs, candidate)
-		break
 	}
 	session.localActionIDs[requestID] = struct{}{}
 	session.localActionOrder = append(session.localActionOrder, requestID)
@@ -157,11 +183,30 @@ func (m *Manager) writeLocalResponse(handle *Handle, parentRequestID string, req
 	if _, pending := session.pendingActionIDs[requestID]; pending {
 		delete(session.pendingActionIDs, requestID)
 		session.pendingLocalAction--
+		if m.pendingLocalActions > 0 {
+			m.pendingLocalActions--
+		}
 	}
 	m.mu.Unlock()
 
 	if err := handle.WriteJSONLine(frame); err != nil {
 		return errorf(codePluginInternalError, "write local action response frame", err)
+	}
+	return nil
+}
+
+// writeLocalRejectionLocked answers an action refused at admission; the caller
+// holds protocolMu so the rejection precedes later terminal processing.
+func (m *Manager) writeLocalRejectionLocked(handle *Handle, rejection localActionRejection) *plugins.Error {
+	m.mu.RLock()
+	session := m.pendingEvents[rejection.parentRequestID]
+	active := m.proc == handle && session != nil && !session.completed
+	m.mu.RUnlock()
+	if !active {
+		return nil
+	}
+	if err := handle.WriteJSONLine(localErrorFrame(rejection.requestID, rejection.code, rejection.message, rejection.details)); err != nil {
+		return errorf(codePluginInternalError, "write local action rejection frame", err)
 	}
 	return nil
 }

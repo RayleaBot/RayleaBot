@@ -25,6 +25,7 @@ const (
 const (
 	codePlatformInvalidRequest  = errorcodes.PlatformInvalidRequest
 	codePlatformResourceMissing = errorcodes.PlatformResourceMissing
+	codePlatformRateLimited     = errorcodes.PlatformRateLimited
 	codePluginInitTimeout       = errorcodes.PluginInitTimeout
 	codePluginEventTimeout      = errorcodes.PluginEventTimeout
 	codePluginEventCanceled     = errorcodes.PluginEventCanceled

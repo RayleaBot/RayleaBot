@@ -237,7 +237,10 @@ func (m *Manager) readRuntimeFrames(handle *Handle) {
 		}
 
 		m.protocolMu.Lock()
-		runtimeErr := m.routeRuntimeFrame(handle, line)
+		rejection, runtimeErr := m.routeRuntimeFrame(handle, line)
+		if runtimeErr == nil && rejection != nil {
+			runtimeErr = m.writeLocalRejectionLocked(handle, *rejection)
+		}
 		m.protocolMu.Unlock()
 		if runtimeErr != nil {
 			_ = m.failRuntime(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
@@ -257,40 +260,40 @@ func errorsAreExitLike(handle *Handle, err error) bool {
 	return exited
 }
 
-func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) *plugins.Error {
+func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRejection, *plugins.Error) {
 	frame, err := parseRuntimeFrame(line, handle.Spec.ValidateFrames)
 	if err != nil {
-		return normalizeRuntimeError(err, "parse runtime frame envelope")
+		return nil, normalizeRuntimeError(err, "parse runtime frame envelope")
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.proc != handle {
-		return nil
+		return nil, nil
 	}
 
 	if ping := m.pendingPings[frame.RequestID]; ping != nil {
 		if frame.Type != "pong" {
-			return errorf(codePluginProtocolViolation, "plugin returned unexpected frame type in response to ping", nil)
+			return nil, errorf(codePluginProtocolViolation, "plugin returned unexpected frame type in response to ping", nil)
 		}
 		m.completePingLocked(frame.RequestID, ping, nil)
-		return nil
+		return nil, nil
 	}
 
 	if session := m.pendingEvents[frame.RequestID]; session != nil {
-		return m.routeTerminalFrameLocked(session, frame)
+		return nil, m.routeTerminalFrameLocked(session, frame)
 	}
 
 	if m.eventExpiredLocked(frame.RequestID) && (frame.Type == "result" || frame.Type == "error" || frame.Type == "pong") {
-		return nil
+		return nil, nil
 	}
 
 	if frame.Type == "action" {
 		return m.routeLocalActionFrameLocked(handle, frame)
 	}
 
-	return errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during runtime delivery", nil)
+	return nil, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during runtime delivery", nil)
 }
 
 func (m *Manager) routeTerminalFrameLocked(session *eventSession, frame pluginwire.Frame) *plugins.Error {

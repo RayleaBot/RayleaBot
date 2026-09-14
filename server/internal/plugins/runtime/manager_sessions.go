@@ -85,6 +85,10 @@ func (m *Manager) releaseSessionActionsLocked(session *eventSession) {
 	if session == nil || session.pendingLocalAction <= 0 {
 		return
 	}
+	m.pendingLocalActions -= session.pendingLocalAction
+	if m.pendingLocalActions < 0 {
+		m.pendingLocalActions = 0
+	}
 	session.pendingLocalAction = 0
 	clear(session.pendingActionIDs)
 }
