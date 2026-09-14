@@ -1255,28 +1255,6 @@ def validate_baseline() -> None:
     versions = read_tool_versions(ROOT)
     validate_devcontainer_versions(versions)
     baseline = (ROOT / "docs" / "engineering" / "baseline.md").read_text(encoding="utf-8")
-    for snippet in [
-        f"Go `{versions['golang']}`",
-        f"Node.js `{versions['nodejs']}`",
-        f"npm `{versions['npm']}`",
-        f"Corepack `{versions['corepack']}`",
-        f"`pnpm {versions['pnpm']}`",
-        f"Python `{versions['python']}`",
-        f"sqlc `v{versions['sqlc']}`",
-    ]:
-        if snippet not in baseline:
-            fail(f"docs/engineering/baseline.md missing expected snippet: {snippet}")
-
-    required_commands = [
-        'mkdir -p dist && go build -o "dist/raylea-server$(go env GOEXE)" ./cmd/raylea-server',
-        "pnpm install --frozen-lockfile",
-        "pnpm test",
-        "pnpm build",
-    ]
-    for command in required_commands:
-        if command not in baseline:
-            fail(f"docs/engineering/baseline.md must mention command: {command}")
-
     go_mod = (ROOT / "server" / "go.mod").read_text(encoding="utf-8")
     if "module github.com/RayleaBot/RayleaBot/server" not in go_mod:
         fail("server/go.mod must use module path github.com/RayleaBot/RayleaBot/server")
@@ -1380,37 +1358,6 @@ def validate_baseline() -> None:
     launcher_build_script = (ROOT / "launcher" / "scripts" / "build-package.mjs").read_text(encoding="utf-8")
     if 'process.platform === "linux" ? "production,gtk3" : "production"' not in launcher_build_script:
         fail("launcher Linux build must keep the Wails v3.0.x GTK3 compatibility tag")
-
-
-def validate_strict_openapi(web_api: dict[str, Any]) -> None:
-    operations = openapi_operations(web_api)
-    covered: set[tuple[str, str]] = set()
-    for path in sorted((FIXTURES / "web-api").iterdir()):
-        if path.suffix not in {".json", ".yaml", ".yml"}:
-            continue
-        document = require_object(load_any(path), str(path.relative_to(ROOT)))
-        request = require_object(document.get("request"), f"{path.relative_to(ROOT)} request")
-        route = matching_openapi_path(web_api["paths"], str(request.get("path", "")))
-        if route is not None and fixture_expected_valid(path, document):
-            covered.add((route, str(request.get("method", "")).lower()))
-    errors = openapi_coverage_errors(operations, covered)
-    if errors:
-        fail("OpenAPI fixture coverage: " + "; ".join(errors))
-
-
-def openapi_coverage_errors(
-    operations: dict[str, tuple[str, str, dict[str, Any]]], covered: set[tuple[str, str]],
-) -> list[str]:
-    errors = []
-    for operation_id, (route, method, operation) in operations.items():
-        exemption = operation.get("x-fixture-exemption")
-        if "x-fixture-exemption" in operation and (not isinstance(exemption, str) or not exemption.strip()):
-            errors.append(f"{operation_id}: x-fixture-exemption must explain why a fixture cannot cover this operation")
-        elif (route, method) not in covered and exemption is None:
-            errors.append(f"{method.upper()} {route} ({operation_id}) has no valid fixture")
-        elif (route, method) in covered and exemption is not None:
-            errors.append(f"{operation_id}: remove stale x-fixture-exemption; a fixture already covers the operation")
-    return errors
 
 
 def validate_strict_websocket(events: dict[str, Any]) -> None:
@@ -1934,7 +1881,6 @@ def validate_strict() -> None:
     loaded = validate_pr()
     validate_fixture_matrix()
     validate_baseline()
-    validate_strict_openapi(loaded["web_api"])
     validate_strict_websocket(loaded["websocket_events"])
     validate_strict_release(loaded["release_schema"])
     validate_strict_cli()

@@ -24,7 +24,7 @@
 
 - 按实际依赖检查实现、样例、测试、生成物与文档；生成来源和输出从现有工程脚本确认，不维护完整输出清单。
 - 配套登记：
-  - 新增或改名的 fixture 由对应契约的 `x-fixtures` 或等价引用登记；OpenAPI operation 需有 fixture 覆盖，确实无法覆盖时在 `x-fixture-exemption` 写明原因。
+  - 新增或改名的 fixture 由对应契约的 `x-fixtures` 或等价引用登记。
   - HTTP JSON 示例在 `examples/http/index.yaml` 登记。
   - 改变接受或拒绝结果的修改至少补一条 `ok`、`invalid` 或 `edge` 样例；新增错误码补错误样例，并检查受影响客户端的消费点。
   - 样例命名、结构与凭据要求见 `fixtures/README.md` 与 `examples/README.md`。

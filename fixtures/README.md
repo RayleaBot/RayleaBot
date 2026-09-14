@@ -89,6 +89,5 @@
 ## 后续扩展规则
 
 - 新增 contract 时，在本目录提供对应样例，并通过 `x-fixtures` 或等价字段引用；二者可以先后编辑，合并前引用必须存在、样例可解析并通过必要校验。
-- OpenAPI 校验从 `paths` 枚举每个 HTTP operation，并检查有效 fixture 覆盖；确实无法提供 fixture 时，在该 operation 的 `x-fixture-exemption` 中说明具体原因。有 fixture 后删除豁免，不能只修改一份独立的路径清单。
 - 若 contract 改名、改状态、改错误码、改协议消息类型，必须同步更新对应 fixture。
 - 任何会影响行为判断的变更，都应至少补一条 `ok`、一条 `invalid` 或一条 `edge` case，不能只改契约正文。

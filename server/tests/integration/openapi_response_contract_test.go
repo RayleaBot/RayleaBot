@@ -184,50 +184,6 @@ func TestWebAPIRequestFixturesMatchOpenAPI(t *testing.T) {
 	}
 }
 
-func TestOpenAPIFixtureRegistryCoversOperations(t *testing.T) {
-	t.Parallel()
-
-	document := loadOpenAPIContractDocument(t)
-	paths := requireOpenAPIMap(t, document["paths"], "paths")
-	fixtureRefs, ok := document["x-fixtures"].([]any)
-	if !ok || len(fixtureRefs) == 0 {
-		t.Fatalf("OpenAPI x-fixtures must list web API fixtures")
-	}
-
-	covered := map[string][]string{}
-	for _, rawRef := range fixtureRefs {
-		ref, ok := rawRef.(string)
-		if !ok || strings.TrimSpace(ref) == "" {
-			t.Fatalf("OpenAPI x-fixtures contains invalid entry %#v", rawRef)
-		}
-		fixturePath := testutil.RepoPath(t, filepath.FromSlash(ref))
-		if _, err := os.Stat(fixturePath); err != nil {
-			t.Fatalf("OpenAPI x-fixtures entry %s is not readable: %v", ref, err)
-		}
-		fixture := loadOpenAPIRequestFixture(t, fixturePath)
-		if fixture.Request.Method == "" || fixture.Request.Path == "" {
-			t.Fatalf("%s missing request method or path", ref)
-		}
-		requestPath := strings.Split(fixture.Request.Path, "?")[0]
-		contractPath := resolveOpenAPIPath(paths, requestPath)
-		key := operationCoverageKey(fixture.Request.Method, contractPath)
-		covered[key] = append(covered[key], ref)
-	}
-
-	for _, contractPath := range sortedMapKeys(paths) {
-		pathItem := requireOpenAPIMap(t, paths[contractPath], "paths."+contractPath)
-		for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
-			if _, ok := pathItem[strings.ToLower(method)]; !ok {
-				continue
-			}
-			key := operationCoverageKey(method, contractPath)
-			if len(covered[key]) == 0 {
-				t.Errorf("%s %s has no fixture listed in OpenAPI x-fixtures", method, contractPath)
-			}
-		}
-	}
-}
-
 func performOpenAPIJSONRequest(t *testing.T, application interface{ Handler() http.Handler }, method, path string, body map[string]any, token string) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -258,10 +214,6 @@ func performOpenAPIJSONRequest(t *testing.T, application interface{ Handler() ht
 	recorder := httptest.NewRecorder()
 	application.Handler().ServeHTTP(recorder, request)
 	return recorder
-}
-
-func operationCoverageKey(method, path string) string {
-	return strings.ToUpper(method) + " " + path
 }
 
 func assertActualResponseMatchesOpenAPI(t *testing.T, method, path string, status int, body map[string]any) {

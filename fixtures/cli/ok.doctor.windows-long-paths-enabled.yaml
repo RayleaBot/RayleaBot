@@ -9,7 +9,6 @@ input:
 expect:
   valid: true
   exit_code: 0
-  task_model: false
   issue:
     code: windows.long_paths_enabled
     severity: ok

@@ -6,5 +6,4 @@ input:
 expect:
   valid: true
   exit_code: 1
-  task_model: true
   task_type: restore.apply

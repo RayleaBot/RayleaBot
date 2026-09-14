@@ -245,21 +245,6 @@ class ContractValidatorTests(unittest.TestCase):
                 with self.assertRaisesRegex(SystemExit, "mappings drift"):
                     validator.validate_http_examples(self.web_api, self.registry)
 
-    def test_openapi_coverage_tracks_new_methods_and_requires_exemption_reason(self) -> None:
-        api = {"paths": {"/new": {"get": {"operationId": "readNew"}, "post": {"operationId": "createNew"}}}}
-        operations = validator.openapi_operations(api)
-        covered = {("/new", "get")}
-        self.assertTrue(validator.openapi_coverage_errors(operations, covered))
-        operation = api["paths"]["/new"]["post"]
-        operation["x-fixture-exemption"] = ""
-        self.assertTrue(validator.openapi_coverage_errors(operations, covered))
-        operation["x-fixture-exemption"] = "The route upgrades to a stream covered by the transport integration suite."
-        self.assertEqual(validator.openapi_coverage_errors(operations, covered), [])
-        covered.add(("/new", "post"))
-        self.assertTrue(validator.openapi_coverage_errors(operations, covered))
-        operation.pop("x-fixture-exemption")
-        self.assertEqual(validator.openapi_coverage_errors(operations, covered), [])
-
     def test_openapi_operation_identifiers_are_unique_and_required(self) -> None:
         for operations in [{"get": {}}, {"get": {"operationId": "same"}, "post": {"operationId": "same"}}]:
             with self.assertRaises(SystemExit):

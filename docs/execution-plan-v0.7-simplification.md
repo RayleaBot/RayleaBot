@@ -91,7 +91,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 
 ### G1 契约校验范围
 
-删除工程基线文档中版本字符串的比对，版本一致性由 `.tool-versions`、工具链检查与 doctor 保证。删除“每个 OpenAPI 操作必须有样例”及 `x-fixture-exemption`。删除 CLI 契约中的 availability、task_model、cancellable 与 implemented 元数据。同步 `contracts/AGENTS.md` 的配套登记。
+删除工程基线文档中版本字符串的比对，版本一致性由 `.tool-versions`、工具链检查与 doctor 保证。删除“每个 OpenAPI 操作必须有样例”的校验器与集成测试检查及 `x-fixture-exemption`。删除 CLI 契约与样例中没有消费者的 task_model、cancellable 与 implemented；availability 描述服务运行时 CLI 拒绝执行的真实行为，并由 invalid 样例验证，予以保留。同步 `contracts/AGENTS.md` 的配套登记。
 
 ### G2 仓库自检
 
@@ -145,7 +145,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 | P3 | 删除 `storage.file`，注入插件数据目录 | P1 | ⬜ 待处理 | |
 | P4 | 管理页同源加载与 CSP，退役 bridge v3 | P1 | ⬜ 待处理 | |
 | P5 | Webhook 只做路由转发并携带请求头与原始正文 | P1 | ⬜ 待处理 | |
-| G1 | 收窄契约校验范围 | — | ⬜ 待处理 | |
+| G1 | 收窄契约校验范围 | — | ☑️ 已完成 | strict contracts、契约校验器 Python 测试、OpenAPI 集成测试、agent-docs 与文档链接检查通过 |
 | G2 | 删除行数预算与 SQL 例外登记，修正变更检测 | — | ☑️ 已完成 | agent-docs、服务端结构检查、结构与变更检测 7 项 Python 测试、变更检测自检和文档链接检查通过；手写 SQL 原因写在调用处注释 |
 | G3 | 删除自托管长时 smoke 与产物验证工作流，恢复验证只留一处 | R3 | ⬜ 待处理 | |
 | G4 | 设计规格去像素化，删除颜色字面量扫描 | — | ⬜ 待处理 | |
