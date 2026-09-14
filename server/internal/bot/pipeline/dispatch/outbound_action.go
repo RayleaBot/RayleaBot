@@ -3,7 +3,6 @@ package dispatch
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
@@ -101,12 +100,10 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		action.SourceAdapter = admission.Scope.SourceAdapter
 		action.SourceProtocol = admission.Scope.SourceProtocol
 	}
-	outboundStart := time.Now()
 	result, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
 	if admission.Record != nil {
 		admission.Record(err)
 	}
-	d.recordOutboundMetric(action, result, err, time.Since(outboundStart))
 	outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 		PluginID:    pluginID,
 		RequestID:   requestID,
@@ -179,19 +176,4 @@ func buildOutboundTargetLabel(ctx context.Context, event chatevent.Event, target
 	}
 
 	return outbound.BuildTargetLabel(ctx, event.SourceAdapter, targetType, targetID, targetName, actorID, actorNickname, resolver)
-}
-
-// recordOutboundMetric records a protocol label from the resolved sender.
-func (d *Dispatcher) recordOutboundMetric(action chatevent.MessageCommand, result outbound.SendResult, err error, duration time.Duration) {
-	observer := d.currentMetrics()
-	if observer == nil {
-		return
-	}
-	protocol := result.SourceProtocol
-	if protocol == "" {
-		protocol = action.SourceProtocol
-	}
-	label := chatevent.ProtocolLabel(protocol)
-	observer.ObserveOutboundDuration(label, duration)
-	observer.IncOutboundSend(label, chatevent.SendOutcome(err))
 }

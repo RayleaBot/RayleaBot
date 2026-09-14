@@ -26,16 +26,6 @@ func (d *Dispatcher) recordOutcome(outcome Outcome, pluginID, reason string) {
 	}
 	d.statsMu.Unlock()
 
-	if observer := d.currentMetrics(); observer != nil {
-		observer.IncEventPipelineStage("dispatch", string(outcome))
-		if outcome == OutcomeDropped {
-			normalisedReason := reason
-			if normalisedReason == "" {
-				normalisedReason = "unknown"
-			}
-			observer.IncDispatcherDrop(pluginID, normalisedReason)
-		}
-	}
 }
 
 // Stats returns a deep-copied snapshot of cumulative dispatcher outcome counts.

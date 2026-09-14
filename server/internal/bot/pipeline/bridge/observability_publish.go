@@ -40,12 +40,6 @@ func (b *Bridge) SetDispatcherStatsSource(source DispatcherStatsSnapshot) {
 	b.dispatcherStats = source
 }
 
-func (b *Bridge) SetMetricsObserver(observer MetricsObserver) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.metrics = observer
-}
-
 func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome chatevent.DeliveryOutcome) {
 	lastKind := b.snapshot.LastEventKind
 	if lastKind == "" {

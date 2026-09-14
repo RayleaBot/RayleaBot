@@ -40,9 +40,6 @@ func (a *App) closeResources() error {
 	if a.platform.Scheduler != nil {
 		a.platform.Scheduler.Stop()
 	}
-	if a.metricsRuntimeGaugeStop != nil {
-		a.metricsRuntimeGaugeStop()
-	}
 	if a.pluginStack.PluginInstaller != nil {
 		if err := a.pluginStack.PluginInstaller.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close plugin install service: %w", err))

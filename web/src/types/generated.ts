@@ -761,26 +761,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/system/metrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Expose runtime metrics in Prometheus exposition format.
-         * @description Returns counters, gauges, and histograms covering the event pipeline (adapter / bridge / dispatcher / runtime), task execution, render queue, outbound send, plugin runtime state, dispatcher drops, and webhook replay protection. Label cardinality is bounded by static enumerations and the set of registered plugins. Scrape with the standard Prometheus exposition parser (text/plain; version=0.0.4). Outbound metric adapter labels identify protocols (onebot11, qqofficial, or unknown), never instance IDs. Outbound outcomes are delivered, permission_denied, reply_target_missing, rate_limited, timeout, canceled, not_connected, unconfirmed, or failed. Instance attribution belongs in structured source_adapter/source_protocol log fields. Each admitted send records one duration and outcome.
-         */
-        get: operations["getSystemMetrics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/logs": {
         parameters: {
             query?: never;
@@ -4023,28 +4003,6 @@ export interface operations {
                 };
                 content: {
                     "application/zip": string;
-                };
-            };
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getSystemMetrics: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Prometheus text exposition payload. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": string;
                 };
             };
             401: components["responses"]["Error"];

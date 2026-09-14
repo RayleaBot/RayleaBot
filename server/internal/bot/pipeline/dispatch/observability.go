@@ -37,19 +37,6 @@ func (d *Dispatcher) SetRuntimePublisher(publisher DispatcherRuntimePublisher) {
 	d.runtimePublisher = publisher
 }
 
-// SetMetricsObserver wires the Prometheus observer the dispatcher uses to
-// record drop and pipeline counters. Passing nil disables instrumentation.
-func (d *Dispatcher) SetMetricsObserver(observer MetricsObserver) {
-	d.flushMu.Lock()
-	defer d.flushMu.Unlock()
-	d.metrics = observer
-}
-func (d *Dispatcher) currentMetrics() MetricsObserver {
-	d.flushMu.Lock()
-	defer d.flushMu.Unlock()
-	return d.metrics
-}
-
 func deltaUint64(current, baseline uint64) uint64 {
 	if current < baseline {
 		return 0

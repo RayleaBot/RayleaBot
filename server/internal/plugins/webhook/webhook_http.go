@@ -96,14 +96,12 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 		if replayDecision.dedupKey != "" {
 			if !s.dedup.commitIfAbsent(replayDecision.dedupKey, s.now(), replayDecision.dedupTTL) {
 				if registration.ReplayProtection.Enforce {
-					s.recordReplayMetric("rejected")
 					httpapi.WriteError(w, r, errorcodes.PluginWebhookReplayRejected, map[string]any{
 						"plugin_id": pluginID,
 						"route":     route,
 					})
 					return
 				}
-				s.recordReplayMetric("grace_observed")
 			}
 		}
 

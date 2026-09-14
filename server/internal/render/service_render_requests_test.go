@@ -480,8 +480,6 @@ func TestServiceRenderRejectsQueueFull(t *testing.T) {
 			t.Fatalf("Close: %v", err)
 		}
 	})
-	queueDepths := newRenderQueueDepthWaiter()
-	service.SetMetricsObserver(queueDepths)
 
 	request := Request{
 		Template: "help.menu",
@@ -504,7 +502,7 @@ func TestServiceRenderRejectsQueueFull(t *testing.T) {
 		secondDone <- err
 	}()
 
-	queueDepths.waitForDepth(t, 2, 2*time.Second)
+	waitForActiveRenders(t, service.worker, 2, 2*time.Second)
 
 	_, err = service.Render(context.Background(), request)
 	if err == nil {
@@ -530,36 +528,21 @@ func TestServiceRenderRejectsQueueFull(t *testing.T) {
 	}
 }
 
-type renderQueueDepthWaiter struct {
-	depths chan int
-}
-
-func newRenderQueueDepthWaiter() *renderQueueDepthWaiter {
-	return &renderQueueDepthWaiter{depths: make(chan int, 8)}
-}
-
-func (w *renderQueueDepthWaiter) SetRenderQueueDepth(depth int) {
-	select {
-	case w.depths <- depth:
-	default:
-	}
-}
-
-func (w *renderQueueDepthWaiter) ObserveRenderDuration(string, time.Duration) {}
-
-func (w *renderQueueDepthWaiter) waitForDepth(t *testing.T, want int, timeout time.Duration) {
+// waitForActiveRenders polls the worker's admission count so the test knows
+// both earlier requests hold a slot before submitting the overflow request.
+func waitForActiveRenders(t *testing.T, worker *Worker, want int, timeout time.Duration) {
 	t.Helper()
-
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
+	deadline := time.Now().Add(timeout)
 	for {
-		select {
-		case depth := <-w.depths:
-			if depth >= want {
-				return
-			}
-		case <-timer.C:
-			t.Fatalf("timed out waiting for render queue depth >= %d", want)
+		worker.mu.Lock()
+		active := worker.activeRequests
+		worker.mu.Unlock()
+		if active >= want {
+			return
 		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %d active renders, got %d", want, active)
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }

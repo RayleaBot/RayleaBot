@@ -17,7 +17,6 @@ import (
 
 type SystemRoutes struct {
 	Handlers *SystemHandlers
-	Metrics  http.Handler
 }
 
 type SystemHandlers struct {
@@ -126,8 +125,8 @@ func NewSystemHandlers(system CoreService, schedulerServices ...SchedulerService
 	return &SystemHandlers{system: system, scheduler: schedulerValue}
 }
 
-func NewSystemRoutes(handlers *SystemHandlers, metrics http.Handler) SystemRoutes {
-	return SystemRoutes{Handlers: handlers, Metrics: metrics}
+func NewSystemRoutes(handlers *SystemHandlers) SystemRoutes {
+	return SystemRoutes{Handlers: handlers}
 }
 
 func (h *SystemHandlers) CurrentReadiness() systemsvc.ReadinessReport {
@@ -254,14 +253,14 @@ func normalizeRuntimeBootstrapResources(requested []string) ([]string, bool) {
 }
 
 func (routes SystemRoutes) RegisterProtectedRoutes(router chi.Router) {
-	registerSystemProtectedRoutes(router, routes.Handlers, routes.Metrics)
+	registerSystemProtectedRoutes(router, routes.Handlers)
 }
 
-func (h *SystemHandlers) RegisterProtectedRoutes(router chi.Router, metricsHandler http.Handler) {
-	registerSystemProtectedRoutes(router, h, metricsHandler)
+func (h *SystemHandlers) RegisterProtectedRoutes(router chi.Router) {
+	registerSystemProtectedRoutes(router, h)
 }
 
-func registerSystemProtectedRoutes(router chi.Router, h *SystemHandlers, metricsHandler http.Handler) {
+func registerSystemProtectedRoutes(router chi.Router, h *SystemHandlers) {
 	router.Get("/api/system/tasks/{task_id}", h.HandleTaskStatus())
 	router.Post("/api/system/backup", h.HandleSystemBackup())
 	router.Post("/api/system/recovery/recheck", h.HandleSystemRecoveryRecheck())
@@ -269,9 +268,6 @@ func registerSystemProtectedRoutes(router chi.Router, h *SystemHandlers, metrics
 	router.Post("/api/system/runtime/bootstrap", h.HandleSystemRuntimeBootstrap())
 	router.Get("/api/system/diagnostics", h.HandleSystemDiagnostics())
 	router.Get("/api/system/diagnostics/export", h.HandleSystemDiagnosticsExport())
-	if metricsHandler != nil {
-		router.Get("/api/system/metrics", metricsHandler.ServeHTTP)
-	}
 	router.Get("/api/system/scheduler/jobs", h.HandleSystemSchedulerJobList())
 	router.Post("/api/system/scheduler/jobs/{job_id}/trigger", h.HandleSystemSchedulerJobTrigger())
 }

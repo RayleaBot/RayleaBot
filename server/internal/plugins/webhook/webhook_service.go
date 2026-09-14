@@ -64,16 +64,8 @@ type Service struct {
 	dispatcher *dispatch.Dispatcher
 	runtime    RuntimeEnsurer
 
-	dedup   *replayCache
-	now     func() time.Time
-	metrics ReplayMetricsObserver
-}
-
-// ReplayMetricsObserver is a narrow hook for the Prometheus registry; the
-// pluginwebhook package keeps it interface-shaped so tests can stub it out
-// without pulling in client_golang.
-type ReplayMetricsObserver interface {
-	IncReplayObserved(outcome string)
+	dedup *replayCache
+	now   func() time.Time
 }
 
 func New(deps Deps) (*Service, error) {
@@ -124,13 +116,6 @@ func (r *Registry) SyncSnapshots(snapshots []plugins.Snapshot) {
 			r.items[webhookKey(registration.PluginID, registration.Route)] = registration
 		}
 	}
-}
-
-// SetReplayMetrics wires a metrics observer that records every replay
-// protection outcome ("rejected", "grace_observed", "skew"). Optional; the
-// service runs without it when nil.
-func (s *Service) SetReplayMetrics(observer ReplayMetricsObserver) {
-	s.metrics = observer
 }
 
 func (s *Service) RegisterPublicRoutes(router chi.Router) {
@@ -194,9 +179,6 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 			decision.reject = true
 			decision.code = errorcodes.PluginWebhookReplayRejected
 			decision.messageKey = errorcodes.PluginWebhookReplayRejectedMessageKey
-			s.recordReplayMetric("rejected")
-		} else {
-			s.recordReplayMetric("grace_observed")
 		}
 		return decision
 	}
@@ -207,9 +189,6 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 			decision.reject = true
 			decision.code = errorcodes.PluginWebhookTimestampSkew
 			decision.messageKey = errorcodes.PluginWebhookTimestampSkewMessageKey
-			s.recordReplayMetric("skew")
-		} else {
-			s.recordReplayMetric("grace_observed")
 		}
 		return decision
 	}
@@ -225,9 +204,6 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 			decision.reject = true
 			decision.code = errorcodes.PluginWebhookTimestampSkew
 			decision.messageKey = errorcodes.PluginWebhookTimestampSkewMessageKey
-			s.recordReplayMetric("skew")
-		} else {
-			s.recordReplayMetric("grace_observed")
 		}
 		return decision
 	}
@@ -241,21 +217,11 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 			decision.reject = true
 			decision.code = errorcodes.PluginWebhookReplayRejected
 			decision.messageKey = errorcodes.PluginWebhookReplayRejectedMessageKey
-			s.recordReplayMetric("rejected")
-		} else {
-			s.recordReplayMetric("grace_observed")
 		}
 		return decision
 	}
 
 	return decision
-}
-
-func (s *Service) recordReplayMetric(outcome string) {
-	if s.metrics == nil {
-		return
-	}
-	s.metrics.IncReplayObserved(outcome)
 }
 
 func newReplayCache() *replayCache {

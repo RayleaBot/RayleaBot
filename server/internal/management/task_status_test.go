@@ -17,7 +17,7 @@ func TestTaskStatusReturnsLifecycleWithoutPrivateTaskDetails(t *testing.T) {
 		t.Fatal(err)
 	}
 	router := chi.NewRouter()
-	handlers.RegisterProtectedRoutes(router, nil)
+	handlers.RegisterProtectedRoutes(router)
 	for _, state := range []tasks.Status{tasks.StatusPending, tasks.StatusRunning, tasks.StatusSucceeded, tasks.StatusFailed, tasks.StatusCancelled, tasks.StatusInterrupted} {
 		registry.Update(id, tasks.Update{Status: &state, Error: &tasks.ErrorSummary{Code: "plugin.internal_error", Message: "private-error", Details: map[string]any{"fixture_secret": "fixture-only"}}})
 		response := httptest.NewRecorder()

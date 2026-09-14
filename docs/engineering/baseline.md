@@ -14,7 +14,7 @@
 
 ## 工程目录与职责
 
-- `server/` 是产品核心，负责配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger、插件浏览器会话、管理面日志持久化与运行指标。
+- `server/` 是产品核心，负责配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger、插件浏览器会话、管理面日志持久化。
 - `web/` 负责管理控制台主路径。
 - `launcher/` 负责 Wails 桌面启动器、本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
 - `.deps/manifest.json` v5 固定图片渲染与插件浏览器会话共用的 Chromium，以及受信本地插件共用的 FFmpeg / FFprobe 资源矩阵和可信来源列表；插件运行不依赖托管语言运行时。
@@ -39,7 +39,6 @@ Go、Node.js、Python、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 
 | Database | SQLite via `modernc.org/sqlite v1.56.0` |
 | Render | `chromedp 0.16.0` + Chrome for Testing `152.0.7977.42` |
 | Media tools | Windows / Linux 使用 BtbN FFmpeg Builds `n9.0.1-11-ge47273f4d9-20260831` full GPL build；macOS arm64 使用 vanloctech `ffmpeg-2026.06.11` |
-| Metrics | `github.com/prometheus/client_golang 1.24.1`（Prometheus 文本暴露格式） |
 | macOS CI / release runner | `macos-26` |
 
 Windows / Linux 的 FFmpeg 固定使用 BtbN [2026-08-31 月末构建](https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-08-31-13-27)，保留 9.0.1 维护线与 full GPL 变体。按[上游保留规则](https://github.com/BtbN/FFmpeg-Builds#release-retention-policy)，月末构建保留两年，普通日构建只保留最近 14 版；固定日期 URL 不代表永久可用。每次分发前仍需验证来源与 SHA-256，更新构建时同步资源版本、归档摘要和入口路径。
@@ -64,7 +63,6 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 | --- | --- |
 | HTTP 路由 | `net/http` + `go-chi/chi v5.3.1` |
 | WebSocket | `github.com/coder/websocket v1.8.15` |
-| 运行指标 | `github.com/prometheus/client_golang` + 受 admin session 保护的 `/api/system/metrics` |
 | 日志 | `log/slog` |
 | 配置解析 | `gopkg.in/yaml.v3` |
 | 数据访问 | `database/sql` + repository / service 分层 + `internal/sqlcqueries` → `internal/sqlcgen` 的 sqlc 生成主路径；sqlc 无法表达的动态查询与 SQLite 维护语句保留手写，并在调用处注释原因 |

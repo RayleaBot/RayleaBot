@@ -78,7 +78,6 @@ type Shell struct {
 	pendingResponses map[string]chan APIResponse
 	httpClient       *http.Client
 	identityCache    *IdentityCache
-	metrics          MetricsObserver
 
 	// dedupMu guards the recent event set separately from mu so per-event
 	// deduplication never queues behind snapshot or connection updates.
@@ -86,14 +85,6 @@ type Shell struct {
 	recentEventIDs map[string]time.Time
 	dedupPrunedAt  time.Time
 	dedupDrops     uint64
-}
-
-// MetricsObserver records adapter-side counter increments without coupling
-// this package to client_golang directly. Implementations must be safe for
-// concurrent use.
-type MetricsObserver interface {
-	IncAdapterDedupDrop()
-	IncEventPipelineStage(stage, outcome string)
 }
 
 func New(adapterID string, cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *slog.Logger) *Shell {
@@ -165,14 +156,6 @@ func (s *Shell) SetStateHandler(handler func(Snapshot)) {
 	s.stateHandler = handler
 }
 
-// SetMetricsObserver wires the adapter dedup and pipeline stage counters
-// behind the MetricsObserver interface. Passing nil disables instrumentation.
-func (s *Shell) SetMetricsObserver(observer MetricsObserver) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.metrics = observer
-}
-
 func (s *Shell) currentWSConn() (*websocket.Conn, TransportKey, Snapshot) {
 	return s.currentWSConnForTransport("")
 }
@@ -228,16 +211,9 @@ func (s *Shell) isDuplicateEvent(eventID string, observedAt time.Time) bool {
 	}
 	if seenAt, ok := s.recentEventIDs[eventID]; ok && !seenAt.Before(cutoff) {
 		s.dedupDrops++
-		if s.metrics != nil {
-			s.metrics.IncAdapterDedupDrop()
-			s.metrics.IncEventPipelineStage("adapter", "dedup_drop")
-		}
 		return true
 	}
 	s.recentEventIDs[eventID] = observedAt
-	if s.metrics != nil {
-		s.metrics.IncEventPipelineStage("adapter", "accepted")
-	}
 	return false
 }
 

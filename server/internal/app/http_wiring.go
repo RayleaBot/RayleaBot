@@ -22,7 +22,6 @@ type httpBuildDeps struct {
 	Events                  EventState
 	Renderer                *render.Service
 	ServiceBuild            serviceBuildResult
-	Metrics                 *MetricsRegistry
 	RequestShutdown         func()
 	SetupToken              string
 	LauncherControlToken    string
@@ -38,7 +37,6 @@ type appHTTPState struct {
 type serverDeps struct {
 	runtime  configRuntimeState
 	renderer *render.Service
-	metrics  *MetricsRegistry
 	routes   managementRouteState
 	pluginUI *managementapi.PluginManagementUIHandlers
 }
@@ -76,7 +74,6 @@ func buildHTTP(deps httpBuildDeps) (appHTTPState, error) {
 	router, server, handlers := buildAppHTTPServer(serverDeps{
 		runtime:  runtimeState,
 		renderer: renderer,
-		metrics:  deps.Metrics,
 		routes:   managementRoutes,
 		pluginUI: pluginManagementUIHandler,
 	})
@@ -90,7 +87,7 @@ func buildHTTP(deps httpBuildDeps) (appHTTPState, error) {
 func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandlers) {
 	router := chi.NewRouter()
 	cfg := deps.runtime.CurrentConfig()
-	router.Use(httpapi.WithRequestContext(deps.runtime.RuntimeLogger(), httpapi.WithRequestObserver(NewHTTPObserver(deps.metrics))))
+	router.Use(httpapi.WithRequestContext(deps.runtime.RuntimeLogger()))
 
 	managementapi.RegisterRoutes(router, deps.routes.RouterDeps, deps.routes.RequireAuth)
 	handlers := deps.routes.Handlers

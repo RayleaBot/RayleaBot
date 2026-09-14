@@ -154,62 +154,6 @@ type Service struct {
 
 	config        *runtimeConfig
 	artifactStore *artifactStore
-
-	metricsMu sync.RWMutex
-	metrics   MetricsObserver
-}
-
-// MetricsObserver routes render service outcomes into the Prometheus registry.
-type MetricsObserver interface {
-	SetRenderQueueDepth(depth int)
-	ObserveRenderDuration(outcome string, duration time.Duration)
-}
-
-func (s *Service) SetMetricsObserver(observer MetricsObserver) {
-	s.metricsMu.Lock()
-	s.metrics = observer
-	s.metricsMu.Unlock()
-}
-
-func (s *Service) currentMetrics() MetricsObserver {
-	s.metricsMu.RLock()
-	defer s.metricsMu.RUnlock()
-	return s.metrics
-}
-
-func (s *Service) recordRenderMetric(outcome string, duration time.Duration) {
-	observer := s.currentMetrics()
-	if observer == nil {
-		return
-	}
-	observer.ObserveRenderDuration(outcome, duration)
-}
-
-func renderOutcome(result Result, err error) string {
-	if err != nil {
-		var renderErr *Error
-		if errors.As(err, &renderErr) {
-			switch renderErr.Code {
-			case errorcodes.PlatformRenderQueueFull:
-				return "queue_full"
-			case errorcodes.PlatformRenderTimeout:
-				return "timeout"
-			}
-		}
-		return "failed"
-	}
-	if result.FromCache {
-		return "cache_hit"
-	}
-	return "succeeded"
-}
-
-func (s *Service) publishQueueDepth(depth int) {
-	observer := s.currentMetrics()
-	if observer == nil {
-		return
-	}
-	go observer.SetRenderQueueDepth(depth)
 }
 
 func NewService(options Options) (*Service, error) {
@@ -292,7 +236,6 @@ func NewService(options Options) (*Service, error) {
 		QueueMaxLength:   queueMaxLength,
 		QueueWaitTimeout: queueWaitTimeout,
 		RenderTimeout:    renderTimeout,
-		OnQueueDepth:     service.publishQueueDepth,
 	})
 
 	if err := service.syncTemplatesFromFiles(context.Background()); err != nil {

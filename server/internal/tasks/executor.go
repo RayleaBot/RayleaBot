@@ -35,13 +35,6 @@ type TaskError struct {
 
 func (e *TaskError) Error() string { return e.Message }
 
-// MetricsObserver lets callers route task execution outcomes into the
-// platform Prometheus registry without forcing this package to depend on
-// client_golang. Implementations must be safe for concurrent use.
-type MetricsObserver interface {
-	ObserveTaskExecution(taskType, outcome string, duration time.Duration)
-}
-
 // Executor provides a reusable async task execution loop. It accepts jobs
 // via Submit, runs them on a single background goroutine, and drives task
 // status through the Registry.
@@ -59,9 +52,6 @@ type Executor struct {
 	mu      sync.Mutex
 	closed  bool
 	cancels map[string]context.CancelFunc
-
-	metricsMu sync.RWMutex
-	metrics   MetricsObserver
 }
 
 type executorJob struct {
@@ -199,7 +189,6 @@ func (e *Executor) execute(job executorJob) {
 		return
 	}
 	if snapshot.Status == StatusCancelled {
-		e.recordTaskMetric(snapshot.TaskType, "cancelled", 0)
 		return
 	}
 
@@ -214,7 +203,6 @@ func (e *Executor) execute(job executorJob) {
 	result, err := job.execute(job.ctx, reporter)
 
 	now := e.now().UTC()
-	duration := now.Sub(startedAt)
 	if err != nil {
 		var taskErr *TaskError
 		if ok := isTaskError(err, &taskErr); ok {
@@ -243,11 +231,6 @@ func (e *Executor) execute(job executorJob) {
 				},
 			})
 		}
-		outcome := "failed"
-		if job.ctx.Err() != nil {
-			outcome = "cancelled"
-		}
-		e.recordTaskMetric(snapshot.TaskType, outcome, duration)
 		return
 	}
 
@@ -261,27 +244,6 @@ func (e *Executor) execute(job executorJob) {
 		FinishedAt: &now,
 		Result:     result,
 	})
-	e.recordTaskMetric(snapshot.TaskType, "succeeded", duration)
-}
-
-func (e *Executor) SetMetricsObserver(observer MetricsObserver) {
-	e.metricsMu.Lock()
-	defer e.metricsMu.Unlock()
-	e.metrics = observer
-}
-
-func (e *Executor) currentMetrics() MetricsObserver {
-	e.metricsMu.RLock()
-	defer e.metricsMu.RUnlock()
-	return e.metrics
-}
-
-func (e *Executor) recordTaskMetric(taskType, outcome string, duration time.Duration) {
-	observer := e.currentMetrics()
-	if observer == nil {
-		return
-	}
-	observer.ObserveTaskExecution(taskType, outcome, duration)
 }
 
 func (e *Executor) dropCancel(taskID string) {

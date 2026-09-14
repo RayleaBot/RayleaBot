@@ -131,7 +131,6 @@ type pluginServiceDeps struct {
 	Renderer      *render.Service
 	System        *systemsvc.Service
 	PluginRuntime pluginRuntime
-	Metrics       *MetricsRegistry
 }
 
 type pluginServices struct {
@@ -153,7 +152,6 @@ func buildPluginServices(deps pluginServiceDeps) (pluginServices, error) {
 	if err != nil {
 		return pluginServices{}, err
 	}
-	pluginWebhooks.SetReplayMetrics(NewWebhookReplayObserver(deps.Metrics))
 	pluginWebhooks.SyncManifestRegistrations()
 	return pluginServices{
 		PluginLifecycle: lifecycle,

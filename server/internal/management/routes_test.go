@@ -42,7 +42,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			NewProtocolHandlers(nil),
 			NewGovernanceHandlersWithService(nil),
 			NewLogHandlers(nil),
-			NewSystemRoutes(NewSystemHandlers(nil), noopHandler),
+			NewSystemRoutes(NewSystemHandlers(nil)),
 			NewRenderHandlers(nil, nil),
 			newUpdateTestHandler(t, &updateServiceStub{}),
 			pluginUI,

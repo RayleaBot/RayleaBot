@@ -50,9 +50,7 @@ type App struct {
 
 	httpHandlers httpHandlers
 
-	metrics                 *MetricsRegistry
-	metricsRuntimeGaugeStop func()
-	configLifecycleLock     *filelock.Lock
+	configLifecycleLock *filelock.Lock
 }
 
 func New(options Options) (*App, error) {
@@ -137,24 +135,22 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		schedulerLifecycle.HandleSchedulerTrigger(ctx, job)
 	}
 	var (
-		platformState         PlatformState
-		pluginState           PluginStackState
-		renderState           appRenderState
-		eventState            EventState
-		serviceBuild          serviceBuildResult
-		stopRuntimeStateGauge func()
+		platformState PlatformState
+		pluginState   PluginStackState
+		renderState   appRenderState
+		eventState    EventState
+		serviceBuild  serviceBuildResult
 	)
 	// cleanupPartialBuild releases whatever has been assembled so far by
 	// closing it as an App; stages that have not run leave their zero value.
 	cleanupPartialBuild := func(cause error) error {
 		partial := &App{
-			platform:                platformState,
-			pluginStack:             pluginState,
-			renderStack:             renderState,
-			eventStack:              eventState,
-			services:                serviceBuild.Services,
-			runtimes:                serviceBuild.Runtimes,
-			metricsRuntimeGaugeStop: stopRuntimeStateGauge,
+			platform:    platformState,
+			pluginStack: pluginState,
+			renderStack: renderState,
+			eventStack:  eventState,
+			services:    serviceBuild.Services,
+			runtimes:    serviceBuild.Runtimes,
 		}
 		return errors.Join(cause, partial.Close())
 	}
@@ -221,14 +217,12 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	})
 
 	state := buildState.core
-	metricRegistry, stopRuntimeStateGauge := wireMetrics(platformState, eventState, renderState.Renderer, pluginState)
 	serviceBuild, err = buildServices(serviceBuildDeps{
 		Runtime:          state,
 		Platform:         platformState,
 		Plugins:          pluginState,
 		Events:           eventState,
 		Renderer:         renderState.Renderer,
-		Metrics:          metricRegistry,
 		ManagementRedact: buildState.managementRedact,
 	})
 	if err != nil {
@@ -243,16 +237,14 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	}
 
 	application := &App{
-		state:                   state,
-		platform:                platformState,
-		pluginStack:             pluginState,
-		renderStack:             renderState,
-		eventStack:              eventState,
-		services:                serviceBuild.Services,
-		runtimes:                serviceBuild.Runtimes,
-		metrics:                 metricRegistry,
-		metricsRuntimeGaugeStop: stopRuntimeStateGauge,
-		configLifecycleLock:     configLifecycleLock,
+		state:               state,
+		platform:            platformState,
+		pluginStack:         pluginState,
+		renderStack:         renderState,
+		eventStack:          eventState,
+		services:            serviceBuild.Services,
+		runtimes:            serviceBuild.Runtimes,
+		configLifecycleLock: configLifecycleLock,
 	}
 	configureAppRuntimeCallbacks(application)
 	httpState, err := buildHTTP(httpBuildDeps{
@@ -262,7 +254,6 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		Events:                  eventState,
 		Renderer:                renderState.Renderer,
 		ServiceBuild:            serviceBuild,
-		Metrics:                 metricRegistry,
 		RequestShutdown:         application.requestShutdown,
 		SetupToken:              options.SetupToken,
 		LauncherControlToken:    options.LauncherControlToken,
@@ -276,16 +267,4 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	application.httpHandlers = httpState.Handlers
 	lockTransferred = true
 	return application, nil
-}
-
-func wireMetrics(platform PlatformState, events EventState, renderer *render.Service, plugins PluginStackState) (*MetricsRegistry, func()) {
-	registry := NewMetricsRegistry()
-	events.Bridge.SetMetricsObserver(NewBridgeObserver(registry))
-	events.Dispatcher.SetMetricsObserver(NewDispatchObserver(registry))
-	for _, shell := range events.OneBotShells {
-		shell.SetMetricsObserver(NewAdapterObserver(registry))
-	}
-	platform.TaskExecutor.SetMetricsObserver(NewTaskObserver(registry))
-	renderer.SetMetricsObserver(NewRenderObserver(registry))
-	return registry, StartPluginStateGaugeRefresh(registry, plugins.Plugins)
 }

@@ -3,13 +3,11 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestWithRequestContextRecoversPanicAndLogsStack(t *testing.T) {
@@ -79,13 +77,12 @@ func TestWithRequestContextRecoversPanicAndLogsStack(t *testing.T) {
 	}
 }
 
-func TestWithRequestContextLogsAccessAndObservesRequest(t *testing.T) {
+func TestWithRequestContextLogsAccess(t *testing.T) {
 	t.Parallel()
 
 	var logBuffer bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	observer := &recordingRequestObserver{}
-	handler := WithRequestContext(logger, WithRequestObserver(observer))(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := WithRequestContext(logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if requestID := RequestIDFromContext(r.Context()); !strings.HasPrefix(requestID, "req_") {
 			t.Fatalf("unexpected request id in context: %q", requestID)
 		}
@@ -132,12 +129,6 @@ func TestWithRequestContextLogsAccessAndObservesRequest(t *testing.T) {
 	}
 	if requestID, ok := record["request_id"].(string); !ok || !strings.HasPrefix(requestID, "req_") {
 		t.Fatalf("unexpected access log request_id: %#v", record["request_id"])
-	}
-	if observer.request.method != http.MethodPost || observer.request.route != "unmatched" || observer.request.status != http.StatusCreated {
-		t.Fatalf("unexpected observed request: %#v", observer.request)
-	}
-	if observer.request.duration <= 0 {
-		t.Fatalf("expected positive observed duration, got %s", observer.request.duration)
 	}
 }
 
@@ -213,52 +204,4 @@ func TestWithRequestContextKeepsHTTPAccessLogsAtDebug(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestWithRequestContextObservesPanic(t *testing.T) {
-	t.Parallel()
-
-	logger := slog.New(slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
-	observer := &recordingRequestObserver{}
-	handler := WithRequestContext(logger, WithRequestObserver(observer))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		panic("boom")
-	}))
-
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/panic", nil))
-
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("unexpected status: got %d want %d", recorder.Code, http.StatusInternalServerError)
-	}
-	if observer.panic.method != http.MethodGet || observer.panic.route != "unmatched" {
-		t.Fatalf("unexpected observed panic: %#v", observer.panic)
-	}
-	if observer.request.status != http.StatusInternalServerError {
-		t.Fatalf("unexpected observed request status after panic: %#v", observer.request)
-	}
-}
-
-type recordingRequestObserver struct {
-	request struct {
-		method   string
-		route    string
-		status   int
-		duration time.Duration
-	}
-	panic struct {
-		method string
-		route  string
-	}
-}
-
-func (o *recordingRequestObserver) ObserveHTTPRequest(method, route string, status int, duration time.Duration) {
-	o.request.method = method
-	o.request.route = route
-	o.request.status = status
-	o.request.duration = duration
-}
-
-func (o *recordingRequestObserver) ObserveHTTPPanic(method, route string) {
-	o.panic.method = method
-	o.panic.route = route
 }

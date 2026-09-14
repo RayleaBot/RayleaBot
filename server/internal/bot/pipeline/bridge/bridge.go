@@ -106,14 +106,6 @@ type DispatcherStatsView struct {
 	Ignored   uint64
 }
 
-// MetricsObserver lets the bridge increment Prometheus counters without
-// importing client_golang directly. Implementations must be safe for
-// concurrent use.
-type MetricsObserver interface {
-	IncEventPipelineStage(stage, outcome string)
-	IncBridgeIgnored()
-}
-
 type Bridge struct {
 	logger     *slog.Logger
 	dispatcher Dispatch
@@ -124,7 +116,6 @@ type Bridge struct {
 
 	adapterStats    AdapterDedupStats
 	dispatcherStats DispatcherStatsSnapshot
-	metrics         MetricsObserver
 }
 
 func New(logger *slog.Logger, dispatcher Dispatch) *Bridge {

@@ -46,32 +46,9 @@ type DomainError struct {
 	Details map[string]any
 }
 
-type RequestObserver interface {
-	ObserveHTTPRequest(method, route string, status int, duration time.Duration)
-	ObserveHTTPPanic(method, route string)
-}
-
-type requestContextOptions struct {
-	observer RequestObserver
-}
-
-type RequestContextOption func(*requestContextOptions)
-
-func WithRequestObserver(observer RequestObserver) RequestContextOption {
-	return func(options *requestContextOptions) {
-		options.observer = observer
-	}
-}
-
-func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(http.Handler) http.Handler {
+func WithRequestContext(logger *slog.Logger) func(http.Handler) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
-	}
-	options := requestContextOptions{}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&options)
-		}
 	}
 
 	return func(next http.Handler) http.Handler {
@@ -86,10 +63,6 @@ func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(
 				recovered := recover()
 				route := requestRoutePattern(r)
 				if recovered != nil {
-					if options.observer != nil {
-						options.observer.ObserveHTTPPanic(r.Method, route)
-					}
-
 					logger.Error(
 						"请求处理异常",
 						"component", "http",
@@ -113,9 +86,6 @@ func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(
 				duration := time.Since(startedAt)
 				if duration <= 0 {
 					duration = time.Nanosecond
-				}
-				if options.observer != nil {
-					options.observer.ObserveHTTPRequest(r.Method, route, recorder.statusCode, duration)
 				}
 				logger.Log(
 					r.Context(),

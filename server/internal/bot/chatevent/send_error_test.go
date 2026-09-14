@@ -32,6 +32,6 @@ func TestSendOutcomeKeepsDeliveryUncertaintyAheadOfTransportCause(t *testing.T) 
 		}
 	}
 	if ProtocolLabel("arbitrary-instance-id") != "unknown" {
-		t.Fatal("unbounded metric label")
+		t.Fatal("unbounded protocol label")
 	}
 }

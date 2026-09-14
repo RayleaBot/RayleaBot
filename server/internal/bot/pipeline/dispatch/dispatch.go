@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"sync"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
@@ -120,7 +119,7 @@ type OutboundPolicy interface {
 }
 
 // DispatcherStats summarises cumulative per-dispatch outcomes so consumers
-// (the bridge runtime observability frame and the Prometheus metrics handler)
+// (the bridge runtime observability frame)
 // can read aggregate counts without holding the dispatcher lock.
 //
 // Counter semantics:
@@ -134,16 +133,6 @@ type DispatcherStats struct {
 	Errored       uint64
 	Ignored       uint64
 	DropsByReason map[string]map[string]uint64 // reason -> plugin_id -> count
-}
-
-// MetricsObserver routes dispatcher events into the Prometheus registry
-// without forcing this package to depend on client_golang. Implementations
-// must be safe for concurrent use.
-type MetricsObserver interface {
-	IncDispatcherDrop(pluginID, reason string)
-	IncEventPipelineStage(stage, outcome string)
-	IncOutboundSend(adapter, outcome string)
-	ObserveOutboundDuration(adapter string, duration time.Duration)
 }
 
 // Dispatcher manages per-plugin event queues and fan-out delivery.
@@ -175,7 +164,6 @@ type Dispatcher struct {
 	runtimePublisher DispatcherRuntimePublisher
 	flushStop        chan struct{}
 	flushDone        chan struct{}
-	metrics          MetricsObserver
 }
 
 // New creates a Dispatcher.

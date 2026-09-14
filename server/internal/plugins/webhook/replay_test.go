@@ -148,11 +148,9 @@ func TestEvaluateReplayProtectionGraceModeLogsButAccepts(t *testing.T) {
 	t.Parallel()
 
 	fixedNow := time.Unix(1_700_000_000, 0)
-	metrics := &recordingMetrics{}
 	svc := &Service{
-		dedup:   newReplayCache(),
-		now:     func() time.Time { return fixedNow },
-		metrics: metrics,
+		dedup: newReplayCache(),
+		now:   func() time.Time { return fixedNow },
 	}
 	cfg := ReplayProtection{
 		TimestampHeader:  "X-Raylea-Timestamp",
@@ -167,23 +165,15 @@ func TestEvaluateReplayProtectionGraceModeLogsButAccepts(t *testing.T) {
 	if decision.reject {
 		t.Fatalf("grace mode must accept requests missing headers, got reject")
 	}
-	if got := metrics.counts["grace_observed"]; got != 1 {
-		t.Fatalf("expected one grace_observed metric, got %d", got)
-	}
-	if got := metrics.counts["rejected"]; got != 0 {
-		t.Fatalf("grace mode must not record rejection, got %d", got)
-	}
 }
 
 func TestEvaluateReplayProtectionEnforceMissingHeaders(t *testing.T) {
 	t.Parallel()
 
 	fixedNow := time.Unix(1_700_000_000, 0)
-	metrics := &recordingMetrics{}
 	svc := &Service{
-		dedup:   newReplayCache(),
-		now:     func() time.Time { return fixedNow },
-		metrics: metrics,
+		dedup: newReplayCache(),
+		now:   func() time.Time { return fixedNow },
 	}
 	cfg := ReplayProtection{
 		TimestampHeader:  "X-Raylea-Timestamp",
@@ -198,21 +188,4 @@ func TestEvaluateReplayProtectionEnforceMissingHeaders(t *testing.T) {
 	if !decision.reject || decision.code != "plugin.webhook_replay_rejected" {
 		t.Fatalf("enforce mode must reject missing headers, got %+v", decision)
 	}
-	if got := metrics.counts["rejected"]; got != 1 {
-		t.Fatalf("enforce mode must record one rejection, got %d", got)
-	}
-	if got := metrics.counts["grace_observed"]; got != 0 {
-		t.Fatalf("enforce mode must not record grace observation, got %d", got)
-	}
-}
-
-type recordingMetrics struct {
-	counts map[string]int
-}
-
-func (m *recordingMetrics) IncReplayObserved(outcome string) {
-	if m.counts == nil {
-		m.counts = make(map[string]int)
-	}
-	m.counts[outcome]++
 }

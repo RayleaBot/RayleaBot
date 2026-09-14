@@ -72,7 +72,6 @@ x-fixtures:
   - fixtures/web-api/ok.system-scheduler-job-triggered.yaml
   - fixtures/web-api/ok.system-diagnostics.yaml
   - fixtures/web-api/ok.system-diagnostics-export.yaml
-  - fixtures/web-api/ok.system-metrics-response.yaml
   - fixtures/web-api/ok.governance-blacklist-response.yaml
   - fixtures/web-api/ok.governance-blacklist-entry-upsert.yaml
   - fixtures/web-api/ok.governance-blacklist-entry-delete.yaml
@@ -1288,39 +1287,6 @@ paths:
               schema:
                 type: string
                 format: binary
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/system/metrics:
-    get:
-      summary: Expose runtime metrics in Prometheus exposition format.
-      description: >
-        Returns counters, gauges, and histograms covering the event pipeline
-        (adapter / bridge / dispatcher / runtime), task execution, render queue,
-        outbound send, plugin runtime state, dispatcher drops, and webhook
-        replay protection. Label cardinality is bounded by static enumerations
-        and the set of registered plugins. Scrape with the standard Prometheus
-        exposition parser (text/plain; version=0.0.4).
-        Outbound metric adapter labels identify protocols (onebot11,
-        qqofficial, or unknown), never instance IDs. Outbound outcomes are
-        delivered, permission_denied, reply_target_missing, rate_limited,
-        timeout, canceled, not_connected, unconfirmed, or failed. Instance
-        attribution belongs in structured source_adapter/source_protocol log
-        fields. Each admitted send records one duration and outcome.
-      operationId: getSystemMetrics
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-      responses:
-        '200':
-          description: Prometheus text exposition payload.
-          content:
-            text/plain:
-              schema:
-                type: string
-                description: Prometheus text exposition format (version 0.0.4).
         '401':
           $ref: '#/components/responses/Error'
         default:

@@ -29,8 +29,6 @@
 | `retrying` | 运行时等待受控重启 |
 | `recovery_required` | 运行时超过自动恢复阈值，可通过 `POST /api/plugins/{plugin_id}/recover` 触发受控冷启动 |
 
-`/api/system/metrics` 使用 `raylea_plugin_state{state="..."}` 统计各状态插件数量。
-
 ## 二、插件内部运行时状态
 
 ```plain

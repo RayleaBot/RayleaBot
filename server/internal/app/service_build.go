@@ -39,7 +39,6 @@ type serviceBuildDeps struct {
 	Plugins          PluginStackState
 	Events           EventState
 	Renderer         *render.Service
-	Metrics          *MetricsRegistry
 	ManagementRedact func(string) string
 }
 
@@ -148,7 +147,6 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		Renderer:      renderer,
 		System:        systemService,
 		PluginRuntime: pluginRuntime,
-		Metrics:       deps.Metrics,
 	})
 	if err != nil {
 		return serviceBuildResult{}, err

@@ -12,14 +12,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
-	startedAt := time.Now()
-	result, err := s.renderInternal(ctx, request)
-	s.recordRenderMetric(renderOutcome(result, err), time.Since(startedAt))
-	return result, err
+	return s.renderInternal(ctx, request)
 }
 
 func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML, error) {

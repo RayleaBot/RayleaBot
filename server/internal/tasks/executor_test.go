@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
 	"time"
 )
@@ -215,115 +214,5 @@ func TestExecutorRejectsFullQueueBeforeCreatingTask(t *testing.T) {
 	close(release)
 	if err := executor.Close(); err != nil {
 		t.Fatalf("close executor: %v", err)
-	}
-}
-
-// recordingTaskMetrics captures every observed task execution outcome for
-// assertions in TestExecutor_RecordsMetrics. The executor invokes
-// ObserveTaskExecution from a background goroutine, so the helper must
-// guard its slice with a mutex to keep the race detector happy.
-type recordingTaskMetrics struct {
-	mu           sync.Mutex
-	observations []taskMetricObservation
-	observed     chan struct{}
-}
-
-type taskMetricObservation struct {
-	taskType string
-	outcome  string
-	duration time.Duration
-}
-
-func (m *recordingTaskMetrics) ObserveTaskExecution(taskType, outcome string, duration time.Duration) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.observations = append(m.observations, taskMetricObservation{
-		taskType: taskType,
-		outcome:  outcome,
-		duration: duration,
-	})
-	if m.observed != nil {
-		m.observed <- struct{}{}
-	}
-}
-
-func (m *recordingTaskMetrics) snapshot() []taskMetricObservation {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	out := make([]taskMetricObservation, len(m.observations))
-	copy(out, m.observations)
-	return out
-}
-
-// TestExecutor_RecordsMetrics verifies the executor calls the configured
-// MetricsObserver for both successful and failed tasks. The observation
-// for /api/system/metrics depends on this hook firing once per task.
-func TestExecutor_RecordsMetrics(t *testing.T) {
-	t.Parallel()
-
-	registry := NewRegistry()
-	executor := NewExecutor(registry, 30*time.Second)
-	defer func(release func() error) { _ = release() }(executor.Close)
-
-	metrics := &recordingTaskMetrics{observed: make(chan struct{}, 2)}
-	executor.SetMetricsObserver(metrics)
-
-	successID, err := executor.Submit("backup.create", "ok", func(ctx context.Context, _ ProgressReporter) (*ResultSummary, error) {
-		return &ResultSummary{Summary: "done"}, nil
-	})
-	if err != nil {
-		t.Fatalf("submit success: %v", err)
-	}
-	failID, err := executor.Submit("backup.create", "boom", func(ctx context.Context, _ ProgressReporter) (*ResultSummary, error) {
-		return nil, errors.New("boom")
-	})
-	if err != nil {
-		t.Fatalf("submit fail: %v", err)
-	}
-
-	waitForFinalStatus(t, registry, successID, StatusSucceeded)
-	waitForFinalStatus(t, registry, failID, StatusFailed)
-
-	for range 2 {
-		select {
-		case <-metrics.observed:
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for task metrics")
-		}
-	}
-
-	observations := metrics.snapshot()
-	if len(observations) != 2 {
-		t.Fatalf("observations = %d, want 2", len(observations))
-	}
-	outcomes := map[string]bool{}
-	for _, obs := range observations {
-		if obs.taskType != "backup.create" {
-			t.Fatalf("taskType = %q, want backup.create", obs.taskType)
-		}
-		outcomes[obs.outcome] = true
-	}
-	if !outcomes["succeeded"] || !outcomes["failed"] {
-		t.Fatalf("outcomes = %v, want both succeeded and failed", outcomes)
-	}
-}
-
-func waitForFinalStatus(t *testing.T, registry *Registry, taskID string, want Status) {
-	t.Helper()
-	deadline := time.After(5 * time.Second)
-	for {
-		snap, ok := registry.Get(taskID)
-		if !ok {
-			t.Fatalf("task %s not found", taskID)
-		}
-		if snap.Status == want {
-			return
-		}
-		select {
-		case <-deadline:
-			t.Fatalf("timeout waiting for status %s on %s, last status=%s", want, taskID, snap.Status)
-		default:
-			time.Sleep(10 * time.Millisecond)
-		}
 	}
 }
