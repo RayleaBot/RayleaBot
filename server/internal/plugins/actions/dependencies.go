@@ -111,10 +111,3 @@ type KVRepository interface {
 	Delete(context.Context, string, string) (bool, error)
 	List(context.Context, string, string) ([]string, error)
 }
-
-type FileStore interface {
-	Read(string, string) (pluginstore.FileReadResult, error)
-	WriteWithResult(string, string, []byte, pluginstore.FileLimits) (pluginstore.FileWriteResult, error)
-	Delete(string, string) (bool, error)
-	List(string, string) ([]string, error)
-}

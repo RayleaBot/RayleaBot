@@ -104,7 +104,7 @@ flowchart LR
 | 内嵌 schema 默认值、`config/user.yaml` | Config | 校验后合并为运行快照 |
 | SQLite | Server services | auth、tasks、plugins、scheduler、logs 等正式状态 |
 | `data/` | Server services | 状态库与服务端业务数据 |
-| `data/plugins/` | Plugin File Store | 每插件文件工作目录；artifact 升级不覆盖该目录 |
+| `data/plugins/` | 插件进程 | 每插件数据目录，经 `RAYLEABOT_PLUGIN_DATA_DIR` 传入；artifact 升级不覆盖该目录 |
 | `plugins/installed/` | Plugin Catalog | 经校验的插件 artifact、后端二进制与包内管理页资源 |
 | `templates/` | Render Service | 模板版本与资源 |
 | `cache/` | 各自归属 | 可重建缓存，不影响正确性 |

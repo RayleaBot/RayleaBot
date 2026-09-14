@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/conversation"
+	"path/filepath"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/governance"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/bot/menu"
@@ -95,7 +96,6 @@ func buildLocalActionService(
 		RedactText:           runtimeState.RedactString,
 		Plugins:              pluginStack.Plugins,
 		Settings:             settingsService,
-		PluginFiles:          pluginStack.PluginFiles,
 		PluginKV:             pluginStack.PluginKV,
 		Conversations:        eventStack.Conversations,
 		Browser:              browserManager,
@@ -148,6 +148,7 @@ func buildPluginLifecycle(deps pluginServiceDeps) (*pluginservice.Controller, er
 	return pluginservice.NewController(pluginservice.Deps{
 		CurrentConfig:       deps.Runtime.CurrentConfig,
 		RepoRoot:            deps.Runtime.RepoRoot(),
+		PluginDataRoot:      filepath.Join(filepath.Dir(deps.Platform.Storage.Path), "plugins"),
 		Logger:              deps.Runtime.RuntimeLogger(),
 		Plugins:             deps.Plugins.Plugins,
 		DesiredStateRepo:    deps.Plugins.PluginRepository,

@@ -14,7 +14,6 @@ type Deps struct {
 	RedactText           func(string) string
 	Plugins              PluginCatalog
 	Settings             *settings.Service
-	PluginFiles          FileStore
 	PluginKV             KVRepository
 	Conversations        *conversation.Registry
 	Browser              BrowserSessionManager

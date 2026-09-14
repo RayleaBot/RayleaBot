@@ -250,10 +250,8 @@ func configRuntimeDocument(cfg Config) map[string]any {
 
 func configStorageDocument(cfg Config) map[string]any {
 	return map[string]any{
-		"kv_value_max_bytes":           cfg.Storage.KVValueMaxBytes,
-		"kv_total_limit_mb":            cfg.Storage.KVTotalLimitMB,
-		"file_max_bytes":               cfg.Storage.FileMaxBytes,
-		"plugin_workdir_soft_limit_mb": cfg.Storage.PluginWorkDirSoftLimitMB,
+		"kv_value_max_bytes": cfg.Storage.KVValueMaxBytes,
+		"kv_total_limit_mb":  cfg.Storage.KVTotalLimitMB,
 	}
 }
 

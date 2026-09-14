@@ -244,6 +244,9 @@ func newTestController(t *testing.T, deps Deps, repositories ...pluginstore.Conf
 	if deps.Operations == nil {
 		deps.Operations = NewOperationGate()
 	}
+	if deps.PluginDataRoot == "" {
+		deps.PluginDataRoot = filepath.Join(t.TempDir(), "plugins")
+	}
 	if deps.CurrentConfig == nil {
 		deps.CurrentConfig = func() config.Config { return config.Config{} }
 	}

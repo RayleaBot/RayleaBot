@@ -102,12 +102,10 @@ export const plugins = {
       command: '命令入口',
       message: '消息保护',
       render: '模板说明',
-      storage: '插件存储',
     },
     hints: {
       commandPrefixes: '输入前缀后按 Enter 添加，聊天消息以这些前缀开头时进入命令解析。',
       renderFooterTemplate: '可使用 rayleabot_version、plugin_name、plugin_version 占位符。',
-      pluginWorkdirSoftLimit: '单个插件工作目录的软限制，超过后会进入告警和清理建议。',
     },
     resetDefault: '恢复默认',
     placeholders: {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -255,9 +256,16 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 		newPluginWebhookRegistry(),
 	)
 
-	_, payload, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card")
+	spec, payload, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card")
 	if err != nil {
 		t.Fatalf("buildStartInputs: %v", err)
+	}
+	dataDir := filepath.Join(app.services.pluginLifecycle.pluginDataRoot, "weather-card")
+	if !slices.Contains(spec.Env, "RAYLEABOT_PLUGIN_DATA_DIR="+dataDir) {
+		t.Fatalf("plugin data directory is not injected: %#v", spec.Env)
+	}
+	if info, err := os.Stat(dataDir); err != nil || !info.IsDir() {
+		t.Fatalf("plugin data directory was not created: %v", err)
 	}
 	if !reflect.DeepEqual(payload.SuperAdmins, []string{"10001", "10002"}) {
 		t.Fatalf("super_admins = %#v, want canonical values", payload.SuperAdmins)

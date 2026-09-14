@@ -42,6 +42,7 @@ type Settings interface {
 type Deps struct {
 	CurrentConfig       func() config.Config
 	RepoRoot            string
+	PluginDataRoot      string
 	Logger              *slog.Logger
 	Plugins             *plugincatalog.Catalog
 	DesiredStateRepo    plugins.DesiredStateRepository
@@ -63,6 +64,7 @@ type Controller struct {
 	schedulerFailures   logging.FailureTracker
 	currentConfig       func() config.Config
 	repoRoot            string
+	pluginDataRoot      string
 	logger              *slog.Logger
 	plugins             *plugincatalog.Catalog
 	desiredStateRepo    plugins.DesiredStateRepository
@@ -92,6 +94,9 @@ func NewController(deps Deps) (*Controller, error) {
 	if deps.CurrentConfig == nil || deps.Plugins == nil || deps.Runtimes == nil || deps.Dispatcher == nil || deps.Settings == nil {
 		return nil, errors.New("plugin lifecycle requires config, catalog, runtimes and dispatcher")
 	}
+	if deps.PluginDataRoot == "" {
+		return nil, errors.New("plugin lifecycle requires a plugin data root")
+	}
 	if deps.Operations == nil {
 		return nil, errors.New("plugin lifecycle operation gate is required")
 	}
@@ -111,6 +116,7 @@ func NewController(deps Deps) (*Controller, error) {
 		effectiveTimezone:   zone,
 		currentConfig:       deps.CurrentConfig,
 		repoRoot:            deps.RepoRoot,
+		pluginDataRoot:      deps.PluginDataRoot,
 		logger:              deps.Logger,
 		plugins:             deps.Plugins,
 		desiredStateRepo:    deps.DesiredStateRepo,

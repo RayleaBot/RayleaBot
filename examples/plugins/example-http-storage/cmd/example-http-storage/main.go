@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
+	"errors"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
-	"unicode/utf8"
 
 	rayleabot "github.com/RayleaBot/RayleaBot/sdk/go"
 )
@@ -28,6 +28,10 @@ func handle(ctx context.Context, event *rayleabot.EventContext) error {
 	if event.Event.Command() != "scope_fetch" && event.Event.Command() != "scope_cache" {
 		return event.Result(map[string]any{"handled": false})
 	}
+	dataDir := os.Getenv("RAYLEABOT_PLUGIN_DATA_DIR")
+	if dataDir == "" {
+		return errors.New("RAYLEABOT_PLUGIN_DATA_DIR is not set")
+	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://example.com/", nil)
 	if err != nil {
 		return err
@@ -41,16 +45,13 @@ func handle(ctx context.Context, event *rayleabot.EventContext) error {
 	if err != nil {
 		return err
 	}
-	path := "cache/example.html"
-	if utf8.Valid(body) {
-		_, err = event.Actions().FileWriteText(ctx, path, string(body))
-	} else {
-		path = "cache/example.bin"
-		_, err = event.Actions().FileWriteBase64(ctx, path, base64.StdEncoding.EncodeToString(body))
-	}
-	if err != nil {
+	path := filepath.Join(dataDir, "cache", "example.html")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	_, _ = event.Actions().LoggerWrite(ctx, rayleabot.LoggerWriteRequest{Level: "info", Message: "The HTTP response was cached at " + path + ".", Fields: map[string]any{"status_code": response.StatusCode, "cached_path": path}})
-	return event.Result(map[string]any{"handled": true, "cached_path": path})
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		return err
+	}
+	_, _ = event.Actions().LoggerWrite(ctx, rayleabot.LoggerWriteRequest{Level: "info", Message: "The HTTP response was cached in the plugin data directory.", Fields: map[string]any{"status_code": response.StatusCode, "cached_path": "cache/example.html"}})
+	return event.Result(map[string]any{"handled": true, "cached_path": "cache/example.html"})
 }

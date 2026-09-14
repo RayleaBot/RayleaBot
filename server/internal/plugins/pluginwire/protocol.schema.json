@@ -1198,9 +1198,6 @@
           "$ref": "#/$defs/action_governance_command_policy_read"
         },
         {
-          "$ref": "#/$defs/action_storage_file"
-        },
-        {
           "$ref": "#/$defs/action_scheduler_create"
         },
         {
@@ -1458,98 +1455,6 @@
         }
       }
     },
-    "action_storage_file_read_data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "operation",
-        "path"
-      ],
-      "properties": {
-        "operation": {
-          "const": "read"
-        },
-        "path": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "action_storage_file_write_text_data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "operation",
-        "path",
-        "content_text"
-      ],
-      "properties": {
-        "operation": {
-          "const": "write"
-        },
-        "path": {
-          "type": "string",
-          "minLength": 1
-        },
-        "content_text": {
-          "type": "string"
-        }
-      }
-    },
-    "action_storage_file_write_base64_data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "operation",
-        "path",
-        "content_base64"
-      ],
-      "properties": {
-        "operation": {
-          "const": "write"
-        },
-        "path": {
-          "type": "string",
-          "minLength": 1
-        },
-        "content_base64": {
-          "type": "string"
-        }
-      }
-    },
-    "action_storage_file_delete_data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "operation",
-        "path"
-      ],
-      "properties": {
-        "operation": {
-          "const": "delete"
-        },
-        "path": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "action_storage_file_list_data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "operation",
-        "prefix"
-      ],
-      "properties": {
-        "operation": {
-          "const": "list"
-        },
-        "prefix": {
-          "type": "string"
-        }
-      }
-    },
     "action_logger_write": {
       "allOf": [
         {
@@ -1619,54 +1524,6 @@
                 },
                 {
                   "$ref": "#/$defs/action_storage_kv_list_data"
-                }
-              ]
-            }
-          }
-        }
-      ],
-      "unevaluatedProperties": false
-    },
-    "action_storage_file": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/common"
-        },
-        {
-          "type": "object",
-          "required": [
-            "type",
-            "action",
-            "data"
-          ],
-          "properties": {
-            "type": {
-              "const": "action"
-            },
-            "parent_request_id": {
-              "type": "string",
-              "minLength": 1
-            },
-            "action": {
-              "type": "string",
-              "const": "storage.file"
-            },
-            "data": {
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/action_storage_file_read_data"
-                },
-                {
-                  "$ref": "#/$defs/action_storage_file_write_text_data"
-                },
-                {
-                  "$ref": "#/$defs/action_storage_file_write_base64_data"
-                },
-                {
-                  "$ref": "#/$defs/action_storage_file_delete_data"
-                },
-                {
-                  "$ref": "#/$defs/action_storage_file_list_data"
                 }
               ]
             }
@@ -3175,7 +3032,6 @@
     "fixtures/plugin-protocol/edge.config-changed-empty.yaml",
     "fixtures/plugin-protocol/invalid.config-changed-noop.yaml",
     "fixtures/plugin-protocol/ok.message-send.yaml",
-    "fixtures/plugin-protocol/ok.storage-file.yaml",
     "fixtures/plugin-protocol/ok.governance-blacklist-read.yaml",
     "fixtures/plugin-protocol/ok.governance-scoped-write.yaml",
     "fixtures/plugin-protocol/invalid.governance-write-without-scope.yaml",
@@ -3196,7 +3052,6 @@
     "fixtures/plugin-protocol/invalid.legacy-envelope.yaml",
     "fixtures/plugin-protocol/invalid.message-send-unknown-target-type.yaml",
     "fixtures/plugin-protocol/invalid.removed-action.yaml",
-    "fixtures/plugin-protocol/invalid.storage-root.yaml",
     "fixtures/plugin-protocol/ok.bot-identities.yaml",
     "fixtures/plugin-protocol/invalid.bot-identities-missing-snapshot.yaml",
     "fixtures/plugin-protocol/edge.kv-expired-get.yaml",

@@ -84,17 +84,16 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 
 消息按插件的 `priority` 降序分层，同层并发；成功终态的 `propagation: stop|continue` 覆盖静态 `block`。正优先级消息订阅者先于命令声明者接收匹配的命令消息，零优先级普通订阅者仍不接收已定向的命令。同名命令权限、名单、菜单与冷却保持现有规则。低层在上层完成前已占据原 FIFO 位置，发送失败不改写终态传播决定。
 
-### 隐式插件私有动作
+### 插件私有动作
 
-以下动作不要求 manifest 权限：
+以下动作按插件命名空间隔离：
 
 - `logger.write`
 - `config.write`
 - `storage.kv`
-- `storage.file`
 - `session.wait` / `session.finish`
 
-宿主使用 init 建立的插件身份选择命名空间。`storage.file` 请求只传相对 `path`，不能选择文件根或其他插件空间。配置读取不使用 action；插件读取当前 `EventContext.Config`。
+宿主使用 init 建立的插件身份选择命名空间。持久化文件由插件直接写入 `RAYLEABOT_PLUGIN_DATA_DIR`。配置读取不使用 action；插件读取当前 `EventContext.Config`。
 
 ### 对话等待
 

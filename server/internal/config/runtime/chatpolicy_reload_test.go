@@ -34,10 +34,8 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 			CommandRateLimit: "5/1h",
 		},
 		Storage: config.StorageConfig{
-			KVValueMaxBytes:          1024,
-			KVTotalLimitMB:           8,
-			FileMaxBytes:             2048,
-			PluginWorkDirSoftLimitMB: 32,
+			KVValueMaxBytes: 1024,
+			KVTotalLimitMB:  8,
 		},
 		Log: config.LogConfig{Level: "info"},
 		Message: config.MessageConfig{
@@ -73,10 +71,8 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 			CommandRateLimit: "2/1h",
 		},
 		Storage: config.StorageConfig{
-			KVValueMaxBytes:          4096,
-			KVTotalLimitMB:           16,
-			FileMaxBytes:             8192,
-			PluginWorkDirSoftLimitMB: 64,
+			KVValueMaxBytes: 4096,
+			KVTotalLimitMB:  16,
 		},
 		Log: config.LogConfig{Level: "info"},
 		Message: config.MessageConfig{
@@ -98,7 +94,7 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	if verdict := ingress.Policy().PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
 		t.Fatalf("old super admin should no longer bypass command checks: %#v", verdict)
 	}
-	if cfg.Storage.FileMaxBytes != 8192 || cfg.Storage.PluginWorkDirSoftLimitMB != 64 {
+	if cfg.Storage.KVValueMaxBytes != 4096 || cfg.Storage.KVTotalLimitMB != 16 {
 		t.Fatalf("storage config was not hot reloaded: %+v", cfg.Storage)
 	}
 	waitCtx, cancelWait := context.WithTimeout(context.Background(), time.Second)

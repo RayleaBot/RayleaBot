@@ -78,7 +78,7 @@ Ingress 先尝试匹配会话等待。命中后只执行名单准入，并将带
 
 Runtime Manager 不直接访问宿主管理存储、配置、secret、渲染、调度、治理或 OneBot provider；插件需要这些 RayleaBot 能力时，由 Local Action Service 执行。
 
-插件是管理员确认后运行的完全可信本地原生代码。插件可自行访问外部服务、创建临时文件并启动随 artifact 发布的辅助程序；这些操作不进入 Runtime Manager 或 Local Action Service，也不受宿主 `storage.file` 配额或 local action 审计约束。插件负责对应操作的超时、资源上限、并发和清理。插件不能用直接 I/O 读取或修改 RayleaBot 的配置、secret、状态库、安装目录等宿主状态，也不能绕过 Dispatcher 与 Outbound 发送聊天平台消息。
+插件是管理员确认后运行的完全可信本地原生代码。插件可自行访问外部服务、创建临时文件并启动随 artifact 发布的辅助程序；这些操作不进入 Runtime Manager 或 Local Action Service，也不经过 local action 审计。插件负责对应操作的超时、资源上限、并发和清理。插件不能用直接 I/O 读取或修改 RayleaBot 的配置、secret、状态库、安装目录等宿主状态，也不能绕过 Dispatcher 与 Outbound 发送聊天平台消息。
 
 ## 出站语义
 

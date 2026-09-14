@@ -67,8 +67,6 @@ export function createConfigDocumentFixture(configure?: ConfigureConfigDocument)
     storage: {
       kv_value_max_bytes: 65536,
       kv_total_limit_mb: 16,
-      file_max_bytes: 10485760,
-      plugin_workdir_soft_limit_mb: 256,
     },
     data: {
       download_cache_retention_days: 15,

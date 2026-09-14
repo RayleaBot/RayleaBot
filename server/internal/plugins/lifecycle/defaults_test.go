@@ -139,7 +139,7 @@ func TestInitializationDefaultsAndExplicitOverridesMatchHTTPAndActions(t *testin
 	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{ExecuteLocalAction: actionService.Execute})
 	controller, err := lifecycle.NewController(lifecycle.Deps{CurrentConfig: func() config.Config {
 		return config.Config{Scheduler: config.SchedulerConfig{Timezone: "Asia/Shanghai"}, Runtime: config.RuntimeConfig{ShutdownGraceSeconds: 3}}
-	}, RepoRoot: root, Logger: logger, Plugins: cat, Runtimes: runtimes, Dispatcher: dispatcher, Settings: svc, Operations: lifecycle.NewOperationGate()})
+	}, RepoRoot: root, PluginDataRoot: filepath.Join(root, "data", "plugins"), Logger: logger, Plugins: cat, Runtimes: runtimes, Dispatcher: dispatcher, Settings: svc, Operations: lifecycle.NewOperationGate()})
 	if err != nil {
 		t.Fatal(err)
 	}

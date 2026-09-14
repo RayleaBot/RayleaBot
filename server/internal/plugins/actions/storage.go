@@ -2,7 +2,6 @@ package actions
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -14,8 +13,6 @@ import (
 const (
 	defaultKVValueMaxBytes      = 65536
 	defaultKVTotalLimitMegabyte = 16
-	defaultFileMaxBytes         = 10 * 1024 * 1024
-	defaultPluginWorkdirMB      = 256
 )
 
 func storageRegistrars() []registrar {
@@ -25,14 +22,6 @@ func storageRegistrars() []registrar {
 			factory: func(deps Deps) ActionHandler {
 				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 					return executeStorageKV(ctx, deps, req)
-				}
-			},
-		},
-		{
-			kind: "storage.file",
-			factory: func(deps Deps) ActionHandler {
-				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-					return executeStorageFile(deps, req)
 				}
 			},
 		},
@@ -106,98 +95,6 @@ func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[st
 	}
 }
 
-func executeStorageFile(deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.PluginFiles == nil {
-		return nil, &plugins.Error{
-			Code:    errorcodes.PluginInternalError,
-			Message: "storage.file service is not available",
-		}
-	}
-
-	switch req.Action.StorageOperation {
-	case "read":
-		result, err := deps.PluginFiles.Read(req.PluginID, req.Action.StoragePath)
-		if errors.Is(err, pluginstore.ErrFileInvalidPath) {
-			return nil, &plugins.Error{Code: errorcodes.PlatformInvalidRequest, Message: "storage.file path is invalid"}
-		}
-		if err != nil {
-			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.file read failed", Err: err}
-		}
-		payload := map[string]any{
-			"root":   "plugin_data",
-			"path":   req.Action.StoragePath,
-			"exists": result.Exists,
-		}
-		if result.Exists {
-			if result.IsText {
-				payload["content_text"] = string(result.Content)
-			} else {
-				payload["content_base64"] = base64.StdEncoding.EncodeToString(result.Content)
-			}
-		}
-		return payload, nil
-	case "write":
-		writeResult, err := deps.PluginFiles.WriteWithResult(req.PluginID, req.Action.StoragePath, req.Action.StorageContent, currentFileLimits(currentConfig(deps)))
-		if errors.Is(err, pluginstore.ErrFileInvalidPath) {
-			return nil, &plugins.Error{Code: errorcodes.PlatformInvalidRequest, Message: "storage.file path is invalid"}
-		}
-		if errors.Is(err, pluginstore.ErrFileTooLarge) {
-			return nil, &plugins.Error{Code: errorcodes.PlatformValueTooLarge, Message: "storage.file write exceeds configured platform limit"}
-		}
-		if err != nil {
-			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.file write failed", Err: err}
-		}
-		result := map[string]any{
-			"root":                "plugin_data",
-			"path":                req.Action.StoragePath,
-			"usage_bytes":         writeResult.UsageBytes,
-			"soft_limit_bytes":    writeResult.SoftLimitBytes,
-			"soft_limit_exceeded": writeResult.SoftLimitExceeded,
-			"cleanup_recommended": writeResult.SoftLimitExceeded,
-		}
-		if writeResult.SoftLimitExceeded && deps.Logger != nil {
-			deps.Logger.Warn("插件文件工作目录超过软限制；本次写入已完成，建议清理旧文件",
-				"component", "plugin_action",
-				"plugin_id", req.PluginID,
-				"usage_bytes", writeResult.UsageBytes,
-				"soft_limit_bytes", writeResult.SoftLimitBytes,
-			)
-		}
-		return result, nil
-	case "delete":
-		deleted, err := deps.PluginFiles.Delete(req.PluginID, req.Action.StoragePath)
-		if errors.Is(err, pluginstore.ErrFileInvalidPath) {
-			return nil, &plugins.Error{Code: errorcodes.PlatformInvalidRequest, Message: "storage.file path is invalid"}
-		}
-		if err != nil {
-			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.file delete failed", Err: err}
-		}
-		return map[string]any{
-			"root":    "plugin_data",
-			"path":    req.Action.StoragePath,
-			"deleted": deleted,
-		}, nil
-	case "list":
-		paths, err := deps.PluginFiles.List(req.PluginID, req.Action.StoragePrefix)
-		if errors.Is(err, pluginstore.ErrFileInvalidPath) {
-			return nil, &plugins.Error{Code: errorcodes.PlatformInvalidRequest, Message: "storage.file path is invalid"}
-		}
-		if err != nil {
-			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.file list failed", Err: err}
-		}
-		return map[string]any{
-			"root":   "plugin_data",
-			"prefix": req.Action.StoragePrefix,
-			"paths":  paths,
-		}, nil
-	default:
-		return nil, &plugins.Error{
-			Code:    errorcodes.PluginProtocolViolation,
-			Message: "received unsupported storage.file operation",
-		}
-	}
-}
-
 func currentKVLimits(cfg config.Config) pluginstore.KVLimits {
 	valueLimit := cfg.Storage.KVValueMaxBytes
 	if valueLimit <= 0 {
@@ -210,20 +107,5 @@ func currentKVLimits(cfg config.Config) pluginstore.KVLimits {
 	return pluginstore.KVLimits{
 		ValueMaxBytes: valueLimit,
 		TotalMaxBytes: totalLimitMB * 1024 * 1024,
-	}
-}
-
-func currentFileLimits(cfg config.Config) pluginstore.FileLimits {
-	fileLimit := cfg.Storage.FileMaxBytes
-	if fileLimit <= 0 {
-		fileLimit = defaultFileMaxBytes
-	}
-	totalLimitMB := cfg.Storage.PluginWorkDirSoftLimitMB
-	if totalLimitMB <= 0 {
-		totalLimitMB = defaultPluginWorkdirMB
-	}
-	return pluginstore.FileLimits{
-		FileMaxBytes:   fileLimit,
-		SoftLimitBytes: totalLimitMB * 1024 * 1024,
 	}
 }

@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"maps"
@@ -246,47 +245,6 @@ func parseStorageKVAction(raw json.RawMessage) (*plugins.Action, error) {
 		return &plugins.Action{Kind: "storage.kv", StorageOperation: "list", StoragePrefix: prefix}, nil
 	default:
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported storage.kv operation", nil)
-	}
-}
-
-func parseStorageFileAction(raw json.RawMessage) (*plugins.Action, error) {
-	frame, err := decodeActionFrame[pluginwire.ProtocolActionStorageFileFrame](raw, "storage.file")
-	if err != nil {
-		return nil, err
-	}
-
-	switch strings.TrimSpace(frame.Operation) {
-	case "read":
-		if frame.Path == nil || *frame.Path == "" {
-			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
-		}
-		return &plugins.Action{Kind: "storage.file", StorageOperation: "read", StoragePath: *frame.Path}, nil
-	case "write":
-		if frame.Path == nil {
-			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
-		}
-		content, err := decodeExclusiveTextOrBase64(frame.ContentText, frame.ContentBase64, true)
-		if err != nil {
-			return nil, err
-		}
-		return &plugins.Action{
-			Kind:             "storage.file",
-			StorageOperation: "write",
-			StoragePath:      *frame.Path,
-			StorageContent:   content,
-		}, nil
-	case "delete":
-		if frame.Path == nil || *frame.Path == "" {
-			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
-		}
-		return &plugins.Action{Kind: "storage.file", StorageOperation: "delete", StoragePath: *frame.Path}, nil
-	case "list":
-		if frame.Prefix == nil {
-			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
-		}
-		return &plugins.Action{Kind: "storage.file", StorageOperation: "list", StoragePrefix: *frame.Prefix}, nil
-	default:
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported storage.file operation", nil)
 	}
 }
 
@@ -714,26 +672,6 @@ func parseEmptyObjectAction(raw json.RawMessage, actionKind string) error {
 		return errorf(codePluginProtocolViolation, "plugin action frame has invalid "+actionKind+" data", nil)
 	}
 	return nil
-}
-
-func decodeExclusiveTextOrBase64(text *string, encoded *string, required bool) ([]byte, error) {
-	if text != nil && encoded != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame mixes text and base64 content fields", nil)
-	}
-	if text != nil {
-		return []byte(*text), nil
-	}
-	if encoded != nil {
-		content, err := base64.StdEncoding.DecodeString(*encoded)
-		if err != nil {
-			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid base64 content", err)
-		}
-		return content, nil
-	}
-	if !required {
-		return nil, nil
-	}
-	return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required text or base64 content fields", nil)
 }
 
 func cloneActionSegmentData(data map[string]any) map[string]any {

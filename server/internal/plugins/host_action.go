@@ -36,7 +36,6 @@ type Action struct {
 	GovernanceReason          string
 	GovernanceEnabled         *bool
 	StorageOperation          string
-	StoragePath               string
 	StorageKey                string
 	StoragePrefix             string
 	StorageValue              any
@@ -45,7 +44,6 @@ type Action struct {
 	SessionScope              string
 	SessionTimeoutSeconds     int
 	SessionNotifyOnExpire     *bool
-	StorageContent            []byte
 	SchedulerTaskID           string
 	SchedulerLogLabel         string
 	SchedulerCron             string

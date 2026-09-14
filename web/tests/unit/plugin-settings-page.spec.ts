@@ -42,7 +42,6 @@ describe('PluginSettingsPage', () => {
           applied_now: [
             'command.prefixes',
             'render.footer_template',
-            'storage.plugin_workdir_soft_limit_mb',
           ],
           reloaded_now: [],
           restart_required_fields: [],
@@ -66,7 +65,6 @@ describe('PluginSettingsPage', () => {
       ['/', '!'],
     )
     await wrapper.get('textarea').setValue('Footer {{plugin_name}}')
-    await wrapper.get(`[aria-label="${t('config.fields.storagePluginWorkdirSoftLimitMb')}"]`).setValue('512')
     await flushPromises()
 
     store.document = JSON.parse(JSON.stringify(store.document))
@@ -82,7 +80,6 @@ describe('PluginSettingsPage', () => {
     const submitted = saveSpy.mock.calls[0][0]
     expect(submitted.command.prefixes).toEqual(['/', '!'])
     expect(submitted.render.footer_template).toBe('Footer {{plugin_name}}')
-    expect(submitted.storage.plugin_workdir_soft_limit_mb).toBe(512)
     expect(submitted.server.host).toBe('127.0.0.1')
     expect(wrapper.find('[data-testid="plugin-settings-unsaved-status"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="plugin-settings-save-status"]').exists()).toBe(true)

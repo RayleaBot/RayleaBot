@@ -642,22 +642,6 @@
     ]
   },
   {
-    "name": "invalid.storage-root.yaml",
-    "valid": false,
-    "frames": [
-      {
-        "type": "action",
-        "request_id": "storage-root-1",
-        "action": "storage.file",
-        "data": {
-          "operation": "read",
-          "root": "plugin_data",
-          "path": "cache/state.json"
-        }
-      }
-    ]
-  },
-  {
     "name": "ok.bot-identities.yaml",
     "valid": true,
     "frames": [
@@ -1380,30 +1364,6 @@
           "session_id": "session-fixture",
           "scope": "user",
           "expires_at_ms": 1789300000000
-        }
-      }
-    ]
-  },
-  {
-    "name": "ok.storage-file.yaml",
-    "valid": true,
-    "frames": [
-      {
-        "type": "action",
-        "request_id": "action-file-1",
-        "action": "storage.file",
-        "data": {
-          "operation": "write",
-          "path": "cache/state.json",
-          "content_text": "{}"
-        }
-      },
-      {
-        "type": "result",
-        "request_id": "action-file-1",
-        "status": "success",
-        "data": {
-          "bytes_written": 2
         }
       }
     ]

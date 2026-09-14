@@ -197,34 +197,6 @@ func (actions *Actions) KVList(ctx context.Context, prefix string) (ActionResult
 	return actions.callResult(ctx, "storage.kv", KVRequest{Operation: "list", Prefix: prefix})
 }
 
-type FileRequest struct {
-	Operation     string `json:"operation"`
-	Path          string `json:"path,omitempty"`
-	Prefix        string `json:"prefix,omitempty"`
-	ContentText   string `json:"content_text,omitempty"`
-	ContentBase64 string `json:"content_base64,omitempty"`
-}
-
-func (actions *Actions) FileRead(ctx context.Context, path string) (ActionResult, error) {
-	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "read", Path: path})
-}
-
-func (actions *Actions) FileWriteText(ctx context.Context, path, content string) (ActionResult, error) {
-	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "write", Path: path, ContentText: content})
-}
-
-func (actions *Actions) FileWriteBase64(ctx context.Context, path, content string) (ActionResult, error) {
-	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "write", Path: path, ContentBase64: content})
-}
-
-func (actions *Actions) FileDelete(ctx context.Context, path string) (ActionResult, error) {
-	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "delete", Path: path})
-}
-
-func (actions *Actions) FileList(ctx context.Context, prefix string) (ActionResult, error) {
-	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "list", Prefix: prefix})
-}
-
 type ConfigWriteRequest struct {
 	Values map[string]any `json:"values"`
 }

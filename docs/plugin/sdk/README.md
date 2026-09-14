@@ -51,6 +51,8 @@ artifact、manifest、运行时协议和 UI bridge 分别从对应契约生成�
 
 动作调用前会检查 context 和事件终态。已发送动作在调用方停止等待后继续保留响应关联，终态等待宿主动作结算；超过 `ActionTimeout` 时不输出早于动作完成的终态，由宿主结束事件。已关闭事件不能继续调用 `event.Actions()` 发送动作。`adapter.send_unconfirmed` 和等待取消都不证明消息未发送，不能据此自动重试。
 
+插件持久化文件写入宿主传入的 `RAYLEABOT_PLUGIN_DATA_DIR`。该绝对路径指向 `data/plugins/<plugin_id>/`，进程启动前已创建，随备份与恢复保留；插件直接读写，不经过宿主动作。
+
 需要音视频处理的插件使用宿主环境变量：
 
 - `RAYLEABOT_FFMPEG_PATH`

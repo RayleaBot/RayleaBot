@@ -117,26 +117,6 @@ func TestManagerDeliverEventRejectsUnsupportedAction(t *testing.T) {
 	}
 }
 
-func TestParseStorageFileActionWriteText(t *testing.T) {
-	t.Parallel()
-
-	action, err := ParseLocalAction("storage.file", json.RawMessage(`{
-		"operation": "write",
-		"root": "plugin_data",
-		"path": "cache/example.txt",
-		"content_text": "hello file"
-	}`))
-	if err != nil {
-		t.Fatalf("parseStorageFileAction: %v", err)
-	}
-	if action.Kind != "storage.file" || action.StorageOperation != "write" || action.StoragePath != "cache/example.txt" {
-		t.Fatalf("unexpected storage.file action: %#v", action)
-	}
-	if string(action.StorageContent) != "hello file" {
-		t.Fatalf("unexpected storage content: %#v", action.StorageContent)
-	}
-}
-
 func TestParseLocalMessageSendAction(t *testing.T) {
 	t.Parallel()
 

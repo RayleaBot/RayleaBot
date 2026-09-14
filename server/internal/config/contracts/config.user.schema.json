@@ -424,9 +424,7 @@
       "additionalProperties": true,
       "required": [
         "kv_value_max_bytes",
-        "kv_total_limit_mb",
-        "file_max_bytes",
-        "plugin_workdir_soft_limit_mb"
+        "kv_total_limit_mb"
       ],
       "properties": {
         "kv_value_max_bytes": {
@@ -441,20 +439,6 @@
           "minimum": 1,
           "default": 16,
           "description": "Aggregate KV storage cap across all plugins; new writes are rejected when reached. Default: 16.",
-          "x-apply-policy": "hot_reload"
-        },
-        "file_max_bytes": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 10485760,
-          "description": "Maximum size of a single plugin file in bytes. Default: 10485760.",
-          "x-apply-policy": "hot_reload"
-        },
-        "plugin_workdir_soft_limit_mb": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 256,
-          "description": "Per-plugin file-workspace warning threshold. Writes remain allowed after the threshold; storage.file write results report usage, the threshold, and a cleanup recommendation. Default: 256.",
           "x-apply-policy": "hot_reload"
         }
       }

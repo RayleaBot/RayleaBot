@@ -81,7 +81,7 @@
   - `message.send` 统一发送与回复；非终态动作通过独立 `request_id` 和当前事件 `parent_request_id` 关联
   - `init.bots` 提供按适配器实例区分的身份列表；`bot.identities.changed` 通过 `payload.bots` 替换整个列表
   - 未知或已停用实例不出现在身份列表中；空列表清除旧身份。身份包含 `source_adapter`、`source_protocol`、`id`，不跨实例合并。连接可用性仍由 adapter 动作的正式结果表达
-  - `logger.write`、`storage.kv`、`storage.file` 和 `config.write` 是隐式插件私有动作；HTTP、消息、secret、浏览器、治理、调度、渲染、OneBot 与 provider 动作使用显式权限。
+  - `logger.write`、`storage.kv` 和 `config.write` 是按插件命名空间隔离的私有动作；插件数据目录经环境变量 `RAYLEABOT_PLUGIN_DATA_DIR` 传入，由插件直接读写
     - `storage.kv set` 的 `ttl_seconds` 定义有效期限；省略表示永久覆盖并清除旧期限。写入在事务内检查有效全局配额，返回可选的 `expires_at_ms`。`x-action-result-schemas` 中的 KV 结果按请求 operation 关联校验。
     - `scheduler.create.log_label` 用于定时任务管理日志展示。
     - `secret.read`、`secret.write` 和 `secret.delete` 只在调用插件自己的 secret 命名空间内读取、覆盖或删除；值保存在宿主本地 secret store，读取结果仅返回调用插件。

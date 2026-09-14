@@ -265,14 +265,6 @@ type ProtocolActionStorageKVFrame struct {
 	Prefix     *string         `json:"prefix,omitempty"`
 }
 
-type ProtocolActionStorageFileFrame struct {
-	Operation     string  `json:"operation"`
-	Path          *string `json:"path,omitempty"`
-	ContentText   *string `json:"content_text,omitempty"`
-	ContentBase64 *string `json:"content_base64,omitempty"`
-	Prefix        *string `json:"prefix,omitempty"`
-}
-
 type ProtocolActionPluginListFrame struct {
 	Visibility string `json:"visibility,omitempty"`
 }

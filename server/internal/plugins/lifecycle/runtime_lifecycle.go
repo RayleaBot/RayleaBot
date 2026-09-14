@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -222,6 +224,14 @@ func (c *Controller) buildStartInputs(ctx context.Context, pluginID string) (plu
 	if err != nil {
 		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, err
 	}
+	dataDir, err := filepath.Abs(filepath.Join(c.pluginDataRoot, pluginID))
+	if err == nil {
+		err = os.MkdirAll(dataDir, 0o755)
+	}
+	if err != nil {
+		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, fmt.Errorf("prepare plugin data directory: %w", err)
+	}
+	spec.Env = append(spec.Env, "RAYLEABOT_PLUGIN_DATA_DIR="+dataDir)
 
 	settings, err := c.settings.Read(ctx, pluginID)
 	if err != nil {

@@ -2321,16 +2321,6 @@ export interface components {
                  * @default 16
                  */
                 kv_total_limit_mb: number;
-                /**
-                 * @description Maximum size of a single plugin file in bytes. Default: 10485760.
-                 * @default 10485760
-                 */
-                file_max_bytes: number;
-                /**
-                 * @description Per-plugin file-workspace warning threshold. Writes remain allowed after the threshold; storage.file write results report usage, the threshold, and a cleanup recommendation. Default: 256.
-                 * @default 256
-                 */
-                plugin_workdir_soft_limit_mb: number;
             } & {
                 [key: string]: unknown;
             };

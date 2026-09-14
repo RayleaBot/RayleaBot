@@ -319,13 +319,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
           unit: 'MB',
           description: t('config.descriptions.storageKvTotalLimitMb'),
         },
-        {
-          path: 'storage.file_max_bytes',
-          label: t('config.fields.storageFileMaxBytes'),
-          type: 'number',
-          unit: t('config.units.byte'),
-          description: t('config.descriptions.storageFileMaxBytes'),
-        },
       ],
     },
     {
@@ -406,18 +399,6 @@ export function getPluginSettingsConfigSections(): ConfigSectionDefinition[] {
           label: t('config.fields.renderFooterTemplate'),
           type: 'textarea',
           description: t('plugins.settings.hints.renderFooterTemplate'),
-        },
-      ],
-    },
-    {
-      key: 'storage',
-      title: t('plugins.settings.sections.storage'),
-      fields: [
-        {
-          path: 'storage.plugin_workdir_soft_limit_mb',
-          label: t('config.fields.storagePluginWorkdirSoftLimitMb'),
-          type: 'number',
-          description: t('plugins.settings.hints.pluginWorkdirSoftLimit'),
         },
       ],
     },

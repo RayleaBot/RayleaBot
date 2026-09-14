@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -38,7 +37,6 @@ type PluginStackState struct {
 	PluginUninstaller *pluginservice.UninstallService
 	PluginRepository  plugins.DesiredStateRepository
 	PluginConfig      pluginstore.ConfigRepository
-	PluginFiles       *pluginstore.FileService
 	PluginKV          pluginstore.KVRepository
 	Webhooks          *pluginwebhook.Registry
 	RefreshManifest   func(context.Context, string) (plugins.Snapshot, error)
@@ -55,7 +53,6 @@ func buildPluginStack(deps pluginStackDeps) (PluginStackState, error) {
 		return PluginStackState{}, err
 	}
 	webhookRegistry := pluginwebhook.NewRegistry()
-	pluginFileService := pluginstore.NewFileService(filepath.Join(filepath.Dir(deps.Platform.Storage.Path), "plugins"))
 
 	if err := hydratePluginCatalog(ctx, deps.Catalog, pluginRepository, pluginConfigRepository); err != nil {
 		return PluginStackState{}, err
@@ -66,7 +63,6 @@ func buildPluginStack(deps pluginStackDeps) (PluginStackState, error) {
 		Plugins:          deps.Catalog,
 		PluginRepository: pluginRepository,
 		PluginConfig:     pluginConfigRepository,
-		PluginFiles:      pluginFileService,
 		PluginKV:         pluginKVRepository,
 		Webhooks:         webhookRegistry,
 		RefreshManifest:  buildManifestRefresh(deps, pluginRepository, pluginConfigRepository),
