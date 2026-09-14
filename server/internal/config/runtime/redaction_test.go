@@ -198,15 +198,8 @@ func TestStoreConfigSecretsSealsEveryConfigSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read stored forward secret: %v", err)
 	}
-	if string(storedForward) == "forward-secret" {
-		t.Fatal("forward secret was stored as plaintext")
-	}
-	openedForward, err := secrets.OpenString(ctx, store, storedForward)
-	if err != nil {
-		t.Fatalf("open stored forward secret: %v", err)
-	}
-	if openedForward != "forward-secret" {
-		t.Fatalf("opened forward secret = %q, want forward-secret", openedForward)
+	if string(storedForward) != "forward-secret" {
+		t.Fatalf("stored forward secret = %q, want forward-secret", storedForward)
 	}
 
 	adapterPath := func(transport string) []string {
@@ -241,15 +234,11 @@ func TestStoreConfigSecretsDeletesClearedToken(t *testing.T) {
 	ctx := context.Background()
 	store := newMemorySecretStore()
 	path := onebotSecretPath("onebot11", "forward_ws")
-	sealed, err := secrets.SealString(ctx, store, "forward-secret")
-	if err != nil {
-		t.Fatalf("seal fixture secret: %v", err)
-	}
-	if err := store.Set(ctx, configSecretKey(path), sealed); err != nil {
+	if err := store.Set(ctx, configSecretKey(path), []byte("forward-secret")); err != nil {
 		t.Fatalf("store fixture secret: %v", err)
 	}
 
-	_, err = StoreConfigSecrets(ctx, store, map[string]any{
+	_, err := StoreConfigSecrets(ctx, store, map[string]any{
 		"adapters": []any{adapterDocument("onebot11", "onebot11", map[string]any{
 			"forward_ws": map[string]any{"access_token": ""},
 		})},

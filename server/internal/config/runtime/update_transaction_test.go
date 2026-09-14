@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 )
 
 func TestFailedConfigPersistenceRestoresCredentialsAndRevision(t *testing.T) {
@@ -50,12 +49,8 @@ func TestFailedConfigPersistenceRestoresCredentialsAndRevision(t *testing.T) {
 	if _, err := service.UpdateConfigDocument(ctx, request); err == nil {
 		t.Fatal("expected persistence failure")
 	}
-	sealed, err := store.Get(ctx, configSecretKey(secretPath))
-	if err != nil {
-		t.Fatal(err)
-	}
-	value, err := secrets.OpenString(ctx, store, sealed)
-	if err != nil || value != "old-fixture-token" {
+	value, err := store.Get(ctx, configSecretKey(secretPath))
+	if err != nil || string(value) != "old-fixture-token" {
 		t.Fatalf("credential was not restored: %v", err)
 	}
 	after, _ := os.ReadFile(path)

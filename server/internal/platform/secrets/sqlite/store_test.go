@@ -4,39 +4,11 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
-
-func TestConcurrentFirstEncryptionUsesOneStoredKey(t *testing.T) {
-	store, err := NewStore(openTestStore(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var writers sync.WaitGroup
-	sealed := make(chan []byte, 20)
-	for range 20 {
-		writers.Go(func() {
-			value, err := secrets.SealString(context.Background(), store, "fixture-only-secret")
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			sealed <- value
-		})
-	}
-	writers.Wait()
-	close(sealed)
-	for value := range sealed {
-		opened, err := secrets.OpenString(context.Background(), store, value)
-		if err != nil || opened != "fixture-only-secret" {
-			t.Fatalf("concurrent encryption lost its key: %v", err)
-		}
-	}
-}
 
 func openTestStore(t *testing.T) *storage.Store {
 	t.Helper()

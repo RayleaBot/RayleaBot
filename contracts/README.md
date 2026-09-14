@@ -34,7 +34,7 @@
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
   - `core_version` 从有效的安装产物 `build_info.json` 读取；缺失或无效时记为 `unknown`。未知版本不参与升降级排序；恢复仍按清单检查配置、数据库与插件合同版本。有最低 core 版本要求的插件须确认兼容后才能安装。
   - 本机 `plugin dev-sync` 和受控开发同步接口允许未标版本的源码构建接收 `development` artifact；此路径不声称已验证最低 core 版本，仍执行 manifest、artifact、平台、权限与协议握手检查。普通安装和商店安装不使用此例外。
-  - 配置与数据库 schema 版本从实际归档内容读取：配置为 `4`，备份契约接受数据库 `000001`、`000002`；没有归档数据库时明确记录 `absent`。可前向迁移的旧结构在首次启动时迁移，迁移日志记录源版本与目标版本。初始化元数据、配置与业务数据一起恢复。
+  - 配置与数据库 schema 版本从实际归档内容读取：配置为 `4`，备份契约接受数据库 `000001`、`000002`、`000003`；没有归档数据库时明确记录 `absent`。可前向迁移的旧结构在首次启动时迁移，迁移日志记录源版本与目标版本。初始化元数据、配置与业务数据一起恢复。
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
   - 图片渲染与插件浏览器会话共用 Chromium，以及受信本地插件共用 FFmpeg / FFprobe 的可信来源列表、SHA256、归档格式与相对入口
@@ -84,7 +84,7 @@
   - `logger.write`、`storage.kv`、`storage.file` 和 `config.write` 是隐式插件私有动作；HTTP、消息、secret、浏览器、治理、调度、渲染、OneBot 与 provider 动作使用显式权限。
     - `storage.kv set` 的 `ttl_seconds` 定义有效期限；省略表示永久覆盖并清除旧期限。写入在事务内检查有效全局配额，返回可选的 `expires_at_ms`。`x-action-result-schemas` 中的 KV 结果按请求 operation 关联校验。
     - `scheduler.create.log_label` 用于定时任务管理日志展示。
-    - `secret.read`、`secret.write` 和 `secret.delete` 只在调用插件自己的 secret 命名空间内读取、覆盖或删除；值经宿主加密后落盘，读取结果仅返回调用插件。
+    - `secret.read`、`secret.write` 和 `secret.delete` 只在调用插件自己的 secret 命名空间内读取、覆盖或删除；值保存在宿主本地 secret store，读取结果仅返回调用插件。
     - `browser.launch` 启动或附着插件专属的宿主托管浏览器会话，宿主按插件隔离 profile、应用启动硬化、限制同一 profile 同时只有一个会话，并在生命周期到期或 `browser.close` 时关闭；返回的 `debugger_url` 是该会话的浏览器级 CDP WebSocket 端点。
     - `browser.close` 关闭调用插件自己启动的会话并释放其持久 profile。
     - `render.image` 支持系统模板 ID、调用插件自动发现的模板短 ID，以及平台经统一 HTTPS、DNS/重定向复查、SSRF/私网和资源限制预取后交给 Chromium 的请求级临时图片资源

@@ -137,7 +137,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 | R4 | 删除 Prometheus 指标接口与依赖 | — | ☑️ 已完成 | 删除指标注册表、各服务观察者与 HTTP 请求观察者；渲染请求测试改为读取 worker 占用数；Server 构建、vet、全量测试、strict contracts、Web 类型重生成与第三方声明检查通过 |
 | R5 | 删除出站熔断与每插件限流 | — | ☑️ 已完成 | 出站只保留按目标限流；删除熔断器、每插件限流与两个配置键，同步契约、样例、配置热更新、限流页与配置工作台；Server 构建、vet、lint、全量测试、strict contracts 与受影响 Web 测试通过 |
 | R6 | 删除错误码本地化键与 Web 映射 | — | ☑️ 已完成 | 契约、样例、生成器与校验器同步；Server 构建、vet、lint、全量测试，Web 类型检查与受影响单测，strict contracts、生成器 verify 与 Python 测试通过 |
-| R7 | 删除密钥加密层并迁移到 `000003` | — | ⬜ 待处理 | |
+| R7 | 删除密钥加密层并迁移到 `000003` | — | ☑️ 已完成 | secret 以明文保存在独立存储，迁移步骤支持 Go 函数，`000002 → 000003` 解密旧值并删除密钥行，解密失败时保留密钥与密文；备份清单接受 `000003`；Server 构建、vet、lint、全量测试，strict contracts、runtime schema verify 与文档检查通过 |
 | R8 | 逐帧校验仅限开发插件，删除 IPC 与日志限流配置 | — | ⬜ 待处理 | |
 | R9 | 安装合并为一次请求，删除检查时效与格式嗅探 | — | ⬜ 待处理 | |
 | P1 | 协议与 manifest 升为 v4，删除宿主权限体系 | R9 | ⬜ 待处理 | |

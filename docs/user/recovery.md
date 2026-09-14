@@ -9,11 +9,11 @@
 3. 执行 `restore`。
 4. 重新启动服务。
 
-本版备份使用 backup manifest v3，记录当前配置格式 `4`、数据库结构 `000002`，以及插件 manifest/protocol `3`、artifact `2`、UI bridge `3`。恢复也接受数据库结构 `000001`，并在首次启动时前向迁移。配置、SQLite 快照、插件业务数据和安装包一起恢复；未包含数据库时清单记录 `absent`，首次启动按当前结构初始化。
+本版备份使用 backup manifest v3，记录当前配置格式 `4`、数据库结构 `000003`，以及插件 manifest/protocol `3`、artifact `2`、UI bridge `3`。恢复也接受数据库结构 `000001` 与 `000002`，并在首次启动时前向迁移。配置、SQLite 快照、插件业务数据和安装包一起恢复；未包含数据库时清单记录 `absent`，首次启动按当前结构初始化。
 
 `restore` 只写入未启动过的新目录：计划写入的配置、数据库及其 `-wal`/`-shm`/`-journal`、`data/` 与 `plugins/installed/` 下的文件已存在时，恢复直接拒绝且不写入任何文件。先停止目标服务并保留所需备份，再执行 `raylea-server -config <目标目录>/config/user.yaml restore <备份路径>`。恢复完成后使用同一配置启动，已有管理员凭据和插件持久化数据保持一致。
 
-结构迁移在事务中执行，失败时数据库保持迁移前状态。更新方式与退回旧版本的做法见 [Delivery and Upgrade](../release/delivery-and-upgrade.md)；旧核心不能直接读取 `000002` 数据库。
+结构迁移在事务中执行，失败时数据库保持迁移前状态。更新方式与退回旧版本的做法见 [Delivery and Upgrade](../release/delivery-and-upgrade.md)；旧核心不能直接读取 `000003` 数据库。
 
 恢复先在隔离目录检查全部 ZIP 条目、配置和 SQLite 快照。非法路径、符号链接或目录联接、大小写冲突、损坏数据以及超过归档限额的输入会使整次恢复失败，不会静默跳过。归档限额见 [CLI 契约](../../contracts/cli-commands.yaml)。
 

@@ -2,7 +2,11 @@ package storage
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -40,7 +44,7 @@ func TestOpenMigratesLegacyAndPreservesBusinessData(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	metadata, err := store.SchemaMetadata(t.Context())
-	if err != nil || metadata.Version != "000002" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
+	if err != nil || metadata.Version != "000003" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
 		t.Fatalf("metadata changed: %#v %v", metadata, err)
 	}
 	var value string
@@ -127,7 +131,7 @@ func TestMigrationUnknownVersionDoesNotWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = db.Close() }()
-	if _, err := db.Exec("UPDATE schema_metadata SET version='000003'"); err != nil {
+	if _, err := db.Exec("UPDATE schema_metadata SET version='000004'"); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {
@@ -141,5 +145,104 @@ func TestMigrationUnknownVersionDoesNotWrite(t *testing.T) {
 	after, _ := os.ReadFile(path)
 	if !bytes.Equal(before, after) {
 		t.Fatal("unknown version changed database")
+	}
+}
+
+func sealLegacySecret(t *testing.T, key []byte, plaintext string) []byte {
+	t.Helper()
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatal(err)
+	}
+	ciphertext := gcm.Seal(nil, nonce, []byte(plaintext), nil)
+	return []byte(legacySealedSecretPrefix + base64.RawURLEncoding.EncodeToString(nonce) + ":" + base64.RawURLEncoding.EncodeToString(ciphertext))
+}
+
+func createLegacySecretDatabase(t *testing.T, secrets map[string][]byte) string {
+	t.Helper()
+	path := createLegacyDatabase(t)
+	db, err := sql.Open(sqliteDriverName, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	for key, value := range secrets {
+		if _, err := db.Exec("INSERT INTO secret_store (key, value, created_at, updated_at) VALUES (?, ?, '2026-09-13T00:00:00Z', '2026-09-13T00:00:00Z')", key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return path
+}
+
+func readSecretRows(t *testing.T, db *sql.DB) map[string]string {
+	t.Helper()
+	rows, err := db.Query("SELECT key, value FROM secret_store")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = rows.Close() }()
+	result := map[string]string{}
+	for rows.Next() {
+		var key string
+		var value []byte
+		if err := rows.Scan(&key, &value); err != nil {
+			t.Fatal(err)
+		}
+		result[key] = string(value)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+func TestOpenDecryptsLegacySecretsAndDropsKey(t *testing.T) {
+	t.Parallel()
+	key := bytes.Repeat([]byte{7}, 32)
+	path := createLegacySecretDatabase(t, map[string][]byte{
+		legacySecretKeyName:           key,
+		"plugin:fixture:secret:token": sealLegacySecret(t, key, "fixture-token"),
+		"auth:signing":                []byte("raw-value"),
+	})
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	want := map[string]string{"plugin:fixture:secret:token": "fixture-token", "auth:signing": "raw-value"}
+	if got := readSecretRows(t, store.Read); !reflect.DeepEqual(got, want) {
+		t.Fatalf("secrets after migration = %#v, want %#v", got, want)
+	}
+}
+
+func TestOpenKeepsCiphertextWhenLegacySecretCannotBeDecrypted(t *testing.T) {
+	t.Parallel()
+	key := bytes.Repeat([]byte{7}, 32)
+	sealed := sealLegacySecret(t, bytes.Repeat([]byte{8}, 32), "fixture-token")
+	path := createLegacySecretDatabase(t, map[string][]byte{legacySecretKeyName: key, "plugin:fixture:secret:token": sealed})
+	if store, err := Open(path); err == nil {
+		_ = store.Close()
+		t.Fatal("undecryptable secret migrated")
+	}
+	db, err := sql.Open(sqliteDriverName, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	var version string
+	if err := db.QueryRow("SELECT version FROM schema_metadata").Scan(&version); err != nil || version != "000002" {
+		t.Fatalf("version = %q %v, want 000002", version, err)
+	}
+	want := map[string]string{legacySecretKeyName: string(key), "plugin:fixture:secret:token": string(sealed)}
+	if got := readSecretRows(t, db); !reflect.DeepEqual(got, want) {
+		t.Fatal("failed migration changed stored secrets")
 	}
 }

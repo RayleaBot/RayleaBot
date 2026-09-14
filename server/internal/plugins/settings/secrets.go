@@ -44,8 +44,7 @@ func (s *Service) readSecret(ctx context.Context, pluginID, key string) (string,
 	if err != nil {
 		return "", false, err
 	}
-	plaintext, err := secrets.OpenString(ctx, s.deps.Secrets, value)
-	return plaintext, err == nil, err
+	return string(value), true, nil
 }
 
 func (s *Service) SecretStatus(ctx context.Context, pluginID string) (map[string]bool, error) {
@@ -97,7 +96,7 @@ func (s *Service) SetSecrets(ctx context.Context, pluginID string, values map[st
 	if err != nil {
 		return SecretUpdate{}, err
 	}
-	sealed := make(map[string][]byte)
+	stored := make(map[string][]byte)
 	changed := make([]string, 0, len(values))
 	for key, value := range values {
 		previous, exists, err := s.readSecret(ctx, pluginID, key)
@@ -107,15 +106,11 @@ func (s *Service) SetSecrets(ctx context.Context, pluginID string, values map[st
 		if exists && previous == value {
 			continue
 		}
-		data, err := secrets.SealString(ctx, store, value)
-		if err != nil {
-			return SecretUpdate{}, err
-		}
-		sealed[secretStorageKey(pluginID, key)] = data
+		stored[secretStorageKey(pluginID, key)] = []byte(value)
 		changed = append(changed, key)
 	}
-	if len(sealed) > 0 {
-		if err := store.Apply(ctx, sealed, nil); err != nil {
+	if len(stored) > 0 {
+		if err := store.Apply(ctx, stored, nil); err != nil {
 			return SecretUpdate{}, err
 		}
 	}

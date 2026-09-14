@@ -45,11 +45,7 @@ func StoreConfigSecrets(ctx context.Context, store secrets.Store, document map[s
 			}
 			setConfigPath(cloned, path, reference)
 		default:
-			sealed, err := secrets.SealString(ctx, store, text)
-			if err != nil {
-				return nil, fmt.Errorf("seal config secret %s: %w", strings.Join(path, "."), err)
-			}
-			if err := store.Set(ctx, key, sealed); err != nil {
+			if err := store.Set(ctx, key, []byte(text)); err != nil {
 				return nil, fmt.Errorf("store config secret %s: %w", strings.Join(path, "."), err)
 			}
 			setConfigPath(cloned, path, reference)
@@ -104,11 +100,7 @@ func resolveConfigSecretRef(ctx context.Context, store secrets.Store, value stri
 		}
 		return "", fmt.Errorf("read config secret %s: %w", strings.Join(path, "."), err)
 	}
-	opened, err := secrets.OpenString(ctx, store, stored)
-	if err != nil {
-		return "", fmt.Errorf("open config secret %s: %w", strings.Join(path, "."), err)
-	}
-	return opened, nil
+	return string(stored), nil
 }
 
 func verifyConfigSecretReference(ctx context.Context, store secrets.Store, path []string) error {

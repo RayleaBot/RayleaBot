@@ -75,9 +75,6 @@ func (contextCheckingSecretStore) Get(ctx context.Context, key string) ([]byte, 
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if key == "platform.secret_encryption_key" {
-		return make([]byte, 32), nil
-	}
 	return nil, secrets.ErrNotFound
 }
 

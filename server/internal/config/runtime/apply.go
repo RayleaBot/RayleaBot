@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 )
 
 type PersistenceError struct{ Err error }
@@ -76,14 +75,6 @@ func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]a
 	var staged *stagedSecrets
 	store := s.secrets
 	if store != nil {
-		for _, value := range configSecretValues(validated) {
-			if !isConfigSecretReference(value) {
-				if err := secrets.EnsureEncryptionKey(ctx, store); err != nil {
-					return UpdateResult{}, &PersistenceError{Err: err}
-				}
-				break
-			}
-		}
 		staged = newStagedSecrets(store)
 		store = staged
 	}

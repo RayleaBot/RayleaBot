@@ -368,18 +368,10 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 	t.Parallel()
 
 	secretStore := openPluginSecretStore(t)
-	sealedPrimary, err := secrets.SealString(context.Background(), secretStore, "SESSDATA=fixture")
-	if err != nil {
-		t.Fatalf("secrets.SealString primary: %v", err)
-	}
-	if err := secretStore.Set(context.Background(), "plugin:example-config-panel:secret:bili_token_primary", sealedPrimary); err != nil {
+	if err := secretStore.Set(context.Background(), "plugin:example-config-panel:secret:bili_token_primary", []byte("SESSDATA=fixture")); err != nil {
 		t.Fatalf("secretStore.Set: %v", err)
 	}
-	sealedOther, err := secrets.SealString(context.Background(), secretStore, "SESSDATA=other")
-	if err != nil {
-		t.Fatalf("secrets.SealString other: %v", err)
-	}
-	if err := secretStore.Set(context.Background(), "plugin:other-plugin:secret:bili_token_primary", sealedOther); err != nil {
+	if err := secretStore.Set(context.Background(), "plugin:other-plugin:secret:bili_token_primary", []byte("SESSDATA=other")); err != nil {
 		t.Fatalf("secretStore.Set other: %v", err)
 	}
 
@@ -459,17 +451,11 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stored backup missing: %v", err)
 	}
-	if string(storedBackup) == "SESSDATA=backup" {
-		t.Fatal("plugin secret was stored as plaintext")
+	if string(storedBackup) != "SESSDATA=backup" {
+		t.Fatalf("stored backup = %q", storedBackup)
 	}
-	openedBackup, err := secrets.OpenString(context.Background(), secretStore, storedBackup)
-	if err != nil || openedBackup != "SESSDATA=backup" {
-		t.Fatalf("backup decrypt = %q err=%v", openedBackup, err)
-	}
-	if other, err := secretStore.Get(context.Background(), "plugin:other-plugin:secret:bili_token_primary"); err != nil {
-		t.Fatalf("cross-plugin secret missing: %v", err)
-	} else if opened, err := secrets.OpenString(context.Background(), secretStore, other); err != nil || opened != "SESSDATA=other" {
-		t.Fatalf("cross-plugin secret changed: value=%q err=%v", opened, err)
+	if other, err := secretStore.Get(context.Background(), "plugin:other-plugin:secret:bili_token_primary"); err != nil || string(other) != "SESSDATA=other" {
+		t.Fatalf("cross-plugin secret changed: value=%q err=%v", other, err)
 	}
 }
 

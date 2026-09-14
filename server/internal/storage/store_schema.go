@@ -11,14 +11,21 @@ import (
 )
 
 // currentSchemaVersion identifies the structure in schema.sql.
-const currentSchemaVersion = "000002"
+const currentSchemaVersion = "000003"
 
-type schemaMigration struct{ from, to, sql string }
+// schemaMigration runs sql, then apply when set, in one transaction.
+type schemaMigration struct {
+	from, to, sql string
+	apply         func(context.Context, *sql.Tx) error
+}
 
 func schemaMigrations() []schemaMigration {
-	return []schemaMigration{{from: "000001", to: "000002", sql: `
+	return []schemaMigration{
+		{from: "000001", to: "000002", sql: `
 ALTER TABLE plugin_kv ADD COLUMN expires_at_ms INTEGER;
-CREATE INDEX idx_plugin_kv_expiry ON plugin_kv(expires_at_ms) WHERE expires_at_ms IS NOT NULL;`}}
+CREATE INDEX idx_plugin_kv_expiry ON plugin_kv(expires_at_ms) WHERE expires_at_ms IS NOT NULL;`},
+		{from: "000002", to: "000003", apply: decryptLegacySecrets},
+	}
 }
 
 // SupportedSchemaVersions is the forward-migratable set, oldest first.
@@ -110,8 +117,15 @@ func migrateSchema(ctx context.Context, db *sql.DB, source string, steps []schem
 	}
 	for _, step := range chain {
 		if err := WithTx(ctx, db, nil, func(tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, step.sql); err != nil {
-				return err
+			if step.sql != "" {
+				if _, err := tx.ExecContext(ctx, step.sql); err != nil {
+					return err
+				}
+			}
+			if step.apply != nil {
+				if err := step.apply(ctx, tx); err != nil {
+					return err
+				}
 			}
 			result, err := tx.ExecContext(ctx, "UPDATE schema_metadata SET version = ? WHERE singleton_id = 1 AND version = ?", step.to, step.from)
 			if err != nil {

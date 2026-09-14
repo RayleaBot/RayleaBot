@@ -11,7 +11,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 	secretssqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/secrets/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
@@ -393,18 +392,10 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("secretssqlite.NewStore: %v", err)
 	}
-	sealedPrimary, err := secrets.SealString(context.Background(), secretStore, "SESSDATA=fixture")
-	if err != nil {
-		t.Fatalf("secrets.SealString primary: %v", err)
-	}
-	if err := secretStore.Set(context.Background(), "plugin:subscription-hub:secret:bili_token_primary", sealedPrimary); err != nil {
+	if err := secretStore.Set(context.Background(), "plugin:subscription-hub:secret:bili_token_primary", []byte("SESSDATA=fixture")); err != nil {
 		t.Fatalf("secretStore.Set: %v", err)
 	}
-	sealedOther, err := secrets.SealString(context.Background(), secretStore, "SESSDATA=other")
-	if err != nil {
-		t.Fatalf("secrets.SealString other: %v", err)
-	}
-	if err := secretStore.Set(context.Background(), "plugin:other-plugin:secret:bili_token_primary", sealedOther); err != nil {
+	if err := secretStore.Set(context.Background(), "plugin:other-plugin:secret:bili_token_primary", []byte("SESSDATA=other")); err != nil {
 		t.Fatalf("secretStore.Set other: %v", err)
 	}
 

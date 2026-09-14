@@ -521,15 +521,8 @@ func assertStoredConfigSecret(t *testing.T, application *internalapp.App, key st
 	if err != nil {
 		t.Fatalf("read config secret %s: %v", key, err)
 	}
-	if bytes.Contains(stored, []byte(want)) {
-		t.Fatalf("config secret %s was stored as plaintext", key)
-	}
-	opened, err := secrets.OpenString(context.Background(), secretStore, stored)
-	if err != nil {
-		t.Fatalf("open config secret %s: %v", key, err)
-	}
-	if opened != want {
-		t.Fatalf("config secret %s = %q, want %q", key, opened, want)
+	if string(stored) != want {
+		t.Fatalf("config secret %s = %q, want %q", key, stored, want)
 	}
 }
 
@@ -561,11 +554,7 @@ func storeConfigSecretFixture(t *testing.T, configPath string, key string, value
 	if err != nil {
 		t.Fatalf("create sqlite secret store: %v", err)
 	}
-	sealed, err := secrets.SealString(context.Background(), secretStore, value)
-	if err != nil {
-		t.Fatalf("seal config secret fixture: %v", err)
-	}
-	if err := secretStore.Set(context.Background(), key, sealed); err != nil {
+	if err := secretStore.Set(context.Background(), key, []byte(value)); err != nil {
 		t.Fatalf("store config secret fixture: %v", err)
 	}
 }
