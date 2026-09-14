@@ -37,10 +37,5 @@ export type {
     ServerLivenessStatusResponse,
     ServerReadinessStatusResponse,
     ServerReadinessStatusResponseChecks,
-    ServerRecoveryCompatibilityAuditEntry,
-    ServerRecoveryCompatibilityAuditItem,
-    ServerRecoveryCompatibilityIssue,
-    ServerRecoveryCompatibilitySkippedPlugin,
-    ServerRecoveryCompatibilitySummary,
     ServerSystemStatusResponse
 } from "./models.js";

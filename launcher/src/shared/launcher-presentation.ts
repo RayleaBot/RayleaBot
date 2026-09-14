@@ -4,7 +4,6 @@ import type {
   LauncherProcessOwnership,
   LauncherReadinessSnapshot,
   LauncherSnapshot,
-  RecoveryCompatibilitySummary,
 } from "./launcher-models";
 
 export type LauncherPresentationState =
@@ -22,10 +21,8 @@ export interface LauncherPresentation {
   primaryActionLabel: string;
   canOpenWebUi: boolean;
   canStopService: boolean;
-  canRunRecoveryActions: boolean;
-  canRecheckRecovery: boolean;
+  canRunRuntimeActions: boolean;
   canRunServiceAction: boolean;
-  recoverySummary: RecoveryCompatibilitySummary | null;
 }
 
 const stateLabels: Record<LauncherPresentationState, string> = {
@@ -73,13 +70,6 @@ function startingDetail(hasBootstrapConfig: boolean) {
   return hasBootstrapConfig
     ? "已生成首份用户配置，正在准备运行环境并等待服务就绪。"
     : "正在准备运行环境并等待服务就绪。";
-}
-
-export function resolveRecoverySummary(snapshot: LauncherSnapshot) {
-  return snapshot.server.systemStatus?.recovery_summary
-    ?? snapshot.server.readiness?.recovery_summary
-    ?? snapshot.launcher.localRecoverySummary
-    ?? null;
 }
 
 function runningDetail(readiness: LauncherReadinessSnapshot, ownership: LauncherProcessOwnership) {
@@ -224,13 +214,12 @@ export function formatReadinessIssue(issue: LauncherDiagnosticIssue) {
 
 export function deriveLauncherPresentation(snapshot: LauncherSnapshot): LauncherPresentation {
   const { state, detail } = derivePresentationState(snapshot);
-  const recoverySummary = resolveRecoverySummary(snapshot);
   const setupRequired = snapshot.server.readiness?.status === "setup_required";
   const canOpenWebUi = state === "running" || state === "degraded";
   const canStopService =
     (state === "running" || state === "degraded" || state === "failed")
     && snapshot.launcher.processOwnership !== "none";
-  const canRunRecoveryActions = !setupRequired && (state === "running" || state === "degraded");
+  const canRunRuntimeActions = !setupRequired && (state === "running" || state === "degraded");
 
   return {
     state,
@@ -239,9 +228,7 @@ export function deriveLauncherPresentation(snapshot: LauncherSnapshot): Launcher
     primaryActionLabel: primaryActionLabel(state, snapshot.launcher.processOwnership),
     canOpenWebUi,
     canStopService,
-    canRunRecoveryActions,
-    canRecheckRecovery: canRunRecoveryActions && Boolean(recoverySummary),
+    canRunRuntimeActions,
     canRunServiceAction: state !== "starting" && state !== "stopping",
-    recoverySummary,
   };
 }

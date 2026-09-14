@@ -4,7 +4,6 @@ import (
 	"time"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
-	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -19,27 +18,25 @@ type StatusSnapshot struct {
 	FailedPlugins   int
 	DBSchemaVersion string
 	UptimeSeconds   int64
-	RecoverySummary *recovery.CompatibilitySummary
 	Health          *ReadinessReport
 }
 
 type DiagnosticsSnapshot struct {
-	GeneratedAt     string                         `json:"generated_at"`
-	Build           DiagnosticsBuild               `json:"build"`
-	System          DiagnosticsSystem              `json:"system"`
-	Config          DiagnosticsConfig              `json:"config"`
-	Secrets         DiagnosticsSecrets             `json:"secrets"`
-	Database        DiagnosticsDatabase            `json:"database"`
-	Adapters        []adapterservice.Status        `json:"adapters"`
-	Plugins         DiagnosticsPlugins             `json:"plugins"`
-	Render          DiagnosticsIssueGroup          `json:"render"`
-	Scheduler       DiagnosticsScheduler           `json:"scheduler"`
-	Tasks           DiagnosticsTaskSummary         `json:"tasks"`
-	Dependencies    []DiagnosticsDependency        `json:"dependencies"`
-	Filesystem      []DiagnosticsPathPermission    `json:"filesystem"`
-	RecentErrors    []logging.Summary              `json:"recent_errors"`
-	Issues          []health.DiagnosticIssue       `json:"issues"`
-	RecoverySummary *recovery.CompatibilitySummary `json:"recovery_summary,omitempty"`
+	GeneratedAt  string                      `json:"generated_at"`
+	Build        DiagnosticsBuild            `json:"build"`
+	System       DiagnosticsSystem           `json:"system"`
+	Config       DiagnosticsConfig           `json:"config"`
+	Secrets      DiagnosticsSecrets          `json:"secrets"`
+	Database     DiagnosticsDatabase         `json:"database"`
+	Adapters     []adapterservice.Status     `json:"adapters"`
+	Plugins      DiagnosticsPlugins          `json:"plugins"`
+	Render       DiagnosticsIssueGroup       `json:"render"`
+	Scheduler    DiagnosticsScheduler        `json:"scheduler"`
+	Tasks        DiagnosticsTaskSummary      `json:"tasks"`
+	Dependencies []DiagnosticsDependency     `json:"dependencies"`
+	Filesystem   []DiagnosticsPathPermission `json:"filesystem"`
+	RecentErrors []logging.Summary           `json:"recent_errors"`
+	Issues       []health.DiagnosticIssue    `json:"issues"`
 }
 
 type DiagnosticsBuild struct {
@@ -114,36 +111,6 @@ type DiagnosticsPathPermission struct {
 	IsDir  bool   `json:"is_dir"`
 }
 
-type ErrorReason string
-
-const (
-	ErrorReasonInternal        ErrorReason = "internal"
-	ErrorReasonInvalidRequest  ErrorReason = "invalid_request"
-	ErrorReasonResourceMissing ErrorReason = "resource_missing"
-	ErrorReasonTaskQueueFull   ErrorReason = "task_queue_full"
-)
-
-type Error struct {
-	Reason  ErrorReason
-	Details map[string]any
-}
-
-func InternalError() *Error {
-	return &Error{Reason: ErrorReasonInternal}
-}
-
-func InvalidRequestError(details map[string]any) *Error {
-	return &Error{Reason: ErrorReasonInvalidRequest, Details: details}
-}
-
-func ResourceMissingError(details map[string]any) *Error {
-	return &Error{Reason: ErrorReasonResourceMissing, Details: details}
-}
-
-func TaskQueueFullError() *Error {
-	return &Error{Reason: ErrorReasonTaskQueueFull}
-}
-
 func (s *Service) activePluginCount() int {
 	if s.runtimes == nil {
 		return 0
@@ -199,12 +166,17 @@ func (s *Service) PublishStatusSnapshot() {
 	s.statusPublisher.PublishSnapshot()
 }
 
-func recoveryIssuesToHealth(issues []recovery.CompatibilityIssue) []health.DiagnosticIssue {
-	if len(issues) == 0 {
+// renderDiagnostics copies only the public issue fields; internal reasons stay in logs.
+func (s *Service) renderDiagnostics() []health.DiagnosticIssue {
+	if s.renderer == nil {
 		return nil
 	}
-	items := make([]health.DiagnosticIssue, 0, len(issues))
-	for _, issue := range issues {
+	diagnostics := s.renderer.Diagnostics()
+	if len(diagnostics) == 0 {
+		return nil
+	}
+	items := make([]health.DiagnosticIssue, 0, len(diagnostics))
+	for _, issue := range diagnostics {
 		items = append(items, health.DiagnosticIssue{
 			Code:             issue.Code,
 			Severity:         issue.Severity,
@@ -223,11 +195,4 @@ func containsRuntimeKind(items []string, want string) bool {
 		}
 	}
 	return false
-}
-
-func RecoverySummaryDetails(repoRoot string) map[string]any {
-	return map[string]any{
-		"resource_type": "recovery_summary",
-		"path":          recovery.SummaryPath(repoRoot),
-	}
 }

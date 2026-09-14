@@ -9,13 +9,6 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func (c *Controller) reconcileRecoverySummaryBestEffort(trigger string) {
-	if c.onRecoveryChange == nil {
-		return
-	}
-	c.onRecoveryChange(trigger)
-}
-
 func (c *Controller) publishRuntimeState(pluginID, state string) {
 	code, message := "", ""
 	if state == string(pluginruntime.StateStopped) {

@@ -54,20 +54,12 @@ describe("Wails desktop snapshot bridge", () => {
       active_plugins: 2,
       health: { status: "ready" },
     };
-    snapshot.launcher.localRecoverySummary = {
-      status: "compatible",
-      phase: "post_startup",
-      operation: "restore",
-      created_at: "2026-08-18T00:00:00Z",
-      updated_at: "2026-08-18T00:00:01Z",
-    };
 
     const normalized = normalizeWailsSnapshot(snapshot);
 
     expect(normalized.server.health).toEqual({ status: "ok" });
     expect(normalized.server.readiness?.issues?.[0]?.code).toBe("runtime.not_ready");
     expect(normalized.server.systemStatus?.active_plugins).toBe(2);
-    expect(normalized.launcher.localRecoverySummary?.operation).toBe("restore");
   });
 
 });

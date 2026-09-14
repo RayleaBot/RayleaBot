@@ -75,8 +75,6 @@ running -> interrupted   # 服务重启
 - `plugin.reload`
 - `backup.create`
 - `restore.apply`
-- `recovery.recheck`
-- `recovery.confirm`
 - `runtime.bootstrap`
 
 ## 四、OneBot11 Adapter 聚合状态

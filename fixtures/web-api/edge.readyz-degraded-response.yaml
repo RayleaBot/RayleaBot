@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: edge
-description: Readyz degraded response surfaces recovery compatibility work.
+description: Readyz degraded response reports a missing render runtime resource.
 request:
   method: GET
   path: /readyz
@@ -8,59 +8,18 @@ response:
   status: 200
   body:
     status: degraded
-    reason: Recovery compatibility checks require attention
+    reason: 浏览器运行资源缺失
     reason_codes:
-      - recovery.degraded
+      - platform.resource_missing
     checks:
       config: ok
       database: ok
       runtime: ok
-      render: ok
+      render: resource_missing
     issues:
-      - code: recovery.plugin_min_core_version
+      - code: platform.resource_missing
         severity: warning
-        summary: 插件 weather-pro 需要更高版本的 RayleaBot core。
-        remediation: 升级程序或安装与当前版本兼容的插件包后，再手动重新启用该插件。
-    recovery_summary:
-      status: degraded
-      phase: post_startup
-      operation: restore
-      created_at: 2026-04-02T08:00:00Z
-      updated_at: 2026-04-02T08:01:00Z
-      source_core_version: 0.1.0
-      target_core_version: 0.2.0
-      source_config_schema_version: "4"
-      target_config_schema_version: "4"
-      source_db_schema_version: "000001"
-      target_db_schema_version: "000001"
-      issues:
-        - code: recovery.plugin_min_core_version
-          severity: warning
-          summary: 插件 weather-pro 需要更高版本的 RayleaBot core。
-          remediation: 升级程序或安装与当前版本兼容的插件包后，再手动重新启用该插件。
-      skipped_plugins:
-        - plugin_id: weather-pro
-          version: 1.4.0
-          reason_code: plugin.min_core_version
-          summary: 插件最低 core 版本要求不满足，已保留安装目录并跳过自动启用。
-          review_id: review_weather_pro
-          review_status: pending
-          manual_action: 升级程序或重新安装兼容版本插件。
-      manual_actions:
-        - 处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。
-      next_steps:
-        - 查看恢复摘要中的跳过插件列表并完成兼容性处理。
-        - 通过管理面、Launcher 或 diagnostics 复核 recovery_summary。
-      audit:
-        - task_id: task_recovery_confirm_0001
-          created_at: 2026-04-01T08:02:00Z
-          operator_id: alice
-          note: 已确认其他恢复项。
-          items:
-            - review_id: review_archived_plugin
-              plugin_id: archived-plugin
-              reason_code: plugin.platform_mismatch
-              summary: 插件平台兼容性不满足，已保留安装目录并跳过自动启用。
-              version: 1.0.0
+        summary: 浏览器运行资源缺失
+        remediation: 运行运行时准备任务。
 expect:
   valid: true

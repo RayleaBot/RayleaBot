@@ -1,26 +1,16 @@
-import type { ComputedRef, Ref } from 'vue'
-
 import { notifyError, notifySuccess } from '@/adapter/feedback'
 import { getDisplayErrorMessage } from '@/lib/error-text'
-import { buildPluginDetailLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
-import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import type { RuntimeBootstrapResource } from '@/types/api'
 type DashboardActionState = {
   systemStore: {
     createBackup: () => Promise<{ task_id: string }>
     exportDiagnostics: () => Promise<void>
-    recheckRecovery: () => Promise<{ task_id: string }>
-    confirmRecovery: (payload: { review_ids: string[]; note?: string }) => Promise<{ task_id: string }>
     bootstrapManagedRuntime: (resources: RuntimeBootstrapResource[]) => Promise<{ task_id: string }>
   }
-  recoveryBootstrapResources: ComputedRef<RuntimeBootstrapResource[]>
-  recoveryConfirmNote: Ref<string>
-  selectedRecoveryReviewIds: Ref<string[]>
 }
 
 export function useDashboardActions(state: DashboardActionState) {
-  const navigate = useMotionNavigation()
   async function createBackup() {
     try {
       await state.systemStore.createBackup()
@@ -39,32 +29,7 @@ export function useDashboardActions(state: DashboardActionState) {
     }
   }
 
-  async function recheckRecoverySummary() {
-    try {
-      await state.systemStore.recheckRecovery()
-      notifySuccess(t('dashboard.recoveryRecheckAccepted'))
-    } catch (error) {
-      notifyError(getDisplayErrorMessage(error))
-    }
-  }
-
-  async function confirmRecoverySelection() {
-    if (state.selectedRecoveryReviewIds.value.length === 0) return
-
-    try {
-      await state.systemStore.confirmRecovery({
-        review_ids: [...state.selectedRecoveryReviewIds.value],
-        note: state.recoveryConfirmNote.value.trim() || undefined,
-      })
-      notifySuccess(t('dashboard.recoveryConfirmAccepted'))
-      state.selectedRecoveryReviewIds.value = []
-      state.recoveryConfirmNote.value = ''
-    } catch (error) {
-      notifyError(getDisplayErrorMessage(error))
-    }
-  }
-
-  async function bootstrapRuntimeResources(resources = state.recoveryBootstrapResources.value) {
+  async function bootstrapRuntimeResources(resources: RuntimeBootstrapResource[]) {
     if (resources.length === 0) return
     try {
       await state.systemStore.bootstrapManagedRuntime(resources)
@@ -74,16 +39,9 @@ export function useDashboardActions(state: DashboardActionState) {
     }
   }
 
-  async function openRecoveryPlugin(pluginID: string) {
-    await navigate(buildPluginDetailLocation(pluginID))
-  }
-
   return {
     bootstrapRuntimeResources,
-    confirmRecoverySelection,
     createBackup,
     exportDiagnostics,
-    openRecoveryPlugin,
-    recheckRecoverySummary,
   }
 }

@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
 )
 
@@ -31,7 +31,7 @@ const (
 
 type StartupRuntimeState struct {
 	Phase StartupRuntimePhase
-	Issue *recovery.CompatibilityIssue
+	Issue *health.DiagnosticIssue
 }
 
 func startupRuntimeKinds() []string {
@@ -67,7 +67,7 @@ func (s *Service) resetStartupRuntimeStates(requiredKinds []string) {
 	s.startupRuntimes = newStartupRuntimeStates(requiredKinds)
 }
 
-func (s *Service) setStartupRuntimeState(kind string, phase StartupRuntimePhase, issue *recovery.CompatibilityIssue) {
+func (s *Service) setStartupRuntimeState(kind string, phase StartupRuntimePhase, issue *health.DiagnosticIssue) {
 	if strings.TrimSpace(kind) == "" {
 		return
 	}
@@ -76,7 +76,7 @@ func (s *Service) setStartupRuntimeState(kind string, phase StartupRuntimePhase,
 	if s.startupRuntimes == nil {
 		s.startupRuntimes = newStartupRuntimeStates(nil)
 	}
-	var issueCopy *recovery.CompatibilityIssue
+	var issueCopy *health.DiagnosticIssue
 	if issue != nil {
 		copied := *issue
 		copied.RuntimeResources = append([]string(nil), issue.RuntimeResources...)
@@ -116,9 +116,9 @@ func (s *Service) startupRequiredRuntimeKinds() []string {
 	return kinds
 }
 
-func startupInspectionIssue(kind string, err error) recovery.CompatibilityIssue {
+func startupInspectionIssue(kind string, err error) health.DiagnosticIssue {
 	if !errors.Is(err, deps.ErrResourceNotDeclared) {
-		return recovery.CompatibilityIssue{
+		return health.DiagnosticIssue{
 			RuntimeResources: []string{kind},
 			Code:             errorcodes.DiagnosticDepsManifestMissing,
 			Severity:         "warning",
@@ -126,7 +126,7 @@ func startupInspectionIssue(kind string, err error) recovery.CompatibilityIssue 
 			Remediation:      "请恢复有效的 .deps/manifest.json。",
 		}
 	}
-	return recovery.CompatibilityIssue{
+	return health.DiagnosticIssue{
 		RuntimeResources: []string{kind},
 		Code:             errorcodes.DiagnosticDepsManifestPlatformMissing,
 		Severity:         "warning",
@@ -135,8 +135,8 @@ func startupInspectionIssue(kind string, err error) recovery.CompatibilityIssue 
 	}
 }
 
-func startupMetadataIssue(kind string) recovery.CompatibilityIssue {
-	return recovery.CompatibilityIssue{
+func startupMetadataIssue(kind string) health.DiagnosticIssue {
+	return health.DiagnosticIssue{
 		RuntimeResources: []string{kind},
 		Code:             errorcodes.PlatformResourceMissing,
 		Severity:         "warning",
@@ -145,8 +145,8 @@ func startupMetadataIssue(kind string) recovery.CompatibilityIssue {
 	}
 }
 
-func startupFailureIssue(kind string, err error) recovery.CompatibilityIssue {
-	issue := recovery.CompatibilityIssue{
+func startupFailureIssue(kind string, err error) health.DiagnosticIssue {
+	issue := health.DiagnosticIssue{
 		RuntimeResources: []string{kind},
 		Code:             errorcodes.PlatformResourceMissing,
 		Severity:         "warning",
@@ -247,8 +247,6 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 			)
 		}
 	}
-
-	s.ReconcileRecoverySummaryBestEffort("startup.runtime_prepare")
 }
 
 func (s *Service) AutoPrepareRuntimeEnvironments(ctx context.Context) {

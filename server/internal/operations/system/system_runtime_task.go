@@ -53,11 +53,6 @@ func (s *Service) SubmitRuntimeBootstrapTask(resources []string) (string, error)
 		}
 
 		details := map[string]any{"resources": results}
-		if s.recoverySummarySnapshot() != nil {
-			if reconciled, err := s.reconcileRecoverySummary(); err == nil && reconciled != nil {
-				details["recovery_summary"] = reconciled
-			}
-		}
 
 		return &tasks.ResultSummary{
 			Summary: "所选资源已准备完成",

@@ -17,7 +17,7 @@ App、Chat Policy Ingress、Bridge、Dispatcher、Runtime Manager、Local Action
 | Permission View | 提供插件权限与参数查询 |
 | Config Manager | 负责配置读取、校验、覆盖与热更新入口 |
 
-共享插件模型与展示摘要位于 `plugins`，SQLite 实现在 `plugins/catalog`；命令触发器和空对象等传输形态由管理边界投影。`platform/health` 仅保存中性诊断问题，包含恢复摘要的 readiness 由 `operations/system` 组合，HTTP 状态映射由 `management` 处理。`platform/runtimepaths` 只推导路径，插件发现参数由 catalog 管理；启动不自动删除失败安装保留的恢复目录。
+共享插件模型与展示摘要位于 `plugins`，SQLite 实现在 `plugins/catalog`；命令触发器和空对象等传输形态由管理边界投影。`platform/health` 仅保存中性诊断问题，readiness 由 `operations/system` 组合，HTTP 状态映射由 `management` 处理。`platform/runtimepaths` 只推导路径，插件发现参数由 catalog 管理；启动不自动删除失败安装保留的恢复目录。
 
 ## 事件分发规则
 

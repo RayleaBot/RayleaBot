@@ -23,7 +23,6 @@ func (s *Service) CurrentReadiness() ReadinessReport {
 					Remediation: "请检查服务日志，确认认证服务已完成初始化。",
 				},
 			},
-			RecoverySummary: s.recoverySummarySnapshot(),
 		})
 	}
 	if !s.auth.IsBootstrapped() {
@@ -41,7 +40,6 @@ func (s *Service) CurrentReadiness() ReadinessReport {
 					Remediation: "请先完成管理员初始化，然后再使用管理入口。",
 				},
 			},
-			RecoverySummary: s.recoverySummarySnapshot(),
 		})
 	}
 	report := ReadinessReport{
@@ -53,24 +51,7 @@ func (s *Service) CurrentReadiness() ReadinessReport {
 			"render":   "ok",
 		},
 	}
-	report.RecoverySummary = s.recoverySummarySnapshot()
-	if report.RecoverySummary != nil {
-		switch report.RecoverySummary.Status {
-		case "blocked":
-			report.Status = "failed"
-			report.Reason = "Recovery compatibility checks blocked startup"
-			report.ReasonCodes = []string{errorcodes.DiagnosticRecoveryBlocked}
-			report.Checks["runtime"] = "recovery_blocked"
-		case "degraded", "pending":
-			if report.Status == "ready" {
-				report.Status = "degraded"
-				report.Reason = "Recovery compatibility checks require attention"
-				report.ReasonCodes = []string{errorcodes.DiagnosticRecoveryDegraded}
-			}
-		}
-		report.Issues = append(report.Issues, recoveryIssuesToHealth(report.RecoverySummary.Issues)...)
-	}
-	renderIssues := recoveryIssuesToHealth(s.renderDiagnostics())
+	renderIssues := s.renderDiagnostics()
 	if len(renderIssues) > 0 {
 		report.Checks["render"] = "resource_missing"
 		report.Issues = append(report.Issues, renderIssues...)

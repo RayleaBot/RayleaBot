@@ -31,7 +31,6 @@ type RestoreResult struct {
 	DatabasePath      string
 	DatabaseRelocated bool
 	Committed         bool
-	Summary           CompatibilitySummary
 }
 
 // RestoreError reports the failed stage and, when a committed restore could not
@@ -105,13 +104,6 @@ func restoreWithDeps(ctx context.Context, options RestoreOptions, deps restoreDe
 	if err := workspace.verifyDatabase(ctx, manifest); err != nil {
 		return result, err
 	}
-	result.Summary = EvaluateRestore(manifest, repoRoot)
-	if result.Summary.Status == "blocked" {
-		return result, errors.New("restore manifest failed preflight")
-	}
-	if err := workspace.saveSummary(result.Summary); err != nil {
-		return result, err
-	}
 	writes, err := workspace.planWrites(entries, configRelative, databaseRelative, hasDatabase)
 	if err != nil {
 		return result, err
@@ -128,7 +120,7 @@ func restoreWithDeps(ctx context.Context, options RestoreOptions, deps restoreDe
 	}
 	result.Committed = true
 	for _, write := range writes {
-		if write.staged != "" && write.target != filepath.FromSlash(RecoverySummaryPath) {
+		if write.staged != "" {
 			result.RestoredFiles++
 		}
 	}

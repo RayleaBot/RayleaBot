@@ -349,7 +349,6 @@ describe("App", () => {
     expect(screen.queryByText("setup.required")).not.toBeInTheDocument();
     expect(screen.queryByText("请先完成管理员初始化，然后再使用管理入口。")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "打开初始化" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "执行恢复检查" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "准备运行环境" })).not.toBeInTheDocument();
 
     const diagnosticsSummary = buildDiagnosticsSummary(setupRequiredSnapshot);

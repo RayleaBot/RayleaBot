@@ -32,9 +32,9 @@
 - `backup-manifest.schema.json`
   - `backup-manifest.json` 的正式机器可校验结构
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
-  - `core_version` 从有效的安装产物 `build_info.json` 读取；缺失或无效时记为 `unknown`。未知版本不参与升降级排序，恢复操作标为 `restore`，仍检查 schema 与协议版本；有最低 core 版本要求的插件须确认兼容后才能自动启用或通过商店安装。
+  - `core_version` 从有效的安装产物 `build_info.json` 读取；缺失或无效时记为 `unknown`。未知版本不参与升降级排序；恢复仍按清单检查配置、数据库与插件合同版本。有最低 core 版本要求的插件须确认兼容后才能安装。
   - 本机 `plugin dev-sync` 和受控开发同步接口允许未标版本的源码构建接收 `development` artifact；此路径不声称已验证最低 core 版本，仍执行 manifest、artifact、平台、权限与协议握手检查。普通安装和商店安装不使用此例外。
-  - 配置与数据库 schema 版本从实际归档内容读取：配置为 `4`，备份契约接受数据库 `000001`、`000002`；没有归档数据库时明确记录 `absent`。可前向迁移的旧结构在首次启动时迁移，恢复摘要分别记录源版本与目标版本。初始化元数据、配置与业务数据一起恢复。
+  - 配置与数据库 schema 版本从实际归档内容读取：配置为 `4`，备份契约接受数据库 `000001`、`000002`；没有归档数据库时明确记录 `absent`。可前向迁移的旧结构在首次启动时迁移，迁移日志记录源版本与目标版本。初始化元数据、配置与业务数据一起恢复。
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
   - 图片渲染与插件浏览器会话共用 Chromium，以及受信本地插件共用 FFmpeg / FFprobe 的可信来源列表、SHA256、归档格式与相对入口
@@ -120,7 +120,7 @@
 
 [`web-api.openapi.yaml`](./web-api.openapi.yaml) 的 `paths` 定义完整 HTTP 操作集合；[`websocket-events.yaml`](./websocket-events.yaml) 定义 WebSocket 频道、事件与载荷。
 
-异步任务通过 `GET /api/system/tasks/{task_id}` 查询状态与失败码。配置应用结果、插件生命周期状态和恢复确认参数分别由对应 operation/schema 定义，README 不维护第二份完整接口列表。
+异步任务通过 `GET /api/system/tasks/{task_id}` 查询状态与失败码。配置应用结果和插件生命周期状态分别由对应 operation/schema 定义，README 不维护第二份完整接口列表。
 
 ## 通用规则
 

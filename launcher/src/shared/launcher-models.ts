@@ -27,7 +27,6 @@ export type LivenessStatusResponse = components["schemas"]["LivenessStatusRespon
 export type LauncherDiagnosticIssue = components["schemas"]["DiagnosticIssue"];
 export type LauncherReadinessSnapshot = components["schemas"]["ReadinessStatusResponse"];
 export type LauncherSystemStatusSnapshot = components["schemas"]["SystemStatusResponse"];
-export type RecoveryCompatibilitySummary = components["schemas"]["RecoveryCompatibilitySummary"];
 
 // The host validates these server payloads against OpenAPI before publishing.
 // Retain the formal HTTP types across Wails' broader pointer/enum representation.
@@ -36,9 +35,8 @@ export type LauncherServerSnapshot = Omit<desktop.LauncherServerSnapshot, "healt
   readiness: LauncherReadinessSnapshot | null;
   systemStatus: LauncherSystemStatusSnapshot | null;
 };
-export type LauncherLocalSnapshot = Omit<PresentSlices<JsonModel<desktop.LauncherLocalSnapshot>>, "runtimePrepare" | "localRecoverySummary"> & {
+export type LauncherLocalSnapshot = Omit<PresentSlices<JsonModel<desktop.LauncherLocalSnapshot>>, "runtimePrepare"> & {
   runtimePrepare: RuntimePrepareSnapshot | null;
-  localRecoverySummary: RecoveryCompatibilitySummary | null;
 };
 export type LauncherSnapshot = Omit<desktop.LauncherSnapshot, "server" | "launcher"> & {
   server: LauncherServerSnapshot;

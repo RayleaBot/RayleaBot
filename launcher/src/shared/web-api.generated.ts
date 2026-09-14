@@ -23,7 +23,6 @@ export interface components {
                 render?: string;
             };
             issues?: components["schemas"]["DiagnosticIssue"][];
-            recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
         };
         DiagnosticIssue: {
             code: string;
@@ -35,72 +34,6 @@ export interface components {
             internal_reason?: string;
             /** @description 可通过运行环境准备任务处理的资源；省略时客户端不推断准备目标。 */
             runtime_resources?: ("chromium" | "ffmpeg")[];
-        };
-        RecoveryCompatibilitySummary: {
-            /** @enum {string} */
-            status: "pending" | "compatible" | "degraded" | "blocked";
-            /** @enum {string} */
-            phase: "pre_restore" | "post_startup";
-            /** @constant */
-            operation: "restore";
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            source_core_version?: string;
-            target_core_version?: string;
-            source_config_schema_version?: string;
-            target_config_schema_version?: string;
-            /** @description Actual archived database version, including a supported older structure such as 000001. absent denotes a configuration-only archive. */
-            source_db_schema_version?: string;
-            /** @description Structure expected after first startup; 000002 for the v0.6 migration chain. Source and target are reported separately before and after startup. */
-            target_db_schema_version?: string;
-            requires_post_start_checks?: boolean;
-            issues?: components["schemas"]["RecoveryCompatibilityIssue"][];
-            skipped_plugins?: components["schemas"]["RecoveryCompatibilitySkippedPlugin"][];
-            /** @description Post-startup degraded summaries keep stable operator actions here; compatible summaries omit this field. */
-            manual_actions?: string[];
-            /** @description Post-startup degraded summaries keep stable follow-up steps here; compatible summaries omit this field. */
-            next_steps?: string[];
-            audit?: components["schemas"]["RecoveryCompatibilityAuditEntry"][];
-        };
-        RecoveryCompatibilityIssue: {
-            code: string;
-            /** @enum {string} */
-            severity: "warning" | "error";
-            summary: string;
-            remediation?: string;
-            /** @description 可通过运行环境准备任务处理的资源；省略时客户端不推断准备目标。 */
-            runtime_resources?: ("chromium" | "ffmpeg")[];
-        };
-        RecoveryCompatibilitySkippedPlugin: {
-            plugin_id: string;
-            version?: string;
-            reason_code: string;
-            summary: string;
-            review_id: string;
-            /** @enum {string} */
-            review_status: "pending" | "confirmed";
-            /** Format: date-time */
-            reviewed_at?: string;
-            reviewed_by?: string;
-            manual_action?: string;
-            manifest_path?: string;
-        };
-        RecoveryCompatibilityAuditEntry: {
-            task_id: string;
-            /** Format: date-time */
-            created_at: string;
-            operator_id: string;
-            note: string;
-            items: components["schemas"]["RecoveryCompatibilityAuditItem"][];
-        };
-        RecoveryCompatibilityAuditItem: {
-            review_id: string;
-            plugin_id: string;
-            reason_code: string;
-            summary: string;
-            version?: string;
         };
         SystemStatusResponse: {
             /** @enum {string} */
@@ -116,7 +49,6 @@ export interface components {
             /** @description Current database schema migration version. */
             db_schema_version?: string;
             uptime_seconds?: number;
-            recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
             health?: components["schemas"]["ReadinessStatusResponse"];
         };
         AdapterStatus: {

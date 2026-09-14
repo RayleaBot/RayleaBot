@@ -5,7 +5,6 @@ import type {
   LauncherReadinessSnapshot,
   LauncherSystemStatusSnapshot,
   LivenessStatusResponse,
-  RecoveryCompatibilitySummary,
 } from "@shared/launcher-models";
 
 const readinessStatusLabels: Record<LauncherReadinessSnapshot["status"], string> = {
@@ -62,22 +61,6 @@ const diagnosticCheckValueLabels: Record<string, string> = {
   unknown: "未知",
 };
 
-const recoveryStatusLabels: Record<RecoveryCompatibilitySummary["status"], string> = {
-  pending: "待检查",
-  compatible: "兼容",
-  degraded: "部分受限",
-  blocked: "需要处理",
-};
-
-const recoveryOperationLabels: Record<RecoveryCompatibilitySummary["operation"], string> = {
-  restore: "恢复",
-};
-
-const recoveryPhaseLabels: Record<RecoveryCompatibilitySummary["phase"], string> = {
-  pre_restore: "恢复前",
-  post_startup: "启动后",
-};
-
 export function formatHealthStatus(status: LivenessStatusResponse["status"] | null | undefined): string {
   return status === "ok" ? "可连接" : "不可用";
 }
@@ -114,15 +97,4 @@ export function formatDiagnosticCheckName(value: string): string {
 
 export function formatDiagnosticCheckValue(value: string): string {
   return diagnosticCheckValueLabels[value] ?? value;
-}
-
-export function formatRecoverySummary(value: RecoveryCompatibilitySummary | null | undefined): string {
-  if (!value) {
-    return "没有恢复兼容性摘要。";
-  }
-
-  const status = recoveryStatusLabels[value.status] ?? value.status;
-  const operation = recoveryOperationLabels[value.operation] ?? value.operation;
-  const phase = recoveryPhaseLabels[value.phase] ?? value.phase;
-  return `${status} · ${operation} · ${phase}`;
 }

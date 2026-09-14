@@ -26,15 +26,14 @@ type operationContext struct {
 }
 
 type snapshotOptions struct {
-	health               *ServerLivenessStatusResponse
-	readiness            *ServerReadinessStatusResponse
-	systemStatus         *ServerSystemStatusResponse
-	processLifecycle     LauncherProcessLifecycle
-	processOwnership     LauncherProcessOwnership
-	lastLocalError       string
-	statusHint           string
-	localRecoverySummary *ServerRecoveryCompatibilitySummary
-	runtimePrepare       *RuntimePrepareSnapshot
+	health           *ServerLivenessStatusResponse
+	readiness        *ServerReadinessStatusResponse
+	systemStatus     *ServerSystemStatusResponse
+	processLifecycle LauncherProcessLifecycle
+	processOwnership LauncherProcessOwnership
+	lastLocalError   string
+	statusHint       string
+	runtimePrepare   *RuntimePrepareSnapshot
 }
 
 type Coordinator struct {

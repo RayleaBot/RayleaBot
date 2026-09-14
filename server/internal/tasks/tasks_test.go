@@ -158,8 +158,6 @@ func TestCreateWritesTaskLogForEveryFrozenTaskType(t *testing.T) {
 		"plugin.uninstall",
 		"plugin.reload",
 		"backup.create",
-		"recovery.recheck",
-		"recovery.confirm",
 		"restore.apply",
 		"runtime.bootstrap",
 	}

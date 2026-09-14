@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
@@ -23,8 +22,7 @@ type Issue struct {
 }
 
 type Report struct {
-	Issues          []Issue                        `json:"issues"`
-	RecoverySummary *recovery.CompatibilitySummary `json:"recovery_summary,omitempty"`
+	Issues []Issue `json:"issues"`
 }
 
 func validateConfigSchema(schemaPath string) error {
@@ -114,12 +112,7 @@ func Build(ctx context.Context, options Options) Report {
 	}
 	issues = append(issues, platformIssues()...)
 
-	report := Report{Issues: issues}
-	summary, err := recovery.LoadSummary(repoRoot)
-	if err == nil && summary != nil {
-		report.RecoverySummary = summary
-	}
-	return report
+	return Report{Issues: issues}
 }
 
 func depsManifestIssues(err error) []Issue {

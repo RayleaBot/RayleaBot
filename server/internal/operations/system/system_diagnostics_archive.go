@@ -36,11 +36,6 @@ func (s *Service) BuildDiagnosticsArchive(ctx context.Context) ([]byte, error) {
 	if err := addJSONToZip(writer, "config-summary.json", s.summary()); err != nil {
 		return nil, err
 	}
-	if summary := s.recoverySummarySnapshot(); summary != nil {
-		if err := addJSONToZip(writer, "recovery-summary.json", summary); err != nil {
-			return nil, err
-		}
-	}
 	if s.logRepository != nil {
 		logs, err := s.logRepository.ListSummaries(ctx, logging.Query{Limit: 100})
 		if err != nil {

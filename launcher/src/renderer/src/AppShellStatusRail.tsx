@@ -11,20 +11,14 @@ type RailCheck = {
 
 type AppShellStatusRailProps = {
   canPrepareRuntime: boolean;
-  canRecheckRecovery: boolean;
   checks: RailCheck[];
   onOpenTasks: () => void;
-  recoveryStatusSummary: string;
-  showRecoverySummary: boolean;
 };
 
 export function AppShellStatusRail({
   canPrepareRuntime,
-  canRecheckRecovery,
   checks,
   onOpenTasks,
-  recoveryStatusSummary,
-  showRecoverySummary,
 }: AppShellStatusRailProps) {
   const issueTone = checks.some((item) => item.severity === "error") ? "danger" : "warning";
 
@@ -51,17 +45,12 @@ export function AppShellStatusRail({
         </section>
       )}
 
-      {showRecoverySummary || canPrepareRuntime ? (
+      {canPrepareRuntime ? (
         <section className="attention-panel" data-tone="attention">
-          <h3>恢复与准备</h3>
-          <p>{showRecoverySummary ? recoveryStatusSummary : "检测到可由启动器准备的运行环境项。"}</p>
+          <h3>运行环境准备</h3>
+          <p>检测到可由启动器准备的运行环境项。</p>
           <div className="button-row button-row--stackable">
-            {canRecheckRecovery ? (
-              <Button appearance="secondary" onClick={onOpenTasks}>执行恢复检查</Button>
-            ) : null}
-            {canPrepareRuntime ? (
-              <Button appearance="subtle" onClick={onOpenTasks}>准备运行环境</Button>
-            ) : null}
+            <Button appearance="subtle" onClick={onOpenTasks}>准备运行环境</Button>
           </div>
         </section>
       ) : null}

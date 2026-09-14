@@ -10,7 +10,6 @@ import (
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
 	runtimedeps "github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
@@ -63,7 +62,6 @@ type Deps struct {
 	Renderer            RendererState
 	Storage             *storage.Store
 	Scheduler           SchedulerDiagnosticsSource
-	PluginRepository    plugins.DesiredStateRepository
 	TaskExecutor        *tasks.Executor
 	LogRepository       logging.Repository
 	StatusPublisher     StatusPublisher
@@ -87,7 +85,6 @@ type Service struct {
 	renderer            RendererState
 	storage             *storage.Store
 	scheduler           SchedulerDiagnosticsSource
-	pluginRepository    plugins.DesiredStateRepository
 	taskExecutor        *tasks.Executor
 	logRepository       logging.Repository
 	resolveDatabasePath DatabasePathResolver
@@ -95,14 +92,12 @@ type Service struct {
 	prepareRuntime      func(context.Context, string, string, runtimedeps.PrepareProgressReporter) (*runtimedeps.PrepareReport, error)
 	shuttingDown        *atomic.Bool
 	statusPublisher     StatusPublisher
-	recoveryMu          sync.RWMutex
-	recoverySummary     *recovery.CompatibilitySummary
 	startupMu           sync.RWMutex
 	startupRuntimes     map[string]StartupRuntimeState
 }
 
 func New(deps Deps) (*Service, error) {
-	if deps.CurrentConfig == nil || deps.CurrentSummary == nil || deps.Plugins == nil || deps.PluginRepository == nil {
+	if deps.CurrentConfig == nil || deps.CurrentSummary == nil || deps.Plugins == nil {
 		return nil, fmt.Errorf("system service requires current config, summary, plugin catalog and desired state repository")
 	}
 	if deps.Logger == nil {
@@ -129,7 +124,6 @@ func New(deps Deps) (*Service, error) {
 		renderer:            deps.Renderer,
 		storage:             deps.Storage,
 		scheduler:           deps.Scheduler,
-		pluginRepository:    deps.PluginRepository,
 		taskExecutor:        deps.TaskExecutor,
 		logRepository:       deps.LogRepository,
 		statusPublisher:     deps.StatusPublisher,
@@ -169,7 +163,6 @@ func (s *Service) StatusSnapshot() StatusSnapshot {
 		FailedPlugins:   failedPlugins,
 		DBSchemaVersion: s.dbSchemaVersion(),
 		UptimeSeconds:   s.uptimeSeconds(),
-		RecoverySummary: s.recoverySummarySnapshot(),
 		Health:          readinessReportPtr(s.CurrentReadiness()),
 	}
 }
@@ -213,46 +206,7 @@ func (s *Service) currentLogger() *slog.Logger {
 	return s.logger
 }
 
-func (s *Service) recoverySummarySnapshot() *recovery.CompatibilitySummary {
-	s.recoveryMu.RLock()
-	defer s.recoveryMu.RUnlock()
-	if s.recoverySummary == nil {
-		return nil
-	}
-	copied := *s.recoverySummary
-	copied.Issues = copyRecoveryIssues(s.recoverySummary.Issues)
-	copied.ManualActions = append([]string(nil), s.recoverySummary.ManualActions...)
-	copied.NextSteps = append([]string(nil), s.recoverySummary.NextSteps...)
-	copied.SkippedPlugins = append([]recovery.SkippedPlugin(nil), s.recoverySummary.SkippedPlugins...)
-	copied.Audit = append([]recovery.AuditEntry(nil), s.recoverySummary.Audit...)
-	return &copied
-}
-
-func (s *Service) setRecoverySummary(summary *recovery.CompatibilitySummary) {
-	s.recoveryMu.Lock()
-	defer s.recoveryMu.Unlock()
-	if summary == nil {
-		s.recoverySummary = nil
-		return
-	}
-	copied := *summary
-	copied.Issues = copyRecoveryIssues(summary.Issues)
-	copied.ManualActions = append([]string(nil), summary.ManualActions...)
-	copied.NextSteps = append([]string(nil), summary.NextSteps...)
-	copied.SkippedPlugins = append([]recovery.SkippedPlugin(nil), summary.SkippedPlugins...)
-	copied.Audit = append([]recovery.AuditEntry(nil), summary.Audit...)
-	s.recoverySummary = &copied
-}
-
 var _ interface {
 	SystemStatus() string
 	CurrentReadiness() ReadinessReport
 } = (*Service)(nil)
-
-func copyRecoveryIssues(issues []recovery.CompatibilityIssue) []recovery.CompatibilityIssue {
-	copied := append([]recovery.CompatibilityIssue(nil), issues...)
-	for i := range copied {
-		copied[i].RuntimeResources = append([]string(nil), issues[i].RuntimeResources...)
-	}
-	return copied
-}

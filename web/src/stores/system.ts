@@ -7,7 +7,6 @@ import { formatDashboardEventSummary } from '@/lib/management-summary'
 import type {
   EventsPayload,
   LivenessStatusResponse,
-  RecoveryConfirmRequest,
   ReadinessStatusResponse,
   RuntimeBootstrapResource,
   TaskAcceptedResponse,
@@ -26,8 +25,6 @@ export const useSystemStore = defineStore('system', () => {
   const shutdownRequested = ref(false)
   const backupPending = ref(false)
   const diagnosticsPending = ref(false)
-  const recoveryRecheckPending = ref(false)
-  const recoveryConfirmPending = ref(false)
   const runtimeBootstrapPending = ref(false)
   const error = ref<string | null>(null)
   const recentEvents = ref<Array<{ timestamp: string; summary: string; payload: EventsPayload }>>([])
@@ -145,31 +142,6 @@ export const useSystemStore = defineStore('system', () => {
     }
   }
 
-  async function recheckRecovery() {
-    recoveryRecheckPending.value = true
-    error.value = null
-    try {
-      return await apiRequest<TaskAcceptedResponse>('/api/system/recovery/recheck', {
-        method: 'POST',
-      })
-    } finally {
-      recoveryRecheckPending.value = false
-    }
-  }
-
-  async function confirmRecovery(request: RecoveryConfirmRequest) {
-    recoveryConfirmPending.value = true
-    error.value = null
-    try {
-      return await apiRequest<TaskAcceptedResponse>('/api/system/recovery/confirm', {
-        method: 'POST',
-        body: request,
-      })
-    } finally {
-      recoveryConfirmPending.value = false
-    }
-  }
-
   async function bootstrapManagedRuntime(resources?: RuntimeBootstrapResource[]) {
     runtimeBootstrapPending.value = true
     error.value = null
@@ -186,7 +158,6 @@ export const useSystemStore = defineStore('system', () => {
   return {
     backupPending,
     bootstrapManagedRuntime,
-    confirmRecovery,
     diagnostics,
     diagnosticsPending,
     error,
@@ -194,10 +165,7 @@ export const useSystemStore = defineStore('system', () => {
     isHealthy,
     loading,
     readiness,
-    recoveryConfirmPending,
-    recoveryRecheckPending,
     recentEvents,
-    recheckRecovery,
     shutdownPending,
     shutdownRequested,
     system,

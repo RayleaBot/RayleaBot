@@ -34,7 +34,6 @@ func (c *Coordinator) buildSnapshot(operation operationContext, inspection Envir
 			RecentStderr: c.process.RecentStderr(), RuntimePrepare: options.runtimePrepare,
 			ReleaseCheck: currentRelease, LastLocalError: options.lastLocalError, StatusHint: options.statusHint,
 			Settings: operation.settings, ResolvedSettings: operation.resolvedSettings, Endpoint: operation.endpoint,
-			LocalRecoverySummary: options.localRecoverySummary,
 		},
 	}
 }

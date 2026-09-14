@@ -30,9 +30,6 @@ type CoreService interface {
 	DiagnosticsSnapshot(context.Context) systemsvc.DiagnosticsSnapshot
 	BuildDiagnosticsArchive(context.Context) ([]byte, error)
 	SubmitSystemBackupTask() (string, error)
-	ValidateRecoveryConfirmRequest([]string, string) *systemsvc.Error
-	SubmitRecoveryRecheckTask() (string, *systemsvc.Error)
-	SubmitRecoveryConfirmTask([]string, string, string) (string, *systemsvc.Error)
 	SubmitRuntimeBootstrapTask([]string) (string, error)
 }
 
@@ -42,11 +39,10 @@ type SchedulerService interface {
 }
 
 const (
-	systemCodePermissionDenied = errorcodes.PermissionDenied
-	systemCodeInvalidRequest   = errorcodes.PlatformInvalidRequest
-	systemCodeResourceMissing  = errorcodes.PlatformResourceNotFound
-	systemCodeInternalError    = errorcodes.PlatformInternalError
-	systemCodeTaskQueueFull    = errorcodes.PlatformTaskQueueFull
+	systemCodeInvalidRequest  = errorcodes.PlatformInvalidRequest
+	systemCodeResourceMissing = errorcodes.PlatformResourceNotFound
+	systemCodeInternalError   = errorcodes.PlatformInternalError
+	systemCodeTaskQueueFull   = errorcodes.PlatformTaskQueueFull
 )
 
 type systemHTTPError struct {
@@ -58,15 +54,6 @@ func internalSystemHTTPError() *systemHTTPError {
 	return &systemHTTPError{
 
 		code: systemCodeInternalError,
-	}
-}
-
-func invalidSystemHTTPError(details map[string]any) *systemHTTPError {
-	return &systemHTTPError{
-
-		code: systemCodeInvalidRequest,
-
-		details: details,
 	}
 }
 
@@ -91,26 +78,6 @@ func writeSystemHTTPError(w http.ResponseWriter, r *http.Request, err *systemHTT
 		return
 	}
 	httpapi.WriteError(w, r, err.code, err.details)
-}
-
-func writeSystemError(w http.ResponseWriter, r *http.Request, err *systemsvc.Error) {
-	writeSystemHTTPError(w, r, systemHTTPErrorFromError(err))
-}
-
-func systemHTTPErrorFromError(err *systemsvc.Error) *systemHTTPError {
-	if err == nil {
-		return nil
-	}
-	switch err.Reason {
-	case systemsvc.ErrorReasonInvalidRequest:
-		return invalidSystemHTTPError(err.Details)
-	case systemsvc.ErrorReasonResourceMissing:
-		return missingSystemResourceHTTPError(err.Details)
-	case systemsvc.ErrorReasonTaskQueueFull:
-		return taskQueueFullSystemHTTPError()
-	default:
-		return internalSystemHTTPError()
-	}
 }
 
 type taskAcceptedResponse struct {
@@ -263,8 +230,6 @@ func (h *SystemHandlers) RegisterProtectedRoutes(router chi.Router) {
 func registerSystemProtectedRoutes(router chi.Router, h *SystemHandlers) {
 	router.Get("/api/system/tasks/{task_id}", h.HandleTaskStatus())
 	router.Post("/api/system/backup", h.HandleSystemBackup())
-	router.Post("/api/system/recovery/recheck", h.HandleSystemRecoveryRecheck())
-	router.Post("/api/system/recovery/confirm", h.HandleSystemRecoveryConfirm())
 	router.Post("/api/system/runtime/bootstrap", h.HandleSystemRuntimeBootstrap())
 	router.Get("/api/system/diagnostics", h.HandleSystemDiagnostics())
 	router.Get("/api/system/diagnostics/export", h.HandleSystemDiagnosticsExport())

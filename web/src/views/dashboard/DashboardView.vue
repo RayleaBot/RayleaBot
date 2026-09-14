@@ -15,7 +15,6 @@ import {
 
 import AppCard from '@/components/AppCard.vue'
 import ConnectionStatusStrip from '@/components/ConnectionStatusStrip.vue'
-import DashboardRecoveryCard from '@/components/DashboardRecoveryCard.vue'
 import DashboardStatusGrid from '@/components/DashboardStatusGrid.vue'
 import DashboardToolsPanel from '@/components/DashboardToolsPanel.vue'
 import DashboardUpdateCard from '@/components/DashboardUpdateCard.vue'
@@ -45,7 +44,6 @@ const {
   backupPending,
   bootstrapRuntimeResources,
   checkItems,
-  confirmRecoverySelection,
   createBackup,
   diagnosticsIssueCards,
   diagnosticsPending,
@@ -58,8 +56,6 @@ const {
   healthValueText,
   issuesExpanded,
   loading,
-  openRecoveryPlugin,
-  pendingRecoveryPlugins,
   adapters,
   readinessToastLevel,
   readinessToastMessage,
@@ -69,17 +65,8 @@ const {
   readinessStatusType,
   readinessValueText,
   recentEvents,
-  recoveryConfirmNote,
-  recoveryConfirmPending,
-  recoveryRecheckPending,
-  recoveryStatusLabel,
-  recoveryBootstrapResources,
-  recoverySummary,
   refreshState,
-  recheckRecoverySummary,
   runtimeBootstrapPending,
-  selectedRecoveryReviewCountLabel,
-  selectedRecoveryReviewIds,
   system,
   systemDetailText,
   systemValueText,
@@ -420,23 +407,6 @@ useToastFeedback(protocolIssueToast)
           </template>
         </AppTabs>
       </AppCard>
-
-      <DashboardRecoveryCard
-        v-model:selected-recovery-review-ids="selectedRecoveryReviewIds"
-        v-model:recovery-confirm-note="recoveryConfirmNote"
-        :recovery-summary="recoverySummary"
-        :recovery-status-label="recoveryStatusLabel"
-        :pending-recovery-plugins="pendingRecoveryPlugins"
-        :selected-recovery-review-count-label="selectedRecoveryReviewCountLabel"
-        :recovery-recheck-pending="recoveryRecheckPending"
-        :recovery-confirm-pending="recoveryConfirmPending"
-        :runtime-bootstrap-pending="runtimeBootstrapPending"
-        :can-bootstrap="recoveryBootstrapResources.length > 0"
-        @recheck="recheckRecoverySummary"
-        @bootstrap="bootstrapRuntimeResources()"
-        @open-plugin="openRecoveryPlugin"
-        @confirm="confirmRecoverySelection"
-      />
       </div>
 
       <aside class="dashboard-support-column">

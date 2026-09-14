@@ -8,7 +8,6 @@ import (
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
-	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 type App struct {
@@ -75,7 +74,6 @@ func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Ex
 		CurrentStartedAt: func() time.Time { return a.state.startedAt },
 		Logger:           a.state.Logger,
 		Plugins:          a.pluginStack.Plugins,
-		PluginRepository: &testutil.DesiredStateRecorder{},
 		Renderer:         renderer,
 		TaskExecutor:     taskExecutor,
 		LogRepository:    nil,

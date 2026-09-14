@@ -46,7 +46,6 @@ SETUP_TOKEN = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 DIAGNOSTICS_REQUIRED_ENTRIES = {"system-status.json", "readiness.json", "doctor.json"}
 STARTUP_READY_STATUSES = {"ready", "degraded", "setup_required"}
 MANAGED_READY_STATUSES = {"ready", "degraded"}
-NON_BLOCKING_RECOVERY_STATUSES = {"compatible", "degraded"}
 EXPECTED_PROTOCOL_TRANSPORTS = {"reverse_ws", "forward_ws", "http_api", "webhook"}
 EXPECTED_PROTOCOL_PROVIDERS = {"unknown", "standard", "napcat", "luckylillia"}
 EXPECTED_PROTOCOL_READINESS_STATUSES = {"setup_required", "ready", "degraded", "failed"}
@@ -365,34 +364,6 @@ def create_runtime_bootstrap_task(base_url: str, session_token: str, resources: 
     return extract_task_id(accepted, "system/runtime/bootstrap")
 
 
-def create_recovery_recheck_task(base_url: str, session_token: str) -> str:
-    accepted = request_json(
-        f"{base_url}api/system/recovery/recheck",
-        method="POST",
-        headers=bearer_headers(session_token),
-        expected_status=202,
-    )
-    return extract_task_id(accepted, "system/recovery/recheck")
-
-
-def assert_recovery_summary_acceptable(summary: dict[str, object] | None) -> None:
-    if summary is None:
-        return
-    status = str(summary.get("status", ""))
-    if status not in NON_BLOCKING_RECOVERY_STATUSES:
-        raise SmokeError(f"unexpected recovery summary status during self-host smoke: {summary}")
-    if status == "compatible":
-        if summary.get("manual_actions") or summary.get("next_steps") or summary.get("skipped_plugins"):
-            raise SmokeError(f"compatible recovery summary must not retain manual guidance: {summary}")
-    if status == "degraded":
-        manual_actions = summary.get("manual_actions", [])
-        next_steps = summary.get("next_steps", [])
-        if not isinstance(manual_actions, list) or len(manual_actions) == 0:
-            raise SmokeError(f"degraded recovery summary must include manual_actions: {summary}")
-        if not isinstance(next_steps, list) or len(next_steps) == 0:
-            raise SmokeError(f"degraded recovery summary must include next_steps: {summary}")
-
-
 def request_json(
     url: str,
     *,
@@ -529,8 +500,6 @@ def validate_managed_status(base_url: str, session_token: str, previous_uptime: 
     status_body = request_json(f"{base_url}api/system/status", headers=bearer_headers(session_token))
     if str(status_body.get("status", "")) != "running":
         raise SmokeError(f"system status must remain running during self-host smoke: {status_body}")
-
-    assert_recovery_summary_acceptable(status_body.get("recovery_summary") if isinstance(status_body, dict) else None)
 
     uptime_raw = status_body.get("uptime_seconds")
     if not isinstance(uptime_raw, int):

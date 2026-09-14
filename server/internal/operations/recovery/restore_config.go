@@ -2,7 +2,6 @@ package recovery
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -56,14 +55,6 @@ func (w *restoreWorkspace) verifyDatabase(ctx context.Context, manifest BackupMa
 		}
 	}
 	return nil
-}
-
-func (w *restoreWorkspace) saveSummary(summary CompatibilitySummary) error {
-	payload, err := json.MarshalIndent(summary, "", "  ")
-	if err != nil {
-		return err
-	}
-	return w.root.WriteFile(filepath.Join(w.work, "summary.json"), append(payload, '\n'), 0o600)
 }
 
 func portableDatabasePath(value string) (string, bool, error) {

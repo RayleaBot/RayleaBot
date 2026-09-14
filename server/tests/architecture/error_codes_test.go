@@ -130,8 +130,8 @@ func TestStructuredCodeGuardIncludesAssignmentsSlicesAndSDKFailures(t *testing.T
 	set := token.NewFileSet()
 	file, err := parser.ParseFile(set, "sample.go", `package sample
 func f() {
-    report := Report{ReasonCodes: []string{"recovery.blocked"}, Code: "plugin.shutdown"}
-    report.ReasonCodes = []string{errorcodes.DiagnosticRecoveryDegraded}
+    report := Report{ReasonCodes: []string{"database.ping_failed"}, Code: "plugin.shutdown"}
+    report.ReasonCodes = []string{errorcodes.DiagnosticSchemaInvalid}
     report.ReasonCodes = append(report.ReasonCodes, "unregistered.reason")
     report.ErrorCode = "unregistered.assignment"
     state.sendError("request", "unregistered.sdk", "message")
@@ -143,11 +143,11 @@ func f() {
 	}
 	got := map[string]bool{}
 	for _, item := range structuredReportedCodes(set, file, "sample.go", map[string]string{
-		"errorcodes.DiagnosticRecoveryDegraded": "recovery.degraded",
+		"errorcodes.DiagnosticSchemaInvalid": "schema.invalid",
 	}, true) {
 		got[item.code] = true
 	}
-	for _, code := range []string{"recovery.blocked", "plugin.shutdown", "recovery.degraded", "unregistered.reason", "unregistered.assignment", "unregistered.sdk", "unregistered.failure"} {
+	for _, code := range []string{"database.ping_failed", "plugin.shutdown", "schema.invalid", "unregistered.reason", "unregistered.assignment", "unregistered.sdk", "unregistered.failure"} {
 		if !got[code] {
 			t.Errorf("guard missed %s", code)
 		}

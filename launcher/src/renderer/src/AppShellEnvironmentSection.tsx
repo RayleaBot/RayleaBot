@@ -1,7 +1,6 @@
-import { getEnvironmentSummaryLabel, resolveRecoverySummary } from "@shared/launcher-presentation";
+import { getEnvironmentSummaryLabel } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
-import { formatRecoverySummary } from "./AppShell.copy";
 import { isRuntimePreparationIssue, severityConfig, sortChecks } from "./AppShell.shared";
 
 type EnvironmentSectionProps = {
@@ -50,8 +49,6 @@ export function AppShellEnvironmentSection({
       : environmentSummaryLabel === "可继续，但有警告"
         ? { label: environmentSummaryLabel, detail: "核心能力可用，建议先检查告警项。" }
         : { label: environmentSummaryLabel, detail: "当前未发现阻塞或告警项。" };
-  const recoverySummary = resolveRecoverySummary(snapshot);
-  const recoveryStatusSummary = recoverySummary ? formatRecoverySummary(recoverySummary) : "";
   const categories = [
     { key: "core", title: "系统核心", data: categorizedChecks.core },
     { key: "runtimes", title: "运行环境", data: categorizedChecks.runtimes },
@@ -85,9 +82,6 @@ export function AppShellEnvironmentSection({
         ) : null}
         {snapshot.launcher.settings.installationRoot ? (
           <div className="definition-row"><dt>安装路径</dt><dd className="mono">{snapshot.launcher.settings.installationRoot}</dd></div>
-        ) : null}
-        {recoverySummary ? (
-          <div className="definition-row"><dt>恢复兼容性</dt><dd>{recoveryStatusSummary}</dd></div>
         ) : null}
         <div className="definition-row"><dt>服务地址</dt><dd className="mono">{snapshot.launcher.endpoint.baseUrl}</dd></div>
       </dl>

@@ -42,8 +42,7 @@ func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
 	defer func(release func() error) { _ = release() }(executor.Close)
 
 	service, err := system.New(system.Deps{
-		Plugins:          plugincatalog.New(nil),
-		PluginRepository: &testutil.DesiredStateRecorder{},
+		Plugins: plugincatalog.New(nil),
 		CurrentConfig: func() config.Config {
 			return config.Config{
 				Database: config.DatabaseConfig{Path: filepath.Join("data", "rayleabot.db")},

@@ -2,7 +2,6 @@ package integration
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
-	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
@@ -85,85 +83,6 @@ func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
 		Checks:      checks,
 		Issues:      issues,
 	}
-	if rawSummary, ok := fixture.Response.Body["recovery_summary"].(map[string]any); ok {
-		report.RecoverySummary = &recovery.CompatibilitySummary{
-			Status:                    rawSummary["status"].(string),
-			Phase:                     rawSummary["phase"].(string),
-			Operation:                 rawSummary["operation"].(string),
-			CreatedAt:                 fmt.Sprint(rawSummary["created_at"]),
-			UpdatedAt:                 fmt.Sprint(rawSummary["updated_at"]),
-			SourceCoreVersion:         rawSummary["source_core_version"].(string),
-			TargetCoreVersion:         rawSummary["target_core_version"].(string),
-			SourceConfigSchemaVersion: rawSummary["source_config_schema_version"].(string),
-			TargetConfigSchemaVersion: rawSummary["target_config_schema_version"].(string),
-			SourceDBSchemaVersion:     rawSummary["source_db_schema_version"].(string),
-			TargetDBSchemaVersion:     rawSummary["target_db_schema_version"].(string),
-			ManualActions:             toStringSlice(rawSummary["manual_actions"].([]any)),
-			NextSteps:                 toStringSlice(rawSummary["next_steps"].([]any)),
-		}
-		if rawIssues, ok := rawSummary["issues"].([]any); ok {
-			for _, raw := range rawIssues {
-				item := raw.(map[string]any)
-				report.RecoverySummary.Issues = append(report.RecoverySummary.Issues, recovery.CompatibilityIssue{
-					Code:        item["code"].(string),
-					Severity:    item["severity"].(string),
-					Summary:     item["summary"].(string),
-					Remediation: item["remediation"].(string),
-				})
-			}
-		}
-		if rawSkipped, ok := rawSummary["skipped_plugins"].([]any); ok {
-			for _, raw := range rawSkipped {
-				item := raw.(map[string]any)
-				skipped := recovery.SkippedPlugin{
-					PluginID:     item["plugin_id"].(string),
-					ReasonCode:   item["reason_code"].(string),
-					Summary:      item["summary"].(string),
-					ReviewID:     item["review_id"].(string),
-					ReviewStatus: item["review_status"].(string),
-					ManualAction: item["manual_action"].(string),
-				}
-				if version, ok := item["version"].(string); ok {
-					skipped.Version = version
-				}
-				if reviewedAt, ok := item["reviewed_at"].(string); ok {
-					skipped.ReviewedAt = reviewedAt
-				}
-				if reviewedBy, ok := item["reviewed_by"].(string); ok {
-					skipped.ReviewedBy = reviewedBy
-				}
-				report.RecoverySummary.SkippedPlugins = append(report.RecoverySummary.SkippedPlugins, skipped)
-			}
-		}
-		if rawAudit, ok := rawSummary["audit"].([]any); ok {
-			for _, raw := range rawAudit {
-				item := raw.(map[string]any)
-				entry := recovery.AuditEntry{
-					TaskID:     item["task_id"].(string),
-					CreatedAt:  item["created_at"].(string),
-					OperatorID: item["operator_id"].(string),
-					Note:       item["note"].(string),
-				}
-				if rawItems, ok := item["items"].([]any); ok {
-					for _, rawItem := range rawItems {
-						auditItem := rawItem.(map[string]any)
-						record := recovery.AuditItem{
-							ReviewID:   auditItem["review_id"].(string),
-							PluginID:   auditItem["plugin_id"].(string),
-							ReasonCode: auditItem["reason_code"].(string),
-							Summary:    auditItem["summary"].(string),
-						}
-						if version, ok := auditItem["version"].(string); ok {
-							record.Version = version
-						}
-						entry.Items = append(entry.Items, record)
-					}
-				}
-				report.RecoverySummary.Audit = append(report.RecoverySummary.Audit, entry)
-			}
-		}
-	}
-
 	handler := managementapi.NewReadinessHandler(func() systemsvc.ReadinessReport {
 		return report
 	})

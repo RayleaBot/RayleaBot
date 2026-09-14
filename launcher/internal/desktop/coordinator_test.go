@@ -56,15 +56,10 @@ func (h *testServiceHost) ResolveExternalServiceStop(confirmed bool) {
 func (*testServiceHost) HasPendingExternalServiceStop() bool { return false }
 func (*testServiceHost) Quit()                               {}
 
-func TestReadinessAndRecoveryUseTypedContractModels(t *testing.T) {
-	readiness := &ServerReadinessStatusResponse{Status: "degraded", RecoverySummary: &ServerRecoveryCompatibilitySummary{Status: "blocked"}}
-	status := &ServerSystemStatusResponse{Status: "running", RecoverySummary: &ServerRecoveryCompatibilitySummary{Status: "compatible"}}
+func TestReadinessStatusUsesTypedContractModel(t *testing.T) {
+	readiness := &ServerReadinessStatusResponse{Status: "degraded"}
 	if readinessStatus(readiness) != "degraded" {
 		t.Fatalf("readinessStatus() = %q", readinessStatus(readiness))
-	}
-	recovery := recoveryFromPayload(status, readiness, nil)
-	if recovery == nil || recovery.Status != "compatible" {
-		t.Fatalf("recoveryFromPayload() = %#v", recovery)
 	}
 }
 

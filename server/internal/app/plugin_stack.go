@@ -164,7 +164,6 @@ func buildPluginMutationServices(deps pluginStackDeps, state *PluginStackState, 
 				return err
 			}
 		}
-		services.System.ReconcileRecoverySummaryBestEffort("plugin.install")
 		return nil
 	}
 	pluginInstallService, err := pluginservice.NewInstallService(
@@ -202,7 +201,6 @@ func buildPluginMutationServices(deps pluginStackDeps, state *PluginStackState, 
 					cleanupErr = errors.Join(cleanupErr, renderer.RemovePluginTemplates(ctx, pluginID))
 				}
 				cleanupErr = errors.Join(cleanupErr, syncCatalogRenderTemplates(ctx, renderer, state.Plugins))
-				services.System.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
 				return cleanupErr
 			}},
 	)

@@ -44,12 +44,6 @@ func (c *Coordinator) refresh(operation operationContext) error {
 }
 
 func (c *Coordinator) refreshWithInspection(operation operationContext, inspection EnvironmentInspection) error {
-	recovery, recoveryErr := readRecoverySummary(c.process.LogDirectory())
-	if recoveryErr != nil {
-		check := EnvironmentCheckResult{Scope: "advisory", Code: "launcher.recovery_summary_invalid", Title: "本机恢复摘要", Severity: "warning", Summary: recoveryErr.Error(), Remediation: "检查 logs/recovery-summary.json；服务可用后以服务端摘要为准。"}
-		inspection.AdvisoryChecks = append(inspection.AdvisoryChecks, check)
-		inspection.Checks = append(inspection.Checks, check)
-	}
 	if inspection.HasBlockingIssues || inspection.CanBootstrapUserConfig {
 		lifecycle := Stopped
 		ownership := OwnershipNone
@@ -64,7 +58,7 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 			hint = issue.Summary + " " + issue.Remediation
 		}
 		c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
-			processLifecycle: lifecycle, processOwnership: ownership, statusHint: strings.TrimSpace(hint), localRecoverySummary: recovery,
+			processLifecycle: lifecycle, processOwnership: ownership, statusHint: strings.TrimSpace(hint),
 		}))
 		return nil
 	}
@@ -85,7 +79,7 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 			hint = fmt.Sprintf("开发 watcher 正在重启服务（PID %d），启动器不会重复启动。", c.watcherPID)
 		}
 		c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
-			processLifecycle: lifecycle, processOwnership: ownership, statusHint: hint, lastLocalError: lastError, localRecoverySummary: recovery,
+			processLifecycle: lifecycle, processOwnership: ownership, statusHint: hint, lastLocalError: lastError,
 		}))
 		return nil
 	}
@@ -94,7 +88,7 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 	if err != nil {
 		c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
 			health: &ServerLivenessStatusResponse{Status: "ok"}, processLifecycle: lifecycleFor(c.process.IsRunning()), processOwnership: ownershipFor(c.process.IsRunning(), true),
-			statusHint: "服务存活，但无法读取就绪状态。", lastLocalError: err.Error(), localRecoverySummary: recovery,
+			statusHint: "服务存活，但无法读取就绪状态。", lastLocalError: err.Error(),
 		}))
 		return nil
 	}
@@ -107,7 +101,6 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 			statusError = statusErr.Error()
 		}
 	}
-	recovery = recoveryFromPayload(systemStatus, readiness, recovery)
 	lifecycle := lifecycleFor(c.process.IsRunning())
 	if systemStatus != nil && systemStatus.Status == "shutting_down" {
 		lifecycle = "stopping"
@@ -115,7 +108,7 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 	c.process.ClearRuntimePrepare()
 	c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
 		health: &ServerLivenessStatusResponse{Status: "ok"}, readiness: readiness, systemStatus: systemStatus,
-		processLifecycle: lifecycle, processOwnership: ownershipFor(c.process.IsRunning(), true), localRecoverySummary: recovery,
+		processLifecycle: lifecycle, processOwnership: ownershipFor(c.process.IsRunning(), true),
 		lastLocalError: statusError,
 	}))
 	return nil

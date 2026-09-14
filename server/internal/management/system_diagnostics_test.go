@@ -37,18 +37,6 @@ func (s diagnosticsTestSystem) SubmitSystemBackupTask() (string, error) {
 	return "", nil
 }
 
-func (s diagnosticsTestSystem) ValidateRecoveryConfirmRequest([]string, string) *systemsvc.Error {
-	return nil
-}
-
-func (s diagnosticsTestSystem) SubmitRecoveryRecheckTask() (string, *systemsvc.Error) {
-	return "", nil
-}
-
-func (s diagnosticsTestSystem) SubmitRecoveryConfirmTask([]string, string, string) (string, *systemsvc.Error) {
-	return "", nil
-}
-
 func (s diagnosticsTestSystem) SubmitRuntimeBootstrapTask([]string) (string, error) {
 	return "", nil
 }

@@ -80,7 +80,6 @@ export interface LauncherLocalSnapshot {
     "settings": LauncherSettings;
     "resolvedSettings": LauncherResolvedSettings;
     "endpoint": ServerEndpoint;
-    "localRecoverySummary": ServerRecoveryCompatibilitySummary | null;
 }
 
 export enum LauncherProcessLifecycle {
@@ -234,7 +233,6 @@ export interface ServerReadinessStatusResponse {
     "reason_codes"?: string[] | null;
     "checks"?: ServerReadinessStatusResponseChecks | null;
     "issues"?: ServerDiagnosticIssue[] | null;
-    "recovery_summary"?: ServerRecoveryCompatibilitySummary | null;
 }
 
 export interface ServerReadinessStatusResponseChecks {
@@ -242,63 +240,6 @@ export interface ServerReadinessStatusResponseChecks {
     "database"?: string;
     "runtime"?: string;
     "render"?: string;
-}
-
-export interface ServerRecoveryCompatibilityAuditEntry {
-    "task_id": string;
-    "created_at": string;
-    "operator_id": string;
-    "note": string;
-    "items": ServerRecoveryCompatibilityAuditItem[] | null;
-}
-
-export interface ServerRecoveryCompatibilityAuditItem {
-    "review_id": string;
-    "plugin_id": string;
-    "reason_code": string;
-    "summary": string;
-    "version"?: string;
-}
-
-export interface ServerRecoveryCompatibilityIssue {
-    "code": string;
-    "severity": string;
-    "summary": string;
-    "remediation"?: string;
-    "runtime_resources"?: string[] | null;
-}
-
-export interface ServerRecoveryCompatibilitySkippedPlugin {
-    "plugin_id": string;
-    "version"?: string;
-    "reason_code": string;
-    "summary": string;
-    "review_id": string;
-    "review_status": string;
-    "reviewed_at"?: string;
-    "reviewed_by"?: string;
-    "manual_action"?: string;
-    "manifest_path"?: string;
-}
-
-export interface ServerRecoveryCompatibilitySummary {
-    "status": string;
-    "phase": string;
-    "operation": string;
-    "created_at": string;
-    "updated_at": string;
-    "source_core_version"?: string;
-    "target_core_version"?: string;
-    "source_config_schema_version"?: string;
-    "target_config_schema_version"?: string;
-    "source_db_schema_version"?: string;
-    "target_db_schema_version"?: string;
-    "requires_post_start_checks"?: boolean;
-    "issues"?: ServerRecoveryCompatibilityIssue[] | null;
-    "skipped_plugins"?: ServerRecoveryCompatibilitySkippedPlugin[] | null;
-    "manual_actions"?: string[] | null;
-    "next_steps"?: string[] | null;
-    "audit"?: ServerRecoveryCompatibilityAuditEntry[] | null;
 }
 
 export interface ServerSystemStatusResponse {
@@ -309,6 +250,5 @@ export interface ServerSystemStatusResponse {
     "failed_plugins"?: number;
     "db_schema_version"?: string;
     "uptime_seconds"?: number;
-    "recovery_summary"?: ServerRecoveryCompatibilitySummary | null;
     "health"?: ServerReadinessStatusResponse | null;
 }

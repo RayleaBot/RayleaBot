@@ -125,7 +125,6 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		Renderer:         renderer,
 		Storage:          platform.Storage,
 		Scheduler:        schedulerDiagnostics{scheduler: platform.Scheduler},
-		PluginRepository: pluginStack.PluginRepository,
 		TaskExecutor:     platform.TaskExecutor,
 		LogRepository:    platform.LogRepository,
 		StatusPublisher: statusPublisherFunc(func() {

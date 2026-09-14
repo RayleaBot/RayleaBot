@@ -95,7 +95,6 @@ func TestManagementJSONRequestBoundaries(t *testing.T) {
 		{name: "store install", handler: market.install(), body: string(installBody), status: 202},
 		{name: "store create source", handler: market.createSource(), body: `{"name":"fixture","url":"https://example.invalid/catalog.json"}`, status: 201},
 		{name: "store update source", handler: market.updateSource(), body: `{"name":"fixture","url":"https://example.invalid/catalog.json"}`, status: 200},
-		{name: "recovery confirm", handler: system.HandleSystemRecoveryConfirm(), body: `{"review_ids":["fixture"]}`, status: 202},
 		{name: "runtime bootstrap", handler: system.HandleSystemRuntimeBootstrap(), body: `{"resources":["chromium"]}`, status: 202, allowEmpty: true},
 		{name: "development sync", handler: development.sync, body: string(developmentBody), status: 200, limit: 16 * 1024},
 	} {

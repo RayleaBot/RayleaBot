@@ -131,7 +131,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 
 | ID | 工作项 | 依赖 | 状态 | 证据 |
 | --- | --- | --- | --- | --- |
-| R1 | 恢复只做完整性与版本校验，删除人工确认、审计与摘要展示 | — | ⬜ 待处理 | |
+| R1 | 恢复只做完整性与版本校验，删除人工确认、审计与摘要展示 | — | ☑️ 已完成 | 删除复核 ID、确认记录、审计历史、复检与确认接口及任务、恢复摘要文件和 CLI、Web、Launcher、诊断导出四处展示，恢复版本校验由备份清单 schema 承担；Server 构建、vet、lint、全量测试，Web 类型检查与单测，Launcher Go 与 Renderer 测试，strict contracts、生成器 verify、文档与 Python 测试通过 |
 | R2 | Launcher 宽松解码，删除响应与依赖清单校验及生成模型 | R1 | ⬜ 待处理 | |
 | R3 | 管理面不再展示兼容矩阵，删除接口、面板与 smoke，矩阵只保留在开发文档 | — | ☑️ 已完成 | 接口、错误码、Go 矩阵、Web 面板与路由、fixtures、样例和 smoke 检查删除，发布清单未使用的 `onebot_matrix` 一并移除；矩阵写入 `docs/dev/onebot-compatibility.md`；Server 构建、vet、lint、全量测试，Web 类型检查与单测，strict contracts、生成器 verify 与 Python 测试通过 |
 | R4 | 删除 Prometheus 指标接口与依赖 | — | ☑️ 已完成 | 删除指标注册表、各服务观察者与 HTTP 请求观察者；渲染请求测试改为读取 worker 占用数；Server 构建、vet、全量测试、strict contracts、Web 类型重生成与第三方声明检查通过 |

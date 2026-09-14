@@ -7,7 +7,7 @@
 - 平台使用内嵌 schema 默认值与 `config/user.yaml` 生成有效配置。
 - 运行根目录围绕 `config/`、`data/`、`cache/`、`logs/`、`plugins/installed/` 和 `.deps/` 组织。
 - Launcher 本地设置位于 `data/launcher.json`，用于安装根选择、关闭行为和本地覆盖项，不替代 `config/user.yaml`。
-- Launcher 设置文件或本机恢复摘要损坏时保留原文件并报告诊断；不以默认设置覆盖损坏数据。
+- Launcher 设置文件损坏时保留原文件并报告诊断；不以默认设置覆盖损坏数据。
 - 配置读取、schema 校验、热更新快照和 `restart_required` 语义由服务端统一决定。
 - 服务启动先获取 `<config-path>.runtime.lock`；同一配置文件已有运行实例时 fail-fast。锁在构建失败或服务关闭完成时释放，离线 `config init` / `config normalize` 在锁被占用时拒绝写入。
 - 插件不能直接读写 `config/user.yaml`，配置读写必须通过正式能力入口。
@@ -21,17 +21,16 @@
 
 ## 恢复、诊断与运行环境准备
 
-- 恢复预检、启动后的兼容检查和人工处理摘要统一写入 `logs/recovery-summary.json`。
-- Web 管理面使用聚合系统 diagnostics，诊断导出收集受限运行信息；CLI `doctor` 与 Launcher preflight 各自检查本地职责范围。各入口可以复用恢复摘要，但不共享完整资源问题列表。
-- `runtime.bootstrap` 负责运行环境资源准备；`recovery.recheck` 和 `recovery.confirm` 负责恢复摘要再检查与人工确认。
-- 平台把恢复、兼容检查、运行环境资源准备和人工处理建议视为同一条正式运维链路的一部分。
+- Web 管理面使用聚合系统 diagnostics，诊断导出收集受限运行信息；CLI `doctor` 与 Launcher preflight 各自检查本地职责范围，各入口不共享完整资源问题列表。
+- `runtime.bootstrap` 负责运行环境资源准备。
+- 恢复只按备份清单校验归档完整性与版本，不逐个评估已安装插件，也不生成恢复摘要或人工确认记录；插件合同版本不兼容时，插件启动失败并按普通插件状态显示。
 - `data/launcher.json` 随同机目录保留，不进入正式恢复包范围。
 
 ### 数据初始化与本版恢复
 
 SQLite 从 `server/internal/storage/schema.sql` 在事务内创建全新结构，并在 `schema_metadata` 保存结构版本与初始化时间。当前结构版本为 `000002`：启动读到 `000001` 时，按 `store_schema.go` 的有序表执行事务迁移，保留初始化时间和既有业务数据，失败回滚。重复启动不重复迁移；缺失元数据、未知版本或跳版均报错。结构变更同步全新 schema、迁移步骤和 sqlc 生成物，应用查询明确列名。配置版本为 `4`，管理员密码使用带随机盐的 Argon2id 格式。
 
-恢复包从归档配置和 SQLite 快照读取真实版本，并接受迁移表支持的旧结构；未包含数据库时清单明确记录 `absent`。recovery 服务在隔离目录校验完整归档、有效配置与数据库，按配置确定便携数据库落点，再写入数据和恢复摘要；计划写入的目标已存在时拒绝恢复。目标访问使用受限根目录句柄并拒绝符号链接；写入失败时只删除本次写入的文件。CLI 只承担命令边界与生命周期锁。恢复后的首次启动执行迁移，再统一检查资源与插件状态，摘要分别保留源结构版本与目标版本。
+恢复包从归档配置和 SQLite 快照读取真实版本，并接受迁移表支持的旧结构；未包含数据库时清单明确记录 `absent`。recovery 服务在隔离目录校验完整归档、有效配置与数据库，按配置确定便携数据库落点，再写入数据；计划写入的目标已存在时拒绝恢复。目标访问使用受限根目录句柄并拒绝符号链接；写入失败时只删除本次写入的文件。CLI 只承担命令边界与生命周期锁。恢复后的首次启动执行迁移，迁移日志记录源结构版本与目标版本。
 
 `scripts/release/rehearse_current_recovery.py` 使用真实 Server 在新建目录中初始化、创建管理员与插件业务数据，执行备份，再恢复到另一个空目录，核对配置、数据库、插件文件、恢复后的登录和重复启动结果，输出包含过程日志与结果 JSON。旧结构迁移由存储包的迁移测试覆盖。
 
@@ -39,7 +38,7 @@ SQLite 从 `server/internal/storage/schema.sql` 在事务内创建全新结构�
 
 - 服务端是正式状态来源，`healthz`、`readyz`、`setup/status`、`launcher/status` 和 `launcher/shutdown` 保持正式契约。
 - Launcher 通过受控进程编排启动 `raylea-server`，并直接调用本机 launcher surface。
-- `scripts/generate-launcher-api.py` 从 OpenAPI 的存活、就绪、系统状态、恢复摘要与关闭响应生成 Go 模型及递归 schema 引用闭包。Go HTTP 边界验证必填、枚举、范围和未知字段后才生成 Wails 快照；Renderer 不再维护另一套服务响应校验。Launcher 的 OpenAPI TypeScript 产物只包含同一引用闭包，不进入运行时 bundle。
+- `scripts/generate-launcher-api.py` 从 OpenAPI 的存活、就绪、系统状态与关闭响应生成 Go 模型及递归 schema 引用闭包。Go HTTP 边界验证必填、枚举、范围和未知字段后才生成 Wails 快照；Renderer 不再维护另一套服务响应校验。Launcher 的 OpenAPI TypeScript 产物只包含同一引用闭包，不进入运行时 bundle。
 - `desktop.Coordinator` 组装进程、设置、更新与监控；`startupGate` 独立持有启动许可、取消句柄和停止阻塞计数。快照组装与发布共享同一受保护状态，更新结果不会被一次较早的服务探测覆盖。
 - Launcher 快照分成两组数据：
   - `server`：`health`、`readiness`、`systemStatus`

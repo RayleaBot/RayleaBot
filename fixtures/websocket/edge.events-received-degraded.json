@@ -8,8 +8,8 @@
     "data": {
       "service_status": "degraded",
       "summary": "服务运行条件受限",
-      "reason": "恢复兼容性检查需要处理",
-      "reason_codes": ["recovery.degraded"]
+      "reason": "浏览器运行资源缺失",
+      "reason_codes": ["platform.resource_missing"]
     }
   },
   "expect": {

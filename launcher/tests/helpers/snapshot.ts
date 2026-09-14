@@ -23,7 +23,6 @@ export function createLauncherSnapshot(overrides: DeepPartial<LauncherSnapshot> 
       runtimePrepare: null,
       lastLocalError: "",
       statusHint: "",
-      localRecoverySummary: null,
       ...overrides.launcher,
       releaseCheck: {
         status: "disabled",

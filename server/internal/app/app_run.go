@@ -270,7 +270,6 @@ func configureAppRuntimeCallbacks(application *App) {
 	protocolService := application.services.Protocol
 
 	systemService.BindShutdownFlag(&application.process.shuttingDown)
-	systemService.RefreshRecoverySummary()
 
 	if application.runtimes != nil {
 		application.runtimes.SetOnCrash(lifecycle.HandleCrash)

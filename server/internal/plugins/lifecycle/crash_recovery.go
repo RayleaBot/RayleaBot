@@ -62,7 +62,6 @@ func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string)
 	if !c.launch(func() { c.startPluginAsync(updated.PluginID) }) {
 		return updated, context.Canceled
 	}
-	c.reconcileRecoverySummaryBestEffort("plugin.dead_letter_recover")
 	return updated, nil
 }
 

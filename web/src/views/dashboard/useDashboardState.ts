@@ -18,8 +18,6 @@ export function useDashboardState() {
     loading,
     readiness,
     recentEvents,
-    recoveryConfirmPending,
-    recoveryRecheckPending,
     runtimeBootstrapPending,
     system,
   } = storeToRefs(systemStore)
@@ -27,21 +25,15 @@ export function useDashboardState() {
 
   const issuesExpanded = ref(false)
   const eventsExpanded = ref(false)
-  const selectedRecoveryReviewIds = ref<string[]>([])
-  const recoveryConfirmNote = ref('')
 
   const derivedState = useDashboardDerivedState({
     diagnostics,
     health,
     readiness,
-    selectedRecoveryReviewIds,
     system,
   })
   const refreshState = useDashboardRefresh({
     adaptersStore,
-    recoveryConfirmNote,
-    recoverySummary: derivedState.recoverySummary,
-    selectedRecoveryReviewIds,
     systemStore,
   })
 
@@ -60,11 +52,7 @@ export function useDashboardState() {
     adaptersStore,
     readiness,
     recentEvents,
-    recoveryConfirmNote,
-    recoveryConfirmPending,
-    recoveryRecheckPending,
     runtimeBootstrapPending,
-    selectedRecoveryReviewIds,
     system,
     systemStore,
   }

@@ -1,9 +1,6 @@
-import { onMounted, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { onMounted, ref } from 'vue'
 
 type DashboardRefreshInput = {
-  recoveryConfirmNote: Ref<string>
-  recoverySummary: ComputedRef<any>
-  selectedRecoveryReviewIds: Ref<string[]>
   adaptersStore: {
     refresh: () => Promise<unknown>
   }
@@ -28,18 +25,6 @@ export function useDashboardRefresh(input: DashboardRefreshInput) {
       // store error state drives the page
     }
   }
-
-  watch(input.recoverySummary, (nextSummary) => {
-    const pendingIds = new Set(
-      (nextSummary?.skipped_plugins ?? [])
-        .filter((plugin: any) => plugin.review_status !== 'confirmed')
-        .map((plugin: any) => plugin.review_id),
-    )
-    input.selectedRecoveryReviewIds.value = input.selectedRecoveryReviewIds.value.filter(reviewID => pendingIds.has(reviewID))
-    if (input.selectedRecoveryReviewIds.value.length === 0) {
-      input.recoveryConfirmNote.value = ''
-    }
-  })
 
   onMounted(() => {
     void refreshState()

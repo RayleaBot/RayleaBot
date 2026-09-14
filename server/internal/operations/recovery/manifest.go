@@ -94,3 +94,10 @@ func loadManifestPlugins(pluginsRoot string) []BackupManifestPlugin {
 	})
 	return items
 }
+
+func stringValue(value any) string {
+	if text, ok := value.(string); ok {
+		return strings.TrimSpace(text)
+	}
+	return ""
+}

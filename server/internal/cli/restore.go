@@ -30,7 +30,6 @@ func runRestore(cmd Command) int {
 	}
 	cmd.Logger.Info("备份恢复完成", "restored_files", result.RestoredFiles,
 		"database_path", displayLogPath(repoRoot, result.DatabasePath),
-		"database_relocated", result.DatabaseRelocated,
-		"recovery_summary", displayLogPath(repoRoot, recovery.SummaryPath(repoRoot)))
+		"database_relocated", result.DatabaseRelocated)
 	return 0
 }

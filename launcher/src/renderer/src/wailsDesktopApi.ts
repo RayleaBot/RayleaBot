@@ -58,7 +58,6 @@ export function normalizeWailsSnapshot(snapshot: desktopModels.LauncherSnapshot)
         ...local.settings,
         closeBehavior: expectEnumValue(local.settings.closeBehavior, desktopModels.LauncherCloseBehavior, "launcher.settings.closeBehavior"),
       },
-      localRecoverySummary: local.localRecoverySummary as LauncherSnapshot["launcher"]["localRecoverySummary"],
     },
   };
 }

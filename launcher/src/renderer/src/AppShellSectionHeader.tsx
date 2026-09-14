@@ -98,7 +98,7 @@ export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
   const sectionMeta = sectionContent[props.renderedSection];
   const presentation = deriveLauncherPresentation(props.snapshot);
   const hasRecentStderr = props.snapshot.launcher.recentStderr.length > 0;
-  const canPrepareRuntime = presentation.canRunRecoveryActions
+  const canPrepareRuntime = presentation.canRunRuntimeActions
     && !props.controlsDisabled
     && props.snapshot.launcher.preflightChecks.some((item) => item.severity !== "ok" && isRuntimePreparationIssue(item.code));
 

@@ -5,7 +5,6 @@ import type {
   LogProtocol,
   PluginRole,
   PluginState,
-  RecoveryCompatibilitySummary,
   ReadinessStatusResponse,
   SystemStatusResponse,
 } from '@/types/api'
@@ -69,10 +68,6 @@ export function getReadinessStatusLabel(status?: ReadinessStatusResponse['status
 
 export function getAdapterStateLabel(status?: string) {
   return status ? translated(`display.adapterStates.${status}`, status) : t('display.empty')
-}
-
-export function getRecoveryStatusLabel(status?: RecoveryCompatibilitySummary['status']) {
-  return status ? translated(`display.recoveryStatuses.${status}`, status) : t('display.empty')
 }
 
 export type StatusType = 'success' | 'warning' | 'danger' | 'muted'

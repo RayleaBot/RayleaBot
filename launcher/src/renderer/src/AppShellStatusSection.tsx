@@ -3,7 +3,6 @@ import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherResolvedSettings, LauncherSnapshot } from "@shared/launcher-models";
 
 import { busyActionLabels, isRuntimePreparationIssue, sortChecks } from "./AppShell.shared";
-import { formatRecoverySummary } from "./AppShell.copy";
 import { AppShellServiceControl } from "./AppShellServiceControl";
 import { AppShellStatusLogs } from "./AppShellStatusLogs";
 import { AppShellStatusRail } from "./AppShellStatusRail";
@@ -34,7 +33,6 @@ export function AppShellStatusSection({
   onOpenLogs,
 }: StatusSectionProps) {
   const presentation = useMemo(() => deriveLauncherPresentation(snapshot), [snapshot]);
-  const recoverySummary = presentation.recoverySummary;
   const runtimePrepare = snapshot.launcher.runtimePrepare ?? null;
   const readiness = snapshot.server.readiness ?? null;
   const setupRequired = readiness?.status === "setup_required";
@@ -55,7 +53,6 @@ export function AppShellStatusSection({
   );
   const primaryReadinessIssue = setupRequired ? null : readinessIssues[0] ?? null;
   const primaryEnvironmentIssue = nonOkChecks[0] ?? null;
-  const recoveryStatusSummary = formatRecoverySummary(recoverySummary);
   const hasRecentStderr = snapshot.launcher.recentStderr.length > 0;
   const statusAlert =
     snapshot.launcher.lastLocalError
@@ -93,11 +90,8 @@ export function AppShellStatusSection({
       || nonOkReadinessChecks.length,
   );
   const canOpenWebUi = presentation.canOpenWebUi;
-  const canRunRecoveryActions = presentation.canRunRecoveryActions && !controlsDisabled;
-  const canRecheckRecovery = canRunRecoveryActions && presentation.canRecheckRecovery;
-  const canPrepareRuntime = canRunRecoveryActions && nonOkChecks.some((item) => isRuntimePreparationIssue(item.code));
-  const showRecoveryPanel = Boolean(recoverySummary) || canPrepareRuntime;
-  const showStatusRail = nonOkChecks.length > 0 || showRecoveryPanel;
+  const canPrepareRuntime = presentation.canRunRuntimeActions && !controlsDisabled && nonOkChecks.some((item) => isRuntimePreparationIssue(item.code));
+  const showStatusRail = nonOkChecks.length > 0 || canPrepareRuntime;
   const startDisabled =
     controlsDisabled
     || ((presentation.state === "running" || presentation.state === "degraded")
@@ -212,11 +206,8 @@ export function AppShellStatusSection({
         {showStatusRail ? (
           <AppShellStatusRail
             canPrepareRuntime={canPrepareRuntime}
-            canRecheckRecovery={canRecheckRecovery}
             checks={nonOkChecks}
             onOpenTasks={onOpenTasks}
-            recoveryStatusSummary={recoveryStatusSummary}
-            showRecoverySummary={Boolean(recoverySummary)}
           />
         ) : null}
       </div>

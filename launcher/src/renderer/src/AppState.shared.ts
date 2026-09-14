@@ -1,4 +1,4 @@
-import { deriveLauncherPresentation, formatReadinessIssue, resolveRecoverySummary } from "@shared/launcher-presentation";
+import { deriveLauncherPresentation, formatReadinessIssue } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import {
   formatDiagnosticCheckName,
@@ -8,7 +8,6 @@ import {
   formatProcessLifecycle,
   formatProcessOwnership,
   formatReadinessStatus,
-  formatRecoverySummary,
   formatSystemStatus,
 } from "./AppShell.copy";
 
@@ -55,7 +54,6 @@ export const initialSnapshot: LauncherSnapshot = {
       port: 8080,
       baseUrl: "http://127.0.0.1:8080/",
     },
-    localRecoverySummary: null,
   },
 };
 
@@ -80,7 +78,6 @@ export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
     snapshot.launcher.recentStderr.length
       ? snapshot.launcher.recentStderr.join("\n")
       : "未发现新的错误日志。";
-  const recoverySummary = resolveRecoverySummary(snapshot);
 
   return [
     `状态摘要：${presentation.label}`,
@@ -111,8 +108,6 @@ export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
     ].join("\n"),
     "环境检查：",
     checks || "- 没有需要显示的检查项。",
-    "恢复兼容性：",
-    formatRecoverySummary(recoverySummary),
     "最近错误日志：",
     recentErrors,
   ].join("\n");

@@ -557,40 +557,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/system/recovery/recheck": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Start an asynchronous recovery.recheck task to recompute and persist the current recovery summary. */
-        post: operations["createRecoveryRecheck"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/system/recovery/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Start an asynchronous recovery.confirm task to record operator confirmation for the current skipped plugin list. */
-        post: operations["createRecoveryConfirm"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/system/runtime/bootstrap": {
         parameters: {
             query?: never;
@@ -1262,7 +1228,6 @@ export interface components {
             /** @description Current database schema migration version. */
             db_schema_version?: string;
             uptime_seconds?: number;
-            recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
             health?: components["schemas"]["ReadinessStatusResponse"];
         };
         SystemDiagnosticsResponse: {
@@ -1282,7 +1247,6 @@ export interface components {
             filesystem: components["schemas"]["SystemDiagnosticsPathPermission"][];
             recent_errors: components["schemas"]["LogSummary"][];
             issues: components["schemas"]["DiagnosticIssue"][];
-            recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
         };
         SystemDiagnosticsBuild: {
             core_version: string;
@@ -1561,7 +1525,6 @@ export interface components {
                 render?: string;
             };
             issues?: components["schemas"]["DiagnosticIssue"][];
-            recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
         };
         DiagnosticIssue: {
             code: string;
@@ -1573,76 +1536,6 @@ export interface components {
             internal_reason?: string;
             /** @description 可通过运行环境准备任务处理的资源；省略时客户端不推断准备目标。 */
             runtime_resources?: ("chromium" | "ffmpeg")[];
-        };
-        RecoveryCompatibilityIssue: {
-            code: string;
-            /** @enum {string} */
-            severity: "warning" | "error";
-            summary: string;
-            remediation?: string;
-            /** @description 可通过运行环境准备任务处理的资源；省略时客户端不推断准备目标。 */
-            runtime_resources?: ("chromium" | "ffmpeg")[];
-        };
-        RecoveryCompatibilitySkippedPlugin: {
-            plugin_id: string;
-            version?: string;
-            reason_code: string;
-            summary: string;
-            review_id: string;
-            /** @enum {string} */
-            review_status: "pending" | "confirmed";
-            /** Format: date-time */
-            reviewed_at?: string;
-            reviewed_by?: string;
-            manual_action?: string;
-            manifest_path?: string;
-        };
-        RecoveryCompatibilityAuditItem: {
-            review_id: string;
-            plugin_id: string;
-            reason_code: string;
-            summary: string;
-            version?: string;
-        };
-        RecoveryCompatibilityAuditEntry: {
-            task_id: string;
-            /** Format: date-time */
-            created_at: string;
-            operator_id: string;
-            note: string;
-            items: components["schemas"]["RecoveryCompatibilityAuditItem"][];
-        };
-        RecoveryConfirmRequest: {
-            review_ids: string[];
-            note?: string;
-        };
-        RecoveryCompatibilitySummary: {
-            /** @enum {string} */
-            status: "pending" | "compatible" | "degraded" | "blocked";
-            /** @enum {string} */
-            phase: "pre_restore" | "post_startup";
-            /** @constant */
-            operation: "restore";
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            source_core_version?: string;
-            target_core_version?: string;
-            source_config_schema_version?: string;
-            target_config_schema_version?: string;
-            /** @description Actual archived database version, including a supported older structure such as 000001. absent denotes a configuration-only archive. */
-            source_db_schema_version?: string;
-            /** @description Structure expected after first startup; 000002 for the v0.6 migration chain. Source and target are reported separately before and after startup. */
-            target_db_schema_version?: string;
-            requires_post_start_checks?: boolean;
-            issues?: components["schemas"]["RecoveryCompatibilityIssue"][];
-            skipped_plugins?: components["schemas"]["RecoveryCompatibilitySkippedPlugin"][];
-            /** @description Post-startup degraded summaries keep stable operator actions here; compatible summaries omit this field. */
-            manual_actions?: string[];
-            /** @description Post-startup degraded summaries keep stable follow-up steps here; compatible summaries omit this field. */
-            next_steps?: string[];
-            audit?: components["schemas"]["RecoveryCompatibilityAuditEntry"][];
         };
         /** @description Polling reports the terminal task status and error code. Plugin install and uninstall are successful only after their required post-processing completes. Full task log details follow error-codes.yaml operation_state and failures: a committed file change or failed rollback is never reported as success. A cancellation with failed rollback remains failed, and failed rollback retains its installation working directory for recovery. */
         TaskStatusResponse: {
@@ -3637,59 +3530,6 @@ export interface operations {
             };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createRecoveryRecheck: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Recovery recheck task accepted. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskAcceptedResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createRecoveryConfirm: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RecoveryConfirmRequest"];
-            };
-        };
-        responses: {
-            /** @description Recovery confirmation task accepted. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaskAcceptedResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

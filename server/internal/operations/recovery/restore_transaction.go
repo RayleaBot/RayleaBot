@@ -43,7 +43,6 @@ func (w *restoreWorkspace) planWrites(entries map[string]*zip.File, configRelati
 			writes = append(writes, restoreWrite{target: filepath.FromSlash(databaseRelative) + suffix})
 		}
 	}
-	writes = append(writes, restoreWrite{target: filepath.FromSlash(RecoverySummaryPath), staged: filepath.Join(work, "summary.json")})
 	sort.Slice(writes, func(i, j int) bool { return writes[i].target < writes[j].target })
 	seenTargets := make(map[string]bool, len(writes))
 	for _, write := range writes {

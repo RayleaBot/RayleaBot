@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
-	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
@@ -70,15 +69,14 @@ type coreSetupStatusResponse struct {
 }
 
 type CoreSystemStatusResponse struct {
-	Status          string                         `json:"status"`
-	Adapters        []adapterservice.Status        `json:"adapters"`
-	ActivePlugins   int                            `json:"active_plugins"`
-	RunningPlugins  int                            `json:"running_plugins"`
-	FailedPlugins   int                            `json:"failed_plugins"`
-	DBSchemaVersion string                         `json:"db_schema_version"`
-	UptimeSeconds   int64                          `json:"uptime_seconds"`
-	RecoverySummary *recovery.CompatibilitySummary `json:"recovery_summary,omitempty"`
-	Health          *systemsvc.ReadinessReport     `json:"health,omitempty"`
+	Status          string                     `json:"status"`
+	Adapters        []adapterservice.Status    `json:"adapters"`
+	ActivePlugins   int                        `json:"active_plugins"`
+	RunningPlugins  int                        `json:"running_plugins"`
+	FailedPlugins   int                        `json:"failed_plugins"`
+	DBSchemaVersion string                     `json:"db_schema_version"`
+	UptimeSeconds   int64                      `json:"uptime_seconds"`
+	Health          *systemsvc.ReadinessReport `json:"health,omitempty"`
 }
 
 type coreShutdownResponse struct {
@@ -167,7 +165,6 @@ func coreStatusResponseFromSnapshot(snapshot systemsvc.StatusSnapshot) CoreSyste
 		FailedPlugins:   snapshot.FailedPlugins,
 		DBSchemaVersion: snapshot.DBSchemaVersion,
 		UptimeSeconds:   snapshot.UptimeSeconds,
-		RecoverySummary: snapshot.RecoverySummary,
 		Health:          snapshot.Health,
 	}
 }

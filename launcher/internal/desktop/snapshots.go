@@ -28,7 +28,6 @@ func cloneSnapshot(snapshot LauncherSnapshot) LauncherSnapshot {
 	clone.Launcher.RuntimePrepare = cloneRuntimePrepare(snapshot.Launcher.RuntimePrepare)
 	clone.Launcher.ReleaseCheck = snapshot.Launcher.ReleaseCheck
 	clone.Launcher.Settings = cloneSettings(snapshot.Launcher.Settings)
-	clone.Launcher.LocalRecoverySummary = cloneResponse(snapshot.Launcher.LocalRecoverySummary)
 	return clone
 }
 
@@ -149,16 +148,6 @@ func readinessStatus(value *ServerReadinessStatusResponse) string {
 		return ""
 	}
 	return value.Status
-}
-
-func recoveryFromPayload(systemStatus *ServerSystemStatusResponse, readiness *ServerReadinessStatusResponse, fallback *ServerRecoveryCompatibilitySummary) *ServerRecoveryCompatibilitySummary {
-	if systemStatus != nil && systemStatus.RecoverySummary != nil {
-		return systemStatus.RecoverySummary
-	}
-	if readiness != nil && readiness.RecoverySummary != nil {
-		return readiness.RecoverySummary
-	}
-	return fallback
 }
 
 func primaryEnvironmentIssue(checks []EnvironmentCheckResult) *EnvironmentCheckResult {

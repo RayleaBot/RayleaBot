@@ -15,7 +15,6 @@
 | `/ws/plugins/{id}/console` | 查看插件 stderr |
 | `logs/launcher/YYYY-MM-DD.log` | 查看 Launcher 自身诊断和进程编排错误 |
 | `logs/server/YYYY-MM-DD.log` | 查看 `raylea-server` 的文本输出镜像 |
-| `logs/recovery-summary.json` | 查看恢复与兼容处理摘要 |
 
 ## 诊断信息范围
 
@@ -25,7 +24,6 @@
 - 服务运行时长、插件总数、启用数与运行数
 - 最近错误摘要、最近任务失败与渲染异常
 - 后台任务结果和错误摘要
-- 恢复摘要、人工处理建议和最近确认记录
 - 本次服务端启动日志与按时间范围筛选的历史日志
 - 命令策略拒绝记录，包含 `command_name`、`error_code`、`reason`、`policy_stage` 和匹配插件上下文
 - 脱敏后的协议消息详情、消息段、异常原因、payload preview 和 echo 类型
@@ -56,7 +54,7 @@
 - 程序版本、构建信息和运行环境摘要
 - 关键目录、资源检查和配置摘要
 - 插件列表、插件状态和最近错误快照
-- 日志摘要、恢复摘要和人工处理建议
+- 日志摘要
 
 ## 使用原则
 

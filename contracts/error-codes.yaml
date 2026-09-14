@@ -851,10 +851,6 @@ codes:
 
 # Diagnostic identities are not HTTP errors. Status and remediation belong to the containing report.
 diagnostics:
-  recovery.blocked:
-    description: Current-format recovery checks block service readiness; the containing report provides affected items and recovery actions.
-  recovery.degraded:
-    description: Recovery checks require attention while the service remains available; the containing report provides affected items and recovery actions.
   auth.unavailable:
     description: The authentication subsystem is unavailable.
   config.not_accessible:
@@ -883,20 +879,6 @@ diagnostics:
     description: Recent log errors could not be read.
   platform.template_source_invalid:
     description: A render template source failed validation.
-  plugin.min_core_version:
-    description: A plugin requires a newer core version.
-  recovery.config_schema_unsupported:
-    description: The backup configuration format is not the current format.
-  recovery.db_schema_unsupported:
-    description: The backup database structure is not the current structure.
-  recovery.plugin_incompatible:
-    description: A restored plugin does not satisfy the current runtime requirements.
-  recovery.plugin_min_core_version:
-    description: A restored plugin requires a newer core version.
-  recovery.plugin_platform_mismatch:
-    description: A restored plugin targets a different native platform.
-  recovery.post_start_checks_required:
-    description: Restored runtime resources require post-start checks.
   schema.invalid:
     description: The current configuration fails schema validation.
   schema.ok:

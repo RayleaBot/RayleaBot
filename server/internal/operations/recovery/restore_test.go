@@ -200,7 +200,7 @@ func TestRestoreRejectsTargetSymlink(t *testing.T) {
 }
 
 func TestRestoreRejectsExistingTargetsWithoutWriting(t *testing.T) {
-	for _, existing := range []string{"config/user.yaml", "data/state.json", restoredDatabaseEntry, restoredDatabaseEntry + "-wal", RecoverySummaryPath} {
+	for _, existing := range []string{"config/user.yaml", "data/state.json", restoredDatabaseEntry, restoredDatabaseEntry + "-wal"} {
 		t.Run(existing, func(t *testing.T) {
 			root := t.TempDir()
 			target := filepath.Join(root, filepath.FromSlash(existing))
@@ -372,7 +372,7 @@ func TestRestoreCleanupFailureReportsCommittedFilesAndRetainsWorkspace(t *testin
 }
 
 // restoreTargets are the files the fixture archive restores into a target root.
-var restoreTargets = []string{"config/user.yaml", "data/state.json", restoredDatabaseEntry, RecoverySummaryPath}
+var restoreTargets = []string{"config/user.yaml", "data/state.json", restoredDatabaseEntry}
 
 func assertRestoreTargetsAbsent(t *testing.T, root string) {
 	t.Helper()

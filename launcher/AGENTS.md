@@ -20,7 +20,6 @@
 - renderer 不直接操作文件系统或服务进程，不读取本地配置、日志或平台凭据；本机操作通过 Go desktop 层执行。
 - renderer 做展示层校验，本机参数由 Go desktop 层校验，服务端业务由正式 API 校验。
 - 服务端业务状态和诊断使用正式 snapshot；Go desktop 层可维护本机进程、预检和启动诊断。
-- 服务不可用时，恢复摘要可由 Go desktop 层读取本机日志目录的 recovery-summary.json；服务可用后由服务端 snapshot 覆盖。
 - 常规打开管理面只传普通 URL，Web 自行建立会话。`setup_required` 时由 Launcher 将一次性 `setup_token` 放入 URL fragment，Web 立即清除 fragment，并只通过初始化请求头提交 token。
 - 服务端错误码原样复用，本机错误使用本机命名空间，不写入服务端错误目录；错误同时提供可读说明和机器可读 code。
 - 诊断结构化输出，失败给出修复指引；用户可见错误不拼接异常堆栈或内部路径。

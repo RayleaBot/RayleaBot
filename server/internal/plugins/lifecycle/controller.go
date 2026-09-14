@@ -52,7 +52,6 @@ type Deps struct {
 	Identities          BotIdentitySource
 	Webhooks            *pluginwebhook.Registry
 	Tasks               *tasks.Registry
-	OnRecoveryChange    func(string)
 	RefreshManifest     func(context.Context, string) (plugins.Snapshot, error)
 	SyncRenderTemplates func(context.Context) error
 	Operations          *OperationGate
@@ -74,7 +73,6 @@ type Controller struct {
 	identities          BotIdentitySource
 	webhooks            *pluginwebhook.Registry
 	tasks               *tasks.Registry
-	onRecoveryChange    func(string)
 	refreshManifest     func(context.Context, string) (plugins.Snapshot, error)
 	syncRenderTemplates func(context.Context) error
 	shutdownTimeout     time.Duration
@@ -123,7 +121,6 @@ func NewController(deps Deps) (*Controller, error) {
 		identities:          deps.Identities,
 		webhooks:            deps.Webhooks,
 		tasks:               deps.Tasks,
-		onRecoveryChange:    deps.OnRecoveryChange,
 		refreshManifest:     deps.RefreshManifest,
 		syncRenderTemplates: deps.SyncRenderTemplates,
 		shutdownTimeout:     deps.ShutdownTimeout,
@@ -214,7 +211,6 @@ func (c *Controller) Enable(ctx context.Context, pluginID string) (plugins.Snaps
 	if !c.launch(func() { c.startPluginAsync(updated.PluginID) }) {
 		return updated, context.Canceled
 	}
-	c.reconcileRecoverySummaryBestEffort("plugin.enable")
 
 	return updated, nil
 }
@@ -254,7 +250,6 @@ func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snap
 			}
 		}
 	}
-	c.reconcileRecoverySummaryBestEffort("plugin.disable")
 
 	return updated, nil
 }

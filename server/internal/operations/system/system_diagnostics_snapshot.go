@@ -65,14 +65,13 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
 			Running: status.RunningPlugins,
 			Failed:  status.FailedPlugins,
 		},
-		Render:          render,
-		Scheduler:       s.diagnosticsScheduler(),
-		Tasks:           s.diagnosticsTasks(),
-		Dependencies:    dependencies,
-		Filesystem:      filesystem,
-		RecentErrors:    recentErrors,
-		Issues:          dedupeDiagnosticIssues(issues),
-		RecoverySummary: status.RecoverySummary,
+		Render:       render,
+		Scheduler:    s.diagnosticsScheduler(),
+		Tasks:        s.diagnosticsTasks(),
+		Dependencies: dependencies,
+		Filesystem:   filesystem,
+		RecentErrors: recentErrors,
+		Issues:       dedupeDiagnosticIssues(issues),
 	}
 }
 
@@ -112,7 +111,7 @@ func (s *Service) diagnosticsDatabase(ctx context.Context) (DiagnosticsDatabase,
 }
 
 func (s *Service) diagnosticsRender() DiagnosticsIssueGroup {
-	issues := recoveryIssuesToHealth(s.renderDiagnostics())
+	issues := s.renderDiagnostics()
 	status := "ok"
 	if len(issues) > 0 {
 		status = "degraded"

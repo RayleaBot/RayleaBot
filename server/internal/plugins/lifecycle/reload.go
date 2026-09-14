@@ -58,7 +58,6 @@ func (c *Controller) Reload(ctx context.Context, pluginID string) (plugins.Snaps
 		c.failReloadTaskForError(taskID, pluginID, context.Canceled, "插件重载已取消")
 		return updated, context.Canceled
 	}
-	c.reconcileRecoverySummaryBestEffort("plugin.reload")
 	return updated, nil
 }
 

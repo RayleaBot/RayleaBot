@@ -20,7 +20,6 @@ info:
     platform.invalid_request after the route's authentication checks.
 x-fixtures:
   - fixtures/web-api/ok.plugin-message-policy.yaml
-  - fixtures/web-api/ok.recovery-forward-migration.yaml
   - fixtures/web-api/ok.log-detail-response.outbound-qqofficial.yaml
   - fixtures/web-api/ok.log-detail-response.outbound-onebot11.yaml
   - fixtures/web-api/ok.system-task-status.yaml
@@ -59,8 +58,6 @@ x-fixtures:
   - fixtures/web-api/edge.adapter-webhook-disabled.yaml
   - fixtures/web-api/ok.system-shutdown.yaml
   - fixtures/web-api/ok.system-backup-accepted.yaml
-  - fixtures/web-api/ok.system-recovery-recheck-accepted.yaml
-  - fixtures/web-api/ok.system-recovery-confirm-accepted.yaml
   - fixtures/web-api/ok.system-runtime-bootstrap-accepted.yaml
   - fixtures/web-api/ok.system-render-templates-list-response.yaml
   - fixtures/web-api/ok.system-render-template-detail-response.yaml
@@ -972,62 +969,6 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/system/recovery/recheck:
-    post:
-      summary: Start an asynchronous recovery.recheck task to recompute and persist the current recovery summary.
-      operationId: createRecoveryRecheck
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-          CSRFAuth: []
-      responses:
-        '202':
-          description: Recovery recheck task accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskAcceptedResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        '429':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/system/recovery/confirm:
-    post:
-      summary: Start an asynchronous recovery.confirm task to record operator confirmation for the current skipped plugin list.
-      operationId: createRecoveryConfirm
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-          CSRFAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RecoveryConfirmRequest'
-      responses:
-        '202':
-          description: Recovery confirmation task accepted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TaskAcceptedResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        '429':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -2598,8 +2539,6 @@ components:
         uptime_seconds:
           type: integer
           minimum: 0
-        recovery_summary:
-          $ref: '#/components/schemas/RecoveryCompatibilitySummary'
         health:
           $ref: '#/components/schemas/ReadinessStatusResponse'
 
@@ -2649,8 +2588,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DiagnosticIssue'
-        recovery_summary:
-          $ref: '#/components/schemas/RecoveryCompatibilitySummary'
 
     SystemDiagnosticsBuild:
       type: object
@@ -3302,8 +3239,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DiagnosticIssue'
-        recovery_summary:
-          $ref: '#/components/schemas/RecoveryCompatibilitySummary'
 
     DiagnosticIssue:
       type: object
@@ -3331,169 +3266,6 @@ components:
           items:
             type: string
             enum: [chromium, ffmpeg]
-
-    RecoveryCompatibilityIssue:
-      type: object
-      additionalProperties: false
-      required: [code, severity, summary]
-      properties:
-        code:
-          type: string
-        severity:
-          type: string
-          enum: [warning, error]
-        summary:
-          type: string
-        remediation:
-          type: string
-        runtime_resources:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          description: 可通过运行环境准备任务处理的资源；省略时客户端不推断准备目标。
-          items:
-            type: string
-            enum: [chromium, ffmpeg]
-
-    RecoveryCompatibilitySkippedPlugin:
-      type: object
-      additionalProperties: false
-      required: [plugin_id, reason_code, summary, review_id, review_status]
-      properties:
-        plugin_id:
-          type: string
-        version:
-          type: string
-        reason_code:
-          type: string
-        summary:
-          type: string
-        review_id:
-          type: string
-        review_status:
-          type: string
-          enum: [pending, confirmed]
-        reviewed_at:
-          type: string
-          format: date-time
-        reviewed_by:
-          type: string
-        manual_action:
-          type: string
-        manifest_path:
-          type: string
-
-    RecoveryCompatibilityAuditItem:
-      type: object
-      additionalProperties: false
-      required: [review_id, plugin_id, reason_code, summary]
-      properties:
-        review_id:
-          type: string
-        plugin_id:
-          type: string
-        reason_code:
-          type: string
-        summary:
-          type: string
-        version:
-          type: string
-
-    RecoveryCompatibilityAuditEntry:
-      type: object
-      additionalProperties: false
-      required: [task_id, created_at, operator_id, note, items]
-      properties:
-        task_id:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-        operator_id:
-          type: string
-        note:
-          type: string
-          maxLength: 500
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/RecoveryCompatibilityAuditItem'
-
-    RecoveryConfirmRequest:
-      type: object
-      additionalProperties: false
-      required: [review_ids]
-      properties:
-        review_ids:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          items:
-            type: string
-            minLength: 1
-        note:
-          type: string
-          maxLength: 500
-
-    RecoveryCompatibilitySummary:
-      type: object
-      additionalProperties: false
-      required: [status, phase, operation, created_at, updated_at]
-      properties:
-        status:
-          type: string
-          enum: [pending, compatible, degraded, blocked]
-        phase:
-          type: string
-          enum: [pre_restore, post_startup]
-        operation:
-          type: string
-          const: restore
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-        source_core_version:
-          type: string
-        target_core_version:
-          type: string
-        source_config_schema_version:
-          type: string
-        target_config_schema_version:
-          type: string
-        source_db_schema_version:
-          type: string
-          description: Actual archived database version, including a supported older structure such as 000001. absent denotes a configuration-only archive.
-        target_db_schema_version:
-          type: string
-          description: Structure expected after first startup; 000002 for the v0.6 migration chain. Source and target are reported separately before and after startup.
-        requires_post_start_checks:
-          type: boolean
-        issues:
-          type: array
-          items:
-            $ref: '#/components/schemas/RecoveryCompatibilityIssue'
-        skipped_plugins:
-          type: array
-          items:
-            $ref: '#/components/schemas/RecoveryCompatibilitySkippedPlugin'
-        manual_actions:
-          type: array
-          description: Post-startup degraded summaries keep stable operator actions here; compatible summaries omit this field.
-          items:
-            type: string
-        next_steps:
-          type: array
-          description: Post-startup degraded summaries keep stable follow-up steps here; compatible summaries omit this field.
-          items:
-            type: string
-        audit:
-          type: array
-          maxItems: 50
-          items:
-            $ref: '#/components/schemas/RecoveryCompatibilityAuditEntry'
 
     TaskStatusResponse:
       type: object

@@ -6,4 +6,3 @@ input:
 expect:
   valid: true
   exit_code: 0
-  recovery_summary_status: pending

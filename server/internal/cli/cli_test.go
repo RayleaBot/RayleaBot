@@ -273,14 +273,6 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 	if err != nil || string(restoredHiddenState) != "42" {
 		t.Errorf("restored hidden application data mismatch: %q, %v", string(restoredHiddenState), err)
 	}
-
-	summary, err := recovery.LoadSummary(destDir)
-	if err != nil {
-		t.Fatalf("load recovery summary: %v", err)
-	}
-	if summary == nil || summary.Status != "pending" {
-		t.Fatalf("restore should persist pending recovery summary, got %#v", summary)
-	}
 }
 
 func TestRestoreRejectsIncompleteManifestBeforeExtraction(t *testing.T) {
@@ -867,36 +859,6 @@ func TestDoctorReportChecksSQLiteIntegrity(t *testing.T) {
 	}
 	if !strings.Contains(issue.Remediation, "data/quarantine/") || !strings.Contains(issue.Remediation, "data/sqlite-snapshots/") {
 		t.Fatalf("corrupt database remediation should mention recovery paths: %#v", issue)
-	}
-}
-
-func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
-	t.Parallel()
-
-	repoRoot := t.TempDir()
-	configPath := filepath.Join(repoRoot, "config", "user.yaml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(configPath, []byte("schema_version: \"4\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := recovery.SaveSummary(repoRoot, recovery.CompatibilitySummary{
-		Status:    "degraded",
-		Phase:     "post_startup",
-		Operation: "upgrade",
-		CreatedAt: "2026-04-02T00:00:00Z",
-		UpdatedAt: "2026-04-02T00:01:00Z",
-	}); err != nil {
-		t.Fatalf("save recovery summary: %v", err)
-	}
-
-	report := diagnostics.Build(context.Background(), diagnostics.Options{
-		ConfigPath: configPath,
-	})
-
-	if report.RecoverySummary == nil || report.RecoverySummary.Status != "degraded" {
-		t.Fatalf("doctor report should expose recovery summary, got %#v", report.RecoverySummary)
 	}
 }
 
