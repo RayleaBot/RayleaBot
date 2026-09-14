@@ -79,6 +79,21 @@ func TestManagementClientUsesFormalLauncherControlHeader(t *testing.T) {
 	}
 }
 
+func TestManagementClientHealthRequiresOKStatus(t *testing.T) {
+	for _, body := range []string{`{}`, `null`, `{"status":"failed"}`, `{"service":"other","healthy":true}`, `not json`} {
+		t.Run(body, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+				fmt.Fprint(writer, body)
+			}))
+			defer server.Close()
+
+			if NewManagementClient(func() string { return "" }).IsHealthy(context.Background(), ServerEndpoint{BaseURL: server.URL + "/"}) {
+				t.Fatalf("IsHealthy() = true for %s", body)
+			}
+		})
+	}
+}
+
 func TestManagementClientReturnsStructuredError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.WriteHeader(http.StatusForbidden)

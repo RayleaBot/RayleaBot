@@ -79,8 +79,8 @@ func (m *ManagementClient) IsHealthy(ctx context.Context, endpoint ServerEndpoin
 	if response.StatusCode != http.StatusOK {
 		return false
 	}
-	_, err = decodeServerResponse[ServerLivenessStatusResponse](response.Body)
-	return err == nil
+	payload, err := decodeServerResponse[ServerLivenessStatusResponse](response.Body)
+	return err == nil && payload.Status == "ok"
 }
 
 func (m *ManagementClient) GetReadiness(ctx context.Context, endpoint ServerEndpoint) (*ServerReadinessStatusResponse, error) {
