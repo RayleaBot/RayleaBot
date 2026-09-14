@@ -18,7 +18,6 @@ import {
   StoreIcon,
   SlidersHorizontalIcon,
   BanIcon,
-  TableIcon,
   ZapIcon,
   WrenchIcon,
 } from '@lucide/vue'
@@ -37,7 +36,6 @@ const iconMap: Record<string, Component> = {
   'plugin-settings': SettingsIcon,
   'plugin-store': StoreIcon,
   plugins: BlocksIcon,
-  'protocol-compatibility': TableIcon,
   protocols: PlugZapIcon,
   'rate-limits': ZapIcon,
   'render-templates': FileTextIcon,

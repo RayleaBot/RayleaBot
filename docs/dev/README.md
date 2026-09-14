@@ -10,6 +10,7 @@
 | [diagnostics.md](./diagnostics.md) | 正式诊断入口与排障文档 |
 | [logging.md](./logging.md) | 日志分类与重复故障汇总 |
 | [text-resources.md](./text-resources.md) | 文本资源和国际化边界 |
+| [onebot-compatibility.md](./onebot-compatibility.md) | OneBot11 各实现端的事件、消息段与扩展支持范围 |
 
 ## 本地启动
 

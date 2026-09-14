@@ -6,7 +6,7 @@
 
 - `http/`
   - 配置与治理：配置保存、黑白名单和命令策略请求 / 响应。
-  - 日志与协议：当前会话、历史区间和 OneBot11 兼容矩阵响应。
+  - 日志与协议：当前会话、历史区间和协议快照响应。
   - 恢复与运行时：恢复确认、恢复复检和 Chromium bootstrap 请求 / 响应。
 - `plugins/`：Go SDK、能力参数、Vue 管理页和 artifact 构建示例。
 - `deps-manifest.sample.json`：Chromium deps manifest v5 示例。

@@ -1493,7 +1493,6 @@ test('protocol dialogs stay centered throughout their opening animation', async 
   await expectCenteredOpening('[data-slot=app-dialog][role=dialog]', page.getByTestId('adapter-onebot11'))
   await page.locator('[aria-label="关闭弹窗"]').click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expectCenteredOpening('[data-slot=app-dialog][role=dialog]', page.getByRole('button', { name: '兼容矩阵', exact: true }))
 })
 
 test('protocol deep links open dialogs within one workspace and fit a narrow viewport', async ({ page, request }) => {
@@ -1505,15 +1504,6 @@ test('protocol deep links open dialogs within one workspace and fit a narrow vie
   await expect(page.getByRole('dialog', { name: '配置 OneBot11' })).toBeVisible()
   await expectDocumentWithinViewport(page)
   await expect(page.getByTestId('adapter-save')).toBeInViewport()
-  await page.locator('[aria-label="关闭弹窗"]').click()
-  await page.goto('/protocols/compatibility')
-  await expect(page).toHaveURL(/\/protocols\?view=compatibility$/)
-  await expect(page.getByRole('dialog', { name: '协议兼容矩阵' })).toBeVisible()
-  await page.getByLabel('筛选兼容能力').fill('group.sign')
-  await expect(page.locator('.protocol-compatibility-table')).toContainText('provider.napcat.group.sign.set')
-  await expectDocumentWithinViewport(page)
-  await page.getByLabel('筛选兼容能力').fill('no-matching-capability')
-  await expect(page.getByRole('status')).toContainText('没有匹配的兼容能力')
 })
 
 test('protocol center owns OneBot settings and logs center keeps protocol filtering', async ({ page, request }) => {
@@ -1574,10 +1564,6 @@ test('management links connect protocol, logs, plugin, and commands workspaces',
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
   await expect(logDetailWindow(page)).toBeHidden()
   await expect(page.locator('.app-dialog-overlay')).toHaveCount(0)
-
-  await page.getByRole('button', { name: '兼容矩阵' }).click()
-  await expect.poll(() => page.url()).toContain('/protocols?view=compatibility')
-  await expect(page.getByRole('dialog', { name: '协议兼容矩阵' })).toBeVisible()
 
   await page.goto('/protocols')
   await page.getByTestId('adapter-onebot11').click()

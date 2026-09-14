@@ -332,38 +332,6 @@ func TestProtocolSnapshotHandler(t *testing.T) {
 	}
 }
 
-func TestProtocolCompatibilityHandler(t *testing.T) {
-	t.Parallel()
-
-	application := newTestApp(t, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
-	server := newManagementTestServer(t, application.Handler())
-	defer server.Close()
-
-	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11/compatibility", nil)
-	if err != nil {
-		t.Fatalf("create protocol compatibility request: %v", err)
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-	response, err := server.Client().Do(request)
-	if err != nil {
-		t.Fatalf("perform protocol compatibility request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(response.Body.Close)
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected protocol compatibility status: got %d want 200", response.StatusCode)
-	}
-
-	body := decodeBody(t, readAll(t, response))
-	if body["protocol"] != "onebot11" {
-		t.Fatalf("unexpected protocol compatibility body: %#v", body)
-	}
-	categories, ok := body["categories"].([]any)
-	if !ok || len(categories) == 0 {
-		t.Fatalf("expected compatibility categories, got %#v", body["categories"])
-	}
-}
-
 func TestGovernanceBlacklistHandler(t *testing.T) {
 	t.Parallel()
 

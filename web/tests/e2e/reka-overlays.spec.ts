@@ -9,8 +9,8 @@ test.beforeEach(async ({ page, request }) => {
 })
 
 function sampleDialog(page: Page, duration = 650) {
-  return page.evaluate((milliseconds) => new Promise<Array<{ height: number; center: number; opacity: number; focused: boolean; matrixRows: number }>>((resolve) => {
-    const rows: Array<{ height: number; center: number; opacity: number; focused: boolean; matrixRows: number }> = []
+  return page.evaluate((milliseconds) => new Promise<Array<{ height: number; center: number; opacity: number; focused: boolean }>>((resolve) => {
+    const rows: Array<{ height: number; center: number; opacity: number; focused: boolean }> = []
     const start = performance.now()
     function sample(now: number) {
       const dialog = document.querySelector<HTMLElement>('[data-slot=app-dialog][role=dialog]')
@@ -21,7 +21,6 @@ function sampleDialog(page: Page, duration = 650) {
           center: Math.max(Math.abs(rect.x + rect.width / 2 - innerWidth / 2), Math.abs(rect.y + rect.height / 2 - innerHeight / 2)),
           opacity: Number(getComputedStyle(dialog).opacity),
           focused: dialog.contains(document.activeElement),
-          matrixRows: dialog.querySelectorAll('.protocol-compatibility-table tbody tr').length,
         })
       }
       if (now - start > milliseconds) resolve(rows)
@@ -80,23 +79,6 @@ test('Reka overlays preserve multiselect, nested cancellation and history reopen
   await page.getByRole('button', { name: '放弃修改', exact: true }).click()
   await expect(page.locator('[data-slot=app-dialog]')).toHaveCount(0)
   await expect(page.getByTestId('adapter-add')).toBeFocused()
-})
-
-test('compatibility rows remain visible until the dialog has finished exiting', async ({ page }) => {
-  await page.goto('/protocols')
-  const trigger = page.getByRole('button', { name: '兼容矩阵', exact: true })
-  await trigger.click()
-  await expect(page.getByRole('table')).toBeVisible()
-  await expect(page.getByRole('dialog')).toHaveCSS('opacity', '1')
-  const rowCount = await page.locator('.protocol-compatibility-table tbody tr').count()
-  const closing = sampleDialog(page)
-  await page.getByRole('button', { name: '关闭弹窗' }).click()
-  const frames = await closing
-  const intermediate = frames.filter((frame) => frame.opacity > 0.01 && frame.opacity < 0.95)
-  expect(intermediate.length).toBeGreaterThan(1)
-  expect(intermediate.every((frame) => frame.matrixRows === rowCount)).toBe(true)
-  await expect(page.getByRole('table')).toHaveCount(0)
-  await expect(trigger).toBeFocused()
 })
 
 test('Reka form remains operable in low-height, reduced-motion and forced-colors views', async ({ page }) => {

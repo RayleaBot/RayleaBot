@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AppButton from '@/components/AppButton.vue'
-import AppDialog from '@/components/AppDialog.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppAlert from '@/components/AppAlert.vue'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -15,13 +14,12 @@ import { resolveStatusTone } from '@/lib/status-tone'
 import { readAdapterInstances, type AdapterInstanceDocument } from '@/lib/adapters'
 import { cloneConfig } from '@/lib/config-form'
 import { getDisplayErrorMessage } from '@/lib/error-text'
-import { buildProtocolsLocation, buildProtocolCompatibilityLocation } from '@/lib/management-links'
+import { buildProtocolsLocation } from '@/lib/management-links'
 import { useAdaptersStore } from '@/stores/adapters'
 import { useConfigStore } from '@/stores/config'
 import type { AdapterDescriptor, ConfigUpdateResponse } from '@/types/api'
 import AdapterConfigDialog from './AdapterConfigDialog.vue'
 import AdapterConnectionCard from './AdapterConnectionCard.vue'
-import ProtocolCompatibilityPanel from './ProtocolCompatibilityPanel.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -37,7 +35,6 @@ const rows = computed(() => readAdapterInstances(configStore.document).map((conf
 })))
 const editorId = computed(() => typeof route.query.adapter === 'string' ? route.query.adapter : undefined)
 const editorOpen = computed(() => route.path === '/protocols' && (Boolean(editorId.value) || route.query.view === 'add'))
-const compatibilityOpen = computed(() => route.path === '/protocols' && route.query.view === 'compatibility' && !editorId.value)
 const editorSession = ref<{ id?: string } | null>(null)
 const removeTarget = ref<AdapterInstanceDocument | null>(null)
 watch([editorOpen, editorId], ([open, id]) => {
@@ -91,7 +88,6 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
 <template>
   <AppPage :title="t('protocols.title')" :description="t('protocols.connectionsDescription')" width="detail">
     <template #extra>
-      <AppButton @click="router.push(buildProtocolCompatibilityLocation())">{{ t('protocols.compatibilityLink') }}</AppButton>
       <AppButton variant="default" :disabled="loading || !configStore.document || Boolean(removingId)" data-testid="adapter-add" @click="router.push(buildProtocolsLocation({ view: 'add' }))"><PlusIcon />{{ t('protocols.addConnection') }}</AppButton>
     </template>
     <div class="connections-workspace">
@@ -118,9 +114,6 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
       </section>
     </div>
     <AdapterConfigDialog v-if="editorSession" :key="editorSession.id || 'add'" :open="editorOpen" :adapter-id="editorSession.id" @close="closeDialog" @after-close="editorClosed" @saved="saved" />
-    <AppDialog :open="compatibilityOpen" :title="t('protocols.compatibilityTitle')" :width="1040" @close="closeDialog">
-      <ProtocolCompatibilityPanel />
-    </AppDialog>
     <AppConfirmDialog :open="Boolean(removeTarget)" :title="t('protocols.removeConnectionTitle')" :description="t('protocols.removeAdapterConfirm', { name: removeTarget?.id || '' })" :confirm-text="t('protocols.removeAdapterAction')" danger :busy="Boolean(removingId)" @cancel="removeTarget = null" @confirm="removeTarget && removeAdapter(removeTarget)" />
   </AppPage>
 </template>

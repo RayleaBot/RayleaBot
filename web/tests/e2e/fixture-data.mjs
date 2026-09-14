@@ -25,7 +25,6 @@ export const fixtures = {
   sessionDenied: await readFixture('fixtures/web-api/invalid.session-login-bad-credentials.yaml'),
   configGet: await readFixture('fixtures/web-api/ok.config-get-response.yaml'),
   protocolSnapshot: await readFixture('fixtures/web-api/ok.protocol-onebot11-snapshot.yaml'),
-  protocolCompatibility: await readFixture('fixtures/web-api/ok.protocol-onebot11-compatibility.yaml'),
   logsList: await readFixture('fixtures/web-api/ok.logs-list-response.yaml'),
   logDetail: await readFixture('fixtures/web-api/ok.log-detail-response.yaml'),
   logDetailNotFound: await readFixture('fixtures/web-api/edge.log-detail-not-found.yaml'),

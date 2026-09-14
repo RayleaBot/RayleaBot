@@ -31,7 +31,6 @@ type protocolHTTPService interface {
 	Adapters() adapterservice.AdaptersView
 	CurrentOneBot11ProtocolTargets(context.Context, string) (adapterservice.OneBot11ProtocolTargets, error)
 	ResolveOneBot11Identities(context.Context, string, []adapterservice.OneBot11IdentityResolveItem) (adapterservice.OneBot11IdentityResolveResult, error)
-	CurrentOneBot11ProtocolCompatibility() (adapterservice.OneBot11ProtocolCompatibility, error)
 	OneBot11Ingress(id string) (adapterservice.OneBot11Ingress, bool)
 }
 
@@ -50,7 +49,6 @@ func (h *ProtocolHandlers) RegisterProtectedRoutes(router chi.Router) {
 	router.Get("/api/adapters", h.HandleAdapters())
 	router.Get("/api/adapters/{adapterID}/onebot11/targets", h.HandleProtocolOneBot11Targets())
 	router.Post("/api/adapters/{adapterID}/onebot11/identities/resolve", h.HandleProtocolOneBot11IdentitiesResolve())
-	router.Get("/api/protocols/onebot11/compatibility", h.HandleProtocolOneBot11Compatibility())
 }
 
 func (h *ProtocolHandlers) HandleProtocolOneBot11Targets() http.HandlerFunc {
@@ -74,17 +72,6 @@ func (h *ProtocolHandlers) HandleProtocolOneBot11IdentitiesResolve() http.Handle
 		response, err := h.protocol.ResolveOneBot11Identities(r.Context(), chi.URLParam(r, "adapterID"), body.Items)
 		if err != nil {
 			httpapi.WriteError(w, r, protocolCodeInvalidRequest, nil)
-			return
-		}
-		httpapi.WriteJSON(w, http.StatusOK, response)
-	}
-}
-
-func (h *ProtocolHandlers) HandleProtocolOneBot11Compatibility() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		response, err := h.protocol.CurrentOneBot11ProtocolCompatibility()
-		if err != nil {
-			httpapi.WriteError(w, r, errorcodes.AdapterMatrixProjectionFailed, nil)
 			return
 		}
 		httpapi.WriteJSON(w, http.StatusOK, response)

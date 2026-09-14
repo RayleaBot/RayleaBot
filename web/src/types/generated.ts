@@ -519,23 +519,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/protocols/onebot11/compatibility": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Query the formal OneBot11 compatibility matrix for standard, NapCat, and LuckyLillia providers. */
-        get: operations["getOneBot11ProtocolCompatibility"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/adapters/{adapterID}/reverse-ws": {
         parameters: {
             query?: never;
@@ -1513,31 +1496,6 @@ export interface components {
         OneBot11IdentityResolveResponse: {
             items: components["schemas"]["OneBot11Identity"][];
             issues: components["schemas"]["OneBot11TargetIssue"][];
-        };
-        /** @enum {string} */
-        ProtocolCompatibilityCategoryKey: "events" | "message_segments" | "read_capabilities" | "provider_extensions";
-        /** @enum {string} */
-        ProtocolCompatibilitySupportStatus: "supported" | "unsupported";
-        ProtocolCompatibilitySupportMap: {
-            standard: components["schemas"]["ProtocolCompatibilitySupportStatus"];
-            napcat: components["schemas"]["ProtocolCompatibilitySupportStatus"];
-            luckylillia: components["schemas"]["ProtocolCompatibilitySupportStatus"];
-        };
-        ProtocolCompatibilityItem: {
-            key: string;
-            label: string;
-            support: components["schemas"]["ProtocolCompatibilitySupportMap"];
-            summary: string;
-        };
-        ProtocolCompatibilityCategory: {
-            key: components["schemas"]["ProtocolCompatibilityCategoryKey"];
-            title: string;
-            items: components["schemas"]["ProtocolCompatibilityItem"][];
-        };
-        OneBot11ProtocolCompatibilityResponse: {
-            /** @constant */
-            protocol: "onebot11";
-            categories: components["schemas"]["ProtocolCompatibilityCategory"][];
         };
         SystemShutdownResponse: {
             accepted: boolean;
@@ -3624,29 +3582,6 @@ export interface operations {
             };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getOneBot11ProtocolCompatibility: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OneBot11 compatibility matrix. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OneBot11ProtocolCompatibilityResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            500: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

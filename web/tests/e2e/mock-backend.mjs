@@ -1056,11 +1056,6 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
-  if (pathname === '/api/protocols/onebot11/compatibility' && request.method === 'GET') {
-    json(response, 200, structuredClone(fixtures.protocolCompatibility.response.body))
-    return
-  }
-
   if (pathname === '/api/logs' && request.method === 'GET') {
     if (takeFailureFlag('failLogsOnce')) {
       json(response, 500, errorEnvelope('platform.internal_error', 'log list failed', 'req_logs_failed'))

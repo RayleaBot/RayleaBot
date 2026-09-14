@@ -94,30 +94,6 @@ type OneBot11IdentityResolveResult struct {
 	Issues []OneBot11TargetIssue `json:"issues"`
 }
 
-type CompatibilitySupport struct {
-	Standard    string `json:"standard"`
-	NapCat      string `json:"napcat"`
-	LuckyLillia string `json:"luckylillia"`
-}
-
-type CompatibilityItem struct {
-	Key     string               `json:"key"`
-	Label   string               `json:"label"`
-	Support CompatibilitySupport `json:"support"`
-	Summary string               `json:"summary"`
-}
-
-type CompatibilityCategory struct {
-	Key   string              `json:"key"`
-	Title string              `json:"title"`
-	Items []CompatibilityItem `json:"items"`
-}
-
-type OneBot11ProtocolCompatibility struct {
-	Protocol   string                  `json:"protocol"`
-	Categories []CompatibilityCategory `json:"categories"`
-}
-
 type ConfigSource interface {
 	CurrentConfig() config.Config
 }

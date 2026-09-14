@@ -140,12 +140,6 @@ describe('BasicLayout', () => {
                   component: { template: '<div>协议中心页</div>' },
                   meta: { icon: 'protocols', keepAlive: true, title: '协议中心' },
                 },
-                {
-                  path: '/protocols/compatibility',
-                  name: 'protocols-compatibility',
-                  component: { template: '<div>兼容矩阵页</div>' },
-                  meta: { icon: 'protocol-compatibility', keepAlive: true, title: '兼容矩阵' },
-                },
               ],
             },
             {

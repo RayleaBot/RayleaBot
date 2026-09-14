@@ -844,19 +844,10 @@ codes:
     code: adapter.provider_extension_not_supported
     domain: adapter
     message: 当前 provider 扩展能力尚未实现
-    description: The requested NapCat or LuckyLillia provider-specific extension is formally named in the compatibility matrix but is not implemented by the current runtime path yet.
+    description: The requested NapCat or LuckyLillia provider-specific extension is not implemented by the current runtime path yet.
     http_status: 501
     retryable: false
     applies_to: [http, websocket, plugin_protocol]
-
-  adapter.matrix_projection_failed:
-    code: adapter.matrix_projection_failed
-    domain: adapter
-    message: 协议兼容矩阵生成失败
-    description: The management surface failed to project the current OneBot compatibility matrix or protocol snapshot into the formal management response.
-    http_status: 500
-    retryable: true
-    applies_to: [http, websocket]
 
 # Diagnostic identities are not HTTP errors. Status and remediation belong to the containing report.
 diagnostics:

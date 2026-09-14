@@ -21,10 +21,6 @@ export const errorCatalog = {
     "httpStatus": 503,
     "retryable": true
   },
-  "adapter.matrix_projection_failed": {
-    "httpStatus": 500,
-    "retryable": true
-  },
   "adapter.message_quota_exceeded": {
     "httpStatus": 429,
     "retryable": true
@@ -338,7 +334,6 @@ export const errorMessages = {
     "capability_unsupported": "当前适配器不支持该能力",
     "connection_failed": "协议连接建立失败",
     "connection_lost": "协议连接已断开",
-    "matrix_projection_failed": "协议兼容矩阵生成失败",
     "message_quota_exceeded": "主动推送额度已用完",
     "provider_extension_not_supported": "当前 provider 扩展能力尚未实现",
     "reply_target_missing": "回复目标不存在或已失效",

@@ -50,15 +50,6 @@ NON_BLOCKING_RECOVERY_STATUSES = {"compatible", "degraded"}
 EXPECTED_PROTOCOL_TRANSPORTS = {"reverse_ws", "forward_ws", "http_api", "webhook"}
 EXPECTED_PROTOCOL_PROVIDERS = {"unknown", "standard", "napcat", "luckylillia"}
 EXPECTED_PROTOCOL_READINESS_STATUSES = {"setup_required", "ready", "degraded", "failed"}
-EXPECTED_COMPATIBILITY_CATEGORIES = {"events", "message_segments", "read_capabilities", "provider_extensions"}
-EXPECTED_COMPATIBILITY_ITEMS = {
-    "notice.flash_file",
-    "flash_file",
-    "message.history.get",
-    "provider.napcat.group.sign.set",
-    "provider.luckylillia.friend_groups.get",
-}
-EXPECTED_COMPATIBILITY_SUPPORT_VALUES = {"supported", "unsupported"}
 DEFAULT_TEMPLATE_ID = "help.menu"
 
 
@@ -237,49 +228,6 @@ def validate_protocol_snapshot(snapshot: dict[str, object]) -> None:
             raise SmokeError(f"protocol snapshot {key} contains unknown transports: {sorted(unknown)}")
 
 
-def validate_protocol_compatibility(payload: dict[str, object]) -> None:
-    if str(payload.get("protocol", "")) != "onebot11":
-        raise SmokeError(f"unexpected protocol compatibility payload: {payload}")
-
-    categories = payload.get("categories")
-    if not isinstance(categories, list):
-        raise SmokeError(f"protocol compatibility categories must be a list: {payload}")
-
-    observed_categories: set[str] = set()
-    observed_items: set[str] = set()
-    for category in categories:
-        if not isinstance(category, dict):
-            raise SmokeError(f"protocol compatibility category must be an object: {payload}")
-        key = require_non_empty_string(category.get("key"), "protocol compatibility category key")
-        observed_categories.add(key)
-        require_non_empty_string(category.get("title"), f"protocol compatibility category {key} title")
-        items = category.get("items")
-        if not isinstance(items, list):
-            raise SmokeError(f"protocol compatibility category items must be a list: {category}")
-        for item in items:
-            if not isinstance(item, dict):
-                raise SmokeError(f"protocol compatibility item must be an object: {category}")
-            item_key = require_non_empty_string(item.get("key"), "protocol compatibility item key")
-            observed_items.add(item_key)
-            require_non_empty_string(item.get("label"), f"protocol compatibility item {item_key} label")
-            require_non_empty_string(item.get("summary"), f"protocol compatibility item {item_key} summary")
-            support = item.get("support")
-            if not isinstance(support, dict):
-                raise SmokeError(f"protocol compatibility support must be an object: {item}")
-            for provider_key in ("standard", "napcat", "luckylillia"):
-                value = require_non_empty_string(support.get(provider_key), f"{item_key} support {provider_key}")
-                if value not in EXPECTED_COMPATIBILITY_SUPPORT_VALUES:
-                    raise SmokeError(f"protocol compatibility support must stay within frozen values: {item}")
-
-    if observed_categories != EXPECTED_COMPATIBILITY_CATEGORIES:
-        raise SmokeError(
-            f"protocol compatibility category set mismatch: expected {sorted(EXPECTED_COMPATIBILITY_CATEGORIES)} got {sorted(observed_categories)}"
-        )
-    missing_items = sorted(EXPECTED_COMPATIBILITY_ITEMS - observed_items)
-    if missing_items:
-        raise SmokeError(f"protocol compatibility missing representative items: {missing_items}")
-
-
 def validate_render_template_source_info(source: object, template_id: str) -> None:
     if not isinstance(source, dict):
         raise SmokeError(f"render template {template_id} source must be an object")
@@ -368,12 +316,6 @@ def exercise_packaged_protocol_and_template_workflows(base_url: str, session_tok
         require_non_empty_string(adapter.get("id"), "adapter id")
         if adapter.get("protocol") == "onebot11":
             validate_protocol_snapshot(adapter.get("onebot11", {}))
-
-    protocol_compatibility = request_json(
-        f"{base_url}api/protocols/onebot11/compatibility",
-        headers=bearer_headers(session_token),
-    )
-    validate_protocol_compatibility(protocol_compatibility)
 
     template_list = request_json(f"{base_url}api/system/render/templates", headers=bearer_headers(session_token))
     template_id = select_template_id(template_list)

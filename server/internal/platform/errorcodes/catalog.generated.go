@@ -7,7 +7,6 @@ const (
 	AdapterCapabilityUnsupported               = "adapter.capability_unsupported"
 	AdapterConnectionFailed                    = "adapter.connection_failed"
 	AdapterConnectionLost                      = "adapter.connection_lost"
-	AdapterMatrixProjectionFailed              = "adapter.matrix_projection_failed"
 	AdapterMessageQuotaExceeded                = "adapter.message_quota_exceeded"
 	AdapterProviderExtensionNotSupported       = "adapter.provider_extension_not_supported"
 	AdapterReplyTargetMissing                  = "adapter.reply_target_missing"
@@ -122,7 +121,6 @@ var catalog = map[string]Definition{
 	AdapterCapabilityUnsupported:              {Code: AdapterCapabilityUnsupported, HTTPStatus: 400, Message: "当前适配器不支持该能力", Retryable: false, Surfaces: "http,plugin_protocol"},
 	AdapterConnectionFailed:                   {Code: AdapterConnectionFailed, HTTPStatus: 503, Message: "协议连接建立失败", Retryable: true, Surfaces: "http,websocket,readiness,plugin_protocol"},
 	AdapterConnectionLost:                     {Code: AdapterConnectionLost, HTTPStatus: 503, Message: "协议连接已断开", Retryable: true, Surfaces: "http,websocket,plugin_protocol,readiness"},
-	AdapterMatrixProjectionFailed:             {Code: AdapterMatrixProjectionFailed, HTTPStatus: 500, Message: "协议兼容矩阵生成失败", Retryable: true, Surfaces: "http,websocket"},
 	AdapterMessageQuotaExceeded:               {Code: AdapterMessageQuotaExceeded, HTTPStatus: 429, Message: "主动推送额度已用完", Retryable: true, Surfaces: "http,plugin_protocol"},
 	AdapterProviderExtensionNotSupported:      {Code: AdapterProviderExtensionNotSupported, HTTPStatus: 501, Message: "当前 provider 扩展能力尚未实现", Retryable: false, Surfaces: "http,websocket,plugin_protocol"},
 	AdapterReplyTargetMissing:                 {Code: AdapterReplyTargetMissing, HTTPStatus: 409, Message: "回复目标不存在或已失效", Retryable: false, Surfaces: "http,websocket,plugin_protocol"},

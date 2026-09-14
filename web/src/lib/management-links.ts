@@ -228,7 +228,7 @@ export function buildPluginDetailLocation(pluginId: string, options: { panel?: P
   } satisfies RouteLocationRaw
 }
 
-export function buildProtocolsLocation(options: { adapterId?: string; view?: 'add' | 'compatibility' } = {}) {
+export function buildProtocolsLocation(options: { adapterId?: string; view?: 'add' } = {}) {
   return {
     name: 'protocols',
     params: {},
@@ -245,10 +245,6 @@ export function buildProtocolRealtimeLogsLocation(protocol: NonNullable<LogFilte
       protocol,
     },
   })
-}
-
-export function buildProtocolCompatibilityLocation() {
-  return buildProtocolsLocation({ view: 'compatibility' })
 }
 
 export function buildRenderTemplateLocation(templateId?: string | null) {

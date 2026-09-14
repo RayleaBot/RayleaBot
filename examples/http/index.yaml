@@ -84,12 +84,6 @@ examples:
     status: 200
     media_type: application/json
     representation: body
-  protocol-compatibility.response.json:
-    operationId: getOneBot11ProtocolCompatibility
-    direction: response
-    status: 200
-    media_type: application/json
-    representation: body
   recovery-confirm.request.json:
     operationId: createRecoveryConfirm
     direction: request

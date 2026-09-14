@@ -30,7 +30,6 @@ export const routes = {
   logsCenter: '日志中心',
   protocolGroup: '协议',
   protocols: '协议中心',
-  protocolCompatibility: '兼容矩阵',
   system: '系统',
   config: '配置',
   renderTemplates: '模板预览',

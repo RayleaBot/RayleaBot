@@ -3,7 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import RouteView from '@/layouts/RouteView.vue'
 import ExceptionView from '@/views/core/ExceptionView.vue'
-import { buildProtocolCompatibilityLocation, buildProtocolsLocation } from '@/lib/management-links'
+import { buildProtocolsLocation } from '@/lib/management-links'
 
 function groupRoute(
   titleKey: string,
@@ -180,16 +180,6 @@ export const adminRoutes: RouteRecordRaw[] = [
           keepAlive: true,
           requiresAuth: true,
           titleKey: 'routes.protocols',
-        },
-      },
-      {
-        path: '/protocols/compatibility',
-        name: 'protocols-compatibility',
-        redirect: () => buildProtocolCompatibilityLocation(),
-        meta: {
-          hideInMenu: true,
-          requiresAuth: true,
-          titleKey: 'routes.protocolCompatibility',
         },
       },
       groupRoute('routes.governance', 'toolbox', 4, 'permission-policy', [

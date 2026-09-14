@@ -133,7 +133,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 | --- | --- | --- | --- | --- |
 | R1 | 恢复只做完整性与版本校验，删除人工确认、审计与摘要展示 | — | ⬜ 待处理 | |
 | R2 | Launcher 宽松解码，删除响应与依赖清单校验及生成模型 | R1 | ⬜ 待处理 | |
-| R3 | 管理面不再展示兼容矩阵，删除接口、面板与 smoke，矩阵只保留在开发文档 | — | ⬜ 待处理 | |
+| R3 | 管理面不再展示兼容矩阵，删除接口、面板与 smoke，矩阵只保留在开发文档 | — | ☑️ 已完成 | 接口、错误码、Go 矩阵、Web 面板与路由、fixtures、样例和 smoke 检查删除，发布清单未使用的 `onebot_matrix` 一并移除；矩阵写入 `docs/dev/onebot-compatibility.md`；Server 构建、vet、lint、全量测试，Web 类型检查与单测，strict contracts、生成器 verify 与 Python 测试通过 |
 | R4 | 删除 Prometheus 指标接口与依赖 | — | ☑️ 已完成 | 删除指标注册表、各服务观察者与 HTTP 请求观察者；渲染请求测试改为读取 worker 占用数；Server 构建、vet、全量测试、strict contracts、Web 类型重生成与第三方声明检查通过 |
 | R5 | 删除出站熔断与每插件限流 | — | ☑️ 已完成 | 出站只保留按目标限流；删除熔断器、每插件限流与两个配置键，同步契约、样例、配置热更新、限流页与配置工作台；Server 构建、vet、lint、全量测试、strict contracts 与受影响 Web 测试通过 |
 | R6 | 删除错误码本地化键与 Web 映射 | — | ☑️ 已完成 | 契约、样例、生成器与校验器同步；Server 构建、vet、lint、全量测试，Web 类型检查与受影响单测，strict contracts、生成器 verify 与 Python 测试通过 |

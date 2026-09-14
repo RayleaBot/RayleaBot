@@ -171,29 +171,6 @@
           "const": "3",
           "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
         },
-        "onebot_matrix": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "transport_matrix_version",
-            "compatibility_matrix_version",
-            "provider_extension_matrix_version"
-          ],
-          "properties": {
-            "transport_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            },
-            "compatibility_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            },
-            "provider_extension_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            }
-          }
-        },
         "artifacts": {
           "type": "array",
           "minItems": 1,
@@ -246,29 +223,6 @@
           "type": "string",
           "format": "uri",
           "pattern": "^https://"
-        },
-        "onebot_matrix": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "transport_matrix_version",
-            "compatibility_matrix_version",
-            "provider_extension_matrix_version"
-          ],
-          "properties": {
-            "transport_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            },
-            "compatibility_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            },
-            "provider_extension_matrix_version": {
-              "type": "string",
-              "minLength": 1
-            }
-          }
         }
       }
     }
