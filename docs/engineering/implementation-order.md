@@ -85,7 +85,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 
 - 归档包含正式运行资源、LICENSE 和经审阅的第三方 notices；
 - release metadata 按正式 schema 生成；
-- 正式 smoke 同时验证新装和备份恢复。
+- 正式 smoke 验证新装，nightly 恢复演练验证备份与恢复。
 
 ## 9. 验收与发布
 
@@ -95,7 +95,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 - 目标包 `-race`、server tests/build 和 binary vulnerability scan；
 - Web/Launcher typecheck、test、build 与风险对应的 E2E；
 - SDK 打包与 fresh-environment install；
-- release artifact、license notice、smoke 与 recovery drill；
+- release artifact、license notice 与 smoke；
 - doctor、文档链接和 `git diff --check`。
 
 只有 exit code 不能证明真实产物时，必须继续检查生成文件、归档内容或运行时效果。

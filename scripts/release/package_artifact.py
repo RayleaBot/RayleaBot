@@ -7,8 +7,6 @@ import argparse
 from contextlib import nullcontext
 from datetime import datetime, timezone
 import json
-import shutil
-import tempfile
 import time
 import subprocess
 import sys
@@ -34,9 +32,6 @@ class ValidationEvidence:
         self.result = {
             "artifact_id": args.artifact_id, "version": args.version,
             "git_commit": args.git_commit, "status": "running", "checks": [],
-            "observation_window_seconds": args.observation_window_seconds or "0",
-            "window_seconds": args.window_seconds or "600",
-            "probe_interval_seconds": args.probe_interval_seconds or "30",
         }
         self.save()
 
@@ -107,16 +102,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--license-file", default="LICENSE")
     parser.add_argument("--third-party-notices", default="THIRD_PARTY_NOTICES.md")
     parser.add_argument("--run-smoke", action="store_true")
-    parser.add_argument("--run-recovery-drill", action="store_true")
-    parser.add_argument("--recovery-plugin-fixture", default="")
-    parser.add_argument("--run-self-host-smoke", action="store_true")
-    parser.add_argument("--observation-window-seconds", default="")
-    parser.add_argument("--window-seconds", default="")
-    parser.add_argument("--probe-interval-seconds", default="")
-    args = parser.parse_args(argv)
-    if (args.run_recovery_drill or args.run_self_host_smoke) and not args.recovery_plugin_fixture:
-        parser.error("--recovery-plugin-fixture is required with recovery or self-host validation")
-    return args
+    return parser.parse_args(argv)
 
 
 def package(args: argparse.Namespace, evidence: ValidationEvidence | None) -> int:
@@ -171,43 +157,6 @@ def package(args: argparse.Namespace, evidence: ValidationEvidence | None) -> in
                 str(archive),
             ]
         )
-    if args.run_recovery_drill:
-        recovery_args = [
-            sys.executable,
-            "scripts/release/recovery_drill.py",
-            "--artifact-id",
-            args.artifact_id,
-            "--archive",
-            str(archive),
-            "--plugin-fixture",
-            args.recovery_plugin_fixture,
-        ]
-        if args.observation_window_seconds:
-            recovery_args.extend(["--observation-window-seconds", args.observation_window_seconds])
-        if evidence is None:
-            execute("recovery-drill", recovery_args)
-        else:
-            with tempfile.TemporaryDirectory(prefix="rayleabot-recovery-validation-") as temporary:
-                work = Path(temporary) / "recovery"
-                recovery_args.extend(["--output-dir", str(work)])
-                execute("recovery-drill", recovery_args)
-                shutil.copyfile(work / "result.json", evidence.directory / "recovery-result.json")
-    if args.run_self_host_smoke:
-        smoke_args = [
-            sys.executable,
-            "scripts/release/self_host_smoke.py",
-            "--plugin-fixture",
-            args.recovery_plugin_fixture,
-            "--artifact-id",
-            args.artifact_id,
-            "--archive",
-            str(archive),
-        ]
-        if args.window_seconds:
-            smoke_args.extend(["--window-seconds", args.window_seconds])
-        if args.probe_interval_seconds:
-            smoke_args.extend(["--probe-interval-seconds", args.probe_interval_seconds])
-        execute("self-host-smoke", smoke_args)
     return 0
 
 

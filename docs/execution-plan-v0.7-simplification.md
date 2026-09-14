@@ -147,7 +147,7 @@ Launcher 与 Server 同包发布，版本一致。Launcher 解码 Server 响应�
 | P5 | Webhook 只做路由转发并携带请求头与原始正文 | P1 | ☑️ 已完成 | manifest webhook 只保留 `id`、`route`、`source_cidrs` 与 `max_body_bytes`，删除鉴权策略、请求头、secret 引用、签名前缀与重放保护，删除 `plugin.webhook_replay_rejected`、`plugin.webhook_timestamp_skew` 与事件中的 `client_timestamp`、`client_event_id`；`raw_payload` 以 `body_text` 或 `body_base64` 保留原始正文并携带请求头，插件自行验签；Server 构建、vet、lint、全量测试，Web 类型检查与单测，SDK 测试，strict contracts、生成器 verify、脚本测试与文档检查通过 |
 | G1 | 收窄契约校验范围 | — | ☑️ 已完成 | strict contracts、契约校验器 Python 测试、OpenAPI 集成测试、agent-docs 与文档链接检查通过 |
 | G2 | 删除行数预算与 SQL 例外登记，修正变更检测 | — | ☑️ 已完成 | agent-docs、服务端结构检查、结构与变更检测 7 项 Python 测试、变更检测自检和文档链接检查通过；手写 SQL 原因写在调用处注释 |
-| G3 | 删除自托管长时 smoke 与产物验证工作流，恢复验证只留一处 | R3 | ⬜ 待处理 | |
+| G3 | 删除自托管长时 smoke 与产物验证工作流，恢复验证只留一处 | R3 | ☑️ 已完成 | 删除 `self-host-smoke.yml`、`artifact-validation.yml`、`self_host_smoke.py` 与打包恢复演练 `recovery_drill.py` 及其测试；发布构建只保留归档 smoke，不再构建恢复插件夹具；恢复验证只保留 nightly 的 `rehearse_current_recovery.py`；发布脚本测试、脚本测试、变更检测自检与文档检查通过 |
 | G4 | 设计规格去像素化，删除颜色字面量扫描 | — | ⬜ 待处理 | |
 | G5 | 删除 Web 与 Launcher 的视觉细节 E2E，Web 收敛为 real-server 冒烟 | R1,R3,P4 | ⬜ 待处理 | |
 | G6 | 开发工作区契约移出，删除 SBOM 生成 | — | ☑️ 已完成 | 工作区文件由开发脚本校验；独立 SDK 构建器测试改为检查 notices 中的工作区 SDK 版本；strict contracts、契约校验器测试、开发启动回归与文档链接检查通过 |

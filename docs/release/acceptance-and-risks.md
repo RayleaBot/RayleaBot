@@ -18,7 +18,7 @@
 - server tests、目标包 `-race`、server build 与 binary-mode govulncheck；
 - Web 与 Launcher typecheck、test、build 和受影响的 E2E；
 - Go SDK 与全部插件 race 测试、Vue SDK/页面 typecheck/test/build、三平台 artifact 构建与校验；
-- 四种归档的 `LICENSE`、`THIRD_PARTY_NOTICES.md`、metadata、artifact smoke 和 recovery drill；
+- 四种归档的 `LICENSE`、`THIRD_PARTY_NOTICES.md`、metadata 与 artifact smoke；
 - doctor、agent docs、文档链接和 `git diff --check`。
 
 插件验收以 manifest v4、JSONL protocol v4 与 artifact v2 为准。负向用例必须拒绝不符合这些契约的输入、错误平台、篡改摘要、错误二进制、缺失 UI 资源和非单根目录 ZIP。正式包检查必须确认不存在插件源码、源码 SDK、`node_modules` 与托管语言运行时。

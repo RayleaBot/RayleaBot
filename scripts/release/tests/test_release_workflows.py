@@ -24,24 +24,16 @@ def step_named(job, name):
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
-    def test_validation_and_release_call_the_same_build_without_publishing_validation(self):
-        validation, release, build = (workflow(name) for name in ("artifact-validation.yml", "release.yml", "release-build.yml"))
-        self.assertEqual(validation["on"]["push"]["branches"], ["codex/validation-*"])
-        self.assertEqual(validation["on"]["workflow_dispatch"]["inputs"]["version"]["default"], "0.5.0")
-        for value in validation["jobs"]["validate"]["with"].values():
-            self.assertIn("inputs.version || '0.5.0'", value)
-        self.assertEqual(set(validation["on"]), {"push", "workflow_dispatch"})
-        for caller, job_id in ((validation, "validate"), (release, "build")):
-            self.assertEqual(caller["jobs"][job_id]["uses"], "./.github/workflows/release-build.yml")
-            self.assertEqual(caller["permissions"], {"contents": "read"})
-        self.assertIn("github.sha", validation["jobs"]["validate"]["with"]["release_notes_ref"])
+    def test_release_calls_the_build_without_granting_publish_rights_to_it(self):
+        release, build = (workflow(name) for name in ("release.yml", "release-build.yml"))
+        self.assertEqual(release["jobs"]["build"]["uses"], "./.github/workflows/release-build.yml")
+        self.assertEqual(release["permissions"], {"contents": "read"})
         self.assertEqual(set(build["on"]), {"workflow_call"})
         self.assertEqual(build["permissions"], {"contents": "read"})
-        for data in (validation, build):
-            for job in data["jobs"].values():
-                self.assertNotIn("write", job.get("permissions", {}).values())
-                for step in job.get("steps", []):
-                    self.assertFalse(step.get("uses", "").startswith("softprops/action-gh-release"))
+        for job in build["jobs"].values():
+            self.assertNotIn("write", job.get("permissions", {}).values())
+            for step in job.get("steps", []):
+                self.assertFalse(step.get("uses", "").startswith("softprops/action-gh-release"))
         publisher = release["jobs"]["publish"]
         self.assertEqual(publisher["permissions"], {"contents": "write"})
         self.assertEqual(publisher["needs"], "build")
@@ -58,7 +50,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertEqual(jobs["build-linux-server"]["runs-on"], "ubuntu-latest")
         for job_name, step_name in (("build-full", "Package full artifact"), ("build-linux-server", "Package linux server artifact")):
             command = step_named(jobs[job_name], step_name)["run"]
-            for option in ("--run-smoke", "--run-recovery-drill", "--recovery-plugin-fixture", "--run-self-host-smoke", "--evidence-dir", "--observation-window-seconds 300", "--window-seconds 600", "--probe-interval-seconds 30"):
+            for option in ("--run-smoke", "--evidence-dir"):
                 self.assertIn(option, command)
             evidence = step_named(jobs[job_name], "Upload validation evidence")
             self.assertEqual(evidence["if"], "always()")
@@ -109,7 +101,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("validation_detect_changes", ROOT / "scripts/ci/detect_changes.py")
         detector = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(detector)
-        for path in (".github/workflows/release-build.yml", ".github/workflows/artifact-validation.yml"):
+        for path in (".github/workflows/release.yml", ".github/workflows/release-build.yml"):
             with self.subTest(path=path):
                 areas = detector.classify([path])
                 self.assertTrue(areas["release"])
