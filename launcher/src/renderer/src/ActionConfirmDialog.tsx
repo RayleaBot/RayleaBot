@@ -1,15 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Button,
-  Dialog,
   DialogActions,
   DialogBody,
   DialogContent,
-  DialogSurface,
   DialogTitle,
 } from "@fluentui/react-components";
 import { ArrowDownload24Filled, Delete24Filled, Stop24Filled } from "@fluentui/react-icons";
 
+import { GlassDialog } from "./GlassDialog";
 import { StatusLens } from "./StatusLens";
 
 export type ConfirmedLauncherAction = "reset-admin" | "stop-external" | "apply-update";
@@ -59,41 +58,39 @@ export const ActionConfirmDialog = React.memo(function ActionConfirmDialog({
   onCancel,
   onConfirm,
 }: ActionConfirmDialogProps) {
-  const copy = action ? actionCopy[action] : actionCopy["reset-admin"];
+  // The dialog keeps the last action's copy while it animates out.
+  const [shownAction, setShownAction] = useState<ConfirmedLauncherAction>(action ?? "reset-admin");
+  if (action !== null && action !== shownAction) {
+    setShownAction(action);
+  }
+  const copy = actionCopy[action ?? shownAction];
   return (
-    <Dialog
-      open={action !== null}
-      onOpenChange={(_event, data) => {
-        if (!data.open) onCancel();
-      }}
-    >
-      <DialogSurface className="glass-dialog" data-tone={copy.tone}>
-        <DialogBody className="glass-dialog__body">
-          <DialogTitle className="glass-dialog__title" action={null}>
-            <StatusLens tone={copy.tone} size="small" icon={copy.icon} />
-            <span className="glass-dialog__heading">
-              <strong>{copy.title}</strong>
-            </span>
-          </DialogTitle>
-          <DialogContent className="glass-dialog__content">
-            <p className="glass-dialog__lead">{copy.lead}</p>
-            <p className="glass-dialog__detail">{copy.detail}</p>
-          </DialogContent>
-          <DialogActions className="glass-dialog__actions">
-            <Button appearance="secondary" autoFocus className="glass-dialog__button" onClick={onCancel}>取消</Button>
-            <Button
-              appearance="primary"
-              className="glass-dialog__button glass-dialog__button--confirm"
-              data-tone={copy.tone}
-              onClick={() => {
-                if (action) onConfirm(action);
-              }}
-            >
-              {copy.confirm}
-            </Button>
-          </DialogActions>
-        </DialogBody>
-      </DialogSurface>
-    </Dialog>
+    <GlassDialog open={action !== null} onDismiss={onCancel} tone={copy.tone}>
+      <DialogBody className="glass-dialog__body">
+        <DialogTitle className="glass-dialog__title" action={null}>
+          <StatusLens tone={copy.tone} size="small" icon={copy.icon} />
+          <span className="glass-dialog__heading">
+            <strong>{copy.title}</strong>
+          </span>
+        </DialogTitle>
+        <DialogContent className="glass-dialog__content">
+          <p className="glass-dialog__lead">{copy.lead}</p>
+          <p className="glass-dialog__detail">{copy.detail}</p>
+        </DialogContent>
+        <DialogActions className="glass-dialog__actions">
+          <Button appearance="secondary" autoFocus className="glass-dialog__button" onClick={onCancel}>取消</Button>
+          <Button
+            appearance="primary"
+            className="glass-dialog__button glass-dialog__button--confirm"
+            data-tone={copy.tone}
+            onClick={() => {
+              if (action) onConfirm(action);
+            }}
+          >
+            {copy.confirm}
+          </Button>
+        </DialogActions>
+      </DialogBody>
+    </GlassDialog>
   );
 });

@@ -1,13 +1,22 @@
+import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
+import { animate, motionValue } from "motion/react";
 
 export const launcherMotion = {
   control: 160,
   content: 200,
   workspace: 220,
-  workspaceEase: "cubic-bezier(0.25, 0.1, 0.25, 1)",
+  workspaceEase: [0.25, 0.1, 0.25, 1],
   overlay: 220,
-  ease: "cubic-bezier(0.16, 1, 0.3, 1)",
+  overlayExit: 160,
+  ease: [0.16, 1, 0.3, 1],
 } as const;
+
+/** Overlays arrive at the overlay duration and leave faster, both on the launcher's decelerating curve. */
+export const overlayEnter = { duration: launcherMotion.overlay / 1000, ease: launcherMotion.ease };
+export const overlayExit = { duration: launcherMotion.overlayExit / 1000, ease: launcherMotion.ease };
+
+const reducedMotionQuery = "(prefers-reduced-motion: reduce), (forced-colors: active)";
 
 type LauncherViewTransitionKind = "theme";
 
@@ -27,19 +36,47 @@ let activeViewTransition: ActiveLauncherViewTransition | null = null;
 let pendingViewTransition: LauncherViewTransitionRequest | null = null;
 let transitionSequence = 0;
 
-interface ActiveWorkspaceAnimation {
-  animation: Animation;
-  fromOffset: number;
-}
-
-let activeWorkspaceAnimation: ActiveWorkspaceAnimation | null = null;
-// The workspace settles by position, not opacity: an opacity below 1 would make it a
-// backdrop root and cut its glass panels off from the wallpaper.
+/**
+ * Vertical offset of the workspace. The workspace settles by position, not opacity: an opacity below 1 would
+ * make it a backdrop root and cut its glass panels off from the wallpaper.
+ */
+export const workspaceOffset = motionValue(0);
 const workspaceEntryOffset = 8;
+let workspaceAnimation: ReturnType<typeof animate> | null = null;
 
 export function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" &&
-    Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce), (forced-colors: active)").matches);
+    Boolean(window.matchMedia?.(reducedMotionQuery).matches);
+}
+
+function subscribeReducedMotion(onChange: () => void) {
+  const query = typeof window === "undefined" ? undefined : window.matchMedia?.(reducedMotionQuery);
+  query?.addEventListener?.("change", onChange);
+  return () => query?.removeEventListener?.("change", onChange);
+}
+
+/** Reduced motion and forced colors, as a live React value for Motion components. */
+export function useLauncherReducedMotion(): boolean {
+  return useSyncExternalStore(subscribeReducedMotion, prefersReducedMotion, () => false);
+}
+
+/**
+ * Keeps an overlay mounted after it is asked to close, until `finishExit` reports that its exit animation
+ * ended. `finishExit` ignores completions that arrive while the overlay is open again.
+ */
+export function useExitPresence(open: boolean): readonly [present: boolean, finishExit: () => void] {
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) {
+    setMounted(true);
+  }
+  const openRef = useRef(open);
+  useLayoutEffect(() => {
+    openRef.current = open;
+  }, [open]);
+  const finishExit = useCallback(() => {
+    if (!openRef.current) setMounted(false);
+  }, []);
+  return [open || mounted, finishExit] as const;
 }
 
 function supportsViewTransitions(): boolean {
@@ -47,54 +84,28 @@ function supportsViewTransitions(): boolean {
     typeof document.startViewTransition === "function";
 }
 
-function cancelWorkspaceAnimation(): number {
-  const active = activeWorkspaceAnimation;
-  if (!active) return workspaceEntryOffset;
+export function runLauncherWorkspaceTransition(update: () => void): void {
+  const interrupted = workspaceAnimation !== null;
+  workspaceAnimation?.stop();
+  workspaceAnimation = null;
 
-  const progress = active.animation.effect?.getComputedTiming().progress;
-  const offset = typeof progress === "number"
-    ? active.fromOffset * (1 - progress)
-    : workspaceEntryOffset;
-  activeWorkspaceAnimation = null;
-  active.animation.cancel();
-  return offset;
-}
-
-export function runLauncherWorkspaceTransition(update: () => void): Animation | null {
-  const fromOffset = cancelWorkspaceAnimation();
-  const workspace = typeof document === "undefined"
-    ? null
-    : document.querySelector<HTMLElement>(".shell-main");
-
-  if (
-    prefersReducedMotion()
-    || !workspace
-    || typeof workspace.animate !== "function"
-  ) {
+  if (prefersReducedMotion()) {
+    workspaceOffset.jump(0);
     update();
-    return null;
+    return;
   }
 
   flushSync(update);
-  const animation = workspace.animate(
-    [
-      { transform: `translateY(${fromOffset}px)` },
-      { transform: "none" },
-    ],
-    {
-      duration: launcherMotion.workspace,
-      easing: launcherMotion.workspaceEase,
-      fill: "both",
-    },
-  );
-  const active = { animation, fromOffset } satisfies ActiveWorkspaceAnimation;
-  activeWorkspaceAnimation = active;
-  void animation.finished.catch(() => undefined).finally(() => {
-    if (activeWorkspaceAnimation !== active) return;
-    activeWorkspaceAnimation = null;
-    animation.cancel();
+  // An interrupted settle continues from where it is instead of dropping back to the full offset.
+  workspaceOffset.jump(interrupted ? workspaceOffset.get() : workspaceEntryOffset);
+  const controls = animate(workspaceOffset, 0, {
+    duration: launcherMotion.workspace / 1000,
+    ease: launcherMotion.workspaceEase,
   });
-  return animation;
+  workspaceAnimation = controls;
+  void controls.then(() => {
+    if (workspaceAnimation === controls) workspaceAnimation = null;
+  });
 }
 
 function startLauncherViewTransition(

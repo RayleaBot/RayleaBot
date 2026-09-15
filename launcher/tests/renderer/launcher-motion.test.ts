@@ -1,51 +1,64 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test, vi } from "vitest";
-import { runLauncherWorkspaceTransition } from "@renderer/launcherMotion";
+
+const workspaceAnimations = vi.hoisted(() => [] as Array<{ stop: ReturnType<typeof vi.fn>; finish: () => void }>);
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  return {
+    ...actual,
+    animate: vi.fn(() => {
+      let finish!: () => void;
+      const finished = new Promise<void>((resolve) => { finish = resolve; });
+      const controls = { stop: vi.fn(), then: (resolve: () => void) => finished.then(resolve) };
+      workspaceAnimations.push({ stop: controls.stop, finish });
+      return controls;
+    }),
+  };
+});
+
+import { animate } from "motion/react";
+import { runLauncherWorkspaceTransition, workspaceOffset } from "@renderer/launcherMotion";
 
 afterEach(() => {
   vi.stubGlobal("matchMedia", () => ({ matches: true }));
   runLauncherWorkspaceTransition(() => undefined);
   vi.unstubAllGlobals();
-  document.body.innerHTML = "";
+  vi.mocked(animate).mockClear();
+  workspaceAnimations.length = 0;
 });
 
-test("interrupted navigation preserves visible content and cannot cancel its replacement", async () => {
+test("interrupted navigation continues from the current offset and keeps its replacement active", async () => {
   vi.stubGlobal("matchMedia", () => ({ matches: false }));
-  const workspace = document.createElement("main");
-  workspace.className = "shell-main";
-  document.body.append(workspace);
-  const animations: Array<{ cancel: ReturnType<typeof vi.fn>; finish: () => void }> = [];
-  const animate = vi.fn(() => {
-    let finish!: () => void;
-    const finished = new Promise<void>((resolve) => { finish = resolve; });
-    const animation = { finished, cancel: vi.fn(), effect: { getComputedTiming: () => ({ progress: 0.5 }) } };
-    animations.push({ cancel: animation.cancel, finish });
-    return animation;
-  });
-  Object.defineProperty(workspace, "animate", { value: animate });
+  let content = "";
 
-  runLauncherWorkspaceTransition(() => { workspace.textContent = "environment"; });
-  runLauncherWorkspaceTransition(() => { workspace.textContent = "diagnostics"; });
-  expect(workspace.textContent).toBe("diagnostics");
-  expect(animations[0]!.cancel).toHaveBeenCalledOnce();
-  const replacementFrames = (animate.mock.calls[1] as unknown as [Keyframe[]])[0];
-  expect(replacementFrames[0]!.transform).toBe("translateY(4px)");
+  runLauncherWorkspaceTransition(() => { content = "environment"; });
+  expect(workspaceOffset.get()).toBe(8);
+  workspaceOffset.set(4);
 
-  animations[0]!.finish();
+  runLauncherWorkspaceTransition(() => { content = "diagnostics"; });
+  expect(content).toBe("diagnostics");
+  expect(workspaceAnimations[0]!.stop).toHaveBeenCalledOnce();
+  expect(workspaceOffset.get()).toBe(4);
+  expect(animate).toHaveBeenLastCalledWith(workspaceOffset, 0, expect.objectContaining({ duration: 0.22 }));
+
+  workspaceAnimations[0]!.finish();
   await Promise.resolve();
   await Promise.resolve();
-  expect(animations[1]!.cancel).not.toHaveBeenCalled();
-  animations[1]!.finish();
+  workspaceOffset.set(2);
+
+  runLauncherWorkspaceTransition(() => { content = "settings"; });
+  expect(workspaceAnimations[1]!.stop).toHaveBeenCalledOnce();
+  expect(workspaceOffset.get()).toBe(2);
 });
 
 test("reduced motion applies the latest workspace immediately", () => {
   vi.stubGlobal("matchMedia", () => ({ matches: true }));
-  const workspace = document.createElement("main");
-  workspace.className = "shell-main";
-  document.body.append(workspace);
-  const animate = vi.fn();
-  Object.defineProperty(workspace, "animate", { value: animate });
-  runLauncherWorkspaceTransition(() => { workspace.textContent = "settings"; });
-  expect(workspace.textContent).toBe("settings");
+  let content = "";
+
+  runLauncherWorkspaceTransition(() => { content = "settings"; });
+
+  expect(content).toBe("settings");
+  expect(workspaceOffset.get()).toBe(0);
   expect(animate).not.toHaveBeenCalled();
 });

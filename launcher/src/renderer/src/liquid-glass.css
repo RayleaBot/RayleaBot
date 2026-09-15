@@ -1898,7 +1898,8 @@
   color: var(--color-text);
 }
 
-.launcher-fluent-provider .theme-menu-surface[data-state="closing"] {
+.launcher-fluent-provider .theme-menu-surface[data-state="closing"],
+.launcher-fluent-provider .fui-DialogSurface.glass-dialog[data-state="closing"] {
   pointer-events: none;
 }
 

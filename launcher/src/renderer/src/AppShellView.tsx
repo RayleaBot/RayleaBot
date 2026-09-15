@@ -4,6 +4,7 @@ import type {
   LauncherSettings,
   LauncherSnapshot,
 } from "@shared/launcher-models";
+import { motion } from "motion/react";
 
 import type { SectionId } from "./AppShell.shared";
 import { AppShellAboutSection } from "./AppShellAboutSection";
@@ -13,6 +14,7 @@ import { AppShellEnvironmentSection } from "./AppShellEnvironmentSection";
 import { AppShellSectionHeader } from "./AppShellSectionHeader";
 import { AppShellSettingsSection } from "./AppShellSettingsSection";
 import { AppShellStatusSection } from "./AppShellStatusSection";
+import { workspaceOffset } from "./launcherMotion";
 
 export type AppShellViewProps = {
   snapshot: LauncherSnapshot;
@@ -94,7 +96,11 @@ export function AppShellView({
         onNavigate={onNavigate}
       />
 
-      <main className={`shell-main active-${activeSection}`} data-active-section={activeSection}>
+      <motion.main
+        className={`shell-main active-${activeSection}`}
+        data-active-section={activeSection}
+        style={{ y: workspaceOffset }}
+      >
         <div className="section-shell" data-section={activeSection}>
           <AppShellSectionHeader
             snapshot={snapshot}
@@ -171,7 +177,7 @@ export function AppShellView({
             )}
           </div>
         </div>
-      </main>
+      </motion.main>
     </div>
   );
 }

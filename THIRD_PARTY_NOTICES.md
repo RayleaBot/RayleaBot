@@ -122,7 +122,11 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:launcher | embla-carousel | 8.6.0 | MIT |
 | npm:launcher | embla-carousel-autoplay | 8.6.0 | MIT |
 | npm:launcher | embla-carousel-fade | 8.6.0 | MIT |
+| npm:launcher | framer-motion | 13.3.0 | MIT |
 | npm:launcher | keyborg | 2.14.1 | MIT |
+| npm:launcher | motion | 13.3.0 | MIT |
+| npm:launcher | motion-dom | 13.3.0 | MIT |
+| npm:launcher | motion-utils | 13.3.0 | MIT |
 | npm:launcher | react | 19.2.8 | MIT |
 | npm:launcher | react-dom | 19.2.8 | MIT |
 | npm:launcher | rtl-css-js | 1.16.1 | MIT |
@@ -2870,7 +2874,7 @@ Applies to: @fluentui/react-tags@9.9.4
 
 ### MIT (3d900dd88f67)
 
-Applies to: framer-motion@13.1.0
+Applies to: framer-motion@13.3.0, framer-motion@13.1.0
 
     [LICENSE.md]
     The MIT License (MIT)
@@ -8218,7 +8222,7 @@ Applies to: github.com/go-chi/chi/v5@v5.3.1
 
 ### MIT (f17acea5f19c)
 
-Applies to: motion-dom@13.0.0, motion-utils@13.0.0
+Applies to: motion@13.3.0, motion-dom@13.3.0, motion-utils@13.3.0, motion-dom@13.0.0, motion-utils@13.0.0
 
     [LICENSE.md]
     The MIT License (MIT)

@@ -36,7 +36,7 @@ HTTP、WebSocket、schema、错误码、插件协议和发布元数据以 [`cont
 ## 共同边界
 
 - Web 使用 Reka UI、自有 shadcn-vue 组件、Tailwind CSS 与 Motion for Vue。
-- Launcher 使用 Fluent UI React v9，并通过生成的 Wails bindings 连接 Go 桌面宿主。
+- Launcher 使用 Fluent UI React v9 与 Motion，并通过生成的 Wails bindings 连接 Go 桌面宿主。
 - 插件管理页使用包内静态 HTML、CSS 和 JavaScript 产物，不依赖宿主组件运行时；官方插件的这些产物由 Vue 3、TypeScript 和 Vite 构建。
 - 三个界面共享颜色角色、字体层级、间距、圆角、状态语义和无障碍门槛，不共享框架组件。
 - 聊天图片模板属于渲染产物，不受本产品界面规范约束。
