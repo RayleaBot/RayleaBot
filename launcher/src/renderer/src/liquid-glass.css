@@ -309,6 +309,8 @@
 }
 
 .nav-item {
+  position: relative;
+  isolation: isolate;
   display: flex;
   min-height: 40px;
   align-items: center;
@@ -326,8 +328,18 @@
   background: var(--glass-hover);
 }
 
-.nav-item.active {
+.nav-item.active,
+.nav-item.active:hover {
   color: var(--color-text);
+  background: transparent;
+}
+
+/* The selection sits behind the active item's icon and label and slides to the next item on navigation. */
+.nav-item__selection {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
   background: var(--glass-selected);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--color-text) 8%, transparent);
 }
@@ -2040,7 +2052,8 @@
     forced-color-adjust: auto;
   }
 
-  .nav-item.active {
+  .nav-item.active,
+  .nav-item.active:hover {
     forced-color-adjust: none;
     color: HighlightText;
     border: 2px solid Highlight;
@@ -2049,6 +2062,10 @@
 
   .nav-item.active .nav-item__icon {
     color: HighlightText;
+  }
+
+  .nav-item__selection {
+    display: none;
   }
 
   .status-lens__core,

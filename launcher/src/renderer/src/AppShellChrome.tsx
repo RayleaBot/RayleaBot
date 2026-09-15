@@ -6,6 +6,7 @@ import {
 } from "@fluentui/react-icons";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
+import { motion } from "motion/react";
 
 import { sections, serviceStateConfig } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
@@ -18,6 +19,8 @@ type AppShellChromeProps = {
   isMaximized: boolean;
   onNavigate: (section: SectionId) => void;
 };
+
+const selectionTransition = { type: "spring", visualDuration: 0.32, bounce: 0.18 } as const;
 
 export function AppShellChrome({
   snapshot,
@@ -50,6 +53,9 @@ export function AppShellChrome({
               aria-current={activeSection === section.id ? "page" : undefined}
               title={section.title}
             >
+              {activeSection === section.id ? (
+                <motion.span layoutId="nav-selection" className="nav-item__selection" transition={selectionTransition} />
+              ) : null}
               <span className="nav-item__icon">{section.icon}</span>
               <span className="nav-item__label">{section.title}</span>
             </button>
