@@ -8,6 +8,7 @@ import { ThemeProvider, useTheme } from "./useTheme";
 import { launcherFluentThemes } from "./launcherTheme";
 import { installTrustedNavigationGuards } from "./trustedNavigation";
 import { installWailsDesktopApi } from "./wailsDesktopApi";
+import { startGlassPress } from "./glassPress";
 import { startGlassSurfaces } from "./glassSurfaces";
 import "./style.css";
 import "./liquid-glass.css";
@@ -15,6 +16,7 @@ import "./liquid-glass.css";
 const uninstallTrustedNavigationGuards = installTrustedNavigationGuards();
 const uninstallWailsDesktopApi = installWailsDesktopApi();
 const stopGlassSurfaces = startGlassSurfaces(document.body);
+const stopGlassPress = startGlassPress();
 
 function ThemedApp() {
   const { effectiveTheme } = useTheme();
@@ -45,6 +47,7 @@ root.render(
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     root.unmount();
+    stopGlassPress();
     stopGlassSurfaces();
     uninstallWailsDesktopApi();
     uninstallTrustedNavigationGuards();
