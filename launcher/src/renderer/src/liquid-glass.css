@@ -1,9 +1,9 @@
 /*
  * The Launcher's Liquid Glass. Following Apple's layering, glass is reserved for the navigation
  * layer and the controls that float over content: the sidebar, action buttons and the status lens.
- * Content groups stay in the content layer as quiet fills on a calm mist field. In WebView2,
- * glassSurfaces.ts renders the material with a lens filter per size; elsewhere the CSS material
- * below stands in.
+ * Content groups stay in the content layer as quiet fills on a calm mist field. glassSurfaces.ts
+ * draws the rim light as a shared nine-slice image and, in WebView2, refracts the backdrop of clear
+ * lenses; until it runs, the inset lines below stand in.
  */
 
 :root {
@@ -19,12 +19,12 @@
   --glass-press: color-mix(in srgb, var(--color-text) 6%, transparent);
   --glass-selected: color-mix(in srgb, var(--color-surface) 70%, transparent);
 
-  /* Read by glassSurfaces.ts when it draws the lens filter. */
+  --glass-regular-tint: color-mix(in srgb, var(--color-surface) 16%, transparent);
+
+  /* Read by glassSurfaces.ts when it draws the rim light. */
   --glass-light: 1;
   --glass-shade: 1;
-  --glass-glow: 0.14;
-  --glass-regular-flood: var(--color-surface);
-  --glass-regular-flood-alpha: 0.16;
+  --glass-glow: 1;
 
   /* The CSS material used before the filter is ready and where the engine cannot run it. */
   --glass-rim-top: rgb(255 255 255 / 0.9);
@@ -45,11 +45,10 @@
   --glass-hover: color-mix(in srgb, var(--color-text) 9%, transparent);
   --glass-press: color-mix(in srgb, var(--color-text) 4%, transparent);
   --glass-selected: color-mix(in srgb, var(--color-text) 12%, transparent);
+  --glass-regular-tint: color-mix(in srgb, var(--color-surface-raised) 30%, transparent);
   --glass-light: 0.55;
   --glass-shade: 1.35;
-  --glass-glow: 0.08;
-  --glass-regular-flood: var(--color-surface-raised);
-  --glass-regular-flood-alpha: 0.3;
+  --glass-glow: 0.1;
   --glass-rim-top: rgb(255 255 255 / 0.35);
   --glass-rim-bottom: rgb(255 255 255 / 0.16);
   --glass-rim-side: rgb(0 0 0 / 0.4);
@@ -83,10 +82,12 @@
   pointer-events: none;
 }
 
-/* Glass material. The selectors carry .launcher-theme so Fluent's runtime button styles stay underneath. */
+/* Glass material. The selectors carry .launcher-theme so Fluent's runtime button styles stay underneath.
+   Only clear lenses read their backdrop; the rest sits on the flat canvas and needs no backdrop filter. */
 .launcher-theme .glass {
   --glass-radius: 999px;
   --glass-drop: var(--glass-drop-s);
+  isolation: isolate;
   border: 0;
   border-radius: var(--glass-radius);
   background-color: var(--glass-tint, transparent);
@@ -97,34 +98,43 @@
     inset -1px 0 0 var(--glass-rim-side),
     0 0 0 0.5px var(--glass-hairline),
     var(--glass-drop);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-  backdrop-filter: blur(14px) saturate(150%);
 }
 
-/* The lens filter draws the rim, shading and tint itself. */
-.launcher-theme .glass[data-glass-ready] {
-  background-color: transparent;
+.launcher-theme .glass.fui-Button {
+  position: relative;
+}
+
+/* The nine-slice rim light replaces the inset lines once glassSurfaces.ts has drawn it. */
+.launcher-theme .glass[data-glass-lit] {
   box-shadow: 0 0 0 0.5px var(--glass-hairline), var(--glass-drop);
+}
+
+.launcher-theme .glass[data-glass-lit]::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border: var(--glass-reach) solid transparent;
+  border-image: var(--glass-lighting) var(--glass-slice) fill / var(--glass-reach) stretch;
+  pointer-events: none;
+}
+
+.launcher-theme .glass[data-glass="clear"][data-glass-ready] {
   -webkit-backdrop-filter: var(--glass-filter);
   backdrop-filter: var(--glass-filter);
 }
 
 [data-glass="clear"] {
-  --glass-flood: none;
   --glass-under: 1;
-  --glass-tint: color-mix(in srgb, var(--color-surface) 18%, transparent);
+  --glass-tint: transparent;
 }
 
 [data-glass="regular"] {
-  --glass-flood: var(--glass-regular-flood);
-  --glass-flood-alpha: var(--glass-regular-flood-alpha);
   --glass-under: 0.25;
-  --glass-tint: color-mix(in srgb, var(--color-surface) 42%, transparent);
+  --glass-tint: var(--glass-regular-tint);
 }
 
 [data-glass="prominent"] {
-  --glass-flood: var(--color-brand-fill);
-  --glass-flood-alpha: 0.94;
   --glass-light: 0.7;
   --glass-under: 0;
   --glass-tint: var(--color-brand-fill);
@@ -442,11 +452,6 @@
   background-image: none !important;
   cursor: default;
   opacity: 0.62;
-}
-
-.launcher-theme .glass-button.fui-Button[data-glass-ready]:disabled,
-.launcher-theme .service-control__primary.fui-Button[data-glass-ready]:disabled {
-  background-color: transparent !important;
 }
 
 /* Fluent's focus border and inset shadow are replaced by the glass, so focused controls ring with an outline. */
@@ -1059,7 +1064,8 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .launcher-theme .glass {
+  .launcher-theme .glass,
+  .launcher-theme .glass[data-glass-lit] {
     background-color: var(--color-surface);
     box-shadow: 0 0 0 1px var(--color-border), var(--glass-drop);
     -webkit-backdrop-filter: none;
@@ -1086,6 +1092,7 @@
 
 @media (forced-colors: active) {
   .launcher-theme .glass,
+  .launcher-theme .glass[data-glass-lit],
   .content-group,
   .shell-main:not(.active-status) .section-shell {
     border: 1px solid CanvasText;
@@ -1111,6 +1118,10 @@
   .launcher-theme .glass.fui-Button:disabled {
     color: GrayText !important;
     border-color: GrayText;
+  }
+
+  .launcher-theme .glass[data-glass-lit]::after {
+    display: none;
   }
 
   .window-drag-handle {

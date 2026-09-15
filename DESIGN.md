@@ -227,7 +227,7 @@ Web 产品弹窗、抽屉、菜单、说明弹层与选择器浮层使用不透�
 
 认证入口参考 Apple 的 [Liquid Glass 材质](https://developer.apple.com/videos/play/wwdc2025/219/)，在静态壁纸上使用通透面板、圆角透镜折射与边缘高光。这是浏览器适配，具体效果遵循浏览器能力；颜色由现有认证主题 token 局部派生，不改变共享品牌 token。折射路径与降级方式见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。
 
-Launcher 按 Apple 的分层把玻璃留给导航层与悬浮控件：侧栏、操作按钮与状态透镜是玻璃，内容分组是雾白画布上的安静填充。玻璃边缘把背后内容压缩折射成细带，并带有镜面亮线、斜面明暗与柔和投影；颜色与强度由 Launcher 语义 token 局部派生，不改变共享品牌 token。尚未改版的工作区以一块实色表面承载原布局。材质与降级见 [Launcher 界面规范](docs/design/launcher-design-system.md#liquid-glass-材质)。
+Launcher 按 Apple 的分层把玻璃留给导航层与悬浮控件：侧栏、操作按钮与状态透镜是玻璃，内容分组是雾白画布上的安静填充。玻璃带有镜面亮线、焦散微光与柔和投影，状态透镜还把背后的状态色折射成边缘光环；颜色与强度由 Launcher 语义 token 局部派生，不改变共享品牌 token。尚未改版的工作区以一块实色表面承载原布局。材质与降级见 [Launcher 界面规范](docs/design/launcher-design-system.md#liquid-glass-材质)。
 
 不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层、认证面板与 Launcher 玻璃表面使用完整不透明表面。内容可读性与操作反馈不依赖玻璃效果。
 
@@ -377,7 +377,7 @@ Web 主题切换由 Motion 驱动新主题快照，从操作入口以 420ms 展�
 
 非模态桌面日志窗口保留自身 CSS 透明度与水平位移过渡（220ms），条目间的详情切换使用 160ms 淡化；它不叠加 AppDialog 的缩放和焦点锁。共享 reduced-motion 与 forced-colors 样式覆盖该窗口过渡。
 
-Launcher 工作区从下方 8px 沉降进入且不改变透明度，使玻璃面板持续取样壁纸；状态与内容在点击时更新，连续切换取消旧动画并从当前位置继续。导航持续可交互，reduced-motion 或 forced-colors 下立即完成。Web 与 Launcher 均保留 system、light、dark 主题偏好，手动选择可持久化，不使用按时钟自动切换配置。动效时长不代表帧率或性能承诺。
+Launcher 工作区从下方 8px 沉降进入且不改变透明度；状态与内容在点击时更新，连续切换取消旧动画并从当前位置继续。导航持续可交互，reduced-motion 或 forced-colors 下立即完成。Web 与 Launcher 均保留 system、light、dark 主题偏好，手动选择可持久化，不使用按时钟自动切换配置。动效时长不代表帧率或性能承诺。
 
 **The Single Motion Owner Rule.** 同一元素只接受一种动效机制，连续操作取消旧动画并以最新状态为准。
 

@@ -1,37 +1,30 @@
 /**
- * Liquid Glass surfaces. In WebView2 every glass size gets one SVG backdrop filter that refracts the
- * backdrop through a rounded bevel, tints it and lights the rim. WebKit, Gecko, reduced transparency
- * and forced colors keep the CSS material from liquid-glass.css. Elements opt in with
- * `data-glass="clear" | "regular" | "prominent"`.
+ * Liquid Glass surfaces. Every glass element draws its rim light from a small nine-slice image: a
+ * specular line where the edge faces the light, a caustic glow inside it and darker side lines. The
+ * image depends only on the corner radius, the element's shorter side and the theme, so surfaces share
+ * it and window resizing never redraws it. Clear lenses also refract their backdrop through an SVG
+ * backdrop filter in WebView2; the other variants sit on the flat canvas, where refraction would not
+ * show, and skip filters entirely. Elements opt in with `data-glass="clear" | "regular" | "prominent"`.
  */
 
 export type GlassVariant = "clear" | "regular" | "prominent";
 
-type GlassSpec = {
-  width: number;
-  height: number;
+type LightingSpec = {
+  size: number;
   radius: number;
-  variant: GlassVariant;
   scale: number;
+  compact: boolean;
   light: number;
   shade: number;
   glow: number;
   under: number;
-  flood: string;
-  floodAlpha: number;
 };
 
-type Geometry = {
-  size: number;
-  bevel: number;
-  gap: number;
-  maxShift: number;
-  lineWidth: number;
-  glowWidth: number;
-  shadeCenter: number;
-  shadeWidth: number;
-  edgeDarkness: number;
-};
+type LightingImage = { url: string; slice: number; reach: number };
+
+type LensSpec = { width: number; height: number; radius: number };
+
+type LensGeometry = { bevel: number; gap: number; maxShift: number };
 
 type Edge = { depth: number; nx: number; ny: number };
 
@@ -44,24 +37,16 @@ type FilterRecord<T> = {
 };
 
 type SurfaceState = {
-  key: string | null;
-  pending: string | null;
-  token: number;
-  settleTimer: ReturnType<typeof setTimeout> | undefined;
+  lightingKey: string | null;
+  lensKey: string | null;
+  lensToken: number;
 };
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const REFRACTIVE_INDEX = 1.5;
 const PROFILE_STEPS = 512;
-const RESIZE_SETTLE_MS = 160;
 const FILTER_RELEASE_MS = 4000;
-const MAX_MAP_PIXELS = 2_500_000;
-
-const materials: Record<GlassVariant, { frost: number; saturate: number }> = {
-  clear: { frost: 0, saturate: 1.05 },
-  regular: { frost: 3, saturate: 1.25 },
-  prominent: { frost: 1.5, saturate: 1.1 },
-};
+const LIGHTING_CACHE_LIMIT = 48;
 
 // Light arrives from above and slightly left; rims facing it carry the specular line.
 const lightDirection = (() => {
@@ -82,37 +67,6 @@ function squircleSlope(x: number) {
   const low = Math.max(0, x - 1e-4);
   const high = Math.min(1, x + 1e-4);
   return (squircle(high) - squircle(low)) / (high - low);
-}
-
-/**
- * Inward sampling offset for a view ray that meets the bevel at `x = depth / bevel`. The glass floats
- * `gap` pixels above the content, so rays near the edge leave the underside at a grazing angle and land
- * far inside; that content is compressed into the thin colored band just inside the rim.
- */
-function rimShift(x: number, geometry: Geometry) {
-  if (x >= 1) return 0;
-  const incidence = Math.atan(squircleSlope(Math.max(x, 1e-4)));
-  const deviation = incidence - Math.asin(Math.sin(incidence) / REFRACTIVE_INDEX);
-  const exit = REFRACTIVE_INDEX * Math.sin(deviation);
-  if (exit >= 0.9995) return Number.POSITIVE_INFINITY;
-  return geometry.bevel * squircle(x) * Math.tan(deviation) + geometry.gap * Math.tan(Math.asin(exit));
-}
-
-function geometryFor(width: number, height: number): Geometry {
-  const size = Math.min(width, height);
-  const bevel = clamp(size * 0.19, 4, 36);
-  return {
-    size,
-    bevel,
-    gap: bevel * 1.1,
-    maxShift: clamp(size * 0.36, 4, 64),
-    lineWidth: clamp(size * 0.011, 1.2, 2),
-    glowWidth: clamp(size * 0.035, 1.2, 7),
-    shadeCenter: clamp(size * 0.1, 2, 18),
-    shadeWidth: clamp(size * 0.09, 2, 16),
-    // Small lenses carry a crisp dark side line; on large panels it fades to a hairline.
-    edgeDarkness: 0.42 - 0.24 * smoothstep(60, 300, size),
-  };
 }
 
 /** Distance inside the rounded rectangle and the outward normal of its nearest edge. */
@@ -148,8 +102,90 @@ function encodeImage(width: number, height: number, fill: (data: Uint8ClampedArr
   return canvas.toDataURL();
 }
 
+const lightingCache = new Map<string, LightingImage>();
+
+/**
+ * Draws the rim light of a rounded rectangle as a nine-slice image. Straight edges are lit evenly along
+ * their length, so the stretched center row and column reproduce any element of the same radius.
+ */
+function lightingImage(spec: LightingSpec): LightingImage | null {
+  const key = JSON.stringify(spec);
+  const cached = lightingCache.get(key);
+  if (cached) {
+    lightingCache.delete(key);
+    lightingCache.set(key, cached);
+    return cached;
+  }
+
+  const lineWidth = clamp(spec.size * 0.011, 1.2, 2);
+  const glowWidth = clamp(spec.size * 0.035, 1.2, 7);
+  // Small lenses carry a crisp dark side line; on large panels it fades toward a hairline.
+  const edgeDarkness = 0.42 - 0.24 * smoothstep(60, 300, spec.size);
+  const slice = Math.ceil(Math.max(spec.radius, lineWidth + 1, glowWidth * 5) * spec.scale);
+  const pixels = slice * 2 + 1;
+  const half = pixels / spec.scale / 2;
+  const radius = Math.min(spec.radius, half);
+  const soft = 0.5 / spec.scale;
+  // Only a lens seen whole carries the shadow cast through it; it would smear across a stretched slice.
+  const under = spec.compact ? spec.under * 0.07 * (1 - smoothstep(120, 360, spec.size)) : 0;
+  const underDepth = spec.size * 0.19;
+  const edge: Edge = { depth: 0, nx: 0, ny: 0 };
+
+  const url = encodeImage(pixels, pixels, (data) => {
+    for (let y = 0; y < pixels; y += 1) {
+      const py = (y + 0.5) / spec.scale - half;
+      const underRow = under * smoothstep(-0.9, 0.3, py / half);
+      for (let x = 0; x < pixels; x += 1) {
+        measureEdge(edge, (x + 0.5) / spec.scale - half, py, half, half, radius);
+        if (edge.depth <= 0) continue;
+        const facing = edge.nx * lightDirection.x + edge.ny * lightDirection.y;
+        const lit = Math.max(facing, 0);
+        const back = Math.max(-facing, 0);
+        const side = 1 - Math.abs(facing);
+        const line = 1 - smoothstep(lineWidth - soft, lineWidth + soft, edge.depth);
+        const sideLine = 1 - smoothstep(lineWidth * 0.7 - soft, lineWidth * 0.7 + soft, edge.depth);
+        const rim = clamp(line * (lit ** 3 + 0.85 * back ** 3) * 1.2 * spec.light, 0, 1);
+        const glow = clamp(Math.exp(-edge.depth / glowWidth) * (lit ** 2 + 0.55 * back ** 2) * (1 - line) * spec.glow, 0, 1);
+        const shade = clamp((sideLine * edgeDarkness * side ** 2 + underRow * smoothstep(0, underDepth, edge.depth)) * spec.shade, 0, 1);
+        // Shade, glow and rim stack as black, white and white layers; one gray pixel with alpha holds the result.
+        const alpha = 1 - (1 - shade) * (1 - glow) * (1 - rim);
+        if (alpha <= 0) continue;
+        const gray = Math.round(((rim + glow * (1 - rim)) / alpha) * 255);
+        const index = (y * pixels + x) * 4;
+        data[index] = gray;
+        data[index + 1] = gray;
+        data[index + 2] = gray;
+        data[index + 3] = Math.round(alpha * 255);
+      }
+    }
+  });
+  if (!url) return null;
+
+  const image = { url, slice, reach: slice / spec.scale };
+  lightingCache.set(key, image);
+  if (lightingCache.size > LIGHTING_CACHE_LIMIT) {
+    const oldest = lightingCache.keys().next().value;
+    if (oldest !== undefined) lightingCache.delete(oldest);
+  }
+  return image;
+}
+
+/**
+ * Inward sampling offset for a view ray that meets the bevel at `x = depth / bevel`. The glass floats
+ * `gap` pixels above the content, so rays near the edge leave the underside at a grazing angle and land
+ * far inside; that content is compressed into the thin colored band just inside the rim.
+ */
+function rimShift(x: number, geometry: LensGeometry) {
+  if (x >= 1) return 0;
+  const incidence = Math.atan(squircleSlope(Math.max(x, 1e-4)));
+  const deviation = incidence - Math.asin(Math.sin(incidence) / REFRACTIVE_INDEX);
+  const exit = REFRACTIVE_INDEX * Math.sin(deviation);
+  if (exit >= 0.9995) return Number.POSITIVE_INFINITY;
+  return geometry.bevel * squircle(x) * Math.tan(deviation) + geometry.gap * Math.tan(Math.asin(exit));
+}
+
 // R and G push each backdrop sample toward the center; 128 means no shift.
-function displacementMap(spec: GlassSpec, geometry: Geometry) {
+function displacementMap(spec: LensSpec, geometry: LensGeometry) {
   const profile = new Float32Array(PROFILE_STEPS + 1);
   for (let i = 0; i <= PROFILE_STEPS; i += 1) {
     profile[i] = Math.min(rimShift(i / PROFILE_STEPS, geometry), geometry.maxShift) / geometry.maxShift;
@@ -174,58 +210,16 @@ function displacementMap(spec: GlassSpec, geometry: Geometry) {
   });
 }
 
-// Drawn at device resolution so the rim line stays crisp. R: specular rim, laid over as white.
-// G: bevel shading and the shadow seen through the glass, laid over as black. B: caustic glow, added.
-function lightingMap(spec: GlassSpec, geometry: Geometry) {
-  const { width, height, radius, scale } = spec;
-  const mapWidth = Math.max(1, Math.round(width * scale));
-  const mapHeight = Math.max(1, Math.round(height * scale));
-  const halfWidth = width / 2;
-  const halfHeight = height / 2;
-  const soft = 0.5 / scale;
-  const underShadow = spec.under * 0.07 * (1 - smoothstep(120, 360, geometry.size));
-  const edge: Edge = { depth: 0, nx: 0, ny: 0 };
-  return encodeImage(mapWidth, mapHeight, (data) => {
-    for (let y = 0; y < mapHeight; y += 1) {
-      const py = (y + 0.5) / scale - halfHeight;
-      const under = underShadow * smoothstep(-0.9, 0.3, py / halfHeight);
-      for (let x = 0; x < mapWidth; x += 1) {
-        const index = (y * mapWidth + x) * 4;
-        data[index + 3] = 255;
-        measureEdge(edge, (x + 0.5) / scale - halfWidth, py, halfWidth, halfHeight, radius);
-        if (edge.depth <= 0) continue;
-        const facing = edge.nx * lightDirection.x + edge.ny * lightDirection.y;
-        const lit = Math.max(facing, 0);
-        const back = Math.max(-facing, 0);
-        const side = 1 - Math.abs(facing);
-        const line = 1 - smoothstep(geometry.lineWidth - soft, geometry.lineWidth + soft, edge.depth);
-        const sideLine = 1 - smoothstep(geometry.lineWidth * 0.7 - soft, geometry.lineWidth * 0.7 + soft, edge.depth);
-        const rim = line * (lit ** 3 + 0.85 * back ** 3) * 1.2 * spec.light;
-        const glow = Math.exp(-edge.depth / geometry.glowWidth) * (lit ** 2 + 0.55 * back ** 2) * (1 - line);
-        const bump = Math.exp(-(((edge.depth - geometry.shadeCenter) / geometry.shadeWidth) ** 2));
-        const shade = (sideLine * geometry.edgeDarkness * side ** 2 + bump * 0.02 + under * smoothstep(0, geometry.bevel, edge.depth)) * spec.shade;
-        data[index] = Math.round(clamp(rim, 0, 1) * 255);
-        data[index + 1] = Math.round(clamp(shade, 0, 1) * 255);
-        data[index + 2] = Math.round(clamp(glow, 0, 1) * 255);
-      }
-    }
-  });
-}
-
 function svgElement(tag: string, attributes: Record<string, string | number>) {
   const node = document.createElementNS(SVG_NS, tag);
   for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, String(value));
   return node;
 }
 
-function decodeImage(url: string) {
-  const image = new Image();
-  image.src = url;
-  return image.decode();
-}
-
-function createFilter(spec: GlassSpec, id: string, host: Element) {
-  const geometry = geometryFor(spec.width, spec.height);
+function createLensFilter(spec: LensSpec, id: string, host: Element) {
+  const size = Math.min(spec.width, spec.height);
+  const bevel = clamp(size * 0.19, 4, 36);
+  const geometry = { bevel, gap: bevel * 1.1, maxShift: clamp(size * 0.36, 4, 64) };
   const filter = svgElement("filter", {
     id,
     x: 0,
@@ -237,42 +231,21 @@ function createFilter(spec: GlassSpec, id: string, host: Element) {
     "color-interpolation-filters": "sRGB",
   });
   host.append(filter);
-  const displacement = displacementMap(spec, geometry);
-  const lighting = displacement ? lightingMap(spec, geometry) : null;
-  if (!displacement || !lighting) return { resource: filter, ready: Promise.resolve(false) };
+  const map = displacementMap(spec, geometry);
+  if (!map) return { resource: filter, ready: Promise.resolve(false) };
 
   const add = (tag: string, attributes: Record<string, string | number>) => filter.append(svgElement(tag, attributes));
-  const material = materials[spec.variant];
-  const image = { x: 0, y: 0, width: spec.width, height: spec.height, preserveAspectRatio: "none" };
-  let source = "SourceGraphic";
-  if (material.frost > 0) {
-    add("feGaussianBlur", { in: "SourceGraphic", stdDeviation: material.frost, edgeMode: "duplicate", result: "frost" });
-    source = "frost";
-  }
-  add("feImage", { ...image, href: displacement, result: "map" });
-  add("feDisplacementMap", { in: source, in2: "map", scale: (2 * geometry.maxShift).toFixed(2), xChannelSelector: "R", yChannelSelector: "G", result: "lens" });
+  add("feImage", { href: map, x: 0, y: 0, width: spec.width, height: spec.height, preserveAspectRatio: "none", result: "map" });
+  add("feDisplacementMap", { in: "SourceGraphic", in2: "map", scale: (2 * geometry.maxShift).toFixed(2), xChannelSelector: "R", yChannelSelector: "G", result: "lens" });
   // The displacement samples whole pixels, which steps where the rim compresses the backdrop.
-  add("feGaussianBlur", { in: "lens", stdDeviation: 0.4, edgeMode: "duplicate", result: "smooth" });
-  add("feColorMatrix", { in: "smooth", type: "saturate", values: material.saturate, result: "vivid" });
-  let base = "vivid";
-  if (spec.flood && spec.floodAlpha > 0) {
-    add("feFlood", { "flood-color": spec.flood, "flood-opacity": spec.floodAlpha, result: "tint" });
-    add("feComposite", { in: "tint", in2: "vivid", operator: "over", result: "tinted" });
-    base = "tinted";
-  }
-  add("feImage", { ...image, href: lighting, result: "light" });
-  add("feColorMatrix", { in: "light", type: "matrix", values: "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0", result: "shadeLayer" });
-  add("feComposite", { in: "shadeLayer", in2: base, operator: "over", result: "shaded" });
-  add("feColorMatrix", { in: "light", type: "matrix", values: "0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 1 0 0", result: "glowLayer" });
-  add("feComposite", { in: "glowLayer", in2: "shaded", operator: "arithmetic", k1: 0, k2: spec.glow, k3: 1, k4: 0, result: "lit" });
-  add("feColorMatrix", { in: "light", type: "matrix", values: "0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 0 0 0 0", result: "rimLayer" });
-  add("feComposite", { in: "rimLayer", in2: "lit", operator: "over" });
+  add("feGaussianBlur", { in: "lens", stdDeviation: 0.4, edgeMode: "duplicate" });
 
-  const ready = Promise.all([decodeImage(displacement), decodeImage(lighting)]).then(() => true, () => false);
-  return { resource: filter, ready };
+  const image = new Image();
+  image.src = map;
+  return { resource: filter, ready: image.decode().then(() => true, () => false) };
 }
 
-/** Shares one filter per glass size and removes filters a while after the last surface lets go. */
+/** Shares one lens filter per size and removes filters a while after the last surface lets go. */
 export class GlassFilterRegistry<T> {
   private readonly records = new Map<string, FilterRecord<T>>();
   private sequence = 0;
@@ -322,7 +295,7 @@ export class GlassFilterRegistry<T> {
   }
 }
 
-/** WebKit and Gecko do not take an SVG filter in backdrop-filter; they keep the CSS material. */
+/** WebKit and Gecko do not take an SVG filter in backdrop-filter; their lenses stay clear without refraction. */
 function supportsGlassRefraction(): boolean {
   if (typeof CSS === "undefined" || typeof CSS.supports !== "function") return false;
   if (CSS.supports("-webkit-backdrop-filter", "blur(1px)") || CSS.supports("-moz-appearance", "none")) return false;
@@ -340,91 +313,104 @@ function numberProperty(style: CSSStyleDeclaration, name: string, fallback: numb
   return Number.isFinite(value) ? value : fallback;
 }
 
-function specFor(element: HTMLElement, variant: GlassVariant): GlassSpec | null {
-  const width = Math.round(element.offsetWidth);
-  const height = Math.round(element.offsetHeight);
-  const scale = clamp(Math.round((window.devicePixelRatio || 1) * 4) / 4, 1, 3);
-  if (width < 2 || height < 2 || width * height * scale * scale > MAX_MAP_PIXELS) return null;
-  const style = getComputedStyle(element);
-  const firstRadius = style.borderTopLeftRadius.split(" ")[0] ?? "0";
-  const radiusValue = Number.parseFloat(firstRadius) || 0;
-  const radius = firstRadius.endsWith("%") ? (radiusValue / 100) * Math.min(width, height) : radiusValue;
-  const flood = style.getPropertyValue("--glass-flood").trim();
-  return {
-    width,
-    height,
-    radius: Math.round(Math.min(radius, width / 2, height / 2) * 4) / 4,
-    variant,
-    scale,
-    light: numberProperty(style, "--glass-light", 1),
-    shade: numberProperty(style, "--glass-shade", 1),
-    glow: numberProperty(style, "--glass-glow", 0.14),
-    under: numberProperty(style, "--glass-under", 0),
-    flood: flood === "none" ? "" : flood,
-    floodAlpha: numberProperty(style, "--glass-flood-alpha", 0),
-  };
+function radiusOf(style: CSSStyleDeclaration, width: number, height: number) {
+  const first = style.borderTopLeftRadius.split(" ")[0] ?? "0";
+  const value = Number.parseFloat(first) || 0;
+  const radius = first.endsWith("%") ? (value / 100) * Math.min(width, height) : value;
+  return Math.round(Math.min(radius, width / 2, height / 2) * 4) / 4;
 }
 
-/** Tracks `[data-glass]` elements under `root` and keeps each one on the filter for its current size. */
+/** Tracks `[data-glass]` elements under `root` and keeps their rim light and lens filter current. */
 export function startGlassSurfaces(root: HTMLElement): () => void {
   if (typeof ResizeObserver === "undefined" || typeof MutationObserver === "undefined") {
     return () => undefined;
   }
 
-  const host = svgElement("svg", { width: 0, height: 0, "aria-hidden": "true", focusable: "false", class: "glass-filter-host" });
-  const defs = svgElement("defs", {});
-  host.append(defs);
-  document.body.append(host);
-
+  let host: Element | null = null;
+  const filterHost = () => {
+    if (!host) {
+      const svg = svgElement("svg", { width: 0, height: 0, "aria-hidden": "true", focusable: "false", class: "glass-filter-host" });
+      host = svgElement("defs", {});
+      svg.append(host);
+      document.body.append(svg);
+    }
+    return host;
+  };
   const registry = new GlassFilterRegistry<Element>(
-    (id, key) => createFilter(JSON.parse(key) as GlassSpec, id, defs),
+    (id, key) => createLensFilter(JSON.parse(key) as LensSpec, id, filterHost()),
     (filter) => filter.remove(),
   );
   const surfaces = new Map<HTMLElement, SurfaceState>();
-  let enabled = supportsGlassRefraction();
+  let refracts = supportsGlassRefraction();
 
-  const detach = (element: HTMLElement, state: SurfaceState) => {
-    state.token += 1;
-    state.pending = null;
-    clearTimeout(state.settleTimer);
-    state.settleTimer = undefined;
-    if (state.key) registry.release(state.key);
-    state.key = null;
+  const clearLighting = (element: HTMLElement, state: SurfaceState) => {
+    state.lightingKey = null;
+    element.style.removeProperty("--glass-lighting");
+    element.style.removeProperty("--glass-slice");
+    element.style.removeProperty("--glass-reach");
+    delete element.dataset.glassLit;
+  };
+
+  const clearLens = (element: HTMLElement, state: SurfaceState) => {
+    state.lensToken += 1;
+    if (state.lensKey) registry.release(state.lensKey);
+    state.lensKey = null;
     element.style.removeProperty("--glass-filter");
     delete element.dataset.glassReady;
   };
 
-  const refresh = (element: HTMLElement, settled: boolean) => {
+  const refresh = (element: HTMLElement) => {
     const state = surfaces.get(element);
     if (!state) return;
     const variant = parseVariant(element.dataset.glass);
-    const spec = enabled && variant && element.isConnected ? specFor(element, variant) : null;
-    if (!spec) {
-      detach(element, state);
+    const width = Math.round(element.offsetWidth);
+    const height = Math.round(element.offsetHeight);
+    if (!variant || !element.isConnected || width < 2 || height < 2) {
+      clearLighting(element, state);
+      clearLens(element, state);
       return;
     }
-    const key = JSON.stringify(spec);
-    if (key === state.key || key === state.pending) return;
-    if (!settled && (state.key || state.pending || state.settleTimer !== undefined)) {
-      // The size is still changing: show the CSS material until it settles, then build once.
-      detach(element, state);
-      state.settleTimer = setTimeout(() => {
-        state.settleTimer = undefined;
-        refresh(element, true);
-      }, RESIZE_SETTLE_MS);
+
+    const style = getComputedStyle(element);
+    const radius = radiusOf(style, width, height);
+    const size = Math.min(width, height);
+    const lighting: LightingSpec = {
+      size,
+      radius,
+      scale: clamp(Math.round((window.devicePixelRatio || 1) * 4) / 4, 1, 3),
+      compact: size <= radius * 2 + 1,
+      light: numberProperty(style, "--glass-light", 1),
+      shade: numberProperty(style, "--glass-shade", 1),
+      glow: numberProperty(style, "--glass-glow", 1),
+      under: numberProperty(style, "--glass-under", 0),
+    };
+    const lightingKey = JSON.stringify(lighting);
+    if (lightingKey !== state.lightingKey) {
+      const image = lightingImage(lighting);
+      if (image) {
+        element.style.setProperty("--glass-lighting", `url("${image.url}")`);
+        element.style.setProperty("--glass-slice", String(image.slice));
+        element.style.setProperty("--glass-reach", `${image.reach}px`);
+        element.dataset.glassLit = "";
+        state.lightingKey = lightingKey;
+      }
+    }
+
+    if (variant !== "clear" || !refracts) {
+      clearLens(element, state);
       return;
     }
-    const token = (state.token += 1);
-    state.pending = key;
-    const record = registry.acquire(key);
+    const lensKey = JSON.stringify({ width, height, radius } satisfies LensSpec);
+    if (lensKey === state.lensKey) return;
+    const token = (state.lensToken += 1);
+    const record = registry.acquire(lensKey);
     void record.ready.then((ok) => {
-      if (state.token !== token || surfaces.get(element) !== state || !ok) {
-        registry.release(key);
+      if (state.lensToken !== token || surfaces.get(element) !== state || !ok) {
+        registry.release(lensKey);
         return;
       }
-      const previous = state.key;
-      state.pending = null;
-      state.key = key;
+      const previous = state.lensKey;
+      state.lensKey = lensKey;
       element.style.setProperty("--glass-filter", `url(#${record.id})`);
       element.dataset.glassReady = "";
       if (previous) registry.release(previous);
@@ -432,23 +418,25 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
   };
 
   const refreshAll = () => {
-    for (const element of surfaces.keys()) refresh(element, true);
+    for (const element of surfaces.keys()) refresh(element);
   };
 
+  // Rim images are keyed by radius and shorter side, so most resize notifications change nothing.
   const resizeObserver = new ResizeObserver((entries) => {
-    for (const entry of entries) refresh(entry.target as HTMLElement, false);
+    for (const entry of entries) refresh(entry.target as HTMLElement);
   });
 
   const attach = (element: HTMLElement) => {
     if (surfaces.has(element)) return;
-    surfaces.set(element, { key: null, pending: null, token: 0, settleTimer: undefined });
+    surfaces.set(element, { lightingKey: null, lensKey: null, lensToken: 0 });
     resizeObserver.observe(element);
   };
 
   const forget = (element: HTMLElement) => {
     const state = surfaces.get(element);
     if (!state) return;
-    detach(element, state);
+    clearLighting(element, state);
+    clearLens(element, state);
     surfaces.delete(element);
     resizeObserver.unobserve(element);
   };
@@ -464,7 +452,7 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
       if (record.type === "attributes") {
         const element = record.target as HTMLElement;
         if (element.dataset.glass === undefined) forget(element);
-        else if (surfaces.has(element)) refresh(element, true);
+        else if (surfaces.has(element)) refresh(element);
         else attach(element);
         continue;
       }
@@ -476,7 +464,7 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
   });
   mutationObserver.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-glass"] });
 
-  // Theme colors and intensities are read from CSS, so a theme switch rebuilds the filters.
+  // Theme colors and intensities are read from CSS, so a theme switch redraws the rim images.
   const themeObserver = new MutationObserver(refreshAll);
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
@@ -484,7 +472,7 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
     .map((query) => window.matchMedia?.(query))
     .filter((query): query is MediaQueryList => Boolean(query));
   const onPreferenceChange = () => {
-    enabled = supportsGlassRefraction();
+    refracts = supportsGlassRefraction();
     refreshAll();
   };
   preferenceQueries.forEach((query) => query.addEventListener("change", onPreferenceChange));
@@ -509,9 +497,12 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
     resizeObserver.disconnect();
     preferenceQueries.forEach((query) => query.removeEventListener("change", onPreferenceChange));
     scaleQuery?.removeEventListener("change", onScaleChange);
-    for (const [element, state] of surfaces) detach(element, state);
+    for (const [element, state] of surfaces) {
+      clearLighting(element, state);
+      clearLens(element, state);
+    }
     surfaces.clear();
     registry.clear();
-    host.remove();
+    host?.parentElement?.remove();
   };
 }
