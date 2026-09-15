@@ -1115,8 +1115,13 @@
   transition: rotate var(--motion-control) var(--ease-precision);
 }
 
-.disclosure[open] > summary .disclosure__chevron {
+.disclosure[data-expanded="true"] > summary .disclosure__chevron {
   rotate: 90deg;
+}
+
+/* Clips the content while Motion animates its height. */
+.disclosure__content {
+  overflow: hidden;
 }
 
 /* Environment workspace */

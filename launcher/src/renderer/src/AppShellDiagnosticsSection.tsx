@@ -1,7 +1,6 @@
 import { Button } from "@fluentui/react-components";
 import {
   CheckmarkCircle20Regular,
-  ChevronRight16Regular,
   DocumentText20Regular,
   FolderOpen20Regular,
   Globe20Regular,
@@ -12,6 +11,7 @@ import type { LauncherSnapshot } from "@shared/launcher-models";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 
 import { serviceStateConfig } from "./AppShell.shared";
+import { Disclosure } from "./Disclosure";
 
 type DiagnosticsSectionProps = {
   snapshot: LauncherSnapshot;
@@ -77,14 +77,9 @@ export function AppShellDiagnosticsSection({
         </div>
       )}
 
-      <details className="disclosure technical-disclosure content-group">
-        <summary>
-          <ChevronRight16Regular className="disclosure__chevron" aria-hidden="true" />
-          <span>技术详情</span>
-          <span>系统状态、路径与检查快照</span>
-        </summary>
+      <Disclosure className="disclosure technical-disclosure content-group" title="技术详情" meta="系统状态、路径与检查快照">
         <pre className="technical-disclosure__surface" aria-label="诊断技术详情">{diagnosticsSummary}</pre>
-      </details>
+      </Disclosure>
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import {
   CheckmarkCircle20Regular,
-  ChevronRight16Regular,
   Desktop20Regular,
   ErrorCircle20Regular,
   Folder20Regular,
@@ -15,6 +14,7 @@ import type { ReactNode } from "react";
 
 import { isRuntimePreparationIssue, severityConfig, sortChecks } from "./AppShell.shared";
 import { DetailRow } from "./AppShellDetailList";
+import { Disclosure } from "./Disclosure";
 
 type EnvironmentSectionProps = {
   snapshot: LauncherSnapshot;
@@ -128,12 +128,11 @@ export function AppShellEnvironmentSection({
               ))}
 
               {healthy.length > 0 ? (
-                <details className="disclosure check-disclosure">
-                  <summary>
-                    <ChevronRight16Regular className="disclosure__chevron" aria-hidden="true" />
-                    <span>{issues.length > 0 ? "查看正常项" : "检查全部正常"}</span>
-                    <span>{healthy.length} 项通过</span>
-                  </summary>
+                <Disclosure
+                  className="disclosure check-disclosure"
+                  title={issues.length > 0 ? "查看正常项" : "检查全部正常"}
+                  meta={`${healthy.length} 项通过`}
+                >
                   <div className="check-disclosure__list">
                     {healthy.map((item) => (
                       <div key={item.code} className="check-row check-row--healthy" data-severity="ok">
@@ -145,7 +144,7 @@ export function AppShellEnvironmentSection({
                       </div>
                     ))}
                   </div>
-                </details>
+                </Disclosure>
               ) : null}
             </div>
           </section>
