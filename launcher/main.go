@@ -38,6 +38,15 @@ const (
 	initialWindowReadyTimeout              = 10 * time.Second
 )
 
+// The minimum width is half of a 1920×1080 screen at 100% scaling, so the window can share the screen;
+// the minimum height still fits that screen's work area at 175% scaling.
+const (
+	defaultWindowWidth  = 1280
+	defaultWindowHeight = 720
+	minWindowWidth      = 960
+	minWindowHeight     = 560
+)
+
 type appHost struct {
 	app     *application.App
 	window  *application.WebviewWindow
@@ -121,10 +130,10 @@ func main() {
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:                       "main",
 		Title:                      "RayleaBot 启动器",
-		Width:                      1280,
-		Height:                     720,
-		MinWidth:                   760,
-		MinHeight:                  560,
+		Width:                      defaultWindowWidth,
+		Height:                     defaultWindowHeight,
+		MinWidth:                   minWindowWidth,
+		MinHeight:                  minWindowHeight,
 		URL:                        "/",
 		Frameless:                  true,
 		Hidden:                     true,
@@ -148,7 +157,7 @@ func main() {
 	showWindow := func() {
 		showInitialWindow.Do(func() {
 			if screen := app.Screen.GetPrimary(); screen != nil {
-				window.SetSize(max(760, min(1280, screen.WorkArea.Width)), max(560, min(720, screen.WorkArea.Height)))
+				window.SetSize(max(minWindowWidth, min(defaultWindowWidth, screen.WorkArea.Width)), max(minWindowHeight, min(defaultWindowHeight, screen.WorkArea.Height)))
 				window.Center()
 			}
 			window.Show()

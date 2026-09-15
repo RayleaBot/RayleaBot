@@ -830,25 +830,6 @@ html[data-theme="light"] :is(
   color: color-mix(in srgb, var(--color-warm) 84%, var(--color-text));
 }
 
-@media (max-width: 899px) {
-
-  .section-header__actions button,
-  .button-row button {
-    min-height: 44px;
-  }
-}
-
-@media (max-width: 790px) {
-
-  .section-header {
-    align-items: stretch;
-  }
-
-  .section-header__actions {
-    max-width: 250px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce), (forced-colors: active) {
   .launcher-fluent-provider {
     --durationUltraFast: 0ms;
@@ -884,7 +865,7 @@ code, time, .mono { font-variant-numeric: tabular-nums; }
   :root { --sidebar-width: 156px; }
 }
 
-@media (max-width: 899px), (pointer: coarse) {
+@media (pointer: coarse) {
   .launcher-theme .fui-Button { min-width: 44px; min-height: 44px; }
   .theme-menu-surface .theme-menu-item { min-height: 44px; }
 }
