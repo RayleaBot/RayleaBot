@@ -29,11 +29,13 @@ let transitionSequence = 0;
 
 interface ActiveWorkspaceAnimation {
   animation: Animation;
-  fromOpacity: number;
+  fromOffset: number;
 }
 
 let activeWorkspaceAnimation: ActiveWorkspaceAnimation | null = null;
-const workspaceEntryOpacity = 0.88;
+// The workspace settles by position, not opacity: an opacity below 1 would make it a
+// backdrop root and cut its glass panels off from the wallpaper.
+const workspaceEntryOffset = 8;
 
 export function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" &&
@@ -47,19 +49,19 @@ function supportsViewTransitions(): boolean {
 
 function cancelWorkspaceAnimation(): number {
   const active = activeWorkspaceAnimation;
-  if (!active) return workspaceEntryOpacity;
+  if (!active) return workspaceEntryOffset;
 
   const progress = active.animation.effect?.getComputedTiming().progress;
-  const opacity = typeof progress === "number"
-    ? active.fromOpacity + ((1 - active.fromOpacity) * progress)
-    : workspaceEntryOpacity;
+  const offset = typeof progress === "number"
+    ? active.fromOffset * (1 - progress)
+    : workspaceEntryOffset;
   activeWorkspaceAnimation = null;
   active.animation.cancel();
-  return opacity;
+  return offset;
 }
 
 export function runLauncherWorkspaceTransition(update: () => void): Animation | null {
-  const fromOpacity = cancelWorkspaceAnimation();
+  const fromOffset = cancelWorkspaceAnimation();
   const workspace = typeof document === "undefined"
     ? null
     : document.querySelector<HTMLElement>(".shell-main");
@@ -76,8 +78,8 @@ export function runLauncherWorkspaceTransition(update: () => void): Animation | 
   flushSync(update);
   const animation = workspace.animate(
     [
-      { opacity: fromOpacity },
-      { opacity: 1 },
+      { transform: `translateY(${fromOffset}px)` },
+      { transform: "none" },
     ],
     {
       duration: launcherMotion.workspace,
@@ -85,7 +87,7 @@ export function runLauncherWorkspaceTransition(update: () => void): Animation | 
       fill: "both",
     },
   );
-  const active = { animation, fromOpacity } satisfies ActiveWorkspaceAnimation;
+  const active = { animation, fromOffset } satisfies ActiveWorkspaceAnimation;
   activeWorkspaceAnimation = active;
   void animation.finished.catch(() => undefined).finally(() => {
     if (activeWorkspaceAnimation !== active) return;

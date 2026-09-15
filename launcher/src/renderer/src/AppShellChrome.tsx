@@ -40,7 +40,7 @@ export function AppShellChrome({
         </div>
       </div>
 
-      <aside className="shell-sidebar">
+      <aside className="shell-sidebar glass-surface">
         <nav className="section-nav">
           {sections.map((section) => (
             <button

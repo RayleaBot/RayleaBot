@@ -1,4 +1,11 @@
+import {
+  Folder20Regular,
+  FolderOpen20Regular,
+  Globe20Regular,
+  NumberSymbol20Regular,
+} from "@fluentui/react-icons";
 import type { LauncherResolvedSettings, LauncherSnapshot } from "@shared/launcher-models";
+import type { ReactNode } from "react";
 
 type AppShellStatusSummaryProps = {
   resolvedSettings: LauncherResolvedSettings;
@@ -30,37 +37,42 @@ function isSameDirectoryPath(left: string, right: string) {
   return normalizedLeft === normalizedRight;
 }
 
+type DetailRowProps = {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  title?: string;
+};
+
+function DetailRow({ icon, label, value, title }: DetailRowProps) {
+  return (
+    <div className="glass-list__row">
+      <dt>
+        <span className="glass-list__icon" aria-hidden="true">{icon}</span>
+        {label}
+      </dt>
+      <dd>
+        <code className="glass-list__value" title={title}>{value}</code>
+      </dd>
+    </div>
+  );
+}
+
 export function AppShellStatusSummary({ resolvedSettings, snapshot }: AppShellStatusSummaryProps) {
   const installationRoot = snapshot.launcher.settings.installationRoot;
   const workdir = resolvedSettings.workdir;
   const showWorkdir = Boolean(workdir.trim()) && !isSameDirectoryPath(installationRoot, workdir);
+  const baseUrl = snapshot.launcher.endpoint.baseUrl;
 
   return (
-    <section className="data-section" aria-labelledby="status-details-title">
-      <div className="data-section__heading">
-        <h3 id="status-details-title">运行详情</h3>
-        <span className="data-section__hint">本地服务关键信息</span>
-      </div>
-      <dl className="definition-list detail-grid">
-        <div className="definition-row detail-card">
-          <dt>进程 ID</dt>
-          <dd><code className="detail-card__value">{snapshot.launcher.processId ?? "—"}</code></dd>
-        </div>
-        <div className="definition-row detail-card">
-          <dt>服务地址</dt>
-          <dd className="mono detail-card__value" title={snapshot.launcher.endpoint.baseUrl}>
-            {snapshot.launcher.endpoint.baseUrl}
-          </dd>
-        </div>
-        <div className="definition-row detail-card detail-card--wide">
-          <dt>安装目录</dt>
-          <dd className="mono detail-card__value" title={installationRoot}>{installationRoot || "—"}</dd>
-        </div>
+    <section className="status-group" aria-labelledby="status-details-title">
+      <h3 id="status-details-title" className="status-group__title">运行详情</h3>
+      <dl className="glass-list glass-surface">
+        <DetailRow icon={<NumberSymbol20Regular />} label="进程 ID" value={String(snapshot.launcher.processId ?? "—")} />
+        <DetailRow icon={<Globe20Regular />} label="服务地址" value={baseUrl} title={baseUrl} />
+        <DetailRow icon={<Folder20Regular />} label="安装目录" value={installationRoot || "—"} title={installationRoot || undefined} />
         {showWorkdir ? (
-          <div className="definition-row detail-card detail-card--wide">
-            <dt>工作目录</dt>
-            <dd className="mono detail-card__value" title={workdir}>{workdir}</dd>
-          </div>
+          <DetailRow icon={<FolderOpen20Regular />} label="工作目录" value={workdir} title={workdir} />
         ) : null}
       </dl>
     </section>

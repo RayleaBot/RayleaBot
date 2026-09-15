@@ -1,10 +1,10 @@
 import { Button } from "@fluentui/react-components";
 import { ArrowClockwise20Regular } from "@fluentui/react-icons";
-import { deriveLauncherPresentation, type LauncherPresentation } from "@shared/launcher-presentation";
+import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import type { ReactNode } from "react";
 
-import { busyActionLabels, isRuntimePreparationIssue, sectionContent, serviceStateConfig } from "./AppShell.shared";
+import { busyActionLabels, isRuntimePreparationIssue, sectionContent } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
 
 type AppShellSectionHeaderProps = {
@@ -22,20 +22,13 @@ type AppShellSectionHeaderProps = {
 
 function getSectionHeaderBadges(
   renderedSection: SectionId,
-  presentation: LauncherPresentation,
   busyAction: string | null,
   editingSettings: boolean,
   hasRecentStderr: boolean,
 ): ReactNode {
   if (renderedSection === "status") {
-    return (
-      <>
-        <span className="status-chip" data-tone={serviceStateConfig[presentation.state]?.tone ?? "neutral"}>
-          {serviceStateConfig[presentation.state]?.label ?? "未知"}
-        </span>
-        {busyAction && <span className="status-chip status-chip--muted">{busyActionLabels[busyAction] ?? "正在执行操作"}</span>}
-      </>
-    );
+    // The service pane names the state; the header only reports an operation in progress.
+    return busyAction ? <span className="status-chip status-chip--muted">{busyActionLabels[busyAction] ?? "正在执行操作"}</span> : null;
   }
   if (renderedSection === "environment") {
     return null;
@@ -53,10 +46,10 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
   if (props.renderedSection === "status") {
     return (
       <Button
-        appearance="subtle"
+        appearance="secondary"
         onClick={props.onRefresh}
         icon={<ArrowClockwise20Regular />}
-        className="action-button action-button--ghost"
+        className="glass-button"
         disabled={props.controlsDisabled}
       >
         刷新状态
@@ -108,7 +101,7 @@ export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
         <div className="section-header__title-row">
           <h1 className="section-header__title">{sectionMeta.title}</h1>
           <div className="section-header__badges">
-            {getSectionHeaderBadges(props.renderedSection, presentation, props.busyAction, props.editingSettings, hasRecentStderr)}
+            {getSectionHeaderBadges(props.renderedSection, props.busyAction, props.editingSettings, hasRecentStderr)}
           </div>
         </div>
       </div>

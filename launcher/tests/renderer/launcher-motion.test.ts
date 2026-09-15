@@ -29,7 +29,7 @@ test("interrupted navigation preserves visible content and cannot cancel its rep
   expect(workspace.textContent).toBe("diagnostics");
   expect(animations[0]!.cancel).toHaveBeenCalledOnce();
   const replacementFrames = (animate.mock.calls[1] as unknown as [Keyframe[]])[0];
-  expect(Number(replacementFrames[0]!.opacity)).toBeGreaterThan(0.85);
+  expect(replacementFrames[0]!.transform).toBe("translateY(4px)");
 
   animations[0]!.finish();
   await Promise.resolve();

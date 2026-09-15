@@ -105,7 +105,7 @@ export function AppShellRuntimePreparePanel({ runtimePrepare }: AppShellRuntimeP
     ?? null;
 
   return (
-    <article className="panel surface-panel surface-panel--subtle runtime-prepare-panel">
+    <article className="panel surface-panel surface-panel--subtle runtime-prepare-panel glass-surface">
       <div className="runtime-prepare-panel__header">
         <div>
           <Text size={200} className="panel-muted">

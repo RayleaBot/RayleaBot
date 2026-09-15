@@ -25,7 +25,7 @@ export function AppShellStatusRail({
   return (
     <aside className="status-attention-column" aria-label="需要关注的项目">
       {checks.length > 0 && (
-        <section className="attention-panel" data-tone={issueTone}>
+        <section className="attention-panel glass-surface" data-tone={issueTone}>
           <h3>环境问题</h3>
           <div className="attention-list">
           {checks.map((item) => (
@@ -46,11 +46,11 @@ export function AppShellStatusRail({
       )}
 
       {canPrepareRuntime ? (
-        <section className="attention-panel" data-tone="attention">
+        <section className="attention-panel glass-surface" data-tone="attention">
           <h3>运行环境准备</h3>
           <p>检测到可由启动器准备的运行环境项。</p>
           <div className="button-row button-row--stackable">
-            <Button appearance="subtle" onClick={onOpenTasks}>准备运行环境</Button>
+            <Button appearance="secondary" className="glass-button" onClick={onOpenTasks}>准备运行环境</Button>
           </div>
         </section>
       ) : null}

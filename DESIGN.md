@@ -154,7 +154,7 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 - 少量青瓷主操作、选中标记和几何折叶标识。
 - 自托管 Noto Sans SC 用于 Web 普通文字，Launcher 正文使用系统字体；字号、字重与间距形成克制层级。
 - 亮暗主题、键盘操作和窄屏呈现保持等价操作能力。
-- 管理工作区的状态、表单、列表与日志采用不透明表面；玻璃用于浮层，认证入口采用独立的 Liquid Glass 浏览器适配。
+- Web 管理工作区的状态、表单、列表与日志采用不透明表面，玻璃用于浮层；认证入口与 Launcher 采用 Liquid Glass 适配。
 
 本文件的 token 前置数据由 [design/tokens.json](design/tokens.json) 生成。它是机器值的唯一来源，采用 base → semantic light/dark → component 结构；[生成脚本](scripts/generate-design-tokens.mjs) 同时维护 Web、Launcher、favicon、共享字体 CSS 与 [.impeccable/design.json](.impeccable/design.json)。运行 `node scripts/generate-design-tokens.mjs` 更新生成物，运行 `node scripts/generate-design-tokens.mjs --check` 校验生成物漂移与指定对比度。原生图标由独立的 [图标生成脚本](scripts/generate-launcher-icons.mjs) 维护。
 
@@ -209,7 +209,7 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 
 ## Layout
 
-桌面 Web 使用可收起的持久导航与紧凑页头；页头提供面包屑、搜索与“更多操作”，设置和全屏收纳在菜单中。主题与账户菜单位于侧栏底部，软件名后显示构建版本。窄屏通过左侧导航抽屉提供相同入口，偏好从右侧抽屉打开。Launcher 窗口按可用工作区与最小尺寸约束调整，包含原生标题栏、带文字导航与单一主工作区。尺寸以组件代码为准，具体界面规则见 [Web](docs/design/web-management-ui.md) 与 [Launcher](docs/design/launcher-design-system.md)。
+桌面 Web 使用可收起的持久导航与紧凑页头；页头提供面包屑、搜索与“更多操作”，设置和全屏收纳在菜单中。主题与账户菜单位于侧栏底部，软件名后显示构建版本。窄屏通过左侧导航抽屉提供相同入口，偏好从右侧抽屉打开。Launcher 窗口按可用工作区与最小尺寸约束调整，包含透明标题栏、悬浮的带文字玻璃导航与单一主工作区。尺寸以组件代码为准，具体界面规则见 [Web](docs/design/web-management-ui.md) 与 [Launcher](docs/design/launcher-design-system.md)。
 
 间距使用前置 token 的 xs 至 xxl 标尺。独立任务可以使用完整有边界表面，同一任务内的字段、日志和数据行通过间距与分隔线组织。页面主操作位于稳定位置，状态总览保持连续横条，列表按真实内容排列。
 
@@ -227,17 +227,19 @@ Web 产品弹窗、抽屉、菜单、说明弹层与选择器浮层使用不透�
 
 认证入口参考 Apple 的 [Liquid Glass 材质](https://developer.apple.com/videos/play/wwdc2025/219/)，在静态壁纸上使用通透面板、圆角透镜折射与边缘高光。这是浏览器适配，具体效果遵循浏览器能力；颜色由现有认证主题 token 局部派生，不改变共享品牌 token。折射路径与降级方式见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。
 
-不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层与认证面板使用完整不透明表面。内容可读性与操作反馈不依赖玻璃效果。
+Launcher 采用同一材质语言：静态青瓷壁纸铺满窗口，标题栏透明，导航栏与已迁移工作区的面板以玻璃浮在壁纸上，服务控制面板使用圆角透镜折射，指针只移动边缘高光。玻璃颜色由 Launcher 语义 token 局部派生，不改变共享品牌 token；尚未迁移的工作区以一块不透明表面承载原布局。材质与降级见 [Launcher 界面规范](docs/design/launcher-design-system.md#liquid-glass-材质)。
+
+不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层、认证面板与 Launcher 玻璃表面使用完整不透明表面。内容可读性与操作反馈不依赖玻璃效果。
 
 ### Named Rules
 
-**The Structural Shadow Rule.** 管理工作区的静态边框表面不叠加大阴影，阴影只说明真实浮层关系；认证入口的阴影用于表达玻璃面板与控件的材质层次。
+**The Structural Shadow Rule.** 管理工作区的静态边框表面不叠加大阴影，阴影只说明真实浮层关系；认证入口与 Launcher 的阴影用于表达玻璃面板与控件的材质层次。
 
-**The Overlay Glass Rule.** 管理工作区的玻璃只属于覆盖内容的浮层，表单、列表和日志使用不透明底色；认证入口按专用材质规则呈现。所有玻璃表面始终保留不透明降级。
+**The Overlay Glass Rule.** Web 管理工作区的玻璃只属于覆盖内容的浮层，表单、列表和日志使用不透明底色；认证入口与 Launcher 按各自的材质规则呈现。所有玻璃表面始终保留不透明降级。
 
 ## Shapes
 
-标准控件使用温和圆角（md），独立任务表面与浮层采用较宽圆角（lg）；紧凑组件使用小圆角（xs / sm），状态胶囊使用 full。认证面板、凭据输入和主按钮使用更大的局部圆角，这些局部圆角不作为通用控件标准。
+标准控件使用温和圆角（md），独立任务表面与浮层采用较宽圆角（lg）；紧凑组件使用小圆角（xs / sm），状态胶囊使用 full。认证面板、凭据输入和主按钮使用更大的局部圆角；Launcher 玻璃面板使用同心的大圆角，玻璃工作区的按钮使用胶囊形。这些局部圆角不作为通用控件标准。
 
 Web 产品按钮、输入框与选择器使用现有 lg 圆角，居中产品弹窗采用略大的局部圆角。配置、搜索与确认弹窗共享该形状，内部字段通过间距与分隔线分组。左右抽屉贴齐视口边缘、使用直角；底部抽屉只有上方两个角为圆角。菜单与 Toast 使用 lg 圆角，Tooltip 使用现有 md 圆角，Web 状态与分类标签使用紧凑的 sm 圆角。
 
@@ -249,7 +251,7 @@ Web 产品按钮、输入框与选择器使用现有 lg 圆角，居中产品弹
 
 ### Buttons
 
-主按钮只强调当前工作流的主要动作，使用青瓷填充、对应前景与标准控件圆角。次级操作使用中性边界或轻量背景，人工关注和危险操作各用独立语义。默认、悬停、焦点、按下、禁用和加载状态均保留明确反馈。按钮高度由组件 token 提供，窄屏或粗指针环境使用触控尺寸目标。Launcher 在管理面可用时以打开管理面为主操作，否则提供启动操作；停止操作使用危险次级样式并遵循确认规则。
+主按钮只强调当前工作流的主要动作，使用青瓷填充、对应前景与标准控件圆角。次级操作使用中性边界或轻量背景，人工关注和危险操作各用独立语义。默认、悬停、焦点、按下、禁用和加载状态均保留明确反馈。按钮高度由组件 token 提供，窄屏或粗指针环境使用触控尺寸目标。Launcher 在管理面可用时以打开管理面为主操作，否则提供启动操作；停止操作使用危险次级样式并遵循确认规则。Launcher 玻璃工作区的主操作是带顶部高光的青瓷胶囊，次级操作是玻璃胶囊，两者以外侧轮廓显示键盘焦点。
 
 Web 使用 [`AppButton`](web/src/components/AppButton.vue)：默认样式为中性描边，主要动作显式使用青瓷填充；危险动作使用淡危险底色与危险文字。默认和图标按钮高度一致，粗指针下使用触控尺寸。加载状态保留动作文字，同时禁用重复提交并显示忙碌语义；减少动态效果或强制颜色时保留静态反馈。
 
@@ -375,7 +377,7 @@ Web 主题切换由 Motion 驱动新主题快照，从操作入口以 420ms 展�
 
 非模态桌面日志窗口保留自身 CSS 透明度与水平位移过渡（220ms），条目间的详情切换使用 160ms 淡化；它不叠加 AppDialog 的缩放和焦点锁。共享 reduced-motion 与 forced-colors 样式覆盖该窗口过渡。
 
-Launcher 工作区从可见透明度（0.88）进入，状态与内容在点击时更新；连续切换取消旧动画并从当前可见程度继续。导航持续可交互，reduced-motion 或 forced-colors 下立即完成。Web 与 Launcher 均保留 system、light、dark 主题偏好，手动选择可持久化，不使用按时钟自动切换配置。动效时长不代表帧率或性能承诺。
+Launcher 工作区从下方 8px 沉降进入且不改变透明度，使玻璃面板持续取样壁纸；状态与内容在点击时更新，连续切换取消旧动画并从当前位置继续。导航持续可交互，reduced-motion 或 forced-colors 下立即完成。Web 与 Launcher 均保留 system、light、dark 主题偏好，手动选择可持久化，不使用按时钟自动切换配置。动效时长不代表帧率或性能承诺。
 
 **The Single Motion Owner Rule.** 同一元素只接受一种动效机制，连续操作取消旧动画并以最新状态为准。
 
@@ -405,7 +407,7 @@ Launcher 工作区从可见透明度（0.88）进入，状态与内容在点击�
 - Don't 使用科技蓝、霓虹边界或通用深色科技仪表盘作为品牌语言。
 - Don't 使用巨型标题、装饰性眉题、hero 指标模板或虚构数据填满页面。
 - Don't 使用无任务意义的同尺寸卡片拼贴、多层日志外框或无任务边界的嵌套卡片；独立插件集合与协议连接卡片属于明确保留的对象布局。
-- Don't 将认证入口的玻璃材质扩展到管理工作区的表单、列表或日志，不动画化模糊半径，也不逐条动画日志。
+- Don't 将玻璃材质扩展到 Web 管理工作区的表单、列表或日志，不动画化模糊半径，也不逐条动画日志。
 - Don't 依赖颜色单独表达状态，或用 attention 混同 warning 与 danger。
 - Don't 在 Web 业务页面新增另一套控件或浮层行为；统一复用已有产品组件。
 - Don't 为视觉风格引入运行时主题服务或跨 iframe 样式注入。

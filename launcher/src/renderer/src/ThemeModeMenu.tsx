@@ -113,7 +113,7 @@ export function ThemeModeMenu() {
       <MenuTrigger disableButtonEnhancement>
         <MenuButton
           ref={triggerRef}
-          className="sidebar-icon-btn theme-menu-trigger"
+          className="theme-menu-trigger"
           icon={modeConfig[mode].icon}
           aria-label={`主题：${modeConfig[mode].label}`}
           title={`主题：${modeConfig[mode].label}`}

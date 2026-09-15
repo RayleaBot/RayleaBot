@@ -1,8 +1,19 @@
 import { Button } from "@fluentui/react-components";
-import { Globe20Regular, Play20Regular, Server24Regular, Stop20Regular } from "@fluentui/react-icons";
+import {
+  ArrowSync24Regular,
+  CheckmarkCircle24Regular,
+  ErrorCircle24Regular,
+  Globe20Regular,
+  Play20Regular,
+  Power24Regular,
+  Stop20Regular,
+  Warning24Regular,
+} from "@fluentui/react-icons";
 import type { LauncherPresentationState } from "@shared/launcher-presentation";
+import type { ReactNode } from "react";
 
 import { serviceStateConfig } from "./AppShell.shared";
+import { LiquidGlassFilter, useLiquidGlass } from "./liquidGlass";
 
 type AppShellServiceControlProps = {
   attention: {
@@ -25,13 +36,13 @@ type AppShellServiceControlProps = {
   stopDisabled: boolean;
 };
 
-const serviceStateHints: Partial<Record<LauncherPresentationState, string>> = {
-  stopped: "服务尚未启动",
-  starting: "服务正在启动",
-  running: "服务运行正常",
-  degraded: "服务部分受限",
-  stopping: "服务正在停止",
-  failed: "服务启动失败",
+const serviceStateIcons: Record<LauncherPresentationState, ReactNode> = {
+  stopped: <Power24Regular />,
+  starting: <ArrowSync24Regular />,
+  running: <CheckmarkCircle24Regular />,
+  degraded: <Warning24Regular />,
+  stopping: <ArrowSync24Regular />,
+  failed: <ErrorCircle24Regular />,
 };
 
 export function AppShellServiceControl({
@@ -47,22 +58,35 @@ export function AppShellServiceControl({
   startDisabled,
   stopDisabled,
 }: AppShellServiceControlProps) {
+  const glass = useLiquidGlass<HTMLElement>();
   const stateConfig = serviceStateConfig[snapshot.serviceState];
   const tone = stateConfig?.tone ?? "neutral";
   const stateLabel = stateConfig?.label ?? "未知";
-  const stateHint = serviceStateHints[snapshot.serviceState] ?? "服务状态";
 
   return (
-    <section className="service-control" data-tone={tone} aria-labelledby="service-control-title">
+    <section
+      ref={glass.surfaceRef}
+      className="service-control glass-surface glass-surface--lens"
+      data-tone={tone}
+      aria-labelledby="service-control-title"
+      style={glass.refractionStyle}
+      onPointerMove={glass.onPointerMove}
+      onPointerLeave={glass.onPointerLeave}
+    >
+      <LiquidGlassFilter id={glass.filterId} displacement={glass.displacement} />
       <div className="service-control__summary">
         <div className="service-control__state" aria-live="polite">
-          <span className="service-state-mark" data-tone={tone} aria-label={stateHint}><Server24Regular /></span>
+          <span className="service-state-mark" data-tone={tone} aria-hidden="true">
+            {serviceStateIcons[snapshot.serviceState] ?? <Power24Regular />}
+          </span>
           <div className="service-control__state-copy">
-            <h2 id="service-control-title">服务控制</h2>
-            <span className="service-control__state-value">{stateLabel}</span>
+            <h2 id="service-control-title" className="service-control__state-value">
+              <span className="visually-hidden">服务控制：</span>
+              <span>{stateLabel}</span>
+            </h2>
+            <p className="service-control__detail">{snapshot.serviceDetail}</p>
           </div>
         </div>
-        <p className="service-control__detail">{snapshot.serviceDetail}</p>
         {attention ? (
           <div className="attention-note" data-severity={attention.tone}>
             <span className="attention-note__label">{attention.label}</span>
@@ -82,11 +106,11 @@ export function AppShellServiceControl({
           {canOpenWebUi ? "管理界面" : primaryActionLabel}
         </Button>
         <div className="service-control__secondary">
-          <Button appearance="secondary" className="danger-outline-button" onClick={onStop} disabled={stopDisabled} icon={<Stop20Regular />}>停止服务</Button>
+          <Button appearance="secondary" className="glass-button glass-button--danger" onClick={onStop} disabled={stopDisabled} icon={<Stop20Regular />}>停止服务</Button>
           {canOpenWebUi ? (
-            !startDisabled && <Button appearance="subtle" onClick={onStart} disabled={controlsDisabled} icon={<Play20Regular />}>{primaryActionLabel}</Button>
+            !startDisabled && <Button appearance="secondary" className="glass-button" onClick={onStart} disabled={controlsDisabled} icon={<Play20Regular />}>{primaryActionLabel}</Button>
           ) : (
-            <Button appearance="subtle" onClick={onOpenWeb} disabled icon={<Globe20Regular />}>管理界面</Button>
+            <Button appearance="secondary" className="glass-button" onClick={onOpenWeb} disabled icon={<Globe20Regular />}>管理界面</Button>
           )}
         </div>
         {busyLabel || !canOpenWebUi ? (

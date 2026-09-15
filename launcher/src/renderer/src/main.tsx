@@ -8,6 +8,7 @@ import { launcherFluentThemes } from "./launcherTheme";
 import { installTrustedNavigationGuards } from "./trustedNavigation";
 import { installWailsDesktopApi } from "./wailsDesktopApi";
 import "./style.css";
+import "./liquid-glass.css";
 
 const uninstallTrustedNavigationGuards = installTrustedNavigationGuards();
 const uninstallWailsDesktopApi = installWailsDesktopApi();

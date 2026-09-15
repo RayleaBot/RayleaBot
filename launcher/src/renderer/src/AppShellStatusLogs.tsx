@@ -1,5 +1,5 @@
 import { Button } from "@fluentui/react-components";
-import { FolderOpen20Regular, CheckmarkCircle20Regular } from "@fluentui/react-icons";
+import { CheckmarkCircle20Regular, FolderOpen20Regular } from "@fluentui/react-icons";
 
 type AppShellStatusLogsProps = {
   hasRecentStderr: boolean;
@@ -12,11 +12,15 @@ export function AppShellStatusLogs({
   logs,
   onOpenLogs,
 }: AppShellStatusLogsProps) {
+  const openLogs = (
+    <Button appearance="secondary" className="glass-button" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开完整日志</Button>
+  );
+
   if (!hasRecentStderr) {
     return (
-      <section className="log-summary-row" data-alert="none" aria-labelledby="status-log-title">
-        <div className="log-summary-row__status" role="status">
-          <span className="log-summary-row__icon" aria-hidden="true">
+      <section className="status-log-row glass-surface" data-alert="none" aria-labelledby="status-log-title">
+        <div className="status-log-row__status" role="status">
+          <span className="status-log-row__icon" aria-hidden="true">
             <CheckmarkCircle20Regular />
           </span>
           <div>
@@ -24,21 +28,19 @@ export function AppShellStatusLogs({
             <span>当前没有新的异常日志。</span>
           </div>
         </div>
-        <Button appearance="subtle" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开完整日志</Button>
+        {openLogs}
       </section>
     );
   }
 
   return (
-    <section className="log-workspace" data-alert="error" aria-labelledby="status-log-title">
-      <div className="workspace-heading">
+    <section className="status-log-panel glass-surface" data-alert="error" aria-labelledby="status-log-title">
+      <div className="status-log-panel__heading">
         <h3 id="status-log-title">异常输出</h3>
         <span className="status-label" data-state="danger">已检测到异常输出</span>
       </div>
-      <pre className="log-surface status-log-surface">{logs.join("\n")}</pre>
-      <div className="workspace-footer">
-        <Button appearance="subtle" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开完整日志</Button>
-      </div>
+      <pre className="log-surface status-log-panel__surface">{logs.join("\n")}</pre>
+      <div className="status-log-panel__footer">{openLogs}</div>
     </section>
   );
 }

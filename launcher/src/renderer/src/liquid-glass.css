@@ -1,0 +1,1101 @@
+/*
+ * The Launcher's Liquid Glass world. A static celadon wallpaper sits behind the window,
+ * the title bar is transparent, and the sidebar and status panels are glass over the
+ * wallpaper. Sections that have not moved to glass yet keep their layout on one opaque
+ * surface so they stay readable.
+ */
+
+:root {
+  --glass-inset: 10px;
+  --radius-glass-panel: 28px;
+  --radius-glass-group: 22px;
+  --radius-glass-inner: 14px;
+  --glass-tint: color-mix(in srgb, var(--color-surface) 50%, transparent);
+  --glass-tint-chrome: color-mix(in srgb, var(--color-surface) 42%, transparent);
+  --glass-tint-lens: color-mix(in srgb, var(--color-surface) 36%, transparent);
+  --glass-tint-dense: color-mix(in srgb, var(--color-surface) 84%, transparent);
+  --glass-edge: color-mix(in srgb, var(--color-surface-raised) 80%, transparent);
+  --glass-highlight: color-mix(in srgb, var(--color-surface-raised) 36%, transparent);
+  --glass-divider: color-mix(in srgb, var(--color-text) 9%, transparent);
+  --glass-control: color-mix(in srgb, var(--color-surface-raised) 52%, transparent);
+  --glass-control-hover: color-mix(in srgb, var(--color-surface-raised) 80%, transparent);
+  --glass-selected: color-mix(in srgb, var(--color-surface-raised) 74%, transparent);
+  --glass-text-muted: color-mix(in srgb, var(--color-text-muted) 72%, var(--color-text));
+  --glass-shadow:
+    0 24px 56px -28px color-mix(in srgb, var(--color-brand-fill) 46%, transparent),
+    0 4px 14px -8px color-mix(in srgb, var(--color-brand-fill) 24%, transparent);
+  --glass-backdrop: blur(24px) saturate(165%);
+  --wallpaper-filter: none;
+}
+
+:root[data-theme="dark"] {
+  --glass-tint: color-mix(in srgb, var(--color-surface) 56%, transparent);
+  --glass-tint-chrome: color-mix(in srgb, var(--color-surface) 48%, transparent);
+  --glass-tint-lens: color-mix(in srgb, var(--color-surface) 44%, transparent);
+  --glass-tint-dense: color-mix(in srgb, var(--color-surface) 90%, transparent);
+  --glass-edge: color-mix(in srgb, var(--color-text) 17%, transparent);
+  --glass-highlight: color-mix(in srgb, var(--color-text) 7%, transparent);
+  --glass-divider: color-mix(in srgb, var(--color-text) 11%, transparent);
+  --glass-control: color-mix(in srgb, var(--color-text) 8%, transparent);
+  --glass-control-hover: color-mix(in srgb, var(--color-text) 15%, transparent);
+  --glass-selected: color-mix(in srgb, var(--color-text) 13%, transparent);
+  --glass-text-muted: color-mix(in srgb, var(--color-text-muted) 82%, var(--color-text));
+  --glass-shadow:
+    0 24px 56px -24px rgb(0 0 0 / 0.62),
+    0 4px 14px -8px rgb(0 0 0 / 0.46);
+  --wallpaper-filter: brightness(0.27) saturate(0.7);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.app-shell {
+  position: relative;
+  isolation: isolate;
+  height: 100%;
+  color: var(--color-text);
+  background: var(--color-canvas);
+}
+
+.app-wallpaper {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background: url("../../../../web/src/assets/auth/celadon-glass.webp") center bottom / max(100vw, 210vh) auto no-repeat;
+  filter: var(--wallpaper-filter);
+  pointer-events: none;
+}
+
+.liquid-glass-filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Glass material: an opaque surface first, the translucent material where the engine can blur. */
+.glass-surface {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: var(--radius-glass-group);
+  background: var(--color-surface);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-edge),
+    inset 0 -1px 0 color-mix(in srgb, var(--glass-edge) 45%, transparent);
+}
+
+.glass-surface::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse at var(--glass-light-x, 18%) var(--glass-light-y, 0%), var(--glass-edge), transparent 62%),
+    linear-gradient(135deg, var(--glass-edge), transparent 28%, transparent 66%, color-mix(in srgb, var(--glass-edge) 70%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .glass-surface {
+    background: linear-gradient(150deg, var(--glass-highlight), transparent 46%), var(--glass-tint);
+    -webkit-backdrop-filter: var(--glass-backdrop);
+    backdrop-filter: var(--glass-backdrop);
+  }
+
+  .glass-surface--lens {
+    background: linear-gradient(150deg, var(--glass-highlight), transparent 42%, var(--glass-highlight)), var(--glass-tint-lens);
+    backdrop-filter: var(--glass-refraction, blur(18px)) saturate(160%);
+  }
+}
+
+/* WebKit and Gecko do not take an SVG filter in backdrop-filter; they keep the frosted lens. */
+@supports (-webkit-backdrop-filter: blur(1px)) or (-moz-appearance: none) {
+  .glass-surface--lens {
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+  }
+}
+
+/* Window chrome */
+.window-drag-handle {
+  position: fixed;
+  z-index: var(--layer-sticky);
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 18px;
+  --wails-draggable: drag;
+  user-select: none;
+}
+
+.window-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.window-controls {
+  display: flex;
+  height: 100%;
+  --wails-draggable: no-drag;
+}
+
+.window-control-btn {
+  display: grid;
+  width: 46px;
+  height: 100%;
+  padding: 0;
+  place-items: center;
+  color: var(--glass-text-muted);
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.window-control-btn:hover {
+  color: var(--color-text);
+  background: var(--glass-control-hover);
+}
+
+.window-control-btn.danger:hover {
+  color: var(--color-on-action);
+  background: var(--color-danger);
+}
+
+.shell-sidebar {
+  --glass-tint: var(--glass-tint-chrome);
+  position: fixed;
+  z-index: var(--layer-sticky);
+  top: 44px;
+  bottom: var(--glass-inset);
+  left: var(--glass-inset);
+  display: flex;
+  width: calc(var(--sidebar-width) - var(--glass-inset) - 6px);
+  flex-direction: column;
+}
+
+.section-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+}
+
+.nav-item {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  color: var(--glass-text-muted);
+  border: 0;
+  border-radius: var(--radius-glass-inner);
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  color: var(--color-text);
+  background: var(--glass-control);
+}
+
+.nav-item.active {
+  color: var(--color-text);
+  background: var(--glass-selected);
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge),
+    0 2px 6px -3px color-mix(in srgb, var(--color-text) 22%, transparent);
+}
+
+.nav-item__icon {
+  display: grid;
+  place-items: center;
+}
+
+.nav-item.active .nav-item__icon {
+  color: var(--color-brand-foreground);
+}
+
+.nav-item__label {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-item.active .nav-item__label {
+  font-weight: 600;
+}
+
+.nav-item:focus-visible,
+.window-control-btn:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.sidebar-footer--compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--glass-divider);
+}
+
+.sidebar-footer__status-dot {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+}
+
+/* Fluent injects its button styles at runtime; the trigger needs the extra specificity to stay glass. */
+.launcher-theme .theme-menu-trigger.fui-MenuButton {
+  display: grid;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  place-items: center;
+  color: var(--glass-text-muted);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  cursor: pointer;
+}
+
+.launcher-theme .theme-menu-trigger.fui-MenuButton:hover,
+.launcher-theme .theme-menu-trigger.fui-MenuButton:hover:active,
+.launcher-theme .theme-menu-trigger.fui-MenuButton[aria-expanded="true"] {
+  color: var(--color-text);
+  background: var(--glass-control-hover);
+}
+
+.status-indicator {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-chrome-muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-chrome-muted) 18%, transparent);
+}
+
+.status-indicator--success {
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success) 20%, transparent);
+}
+
+.status-indicator--warning {
+  background: var(--color-warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-warning) 20%, transparent);
+}
+
+.status-indicator--danger {
+  background: var(--color-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 20%, transparent);
+}
+
+.status-indicator--info {
+  background: var(--color-cool);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-cool) 20%, transparent);
+}
+
+.status-indicator--attention {
+  background: var(--color-warm);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-warm) 20%, transparent);
+}
+
+.shell-main {
+  position: fixed;
+  top: 44px;
+  right: 0;
+  bottom: 0;
+  left: var(--sidebar-width);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.shell-main.active-diagnostics {
+  overflow: hidden;
+}
+
+/* Sections not yet on glass keep their solid layout on one opaque surface. */
+.shell-main:not(.active-status) {
+  padding: 0 var(--glass-inset) var(--glass-inset) 2px;
+}
+
+.shell-main:not(.active-status) .section-shell {
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-glass-group);
+  background: var(--color-surface);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Status workspace */
+.section-shell[data-section="status"] {
+  width: min(100%, 1120px);
+  padding: 8px 28px 32px;
+}
+
+.section-shell[data-section="status"] .section-header {
+  min-height: 64px;
+  padding: 4px 4px 16px;
+  border-bottom: 0;
+}
+
+.section-shell[data-section="status"] .section-header__title {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.section-shell[data-section="status"] .section-shell__content {
+  padding-top: 0;
+}
+
+.section-shell[data-section="status"] .status-chip {
+  color: var(--glass-text-muted);
+  border-color: transparent;
+  background: var(--glass-control);
+}
+
+.status-homepage {
+  display: grid;
+  gap: 24px;
+}
+
+.launcher-theme .glass-button.fui-Button {
+  min-height: 36px;
+  padding-inline: 16px;
+  color: var(--color-text);
+  border-color: transparent;
+  border-radius: var(--radius-pill);
+  background: var(--glass-control);
+  box-shadow: inset 0 1px 0 var(--glass-edge);
+}
+
+.launcher-theme .glass-button.fui-Button:hover {
+  color: var(--color-text);
+  border-color: transparent;
+  background: var(--glass-control-hover);
+}
+
+.launcher-theme .glass-button--danger.fui-Button,
+.launcher-theme .glass-button--danger.fui-Button:hover {
+  color: var(--color-danger);
+}
+
+.launcher-theme .glass-button--danger.fui-Button:hover {
+  background: color-mix(in srgb, var(--color-danger-soft) 72%, transparent);
+}
+
+.launcher-theme .glass-button.fui-Button:disabled {
+  color: var(--glass-text-muted) !important;
+  border-color: transparent !important;
+  background: color-mix(in srgb, var(--glass-control) 55%, transparent) !important;
+  box-shadow: none;
+  opacity: 0.72;
+}
+
+.launcher-theme .service-control__primary.fui-Button {
+  min-width: 196px;
+  min-height: 44px;
+  padding-inline: 22px;
+  border-radius: var(--radius-pill);
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow:
+    0 12px 26px -14px color-mix(in srgb, var(--color-brand-fill) 76%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.24);
+}
+
+/* A top sheen makes the tinted capsule read as glass; Fluent keeps its state colors underneath. */
+.launcher-theme .service-control__primary.fui-Button:enabled {
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.16), transparent 58%);
+}
+
+.launcher-theme .service-control__primary.fui-Button:disabled {
+  box-shadow: none;
+}
+
+/* The glass controls replace Fluent's focus border and inset shadow, so they ring with an outline instead. */
+.launcher-theme .glass-button.fui-Button:focus-visible,
+.launcher-theme .service-control__primary.fui-Button:focus-visible,
+.launcher-theme .theme-menu-trigger.fui-MenuButton:focus-visible {
+  border-color: transparent;
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.launcher-theme .theme-menu-trigger.fui-MenuButton:focus-visible {
+  box-shadow: none;
+}
+
+.service-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px 48px;
+  padding: 28px 32px;
+  border-radius: var(--radius-glass-panel);
+}
+
+.service-control__summary {
+  min-width: 0;
+}
+
+.service-control__state {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.service-state-mark {
+  display: grid;
+  width: 60px;
+  height: 60px;
+  flex: none;
+  place-items: center;
+  color: var(--glass-text-muted);
+  border-radius: 50%;
+  background: var(--glass-control);
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge),
+    0 10px 20px -14px color-mix(in srgb, var(--color-text) 42%, transparent);
+}
+
+.service-state-mark svg {
+  width: 30px;
+  height: 30px;
+}
+
+.service-state-mark[data-tone="success"] {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success-soft) 76%, transparent);
+}
+
+.service-state-mark[data-tone="warning"] {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning-soft) 76%, transparent);
+}
+
+.service-state-mark[data-tone="danger"] {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger-soft) 76%, transparent);
+}
+
+.service-state-mark[data-tone="info"] {
+  color: var(--color-brand-foreground);
+  background: color-mix(in srgb, var(--color-brand-soft) 76%, transparent);
+}
+
+.service-state-mark[data-tone="attention"] {
+  color: var(--color-attention);
+  background: color-mix(in srgb, var(--color-attention-soft) 76%, transparent);
+}
+
+.service-control__state-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.service-control__state-value {
+  color: var(--color-text);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.service-control__detail {
+  max-width: 62ch;
+  color: var(--glass-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.service-control__actions {
+  display: grid;
+  min-width: 228px;
+  gap: 10px;
+}
+
+.service-control__secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.service-control__secondary .fui-Button {
+  flex: 1 1 auto;
+}
+
+.operation-status {
+  color: var(--glass-text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.service-control .attention-note {
+  margin-top: 20px;
+  border-color: transparent;
+  border-radius: var(--radius-glass-inner);
+  background: color-mix(in srgb, var(--color-warm-soft) 72%, transparent);
+}
+
+.service-control .attention-note[data-severity="warning"] {
+  background: color-mix(in srgb, var(--color-warning-soft) 72%, transparent);
+}
+
+.service-control .attention-note[data-severity="danger"] {
+  background: color-mix(in srgb, var(--color-danger-soft) 72%, transparent);
+}
+
+.status-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 24px;
+  align-items: start;
+}
+
+.status-layout[data-has-rail="false"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.status-main-column,
+.status-attention-column {
+  display: grid;
+  gap: 24px;
+}
+
+.status-group {
+  display: grid;
+  gap: 10px;
+}
+
+.status-group__title {
+  padding-inline: 8px;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.glass-list {
+  display: grid;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.glass-list__row {
+  display: grid;
+  grid-template-columns: minmax(132px, 0.3fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  min-height: 50px;
+  margin: 0 18px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--glass-divider);
+}
+
+.glass-list__row:last-child {
+  border-bottom: 0;
+}
+
+.glass-list__row dt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.glass-list__icon {
+  display: grid;
+  color: var(--glass-text-muted);
+  place-items: center;
+}
+
+.glass-list__row dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.glass-list__value {
+  display: block;
+  overflow: hidden;
+  color: var(--glass-text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-log-row {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px 12px 18px;
+}
+
+.status-log-row__status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.status-log-row__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  color: var(--color-success);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-success-soft) 76%, transparent);
+}
+
+.status-log-row__status > div {
+  display: grid;
+  gap: 2px;
+}
+
+.status-log-row__status h3 {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.status-log-row__status > div > span {
+  color: var(--glass-text-muted);
+  font-size: 13px;
+}
+
+.status-log-panel {
+  display: grid;
+}
+
+.status-log-panel__heading,
+.status-log-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+}
+
+.status-log-panel__heading h3 {
+  font-size: 16px;
+}
+
+.status-log-panel__footer {
+  justify-content: flex-end;
+  padding-top: 12px;
+}
+
+.status-log-panel .status-label {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-danger-soft) 76%, transparent);
+}
+
+.status-log-panel__surface {
+  min-height: 120px;
+  max-height: 320px;
+  margin: 0 12px;
+  padding: 14px 16px;
+  overflow: auto;
+  border-radius: var(--radius-glass-inner);
+  background: var(--glass-tint-dense);
+}
+
+.attention-panel {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.attention-panel[data-tone="attention"] {
+  --glass-tint: color-mix(in srgb, var(--color-attention-soft) 62%, transparent);
+}
+
+.attention-panel[data-tone="warning"] {
+  --glass-tint: color-mix(in srgb, var(--color-warning-soft) 62%, transparent);
+}
+
+.attention-panel[data-tone="danger"] {
+  --glass-tint: color-mix(in srgb, var(--color-danger-soft) 62%, transparent);
+}
+
+.attention-panel > h3 {
+  font-size: 16px;
+}
+
+.attention-panel > p {
+  color: var(--glass-text-muted);
+  font-size: 13px;
+}
+
+.attention-list {
+  display: grid;
+  gap: 12px;
+}
+
+.attention-list__item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.attention-list__item strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.attention-list__item p {
+  color: var(--glass-text-muted);
+  font-size: 13px;
+}
+
+.attention-list__icon {
+  color: var(--color-warning);
+}
+
+.attention-list__item[data-severity="error"] .attention-list__icon {
+  color: var(--color-danger);
+}
+
+.service-diagnostics {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.service-diagnostics > h3 {
+  font-size: 16px;
+}
+
+.status-diagnostics-block > .status-label {
+  justify-self: start;
+  min-height: 0;
+  padding: 0;
+  color: var(--glass-text-muted);
+  border: 0;
+  background: none;
+}
+
+.service-diagnostics .status-chip {
+  color: var(--color-text);
+  border-color: transparent;
+  background: var(--glass-control);
+}
+
+.service-diagnostics .status-pill {
+  display: inline-flex;
+  min-height: 22px;
+  flex: none;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.service-diagnostics .status-pill--warning {
+  color: color-mix(in srgb, var(--color-warning) 84%, var(--color-text));
+  background: color-mix(in srgb, var(--color-warning-soft) 76%, transparent);
+}
+
+.service-diagnostics .status-pill--error {
+  color: color-mix(in srgb, var(--color-danger) 84%, var(--color-text));
+  background: color-mix(in srgb, var(--color-danger-soft) 76%, transparent);
+}
+
+.status-diagnostics-block {
+  display: grid;
+  gap: 8px;
+}
+
+.status-diagnostics-codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-diagnostics-list,
+.status-diagnostics-checks {
+  display: grid;
+}
+
+.status-diagnostics-item,
+.status-diagnostics-check {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--glass-divider);
+}
+
+.status-diagnostics-item:last-child,
+.status-diagnostics-check:last-child {
+  border-bottom: 0;
+}
+
+.status-diagnostics-item__header,
+.status-diagnostics-check {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.status-diagnostics-item__code,
+.status-diagnostics-check__value {
+  color: var(--glass-text-muted);
+}
+
+.runtime-prepare-panel.glass-surface {
+  padding: 18px 20px;
+}
+
+@media (max-width: 1050px) {
+  .status-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .status-attention-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 899px) {
+  .shell-sidebar {
+    right: var(--glass-inset);
+    bottom: auto;
+    width: auto;
+    height: 56px;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .section-nav {
+    min-width: 0;
+    flex-direction: row;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 6px;
+    scrollbar-width: none;
+  }
+
+  .section-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    min-width: 76px;
+    min-height: 44px;
+    flex: 1;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .sidebar-footer--compact {
+    flex: none;
+    gap: 2px;
+    padding: 6px 8px 6px 6px;
+    border-top: 0;
+    border-left: 1px solid var(--glass-divider);
+  }
+
+  .sidebar-footer__status-dot {
+    display: none;
+  }
+
+  .launcher-theme .theme-menu-trigger.fui-MenuButton {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+
+  .shell-main {
+    top: 110px;
+    left: 0;
+  }
+
+  .shell-main:not(.active-status) {
+    padding: 0 var(--glass-inset) var(--glass-inset);
+  }
+
+  .section-shell[data-section="status"] {
+    padding: 4px 20px 24px;
+  }
+
+  .service-control {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    padding: 24px;
+  }
+
+  .service-control__actions {
+    min-width: 0;
+  }
+
+  .launcher-theme .service-control__actions .fui-Button {
+    min-height: 44px;
+  }
+
+  .status-attention-column {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .glass-list__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .glass-list__row dd {
+    padding-left: 32px;
+  }
+}
+
+@media (max-width: 790px) {
+  .nav-item {
+    min-width: 68px;
+  }
+
+  .nav-item__label {
+    font-size: 12px;
+  }
+
+  .section-shell[data-section="status"] {
+    padding-inline: 16px;
+  }
+}
+
+@media (max-width: 899px) and (max-height: 650px) {
+  .shell-sidebar {
+    height: 52px;
+  }
+
+  .shell-main {
+    top: 104px;
+  }
+
+  .section-nav {
+    padding-block: 4px;
+  }
+
+  .status-homepage {
+    gap: 16px;
+  }
+
+  .service-control {
+    gap: 16px;
+    padding: 18px 20px;
+  }
+
+  .service-state-mark {
+    width: 48px;
+    height: 48px;
+  }
+
+  .service-control__state-value {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 899px), (pointer: coarse) {
+  .launcher-theme .theme-menu-trigger.fui-MenuButton {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-surface,
+  .glass-surface--lens {
+    background: var(--color-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .glass-surface::before {
+    display: none;
+  }
+
+  .launcher-theme .glass-button.fui-Button:enabled,
+  .service-diagnostics .status-chip {
+    border-color: var(--color-border);
+  }
+}
+
+@media (forced-colors: active) {
+  .app-wallpaper,
+  .glass-surface::before {
+    display: none;
+  }
+
+  .glass-surface,
+  .glass-surface--lens,
+  .shell-main:not(.active-status) .section-shell {
+    border-color: CanvasText;
+    background: Canvas;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .window-drag-handle {
+    color: CanvasText;
+    background: Canvas;
+  }
+
+  .nav-item,
+  .theme-menu-trigger,
+  .window-control-btn {
+    color: CanvasText;
+    forced-color-adjust: auto;
+  }
+
+  .nav-item.active {
+    forced-color-adjust: none;
+    color: HighlightText;
+    border: 2px solid Highlight;
+    background: Highlight;
+  }
+
+  .nav-item.active .nav-item__icon {
+    color: HighlightText;
+  }
+
+  .service-state-mark,
+  .status-log-row__icon {
+    border: 1px solid CanvasText;
+  }
+}

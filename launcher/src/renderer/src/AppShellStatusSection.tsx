@@ -148,7 +148,7 @@ export function AppShellStatusSection({
           <AppShellRuntimePreparePanel runtimePrepare={runtimePrepare} />
 
           {hasReadinessDiagnostics ? (
-            <section className="data-section service-diagnostics">
+            <section className="service-diagnostics glass-surface">
               <h3>服务诊断</h3>
 
               {readinessReasonCodes.length > 0 ? (
