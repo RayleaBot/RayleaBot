@@ -1,5 +1,11 @@
 import { Button } from "@fluentui/react-components";
-import { ArrowClockwise20Regular } from "@fluentui/react-icons";
+import {
+  ArrowClockwise20Regular,
+  ArrowDownload20Regular,
+  Dismiss20Regular,
+  Edit20Regular,
+  Save20Regular,
+} from "@fluentui/react-icons";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import type { ReactNode } from "react";
@@ -63,11 +69,24 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
         <Button
           appearance="secondary"
           onClick={props.onRefresh}
+          icon={<ArrowClockwise20Regular />}
+          className="glass glass-button"
+          data-glass="regular"
           disabled={props.controlsDisabled}
         >
           重新检查
         </Button>
-        {canPrepareRuntime ? <Button appearance="primary" onClick={props.onOpenTasks}>准备运行环境</Button> : null}
+        {canPrepareRuntime ? (
+          <Button
+            appearance="primary"
+            onClick={props.onOpenTasks}
+            icon={<ArrowDownload20Regular />}
+            className="glass glass-button"
+            data-glass="prominent"
+          >
+            准备运行环境
+          </Button>
+        ) : null}
       </>
     );
   }
@@ -80,12 +99,41 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
   if (props.editingSettings) {
     return (
       <>
-        <Button appearance="subtle" onClick={props.onCancelEdit} disabled={props.controlsDisabled}>放弃</Button>
-        <Button appearance="primary" onClick={props.onSaveSettings} disabled={props.controlsDisabled}>保存</Button>
+        <Button
+          appearance="secondary"
+          onClick={props.onCancelEdit}
+          icon={<Dismiss20Regular />}
+          className="glass glass-button"
+          data-glass="regular"
+          disabled={props.controlsDisabled}
+        >
+          放弃
+        </Button>
+        <Button
+          appearance="primary"
+          onClick={props.onSaveSettings}
+          icon={<Save20Regular />}
+          className="glass glass-button"
+          data-glass={props.controlsDisabled ? "regular" : "prominent"}
+          disabled={props.controlsDisabled}
+        >
+          保存
+        </Button>
       </>
     );
   }
-  return <Button appearance="primary" onClick={props.onBeginEdit} disabled={props.controlsDisabled}>编辑配置</Button>;
+  return (
+    <Button
+      appearance="secondary"
+      onClick={props.onBeginEdit}
+      icon={<Edit20Regular />}
+      className="glass glass-button"
+      data-glass="regular"
+      disabled={props.controlsDisabled}
+    >
+      编辑配置
+    </Button>
+  );
 }
 
 export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {

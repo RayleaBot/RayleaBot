@@ -38,7 +38,7 @@ function firstReadinessIssue(readiness: LauncherReadinessSnapshot | null) {
   return readiness?.issues?.[0] ?? null;
 }
 
-function isBlockingEnvironmentIssue(check: EnvironmentCheckResult) {
+export function isBlockingEnvironmentIssue(check: EnvironmentCheckResult) {
   return check.scope === "preflight" && check.severity === "error";
 }
 

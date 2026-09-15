@@ -1,8 +1,16 @@
 import { Button, MessageBar, MessageBarBody, MessageBarTitle } from "@fluentui/react-components";
-import { ArrowClockwise20Regular, ArrowDownload20Regular, Open20Regular } from "@fluentui/react-icons";
+import {
+  AppGeneric20Regular,
+  ArrowClockwise20Regular,
+  ArrowDownload20Regular,
+  Certificate20Regular,
+  Open20Regular,
+  Tag20Regular,
+} from "@fluentui/react-icons";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { formatReleaseVersion } from "./AppShell.shared";
+import { DetailRow } from "./AppShellDetailList";
 import { RayleaMark } from "./RayleaMark";
 
 type AppShellAboutSectionProps = {
@@ -51,83 +59,77 @@ export function AppShellAboutSection({
   const onUpdateAction = guidedRelease ? onOpenReleasePage : onCheckForUpdates;
 
   return (
-    <article className="about-workspace">
-      <section className="about-panel">
-        <div className="about-panel__header">
-          <div className="about-panel__identity">
-            <span className="about-panel__mark" aria-hidden="true"><RayleaMark variant="neutral" /></span>
-            <div>
-              <h2>RayleaBot 启动器</h2>
-              <p>检查本地环境、管理服务并定位运行问题。</p>
-            </div>
-          </div>
-          <div className="about-panel__actions">
-            {updating ? (
-              <Button appearance="primary" icon={<ArrowDownload20Regular />} disabled>
-                正在更新
-              </Button>
-            ) : canApplyUpdate ? (
-              <>
-                <Button
-                  appearance="primary"
-                  icon={<ArrowDownload20Regular />}
-                  disabled={controlsDisabled}
-                  onClick={onApplyUpdate}
-                >
-                  立即更新
-                </Button>
-                <Button appearance="secondary" icon={<Open20Regular />} onClick={onOpenReleasePage}>发布页</Button>
-              </>
-            ) : showUpdateAction ? (
-              <Button
-                appearance="secondary"
-                icon={guidedRelease ? <Open20Regular /> : <ArrowClockwise20Regular />}
-                disabled={updateDisabled}
-                onClick={onUpdateAction}
-              >
-                {updateButtonLabel}
-              </Button>
-            ) : (
-              <span className="update-unavailable">当前构建不提供更新检查</span>
-            )}
-            <Button appearance="subtle" icon={<Open20Regular />} onClick={onOpenRepositoryPage}>GitHub</Button>
-          </div>
+    <div className="about-workspace">
+      <section className="about-identity" aria-labelledby="about-title">
+        <span className="about-identity__mark" aria-hidden="true"><RayleaMark variant="neutral" /></span>
+        <div className="about-identity__copy">
+          <h2 id="about-title">RayleaBot 启动器</h2>
+          <p>检查本地环境、管理服务并定位运行问题。</p>
         </div>
-
-        <dl className="definition-list about-information">
-          <div className="definition-row">
-            <dt>程序</dt>
-            <dd>RayleaLauncher</dd>
-          </div>
-          <div className="definition-row">
-            <dt>版本</dt>
-            <dd className="version-value" data-status={releaseCheck.status}>
-              <span>{currentVersion}</span>
-              {versionHint ? <span>{versionHint}</span> : null}
-            </dd>
-          </div>
-          <div className="definition-row">
-            <dt>许可证</dt>
-            <dd>AGPL-3.0</dd>
-          </div>
-        </dl>
-        {showUpdateError ? (
-          <MessageBar className="update-error-message" intent="error" layout="multiline">
-            <MessageBarBody>
-              <MessageBarTitle>{releaseCheck.summary || "更新检查没有返回错误摘要"}</MessageBarTitle>
-              {releaseCheck.errorCode ? (
-                <div className="update-error-code">
-                  <span>错误代码</span>
-                  <code>{releaseCheck.errorCode}</code>
-                </div>
-              ) : null}
-              <p className="update-error-detail">
-                {releaseCheck.detail || "更新检查没有返回错误原因。"}
-              </p>
-            </MessageBarBody>
-          </MessageBar>
-        ) : null}
+        <div className="about-identity__actions">
+          {updating ? (
+            <Button appearance="primary" className="glass glass-button" data-glass="regular" icon={<ArrowDownload20Regular />} disabled>
+              正在更新
+            </Button>
+          ) : canApplyUpdate ? (
+            <>
+              <Button
+                appearance="primary"
+                className="glass glass-button"
+                data-glass={controlsDisabled ? "regular" : "prominent"}
+                icon={<ArrowDownload20Regular />}
+                disabled={controlsDisabled}
+                onClick={onApplyUpdate}
+              >
+                立即更新
+              </Button>
+              <Button appearance="secondary" className="glass glass-button" data-glass="regular" icon={<Open20Regular />} onClick={onOpenReleasePage}>发布页</Button>
+            </>
+          ) : showUpdateAction ? (
+            <Button
+              appearance="secondary"
+              className="glass glass-button"
+              data-glass="regular"
+              icon={guidedRelease ? <Open20Regular /> : <ArrowClockwise20Regular />}
+              disabled={updateDisabled}
+              onClick={onUpdateAction}
+            >
+              {updateButtonLabel}
+            </Button>
+          ) : (
+            <span className="update-unavailable">当前构建不提供更新检查</span>
+          )}
+          <Button appearance="secondary" className="glass glass-button" data-glass="regular" icon={<Open20Regular />} onClick={onOpenRepositoryPage}>GitHub</Button>
+        </div>
       </section>
-    </article>
+
+      <dl className="detail-list detail-list--wrap content-group">
+        <DetailRow icon={<AppGeneric20Regular />} label="程序" value="RayleaLauncher" mono={false} />
+        <DetailRow icon={<Tag20Regular />} label="版本">
+          <span className="version-value" data-status={releaseCheck.status}>
+            <span>{currentVersion}</span>
+            {versionHint ? <span>{versionHint}</span> : null}
+          </span>
+        </DetailRow>
+        <DetailRow icon={<Certificate20Regular />} label="许可证" value="AGPL-3.0" mono={false} />
+      </dl>
+
+      {showUpdateError ? (
+        <MessageBar className="update-error-message" intent="error" layout="multiline">
+          <MessageBarBody>
+            <MessageBarTitle>{releaseCheck.summary || "更新检查没有返回错误摘要"}</MessageBarTitle>
+            {releaseCheck.errorCode ? (
+              <div className="update-error-code">
+                <span>错误代码</span>
+                <code>{releaseCheck.errorCode}</code>
+              </div>
+            ) : null}
+            <p className="update-error-detail">
+              {releaseCheck.detail || "更新检查没有返回错误原因。"}
+            </p>
+          </MessageBarBody>
+        </MessageBar>
+      ) : null}
+    </div>
   );
 }
