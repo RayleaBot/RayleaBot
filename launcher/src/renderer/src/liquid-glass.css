@@ -605,6 +605,20 @@
   inset: 11px;
   border-radius: 50%;
   background: var(--lens-core);
+  transition: background-color var(--motion-content) var(--ease-precision);
+}
+
+/* Outgoing and incoming glyphs overlap in the lens while they swap. */
+.status-lens__glyph {
+  display: grid;
+  grid-area: 1 / 1;
+  place-items: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-lens__core {
+    transition: none;
+  }
 }
 
 .launcher-fluent-provider .status-lens__glass {
@@ -639,6 +653,15 @@
   display: grid;
   gap: 4px;
   min-width: 0;
+}
+
+/* Outgoing and incoming state text share one grid cell while they cross-fade. */
+.presence-stack {
+  display: grid;
+}
+
+.presence-stack > * {
+  grid-area: 1 / 1;
 }
 
 .service-control__state-value {

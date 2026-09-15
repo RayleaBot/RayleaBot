@@ -11,9 +11,11 @@ import {
   Stop20Regular,
 } from "@fluentui/react-icons";
 import type { LauncherPresentationState } from "@shared/launcher-presentation";
+import { AnimatePresence, motion, useIsPresent } from "motion/react";
 import { useId, type ReactNode } from "react";
 
 import { serviceStateConfig } from "./AppShell.shared";
+import { launcherMotion, useLauncherReducedMotion } from "./launcherMotion";
 import { StatusLens } from "./StatusLens";
 
 type AppShellServiceControlProps = {
@@ -48,6 +50,25 @@ const serviceStateGlyphs: Record<LauncherPresentationState, ReactNode> = {
   failed: <Dismiss24Filled />,
 };
 
+/** State text that fades in as it replaces the previous copy; the outgoing copy is hidden from assistive technology. */
+function StateCopy({ as = "span", className, children }: { as?: "span" | "p"; className?: string; children: ReactNode }) {
+  const isPresent = useIsPresent();
+  const reducedMotion = useLauncherReducedMotion();
+  const Element = as === "p" ? motion.p : motion.span;
+  return (
+    <Element
+      className={className}
+      aria-hidden={isPresent ? undefined : true}
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4, transition: { duration: reducedMotion ? 0 : 0.12, ease: launcherMotion.ease } }}
+      transition={{ duration: reducedMotion ? 0 : launcherMotion.content / 1000, ease: launcherMotion.ease }}
+    >
+      {children}
+    </Element>
+  );
+}
+
 export function AppShellServiceControl({
   attention,
   busyLabel,
@@ -79,13 +100,26 @@ export function AppShellServiceControl({
     <section className="service-control" data-tone={tone} aria-labelledby="service-control-title">
       <div className="service-control__summary">
         <div className="service-control__state" aria-live="polite">
-          <StatusLens tone={tone} icon={serviceStateGlyphs[snapshot.serviceState] ?? <Power24Filled />} />
+          <StatusLens
+            tone={tone}
+            icon={serviceStateGlyphs[snapshot.serviceState] ?? <Power24Filled />}
+            iconKey={snapshot.serviceState}
+            spinning={snapshot.serviceState === "starting" || snapshot.serviceState === "stopping"}
+          />
           <div className="service-control__state-copy">
             <h2 id="service-control-title" className="service-control__state-value">
               <span className="visually-hidden">服务控制：</span>
-              <span>{stateLabel}</span>
+              <span className="presence-stack">
+                <AnimatePresence initial={false}>
+                  <StateCopy key={stateLabel}>{stateLabel}</StateCopy>
+                </AnimatePresence>
+              </span>
             </h2>
-            <p className="service-control__detail">{snapshot.serviceDetail}</p>
+            <div className="presence-stack">
+              <AnimatePresence initial={false}>
+                <StateCopy key={snapshot.serviceDetail} as="p" className="service-control__detail">{snapshot.serviceDetail}</StateCopy>
+              </AnimatePresence>
+            </div>
           </div>
         </div>
         {attention ? (
