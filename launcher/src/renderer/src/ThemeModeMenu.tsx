@@ -53,7 +53,8 @@ export function ThemeModeMenu() {
     if (nextMode === null || nextMode === mode) {
       return;
     }
-    setMode(nextMode);
+    const bounds = triggerRef.current?.getBoundingClientRect();
+    setMode(nextMode, bounds ? { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 } : undefined);
   };
 
   const requestClose = (nextMode?: LauncherThemeMode) => {

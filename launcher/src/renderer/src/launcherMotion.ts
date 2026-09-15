@@ -9,6 +9,8 @@ export const launcherMotion = {
   workspaceEase: [0.25, 0.1, 0.25, 1],
   overlay: 220,
   overlayExit: 160,
+  themeReveal: 420,
+  themeFade: 280,
   ease: [0.16, 1, 0.3, 1],
 } as const;
 
@@ -18,18 +20,23 @@ export const overlayExit = { duration: launcherMotion.overlayExit / 1000, ease: 
 
 const reducedMotionQuery = "(prefers-reduced-motion: reduce), (forced-colors: active)";
 
+/** Viewport point the new theme grows out of, usually the center of the theme button. */
+export type ThemeMotionOrigin = { x: number; y: number };
+
 type LauncherViewTransitionKind = "theme";
 
 interface LauncherViewTransitionRequest {
   sequence: number;
   kind: LauncherViewTransitionKind;
   update: () => void;
+  origin?: ThemeMotionOrigin;
 }
 
 interface ActiveLauncherViewTransition {
   request: LauncherViewTransitionRequest;
   skipRequested: boolean;
   transition: ViewTransition;
+  reveal: ReturnType<typeof animate> | null;
 }
 
 let activeViewTransition: ActiveLauncherViewTransition | null = null;
@@ -108,6 +115,35 @@ export function runLauncherWorkspaceTransition(update: () => void): void {
   });
 }
 
+/**
+ * Grows the new theme's snapshot out of the origin as a circle that reaches the farthest window corner, or
+ * fades it in when there is no origin. The old snapshot stays underneath until it is covered.
+ */
+function revealTheme(origin: ThemeMotionOrigin | undefined): ReturnType<typeof animate> | null {
+  const root = document.documentElement;
+  if (typeof root.animate !== "function") return null;
+  const options = { ease: launcherMotion.ease, pseudoElement: "::view-transition-new(root)" };
+  if (!origin) {
+    return animate(root, { opacity: [0, 1] }, { ...options, duration: launcherMotion.themeFade / 1000 });
+  }
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const x = Math.max(0, Math.min(width, origin.x));
+  const y = Math.max(0, Math.min(height, origin.y));
+  const radius = Math.hypot(Math.max(x, width - x), Math.max(y, height - y));
+  return animate(
+    root,
+    { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+    { ...options, duration: launcherMotion.themeReveal / 1000 },
+  );
+}
+
+function skipActiveViewTransition(active: ActiveLauncherViewTransition) {
+  active.reveal?.cancel();
+  active.reveal = null;
+  active.transition.skipTransition();
+}
+
 function startLauncherViewTransition(
   request: LauncherViewTransitionRequest,
 ): ViewTransition | null {
@@ -128,12 +164,18 @@ function startLauncherViewTransition(
     return null;
   }
 
-  const active = {
+  const active: ActiveLauncherViewTransition = {
     request,
     skipRequested: false,
     transition,
-  } satisfies ActiveLauncherViewTransition;
+    reveal: null,
+  };
   activeViewTransition = active;
+  void transition.ready.then(() => {
+    if (activeViewTransition === active && !active.skipRequested) {
+      active.reveal = revealTheme(request.origin);
+    }
+  }).catch(() => undefined);
   void transition.finished.catch(() => undefined).finally(() => {
     if (activeViewTransition !== active) return;
     activeViewTransition = null;
@@ -153,16 +195,18 @@ function startLauncherViewTransition(
 export function runLauncherViewTransition(
   kind: LauncherViewTransitionKind,
   update: () => void,
+  origin?: ThemeMotionOrigin,
 ): ViewTransition | null {
   const request = {
     sequence: ++transitionSequence,
     kind,
     update,
+    origin,
   } satisfies LauncherViewTransitionRequest;
 
   if (!supportsViewTransitions() || prefersReducedMotion()) {
     pendingViewTransition = null;
-    activeViewTransition?.transition.skipTransition();
+    if (activeViewTransition) skipActiveViewTransition(activeViewTransition);
     activeViewTransition = null;
     if (typeof document !== "undefined") {
       delete document.documentElement.dataset.launcherViewTransitionKind;
@@ -175,7 +219,7 @@ export function runLauncherViewTransition(
     pendingViewTransition = request;
     if (!activeViewTransition.skipRequested) {
       activeViewTransition.skipRequested = true;
-      activeViewTransition.transition.skipTransition();
+      skipActiveViewTransition(activeViewTransition);
     }
     return null;
   }

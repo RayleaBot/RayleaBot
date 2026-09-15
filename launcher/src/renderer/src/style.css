@@ -111,8 +111,10 @@ html::view-transition-new(root) {
   pointer-events: none;
 }
 
+/* Motion reveals the new theme's snapshot over the old one, so neither snapshot runs the default crossfade. */
 html[data-launcher-view-transition-kind="theme"]::view-transition-old(root),
 html[data-launcher-view-transition-kind="theme"]::view-transition-new(root) {
+  animation: none;
   mix-blend-mode: normal;
 }
 
@@ -123,21 +125,11 @@ html[data-launcher-view-transition-kind="theme"] .launcher-theme *::after {
 }
 
 html[data-launcher-view-transition-kind="theme"]::view-transition-old(root) {
-  animation: launcher-view-fade-out 120ms linear both;
+  z-index: 1;
 }
 
 html[data-launcher-view-transition-kind="theme"]::view-transition-new(root) {
-  animation: launcher-view-fade-in var(--motion-content) var(--ease-precision) both;
-}
-
-@keyframes launcher-view-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes launcher-view-fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  z-index: 2;
 }
 
 :focus-visible {

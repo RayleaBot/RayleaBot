@@ -14,7 +14,7 @@ import {
   type LauncherThemeMode,
 } from "@shared/launcher-theme";
 import { applyLauncherDocumentTheme } from "./launcherTheme";
-import { runLauncherViewTransition } from "./launcherMotion";
+import { runLauncherViewTransition, type ThemeMotionOrigin } from "./launcherMotion";
 
 type ThemeMode = LauncherThemeMode;
 
@@ -46,7 +46,8 @@ function writeStoredMode(mode: ThemeMode) {
 interface ThemeContextValue {
   mode: ThemeMode;
   effectiveTheme: LauncherEffectiveTheme;
-  setMode: (mode: ThemeMode) => void;
+  /** Changes the theme; with an origin, the new theme grows out of that viewport point. */
+  setMode: (mode: ThemeMode, origin?: ThemeMotionOrigin) => void;
   syncError: string | null;
 }
 
@@ -65,7 +66,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [syncError, setSyncError] = useState<string | null>(null);
   const effectiveThemeRef = useRef(effectiveTheme);
 
-  const transitionToEffectiveTheme = useCallback((nextTheme: LauncherEffectiveTheme) => {
+  const transitionToEffectiveTheme = useCallback((nextTheme: LauncherEffectiveTheme, origin?: ThemeMotionOrigin) => {
     if (effectiveThemeRef.current === nextTheme) {
       return;
     }
@@ -75,14 +76,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setEffectiveTheme(nextTheme);
       return;
     }
-    runLauncherViewTransition("theme", () => setEffectiveTheme(nextTheme));
+    runLauncherViewTransition("theme", () => setEffectiveTheme(nextTheme), origin);
   }, []);
 
-  const setMode = useCallback((next: ThemeMode) => {
+  const setMode = useCallback((next: ThemeMode, origin?: ThemeMotionOrigin) => {
     writeStoredMode(next);
     setModeState(next);
     transitionToEffectiveTheme(
       resolveLauncherEffectiveTheme(next, resolveSystemTheme() === "dark"),
+      origin,
     );
   }, [transitionToEffectiveTheme]);
 

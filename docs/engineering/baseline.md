@@ -75,7 +75,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 | Launcher 桌面宿主 | Wails v3 Go host + `internal/desktop` typed service layer |
 | Launcher 桌面桥接 | Wails generated bindings 暴露受限 typed API |
 | Launcher 渲染层 | React 19 + Fluent UI React v9 + Motion + View Transition API + Vite 单页面桌面壳，支持亮/暗双色主题 |
-| Launcher 动效 | Motion 管理浮层、工作区与界面状态动画，Fluent 组件自带的弹层与 Dialog 动画关闭；主题使用受控 View Transition API，CSS transition 承担简单控件状态 |
+| Launcher 动效 | Motion 管理浮层、工作区与界面状态动画，Fluent 组件自带的弹层与 Dialog 动画关闭；主题由 Motion 驱动受控 View Transition 快照，CSS transition 承担简单控件状态 |
 | 仓库级 JS 包管理器 | `pnpm` |
 | 插件后端 | 当前平台原生可执行文件；实现语言不限。Go 插件可使用独立 module 与 `sdk/go`，`cmd/<plugin-id>` 为推荐入口 |
 | 插件管理页 | 独立 Vue package + `sdk/vue`；Vite 固定 `base: "./"`，产物位于 artifact 的 `ui/` |
