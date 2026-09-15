@@ -26,7 +26,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 | 主操作填充 | `colorBrandBackground`、主按钮 | `light-primary` | `dark-primary` |
 | 品牌前景 | 品牌链接、标识和少量选中标记 | `light-brand-foreground` | `dark-brand-foreground` |
 | 焦点 | `colorStrokeFocus2` 与全局焦点轮廓 | `light-focus` | `dark-focus` |
-| 玻璃材质 | 雾白画布、侧栏、玻璃按钮、状态透镜与内容分组填充 | 由 `light-canvas`、`light-surface`、`light-primary`、`light-text` 局部派生 | 由 `dark-canvas`、`dark-surface-raised`、`dark-primary`、`dark-text` 局部派生 |
+| 玻璃材质 | 雾白画布、内容分组填充、主操作着色与玻璃的不透明降级 | 由 `light-canvas`、`light-surface`、`light-primary`、`light-text` 局部派生 | 由 `dark-canvas`、`dark-surface-raised`、`dark-primary`、`dark-text` 局部派生 |
 | 品牌填充内容 | `colorNeutralForegroundOnBrand` | `on-brand` | `on-brand` |
 | 人工关注 | 本地 attention token | `light-attention` | `dark-attention` |
 | 状态 | Fluent semantic colors | 浅色语义 tokens | 暗色语义 tokens |
@@ -67,7 +67,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 | 主操作 | `Button appearance="primary"` | 当前工作流保持唯一，使用青瓷主操作语义；运行状态页使用青瓷着色的玻璃胶囊 |
 | 人工确认 | `Button` + attention token | 只用于需要明确判断的动作，不与警告色混用 |
 | 危险操作 | `Button` + danger token | 停止、重置和完全退出，必须有明确结果文案 |
-| 次级操作 | `Button` | 使用中性边界和表面，不与主操作竞争；运行状态页使用透明玻璃胶囊 |
+| 次级操作 | `Button` | 使用中性边界和表面，不与主操作竞争；运行状态页使用中性玻璃胶囊 |
 | 工具操作 | `Button appearance="subtle"` | 编辑路径、刷新、复制和导航工具；运行状态页的刷新与打开日志使用玻璃胶囊 |
 | 文本输入 | `Input` | 完整标签、清晰焦点和禁用状态 |
 | 单项选择 | `RadioGroup`、`Radio` | 关闭策略和互斥设置 |
@@ -83,7 +83,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 - 桌面控件高度为 `36px`，导航与关键操作目标至少为 `40px`；窄窗口和触控场景提升到 `44px`。
 - 页面间距使用项目级 `4/8/12/16/24/32px` 标尺，导航、字段和面板按任务关系选择不同节奏。
 - 圆角标尺为 `4/6/8/12/999px`；标准控件使用 `8px`，任务表面和浮层使用 `12px`。玻璃与内容分组使用局部圆角，见 [Liquid Glass 材质](#liquid-glass-材质)。
-- 不透明的静态独立面板使用 `12px` 圆角与 `1px` 边界，不叠加大范围阴影；玻璃以边缘亮线、斜面明暗和外侧投影表达悬浮，内容分组只用半透明填充与细分隔，Dialog 使用浮层阴影。
+- 不透明的静态独立面板使用 `12px` 圆角与 `1px` 边界，不叠加大范围阴影；玻璃以边缘细线、亮边与暗角表达材质，侧栏与状态透镜另以外侧投影表达悬浮，内容分组只用半透明填充与细分隔，Dialog 使用浮层阴影。
 - 普通说明与字段不包裹为卡片；状态摘要不使用 hero 指标模板。
 - 选中导航使用完整背景、高对比文字和功能图标，不使用内嵌彩色侧边条。
 - 页面标题保持在 `20–22px`，运行状态页标题为 `24px`；分区标题为 `18px`，组标题为 `16px`，正文为 `14px`，任务标签、路径和日志为 `13px`。`12px` 用于窗口 chrome 与辅助元数据；运行状态主值使用 `30px`、`600` 字重和 `1.2` 行高，低高度窄窗口降为 `24px`。
@@ -102,15 +102,15 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 
 ## Liquid Glass 材质
 
-Launcher 参考 Apple 的 [Liquid Glass](https://developer.apple.com/design/) 与 Human Interface Guidelines 的分层：玻璃只属于浮在内容之上的导航层与控件，内容分组留在内容层。材质由 [`glassSurfaces.ts`](../../launcher/src/renderer/src/glassSurfaces.ts) 与 [`liquid-glass.css`](../../launcher/src/renderer/src/liquid-glass.css) 实现，元素通过 `data-glass` 声明 `clear`、`regular` 或 `prominent` 变体；颜色与强度从主题 token 以 `color-mix` 局部派生，不新增共享 token。
+Launcher 参考 Apple 的 [Liquid Glass](https://developer.apple.com/design/) 与 Human Interface Guidelines 的分层：玻璃只属于浮在内容之上的导航层与控件，内容分组留在内容层。材质由 [`liquid-glass.css`](../../launcher/src/renderer/src/liquid-glass.css) 与 [`glassSurfaces.ts`](../../launcher/src/renderer/src/glassSurfaces.ts) 实现，元素通过 `data-glass` 声明 `clear`、`regular` 或 `prominent` 变体。玻璃的填充、边缘与投影转写自 [Apple Design Resources](https://developer.apple.com/design/resources/) 中 macOS 27 UI Kit 的 Liquid Glass 图层样式，作为 `liquid-glass.css` 的局部变量；画布与内容分组从主题 token 以 `color-mix` 局部派生。两者都不新增共享 token，仓库也不包含套件文件、SF 字体或 SF Symbols。
 
 - 画布是窗口画布混入少量青瓷的雾白渐变，左上角叠一层淡青瓷环境光；暗色主题使用炭灰画布与更弱的环境光。画布不使用图片。
-- `regular` 用于侧栏与次级按钮，是淡白着色的玻璃；`prominent` 用于主操作，是青瓷着色的玻璃；`clear` 用于状态透镜，完全通透。
-- 光从左上方照来：朝光的边缘有一条 `1–2px` 镜面亮线，亮线内侧有向内衰减的焦散微光，底边带较弱的反射亮线；侧边有深色细线；小尺寸通透玻璃内部带有透过玻璃看到的淡投影，外侧投影表达悬浮高度。
-- 光照由 `glassSurfaces.ts` 按圆角、短边、主题和设备像素比绘制成九宫格图片，经伪元素的 `border-image` 叠在玻璃上。直边的光照沿长度不变，同一圆角与短边的元素共用一张图片，窗口缩放时不重新绘制；图片生成前先显示内侧亮线与侧边暗线。
-- 状态透镜的边缘是圆角斜面：视线在斜面处折射，把背后更靠内的状态色压缩成紧贴边缘的细带，中心不放大，透镜边缘因此形成同色光环。WebView2 中该折射由 SVG backdrop filter 完成，WebKit 与 Gecko 的透镜保持通透、不折射。
+- `regular` 用于侧栏与次级按钮，按尺寸取不同配方：按钮使用套件的 `Regular - Small`，浅色是半透明浅灰胶囊，暗色是略亮于画布的炭灰胶囊，几乎没有外侧投影；侧栏使用 `Regular - Large`，填充更白并带纵向外侧投影。`prominent` 用于主操作，使用 `Regular - Small - Tinted` 的边缘与投影并以青瓷品牌色着色。
+- 边缘由多层内阴影组成：两侧与四周有深色细线，上下边缘有亮线和向内衰减的亮边，两侧向内渐暗。Sketch 样式中的 Lighten、Darken、Luminosity、Plus darker 与 Plus lighter 混合改写为半透明填充和黑白内阴影，按 Launcher 画布算出与原混合一致的明度。
+- 侧栏、按钮与主操作只由 `background-color` 与 `box-shadow` 构成，不运行脚本，也不读取背景。
+- `clear` 状态透镜完全通透，沿用 `Regular - Medium` 的边缘亮线并带一层淡投影；`Regular - Small` 的两侧暗角会让通透边缘发灰，因此不用于透镜。透镜边缘是圆角斜面：视线在斜面处折射，把背后更靠内的状态色压缩成紧贴边缘的细带，中心不放大，透镜边缘因此形成同色光环。WebView2 中该折射由 `glassSurfaces.ts` 生成的 SVG backdrop filter 完成，同一尺寸的透镜共用一个滤镜；WebKit 与 Gecko 的透镜保持通透、不折射。
 - 侧栏与按钮位于平整画布或内容填充之上，折射在这里不可见，因此不使用 backdrop-filter；悬停、滚动、切换工作区和缩放窗口都不触发滤镜重算。
-- reduced-transparency 下玻璃改为完整不透明表面，状态透镜显示为实色圆面；forced-colors 下隐藏光照，改用系统颜色与边界。
+- reduced-transparency 下玻璃填充改为完整不透明表面，状态透镜显示为实色圆面；forced-colors 下去掉玻璃边缘与投影，改用系统颜色与边界。
 - 内容分组、日志表面与关注面板是半透明填充，自身不设 backdrop-filter。
 - 圆角：侧栏 `18px`，内容分组 `20px`，按钮为胶囊，状态透镜为圆形。玻璃按钮、主操作与主题按钮以 `2px` 外侧焦点轮廓（偏移 `2px`）显示键盘焦点，禁用时整体变淡；导航项与窗口控制使用内侧轮廓。
 - 环境检查、日志诊断、偏好设置和关于应用尚未改版，以一块实色圆角表面承载原布局，内容规则保持不变。
