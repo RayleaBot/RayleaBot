@@ -234,7 +234,7 @@ describe("App", () => {
     expect(managementButton).not.toBeDisabled();
     expect(screen.queryByRole("button", { name: "检测到现有服务" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "启动 RayleaBot" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "重启服务" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重启服务" })).toBeDisabled();
   });
 
   test("confirms before starting a one-click update", async () => {

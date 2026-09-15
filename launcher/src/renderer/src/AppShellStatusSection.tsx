@@ -104,6 +104,8 @@ export function AppShellStatusSection({
     || presentation.state === "stopping"
     || snapshot.launcher.processOwnership === "none";
   const busyLabel = busyAction ? (busyActionLabels[busyAction] ?? "正在执行操作") : "";
+  // A restart keeps the running actions in place while the service stops and starts again.
+  const showRunningActions = canOpenWebUi || busyAction === "restart";
   const serviceAttention = (() => {
     if (runtimePrepare?.active) {
       return { label: "准备进度", text: statusReasonText, tone: "attention" as const };
@@ -130,12 +132,13 @@ export function AppShellStatusSection({
         attention={serviceAttention}
         busyLabel={busyLabel}
         canOpenWebUi={canOpenWebUi}
-        canRestart={canOpenWebUi && snapshot.launcher.processOwnership === "launcher_managed"}
         controlsDisabled={controlsDisabled}
+        externalService={snapshot.launcher.processOwnership === "external"}
         onOpenWeb={onOpenWeb}
         onStart={onStart}
         onStop={onStop}
         primaryActionLabel={presentation.primaryActionLabel}
+        showRunningActions={showRunningActions}
         snapshot={{
           serviceDetail: serviceControlDetail,
           serviceState: presentation.state,

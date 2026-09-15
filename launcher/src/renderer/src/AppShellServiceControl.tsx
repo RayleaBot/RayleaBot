@@ -11,7 +11,7 @@ import {
   Stop20Regular,
 } from "@fluentui/react-icons";
 import type { LauncherPresentationState } from "@shared/launcher-presentation";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 import { serviceStateConfig } from "./AppShell.shared";
 import { StatusLens } from "./StatusLens";
@@ -24,12 +24,13 @@ type AppShellServiceControlProps = {
   } | null;
   busyLabel: string;
   canOpenWebUi: boolean;
-  canRestart: boolean;
   controlsDisabled: boolean;
+  externalService: boolean;
   onOpenWeb: () => void;
   onStart: () => void;
   onStop: () => void;
   primaryActionLabel: string;
+  showRunningActions: boolean;
   snapshot: {
     serviceDetail: string;
     serviceState: LauncherPresentationState;
@@ -51,20 +52,28 @@ export function AppShellServiceControl({
   attention,
   busyLabel,
   canOpenWebUi,
-  canRestart,
   controlsDisabled,
+  externalService,
   onOpenWeb,
   onStart,
   onStop,
   primaryActionLabel,
+  showRunningActions,
   snapshot,
   startDisabled,
   stopDisabled,
 }: AppShellServiceControlProps) {
+  const noteId = useId();
   const stateConfig = serviceStateConfig[snapshot.serviceState];
   const tone = stateConfig?.tone ?? "neutral";
   const stateLabel = stateConfig?.label ?? "未知";
-  const primaryDisabled = canOpenWebUi ? controlsDisabled : startDisabled;
+  const primaryDisabled = showRunningActions ? !canOpenWebUi || controlsDisabled : startDisabled;
+  const note = busyLabel
+    || (!showRunningActions
+      ? "服务启动后可进入管理界面"
+      : externalService
+        ? "服务由其他进程启动，无法在启动器中重启"
+        : "");
 
   return (
     <section className="service-control" data-tone={tone} aria-labelledby="service-control-title">
@@ -89,10 +98,18 @@ export function AppShellServiceControl({
 
       <div className="service-control__actions">
         <Button appearance="secondary" className="glass glass-button glass-button--danger" data-glass="regular" onClick={onStop} disabled={stopDisabled} icon={<Stop20Regular />}>停止服务</Button>
-        {canOpenWebUi ? (
-          canRestart ? (
-            <Button appearance="secondary" className="glass glass-button" data-glass="regular" onClick={onStart} disabled={startDisabled} icon={<ArrowSync20Regular />}>{primaryActionLabel}</Button>
-          ) : null
+        {showRunningActions ? (
+          <Button
+            appearance="secondary"
+            className="glass glass-button"
+            data-glass="regular"
+            onClick={onStart}
+            disabled={startDisabled}
+            aria-describedby={externalService ? noteId : undefined}
+            icon={<ArrowSync20Regular />}
+          >
+            重启服务
+          </Button>
         ) : (
           <Button appearance="secondary" className="glass glass-button" data-glass="regular" onClick={onOpenWeb} disabled icon={<Globe20Regular />}>管理界面</Button>
         )}
@@ -100,15 +117,15 @@ export function AppShellServiceControl({
           appearance="primary"
           className="service-control__primary glass"
           data-glass={primaryDisabled ? "regular" : "prominent"}
-          onClick={canOpenWebUi ? onOpenWeb : onStart}
+          onClick={showRunningActions ? onOpenWeb : onStart}
           disabled={primaryDisabled}
-          icon={canOpenWebUi ? <Globe20Regular /> : <Play20Regular />}
+          icon={showRunningActions ? <Globe20Regular /> : <Play20Regular />}
         >
-          {canOpenWebUi ? "管理界面" : primaryActionLabel}
+          {showRunningActions ? "管理界面" : primaryActionLabel}
         </Button>
-        {busyLabel || !canOpenWebUi ? (
-          <p className="operation-status" aria-live="polite">
-            {busyLabel || "服务启动后可进入管理界面"}
+        {note ? (
+          <p id={noteId} className="operation-status" aria-live="polite">
+            {note}
           </p>
         ) : null}
       </div>
