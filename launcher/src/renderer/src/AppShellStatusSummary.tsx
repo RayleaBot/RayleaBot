@@ -46,13 +46,13 @@ type DetailRowProps = {
 
 function DetailRow({ icon, label, value, title }: DetailRowProps) {
   return (
-    <div className="glass-list__row">
+    <div className="detail-list__row">
       <dt>
-        <span className="glass-list__icon" aria-hidden="true">{icon}</span>
+        <span className="detail-list__icon" aria-hidden="true">{icon}</span>
         {label}
       </dt>
       <dd>
-        <code className="glass-list__value" title={title}>{value}</code>
+        <code className="detail-list__value" title={title}>{value}</code>
       </dd>
     </div>
   );
@@ -67,7 +67,7 @@ export function AppShellStatusSummary({ resolvedSettings, snapshot }: AppShellSt
   return (
     <section className="status-group" aria-labelledby="status-details-title">
       <h3 id="status-details-title" className="status-group__title">运行详情</h3>
-      <dl className="glass-list glass-surface">
+      <dl className="detail-list content-group">
         <DetailRow icon={<NumberSymbol20Regular />} label="进程 ID" value={String(snapshot.launcher.processId ?? "—")} />
         <DetailRow icon={<Globe20Regular />} label="服务地址" value={baseUrl} title={baseUrl} />
         <DetailRow icon={<Folder20Regular />} label="安装目录" value={installationRoot || "—"} title={installationRoot || undefined} />

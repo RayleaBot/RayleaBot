@@ -13,12 +13,12 @@ export function AppShellStatusLogs({
   onOpenLogs,
 }: AppShellStatusLogsProps) {
   const openLogs = (
-    <Button appearance="secondary" className="glass-button" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开完整日志</Button>
+    <Button appearance="secondary" className="glass glass-button" data-glass="regular" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开完整日志</Button>
   );
 
   if (!hasRecentStderr) {
     return (
-      <section className="status-log-row glass-surface" data-alert="none" aria-labelledby="status-log-title">
+      <section className="status-log-row content-group" data-alert="none" aria-labelledby="status-log-title">
         <div className="status-log-row__status" role="status">
           <span className="status-log-row__icon" aria-hidden="true">
             <CheckmarkCircle20Regular />
@@ -34,7 +34,7 @@ export function AppShellStatusLogs({
   }
 
   return (
-    <section className="status-log-panel glass-surface" data-alert="error" aria-labelledby="status-log-title">
+    <section className="status-log-panel content-group" data-alert="error" aria-labelledby="status-log-title">
       <div className="status-log-panel__heading">
         <h3 id="status-log-title">异常输出</h3>
         <span className="status-label" data-state="danger">已检测到异常输出</span>

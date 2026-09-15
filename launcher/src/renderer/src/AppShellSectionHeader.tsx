@@ -49,7 +49,8 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
         appearance="secondary"
         onClick={props.onRefresh}
         icon={<ArrowClockwise20Regular />}
-        className="glass-button"
+        className="glass glass-button"
+        data-glass="regular"
         disabled={props.controlsDisabled}
       >
         刷新状态

@@ -38,7 +38,7 @@ RayleaBot 由个人开发者或开源协作者部署在自有 Windows、macOS �
 
 登录、Web 管理面与 Windows Launcher 使用“雾白·青瓷”：中性灰白或炭灰表面、少量青瓷强调与简约几何折叶标识。青瓷用于品牌、主操作和少数选中标记，普通背景、边框和文字保持中性。高信息密度依靠紧凑排版、对齐与必要分隔建立；亮暗主题保留等价的状态和操作能力。
 
-Web 登录、首次初始化与凭据恢复指引参考 Apple 在 iOS 与 macOS 中使用的 [Liquid Glass](https://www.apple.com.cn/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/)，以通透面板、边缘折射与高光承载认证任务。浏览器适配保留静态青瓷壁纸、现有品牌、字体、标准控件和本机恢复路径。Launcher 整体采用同一材质，窗口外壳与工作区面板以玻璃浮在静态青瓷壁纸上，并沿用 Fluent 标准控件与桌面操作词汇；Web 管理工作区不使用该材质。
+Web 登录、首次初始化与凭据恢复指引参考 Apple 在 iOS 与 macOS 中使用的 [Liquid Glass](https://www.apple.com.cn/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/)，以通透面板、边缘折射与高光承载认证任务。浏览器适配保留静态青瓷壁纸、现有品牌、字体、标准控件和本机恢复路径。Launcher 采用同一材质语言：侧栏、操作按钮与状态透镜等导航层和悬浮控件为玻璃，内容分组保持安静填充，并沿用 Fluent 标准控件与桌面操作词汇；Web 管理工作区不使用该材质。
 
 ## Anti-references
 

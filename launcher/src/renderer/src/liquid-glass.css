@@ -1,49 +1,61 @@
 /*
- * The Launcher's Liquid Glass world. A static celadon wallpaper sits behind the window,
- * the title bar is transparent, and the sidebar and status panels are glass over the
- * wallpaper. Sections that have not moved to glass yet keep their layout on one opaque
- * surface so they stay readable.
+ * The Launcher's Liquid Glass. Following Apple's layering, glass is reserved for the navigation
+ * layer and the controls that float over content: the sidebar, action buttons and the status lens.
+ * Content groups stay in the content layer as quiet fills on a calm mist field. In WebView2,
+ * glassSurfaces.ts renders the material with a lens filter per size; elsewhere the CSS material
+ * below stands in.
  */
 
 :root {
   --glass-inset: 10px;
-  --radius-glass-panel: 28px;
-  --radius-glass-group: 22px;
-  --radius-glass-inner: 14px;
-  --glass-tint: color-mix(in srgb, var(--color-surface) 50%, transparent);
-  --glass-tint-chrome: color-mix(in srgb, var(--color-surface) 42%, transparent);
-  --glass-tint-lens: color-mix(in srgb, var(--color-surface) 36%, transparent);
-  --glass-tint-dense: color-mix(in srgb, var(--color-surface) 84%, transparent);
-  --glass-edge: color-mix(in srgb, var(--color-surface-raised) 80%, transparent);
-  --glass-highlight: color-mix(in srgb, var(--color-surface-raised) 36%, transparent);
+  --glass-canvas-top: color-mix(in srgb, var(--color-canvas) 90%, var(--color-brand-fill));
+  --glass-canvas-bottom: color-mix(in srgb, var(--color-canvas) 83%, var(--color-brand-fill));
+  --glass-ambient: color-mix(in srgb, var(--color-brand-fill) 11%, transparent);
+  --glass-text-muted: color-mix(in srgb, var(--color-text-muted) 80%, var(--color-text));
   --glass-divider: color-mix(in srgb, var(--color-text) 9%, transparent);
-  --glass-control: color-mix(in srgb, var(--color-surface-raised) 52%, transparent);
-  --glass-control-hover: color-mix(in srgb, var(--color-surface-raised) 80%, transparent);
-  --glass-selected: color-mix(in srgb, var(--color-surface-raised) 74%, transparent);
-  --glass-text-muted: color-mix(in srgb, var(--color-text-muted) 72%, var(--color-text));
-  --glass-shadow:
-    0 24px 56px -28px color-mix(in srgb, var(--color-brand-fill) 46%, transparent),
-    0 4px 14px -8px color-mix(in srgb, var(--color-brand-fill) 24%, transparent);
-  --glass-backdrop: blur(24px) saturate(165%);
-  --wallpaper-filter: none;
+  --glass-fill: color-mix(in srgb, var(--color-surface) 62%, transparent);
+  --glass-fill-strong: color-mix(in srgb, var(--color-surface) 86%, transparent);
+  --glass-hover: color-mix(in srgb, var(--color-surface) 36%, transparent);
+  --glass-press: color-mix(in srgb, var(--color-text) 6%, transparent);
+  --glass-selected: color-mix(in srgb, var(--color-surface) 70%, transparent);
+
+  /* Read by glassSurfaces.ts when it draws the lens filter. */
+  --glass-light: 1;
+  --glass-shade: 1;
+  --glass-glow: 0.14;
+  --glass-regular-flood: var(--color-surface);
+  --glass-regular-flood-alpha: 0.16;
+
+  /* The CSS material used before the filter is ready and where the engine cannot run it. */
+  --glass-rim-top: rgb(255 255 255 / 0.9);
+  --glass-rim-bottom: rgb(255 255 255 / 0.55);
+  --glass-rim-side: rgb(28 34 44 / 0.16);
+  --glass-hairline: color-mix(in srgb, var(--color-text) 8%, transparent);
+  --glass-drop-s: 0 6px 14px -6px rgb(28 34 44 / 0.28), 0 1px 2px rgb(28 34 44 / 0.1);
+  --glass-drop-l: 0 30px 50px -28px rgb(28 34 44 / 0.26), 0 2px 6px -3px rgb(28 34 44 / 0.08);
 }
 
 :root[data-theme="dark"] {
-  --glass-tint: color-mix(in srgb, var(--color-surface) 56%, transparent);
-  --glass-tint-chrome: color-mix(in srgb, var(--color-surface) 48%, transparent);
-  --glass-tint-lens: color-mix(in srgb, var(--color-surface) 44%, transparent);
-  --glass-tint-dense: color-mix(in srgb, var(--color-surface) 90%, transparent);
-  --glass-edge: color-mix(in srgb, var(--color-text) 17%, transparent);
-  --glass-highlight: color-mix(in srgb, var(--color-text) 7%, transparent);
-  --glass-divider: color-mix(in srgb, var(--color-text) 11%, transparent);
-  --glass-control: color-mix(in srgb, var(--color-text) 8%, transparent);
-  --glass-control-hover: color-mix(in srgb, var(--color-text) 15%, transparent);
-  --glass-selected: color-mix(in srgb, var(--color-text) 13%, transparent);
-  --glass-text-muted: color-mix(in srgb, var(--color-text-muted) 82%, var(--color-text));
-  --glass-shadow:
-    0 24px 56px -24px rgb(0 0 0 / 0.62),
-    0 4px 14px -8px rgb(0 0 0 / 0.46);
-  --wallpaper-filter: brightness(0.27) saturate(0.7);
+  --glass-canvas-top: color-mix(in srgb, var(--color-canvas) 94%, var(--color-brand-fill));
+  --glass-canvas-bottom: var(--color-canvas);
+  --glass-ambient: color-mix(in srgb, var(--color-brand-fill) 7%, transparent);
+  --glass-text-muted: color-mix(in srgb, var(--color-text-muted) 86%, var(--color-text));
+  --glass-fill: color-mix(in srgb, var(--color-text) 5.5%, transparent);
+  --glass-fill-strong: color-mix(in srgb, var(--color-surface) 90%, transparent);
+  --glass-hover: color-mix(in srgb, var(--color-text) 9%, transparent);
+  --glass-press: color-mix(in srgb, var(--color-text) 4%, transparent);
+  --glass-selected: color-mix(in srgb, var(--color-text) 12%, transparent);
+  --glass-light: 0.55;
+  --glass-shade: 1.35;
+  --glass-glow: 0.08;
+  --glass-regular-flood: var(--color-surface-raised);
+  --glass-regular-flood-alpha: 0.3;
+  --glass-rim-top: rgb(255 255 255 / 0.35);
+  --glass-rim-bottom: rgb(255 255 255 / 0.16);
+  --glass-rim-side: rgb(0 0 0 / 0.4);
+  --glass-hairline: rgb(0 0 0 / 0.55);
+  --glass-drop-s: 0 6px 14px -6px rgb(0 0 0 / 0.6), 0 1px 2px rgb(0 0 0 / 0.4);
+  --glass-drop-l: 0 30px 50px -28px rgb(0 0 0 / 0.6), 0 2px 6px -3px rgb(0 0 0 / 0.4);
 }
 
 .visually-hidden {
@@ -56,77 +68,69 @@
 }
 
 .app-shell {
-  position: relative;
-  isolation: isolate;
   height: 100%;
   color: var(--color-text);
-  background: var(--color-canvas);
+  background:
+    radial-gradient(90% 70% at 0% 0%, var(--glass-ambient), transparent 62%),
+    linear-gradient(180deg, var(--glass-canvas-top), var(--glass-canvas-bottom));
 }
 
-.app-wallpaper {
-  position: fixed;
-  z-index: -1;
-  inset: 0;
-  background: url("../../../../web/src/assets/auth/celadon-glass.webp") center bottom / max(100vw, 210vh) auto no-repeat;
-  filter: var(--wallpaper-filter);
-  pointer-events: none;
-}
-
-.liquid-glass-filters {
+.glass-filter-host {
   position: absolute;
   width: 0;
   height: 0;
+  overflow: hidden;
   pointer-events: none;
 }
 
-/* Glass material: an opaque surface first, the translucent material where the engine can blur. */
-.glass-surface {
-  position: relative;
-  border: 1px solid transparent;
-  border-radius: var(--radius-glass-group);
-  background: var(--color-surface);
+/* Glass material. The selectors carry .launcher-theme so Fluent's runtime button styles stay underneath. */
+.launcher-theme .glass {
+  --glass-radius: 999px;
+  --glass-drop: var(--glass-drop-s);
+  border: 0;
+  border-radius: var(--glass-radius);
+  background-color: var(--glass-tint, transparent);
   box-shadow:
-    var(--glass-shadow),
-    inset 0 1px 0 var(--glass-edge),
-    inset 0 -1px 0 color-mix(in srgb, var(--glass-edge) 45%, transparent);
+    inset 0 1px 0 var(--glass-rim-top),
+    inset 0 -1px 0 var(--glass-rim-bottom),
+    inset 1px 0 0 var(--glass-rim-side),
+    inset -1px 0 0 var(--glass-rim-side),
+    0 0 0 0.5px var(--glass-hairline),
+    var(--glass-drop);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
 }
 
-.glass-surface::before {
-  content: "";
-  position: absolute;
-  z-index: 1;
-  inset: -1px;
-  padding: 1px;
-  border-radius: inherit;
-  background:
-    radial-gradient(ellipse at var(--glass-light-x, 18%) var(--glass-light-y, 0%), var(--glass-edge), transparent 62%),
-    linear-gradient(135deg, var(--glass-edge), transparent 28%, transparent 66%, color-mix(in srgb, var(--glass-edge) 70%, transparent));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
+/* The lens filter draws the rim, shading and tint itself. */
+.launcher-theme .glass[data-glass-ready] {
+  background-color: transparent;
+  box-shadow: 0 0 0 0.5px var(--glass-hairline), var(--glass-drop);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
 }
 
-@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .glass-surface {
-    background: linear-gradient(150deg, var(--glass-highlight), transparent 46%), var(--glass-tint);
-    -webkit-backdrop-filter: var(--glass-backdrop);
-    backdrop-filter: var(--glass-backdrop);
-  }
-
-  .glass-surface--lens {
-    background: linear-gradient(150deg, var(--glass-highlight), transparent 42%, var(--glass-highlight)), var(--glass-tint-lens);
-    backdrop-filter: var(--glass-refraction, blur(18px)) saturate(160%);
-  }
+[data-glass="clear"] {
+  --glass-flood: none;
+  --glass-under: 1;
+  --glass-tint: color-mix(in srgb, var(--color-surface) 18%, transparent);
 }
 
-/* WebKit and Gecko do not take an SVG filter in backdrop-filter; they keep the frosted lens. */
-@supports (-webkit-backdrop-filter: blur(1px)) or (-moz-appearance: none) {
-  .glass-surface--lens {
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
-    backdrop-filter: blur(18px) saturate(160%);
-  }
+[data-glass="regular"] {
+  --glass-flood: var(--glass-regular-flood);
+  --glass-flood-alpha: var(--glass-regular-flood-alpha);
+  --glass-under: 0.25;
+  --glass-tint: color-mix(in srgb, var(--color-surface) 42%, transparent);
+}
+
+[data-glass="prominent"] {
+  --glass-flood: var(--color-brand-fill);
+  --glass-flood-alpha: 0.94;
+  --glass-light: 0.7;
+  --glass-under: 0;
+  --glass-tint: var(--color-brand-fill);
+  --glass-rim-top: rgb(255 255 255 / 0.45);
+  --glass-rim-bottom: rgb(255 255 255 / 0.2);
+  --glass-rim-side: rgb(0 0 0 / 0.12);
 }
 
 /* Window chrome */
@@ -176,7 +180,7 @@
 
 .window-control-btn:hover {
   color: var(--color-text);
-  background: var(--glass-control-hover);
+  background: var(--glass-hover);
 }
 
 .window-control-btn.danger:hover {
@@ -185,7 +189,6 @@
 }
 
 .shell-sidebar {
-  --glass-tint: var(--glass-tint-chrome);
   position: fixed;
   z-index: var(--layer-sticky);
   top: 44px;
@@ -194,6 +197,11 @@
   display: flex;
   width: calc(var(--sidebar-width) - var(--glass-inset) - 6px);
   flex-direction: column;
+}
+
+.launcher-theme .shell-sidebar.glass {
+  --glass-radius: 18px;
+  --glass-drop: var(--glass-drop-l);
 }
 
 .section-nav {
@@ -212,22 +220,20 @@
   padding: 8px 12px;
   color: var(--glass-text-muted);
   border: 0;
-  border-radius: var(--radius-glass-inner);
+  border-radius: 12px;
   background: transparent;
   cursor: pointer;
 }
 
 .nav-item:hover {
   color: var(--color-text);
-  background: var(--glass-control);
+  background: var(--glass-hover);
 }
 
 .nav-item.active {
   color: var(--color-text);
   background: var(--glass-selected);
-  box-shadow:
-    inset 0 1px 0 var(--glass-edge),
-    0 2px 6px -3px color-mix(in srgb, var(--color-text) 22%, transparent);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 
 .nav-item__icon {
@@ -274,7 +280,7 @@
   place-items: center;
 }
 
-/* Fluent injects its button styles at runtime; the trigger needs the extra specificity to stay glass. */
+/* Fluent injects its button styles at runtime; the trigger needs the extra specificity to stay flat on the glass. */
 .launcher-theme .theme-menu-trigger.fui-MenuButton {
   display: grid;
   width: 40px;
@@ -294,7 +300,7 @@
 .launcher-theme .theme-menu-trigger.fui-MenuButton:hover:active,
 .launcher-theme .theme-menu-trigger.fui-MenuButton[aria-expanded="true"] {
   color: var(--color-text);
-  background: var(--glass-control-hover);
+  background: var(--glass-hover);
 }
 
 .status-indicator {
@@ -345,16 +351,16 @@
   overflow: hidden;
 }
 
-/* Sections not yet on glass keep their solid layout on one opaque surface. */
+/* Sections not yet redesigned keep their layout on one solid content surface. */
 .shell-main:not(.active-status) {
   padding: 0 var(--glass-inset) var(--glass-inset) 2px;
 }
 
 .shell-main:not(.active-status) .section-shell {
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--radius-glass-group);
+  border: 0;
+  border-radius: 20px;
   background: var(--color-surface);
-  box-shadow: var(--glass-shadow);
+  box-shadow: 0 0 0 0.5px var(--glass-divider), var(--glass-drop-l);
 }
 
 /* Status workspace */
@@ -382,7 +388,7 @@
 .section-shell[data-section="status"] .status-chip {
   color: var(--glass-text-muted);
   border-color: transparent;
-  background: var(--glass-control);
+  background: var(--glass-fill);
 }
 
 .status-homepage {
@@ -394,57 +400,56 @@
   min-height: 36px;
   padding-inline: 16px;
   color: var(--color-text);
-  border-color: transparent;
-  border-radius: var(--radius-pill);
-  background: var(--glass-control);
-  box-shadow: inset 0 1px 0 var(--glass-edge);
 }
 
-.launcher-theme .glass-button.fui-Button:hover {
+.launcher-theme .glass-button.fui-Button:enabled:hover {
   color: var(--color-text);
-  border-color: transparent;
-  background: var(--glass-control-hover);
+  background-image: linear-gradient(var(--glass-hover), var(--glass-hover));
+}
+
+.launcher-theme .glass-button.fui-Button:enabled:hover:active {
+  background-image: linear-gradient(var(--glass-press), var(--glass-press));
 }
 
 .launcher-theme .glass-button--danger.fui-Button,
-.launcher-theme .glass-button--danger.fui-Button:hover {
+.launcher-theme .glass-button--danger.fui-Button:enabled:hover {
   color: var(--color-danger);
-}
-
-.launcher-theme .glass-button--danger.fui-Button:hover {
-  background: color-mix(in srgb, var(--color-danger-soft) 72%, transparent);
-}
-
-.launcher-theme .glass-button.fui-Button:disabled {
-  color: var(--glass-text-muted) !important;
-  border-color: transparent !important;
-  background: color-mix(in srgb, var(--glass-control) 55%, transparent) !important;
-  box-shadow: none;
-  opacity: 0.72;
 }
 
 .launcher-theme .service-control__primary.fui-Button {
   min-width: 196px;
   min-height: 44px;
   padding-inline: 22px;
-  border-radius: var(--radius-pill);
+  color: var(--color-on-brand);
   font-size: 15px;
   font-weight: 600;
-  box-shadow:
-    0 12px 26px -14px color-mix(in srgb, var(--color-brand-fill) 76%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 0.24);
 }
 
-/* A top sheen makes the tinted capsule read as glass; Fluent keeps its state colors underneath. */
-.launcher-theme .service-control__primary.fui-Button:enabled {
-  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.16), transparent 58%);
+.launcher-theme .service-control__primary.fui-Button:enabled:hover {
+  color: var(--color-on-brand);
+  background-image: linear-gradient(color-mix(in srgb, var(--color-on-brand) 12%, transparent), color-mix(in srgb, var(--color-on-brand) 12%, transparent));
 }
 
+.launcher-theme .service-control__primary.fui-Button:enabled:hover:active {
+  color: var(--color-on-brand);
+  background-image: linear-gradient(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.08));
+}
+
+.launcher-theme .glass-button.fui-Button:disabled,
 .launcher-theme .service-control__primary.fui-Button:disabled {
-  box-shadow: none;
+  color: var(--glass-text-muted) !important;
+  background-color: var(--glass-tint) !important;
+  background-image: none !important;
+  cursor: default;
+  opacity: 0.62;
 }
 
-/* The glass controls replace Fluent's focus border and inset shadow, so they ring with an outline instead. */
+.launcher-theme .glass-button.fui-Button[data-glass-ready]:disabled,
+.launcher-theme .service-control__primary.fui-Button[data-glass-ready]:disabled {
+  background-color: transparent !important;
+}
+
+/* Fluent's focus border and inset shadow are replaced by the glass, so focused controls ring with an outline. */
 .launcher-theme .glass-button.fui-Button:focus-visible,
 .launcher-theme .service-control__primary.fui-Button:focus-visible,
 .launcher-theme .theme-menu-trigger.fui-MenuButton:focus-visible {
@@ -461,9 +466,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 24px 48px;
-  padding: 28px 32px;
-  border-radius: var(--radius-glass-panel);
+  gap: 20px 48px;
+  padding: 6px 4px 10px;
 }
 
 .service-control__summary {
@@ -476,48 +480,55 @@
   gap: 20px;
 }
 
-.service-state-mark {
-  display: grid;
-  width: 60px;
-  height: 60px;
+/* The state color sits under a clear lens, which pulls it into a ring along the rim. */
+.status-lens {
+  --lens-core: color-mix(in srgb, var(--color-text-muted) 72%, var(--color-canvas));
+  position: relative;
+  display: block;
+  width: 64px;
+  height: 64px;
   flex: none;
-  place-items: center;
-  color: var(--glass-text-muted);
+}
+
+.status-lens[data-tone="success"] {
+  --lens-core: var(--color-success);
+}
+
+.status-lens[data-tone="warning"] {
+  --lens-core: var(--color-warning);
+}
+
+.status-lens[data-tone="danger"] {
+  --lens-core: var(--color-danger);
+}
+
+.status-lens[data-tone="info"] {
+  --lens-core: var(--color-brand-fill);
+}
+
+.status-lens[data-tone="attention"] {
+  --lens-core: var(--color-attention);
+}
+
+.status-lens__core {
+  position: absolute;
+  inset: 11px;
   border-radius: 50%;
-  background: var(--glass-control);
-  box-shadow:
-    inset 0 1px 0 var(--glass-edge),
-    0 10px 20px -14px color-mix(in srgb, var(--color-text) 42%, transparent);
+  background: var(--lens-core);
 }
 
-.service-state-mark svg {
-  width: 30px;
-  height: 30px;
+.launcher-theme .status-lens__glass {
+  --glass-radius: 50%;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-on-brand);
 }
 
-.service-state-mark[data-tone="success"] {
-  color: var(--color-success);
-  background: color-mix(in srgb, var(--color-success-soft) 76%, transparent);
-}
-
-.service-state-mark[data-tone="warning"] {
-  color: var(--color-warning);
-  background: color-mix(in srgb, var(--color-warning-soft) 76%, transparent);
-}
-
-.service-state-mark[data-tone="danger"] {
-  color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger-soft) 76%, transparent);
-}
-
-.service-state-mark[data-tone="info"] {
-  color: var(--color-brand-foreground);
-  background: color-mix(in srgb, var(--color-brand-soft) 76%, transparent);
-}
-
-.service-state-mark[data-tone="attention"] {
-  color: var(--color-attention);
-  background: color-mix(in srgb, var(--color-attention-soft) 76%, transparent);
+.status-lens__glass svg {
+  width: 24px;
+  height: 24px;
 }
 
 .service-control__state-copy {
@@ -550,7 +561,7 @@
 .service-control__secondary {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .service-control__secondary .fui-Button {
@@ -564,18 +575,25 @@
 }
 
 .service-control .attention-note {
-  margin-top: 20px;
+  margin-top: 18px;
   border-color: transparent;
-  border-radius: var(--radius-glass-inner);
-  background: color-mix(in srgb, var(--color-warm-soft) 72%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-warm-soft) 80%, transparent);
 }
 
 .service-control .attention-note[data-severity="warning"] {
-  background: color-mix(in srgb, var(--color-warning-soft) 72%, transparent);
+  background: color-mix(in srgb, var(--color-warning-soft) 80%, transparent);
 }
 
 .service-control .attention-note[data-severity="danger"] {
-  background: color-mix(in srgb, var(--color-danger-soft) 72%, transparent);
+  background: color-mix(in srgb, var(--color-danger-soft) 80%, transparent);
+}
+
+/* Content layer: quiet groups without their own backdrop, so the glass controls on them still see the page. */
+.content-group {
+  border-radius: 20px;
+  background: var(--glass-fill);
+  box-shadow: 0 0 0 0.5px var(--glass-divider);
 }
 
 .status-layout {
@@ -607,13 +625,13 @@
   font-weight: 600;
 }
 
-.glass-list {
+.detail-list {
   display: grid;
   margin: 0;
   padding: 4px 0;
 }
 
-.glass-list__row {
+.detail-list__row {
   display: grid;
   grid-template-columns: minmax(132px, 0.3fr) minmax(0, 1fr);
   align-items: center;
@@ -624,11 +642,11 @@
   border-bottom: 1px solid var(--glass-divider);
 }
 
-.glass-list__row:last-child {
+.detail-list__row:last-child {
   border-bottom: 0;
 }
 
-.glass-list__row dt {
+.detail-list__row dt {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -637,18 +655,18 @@
   font-weight: 500;
 }
 
-.glass-list__icon {
+.detail-list__icon {
   display: grid;
   color: var(--glass-text-muted);
   place-items: center;
 }
 
-.glass-list__row dd {
+.detail-list__row dd {
   min-width: 0;
   margin: 0;
 }
 
-.glass-list__value {
+.detail-list__value {
   display: block;
   overflow: hidden;
   color: var(--glass-text-muted);
@@ -682,7 +700,7 @@
   place-items: center;
   color: var(--color-success);
   border-radius: 50%;
-  background: color-mix(in srgb, var(--color-success-soft) 76%, transparent);
+  background: color-mix(in srgb, var(--color-success-soft) 80%, transparent);
 }
 
 .status-log-row__status > div {
@@ -724,7 +742,7 @@
 
 .status-log-panel .status-label {
   border-color: transparent;
-  background: color-mix(in srgb, var(--color-danger-soft) 76%, transparent);
+  background: color-mix(in srgb, var(--color-danger-soft) 80%, transparent);
 }
 
 .status-log-panel__surface {
@@ -733,8 +751,8 @@
   margin: 0 12px;
   padding: 14px 16px;
   overflow: auto;
-  border-radius: var(--radius-glass-inner);
-  background: var(--glass-tint-dense);
+  border-radius: 14px;
+  background: var(--glass-fill-strong);
 }
 
 .attention-panel {
@@ -744,15 +762,15 @@
 }
 
 .attention-panel[data-tone="attention"] {
-  --glass-tint: color-mix(in srgb, var(--color-attention-soft) 62%, transparent);
+  background: color-mix(in srgb, var(--color-attention-soft) 72%, transparent);
 }
 
 .attention-panel[data-tone="warning"] {
-  --glass-tint: color-mix(in srgb, var(--color-warning-soft) 62%, transparent);
+  background: color-mix(in srgb, var(--color-warning-soft) 72%, transparent);
 }
 
 .attention-panel[data-tone="danger"] {
-  --glass-tint: color-mix(in srgb, var(--color-danger-soft) 62%, transparent);
+  background: color-mix(in srgb, var(--color-danger-soft) 72%, transparent);
 }
 
 .attention-panel > h3 {
@@ -815,7 +833,7 @@
 .service-diagnostics .status-chip {
   color: var(--color-text);
   border-color: transparent;
-  background: var(--glass-control);
+  background: var(--glass-fill-strong);
 }
 
 .service-diagnostics .status-pill {
@@ -831,12 +849,12 @@
 
 .service-diagnostics .status-pill--warning {
   color: color-mix(in srgb, var(--color-warning) 84%, var(--color-text));
-  background: color-mix(in srgb, var(--color-warning-soft) 76%, transparent);
+  background: color-mix(in srgb, var(--color-warning-soft) 80%, transparent);
 }
 
 .service-diagnostics .status-pill--error {
   color: color-mix(in srgb, var(--color-danger) 84%, var(--color-text));
-  background: color-mix(in srgb, var(--color-danger-soft) 76%, transparent);
+  background: color-mix(in srgb, var(--color-danger-soft) 80%, transparent);
 }
 
 .status-diagnostics-block {
@@ -878,8 +896,9 @@
   color: var(--glass-text-muted);
 }
 
-.runtime-prepare-panel.glass-surface {
+.runtime-prepare-panel.content-group {
   padding: 18px 20px;
+  border: 0;
 }
 
 @media (max-width: 1050px) {
@@ -958,8 +977,7 @@
 
   .service-control {
     grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
-    padding: 24px;
+    gap: 18px;
   }
 
   .service-control__actions {
@@ -974,12 +992,12 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .glass-list__row {
+  .detail-list__row {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
   }
 
-  .glass-list__row dd {
+  .detail-list__row dd {
     padding-left: 32px;
   }
 }
@@ -1016,13 +1034,16 @@
   }
 
   .service-control {
-    gap: 16px;
-    padding: 18px 20px;
+    gap: 14px;
   }
 
-  .service-state-mark {
-    width: 48px;
-    height: 48px;
+  .status-lens {
+    width: 52px;
+    height: 52px;
+  }
+
+  .status-lens__core {
+    inset: 9px;
   }
 
   .service-control__state-value {
@@ -1038,37 +1059,58 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .glass-surface,
-  .glass-surface--lens {
-    background: var(--color-surface);
+  .launcher-theme .glass {
+    background-color: var(--color-surface);
+    box-shadow: 0 0 0 1px var(--color-border), var(--glass-drop);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
-  .glass-surface::before {
-    display: none;
+  .launcher-theme .glass[data-glass="prominent"] {
+    background-color: var(--color-brand-fill);
   }
 
-  .launcher-theme .glass-button.fui-Button:enabled,
-  .service-diagnostics .status-chip {
-    border-color: var(--color-border);
+  .launcher-theme .status-lens__glass {
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  .status-lens__core {
+    inset: 0;
+  }
+
+  .content-group {
+    background: var(--color-surface);
   }
 }
 
 @media (forced-colors: active) {
-  .app-wallpaper,
-  .glass-surface::before {
-    display: none;
-  }
-
-  .glass-surface,
-  .glass-surface--lens,
+  .launcher-theme .glass,
+  .content-group,
   .shell-main:not(.active-status) .section-shell {
-    border-color: CanvasText;
+    border: 1px solid CanvasText;
     background: Canvas;
     box-shadow: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+
+  .launcher-theme .glass.fui-Button {
+    color: ButtonText;
+    border-color: ButtonText;
+    background: ButtonFace;
+    opacity: 1;
+  }
+
+  .launcher-theme .glass.fui-Button[data-glass="prominent"] {
+    color: HighlightText;
+    border-color: Highlight;
+    background: Highlight;
+  }
+
+  .launcher-theme .glass.fui-Button:disabled {
+    color: GrayText !important;
+    border-color: GrayText;
   }
 
   .window-drag-handle {
@@ -1094,7 +1136,19 @@
     color: HighlightText;
   }
 
-  .service-state-mark,
+  .status-lens__core {
+    inset: 0;
+    background: CanvasText;
+    forced-color-adjust: none;
+  }
+
+  .launcher-theme .status-lens__glass {
+    border: 0;
+    color: Canvas;
+    background: transparent;
+    forced-color-adjust: none;
+  }
+
   .status-log-row__icon {
     border: 1px solid CanvasText;
   }

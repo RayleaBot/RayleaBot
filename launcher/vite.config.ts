@@ -42,7 +42,6 @@ export default defineConfig({
       allow: [
         path.resolve(import.meta.dirname),
         path.resolve(import.meta.dirname, "../design"),
-        path.resolve(import.meta.dirname, "../web/src/assets/auth"),
         path.resolve(import.meta.dirname, "../templates/help.menu/assets/fonts"),
       ],
     },

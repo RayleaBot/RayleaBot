@@ -7,11 +7,13 @@ import { ThemeProvider, useTheme } from "./useTheme";
 import { launcherFluentThemes } from "./launcherTheme";
 import { installTrustedNavigationGuards } from "./trustedNavigation";
 import { installWailsDesktopApi } from "./wailsDesktopApi";
+import { startGlassSurfaces } from "./glassSurfaces";
 import "./style.css";
 import "./liquid-glass.css";
 
 const uninstallTrustedNavigationGuards = installTrustedNavigationGuards();
 const uninstallWailsDesktopApi = installWailsDesktopApi();
+const stopGlassSurfaces = startGlassSurfaces(document.body);
 
 function ThemedApp() {
   const { effectiveTheme } = useTheme();
@@ -40,6 +42,7 @@ root.render(
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     root.unmount();
+    stopGlassSurfaces();
     uninstallWailsDesktopApi();
     uninstallTrustedNavigationGuards();
   });

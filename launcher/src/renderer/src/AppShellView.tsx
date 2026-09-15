@@ -87,7 +87,6 @@ export function AppShellView({
 }: AppShellViewProps) {
   return (
     <div className="app-shell">
-      <div className="app-wallpaper" aria-hidden="true" />
       <AppShellChrome
         snapshot={snapshot}
         activeSection={activeSection}
