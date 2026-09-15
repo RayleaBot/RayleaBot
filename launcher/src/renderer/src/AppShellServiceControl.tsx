@@ -13,6 +13,7 @@ import type { LauncherPresentationState } from "@shared/launcher-presentation";
 import type { ReactNode } from "react";
 
 import { serviceStateConfig } from "./AppShell.shared";
+import { StatusLens } from "./StatusLens";
 
 type AppShellServiceControlProps = {
   attention: {
@@ -66,12 +67,7 @@ export function AppShellServiceControl({
     <section className="service-control" data-tone={tone} aria-labelledby="service-control-title">
       <div className="service-control__summary">
         <div className="service-control__state" aria-live="polite">
-          <span className="status-lens" data-tone={tone} aria-hidden="true">
-            <span className="status-lens__core" />
-            <span className="status-lens__glass glass" data-glass="clear">
-              {serviceStateGlyphs[snapshot.serviceState] ?? <Power24Filled />}
-            </span>
-          </span>
+          <StatusLens tone={tone} icon={serviceStateGlyphs[snapshot.serviceState] ?? <Power24Filled />} />
           <div className="service-control__state-copy">
             <h2 id="service-control-title" className="service-control__state-value">
               <span className="visually-hidden">服务控制：</span>

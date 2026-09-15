@@ -105,9 +105,9 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 Launcher 参考 Apple 的 [Liquid Glass](https://developer.apple.com/design/) 与 Human Interface Guidelines 的分层：玻璃只属于浮在内容之上的导航层与控件，内容分组留在内容层。材质由 [`liquid-glass.css`](../../launcher/src/renderer/src/liquid-glass.css) 与 [`glassSurfaces.ts`](../../launcher/src/renderer/src/glassSurfaces.ts) 实现，元素通过 `data-glass` 声明 `clear`、`regular` 或 `prominent` 变体。玻璃的填充、边缘与投影转写自 [Apple Design Resources](https://developer.apple.com/design/resources/) 中 macOS 27 UI Kit 的 Liquid Glass 图层样式，作为 `liquid-glass.css` 的局部变量；画布与内容分组从主题 token 以 `color-mix` 局部派生。两者都不新增共享 token，仓库也不包含套件文件、SF 字体或 SF Symbols。
 
 - 画布是窗口画布混入少量青瓷的雾白渐变，左上角叠一层淡青瓷环境光；暗色主题使用炭灰画布与更弱的环境光。画布不使用图片。
-- `regular` 用于侧栏与次级按钮，按尺寸取不同配方：按钮使用套件的 `Regular - Small`，浅色是半透明浅灰胶囊，暗色是略亮于画布的炭灰胶囊，几乎没有外侧投影；侧栏使用 `Regular - Large`，填充更白并带纵向外侧投影。`prominent` 用于主操作，使用 `Regular - Small - Tinted` 的边缘与投影并以青瓷品牌色着色。
+- `regular` 用于侧栏与次级按钮，按尺寸取不同配方：按钮使用套件的 `Regular - Small`，浅色是半透明浅灰胶囊，暗色是略亮于画布的炭灰胶囊，几乎没有外侧投影；侧栏使用 `Regular - Large`，填充更白并带纵向外侧投影。`prominent` 用于主操作：套件把着色玻璃画成平涂色面，Launcher 在青瓷填充上叠加顶部受光的渐变高光、上下亮边、细深色描边和同色投影，使着色部分读作玻璃。
 - 边缘由多层内阴影组成：两侧与四周有深色细线，上下边缘有亮线和向内衰减的亮边，两侧向内渐暗。Sketch 样式中的 Lighten、Darken、Luminosity、Plus darker 与 Plus lighter 混合改写为半透明填充和黑白内阴影，按 Launcher 画布算出与原混合一致的明度。
-- 侧栏、按钮与主操作只由 `background-color` 与 `box-shadow` 构成，不运行脚本，也不读取背景。
+- 侧栏、按钮与主操作只由背景色、渐变与阴影构成，不运行脚本，也不读取背景。
 - `clear` 状态透镜完全通透，沿用 `Regular - Medium` 的边缘亮线并带一层淡投影；`Regular - Small` 的两侧暗角会让通透边缘发灰，因此不用于透镜。透镜边缘是圆角斜面：视线在斜面处折射，把背后更靠内的状态色压缩成紧贴边缘的细带，中心不放大，透镜边缘因此形成同色光环。WebView2 中该折射由 `glassSurfaces.ts` 生成的 SVG backdrop filter 完成，同一尺寸的透镜共用一个滤镜；WebKit 与 Gecko 的透镜保持通透、不折射。
 - 侧栏与按钮位于平整画布或内容填充之上，折射在这里不可见，因此不使用 backdrop-filter；悬停、滚动、切换工作区和缩放窗口都不触发滤镜重算。
 - reduced-transparency 下玻璃填充改为完整不透明表面，状态透镜显示为实色圆面；forced-colors 下去掉玻璃边缘与投影，改用系统颜色与边界。
@@ -117,9 +117,11 @@ Launcher 参考 Apple 的 [Liquid Glass](https://developer.apple.com/design/) �
 
 ## 浮层材质
 
-- 主题菜单和 Dialog 使用 `90%` 表面色与固定 `12px` backdrop blur，不使用透镜折射。
-- 选中背景和文字使用中性色，玻璃不改变状态或操作语义，也不参与动态模糊。
-- 不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层降为完整不透明表面。
+- Dialog 是 Launcher 中模糊背后窗口的玻璃面板：沿用 `Regular - Large` 的边缘亮线，叠加顶部高光、`28px` 圆角、固定 `24px` 模糊与 `190%` 饱和度，并带深投影；遮罩只轻度压暗窗口，玻璃后方的内容以模糊色块透出。Fluent 把 Dialog 挂载在 `launcher-theme` 容器之外，玻璃选择器因此使用 Fluent provider 的类名。
+- Dialog 标题使用 `48px` 小号状态透镜：重置凭据为危险色，关闭启动器与其他待确认操作为人工关注色。选项与按钮位于玻璃之上，使用半透明白色填充与细亮边，不再叠加玻璃；确认按钮沿用主操作的着色玻璃配方，按危险或人工关注着色。
+- 主题菜单使用 `90%` 表面色与固定 `12px` backdrop blur。所有浮层的模糊半径固定，不随指针、滚动或动画变化。
+- 选中背景和文字使用中性色，玻璃不改变状态或操作语义。
+- 不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层降为完整不透明表面，Dialog 中的状态透镜显示为实色圆面。
 
 ## 原生图标与打包
 

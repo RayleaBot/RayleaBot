@@ -21,10 +21,11 @@
 
   /*
    * Liquid Glass recipes transcribed from the layer styles in Apple's macOS 27 UI kit: Regular - Small
-   * for controls, Regular - Large for the sidebar and Regular - Small - Tinted for the prominent action.
-   * The clear lens keeps the Regular - Medium edge, since the Small side shading turns a transparent rim
-   * gray. Sketch's Lighten, Darken, Luminosity, Plus darker and Plus lighter blends become alpha fills
-   * and black or white inner shadows that land on the same values over this canvas.
+   * for controls, Regular - Large for the sidebar and the dialog rim. The clear lens keeps the Regular - Medium
+   * edge, since the Small side shading turns a transparent rim gray. The kit paints tinted glass as flat
+   * color, so the prominent action adds a top-lit sheen, a specular rim and a shadow in its own tint.
+   * Sketch's Lighten, Darken, Luminosity, Plus darker and Plus lighter blends become alpha fills and black
+   * or white inner shadows that land on the same values over this canvas.
    */
   --glass-small-fill: rgb(242 242 242 / 0.55);
   --glass-small-edge:
@@ -52,18 +53,17 @@
     inset 0 4px 8px -4px rgb(255 255 255 / 0.9),
     inset 0 -4px 8px -4px rgb(255 255 255 / 0.9);
   --glass-large-drop: 0 18px 46px rgb(0 0 0 / 0.25);
+  --glass-prominent-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.26), rgb(255 255 255 / 0.08) 34%, rgb(255 255 255 / 0) 58%, rgb(255 255 255 / 0.08));
   --glass-prominent-edge:
-    inset 1.25px 0 0 -0.75px rgb(0 0 0 / 0.22),
-    inset -1.25px 0 0 -0.75px rgb(0 0 0 / 0.22),
-    inset 0 40px 10px -40px rgb(255 255 255 / 0.11),
-    inset 0 -40px 10px -40px rgb(255 255 255 / 0.11),
-    inset 0 1px 0 rgb(255 255 255 / 0.24),
-    inset 0 -1px 0 rgb(255 255 255 / 0.24),
-    inset 0 4px 0.5px -4px rgb(255 255 255 / 0.95),
-    inset 0 -4px 0.5px -4px rgb(255 255 255 / 0.95),
+    inset 0 1px 0.5px rgb(255 255 255 / 0.5),
+    inset 0 -1px 0.5px rgb(255 255 255 / 0.18),
+    inset 0 0 0 0.5px rgb(255 255 255 / 0.14),
+    inset 0 10px 12px -12px rgb(255 255 255 / 0.42),
+    inset 0 -8px 14px -12px rgb(255 255 255 / 0.3),
     inset 20px 0 20px -30px rgb(0 0 0 / 0.3),
     inset -20px 0 20px -30px rgb(0 0 0 / 0.3);
-  --glass-prominent-drop: 0 8px 15px rgb(0 0 0 / 0.04);
+  --glass-prominent-glow: 70%;
+  --glass-prominent-contact: 0 2px 4px -1px rgb(0 0 0 / 0.12);
   --glass-lens-edge:
     inset 1.25px 0 0 -0.75px rgb(0 0 0 / 0.14),
     inset -1.25px 0 0 -0.75px rgb(0 0 0 / 0.14),
@@ -74,6 +74,13 @@
     inset 0 4px 8px -4px rgb(255 255 255 / 0.9),
     inset 0 -4px 2px -4px rgb(255 255 255 / 0.9);
   --glass-lens-drop: 0 6px 16px rgb(0 0 0 / 0.14);
+  --glass-dialog-backdrop: color-mix(in srgb, var(--color-text) 14%, transparent);
+  --glass-dialog-fill: rgb(246 246 246 / 0.58);
+  --glass-dialog-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0) 120px);
+  --glass-dialog-drop: 0 40px 90px -30px rgb(0 0 0 / 0.45), 0 0 0 0.5px rgb(0 0 0 / 0.08);
+  --glass-tile-fill: rgb(255 255 255 / 0.5);
+  --glass-tile-fill-hover: rgb(255 255 255 / 0.78);
+  --glass-tile-edge: inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 0 0 0.5px rgb(0 0 0 / 0.07), 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
 :root[data-theme="dark"] {
@@ -114,18 +121,17 @@
     inset 0 -4px 8px -4px rgb(255 255 255 / 0.23),
     inset 0 0 0.3px 0.3px rgb(0 0 0 / 0.7);
   --glass-large-drop: 0 18px 48px rgb(0 0 0 / 0.45);
+  --glass-prominent-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.32), rgb(255 255 255 / 0.1) 34%, rgb(255 255 255 / 0) 58%, rgb(255 255 255 / 0.1));
   --glass-prominent-edge:
-    inset 0 40px 10px -40px rgb(255 255 255 / 0.2),
-    inset 0 -40px 10px -40px rgb(255 255 255 / 0.2),
-    inset 1.25px 0 0 -0.75px rgb(0 0 0 / 0.3),
-    inset -1.25px 0 0 -0.75px rgb(0 0 0 / 0.3),
-    inset 0 0 0 0.5px rgb(0 0 0 / 0.2),
-    inset 0 1px 0 rgb(255 255 255 / 0.45),
-    inset 0 -1px 0 rgb(255 255 255 / 0.45),
-    inset 0 4px 0.5px -4px rgb(255 255 255 / 0.95),
-    inset 0 -4px 0.5px -4px rgb(255 255 255 / 0.95),
+    inset 0 1px 0.5px rgb(255 255 255 / 0.7),
+    inset 0 -1px 0.5px rgb(255 255 255 / 0.28),
+    inset 0 0 0 0.5px rgb(255 255 255 / 0.22),
+    inset 0 10px 12px -12px rgb(255 255 255 / 0.55),
+    inset 0 -8px 14px -12px rgb(255 255 255 / 0.34),
     inset 20px 0 20px -30px rgb(0 0 0 / 0.4),
     inset -20px 0 20px -30px rgb(0 0 0 / 0.4);
+  --glass-prominent-glow: 40%;
+  --glass-prominent-contact: 0 2px 6px -1px rgb(0 0 0 / 0.5);
   --glass-lens-edge:
     inset 1.25px 0 0 -0.75px rgb(0 0 0 / 0.85),
     inset -1.25px 0 0 -0.75px rgb(0 0 0 / 0.85),
@@ -136,6 +142,13 @@
     inset 0 -4px 8px -4px rgb(255 255 255 / 0.23),
     inset 0 0 0.3px 0.3px rgb(0 0 0 / 0.7);
   --glass-lens-drop: 0 6px 16px rgb(0 0 0 / 0.5);
+  --glass-dialog-backdrop: rgb(0 0 0 / 0.38);
+  --glass-dialog-fill: rgb(30 30 30 / 0.6);
+  --glass-dialog-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0) 120px);
+  --glass-dialog-drop: 0 40px 90px -30px rgb(0 0 0 / 0.75), 0 0 0 0.5px rgb(0 0 0 / 0.6);
+  --glass-tile-fill: rgb(255 255 255 / 0.07);
+  --glass-tile-fill-hover: rgb(255 255 255 / 0.12);
+  --glass-tile-edge: inset 0 1px 0 rgb(255 255 255 / 0.1), inset 0 0 0 0.5px rgb(0 0 0 / 0.5);
 }
 
 .visually-hidden {
@@ -163,9 +176,10 @@
   pointer-events: none;
 }
 
-/* Glass material. The selectors carry .launcher-theme so Fluent's runtime button styles stay underneath.
-   Only clear lenses read their backdrop; the rest sits on the flat canvas and needs no backdrop filter. */
-.launcher-theme .glass {
+/* Glass material. The selectors carry the Fluent provider class so Fluent's runtime button styles stay
+   underneath, in the window and in the portals Fluent mounts for dialogs. Only clear lenses and dialogs read
+   their backdrop; the rest sits on the flat canvas and needs no backdrop filter. */
+.launcher-fluent-provider .glass {
   --glass-radius: 999px;
   --glass-fill-color: var(--glass-small-fill);
   --glass-edge: var(--glass-small-edge);
@@ -176,19 +190,23 @@
   box-shadow: var(--glass-edge), var(--glass-drop);
 }
 
-.launcher-theme .glass[data-glass="prominent"] {
+.launcher-fluent-provider .glass[data-glass="prominent"] {
   --glass-fill-color: var(--color-brand-fill);
   --glass-edge: var(--glass-prominent-edge);
-  --glass-drop: var(--glass-prominent-drop);
+  --glass-drop:
+    0 0 0 0.5px color-mix(in srgb, var(--glass-fill-color) 72%, black),
+    0 10px 20px -10px color-mix(in srgb, var(--glass-fill-color) var(--glass-prominent-glow), transparent),
+    var(--glass-prominent-contact);
+  background-image: var(--glass-prominent-sheen);
 }
 
-.launcher-theme .glass[data-glass="clear"] {
+.launcher-fluent-provider .glass[data-glass="clear"] {
   --glass-fill-color: transparent;
   --glass-edge: var(--glass-lens-edge);
   --glass-drop: var(--glass-lens-drop);
 }
 
-.launcher-theme .glass[data-glass="clear"][data-glass-ready] {
+.launcher-fluent-provider .glass[data-glass="clear"][data-glass-ready] {
   -webkit-backdrop-filter: var(--glass-filter);
   backdrop-filter: var(--glass-filter);
 }
@@ -259,7 +277,7 @@
   flex-direction: column;
 }
 
-.launcher-theme .shell-sidebar.glass {
+.launcher-fluent-provider .shell-sidebar.glass {
   --glass-radius: 18px;
   --glass-fill-color: var(--glass-large-fill);
   --glass-edge: var(--glass-large-edge);
@@ -343,7 +361,7 @@
 }
 
 /* Fluent injects its button styles at runtime; the trigger needs the extra specificity to stay flat on the glass. */
-.launcher-theme .theme-menu-trigger.fui-MenuButton {
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton {
   display: grid;
   width: 40px;
   min-width: 40px;
@@ -358,9 +376,9 @@
   cursor: pointer;
 }
 
-.launcher-theme .theme-menu-trigger.fui-MenuButton:hover,
-.launcher-theme .theme-menu-trigger.fui-MenuButton:hover:active,
-.launcher-theme .theme-menu-trigger.fui-MenuButton[aria-expanded="true"] {
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:hover,
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:hover:active,
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton[aria-expanded="true"] {
   color: var(--color-text);
   background: var(--glass-hover);
 }
@@ -454,43 +472,43 @@
   gap: 24px;
 }
 
-.launcher-theme .glass-button.fui-Button {
+.launcher-fluent-provider .glass-button.fui-Button {
   min-height: 36px;
   padding-inline: 16px;
   color: var(--color-text);
 }
 
 /* Fluent's hover and pressed fills load after this sheet, so glass states restate the material fill. */
-.launcher-theme .glass.fui-Button:enabled:hover {
+.launcher-fluent-provider .glass.fui-Button:enabled:hover {
   color: var(--color-text);
   background-color: var(--glass-fill-color);
   background-image: linear-gradient(var(--glass-hover), var(--glass-hover));
 }
 
-.launcher-theme .glass.fui-Button:enabled:hover:active {
+.launcher-fluent-provider .glass.fui-Button:enabled:hover:active {
   background-color: var(--glass-fill-color);
   background-image: linear-gradient(var(--glass-press), var(--glass-press));
 }
 
-.launcher-theme .glass-button--danger.fui-Button,
-.launcher-theme .glass-button--danger.fui-Button:enabled:hover {
+.launcher-fluent-provider .glass-button--danger.fui-Button,
+.launcher-fluent-provider .glass-button--danger.fui-Button:enabled:hover {
   color: var(--color-danger);
 }
 
-.launcher-theme .glass.fui-Button[data-glass="prominent"],
-.launcher-theme .glass.fui-Button[data-glass="prominent"]:enabled:hover {
+.launcher-fluent-provider .glass.fui-Button[data-glass="prominent"],
+.launcher-fluent-provider .glass.fui-Button[data-glass="prominent"]:enabled:hover {
   color: var(--color-on-brand);
 }
 
-.launcher-theme .glass.fui-Button[data-glass="prominent"]:enabled:hover {
-  background-image: linear-gradient(color-mix(in srgb, var(--color-on-brand) 12%, transparent), color-mix(in srgb, var(--color-on-brand) 12%, transparent));
+.launcher-fluent-provider .glass.fui-Button[data-glass="prominent"]:enabled:hover {
+  background-image: linear-gradient(color-mix(in srgb, var(--color-on-brand) 12%, transparent), color-mix(in srgb, var(--color-on-brand) 12%, transparent)), var(--glass-prominent-sheen);
 }
 
-.launcher-theme .glass.fui-Button[data-glass="prominent"]:enabled:hover:active {
-  background-image: linear-gradient(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.08));
+.launcher-fluent-provider .glass.fui-Button[data-glass="prominent"]:enabled:hover:active {
+  background-image: linear-gradient(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.08)), var(--glass-prominent-sheen);
 }
 
-.launcher-theme .service-control__primary.fui-Button {
+.launcher-fluent-provider .service-control__primary.fui-Button {
   min-width: 196px;
   min-height: 44px;
   padding-inline: 22px;
@@ -498,8 +516,8 @@
   font-weight: 600;
 }
 
-.launcher-theme .glass-button.fui-Button:disabled,
-.launcher-theme .service-control__primary.fui-Button:disabled {
+.launcher-fluent-provider .glass-button.fui-Button:disabled,
+.launcher-fluent-provider .service-control__primary.fui-Button:disabled {
   color: var(--glass-text-muted) !important;
   background-color: var(--glass-fill-color) !important;
   background-image: none !important;
@@ -508,15 +526,15 @@
 }
 
 /* Fluent's focus border and inset shadow are replaced by the glass, so focused controls ring with an outline. */
-.launcher-theme .glass-button.fui-Button:focus-visible,
-.launcher-theme .service-control__primary.fui-Button:focus-visible,
-.launcher-theme .theme-menu-trigger.fui-MenuButton:focus-visible {
+.launcher-fluent-provider .glass-button.fui-Button:focus-visible,
+.launcher-fluent-provider .service-control__primary.fui-Button:focus-visible,
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:focus-visible {
   border-color: transparent;
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
-.launcher-theme .theme-menu-trigger.fui-MenuButton:focus-visible {
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:focus-visible {
   box-shadow: none;
 }
 
@@ -575,7 +593,7 @@
   background: var(--lens-core);
 }
 
-.launcher-theme .status-lens__glass {
+.launcher-fluent-provider .status-lens__glass {
   --glass-radius: 50%;
   position: absolute;
   inset: 0;
@@ -587,6 +605,20 @@
 .status-lens__glass svg {
   width: 24px;
   height: 24px;
+}
+
+.status-lens--small {
+  width: 48px;
+  height: 48px;
+}
+
+.status-lens--small .status-lens__core {
+  inset: 8px;
+}
+
+.status-lens--small .status-lens__glass svg {
+  width: 20px;
+  height: 20px;
 }
 
 .service-control__state-copy {
@@ -1417,7 +1449,7 @@
 }
 
 /* Fluent's radio group shrinks to its options; the list spans the column like the other groups. */
-.launcher-theme .choice-group,
+.launcher-fluent-provider .choice-group,
 .choice-list {
   display: grid;
 }
@@ -1575,10 +1607,220 @@
   color: color-mix(in srgb, var(--color-danger) 88%, var(--color-text));
 }
 
-.launcher-theme .update-error-message {
+.launcher-fluent-provider .update-error-message {
   border-color: transparent;
   border-radius: 16px;
   background: color-mix(in srgb, var(--color-danger-soft) 80%, transparent);
+}
+
+/* Dialogs float above the window, so they are the glass that blurs what lies beneath. Fluent mounts them
+   outside the launcher-theme wrapper, which is why these selectors use the provider class. The options and
+   buttons inside sit on that glass as light fills with a fine rim instead of stacking glass on glass. */
+.launcher-fluent-provider .fui-DialogSurface__backdrop {
+  background-color: var(--glass-dialog-backdrop);
+}
+
+.launcher-fluent-provider .fui-DialogSurface.glass-dialog {
+  width: min(92vw, 520px);
+  max-width: 520px;
+  padding: 24px;
+  color: var(--color-text);
+  border: 0;
+  border-radius: 28px;
+  background-color: var(--glass-dialog-fill);
+  background-image: var(--glass-dialog-sheen);
+  box-shadow: var(--glass-large-edge), var(--glass-dialog-drop);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(24px) saturate(190%);
+}
+
+.launcher-fluent-provider .glass-dialog__body {
+  gap: 18px;
+}
+
+.launcher-fluent-provider .glass-dialog__title {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+}
+
+.glass-dialog__heading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.glass-dialog__heading strong {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.glass-dialog__heading > span {
+  color: var(--glass-text-muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.launcher-fluent-provider .glass-dialog__content {
+  display: grid;
+  gap: 14px;
+  overflow: visible;
+}
+
+.glass-dialog__lead,
+.glass-dialog__detail {
+  max-width: none;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.glass-dialog__lead {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.glass-dialog__detail {
+  color: var(--glass-text-muted);
+}
+
+.glass-dialog__choices {
+  display: grid;
+  gap: 10px;
+}
+
+.launcher-fluent-provider .fui-Button.glass-tile,
+.launcher-fluent-provider .fui-Button.glass-dialog__button {
+  color: var(--color-text);
+  border: 0;
+  background-color: var(--glass-tile-fill);
+  box-shadow: var(--glass-tile-edge);
+}
+
+.launcher-fluent-provider .fui-Button.glass-tile {
+  width: 100%;
+  min-height: 72px;
+  justify-content: stretch;
+  padding: 12px 14px 12px 12px;
+  border-radius: 20px;
+  text-align: left;
+  white-space: normal;
+}
+
+.launcher-fluent-provider .fui-Button.glass-dialog__button {
+  min-width: 96px;
+  min-height: 36px;
+  padding-inline: 18px;
+  border-radius: var(--radius-pill);
+}
+
+.launcher-fluent-provider .fui-Button.glass-tile:hover,
+.launcher-fluent-provider .fui-Button.glass-dialog__button:enabled:hover {
+  color: var(--color-text);
+  background-color: var(--glass-tile-fill-hover);
+}
+
+.launcher-fluent-provider .fui-Button.glass-tile:hover:active,
+.launcher-fluent-provider .fui-Button.glass-dialog__button:enabled:hover:active {
+  background-color: var(--glass-tile-fill-hover);
+  background-image: linear-gradient(var(--glass-press), var(--glass-press));
+}
+
+.launcher-fluent-provider .fui-Button.glass-tile:focus-visible,
+.launcher-fluent-provider .fui-Button.glass-dialog__button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.glass-tile__layout {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.glass-tile__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  color: var(--color-brand-foreground);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-brand-fill) 14%, transparent);
+}
+
+.glass-tile[data-tone="danger"] .glass-tile__icon {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+}
+
+.glass-tile__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.glass-tile__copy strong {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.glass-tile[data-tone="danger"] .glass-tile__copy strong {
+  color: color-mix(in srgb, var(--color-danger) 88%, var(--color-text));
+}
+
+.glass-tile__copy > span {
+  color: var(--glass-text-muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.glass-tile__chevron {
+  color: var(--glass-text-muted);
+}
+
+.launcher-fluent-provider .glass-dialog__actions {
+  gap: 10px;
+}
+
+.launcher-fluent-provider .fui-Button.glass-dialog__button--confirm {
+  --glass-tint: var(--color-warm);
+  color: var(--color-on-attention);
+  background-color: var(--glass-tint);
+  background-image: var(--glass-prominent-sheen);
+  box-shadow:
+    var(--glass-prominent-edge),
+    0 0 0 0.5px color-mix(in srgb, var(--glass-tint) 72%, black),
+    0 10px 20px -10px color-mix(in srgb, var(--glass-tint) var(--glass-prominent-glow), transparent),
+    var(--glass-prominent-contact);
+}
+
+.launcher-fluent-provider .fui-Button.glass-dialog__button--confirm[data-tone="danger"] {
+  --glass-tint: var(--color-danger);
+  color: var(--color-on-action);
+}
+
+.launcher-fluent-provider .fui-Button.glass-dialog__button--confirm:enabled:hover {
+  color: var(--color-on-attention);
+  background-color: var(--glass-tint);
+  background-image: linear-gradient(rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.12)), var(--glass-prominent-sheen);
+}
+
+.launcher-fluent-provider .fui-Button.glass-dialog__button--confirm[data-tone="danger"]:enabled:hover {
+  color: var(--color-on-action);
+}
+
+.launcher-fluent-provider .fui-Button.glass-dialog__button--confirm:enabled:hover:active {
+  background-color: var(--glass-tint);
+  background-image: linear-gradient(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.08)), var(--glass-prominent-sheen);
 }
 
 @media (max-width: 1050px) {
@@ -1592,8 +1834,8 @@
 }
 
 @media (pointer: coarse) {
-  .launcher-theme .theme-menu-trigger.fui-MenuButton,
-  .launcher-theme .glass-button.fui-Button {
+  .launcher-fluent-provider .theme-menu-trigger.fui-MenuButton,
+  .launcher-fluent-provider .glass-button.fui-Button {
     min-width: 44px;
     min-height: 44px;
   }
@@ -1604,19 +1846,29 @@
   :root[data-theme="dark"] {
     --glass-small-fill: var(--color-surface);
     --glass-large-fill: var(--color-surface);
+    --glass-dialog-fill: var(--color-surface-raised);
+    --glass-tile-fill: color-mix(in srgb, var(--color-text) 5%, var(--color-surface-raised));
+    --glass-tile-fill-hover: color-mix(in srgb, var(--color-text) 9%, var(--color-surface-raised));
   }
 
-  .launcher-theme .glass {
+  .launcher-fluent-provider .fui-DialogSurface.glass-dialog {
+    background-image: none;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
-  .launcher-theme .status-lens__glass {
+  .launcher-fluent-provider .glass {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .launcher-fluent-provider .status-lens__glass {
     background-color: transparent;
     box-shadow: none;
   }
 
-  .status-lens__core {
+  .status-lens__core,
+  .status-lens--small .status-lens__core {
     inset: 0;
   }
 
@@ -1626,7 +1878,7 @@
 }
 
 @media (forced-colors: active) {
-  .launcher-theme .glass,
+  .launcher-fluent-provider .glass,
   .content-group {
     border: 1px solid CanvasText;
     background: Canvas;
@@ -1635,20 +1887,20 @@
     backdrop-filter: none;
   }
 
-  .launcher-theme .glass.fui-Button {
+  .launcher-fluent-provider .glass.fui-Button {
     color: ButtonText;
     border-color: ButtonText;
     background: ButtonFace;
     opacity: 1;
   }
 
-  .launcher-theme .glass.fui-Button[data-glass="prominent"] {
+  .launcher-fluent-provider .glass.fui-Button[data-glass="prominent"] {
     color: HighlightText;
     border-color: Highlight;
     background: Highlight;
   }
 
-  .launcher-theme .glass.fui-Button:disabled {
+  .launcher-fluent-provider .glass.fui-Button:disabled {
     color: GrayText !important;
     border-color: GrayText;
   }
@@ -1676,13 +1928,14 @@
     color: HighlightText;
   }
 
-  .status-lens__core {
+  .status-lens__core,
+  .status-lens--small .status-lens__core {
     inset: 0;
     background: CanvasText;
     forced-color-adjust: none;
   }
 
-  .launcher-theme .status-lens__glass {
+  .launcher-fluent-provider .status-lens__glass {
     border: 0;
     color: Canvas;
     background: transparent;
@@ -1709,5 +1962,31 @@
   .disclosure > summary:hover,
   .choice-row:hover {
     background: transparent;
+  }
+
+  .launcher-fluent-provider .fui-DialogSurface.glass-dialog {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .launcher-fluent-provider .fui-Button.glass-tile,
+  .launcher-fluent-provider .fui-Button.glass-dialog__button {
+    color: ButtonText;
+    border: 1px solid ButtonText;
+    background: ButtonFace;
+    box-shadow: none;
+  }
+
+  .launcher-fluent-provider .fui-Button.glass-dialog__button--confirm {
+    color: HighlightText;
+    border-color: Highlight;
+    background: Highlight;
+  }
+
+  .glass-tile__icon {
+    border: 1px solid CanvasText;
   }
 }

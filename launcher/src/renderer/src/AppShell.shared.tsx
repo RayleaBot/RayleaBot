@@ -12,7 +12,7 @@ import { getLauncherStateLabel, type LauncherPresentationState } from "@shared/l
 import type { LauncherSettings } from "@shared/launcher-models";
 
 export type SectionId = "status" | "environment" | "diagnostics" | "settings" | "about";
-type LauncherVisualTone = "neutral" | "info" | "success" | "attention" | "warning" | "danger";
+export type LauncherVisualTone = "neutral" | "info" | "success" | "attention" | "warning" | "danger";
 
 export const serviceStateConfig: Record<LauncherPresentationState, { label: string; tone: LauncherVisualTone }> = {
   stopped: { label: getLauncherStateLabel("stopped"), tone: "neutral" },
