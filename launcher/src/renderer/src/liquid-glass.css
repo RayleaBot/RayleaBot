@@ -509,10 +509,8 @@
 }
 
 .launcher-fluent-provider .service-control__primary.fui-Button {
-  min-width: 196px;
-  min-height: 44px;
-  padding-inline: 22px;
-  font-size: 15px;
+  min-height: 40px;
+  padding-inline: 20px;
   font-weight: 600;
 }
 
@@ -642,26 +640,24 @@
   line-height: 1.6;
 }
 
+/* One row of natural-width capsules, with the prominent action at the trailing edge as in macOS. */
 .service-control__actions {
-  display: grid;
-  min-width: 228px;
-  gap: 10px;
-}
-
-.service-control__secondary {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: 10px;
 }
 
-.service-control__secondary .fui-Button {
-  flex: 1 1 auto;
+.service-control__actions .glass-button.fui-Button {
+  min-height: 40px;
 }
 
 .operation-status {
+  flex-basis: 100%;
   color: var(--glass-text-muted);
   font-size: 13px;
-  text-align: center;
+  text-align: right;
 }
 
 .service-control .attention-note {

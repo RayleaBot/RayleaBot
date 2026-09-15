@@ -130,6 +130,7 @@ export function AppShellStatusSection({
         attention={serviceAttention}
         busyLabel={busyLabel}
         canOpenWebUi={canOpenWebUi}
+        canRestart={canOpenWebUi && snapshot.launcher.processOwnership === "launcher_managed"}
         controlsDisabled={controlsDisabled}
         onOpenWeb={onOpenWeb}
         onStart={onStart}

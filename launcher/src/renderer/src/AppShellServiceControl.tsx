@@ -1,5 +1,6 @@
 import { Button } from "@fluentui/react-components";
 import {
+  ArrowSync20Regular,
   ArrowSync24Filled,
   Checkmark24Filled,
   Dismiss24Filled,
@@ -23,6 +24,7 @@ type AppShellServiceControlProps = {
   } | null;
   busyLabel: string;
   canOpenWebUi: boolean;
+  canRestart: boolean;
   controlsDisabled: boolean;
   onOpenWeb: () => void;
   onStart: () => void;
@@ -49,6 +51,7 @@ export function AppShellServiceControl({
   attention,
   busyLabel,
   canOpenWebUi,
+  canRestart,
   controlsDisabled,
   onOpenWeb,
   onStart,
@@ -85,6 +88,14 @@ export function AppShellServiceControl({
       </div>
 
       <div className="service-control__actions">
+        <Button appearance="secondary" className="glass glass-button glass-button--danger" data-glass="regular" onClick={onStop} disabled={stopDisabled} icon={<Stop20Regular />}>停止服务</Button>
+        {canOpenWebUi ? (
+          canRestart ? (
+            <Button appearance="secondary" className="glass glass-button" data-glass="regular" onClick={onStart} disabled={startDisabled} icon={<ArrowSync20Regular />}>{primaryActionLabel}</Button>
+          ) : null
+        ) : (
+          <Button appearance="secondary" className="glass glass-button" data-glass="regular" onClick={onOpenWeb} disabled icon={<Globe20Regular />}>管理界面</Button>
+        )}
         <Button
           appearance="primary"
           className="service-control__primary glass"
@@ -95,14 +106,6 @@ export function AppShellServiceControl({
         >
           {canOpenWebUi ? "管理界面" : primaryActionLabel}
         </Button>
-        <div className="service-control__secondary">
-          <Button appearance="secondary" className="glass glass-button glass-button--danger" data-glass="regular" onClick={onStop} disabled={stopDisabled} icon={<Stop20Regular />}>停止服务</Button>
-          {canOpenWebUi ? (
-            !startDisabled && <Button appearance="secondary" className="glass glass-button" data-glass="regular" onClick={onStart} disabled={controlsDisabled} icon={<Play20Regular />}>{primaryActionLabel}</Button>
-          ) : (
-            <Button appearance="secondary" className="glass glass-button" data-glass="regular" onClick={onOpenWeb} disabled icon={<Globe20Regular />}>管理界面</Button>
-          )}
-        </div>
         {busyLabel || !canOpenWebUi ? (
           <p className="operation-status" aria-live="polite">
             {busyLabel || "服务启动后可进入管理界面"}
