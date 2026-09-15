@@ -97,6 +97,9 @@ export function ThemeModeMenu() {
   return (
     <Menu
       open={open}
+      // Fluent's default surface motion leaves an opacity animation on the popover, which makes the popover the
+      // backdrop root so the glass surface can no longer blur the window. ThemeMenuPresence animates the surface.
+      surfaceMotion={null}
       checkedValues={{ theme: [pendingMode ?? mode] }}
       onOpenChange={(_event, data) => {
         if (data.open) {

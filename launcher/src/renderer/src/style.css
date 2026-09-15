@@ -217,82 +217,14 @@ code,
 }
 
 .theme-menu-positioner {
-  width: 144px;
-  min-width: 144px;
+  width: 168px;
+  min-width: 168px;
   padding: 0 !important;
   overflow: visible !important;
   color: inherit;
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-}
-
-.theme-menu-surface {
-  width: 100%;
-  min-width: 144px;
-  overflow: hidden;
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-surface);
-  background: var(--color-surface-raised);
-  box-shadow: var(--shadow-floating);
-  transform-origin: bottom left;
-}
-
-.theme-menu-surface .fui-MenuList {
-  gap: 0;
-}
-
-.theme-menu-surface .theme-menu-item {
-  min-height: 32px;
-  gap: 6px;
-  padding: 6px 8px;
-  color: var(--color-text-muted);
-  border-radius: 0;
-  font-size: 13px;
-}
-
-.theme-menu-surface .theme-menu-item + .theme-menu-item {
-  border-top: 1px solid var(--color-border-soft);
-}
-
-.theme-menu-surface .theme-menu-item:hover {
-  color: var(--color-text);
-  background: var(--color-surface-hover);
-}
-
-.theme-menu-surface .theme-menu-item[aria-checked="true"] {
-  color: var(--color-cool);
-  background: var(--color-cool-soft);
-}
-
-.theme-menu-surface .theme-menu-item:focus-visible {
-  outline-offset: -2px;
-}
-
-.theme-menu-surface .fui-MenuItemRadio__icon {
-  order: 1;
-  color: var(--color-text-muted);
-}
-
-.theme-menu-surface .fui-MenuItemRadio__content {
-  order: 2;
-  flex: 0 1 auto;
-}
-
-.theme-menu-surface .fui-MenuItemRadio__checkmark {
-  order: 3;
-  margin-left: auto;
-  color: var(--color-cool);
-}
-
-.theme-menu-surface .theme-menu-item:hover .fui-MenuItemRadio__icon,
-.theme-menu-surface .theme-menu-item[aria-checked="true"] .fui-MenuItemRadio__icon {
-  color: var(--color-cool);
-}
-
-.theme-menu-surface[data-state="closing"] {
-  pointer-events: none;
 }
 
 .theme-menu-error {
@@ -667,21 +599,6 @@ code, time, .mono { font-variant-numeric: tabular-nums; }
 
 @media (pointer: coarse) {
   .launcher-theme .fui-Button { min-width: 44px; min-height: 44px; }
-  .theme-menu-surface .theme-menu-item { min-height: 44px; }
-}
-
-@supports (backdrop-filter: blur(12px)) {
-  .theme-menu-surface {
-    background: color-mix(in srgb, var(--color-surface-raised) 90%, transparent);
-    backdrop-filter: blur(12px);
-  }
-}
-
-@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-  .theme-menu-surface {
-    background: var(--color-surface-raised);
-    backdrop-filter: none;
-  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

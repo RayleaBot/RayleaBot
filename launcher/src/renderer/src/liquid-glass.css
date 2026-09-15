@@ -81,6 +81,14 @@
   --glass-tile-fill: rgb(255 255 255 / 0.5);
   --glass-tile-fill-hover: rgb(255 255 255 / 0.78);
   --glass-tile-edge: inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 0 0 0.5px rgb(0 0 0 / 0.07), 0 1px 2px rgb(0 0 0 / 0.05);
+  --glass-menu-fill: rgb(230 230 230 / 0.55);
+  --glass-menu-edge:
+    inset 0 0.5px 0 rgb(255 255 255 / 1),
+    inset 0 -0.5px 0 rgb(255 255 255 / 1),
+    inset 0 4px 8px -4px rgb(255 255 255 / 0.36),
+    inset 0 -4px 8px -4px rgb(255 255 255 / 0.36);
+  --glass-menu-drop: 0 0 0 0.5px rgb(0 0 0 / 0.2), 0 0 0 1px rgb(255 255 255 / 0.4), 0 4px 24px rgb(0 0 0 / 0.3);
+  --glass-menu-hover: rgb(0 0 0 / 0.06);
 }
 
 :root[data-theme="dark"] {
@@ -149,6 +157,14 @@
   --glass-tile-fill: rgb(255 255 255 / 0.07);
   --glass-tile-fill-hover: rgb(255 255 255 / 0.12);
   --glass-tile-edge: inset 0 1px 0 rgb(255 255 255 / 0.1), inset 0 0 0 0.5px rgb(0 0 0 / 0.5);
+  --glass-menu-fill: rgb(90 90 90 / 0.5);
+  --glass-menu-edge:
+    inset 0 0.5px 0 rgb(255 255 255 / 0.19),
+    inset 0 -0.5px 0 rgb(255 255 255 / 0.19),
+    inset 0 4px 8px -4px rgb(255 255 255 / 0.07),
+    inset 0 -4px 8px -4px rgb(255 255 255 / 0.07);
+  --glass-menu-drop: 0 0 0 0.5px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(255 255 255 / 0.18), 0 4px 24px rgb(0 0 0 / 0.3);
+  --glass-menu-hover: rgb(255 255 255 / 0.1);
 }
 
 .visually-hidden {
@@ -1819,6 +1835,71 @@
   background-image: linear-gradient(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.08)), var(--glass-prominent-sheen);
 }
 
+/* The theme menu follows the kit's Menus style. Fluent mounts it in a portal as well, and it blurs what it
+   covers just like a dialog. */
+.launcher-fluent-provider .theme-menu-surface {
+  width: 100%;
+  min-width: 168px;
+  padding: 5px;
+  overflow: hidden;
+  color: var(--color-text);
+  border: 0;
+  border-radius: 16px;
+  background-color: var(--glass-menu-fill);
+  box-shadow: var(--glass-menu-edge), var(--glass-menu-drop);
+  transform-origin: bottom left;
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(24px) saturate(190%);
+}
+
+.launcher-fluent-provider .theme-menu-surface .fui-MenuList {
+  gap: 2px;
+}
+
+.launcher-fluent-provider .theme-menu-surface .theme-menu-item {
+  min-height: 36px;
+  gap: 8px;
+  padding: 6px 10px;
+  color: var(--color-text);
+  border-radius: 10px;
+  background: transparent;
+  font-size: 13px;
+}
+
+.launcher-fluent-provider .theme-menu-surface .theme-menu-item:hover {
+  color: var(--color-text);
+  background: var(--glass-menu-hover);
+}
+
+.launcher-fluent-provider .theme-menu-surface .theme-menu-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.launcher-fluent-provider .theme-menu-surface .fui-MenuItemRadio__icon {
+  order: 1;
+  color: var(--glass-text-muted);
+}
+
+.launcher-fluent-provider .theme-menu-surface .fui-MenuItemRadio__content {
+  order: 2;
+  flex: 0 1 auto;
+}
+
+.launcher-fluent-provider .theme-menu-surface .fui-MenuItemRadio__checkmark {
+  order: 3;
+  margin-left: auto;
+  color: var(--color-brand-foreground);
+}
+
+.launcher-fluent-provider .theme-menu-surface .theme-menu-item:hover .fui-MenuItemRadio__icon,
+.launcher-fluent-provider .theme-menu-surface .theme-menu-item[aria-checked="true"] .fui-MenuItemRadio__icon {
+  color: var(--color-text);
+}
+
+.launcher-fluent-provider .theme-menu-surface[data-state="closing"] {
+  pointer-events: none;
+}
+
 @media (max-width: 1050px) {
   .status-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -1835,6 +1916,19 @@
     min-width: 44px;
     min-height: 44px;
   }
+
+  .launcher-fluent-provider .theme-menu-surface .theme-menu-item {
+    min-height: 44px;
+  }
+}
+
+/* Without a backdrop blur the translucent fills would show sharp content behind the overlays. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root,
+  :root[data-theme="dark"] {
+    --glass-dialog-fill: var(--color-surface-raised);
+    --glass-menu-fill: var(--color-surface-raised);
+  }
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -1845,8 +1939,10 @@
     --glass-dialog-fill: var(--color-surface-raised);
     --glass-tile-fill: color-mix(in srgb, var(--color-text) 5%, var(--color-surface-raised));
     --glass-tile-fill-hover: color-mix(in srgb, var(--color-text) 9%, var(--color-surface-raised));
+    --glass-menu-fill: var(--color-surface-raised);
   }
 
+  .launcher-fluent-provider .theme-menu-surface,
   .launcher-fluent-provider .fui-DialogSurface.glass-dialog {
     background-image: none;
     -webkit-backdrop-filter: none;
@@ -1960,6 +2056,7 @@
     background: transparent;
   }
 
+  .launcher-fluent-provider .theme-menu-surface,
   .launcher-fluent-provider .fui-DialogSurface.glass-dialog {
     border: 1px solid CanvasText;
     background: Canvas;
