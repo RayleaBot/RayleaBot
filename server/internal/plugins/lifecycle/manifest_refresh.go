@@ -50,6 +50,7 @@ func RefreshPluginManifest(
 			effective = pluginstore.MergeValues(snapshot.DefaultConfig, persisted)
 		}
 		snapshot.Commands = plugincatalog.ProjectCommands(snapshot, effective)
+		snapshot.CommandPrefixes = plugincatalog.ProjectCommandPrefixes(snapshot, effective)
 		catalog.RefreshInstalled([]plugins.Snapshot{snapshot}, pluginID)
 		updated, ok := catalog.Get(pluginID)
 		if !ok {

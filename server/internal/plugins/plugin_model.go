@@ -121,6 +121,9 @@ type Snapshot struct {
 	ConflictPaths          []string
 	Commands               []Command
 	ManifestCommands       []Command
+	// ManifestCommandPrefixes is nil when the manifest declares none.
+	ManifestCommandPrefixes *ManifestCommandPrefixes
+	CommandPrefixes         CommandPrefixes
 }
 
 // DeadLetterSnapshot captures the context recorded when a plugin runtime
@@ -222,6 +225,12 @@ func CloneSnapshot(snapshot Snapshot) Snapshot {
 		copied := *snapshot.DeadLetter
 		cloned.DeadLetter = &copied
 	}
+	if snapshot.ManifestCommandPrefixes != nil {
+		declared := *snapshot.ManifestCommandPrefixes
+		declared.Dedicated = append([]string(nil), declared.Dedicated...)
+		cloned.ManifestCommandPrefixes = &declared
+	}
+	cloned.CommandPrefixes = CloneCommandPrefixes(snapshot.CommandPrefixes)
 	if len(snapshot.Commands) > 0 {
 		cloned.Commands = CloneCommands(snapshot.Commands)
 	}

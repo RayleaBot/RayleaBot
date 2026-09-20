@@ -151,19 +151,14 @@ func isControlEvent(eventType string) bool {
 // Must be called with d.mu held for reading.
 func (d *Dispatcher) selectTargets(event chatevent.Event, commandName string) []string {
 	// If there's a command, try directed delivery first.
-	if commandName != "" {
-		var directed []string
-		for id, slot := range d.slots {
-			if !slotIsDeliverable(slot) {
-				continue
-			}
-			if slotDeclaresCommand(slot, commandName) {
-				directed = append(directed, id)
-			}
-		}
-		if len(directed) > 0 {
-			return directed
-		}
+	if directed := d.commandTargets(event, commandName); len(directed) > 0 {
+		return directed
+	}
+	// A command addressed to specific plugins is not broadcast when none of them
+	// can take it: another subscriber would read the command payload as its own,
+	// even one that ignores the prefix the sender used.
+	if event.CommandResolved && len(event.CommandTargets) > 0 {
+		return nil
 	}
 
 	// Fan-out to all plugins with matching subscriptions.
@@ -178,6 +173,50 @@ func (d *Dispatcher) selectTargets(event chatevent.Event, commandName string) []
 	}
 	return targets
 }
+
+// commandTargets lists the deliverable plugins a command is addressed to. When
+// ingress resolved the command per plugin, its targets are authoritative: command
+// names are never matched here without their prefixes, so a plugin that ignores
+// the global prefixes cannot be reached through one.
+func (d *Dispatcher) commandTargets(event chatevent.Event, commandName string) []string {
+	var directed []string
+	if event.CommandResolved {
+		for _, target := range event.CommandTargets {
+			if slotIsDeliverable(d.slots[target.PluginID]) {
+				directed = append(directed, target.PluginID)
+			}
+		}
+		return directed
+	}
+	if commandName == "" {
+		return nil
+	}
+	for id, slot := range d.slots {
+		if slotIsDeliverable(slot) && slotDeclaresCommand(slot, commandName) {
+			directed = append(directed, id)
+		}
+	}
+	return directed
+}
+
+// eventForTarget gives a command target the command and args of its own parse.
+func eventForTarget(event chatevent.Event, pluginID string) chatevent.Event {
+	for _, target := range event.CommandTargets {
+		if target.PluginID != pluginID {
+			continue
+		}
+		payload := make(map[string]any, len(event.PayloadFields)+2)
+		for key, value := range event.PayloadFields {
+			payload[key] = value
+		}
+		payload["command"] = target.Command
+		payload["args"] = append([]string(nil), target.Args...)
+		event.PayloadFields = payload
+		break
+	}
+	return event
+}
+
 func slotDeclaresCommand(slot *pluginSlot, name string) bool {
 	for _, cmd := range slot.commands {
 		if cmd.Matches(name) {

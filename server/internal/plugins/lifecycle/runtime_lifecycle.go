@@ -13,6 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
@@ -238,11 +239,12 @@ func (c *Controller) buildStartInputs(ctx context.Context, pluginID string) (plu
 		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, err
 	}
 	payload := pluginruntime.InitPayload{
-		Timezone:        c.effectiveTimezone,
-		Bots:            c.botIdentities(),
-		Config:          settings,
-		SuperAdmins:     pluginRuntimeSuperAdmins(cfg),
-		CommandPrefixes: cfg.CommandPrefixes(),
+		Timezone:    c.effectiveTimezone,
+		Bots:        c.botIdentities(),
+		Config:      settings,
+		SuperAdmins: pluginRuntimeSuperAdmins(cfg),
+		// The prefixes that address this plugin, from the settings it starts with.
+		CommandPrefixes: plugincatalog.ProjectCommandPrefixes(snapshot, settings).EffectivePrefixes(cfg.CommandPrefixes()),
 	}
 	return spec, payload, nil
 }

@@ -26,13 +26,12 @@ type messageLayer struct {
 // this admission even when the next message observes a reloaded manifest.
 func (d *Dispatcher) messageCandidates(event chatevent.Event, command string) []messageCandidate {
 	ids := d.selectTargets(event, command)
+	directed := len(d.commandTargets(event, command)) > 0
 	result := make([]messageCandidate, 0, len(ids))
-	directed := false
 	selected := make(map[string]bool, len(ids))
 	for _, id := range ids {
 		slot := d.slots[id]
 		selected[id] = true
-		directed = directed || command != "" && slotDeclaresCommand(slot, command)
 		result = append(result, messageCandidate{id: id, slot: slot, policy: slot.messagePolicy})
 	}
 	if directed {
@@ -79,7 +78,7 @@ func (d *Dispatcher) dispatchLayered(ctx context.Context, event chatevent.Event,
 			layers = append(layers, messageLayer{gate: gate})
 		}
 		layer := &layers[len(layers)-1]
-		result := d.enqueueTarget(ctx, event, candidate.id, nil, &enqueueOptions{expected: candidate.slot, gate: layer.gate})
+		result := d.enqueueTarget(ctx, eventForTarget(event, candidate.id), candidate.id, nil, &enqueueOptions{expected: candidate.slot, gate: layer.gate})
 		results = append(results, result)
 		layer.deliveries = append(layer.deliveries, layerDelivery{result: result, policy: candidate.policy})
 	}

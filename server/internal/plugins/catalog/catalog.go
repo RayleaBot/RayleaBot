@@ -96,6 +96,7 @@ func (c *Catalog) RefreshCommands(pluginID string, settings map[string]any) (plu
 
 	current := entry
 	entry.Commands = ProjectCommands(entry, settings)
+	entry.CommandPrefixes = ProjectCommandPrefixes(entry, settings)
 	changed := pluginStateChanged(current, entry)
 	c.items[pluginID] = entry
 	c.rebuildCommandsLocked()

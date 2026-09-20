@@ -6,6 +6,7 @@ package plugins
 type CommandEntry struct {
 	PluginID string
 	Commands []Command
+	Prefixes CommandPrefixes
 }
 
 // CommandEntries projects the enabled commands of snapshots in order.
@@ -15,7 +16,7 @@ func CommandEntries(snapshots []Snapshot) []CommandEntry {
 		if !snapshot.CommandsEnabled() || len(snapshot.Commands) == 0 {
 			continue
 		}
-		entries = append(entries, CommandEntry{PluginID: snapshot.PluginID, Commands: append([]Command(nil), snapshot.Commands...)})
+		entries = append(entries, CommandEntry{PluginID: snapshot.PluginID, Commands: append([]Command(nil), snapshot.Commands...), Prefixes: CloneCommandPrefixes(snapshot.CommandPrefixes)})
 	}
 	return entries
 }

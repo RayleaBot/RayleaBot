@@ -10,7 +10,9 @@ func pluginStateChanged(current plugins.Snapshot, next plugins.Snapshot) bool {
 		current.RuntimeErrorMessage != next.RuntimeErrorMessage ||
 		current.DisplayState != next.DisplayState ||
 		!deadLetterEqual(current.DeadLetter, next.DeadLetter) ||
-		!commandsEqual(current.Commands, next.Commands)
+		!commandsEqual(current.Commands, next.Commands) ||
+		current.CommandPrefixes.IgnoreGlobal != next.CommandPrefixes.IgnoreGlobal ||
+		!stringSlicesEqual(current.CommandPrefixes.Dedicated, next.CommandPrefixes.Dedicated)
 }
 
 func deadLetterEqual(left *plugins.DeadLetterSnapshot, right *plugins.DeadLetterSnapshot) bool {

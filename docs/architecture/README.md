@@ -48,9 +48,9 @@ flowchart TB
 | Management handlers | transport、鉴权、参数校验和错误映射；只向客户端返回稳定 `code` 与安全 `message` | 业务状态机和 runtime / storage 内部模型 |
 | Config | 配置读取、schema 校验、运行快照与需重启字段 | 让插件或客户端直接写配置文件 |
 | Adapter | OneBot11 与 QQ 官方的实例启停、transport、鉴权、归一化和动作转换 | 业务持久化和插件治理 |
-| Chat Policy Ingress | 元数据补齐、命令解析、黑白名单、命令权限、冷却和 reply target | 插件进程管理或治理数据突变 |
+| Chat Policy Ingress | 元数据补齐、按插件生效前缀的命令解析与目标确定、黑白名单、命令权限、冷却和 reply target | 插件进程管理或治理数据突变 |
 | Bridge | 统一事件结构校验与观测 | 平台内部事件的重复转发层 |
-| Dispatcher | 插件目标选择、按会话 lane 排队、优先级分层和出站动作执行 | 直接访问插件私有存储 |
+| Dispatcher | 按 Ingress 确定的命令目标或事件订阅选择插件、按会话 lane 排队、优先级分层和出站动作执行 | 直接访问插件私有存储；脱离前缀按命令名重新匹配 |
 | Runtime Manager | 插件子进程、JSONL、握手、保活、事件 session、本地动作 RPC，以及插件间服务调用的路由与期限 | 直接执行平台能力；解释服务的业务参数或决定调用许可 |
 | Plugin Lifecycle Controller | 发现、启停、重载、崩溃恢复，以及安装与卸载事务协调 | 绕过按插件串行的操作门 |
 | Local Action Service | 本地动作参数校验与平台能力网关 | 绕过正式 action contract |

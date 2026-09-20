@@ -58,6 +58,33 @@ func TestDiscoverExportsServicesAndRejectsAmbiguousVersions(t *testing.T) {
 	}
 }
 
+func TestDiscoverProjectsCommandPrefixes(t *testing.T) {
+	root := t.TempDir()
+	manifest := baseManifest("prefix-fixture")
+	manifest["default_config"] = map[string]any{"command_prefixes": []string{"*", "星铁"}}
+	manifest["command_prefixes"] = map[string]any{"dedicated": []string{"%"}, "settings_key": "command_prefixes", "accept_global": false}
+	writeArtifact(t, filepath.Join(root, "plugins", "installed", "prefix-fixture"), manifest, nil)
+	snapshot := discoverOne(t, root)
+	if !snapshot.Valid || snapshot.ManifestCommandPrefixes == nil {
+		t.Fatalf("command prefixes not discovered: valid=%v summary=%s", snapshot.Valid, snapshot.ValidationSummary)
+	}
+	// default_config supplies the starting value of the settings key.
+	if got := snapshot.CommandPrefixes; !got.IgnoreGlobal || len(got.Dedicated) != 2 || got.Dedicated[0] != "星铁" || got.Dedicated[1] != "*" {
+		t.Fatalf("effective prefixes = %+v", got)
+	}
+	cloned := plugins.CloneSnapshot(snapshot)
+	cloned.CommandPrefixes.Dedicated[0], cloned.ManifestCommandPrefixes.Dedicated[0] = "changed", "changed"
+	if snapshot.CommandPrefixes.Dedicated[0] != "星铁" || snapshot.ManifestCommandPrefixes.Dedicated[0] != "%" {
+		t.Fatal("command prefixes share mutable slices with their clone")
+	}
+
+	manifest["command_prefixes"] = map[string]any{"dedicated": []string{}}
+	writeArtifact(t, filepath.Join(root, "plugins", "installed", "prefix-fixture"), manifest, nil)
+	if discoverOne(t, root).Valid {
+		t.Fatal("an empty dedicated list was accepted")
+	}
+}
+
 func TestDiscoverProjectsManifestV3(t *testing.T) {
 	t.Parallel()
 

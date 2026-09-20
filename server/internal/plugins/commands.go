@@ -3,7 +3,24 @@ package plugins
 import (
 	"regexp"
 	"strings"
+	"sync"
 )
+
+// Trigger patterns come from installed manifests, so the set is small and stable.
+var compiledCommandPatterns sync.Map
+
+func commandPatternMatches(pattern, name string) bool {
+	if cached, ok := compiledCommandPatterns.Load(pattern); ok {
+		expression, _ := cached.(*regexp.Regexp)
+		return expression != nil && expression.MatchString(name)
+	}
+	expression, err := regexp.Compile(pattern)
+	if err != nil {
+		expression = nil
+	}
+	compiledCommandPatterns.Store(pattern, expression)
+	return expression != nil && expression.MatchString(name)
+}
 
 // CommandsEnabled reports whether the installed plugin participates in command policy.
 func (s Snapshot) CommandsEnabled() bool {
@@ -17,8 +34,7 @@ func (c Command) Matches(name string) bool {
 		return false
 	}
 	if pattern := strings.TrimSpace(c.MatchPattern); pattern != "" {
-		matched, err := regexp.MatchString(pattern, name)
-		return err == nil && matched
+		return commandPatternMatches(pattern, name)
 	}
 	if strings.TrimSpace(c.Name) == name {
 		return true

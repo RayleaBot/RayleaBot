@@ -41,6 +41,8 @@ type NormalizedEvent struct {
 	ActorRole        string
 	TargetName       string
 	PayloadFields    map[string]any
+	CommandTargets   []CommandTarget
+	CommandResolved  bool
 }
 
 // MessageSegment is one structured piece of message content. The vocabulary of

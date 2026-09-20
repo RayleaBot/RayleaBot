@@ -25,8 +25,10 @@ func FromAdapter(event NormalizedEvent) Event {
 			ID:   adapterTargetID(event),
 			Name: event.TargetName,
 		},
-		PayloadFields: event.PayloadFields,
-		MessageID:     event.MessageID,
+		PayloadFields:   event.PayloadFields,
+		MessageID:       event.MessageID,
+		CommandTargets:  event.CommandTargets,
+		CommandResolved: event.CommandResolved,
 	}
 	if event.PlainText != "" || len(event.Segments) > 0 {
 		runtimeEvent.Message = &Message{

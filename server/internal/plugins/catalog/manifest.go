@@ -13,24 +13,31 @@ import (
 )
 
 type manifestDocument struct {
-	ID              string                 `json:"id"`
-	Name            string                 `json:"name"`
-	Version         string                 `json:"version"`
-	ManifestVersion string                 `json:"manifest_version"`
-	License         string                 `json:"license"`
-	MinCoreVersion  string                 `json:"min_core_version"`
-	Metadata        manifestMetadata       `json:"metadata"`
-	Concurrency     int                    `json:"concurrency"`
-	Priority        int                    `json:"priority"`
-	Block           bool                   `json:"block"`
-	Events          []string               `json:"events"`
-	Services        []plugins.Service      `json:"services"`
-	DefaultConfig   map[string]any         `json:"default_config"`
-	Commands        []manifestCommand      `json:"commands"`
-	CommandGroups   []manifestCommandGroup `json:"command_groups"`
-	Help            *manifestHelp          `json:"help"`
-	ManagementUI    *manifestManagementUI  `json:"management_ui"`
-	Webhooks        []manifestWebhook      `json:"webhooks"`
+	ID              string                   `json:"id"`
+	Name            string                   `json:"name"`
+	Version         string                   `json:"version"`
+	ManifestVersion string                   `json:"manifest_version"`
+	License         string                   `json:"license"`
+	MinCoreVersion  string                   `json:"min_core_version"`
+	Metadata        manifestMetadata         `json:"metadata"`
+	Concurrency     int                      `json:"concurrency"`
+	Priority        int                      `json:"priority"`
+	Block           bool                     `json:"block"`
+	Events          []string                 `json:"events"`
+	Services        []plugins.Service        `json:"services"`
+	DefaultConfig   map[string]any           `json:"default_config"`
+	Commands        []manifestCommand        `json:"commands"`
+	CommandGroups   []manifestCommandGroup   `json:"command_groups"`
+	CommandPrefixes *manifestCommandPrefixes `json:"command_prefixes"`
+	Help            *manifestHelp            `json:"help"`
+	ManagementUI    *manifestManagementUI    `json:"management_ui"`
+	Webhooks        []manifestWebhook        `json:"webhooks"`
+}
+
+type manifestCommandPrefixes struct {
+	Dedicated    []string `json:"dedicated"`
+	SettingsKey  string   `json:"settings_key"`
+	AcceptGlobal *bool    `json:"accept_global"`
 }
 
 type manifestMetadata struct {
@@ -165,7 +172,15 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 	if repoRoot != "" {
 		snapshot.ManifestPath = filepath.ToSlash(strings.TrimPrefix(infoPath, filepath.Clean(repoRoot)+string(filepath.Separator)))
 	}
+	if declared := manifest.CommandPrefixes; declared != nil {
+		snapshot.ManifestCommandPrefixes = &plugins.ManifestCommandPrefixes{
+			Dedicated:    append([]string(nil), declared.Dedicated...),
+			SettingsKey:  declared.SettingsKey,
+			AcceptGlobal: declared.AcceptGlobal == nil || *declared.AcceptGlobal,
+		}
+	}
 	snapshot.Commands = ProjectCommands(snapshot, snapshot.DefaultConfig)
+	snapshot.CommandPrefixes = ProjectCommandPrefixes(snapshot, snapshot.DefaultConfig)
 	return snapshot, nil
 }
 

@@ -53,6 +53,21 @@ func ProjectCommands(snapshot plugins.Snapshot, settings map[string]any) []plugi
 	return items
 }
 
+// ProjectCommandPrefixes resolves the effective prefix policy. A saved setting
+// replaces the manifest defaults; a plugin that ignores the global prefixes keeps
+// its defaults when the setting holds no valid prefix, so it stays reachable.
+func ProjectCommandPrefixes(snapshot plugins.Snapshot, settings map[string]any) plugins.CommandPrefixes {
+	declared := snapshot.ManifestCommandPrefixes
+	if declared == nil {
+		return plugins.CommandPrefixes{}
+	}
+	dedicated := normalizeDynamicCommandTokens(declared.Dedicated)
+	if tokens, hasSetting := commandTokensFromSetting(settings, declared.SettingsKey); hasSetting && (len(tokens) > 0 || declared.AcceptGlobal) {
+		dedicated = tokens
+	}
+	return plugins.CommandPrefixes{Dedicated: plugins.SortCommandPrefixes(dedicated), IgnoreGlobal: !declared.AcceptGlobal}
+}
+
 func validCommandPattern(pattern string) bool {
 	if pattern == "" {
 		return false

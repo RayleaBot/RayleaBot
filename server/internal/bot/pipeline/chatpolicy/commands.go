@@ -44,24 +44,16 @@ func (s *Service) commandPolicyContextForEvent(event chatevent.NormalizedEvent) 
 			defaultLevel = normalizePermissionLevel(engine.snapshot.DefaultLevel)
 		}
 	}
-	if s != nil && s.plugins != nil {
-		for _, entry := range s.plugins.Commands() {
-			for _, command := range entry.Commands {
-				if !command.Matches(commandName) {
-					continue
-				}
-				context.MatchedPluginIDs = append(context.MatchedPluginIDs, entry.PluginID)
-				level := effectiveCommandPermissionLevel(command.Permission, defaultLevel)
-				if commandPermissionRank(level) > commandPermissionRank(requiredLevel) {
-					requiredLevel = level
-				}
-				break
+	if s != nil {
+		// The strictest level among the plugins that will actually receive the
+		// command; a plugin shadowed by a dedicated prefix does not count.
+		for _, match := range s.resolveCommand(event).matches {
+			context.MatchedPluginIDs = append(context.MatchedPluginIDs, match.PluginID)
+			level := effectiveCommandPermissionLevel(match.Declaration.Permission, defaultLevel)
+			if commandPermissionRank(level) > commandPermissionRank(requiredLevel) {
+				requiredLevel = level
 			}
 		}
-	}
-	if s != nil && s.menu != nil && s.menu.Match(event).Matched {
-		context.MatchedPluginIDs = nil
-		requiredLevel = "everyone"
 	}
 
 	context.PermissionInfo.Permission = requiredLevel
