@@ -76,3 +76,20 @@ func TestEffectivePrefixesListDedicatedFirst(t *testing.T) {
 		t.Fatalf("undeclared plugin = %v", got)
 	}
 }
+
+func TestCommandConflictsFollowPrefixReach(t *testing.T) {
+	plugin := func(id string, prefixes CommandPrefixes) Snapshot {
+		return Snapshot{PluginID: id, Valid: true, RegistrationState: "installed", Commands: []Command{{Name: "体力"}}, CommandPrefixes: prefixes}
+	}
+	conflicts := DetectCommandConflicts([]Snapshot{
+		plugin("genshin", CommandPrefixes{}),
+		plugin("starrail", CommandPrefixes{Dedicated: []string{"*"}, IgnoreGlobal: true}),
+		plugin("zzz", CommandPrefixes{Dedicated: []string{"%"}, IgnoreGlobal: true}),
+		plugin("other-global", CommandPrefixes{Dedicated: []string{"!"}}),
+		plugin("other-star", CommandPrefixes{Dedicated: []string{"*"}, IgnoreGlobal: true}),
+	})
+	want := map[string][]string{"genshin": {"体力"}, "other-global": {"体力"}, "starrail": {"体力"}, "other-star": {"体力"}}
+	if !reflect.DeepEqual(conflicts, want) {
+		t.Fatalf("conflicts = %v, want %v", conflicts, want)
+	}
+}

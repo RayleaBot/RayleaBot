@@ -71,8 +71,14 @@ func BuildSummaryView(snapshot Snapshot, conflicts []string) SummaryView {
 	return SummaryView{Summary: BuildSummary(snapshot, conflicts), Commands: buildCommandViews(snapshot), CommandGroups: cloneCommandGroups(snapshot.CommandGroups), Help: buildHelpView(snapshot)}
 }
 
+// DetectCommandConflicts reports, per plugin, the trigger words another plugin
+// would answer at the same time. Two plugins declaring the same word only
+// overlap when a sender can reach both in one tier: both accept the global
+// prefixes, or they share a dedicated prefix. A dedicated prefix that equals a
+// global one does not overlap, because the dedicated match shadows the other.
 func DetectCommandConflicts(snapshots []Snapshot) map[string][]string {
 	owners := make(map[string]map[string]struct{})
+	reach := make(map[string]CommandPrefixes, len(snapshots))
 	for _, snapshot := range snapshots {
 		if !snapshot.Valid || snapshot.RegistrationState != "installed" {
 			continue
@@ -93,6 +99,7 @@ func DetectCommandConflicts(snapshots []Snapshot) map[string][]string {
 			}
 			owners[token][snapshot.PluginID] = struct{}{}
 		}
+		reach[snapshot.PluginID] = snapshot.CommandPrefixes
 	}
 
 	conflicts := make(map[string][]string)
@@ -101,13 +108,30 @@ func DetectCommandConflicts(snapshots []Snapshot) map[string][]string {
 			continue
 		}
 		for pluginID := range pluginIDs {
-			conflicts[pluginID] = append(conflicts[pluginID], token)
+			for otherID := range pluginIDs {
+				if otherID != pluginID && commandReachOverlaps(reach[pluginID], reach[otherID]) {
+					conflicts[pluginID] = append(conflicts[pluginID], token)
+					break
+				}
+			}
 		}
 	}
 	for pluginID := range conflicts {
 		sort.Strings(conflicts[pluginID])
 	}
 	return conflicts
+}
+
+func commandReachOverlaps(left, right CommandPrefixes) bool {
+	if !left.IgnoreGlobal && !right.IgnoreGlobal {
+		return true
+	}
+	for _, prefix := range left.Dedicated {
+		if containsString(right.Dedicated, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeConflictViews(conflicts []string) []string {
