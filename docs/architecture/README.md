@@ -51,7 +51,7 @@ flowchart TB
 | Chat Policy Ingress | 元数据补齐、命令解析、黑白名单、命令权限、冷却和 reply target | 插件进程管理或治理数据突变 |
 | Bridge | 统一事件结构校验与观测 | 平台内部事件的重复转发层 |
 | Dispatcher | 插件目标选择、按会话 lane 排队、优先级分层和出站动作执行 | 直接访问插件私有存储 |
-| Runtime Manager | 插件子进程、JSONL、握手、保活、事件 session 和本地动作 RPC | 直接执行平台能力 |
+| Runtime Manager | 插件子进程、JSONL、握手、保活、事件 session、本地动作 RPC，以及插件间服务调用的路由与期限 | 直接执行平台能力；解释服务的业务参数或决定调用许可 |
 | Plugin Lifecycle Controller | 发现、启停、重载、崩溃恢复，以及安装与卸载事务协调 | 绕过按插件串行的操作门 |
 | Local Action Service | 本地动作参数校验与平台能力网关 | 绕过正式 action contract |
 | Plugin Store Service | 官方与自定义目录来源、缓存与安装委托 | 绕过统一安装事务或持有插件运行状态 |
@@ -141,7 +141,7 @@ Scheduler 以插件 ID、任务 ID 和 revision 维护单一 mutation path，只
 | 服务生命周期与运行状态 | App / domain services | SQLite、配置快照、受保护内存状态 | API、CLI、Launcher |
 | 聊天适配器连接与事件 | Adapter / Event Pipeline | 按实例隔离的 adapter snapshot 与统一事件 | Dispatcher、协议管理面 |
 | 插件声明、启用意图与管理投影 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源与用户意图 | Lifecycle、管理面 |
-| 插件进程与事件 session | Runtime Manager / Registry | 当前、待发布及退出中的 runtime snapshot | Lifecycle；Dispatcher 只读取投递就绪状态 |
+| 插件进程与事件 session | Runtime Manager / Registry | 当前、待发布及退出中的 runtime snapshot；未完成的服务调用登记在调用方与提供者各自的事件 session 上 | Lifecycle；Dispatcher 只读取投递就绪状态 |
 | 投递许可、队列与排空 | Dispatcher | 接收事件时确定的目标实例与 lane | Runtime Manager、观测摘要 |
 | 对话路由与期限 | `bot/conversation` | 完整聊天身份、等待登记、父事件与具体进程 | Ingress、Runtime Manager |
 | 插件商店目录 | Plugin Store Service | HTTPS 来源的已校验目录、来源元数据与刷新状态 | 安装流程、管理面 |
