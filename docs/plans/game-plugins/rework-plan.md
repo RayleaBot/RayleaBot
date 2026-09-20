@@ -96,20 +96,20 @@
 
 先删再搬，减少 R2 的迁移量。每一项动手前先对照上游确认它确实是自创或重复的部分；删除通过各仓库的提交完成，可从历史恢复。
 
-进度：业务 ZIP 备份、JSON 逐层浏览器、手填倍率伤害计算器、跨插件戳一戳协商已删除并提交；构建副本与自证产物已移入 `RayleaBotPlugins/_待删除-2026-09-20/`。其余各项未开始。
+进度：业务 ZIP 备份、JSON 逐层浏览器、手填倍率伤害计算器、跨插件戳一戳协商、四进程冒烟脚本及其合成账号提供者已删除并提交；构建副本与自证产物已移入 `RayleaBotPlugins/_待删除-2026-09-20/`。其余各项未开始。
 
 | 删除项 | 位置 | 说明 |
 | --- | --- | --- |
 | 业务 ZIP 备份与恢复 | `game-plugin-kit/business_backup.go`、`BusinessBackup.vue` | 上游没有 |
 | 密钥轮换、加密备份、跨机分块迁移 | `vault/rotation.go`、`vault/backup.go`、账号插件 `accounts/backup.go`、`app/vault_transfer.go`、`VaultMaintenance.vue` | 迁移机器改为：口令模式下直接拷贝数据库与数据目录 |
 | 游戏库内的第二套保险库 | `cloud_credentials.go` | ark 令牌不是 CK，改用宿主已有的 `secret.write` |
-| 别名冲突三策略 | `aliases.go` | 只保留“自定义别名优先于内置别名” |
+| 别名冲突三策略 | `aliases.go` | 只保留“自定义别名优先于内置别名”；策略贯穿设置、群配置、命令与管理页，并入 R3 第 3 项随别名体系一起重做 |
 | 手填倍率伤害计算器 | `damage/`、`damage_actions.go`、`DamageCalculator.vue` | 上游没有；与脚本路线重复 |
 | Python 评分转译路线 | `scripts/compile-score-rules.py`、`scoring_dynamic_generated.go` | 需要先有替代实现，移到 R2 与计算脚本路线一起处理 |
 | JSON 逐层浏览器 | `query_details.go` | 自创 |
 | 跨插件戳一戳协商与 `interaction` 服务 | `interactions.go`、三个清单的 `services` | 同时消除游戏插件互相调用造成的互等风险 |
 | 两步异步查询 | `content_jobs.go` 与“资料进度”命令 | 需要先把公告、攻略、日历改成一步返回，移到 R3 第 6 项处理 |
-| `write_confirmed` 标志 | 账号插件 `app/services.go`、`game-plugin-kit/accounts.go` | 由调用方自行设置，没有安全意义 |
+| `write_confirmed` 标志 | 账号插件 `app/services.go`、`game-plugin-kit/accounts.go` | 取消删除：它区分只读的 `Execute` 与有副作用的 `ExecuteConfirmed`，防止只读路径误触发签到或兑换，服务端只有两行 |
 | 构建副本与自证产物 | 共享库 `.rayleabot/clean-source-*`、`dist/*-verification.json` 与截图 | 408MB，已移出 |
 | 四进程冒烟脚本 | `scripts/native-smoke.py` | 用自制转发器与合成账号编排四个插件，驱动的多项功能已删除；验收改在真实 Core 上进行 |
 
@@ -140,7 +140,7 @@
 2. 游戏归属：星铁与绝区零插件声明专属前缀并关闭通用前缀，命令名不带游戏名；原神插件只使用通用前缀。三个插件的同名命令（如 `体力`）由前缀区分，互不唤醒。专属前缀的默认值取自上游，管理员可在管理页修改：
    - 星铁：`*`、`＊`、`星铁`、`星轨`、`崩铁`、`星穹铁道`、`铁道`、`sr`。
    - 绝区零：`%`、`％`、`绝区零`、`绝区`、`zzz`、`ZZZ`。
-3. 导入上游别名表：miao 的 `meta-gs` 与 `meta-sr` `alias.js`、ZZZ-Plugin 的 `defSet/alias.yaml`。
+3. 导入上游别名表：miao 的 `meta-gs` 与 `meta-sr` `alias.js`、ZZZ-Plugin 的 `defSet/alias.yaml`。同时删除别名冲突的三种策略，只保留“自定义别名优先于内置别名”。
 4. 角色名解析优先采用精确命中，修复星铁 17 个角色的未唯一匹配。
 5. `command_groups` 按功能分组，参考上游帮助的分组：信息查询、角色面板、战绩、抽卡、养成与资料、签到与提醒、排名、管理。`帮助` 按组输出，取消 35 条截断。
 6. 删除 `app.go:117` 的 4 秒超时，使用宿主事件超时；公告、攻略、日历改为一步返回结果；抽卡同步在单次事件内连续翻页，页间隔沿用上游的 300 至 500 毫秒。
