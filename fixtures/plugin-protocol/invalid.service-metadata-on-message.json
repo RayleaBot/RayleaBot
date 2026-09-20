@@ -1,0 +1,46 @@
+{
+  "contract": "contracts/plugin-protocol.schema.json",
+  "case": "invalid",
+  "frames": [
+    {
+      "type": "event",
+      "request_id": "provider-event-1",
+      "event": {
+        "event_id": "service-event-1",
+        "source_protocol": "platform",
+        "source_adapter": "plugins.internal",
+        "event_type": "message.private",
+        "timestamp": 1789730000000,
+        "payload": {
+          "service_request": {
+            "caller_plugin_id": "consumer-a",
+            "service": "resource",
+            "service_version": 1,
+            "method": "query",
+            "params": {
+              "id": "item-1"
+            },
+            "deadline_at_ms": 1789730030000,
+            "origin": {
+              "event_id": "origin-1",
+              "event_type": "message.private",
+              "source_protocol": "onebot11",
+              "source_adapter": "adapter-a",
+              "bot_id": "bot-a",
+              "actor": {
+                "id": "user-a"
+              },
+              "target": {
+                "type": "private",
+                "id": "user-a"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "valid": false
+  }
+}

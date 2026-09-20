@@ -78,19 +78,20 @@ type ProtocolWebhookFrame struct {
 }
 
 type ProtocolPayloadFrame struct {
-	Command     json.RawMessage                 `json:"command,omitempty"`
-	Args        []string                        `json:"args,omitempty"`
-	Action      string                          `json:"action,omitempty"`
-	Payload     map[string]any                  `json:"payload,omitempty"`
-	MessageID   string                          `json:"message_id,omitempty"`
-	SubType     string                          `json:"sub_type,omitempty"`
-	OperatorID  string                          `json:"operator_id,omitempty"`
-	QQOfficial  *ProtocolQQOfficialPayloadFrame `json:"qq_official,omitempty"`
-	OneBot      *ProtocolOneBotPayloadFrame     `json:"onebot,omitempty"`
-	Config      *map[string]any                 `json:"config,omitempty"`
-	ChangedKeys []string                        `json:"changed_keys,omitempty"`
-	Bots        *[]BotIdentity                  `json:"bots,omitempty"`
-	Session     *ProtocolSessionFrame           `json:"session,omitempty"`
+	Command        json.RawMessage                 `json:"command,omitempty"`
+	Args           []string                        `json:"args,omitempty"`
+	Action         string                          `json:"action,omitempty"`
+	Payload        map[string]any                  `json:"payload,omitempty"`
+	MessageID      string                          `json:"message_id,omitempty"`
+	SubType        string                          `json:"sub_type,omitempty"`
+	OperatorID     string                          `json:"operator_id,omitempty"`
+	QQOfficial     *ProtocolQQOfficialPayloadFrame `json:"qq_official,omitempty"`
+	OneBot         *ProtocolOneBotPayloadFrame     `json:"onebot,omitempty"`
+	Config         *map[string]any                 `json:"config,omitempty"`
+	ChangedKeys    []string                        `json:"changed_keys,omitempty"`
+	Bots           *[]BotIdentity                  `json:"bots,omitempty"`
+	Session        *ProtocolSessionFrame           `json:"session,omitempty"`
+	ServiceRequest *ProtocolServiceRequestFrame    `json:"service_request,omitempty"`
 }
 
 type ProtocolSessionFrame struct {
@@ -214,6 +215,12 @@ type ShutdownFrame struct {
 	Reason    string `json:"reason"`
 }
 
+type CancelFrame struct {
+	Type            string `json:"type"`
+	RequestID       string `json:"request_id"`
+	ParentRequestID string `json:"parent_request_id,omitempty"`
+}
+
 type ErrorFrame struct {
 	Type      string         `json:"type"`
 	RequestID string         `json:"request_id"`
@@ -265,6 +272,35 @@ type ProtocolActionStorageKVFrame struct {
 
 type ProtocolActionPluginListFrame struct {
 	Visibility string `json:"visibility,omitempty"`
+}
+
+type ProtocolActionPluginCallFrame struct {
+	TargetPluginID string         `json:"target_plugin_id"`
+	Service        string         `json:"service"`
+	ServiceVersion int            `json:"service_version"`
+	Method         string         `json:"method"`
+	Params         map[string]any `json:"params"`
+}
+
+type ProtocolServiceRequestFrame struct {
+	CallerPluginID string                     `json:"caller_plugin_id"`
+	Service        string                     `json:"service"`
+	ServiceVersion int                        `json:"service_version"`
+	Method         string                     `json:"method"`
+	Params         map[string]any             `json:"params"`
+	DeadlineAtMs   int64                      `json:"deadline_at_ms"`
+	Origin         ProtocolServiceOriginFrame `json:"origin"`
+}
+
+type ProtocolServiceOriginFrame struct {
+	EventID        string               `json:"event_id"`
+	EventType      string               `json:"event_type"`
+	SourceProtocol string               `json:"source_protocol"`
+	SourceAdapter  string               `json:"source_adapter"`
+	BotID          string               `json:"bot_id,omitempty"`
+	Actor          *ProtocolActorFrame  `json:"actor,omitempty"`
+	Target         *ProtocolTargetFrame `json:"target,omitempty"`
+	TaskID         string               `json:"task_id,omitempty"`
 }
 
 type ProtocolActionSecretReadFrame struct {
@@ -633,6 +669,21 @@ func (frame Frame) MarshalJSON() ([]byte, error) {
 			}
 			object["reason"] = value
 		}
+		if _, present := object["request_id"]; !present {
+			value, err := json.Marshal(frame.RequestID)
+			if err != nil {
+				return nil, err
+			}
+			object["request_id"] = value
+		}
+		if _, present := object["type"]; !present {
+			value, err := json.Marshal(frame.Type)
+			if err != nil {
+				return nil, err
+			}
+			object["type"] = value
+		}
+	case "cancel":
 		if _, present := object["request_id"]; !present {
 			value, err := json.Marshal(frame.RequestID)
 			if err != nil {

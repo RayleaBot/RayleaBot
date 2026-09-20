@@ -33,6 +33,9 @@
     },
     {
       "$ref": "#/$defs/shutdown"
+    },
+    {
+      "$ref": "#/$defs/cancel"
     }
   ],
   "$defs": {
@@ -338,7 +341,8 @@
                     "notice.bot_removed",
                     "notice.push_enabled",
                     "notice.push_disabled",
-                    "session.expired"
+                    "session.expired",
+                    "plugin.request"
                   ]
                 },
                 "timestamp": {
@@ -576,6 +580,9 @@
                     },
                     "session": {
                       "$ref": "#/$defs/session_context"
+                    },
+                    "service_request": {
+                      "$ref": "#/$defs/service_request"
                     }
                   }
                 },
@@ -788,6 +795,47 @@
                           "message.group",
                           "session.expired"
                         ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "event_type"
+                    ],
+                    "properties": {
+                      "event_type": {
+                        "const": "plugin.request"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "payload"
+                    ],
+                    "properties": {
+                      "source_protocol": {
+                        "const": "platform"
+                      },
+                      "source_adapter": {
+                        "const": "plugins.internal"
+                      },
+                      "payload": {
+                        "required": [
+                          "service_request"
+                        ]
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "payload": {
+                        "not": {
+                          "required": [
+                            "service_request"
+                          ]
+                        }
                       }
                     }
                   }
@@ -1204,6 +1252,9 @@
         },
         {
           "$ref": "#/$defs/action_session_finish"
+        },
+        {
+          "$ref": "#/$defs/action_plugin_call"
         }
       ]
     },
@@ -2919,6 +2970,186 @@
         "keys"
       ],
       "description": "Only unexpired keys in the calling plugin namespace, preserving prefix escaping and ascending ordering. Empty keys is an empty array."
+    },
+    "action_plugin_call_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_plugin_id",
+        "service",
+        "service_version",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "target_plugin_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "service": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "service_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "action_plugin_call": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data",
+            "parent_request_id"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "plugin.call"
+            },
+            "data": {
+              "$ref": "#/$defs/action_plugin_call_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "service_origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "event_type",
+        "source_protocol",
+        "source_adapter"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_protocol": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_adapter": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bot_id": {
+          "type": "string"
+        },
+        "actor": {
+          "$ref": "#/$defs/event/allOf/1/properties/event/properties/actor"
+        },
+        "target": {
+          "$ref": "#/$defs/event/allOf/1/properties/event/properties/target"
+        },
+        "task_id": {
+          "type": "string"
+        }
+      }
+    },
+    "service_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caller_plugin_id",
+        "service",
+        "service_version",
+        "method",
+        "params",
+        "deadline_at_ms",
+        "origin"
+      ],
+      "properties": {
+        "caller_plugin_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "service": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "service_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "deadline_at_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "origin": {
+          "$ref": "#/$defs/service_origin"
+        }
+      }
+    },
+    "cancel": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "cancel"
+            },
+            "parent_request_id": {"type": "string", "minLength": 1}
+          }
+        }
+      ],
+      "unevaluatedProperties": false,
+      "description": "One-way cancellation for service calls only. plugin->platform must include parent_request_id for the owning event and request_id for its pending plugin.call action; platform->plugin uses request_id for a pending plugin.request event without a parent. No acknowledgement. Unknown or completed IDs are ignored. Ordinary events/actions are not canceled by this frame."
     }
   },
   "x-message-catalog": [
@@ -3014,9 +3245,24 @@
         "request_id",
         "reason"
       ]
+    },
+    {
+      "type": "cancel",
+      "direction": "bidirectional",
+      "request_id_policy": "required_same_as_request",
+      "required_fields": [
+        "type",
+        "request_id"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.plugin-call-cancel.yaml"
     }
   ],
   "x-fixtures": [
+    "fixtures/plugin-protocol/ok.plugin-call.json",
+    "fixtures/plugin-protocol/invalid.plugin-call-without-parent.json",
+    "fixtures/plugin-protocol/invalid.plugin-request-without-metadata.json",
+    "fixtures/plugin-protocol/invalid.service-metadata-on-message.json",
+    "fixtures/plugin-protocol/ok.plugin-call-cancel.yaml",
     "fixtures/plugin-protocol/ok.init.yaml",
     "fixtures/plugin-protocol/ok.config-changed.yaml",
     "fixtures/plugin-protocol/edge.config-changed-empty.yaml",
@@ -3084,5 +3330,18 @@
     "storage.kv.set": "#/$defs/storage_kv_set_result",
     "storage.kv.delete": "#/$defs/storage_kv_delete_result",
     "storage.kv.list": "#/$defs/storage_kv_list_result"
+  },
+  "x-plugin-services": {
+    "min_core_version": "0.7.1",
+    "routing": "Declared service/version/method on an already running target. No auto-start, no self-call, and plugin.request handlers cannot issue plugin.call.",
+    "limits": {
+      "max_pending_calls_per_provider": 64,
+      "max_call_seconds": 30
+    },
+    "deadline": "The minimum of 30 seconds, caller event deadline and target event timeout. Queueing consumes the same deadline.",
+    "cancellation": "cancel retires the caller action and cancels the target event; SDK cancels queued/running service handlers without blocking its reader. No automatic replay; started side effects cannot be rolled back.",
+    "caller": "Host derives caller_plugin_id and origin from the owning runtime/event. Provider owns business authorization.",
+    "business_errors": "A provider error is forwarded as an error frame with its original code/message/details; normal plugin protocol code syntax applies. Host does not interpret business-specific data.",
+    "logging": "Routing logs exclude params, result bodies and provider error details."
   }
 }

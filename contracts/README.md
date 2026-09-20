@@ -56,6 +56,7 @@
   - 固定 `manifest_version: "4"`；运行语言、入口和目标平台由 artifact 提供
   - `events` 静态声明普通事件订阅；manifest 不声明宿主权限，全部宿主动作对可信插件进程可用
   - 当前已固定内联 `default_config`、metadata、统一 `commands`、真实 `command_groups`、帮助标题/摘要、单入口 `management_ui` 和静态 `webhooks`
+  - `services` 静态声明服务名称、精确版本和方法；非空声明要求 `min_core_version >= 0.7.1`，同名同版本不可重复
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - `priority`（默认 0）与 `block`（默认 false）定义消息分层与阻断。正优先级消息订阅者可先于命令声明者接收命令消息；其他事件保留既有投递。成功终态的显式 propagation 覆盖 block，同名命令授权与冷却保持既有语义。
   - command `permission` 省略时使用 `permission.default_level`
@@ -72,6 +73,7 @@
   - 当前固定 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
   - `error` 帧由插件终态失败与平台 local action 失败共用，固定包含 `code`、`message`，可选 `details`
   - 只有 init 携带协议版本和插件身份；后续帧使用最小 envelope
+  - `plugin.call` 定向调用已运行插件的静态服务，提供者接收 `plugin.request` 并使用自己的事件上下文；`cancel` 只取消关联服务调用，首版禁止自调用和嵌套服务调用
   - `message.send` 统一发送与回复；非终态动作通过独立 `request_id` 和当前事件 `parent_request_id` 关联
   - `init.bots` 提供按适配器实例区分的身份列表；`bot.identities.changed` 通过 `payload.bots` 替换整个列表
   - 未知或已停用实例不出现在身份列表中；空列表清除旧身份。身份包含 `source_adapter`、`source_protocol`、`id`，不跨实例合并。连接可用性仍由 adapter 动作的正式结果表达

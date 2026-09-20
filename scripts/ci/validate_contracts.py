@@ -281,6 +281,10 @@ def plugin_info_package_errors(document: dict[str, Any], manifest: Any) -> list[
     ]
     if len(command_ids) != len(set(command_ids)):
         errors.append("commands: command ids must be unique")
+    services = manifest.get("services", [])
+    service_keys = [(item.get("name"), item.get("version")) for item in services if isinstance(item, dict) and isinstance(item.get("name"), str) and type(item.get("version")) is int] if isinstance(services, list) else []
+    if len(service_keys) != len(set(service_keys)):
+        errors.append("services: service name/version pairs must be unique")
     declared_commands = set(command_ids)
     group_ids: list[str] = []
     for index, group in enumerate(manifest.get("command_groups", [])):

@@ -1,0 +1,25 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "input": {
+    "id": "provider-a",
+    "name": "通用服务提供者",
+    "version": "1.0.0",
+    "manifest_version": "4",
+    "min_core_version": "0.7.0",
+    "license": "MIT",
+    "services": [
+      {
+        "name": "resource",
+        "version": 1,
+        "methods": [
+          "query",
+          "list"
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "valid": false
+  }
+}

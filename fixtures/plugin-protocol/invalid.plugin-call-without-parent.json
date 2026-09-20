@@ -1,0 +1,23 @@
+{
+  "contract": "contracts/plugin-protocol.schema.json",
+  "case": "invalid",
+  "frames": [
+    {
+      "type": "action",
+      "request_id": "call-1",
+      "action": "plugin.call",
+      "data": {
+        "target_plugin_id": "provider-a",
+        "service": "resource",
+        "service_version": 1,
+        "method": "query",
+        "params": {
+          "id": "item-1"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "valid": false
+  }
+}

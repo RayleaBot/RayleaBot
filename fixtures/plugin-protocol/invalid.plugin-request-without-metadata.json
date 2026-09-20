@@ -1,0 +1,20 @@
+{
+  "contract": "contracts/plugin-protocol.schema.json",
+  "case": "invalid",
+  "frames": [
+    {
+      "type": "event",
+      "request_id": "provider-event-1",
+      "event": {
+        "event_id": "service-event-1",
+        "source_protocol": "platform",
+        "source_adapter": "plugins.internal",
+        "event_type": "plugin.request",
+        "timestamp": 1789730000000
+      }
+    }
+  ],
+  "expect": {
+    "valid": false
+  }
+}

@@ -50,6 +50,7 @@ const (
 	PlatformUserRateLimited                    = "platform.user_rate_limited"
 	PlatformValueTooLarge                      = "platform.value_too_large"
 	PluginArtifactInvalid                      = "plugin.artifact_invalid"
+	PluginCallChainRejected                    = "plugin.call_chain_rejected"
 	PluginContractUnsupported                  = "plugin.contract_unsupported"
 	PluginCoreVersionIncompatible              = "plugin.core_version_incompatible"
 	PluginEventCanceled                        = "plugin.event_canceled"
@@ -58,12 +59,16 @@ const (
 	PluginInstallFailed                        = "plugin.install_failed"
 	PluginInternalError                        = "plugin.internal_error"
 	PluginManagementActionFailed               = "plugin.management_action_failed"
+	PluginMethodNotFound                       = "plugin.method_not_found"
 	PluginNotHandled                           = "plugin.not_handled"
 	PluginNotRecoverable                       = "plugin.not_recoverable"
 	PluginPackageResourceLimitExceeded         = "plugin.package_resource_limit_exceeded"
 	PluginPackageUnsafeEntry                   = "plugin.package_unsafe_entry"
 	PluginPlatformMismatch                     = "plugin.platform_mismatch"
 	PluginProtocolViolation                    = "plugin.protocol_violation"
+	PluginServiceNotFound                      = "plugin.service_not_found"
+	PluginServiceUnavailable                   = "plugin.service_unavailable"
+	PluginServiceVersionUnsupported            = "plugin.service_version_unsupported"
 	PluginSessionConflict                      = "plugin.session_conflict"
 	PluginSettingsApplyFailed                  = "plugin.settings_apply_failed"
 	PluginShutdown                             = "plugin.shutdown"
@@ -149,6 +154,7 @@ var catalog = map[string]Definition{
 	PlatformUserRateLimited:                   {Code: PlatformUserRateLimited, HTTPStatus: 0, Message: "用户命令触发冷却限流", Retryable: true, Surfaces: "plugin_protocol,logs"},
 	PlatformValueTooLarge:                     {Code: PlatformValueTooLarge, HTTPStatus: 413, Message: "写入值超过大小限制", Retryable: false, Surfaces: "http,websocket,plugin_protocol"},
 	PluginArtifactInvalid:                     {Code: PluginArtifactInvalid, HTTPStatus: 400, Message: "插件产物结构或入口校验失败", Retryable: false, Surfaces: "http,task,plugin_protocol"},
+	PluginCallChainRejected:                   {Code: PluginCallChainRejected, HTTPStatus: 0, Message: "不支持递归插件服务调用", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginContractUnsupported:                 {Code: PluginContractUnsupported, HTTPStatus: 409, Message: "插件合同版本不受支持", Retryable: false, Surfaces: "http,task,cli,plugin_protocol,backup,restore,update,readiness"},
 	PluginCoreVersionIncompatible:             {Code: PluginCoreVersionIncompatible, HTTPStatus: 409, Message: "插件与当前 RayleaBot 版本不兼容", Retryable: false, Surfaces: "http,task,cli,readiness"},
 	PluginEventCanceled:                       {Code: PluginEventCanceled, HTTPStatus: 0, Message: "插件事件处理已取消", Retryable: false, Surfaces: "plugin_protocol,websocket,task,logs"},
@@ -157,12 +163,16 @@ var catalog = map[string]Definition{
 	PluginInstallFailed:                       {Code: PluginInstallFailed, HTTPStatus: 409, Message: "插件安装失败", Retryable: true, Surfaces: "http,websocket,task"},
 	PluginInternalError:                       {Code: PluginInternalError, HTTPStatus: 0, Message: "插件内部处理异常", Retryable: false, Surfaces: "plugin_protocol,websocket,task"},
 	PluginManagementActionFailed:              {Code: PluginManagementActionFailed, HTTPStatus: 502, Message: "插件管理操作执行失败", Retryable: false, Surfaces: "http"},
+	PluginMethodNotFound:                      {Code: PluginMethodNotFound, HTTPStatus: 0, Message: "插件未公开该方法", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginNotHandled:                          {Code: PluginNotHandled, HTTPStatus: 0, Message: "插件声明不处理该事件", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginNotRecoverable:                      {Code: PluginNotRecoverable, HTTPStatus: 409, Message: "插件当前不可恢复", Retryable: false, Surfaces: "http"},
 	PluginPackageResourceLimitExceeded:        {Code: PluginPackageResourceLimitExceeded, HTTPStatus: 413, Message: "插件包超过资源限制", Retryable: false, Surfaces: "http,task"},
 	PluginPackageUnsafeEntry:                  {Code: PluginPackageUnsafeEntry, HTTPStatus: 400, Message: "插件包包含不安全文件", Retryable: false, Surfaces: "http,task"},
 	PluginPlatformMismatch:                    {Code: PluginPlatformMismatch, HTTPStatus: 409, Message: "插件产物与当前平台不匹配", Retryable: false, Surfaces: "http,task,readiness"},
 	PluginProtocolViolation:                   {Code: PluginProtocolViolation, HTTPStatus: 0, Message: "插件协议违规", Retryable: false, Surfaces: "plugin_protocol,websocket,task"},
+	PluginServiceNotFound:                     {Code: PluginServiceNotFound, HTTPStatus: 0, Message: "插件未声明该服务", Retryable: false, Surfaces: "plugin_protocol"},
+	PluginServiceUnavailable:                  {Code: PluginServiceUnavailable, HTTPStatus: 0, Message: "插件服务当前不可用", Retryable: true, Surfaces: "plugin_protocol"},
+	PluginServiceVersionUnsupported:           {Code: PluginServiceVersionUnsupported, HTTPStatus: 0, Message: "插件服务版本不兼容", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginSessionConflict:                     {Code: PluginSessionConflict, HTTPStatus: 0, Message: "当前作用域已有对话，请先结束已有对话", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginSettingsApplyFailed:                 {Code: PluginSettingsApplyFailed, HTTPStatus: 409, Message: "设置已保存，运行时应用失败，请重试保存或重载插件", Retryable: true, Surfaces: "http,plugin_protocol,task"},
 	PluginShutdown:                            {Code: PluginShutdown, HTTPStatus: 0, Message: "插件运行时已关闭，本地动作结果未确认", Retryable: false, Surfaces: "plugin_protocol"},

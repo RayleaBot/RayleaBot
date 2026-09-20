@@ -3,6 +3,7 @@ description: >
   Fixture-ready error catalog. This file is the only formal source for
   HTTP, task, WebSocket, plugin-protocol, logs, CLI, and readiness error codes.
 x-fixtures:
+  - fixtures/errors/ok.plugin-services.yaml
   - fixtures/errors/ok.conversation-errors.yaml
   - fixtures/errors/ok.core-catalog.yaml
   - fixtures/errors/invalid.missing-required-fields.yaml
@@ -325,6 +326,51 @@ codes:
     http_status: null
     retryable: false
     applies_to: [plugin_protocol, websocket, task]
+
+  plugin.service_unavailable:
+    code: plugin.service_unavailable
+    domain: plugin
+    message: 插件服务当前不可用
+    description: The target plugin is absent, disabled, not ready, stopping or belongs to a retired runtime.
+    http_status: null
+    retryable: true
+    applies_to: [plugin_protocol]
+
+  plugin.service_not_found:
+    code: plugin.service_not_found
+    domain: plugin
+    message: 插件未声明该服务
+    description: The target plugin does not export the requested service name.
+    http_status: null
+    retryable: false
+    applies_to: [plugin_protocol]
+
+  plugin.service_version_unsupported:
+    code: plugin.service_version_unsupported
+    domain: plugin
+    message: 插件服务版本不兼容
+    description: The exported service does not include the exact requested service_version.
+    http_status: null
+    retryable: false
+    applies_to: [plugin_protocol]
+
+  plugin.method_not_found:
+    code: plugin.method_not_found
+    domain: plugin
+    message: 插件未公开该方法
+    description: The requested method is not exported by the selected service version.
+    http_status: null
+    retryable: false
+    applies_to: [plugin_protocol]
+
+  plugin.call_chain_rejected:
+    code: plugin.call_chain_rejected
+    domain: plugin
+    message: 不支持递归插件服务调用
+    description: A plugin attempted to call itself or initiated plugin.call while handling plugin.request.
+    http_status: null
+    retryable: false
+    applies_to: [plugin_protocol]
 
   plugin.event_timeout:
     code: plugin.event_timeout

@@ -42,12 +42,15 @@ MODELS = {
     "ProtocolSegmentFrame": "/$defs/outbound_message_segment",
     "ProtocolOutboundMessageFrame": "/$defs/outbound_message",
     "PingFrame": "/$defs/ping", "PongFrame": "/$defs/pong",
-    "ShutdownFrame": "/$defs/shutdown", "ErrorFrame": "/$defs/error",
+    "ShutdownFrame": "/$defs/shutdown", "CancelFrame": "/$defs/cancel", "ErrorFrame": "/$defs/error",
     "ResultFrame": "/$defs/result", "ActionFrame": "/$defs/action",
     "ProtocolActionMessageSendFrame": "/$defs/action_message_send_data",
     "ProtocolActionLoggerWriteFrame": "/$defs/action_logger_write_data",
     "ProtocolActionStorageKVFrame": "/$defs/action_storage_kv/allOf/1/properties/data",
     "ProtocolActionPluginListFrame": "/$defs/action_plugin_list_data",
+    "ProtocolActionPluginCallFrame": "/$defs/action_plugin_call_data",
+    "ProtocolServiceRequestFrame": "/$defs/service_request",
+    "ProtocolServiceOriginFrame": "/$defs/service_origin",
     "ProtocolActionSecretReadFrame": "/$defs/action_secret_read_data",
     "ProtocolActionSecretWriteFrame": "/$defs/action_secret_write_data",
     "ProtocolActionSecretDeleteFrame": "/$defs/action_secret_delete_data",
@@ -184,7 +187,7 @@ class GoModels:
         elif category == "string":
             result = "string"
         elif category == "integer":
-            result = "int64" if name in {"timestamp", "time", "received_at", "expires_at_ms"} else "int"
+            result = "int64" if name in {"timestamp", "time", "received_at", "expires_at_ms", "deadline_at_ms"} else "int"
         elif category == "number":
             result = "float64"
         elif category == "boolean":
@@ -219,7 +222,7 @@ class GoModels:
             lines.append("}\n")
         # A decoding/dispatch projection combines the top-level alternatives. Its
         # raw event/data fields retain unions; Validate checks the selected branch.
-        variants = ["InitFrame", "InitProgressFrame", "InitAckFrame", "EventFrame", "ActionFrame", "ResultFrame", "ErrorFrame", "PingFrame", "PongFrame", "ShutdownFrame"]
+        variants = ["InitFrame", "InitProgressFrame", "InitAckFrame", "EventFrame", "ActionFrame", "ResultFrame", "ErrorFrame", "PingFrame", "PongFrame", "ShutdownFrame", "CancelFrame"]
         fields = {}
         required_by_type = {}
         for variant in variants:

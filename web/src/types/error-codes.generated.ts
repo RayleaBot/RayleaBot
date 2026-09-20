@@ -193,6 +193,10 @@ export const errorCatalog = {
     "httpStatus": 400,
     "retryable": false
   },
+  "plugin.call_chain_rejected": {
+    "httpStatus": null,
+    "retryable": false
+  },
   "plugin.contract_unsupported": {
     "httpStatus": 409,
     "retryable": false
@@ -225,6 +229,10 @@ export const errorCatalog = {
     "httpStatus": 502,
     "retryable": false
   },
+  "plugin.method_not_found": {
+    "httpStatus": null,
+    "retryable": false
+  },
   "plugin.not_handled": {
     "httpStatus": null,
     "retryable": false
@@ -246,6 +254,18 @@ export const errorCatalog = {
     "retryable": false
   },
   "plugin.protocol_violation": {
+    "httpStatus": null,
+    "retryable": false
+  },
+  "plugin.service_not_found": {
+    "httpStatus": null,
+    "retryable": false
+  },
+  "plugin.service_unavailable": {
+    "httpStatus": null,
+    "retryable": true
+  },
+  "plugin.service_version_unsupported": {
     "httpStatus": null,
     "retryable": false
   },
@@ -359,6 +379,7 @@ export const errorMessages = {
   },
   "plugin": {
     "artifact_invalid": "插件产物结构或入口校验失败",
+    "call_chain_rejected": "不支持递归插件服务调用",
     "contract_unsupported": "插件合同版本不受支持",
     "core_version_incompatible": "插件与当前 RayleaBot 版本不兼容",
     "event_canceled": "插件事件处理已取消",
@@ -367,12 +388,16 @@ export const errorMessages = {
     "install_failed": "插件安装失败",
     "internal_error": "插件内部处理异常",
     "management_action_failed": "插件管理操作执行失败",
+    "method_not_found": "插件未公开该方法",
     "not_handled": "插件声明不处理该事件",
     "not_recoverable": "插件当前不可恢复",
     "package_resource_limit_exceeded": "插件包超过资源限制",
     "package_unsafe_entry": "插件包包含不安全文件",
     "platform_mismatch": "插件产物与当前平台不匹配",
     "protocol_violation": "插件协议违规",
+    "service_not_found": "插件未声明该服务",
+    "service_unavailable": "插件服务当前不可用",
+    "service_version_unsupported": "插件服务版本不兼容",
     "session_conflict": "当前作用域已有对话，请先结束已有对话",
     "settings_apply_failed": "设置已保存，运行时应用失败，请重试保存或重载插件",
     "shutdown": "插件运行时已关闭，本地动作结果未确认",

@@ -1,0 +1,53 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+- type: action
+  request_id: call-1
+  parent_request_id: event-1
+  action: plugin.call
+  data:
+    target_plugin_id: provider-a
+    service: resource
+    service_version: 1
+    method: query
+    params:
+      id: item-1
+- type: event
+  request_id: provider-event-1
+  event:
+    event_id: service-event-1
+    source_protocol: platform
+    source_adapter: plugins.internal
+    event_type: plugin.request
+    timestamp: 1789730000000
+    payload:
+      service_request:
+        caller_plugin_id: consumer-a
+        service: resource
+        service_version: 1
+        method: query
+        params:
+          id: item-1
+        deadline_at_ms: 1789730030000
+        origin:
+          event_id: origin-1
+          event_type: message.private
+          source_protocol: onebot11
+          source_adapter: adapter-a
+          bot_id: bot-a
+          actor:
+            id: user-a
+          target:
+            type: private
+            id: user-a
+- type: cancel
+  request_id: call-1
+  parent_request_id: event-1
+- type: cancel
+  request_id: provider-event-1
+- type: error
+  request_id: call-1
+  code: plugin.event_canceled
+  message: 服务调用已取消
+expect:
+  valid: true

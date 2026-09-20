@@ -1,0 +1,21 @@
+contract: contracts/error-codes.yaml
+case: ok
+input:
+  errors:
+  - code: plugin.service_unavailable
+    message: 通用服务错误示例
+    applies_to: plugin_protocol
+  - code: plugin.service_not_found
+    message: 通用服务错误示例
+    applies_to: plugin_protocol
+  - code: plugin.service_version_unsupported
+    message: 通用服务错误示例
+    applies_to: plugin_protocol
+  - code: plugin.method_not_found
+    message: 通用服务错误示例
+    applies_to: plugin_protocol
+  - code: plugin.call_chain_rejected
+    message: 通用服务错误示例
+    applies_to: plugin_protocol
+expect:
+  valid: true
