@@ -91,3 +91,23 @@ manifest 不声明宿主权限。插件进程是管理员确认安装的完全�
 - [Plugin Lifecycle](./lifecycle.md)
 - [Management UI](./management-ui.md)
 - [Plugin SDK](./sdk/README.md)
+
+## 静态插件服务
+
+使用服务调用的插件声明 `min_core_version >= 0.7.1`，manifest 与 JSONL 仍使用 v4。提供者通过 `services` 声明公开的方法：
+
+```json
+{
+  "services": [
+    {"name": "resource", "version": 1, "methods": ["query"]}
+  ]
+}
+```
+
+每个 `(name, version)` 组合唯一，方法名在同一服务版本内唯一。最多声明 32 个服务，每项最多 64 个方法；省略或空数组表示不提供服务。服务和方法使用小写字母开头的字母、数字、点、下划线或连字符名称，长度最多 64。
+
+Go 构建器同步校验服务标识、重复声明、方法数量与最低 Core 版本，防止生成声明不一致的服务包。
+
+服务只接受定向的 `plugin.request`，不依赖普通 `events` 订阅。宿主只允许调用当前运行实例声明的服务、精确版本和方法；不自动启动被停用的提供者，也不把服务声明作为全局权限授予。提供者按实际 caller 和自己的业务配置判断调用许可。
+
+调用与取消见 [协议](./protocol.md#插件服务调用)，SDK 注册方式见 [服务示例](../../examples/plugins/example-service-provider/README.md)。

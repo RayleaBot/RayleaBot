@@ -33,6 +33,7 @@ err := rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(
 `event.Actions()` 提供 request-bound typed helpers：
 
 - 非终态消息、日志、KV、配置写入、插件列表和 secret。
+- `CallService(ctx, ServiceCallRequest, output)` 跨插件服务调用。
 - 治理、scheduler、渲染和浏览器会话动作。
 - OneBot 单动作与 provider 扩展动作。
 - 已进入正式 contract 的通用 `Call`。
@@ -106,6 +107,16 @@ plugin-example/
 - `windows-x64`
 - `linux-x64`
 - `macos-arm64`
+
+## 插件服务 SDK
+
+提供者在 manifest 声明 `services`，在 `Options.Services` 中注册相同的名称、版本和方法。`ServiceHandler` 接收 `context.Context`、`EventContext` 和 `ServiceRequest`，返回业务对象或 error；服务专用插件可让普通 Handler 为 nil。
+
+调用者使用 `event.Actions().CallService(ctx, request, &output)`，显式提供目标插件、服务、版本、方法和对象参数。业务参数中的空对象、空数组与 null 保持区别；参数和无类型业务结果中的数字使用 `json.Number`，也可解码到调用者定义的结果 struct。
+
+提供者返回 `ActionError` 可公开指定 code、message、details；普通 Go error 只返回通用失败，默认日志不输出可能包含业务正文的错误字符串。提供者须响应 context 取消；已发生的外部副作用由自身业务处理幂等与核对。
+
+[提供者与调用者示例](../../../examples/plugins/example-service-provider/README.md)可独立构建并通过真实 JSONL 进程联调。两者都要求 `min_core_version >= 0.7.1`。
 
 ## Vue UI SDK
 

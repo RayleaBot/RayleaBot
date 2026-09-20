@@ -45,6 +45,7 @@ manifest 的 `events` 是唯一普通事件订阅来源。省略或空数组表�
 - `plugin.started`
 - `scheduler.trigger`
 - `management.action`
+- `plugin.request`（定向服务请求）
 - `config.changed`
 - `webhook.received`
 - `bot.identities.changed`
@@ -76,13 +77,29 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 
 同一事件可以有多个并发 action，但插件必须等待它们完成后再发送事件终态。每个插件进程同时未完成的 action 最多 256 个，超出的 action 立即返回可重试的 `platform.rate_limited`，不进入执行。
 
-取消本地等待不代表宿主动作已取消。SDK 保留已发出动作的响应关联，接收迟到响应；终态最多等待一个 `ActionTimeout`，仍有未结算动作时不发送终态。事件开始收尾后禁止新 action。未知或非法协议帧按协议违规处理。
+普通宿主动作取消本地等待不代表动作已取消；`plugin.call` 的取消传播见下方服务调用说明。SDK 保留已发出动作的响应关联，接收迟到响应；终态最多等待一个 `ActionTimeout`，仍有未结算动作时不发送终态。事件开始收尾后禁止新 action。未知或非法协议帧按协议违规处理。
 
 `plugin.event_canceled` 表示请求或生命周期取消，调度统计计入 `other`；`plugin.event_timeout` 表示确实超过事件处理时限。两者不能通过重放消息动作自动恢复。
 
 ### 消息传播
 
 消息按插件的 `priority` 降序分层，同层并发；成功终态的 `propagation: stop|continue` 覆盖静态 `block`。正优先级消息订阅者先于命令声明者接收匹配的命令消息，零优先级普通订阅者仍不接收已定向的命令。同名命令权限、名单、菜单与冷却保持现有规则。低层在上层完成前已占据原 FIFO 位置，发送失败不改写终态传播决定。
+
+### 插件服务调用
+
+`plugin.call` 要求 Core 0.7.1 及以上，必须携带 `parent_request_id`。参数为 `target_plugin_id`、`service`、`service_version`、`method`、对象类型的 `params`；宿主不解释业务参数。
+
+宿主向已运行的目标投递 `plugin.request`，`payload.service_request` 包含服务/版本/方法/参数、`caller_plugin_id`、`deadline_at_ms` 和 `origin`。origin 保存实际父事件的来源、可用的 bot/actor/target 及调度任务标识，不包含聊天正文或任意原始上报。调用者不能在 action 参数中自报 caller。
+
+提供者使用该新事件自己的上下文，可调用自身存储和其他普通宿主动作，以 `result` 或 `error` 完成。宿主将结果关联回原调用；提供者的结构化错误保留 code、message 和 details，路由不按业务消息文案分支。首版只支持一跳：自调用和服务处理器继续发起 `plugin.call` 返回 `plugin.call_chain_rejected`。
+
+调用期限为 30 秒、父事件剩余期限与目标事件期限中的最小值，包含排队时间；每个目标最多 64 个未完成服务请求。目标并发度仍按其 manifest 生效。发送给目标或返回调用者的完整帧超过对应上限时，调用失败而不因转发大对象回收对端进程。
+
+`cancel` 是仅用于服务调用的双向单向通知帧，无需确认响应：调用插件发送的 request ID 对应其未完成 `plugin.call`，并携带所属事件的 `parent_request_id`；宿主发给提供者的 request ID 对应其 `plugin.request`。未知或已结束的 ID 被忽略，普通事件/动作不由该帧取消。
+
+Go SDK 的 `CallService` 在本地 context 结束时发送 cancel，并保留响应关联直到宿主结算。提供者 SDK 立即取消排队或执行中的服务 context，不等待普通事件并发槽。已开始的外部副作用不能据此视为已回滚，宿主不自动重试调用。父事件结束及进程停止/重载也会结束所属调用，旧运行代次的结果不会交给新实例。
+
+只有通用路由和生命周期属于宿主；服务业务、允许调用者与数据保护仍由插件负责。路由不默认记录参数或结果正文。
 
 ### 插件私有动作
 
@@ -117,6 +134,7 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 
 - `message.send`
 - `plugin.list`
+- `plugin.call`
 - `secret.read` / `write` / `delete`
 - `browser.launch` / `browser.close`
 - `governance.blacklist.read` / `write`
