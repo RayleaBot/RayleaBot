@@ -16,6 +16,7 @@ type eventSession struct {
 	event              chatevent.Event
 	ctx                context.Context
 	cancel             context.CancelFunc
+	deadline           time.Time
 	done               chan struct{}
 	delivery           plugins.Delivery
 	err                error
@@ -35,9 +36,11 @@ type pingRequest struct {
 
 func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requestID string, event chatevent.Event) (*eventSession, *plugins.Error) {
 	sessionCtx, cancel := context.WithCancel(ctx)
+	// Delivery enforces the event timeout with its own timer. The deadline is
+	// recorded so an outgoing service call cannot outlive its caller event.
+	var deadline time.Time
 	if handle != nil && handle.Spec.EventTimeout > 0 {
-		cancel()
-		sessionCtx, cancel = context.WithTimeout(ctx, handle.Spec.EventTimeout)
+		deadline = time.Now().Add(handle.Spec.EventTimeout)
 	}
 
 	m.mu.Lock()
@@ -77,6 +80,7 @@ func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requ
 		event:            event,
 		ctx:              sessionCtx,
 		cancel:           cancel,
+		deadline:         deadline,
 		done:             make(chan struct{}),
 		localActionIDs:   make(map[string]struct{}),
 		pendingActionIDs: make(map[string]struct{}),

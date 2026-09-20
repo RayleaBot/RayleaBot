@@ -73,7 +73,11 @@ func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.F
 	actionCtx := session.ctx
 	if action.Kind == "plugin.call" {
 		var cancel context.CancelFunc
-		actionCtx, cancel = context.WithCancel(actionCtx)
+		if session.deadline.IsZero() {
+			actionCtx, cancel = context.WithCancel(actionCtx)
+		} else {
+			actionCtx, cancel = context.WithDeadline(actionCtx, session.deadline)
+		}
 		if session.serviceCancels == nil {
 			session.serviceCancels = make(map[string]context.CancelFunc)
 		}
