@@ -19,6 +19,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 const (
@@ -57,13 +59,14 @@ type Result struct {
 }
 
 type Manifest struct {
-	ID              string            `json:"id"`
-	Name            string            `json:"name"`
-	Version         string            `json:"version"`
-	ManifestVersion string            `json:"manifest_version"`
-	MinCoreVersion  string            `json:"min_core_version"`
-	License         string            `json:"license"`
-	Services        []ManifestService `json:"services,omitempty"`
+	ID              string                   `json:"id"`
+	Name            string                   `json:"name"`
+	Version         string                   `json:"version"`
+	ManifestVersion string                   `json:"manifest_version"`
+	MinCoreVersion  string                   `json:"min_core_version"`
+	License         string                   `json:"license"`
+	Services        []ManifestService        `json:"services,omitempty"`
+	CommandPrefixes *ManifestCommandPrefixes `json:"command_prefixes,omitempty"`
 	ManagementUI    *struct {
 		Entry string `json:"entry"`
 		Pages []struct {
@@ -71,6 +74,12 @@ type Manifest struct {
 			Label string `json:"label"`
 		} `json:"pages"`
 	} `json:"management_ui,omitempty"`
+}
+
+type ManifestCommandPrefixes struct {
+	Dedicated    []string `json:"dedicated"`
+	SettingsKey  string   `json:"settings_key,omitempty"`
+	AcceptGlobal *bool    `json:"accept_global,omitempty"`
 }
 
 type ManifestService struct {
@@ -282,11 +291,36 @@ func validateManifest(manifest Manifest, platform string) error {
 	if err := validateServices(manifest.Services); err != nil {
 		return err
 	}
+	if err := validateCommandPrefixes(manifest.CommandPrefixes); err != nil {
+		return err
+	}
 	if strings.TrimSpace(platform) == "" {
 		return nil
 	}
 	_, err := resolveTarget(platform)
 	return err
+}
+
+var settingsKeyIdentifier = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+func validateCommandPrefixes(prefixes *ManifestCommandPrefixes) error {
+	if prefixes == nil {
+		return nil
+	}
+	if len(prefixes.Dedicated) == 0 || len(prefixes.Dedicated) > 16 {
+		return errors.New("pluginbuild: command_prefixes.dedicated requires 1 to 16 prefixes")
+	}
+	seen := make(map[string]bool, len(prefixes.Dedicated))
+	for _, prefix := range prefixes.Dedicated {
+		if length := utf8.RuneCountInString(prefix); length < 1 || length > 16 || strings.ContainsFunc(prefix, unicode.IsSpace) || seen[prefix] {
+			return fmt.Errorf("pluginbuild: command_prefixes.dedicated has an invalid or duplicate prefix %q", prefix)
+		}
+		seen[prefix] = true
+	}
+	if prefixes.SettingsKey != "" && !settingsKeyIdentifier.MatchString(prefixes.SettingsKey) {
+		return errors.New("pluginbuild: command_prefixes.settings_key is not a valid configuration key")
+	}
+	return nil
 }
 
 func validateServices(services []ManifestService) error {
