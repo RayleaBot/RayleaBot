@@ -37,7 +37,7 @@
 以下两项是本计划的默认做法，开工前可以否决：
 
 - **伤害与评分沿用“执行上游脚本”路线，但只保留这一条**。上游每个版本都新增角色脚本，原生移植会成为长期维护负担；执行原脚本还能保证数值一致。改进点：文件名改为 `<ID>-<角色名>.js`，每个插件只嵌入本游戏脚本，虚拟机复用而不是每次新建并重跑 lodash；评分动态规则并入同一路线，删除 Python 转译器、`scoring_dynamic_generated.go` 和自写的 `damage/` 计算器。
-- **ark-plugin 属于点名要求的范围，保留并补齐聊天入口**；只删除在它之上自创的分批导入导出、云归档和令牌保险库。
+- **ark-plugin 属于点名要求的范围，保留并补齐聊天入口**；只删除为 ark 令牌另建的保险库。本地面板档案（`cloud_archive.go`）是 `导出面板数据`、`导入面板数据`、`导出面板` 与排名上传共用的数据，管理页的分块导入导出（`cloud_transfer.go`）是这些上游功能目前唯一的入口，两者保留；R5 补齐聊天入口后再决定管理页传输是否保留。
 
 ## 验收口径
 
@@ -53,7 +53,7 @@
 | --- | --- | --- |
 | R0 | 主仓库收口 | 完成 |
 | R0b | 宿主插件专属命令前缀 | 未开始 |
-| R1 | 裁剪 | 未开始 |
+| R1 | 裁剪 | 进行中，见 R1 小节的进度 |
 | R2 | 结构重组与账号库修复 | 未开始 |
 | R3 | 命令层 | 未开始 |
 | R4 | 图片输出 | 未开始 |
@@ -94,22 +94,24 @@
 
 ### R1 裁剪
 
-先删再搬，减少 R2 的迁移量。
+先删再搬，减少 R2 的迁移量。每一项动手前先对照上游确认它确实是自创或重复的部分；删除通过各仓库的提交完成，可从历史恢复。
+
+进度：业务 ZIP 备份、JSON 逐层浏览器、手填倍率伤害计算器、跨插件戳一戳协商已删除并提交；构建副本与自证产物已移入 `RayleaBotPlugins/_待删除-2026-09-20/`。其余各项未开始。
 
 | 删除项 | 位置 | 说明 |
 | --- | --- | --- |
 | 业务 ZIP 备份与恢复 | `game-plugin-kit/business_backup.go`、`BusinessBackup.vue` | 上游没有 |
 | 密钥轮换、加密备份、跨机分块迁移 | `vault/rotation.go`、`vault/backup.go`、账号插件 `accounts/backup.go`、`app/vault_transfer.go`、`VaultMaintenance.vue` | 迁移机器改为：口令模式下直接拷贝数据库与数据目录 |
 | 游戏库内的第二套保险库 | `cloud_credentials.go` | ark 令牌不是 CK，改用宿主已有的 `secret.write` |
-| ark 之上的自创扩展 | `cloud_transfer.go`、`cloud_archive.go` | ark 本体保留 |
 | 别名冲突三策略 | `aliases.go` | 只保留“自定义别名优先于内置别名” |
 | 手填倍率伤害计算器 | `damage/`、`damage_actions.go`、`DamageCalculator.vue` | 上游没有；与脚本路线重复 |
-| Python 评分转译路线 | `scripts/compile-score-rules.py`、`scoring_dynamic_generated.go` | 并入脚本执行路线 |
+| Python 评分转译路线 | `scripts/compile-score-rules.py`、`scoring_dynamic_generated.go` | 需要先有替代实现，移到 R2 与计算脚本路线一起处理 |
 | JSON 逐层浏览器 | `query_details.go` | 自创 |
 | 跨插件戳一戳协商与 `interaction` 服务 | `interactions.go`、三个清单的 `services` | 同时消除游戏插件互相调用造成的互等风险 |
-| 两步异步查询 | `content_jobs.go` 与“资料进度”命令 | 随 4 秒超时一并删除 |
+| 两步异步查询 | `content_jobs.go` 与“资料进度”命令 | 需要先把公告、攻略、日历改成一步返回，移到 R3 第 6 项处理 |
 | `write_confirmed` 标志 | 账号插件 `app/services.go`、`game-plugin-kit/accounts.go` | 由调用方自行设置，没有安全意义 |
-| 构建副本与自证产物 | 共享库 `.rayleabot/clean-source-*`、`dist/*-verification.json` 与截图 | 408MB |
+| 构建副本与自证产物 | 共享库 `.rayleabot/clean-source-*`、`dist/*-verification.json` 与截图 | 408MB，已移出 |
+| 四进程冒烟脚本 | `scripts/native-smoke.py` | 用自制转发器与合成账号编排四个插件，驱动的多项功能已删除；验收改在真实 Core 上进行 |
 
 默认删除、可以否决的两项：米游币与社区任务、云游戏签到（有风控风险，云令牌需另行抓取）；公共查询池（让无 CK 用户借用他人 CK，与“仅指定插件可用 CK”的取向相悖）。
 
