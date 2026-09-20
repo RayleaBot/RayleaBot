@@ -1,0 +1,48 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "prefix-fixture",
+    "name": "专属前缀示例",
+    "version": "1.0.0",
+    "manifest_version": "4",
+    "min_core_version": "0.7.0",
+    "license": "MIT",
+    "events": [
+      "message.group"
+    ],
+    "default_config": {
+      "command_prefixes": [
+        "*",
+        "星铁"
+      ]
+    },
+    "commands": [
+      {
+        "id": "note",
+        "name": "体力",
+        "description": "查询体力",
+        "usage": "体力",
+        "permission": "everyone",
+        "trigger": {
+          "type": "exact",
+          "names": [
+            "体力"
+          ]
+        }
+      }
+    ],
+    "command_prefixes": {
+      "dedicated": [
+        "*",
+        "＊",
+        "星铁"
+      ],
+      "settings_key": "command_prefixes",
+      "accept_global": false
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

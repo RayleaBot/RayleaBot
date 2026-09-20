@@ -26,7 +26,8 @@ RayleaBot 与插件进程使用 JSONL 通信。正式消息结构以 `contracts/
 
 - 完整配置快照 `config`。
 - 身份列表 `bots`，元素包含 `source_adapter`、`source_protocol`、`id` 与可选 `nickname`；没有已知身份时为 `[]`。
-- OneBot11 QQ 超级管理员列表和命令前缀；列表不适用于 QQ 官方 openid。
+- OneBot11 QQ 超级管理员列表；列表不适用于 QQ 官方 openid。
+- `command_prefixes`：对本插件生效的命令前缀，专属前缀在前，接受通用前缀时再列出通用前缀。
 - 生效并发度。
 - 必填的 IANA 时区 `timezone`，对应宿主当前生效的时区；保存后待重启的时区不提前下发。
 

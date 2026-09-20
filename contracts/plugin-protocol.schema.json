@@ -163,7 +163,8 @@
                 "type": "string",
                 "minLength": 1
               },
-              "uniqueItems": true
+              "uniqueItems": true,
+              "description": "Command prefixes effective for this plugin: its dedicated prefixes first, followed by the host's global prefixes when the plugin accepts them. A config.changed that alters the dedicated prefixes takes effect for matching immediately; this list is fixed for the process session."
             },
             "protocol_version": {
               "type": "string",

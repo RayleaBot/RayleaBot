@@ -27,6 +27,7 @@
     "default_config": { "type": "object", "additionalProperties": true, "description": "Defaults are merged with explicit persisted overrides when reading settings and creating init snapshots. Starting or reloading a plugin does not persist defaults. Unsaved keys follow manifest default changes; explicitly saved values, including values equal to a prior default, remain overrides." },
     "commands": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/command" } },
     "command_groups": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/command_group" } },
+    "command_prefixes": { "$ref": "#/$defs/command_prefixes" },
     "help": { "$ref": "#/$defs/help" },
     "management_ui": { "$ref": "#/$defs/management_ui" },
     "webhooks": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/webhook" } },
@@ -134,6 +135,22 @@
         "settings_key": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
       }
     },
+    "command_prefixes": {
+      "type": "object", "additionalProperties": false, "required": ["dedicated"],
+      "properties": {
+        "dedicated": {
+          "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 16, "pattern": "^\\S+$" },
+          "description": "Default prefixes that address this plugin's commands. A dedicated prefix may appear alone or directly after a global prefix."
+        },
+        "settings_key": {
+          "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Key in default_config and saved settings holding a string or string array that replaces dedicated. A missing key, or a value without any valid prefix while accept_global is false, keeps dedicated."
+        },
+        "accept_global": { "type": "boolean", "default": true, "description": "Whether this plugin's commands also match after the host's global command prefixes." }
+      },
+      "description": "Plugin-scoped command prefixes. A prefix is a match condition, not ownership: it may equal a global prefix or another plugin's dedicated prefix. The host parses each message per plugin with that plugin's effective prefixes, longest first, and matches the parsed command name against that plugin's triggers. Candidates matched through a dedicated prefix shadow candidates matched through a global prefix, including the builtin help menu; within one tier the priority, block and propagation rules apply unchanged. Each target receives the command and args of its own parse. Omitted means global prefixes only."
+    },
     "command_group": {
       "type": "object", "additionalProperties": false, "required": ["id", "title", "commands"],
       "properties": {
@@ -218,6 +235,9 @@
     }
   },
   "x-fixtures": [
+    "fixtures/plugin-info/ok.command-prefixes.json",
+    "fixtures/plugin-info/invalid.command-prefixes-empty.json",
+    "fixtures/plugin-info/invalid.command-prefixes-whitespace.json",
     "fixtures/plugin-info/ok.services.json",
     "fixtures/plugin-info/invalid.duplicate-service.json",
     "fixtures/plugin-info/invalid.duplicate-service-method.json",
