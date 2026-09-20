@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -51,6 +52,9 @@ func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.F
 	if _, exists := session.localActionIDs[frame.RequestID]; exists {
 		return nil, errorf(codePluginProtocolViolation, "plugin reused a local action request_id within one event delivery", nil)
 	}
+	if action.Kind == "plugin.call" && m.snap.State == StateStopping {
+		return &localActionRejection{parentRequestID: parentRequestID, requestID: frame.RequestID, code: "plugin.service_unavailable", message: "service calls are unavailable while the caller is stopping"}, nil
+	}
 	if m.pendingLocalActions >= maxPendingLocalActions {
 		return &localActionRejection{
 			parentRequestID: parentRequestID,
@@ -66,7 +70,16 @@ func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.F
 	session.pendingLocalAction++
 	m.pendingLocalActions++
 
-	go m.executeLocalAction(plugins.WithRuntimeDone(session.ctx, handle.Done()), handle, parentRequestID, frame.RequestID, *action, session.event)
+	actionCtx := session.ctx
+	if action.Kind == "plugin.call" {
+		var cancel context.CancelFunc
+		actionCtx, cancel = context.WithCancel(actionCtx)
+		if session.serviceCancels == nil {
+			session.serviceCancels = make(map[string]context.CancelFunc)
+		}
+		session.serviceCancels[frame.RequestID] = cancel
+	}
+	go m.executeLocalAction(plugins.WithRuntimeDone(actionCtx, handle.Done()), handle, parentRequestID, frame.RequestID, *action, session.event)
 	return nil, nil
 }
 
@@ -93,6 +106,9 @@ func rememberLocalActionID(session *eventSession, requestID string, limit int) {
 
 func (m *Manager) parseLocalActionFrameLocked(handle *Handle, frame pluginwire.Frame) (*plugins.Action, string, *plugins.Error) {
 	parentRequestID := strings.TrimSpace(frame.ParentRequestID)
+	if parentRequestID == "" && frame.Action == "plugin.call" {
+		return nil, "", errorf(codePluginProtocolViolation, "plugin.call requires parent_request_id", nil)
+	}
 	if parentRequestID == "" {
 		if handle.Spec.EffectiveConcurrency > 1 {
 			return nil, "", errorf(codePluginProtocolViolation, "concurrent plugin local actions must include parent_request_id", nil)
@@ -125,6 +141,18 @@ func (m *Manager) executeLocalAction(ctx context.Context, handle *Handle, parent
 	}
 
 	result, err := m.opts.ExecuteLocalAction(ctx, handle.Spec.PluginID, requestID, action, parentEvent)
+	if action.Kind == "plugin.call" {
+		var response any = pluginwire.ResultFrame{Type: "result", RequestID: requestID, Status: "success", Data: result}
+		var failure *plugins.Error
+		if errors.As(err, &failure) {
+			response = localErrorFrame(requestID, failure.Code, failure.Message, failure.Details)
+		}
+		encoded, encodeErr := json.Marshal(response)
+		if encodeErr != nil || len(encoded) > positiveInt(handle.Spec.IPCMessageMaxBytes, 8*1024*1024) {
+			result = nil
+			err = errorf("platform.value_too_large", "service response exceeds caller frame size", nil)
+		}
+	}
 	if err != nil {
 		var runtimeErr *plugins.Error
 		if errors.As(err, &runtimeErr) {
@@ -181,6 +209,10 @@ func (m *Manager) writeLocalResponse(handle *Handle, parentRequestID string, req
 		return nil
 	}
 	if _, pending := session.pendingActionIDs[requestID]; pending {
+		if cancel := session.serviceCancels[requestID]; cancel != nil {
+			cancel()
+			delete(session.serviceCancels, requestID)
+		}
 		delete(session.pendingActionIDs, requestID)
 		session.pendingLocalAction--
 		if m.pendingLocalActions > 0 {

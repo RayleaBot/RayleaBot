@@ -11,6 +11,7 @@ import (
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/bot/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
@@ -50,7 +51,13 @@ func buildPluginRuntime(deps pluginRuntimeDeps) (pluginRuntime, error) {
 	if err != nil {
 		return pluginRuntime{}, err
 	}
-	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, deps.Governance, deps.Browser, settingsService)
+	// Processes only start after assembly completes. The closure joins the
+	// bidirectional runtime/action dependency without a mutable runtime setter.
+	var runtimeRegistry *pluginruntime.Registry
+	callService := func(ctx context.Context, caller string, call plugins.ServiceCall, origin chatevent.Event) (map[string]any, error) {
+		return runtimeRegistry.CallService(ctx, caller, call, origin)
+	}
+	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, deps.Governance, deps.Browser, settingsService, callService)
 	var hooks pluginruntime.EventHooks
 	if registry := deps.Events.Conversations; registry != nil {
 		hooks = pluginruntime.EventHooks{
@@ -65,7 +72,7 @@ func buildPluginRuntime(deps pluginRuntimeDeps) (pluginRuntime, error) {
 			},
 		}
 	}
-	runtimeRegistry := pluginruntime.NewManaged(
+	runtimeRegistry = pluginruntime.NewManaged(
 		deps.Runtime.RuntimeLogger(),
 		deps.Platform.Console,
 		deps.ManagementRedact,
@@ -89,12 +96,14 @@ func buildLocalActionService(
 	governanceService *governance.Service,
 	browserManager localaction.BrowserSessionManager,
 	settingsService *settings.Service,
+	callService localaction.ServiceCallFunc,
 ) *localaction.Service {
 	return localaction.New(localaction.Deps{
 		CurrentConfig:        runtimeState.CurrentConfig,
 		Logger:               runtimeState.RuntimeLogger(),
 		RedactText:           runtimeState.RedactString,
 		Plugins:              pluginStack.Plugins,
+		CallService:          callService,
 		Settings:             settingsService,
 		PluginKV:             pluginStack.PluginKV,
 		Conversations:        eventStack.Conversations,

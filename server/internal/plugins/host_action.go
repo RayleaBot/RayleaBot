@@ -8,6 +8,7 @@ import (
 // only MessageCommand; process framing remains in the runtime package.
 type Action struct {
 	Kind                      string
+	ServiceCall               *ServiceCall
 	RawData                   map[string]any
 	SourceProtocol            string
 	SourceAdapter             string

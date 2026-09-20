@@ -28,6 +28,37 @@ func TestDiscoverProjectsMessagePriorityAndBlock(t *testing.T) {
 	}
 }
 
+func TestDiscoverExportsServicesAndRejectsAmbiguousVersions(t *testing.T) {
+	for _, duplicate := range []bool{false, true} {
+		t.Run(map[bool]string{false: "exported", true: "duplicate"}[duplicate], func(t *testing.T) {
+			root := t.TempDir()
+			manifest := baseManifest("service-fixture")
+			manifest["min_core_version"] = "0.7.1"
+			services := []any{map[string]any{"name": "resource", "version": 1, "methods": []string{"query"}}}
+			if duplicate {
+				services = append(services, map[string]any{"name": "resource", "version": 1, "methods": []string{"other"}})
+			}
+			manifest["services"] = services
+			writeArtifact(t, filepath.Join(root, "plugins", "installed", "service-fixture"), manifest, nil)
+			snapshot := discoverOne(t, root)
+			if duplicate {
+				if snapshot.Valid {
+					t.Fatal("ambiguous exported service was accepted")
+				}
+				return
+			}
+			if !snapshot.Valid || len(snapshot.Services) != 1 || snapshot.Services[0].Methods[0] != "query" {
+				t.Fatalf("services not discovered: %#v", snapshot)
+			}
+			cloned := plugins.CloneSnapshot(snapshot)
+			cloned.Services[0].Methods[0] = "changed"
+			if snapshot.Services[0].Methods[0] != "query" {
+				t.Fatal("service declarations share mutable methods")
+			}
+		})
+	}
+}
+
 func TestDiscoverProjectsManifestV3(t *testing.T) {
 	t.Parallel()
 

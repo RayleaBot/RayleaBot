@@ -16,6 +16,7 @@ import (
 
 type ProcessSpec struct {
 	PluginID             string
+	Services             []plugins.Service
 	InitTimeout          time.Duration
 	EventTimeout         time.Duration
 	ShutdownGrace        time.Duration

@@ -24,6 +24,7 @@ type manifestDocument struct {
 	Priority        int                    `json:"priority"`
 	Block           bool                   `json:"block"`
 	Events          []string               `json:"events"`
+	Services        []plugins.Service      `json:"services"`
 	DefaultConfig   map[string]any         `json:"default_config"`
 	Commands        []manifestCommand      `json:"commands"`
 	CommandGroups   []manifestCommandGroup `json:"command_groups"`
@@ -146,6 +147,7 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 		Author: manifest.Metadata.Author, License: manifest.License,
 		ManifestVersion: manifest.ManifestVersion, MinCoreVersion: manifest.MinCoreVersion,
 		Concurrency: manifest.Concurrency, Events: append([]string(nil), manifest.Events...),
+		Services: plugins.CloneServices(manifest.Services),
 		Priority: manifest.Priority, Block: manifest.Block,
 		Webhooks: webhooks, CommandGroups: groups,
 		Description: manifest.Metadata.Description, Icon: manifest.Metadata.Icon,
@@ -168,6 +170,18 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 }
 
 func validateManifestSemantics(manifest manifestDocument) error {
+	serviceVersions := make(map[string]map[int]bool)
+	for index, service := range manifest.Services {
+		versions := serviceVersions[service.Name]
+		if versions == nil {
+			versions = make(map[int]bool)
+			serviceVersions[service.Name] = versions
+		}
+		if versions[service.Version] {
+			return fmt.Errorf("services[%d] duplicates service %q version %d", index, service.Name, service.Version)
+		}
+		versions[service.Version] = true
+	}
 	commandIDs := make(map[string]struct{}, len(manifest.Commands))
 	for index, command := range manifest.Commands {
 		if _, exists := commandIDs[command.ID]; exists {

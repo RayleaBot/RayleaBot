@@ -13,6 +13,7 @@ type Deps struct {
 	Logger               *slog.Logger
 	RedactText           func(string) string
 	Plugins              PluginCatalog
+	CallService          ServiceCallFunc
 	Settings             *settings.Service
 	PluginKV             KVRepository
 	Conversations        *conversation.Registry

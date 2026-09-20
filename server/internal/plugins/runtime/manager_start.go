@@ -15,6 +15,7 @@ import (
 )
 
 func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) error {
+	spec.Services = plugins.CloneServices(spec.Services)
 	if err := m.acquireLifecycle(ctx); err != nil {
 		return err
 	}
@@ -201,6 +202,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 func processSpec(spec Spec) ProcessSpec {
 	return ProcessSpec{
 		PluginID:             spec.PluginID,
+		Services:             plugins.CloneServices(spec.Services),
 		InitTimeout:          spec.InitTimeout,
 		EventTimeout:         spec.EventTimeout,
 		ShutdownGrace:        spec.ShutdownGrace,
@@ -272,6 +274,18 @@ func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRe
 	if m.proc != handle {
 		return nil, nil
 	}
+	if frame.Type == "cancel" {
+		parentID := strings.TrimSpace(frame.ParentRequestID)
+		if parentID == "" {
+			return nil, errorf(codePluginProtocolViolation, "service cancellation requires parent_request_id", nil)
+		}
+		if session := m.pendingEvents[parentID]; session != nil {
+			if cancel := session.serviceCancels[frame.RequestID]; cancel != nil {
+				cancel()
+			}
+		}
+		return nil, nil
+	}
 
 	if ping := m.pendingPings[frame.RequestID]; ping != nil {
 		if frame.Type != "pong" {
@@ -305,6 +319,13 @@ func (m *Manager) routeTerminalFrameLocked(session *eventSession, frame pluginwi
 	}
 
 	delivery, done, err := decodeTerminalDelivery(session.requestID, frame)
+	if done && err == nil && session.event.EventType == "plugin.request" && frame.Type == "result" {
+		result, decodeErr := decodeServiceObject(frame.Data)
+		if decodeErr != nil || result == nil {
+			return errorf(codePluginProtocolViolation, "service result must be a JSON object", nil)
+		}
+		delivery.Result = result
+	}
 	if !done {
 		return errorf(codePluginProtocolViolation, "plugin returned an unexpected non-terminal frame for the active event", nil)
 	}

@@ -34,6 +34,7 @@ type Spec struct {
 	WorkDir              string
 	EntryPath            string
 	Events               []string
+	Services             []plugins.Service
 	InitTimeout          time.Duration
 	EventTimeout         time.Duration
 	ShutdownGrace        time.Duration
@@ -98,6 +99,7 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 		WorkDir:              verified.Root,
 		EntryPath:            verified.BackendPath,
 		Events:               append([]string(nil), snapshot.Events...),
+		Services:             plugins.CloneServices(snapshot.Services),
 		InitTimeout:          initTimeout,
 		EventTimeout:         durationFromSeconds(runtimeConfig.PluginEventTimeoutSeconds, 5),
 		ShutdownGrace:        durationFromSeconds(runtimeConfig.ShutdownGraceSeconds, 5),

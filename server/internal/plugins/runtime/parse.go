@@ -49,6 +49,8 @@ func ParseLocalAction(kind string, raw json.RawMessage) (*plugins.Action, error)
 		return &plugins.Action{Kind: kind, SessionID: frame.SessionID}, nil
 	case "plugin.list":
 		return parsePluginListAction(raw)
+	case "plugin.call":
+		return parseServiceCallAction(raw)
 	case "secret.read":
 		return parseSecretReadAction(raw)
 	case "secret.write":
@@ -92,7 +94,7 @@ func isLocalActionKind(kind string) bool {
 	case "logger.write",
 		"session.wait", "session.finish",
 		"storage.kv",
-		"plugin.list",
+		"plugin.list", "plugin.call",
 		"secret.read",
 		"secret.write",
 		"secret.delete",

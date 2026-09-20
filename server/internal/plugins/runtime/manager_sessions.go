@@ -7,6 +7,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 const expiredEventRetention = 5 * time.Minute
@@ -22,6 +23,7 @@ type eventSession struct {
 	localActionIDs     map[string]struct{}
 	localActionOrder   []string
 	pendingActionIDs   map[string]struct{}
+	serviceCancels     map[string]context.CancelFunc
 	pendingLocalAction int
 	completed          bool
 }
@@ -34,6 +36,10 @@ type pingRequest struct {
 
 func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requestID string, event chatevent.Event) (*eventSession, *plugins.Error) {
 	sessionCtx, cancel := context.WithCancel(ctx)
+	if handle != nil && handle.Spec.EventTimeout > 0 {
+		cancel()
+		sessionCtx, cancel = context.WithTimeout(ctx, handle.Spec.EventTimeout)
+	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -53,6 +59,18 @@ func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requ
 	if m.pendingEvents[requestID] != nil || m.pendingPings[requestID] != nil || m.eventExpiredLocked(requestID) {
 		cancel()
 		return nil, errorf(codePluginInternalError, "duplicate runtime request ID", nil)
+	}
+	if event.EventType == "plugin.request" {
+		pending := 0
+		for _, active := range m.pendingEvents {
+			if active.event.EventType == "plugin.request" {
+				pending++
+			}
+		}
+		if pending >= maxPendingServiceCalls {
+			cancel()
+			return nil, errorWithDetails(codePlatformRateLimited, "service provider pending-call limit exceeded", map[string]any{"limit": maxPendingServiceCalls}, nil)
+		}
 	}
 
 	session := &eventSession{
@@ -82,6 +100,12 @@ func (m *Manager) completeEventLocked(session *eventSession, delivery plugins.De
 }
 
 func (m *Manager) releaseSessionActionsLocked(session *eventSession) {
+	if session != nil {
+		for _, cancel := range session.serviceCancels {
+			cancel()
+		}
+		clear(session.serviceCancels)
+	}
 	if session == nil || session.pendingLocalAction <= 0 {
 		return
 	}
@@ -208,6 +232,18 @@ func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, mess
 		ErrorMessage: runtimeErr.Message,
 		ErrorDetails: cloneDetails(runtimeErr.Details),
 	}
+	// Write after releasing the manager lock so cancellation does not depend on
+	// the provider's normal event concurrency.
+	notify := false
+	var canceledCalls []string
+	defer func() {
+		for _, requestID := range canceledCalls {
+			_ = handle.WriteJSONLine(localErrorFrame(requestID, code, message, nil))
+		}
+		if notify {
+			_ = handle.WriteJSONLine(pluginwire.CancelFrame{Type: "cancel", RequestID: session.requestID})
+		}
+	}()
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -223,8 +259,12 @@ func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, mess
 	if m.proc != handle || m.pendingEvents[session.requestID] != session {
 		return delivery, runtimeErr
 	}
+	for requestID := range session.serviceCancels {
+		canceledCalls = append(canceledCalls, requestID)
+	}
 	m.completeEventLocked(session, delivery, runtimeErr)
 	m.markEventExpiredLocked(session.requestID)
+	notify = session.event.EventType == "plugin.request"
 	return delivery, runtimeErr
 }
 

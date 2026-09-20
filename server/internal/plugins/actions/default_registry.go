@@ -37,6 +37,7 @@ func defaultRegistrarItems() []registrar {
 		messageSendRegistrar(),
 		logWriteRegistrar(),
 		pluginListRegistrar(),
+		pluginCallRegistrar(),
 	)
 	items = append(items, configRegistrars()...)
 	items = append(items, governanceRegistrars()...)

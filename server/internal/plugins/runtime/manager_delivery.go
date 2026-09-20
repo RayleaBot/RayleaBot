@@ -53,6 +53,13 @@ func (m *Manager) DeliverEvent(ctx context.Context, event chatevent.Event) (deli
 	}()
 
 	frame := BuildEventFrame(event, requestID)
+	if event.EventType == "plugin.request" {
+		encoded, err := json.Marshal(frame)
+		if err != nil || len(encoded) > positiveInt(handle.Spec.IPCMessageMaxBytes, 8*1024*1024) {
+			m.removeEventSession(handle, requestID)
+			return plugins.Delivery{}, errorf("platform.value_too_large", "service request exceeds provider frame size", nil)
+		}
+	}
 	if err := ctx.Err(); err != nil {
 		failure := eventContextError(err)
 		return m.timeoutEvent(handle, session, failure.Code, failure.Message, err)
@@ -152,6 +159,10 @@ func buildEventPayload(event chatevent.Event) (*pluginwire.ProtocolPayloadFrame,
 		hasPayload = true
 	}
 	if event.PayloadFields != nil {
+		if request, ok := event.PayloadFields["service_request"].(pluginwire.ProtocolServiceRequestFrame); ok && event.EventType == "plugin.request" {
+			payload.ServiceRequest = &request
+			hasPayload = true
+		}
 		if v, ok := event.PayloadFields["sub_type"].(string); ok && v != "" {
 			payload.SubType = v
 			hasPayload = true
