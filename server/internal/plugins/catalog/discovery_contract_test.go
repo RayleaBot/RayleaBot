@@ -33,7 +33,6 @@ func TestDiscoverExportsServicesAndRejectsAmbiguousVersions(t *testing.T) {
 		t.Run(map[bool]string{false: "exported", true: "duplicate"}[duplicate], func(t *testing.T) {
 			root := t.TempDir()
 			manifest := baseManifest("service-fixture")
-			manifest["min_core_version"] = "0.7.1"
 			services := []any{map[string]any{"name": "resource", "version": 1, "methods": []string{"query"}}}
 			if duplicate {
 				services = append(services, map[string]any{"name": "resource", "version": 1, "methods": []string{"other"}})

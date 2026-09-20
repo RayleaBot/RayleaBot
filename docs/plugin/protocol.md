@@ -87,7 +87,7 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 
 ### 插件服务调用
 
-`plugin.call` 要求 Core 0.7.1 及以上，必须携带 `parent_request_id`。参数为 `target_plugin_id`、`service`、`service_version`、`method`、对象类型的 `params`；宿主不解释业务参数。
+`plugin.call` 必须携带 `parent_request_id`。参数为 `target_plugin_id`、`service`、`service_version`、`method`、对象类型的 `params`；宿主不解释业务参数。
 
 宿主向已运行的目标投递 `plugin.request`，`payload.service_request` 包含服务/版本/方法/参数、`caller_plugin_id`、`deadline_at_ms` 和 `origin`。origin 保存实际父事件的来源、可用的 bot/actor/target 及调度任务标识，不包含聊天正文或任意原始上报。调用者不能在 action 参数中自报 caller。
 

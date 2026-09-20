@@ -1,6 +1,6 @@
 # 通用插件服务调用者
 
-本示例通过 `event.Actions().CallService` 调用 [提供者](../example-service-provider/README.md)，不启动额外 HTTP 服务。需要 Core 0.7.1 及以上，默认目标由配置 `provider` 指定。
+本示例通过 `event.Actions().CallService` 调用 [提供者](../example-service-provider/README.md)，不启动额外 HTTP 服务。默认目标由配置 `provider` 指定。
 
 ```go
 var result map[string]any

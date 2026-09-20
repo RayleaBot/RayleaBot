@@ -56,7 +56,7 @@
   - 固定 `manifest_version: "4"`；运行语言、入口和目标平台由 artifact 提供
   - `events` 静态声明普通事件订阅；manifest 不声明宿主权限，全部宿主动作对可信插件进程可用
   - 当前已固定内联 `default_config`、metadata、统一 `commands`、真实 `command_groups`、帮助标题/摘要、单入口 `management_ui` 和静态 `webhooks`
-  - `services` 静态声明服务名称、精确版本和方法；非空声明要求 `min_core_version >= 0.7.1`，同名同版本不可重复
+  - `services` 静态声明服务名称、精确版本和方法，同名同版本不可重复
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - `priority`（默认 0）与 `block`（默认 false）定义消息分层与阻断。正优先级消息订阅者可先于命令声明者接收命令消息；其他事件保留既有投递。成功终态的显式 propagation 覆盖 block，同名命令授权与冷却保持既有语义。
   - command `permission` 省略时使用 `permission.default_level`

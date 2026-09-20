@@ -8,7 +8,7 @@
 
 该能力适用于任意插件组合。调用方、服务名、方法和业务参数均来自插件声明或调用数据，宿主不写入某个业务的专用字段、插件 ID、白名单或处理分支。公开名称保持业务无关且可读，避免随机代号。
 
-现有 [插件协议](../plugin/protocol.md) 已有 `action`、`event`、`result`、`error` 与请求关联；当前 [manifest](../../contracts/plugin-info.schema.json) 和 [协议 schema](../../contracts/plugin-protocol.schema.json) 已定义服务声明与跨插件调用。使用该能力的插件声明 Core 0.7.1 及以上；下述 JSON 展示相关片段。
+现有 [插件协议](../plugin/protocol.md) 已有 `action`、`event`、`result`、`error` 与请求关联；当前 [manifest](../../contracts/plugin-info.schema.json) 和 [协议 schema](../../contracts/plugin-protocol.schema.json) 已定义服务声明与跨插件调用；下述 JSON 展示相关片段。
 
 ## 2. 最小交付范围
 
@@ -127,7 +127,7 @@ sequenceDiagram
 
 预期修改面：`contracts/plugin-info.schema.json`、`contracts/plugin-protocol.schema.json`、必要错误登记、SDK 生成类型与实现、Runtime/动作路由、对应 fixtures/examples。管理 HTTP/WS/UI 只按实际展示需求同步。
 
-契约修改先于实现。本次使用 v4 的兼容扩展，服务插件设置 `min_core_version >= 0.7.1`。没有服务声明的插件保持原有运行行为。
+契约修改先于实现。本次使用 v4 的兼容扩展，不另设最低 Core 版本：清单 schema 禁止未知字段，不支持服务的 Core 会直接拒绝带 `services` 的清单。没有服务声明的插件保持原有运行行为。
 
 ## 8. 最小验证
 

@@ -116,7 +116,7 @@ plugin-example/
 
 提供者返回 `ActionError` 可公开指定 code、message、details；普通 Go error 只返回通用失败，默认日志不输出可能包含业务正文的错误字符串。提供者须响应 context 取消；已发生的外部副作用由自身业务处理幂等与核对。
 
-[提供者与调用者示例](../../../examples/plugins/example-service-provider/README.md)可独立构建并通过真实 JSONL 进程联调。两者都要求 `min_core_version >= 0.7.1`。
+[提供者与调用者示例](../../../examples/plugins/example-service-provider/README.md)可独立构建并通过真实 JSONL 进程联调。
 
 ## Vue UI SDK
 

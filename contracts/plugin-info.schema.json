@@ -36,7 +36,7 @@
       "items": {
         "$ref": "#/$defs/service"
       },
-      "description": "Static exported services. Each (name, version) pair must be unique. Omitted or empty declares no services. Requires min_core_version >= 0.7.1."
+      "description": "Static exported services. Each (name, version) pair must be unique. Omitted or empty declares no services."
     }
   },
   "allOf": [
@@ -52,27 +52,6 @@
                 "pattern": "^0\\.7\\.0-"
               }
             ]
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "required": [
-          "services"
-        ],
-        "properties": {
-          "services": {
-            "minItems": 1
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "min_core_version": {
-            "not": {
-              "pattern": "^(?:0\\.7\\.0(?:$|-|\\+)|0\\.7\\.1-)"
-            }
           }
         }
       }
@@ -239,11 +218,9 @@
     }
   },
   "x-fixtures": [
-    "fixtures/plugin-info/invalid.service-core-prerelease.json",
     "fixtures/plugin-info/ok.services.json",
     "fixtures/plugin-info/invalid.duplicate-service.json",
     "fixtures/plugin-info/invalid.duplicate-service-method.json",
-    "fixtures/plugin-info/invalid.service-core-version.json",
     "fixtures/plugin-info/ok.minimal-native.json",
     "fixtures/plugin-info/ok.commands.json",
     "fixtures/plugin-info/ok.management-ui-and-webhook.json",

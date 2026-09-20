@@ -1,6 +1,6 @@
 # 通用插件服务示例
 
-提供者 `example-service-provider` 和 [调用者](../example-service-consumer/README.md) 使用同一套 JSONL 通道完成跨插件调用，要求 Core 0.7.1 及以上。
+提供者 `example-service-provider` 和 [调用者](../example-service-consumer/README.md) 使用同一套 JSONL 通道完成跨插件调用。
 
 ## 提供服务
 

@@ -267,7 +267,6 @@ func finalizeArtifact(root, staging, outputDir string, manifest Manifest, entry,
 // coreVersionBeforeManifestV4 matches min_core_version values older than the
 // first core that accepts manifest v4, including 0.7.0 prereleases.
 var coreVersionBeforeManifestV4 = regexp.MustCompile(`^0\.([0-6]\.|7\.0-)`)
-var coreVersionBeforeServices = regexp.MustCompile(`^0\.7\.(0($|-|\+)|1-)`)
 var serviceIdentifier = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,63}$`)
 
 func validateManifest(manifest Manifest, platform string) error {
@@ -279,9 +278,6 @@ func validateManifest(manifest Manifest, platform string) error {
 	}
 	if coreVersionBeforeManifestV4.MatchString(manifest.MinCoreVersion) {
 		return fmt.Errorf("pluginbuild: manifest_version %s requires min_core_version 0.7.0 or later", ManifestVersion)
-	}
-	if len(manifest.Services) > 0 && coreVersionBeforeServices.MatchString(manifest.MinCoreVersion) {
-		return errors.New("pluginbuild: services require min_core_version 0.7.1 or later")
 	}
 	if err := validateServices(manifest.Services); err != nil {
 		return err

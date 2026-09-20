@@ -94,7 +94,7 @@ manifest 不声明宿主权限。插件进程是管理员确认安装的完全�
 
 ## 静态插件服务
 
-使用服务调用的插件声明 `min_core_version >= 0.7.1`，manifest 与 JSONL 仍使用 v4。提供者通过 `services` 声明公开的方法：
+服务调用是 manifest 与 JSONL v4 的兼容扩展，不另设最低 Core 版本；不支持该能力的 Core 会因未知的 `services` 字段拒绝清单。提供者通过 `services` 声明公开的方法：
 
 ```json
 {

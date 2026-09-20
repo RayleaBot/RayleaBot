@@ -3297,7 +3297,6 @@
     "storage.kv.list": "#/$defs/storage_kv_list_result"
   },
   "x-plugin-services": {
-    "min_core_version": "0.7.1",
     "routing": "Declared service/version/method on an already running target. No auto-start, no self-call, and plugin.request handlers cannot issue plugin.call.",
     "limits": {
       "max_pending_calls_per_provider": 64,
