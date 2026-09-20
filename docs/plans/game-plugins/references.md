@@ -19,6 +19,13 @@
 | [MihoyoBBSTools](https://github.com/Womsxd/MihoyoBBSTools/tree/f062d1fda8fab88fd312a5ca3a89537f6351943b) | `f062d1fda8fab88fd312a5ca3a89537f6351943b` | MIT | Axiu 固定引用的子模块，单独保存 |
 | [test_nine](https://github.com/luguoyixiazi/test_nine/tree/a6a53bb46bfd33c419fa503f5a31708462893775) | `a6a53bb46bfd33c419fa503f5a31708462893775` | 未发现许可证标识 | Axiu 固定引用的子模块，单独保存 |
 
+2026-09-19 追加的两份补充参考，未纳入上表的 12 份归档统计：
+
+| 名称 | 提交 | 许可标识 | 角色 | 本地位置 |
+| --- | --- | --- | --- | --- |
+| [GachaClock](https://github.com/iaoongin/GachaClock/tree/99d16c10bfeeb5f885e9cb42861c50f993f3a746) | `99d16c10bfeeb5f885e9cb42861c50f993f3a746` | MIT | 卡池历史数据；只保存历史元数据，未下载图片 | `external/参考项目/2026-09-15/GachaClock-data/` |
+| [genshin.py](https://github.com/seriaati/genshin.py/tree/075f0e1e332f9452e544aa7dfdf265678889d6ab) | `075f0e1e332f9452e544aa7dfdf265678889d6ab` | MIT | 米游社与 HoYoLab 接口、二维码登录的实现参考 | `external/参考项目/2026-09-19/genshin.py/` |
+
 ## 完整性与限制
 
 共 12 份快照、14,358 个归档文件，展开约 1.63 GiB，ZIP 约 1.53 GiB。下载时记录归档 SHA-256，验证 ZIP 条目 CRC、展开文件大小与 CRC、路径和文件集合。
