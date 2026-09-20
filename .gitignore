@@ -35,6 +35,7 @@ plugins/**/node_modules/
 /sdk/vue/dist/
 /web/test-results/
 /examples/plugins/**/ui/dist/
+/examples/plugins/**/dist/
 /.playwright-cli/
 /output/
 
