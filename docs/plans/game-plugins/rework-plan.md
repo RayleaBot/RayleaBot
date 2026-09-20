@@ -1,6 +1,6 @@
 # 游戏插件返工计划
 
-日期：2026-09-20。本计划依据同日对四个插件、共享库 `game-plugin-kit`、主仓库未提交改动和 `external/参考项目` 的只读审计制定，取代 [执行进度](../execution-status.md)、[交付验收](./delivery.md) 与 [非受限台账](./nonrestricted-work.md) 中的完成声明。插件路径均相对于主工作区同级的 `RayleaBotPlugins/`。
+日期：2026-09-20。本计划依据同日对四个插件、共享库 `game-plugin-kit`、主仓库未提交改动和 `external/参考项目` 的只读审计制定，取代此前执行进度、交付验收与非受限台账三份文档中的完成声明；这三份过程台账已删除。插件路径均相对于主工作区同级的 `RayleaBotPlugins/`。
 
 ## 审计结论
 
@@ -51,7 +51,7 @@
 
 | 阶段 | 内容 | 状态 |
 | --- | --- | --- |
-| R0 | 主仓库收口 | 未开始 |
+| R0 | 主仓库收口 | 第 1 至 9 项完成；第 10 项清理参考目录待用户确认删除清单 |
 | R0b | 宿主插件专属命令前缀 | 未开始 |
 | R1 | 裁剪 | 未开始 |
 | R2 | 结构重组与账号库修复 | 未开始 |
@@ -65,13 +65,13 @@
 
 1. 删除 `cancel` 帧。涉及 `contracts/plugin-protocol.schema.json` 的 `$defs/cancel` 与消息目录、两份 wire 生成物、`server/internal/plugins/runtime/` 中停止时写 cancel 帧与 `serviceCancels` 的处理、`sdk/go/actions.go` 与 `sdk/go/services.go` 的取消分支、`fixtures/plugin-protocol/ok.plugin-call-cancel.yaml`、集成测试的取消用例，以及 `docs/plugin/protocol.md` 和 [通用插件服务调用](../plugin-services.md) 的对应说明。调用方放弃后，服务方处理到截止时间，宿主丢弃迟到结果。
 2. 删除 0.7.1 门槛。涉及 `contracts/plugin-info.schema.json` 的条件约束与说明、`x-plugin-services.min_core_version`、`sdk/go/pluginbuild/build.go` 的 `coreVersionBeforeServices`、`fixtures/plugin-info/invalid.service-core-version.json` 与 `invalid.service-core-prerelease.json`，以及示例和四个插件清单里的 `min_core_version`。旧版清单 schema 顶层禁止未知字段，旧 Core 会直接拒绝带 `services` 的清单。
-3. `runtime/manager_sessions.go` 把所有事件会话从 `WithCancel` 改成了 `WithTimeout`。把这一改动限定在 `plugin.request` 会话，其他事件保持原行为。
+3. `runtime/manager_sessions.go` 把所有事件会话从 `WithCancel` 改成了 `WithTimeout`，目的是让 `plugin.call` 的期限不超过调用方事件的期限。恢复会话为 `WithCancel`，把事件期限记录在会话上，只在创建 `plugin.call` 动作的 context 时应用；提供者侧会话从调用 context 继承期限，不需要另行处理。
 4. 帧超限复用了 `platform.value_too_large`，但错误目录仍描述为存储写入超限。按 `contracts/AGENTS.md` 的错误码规则消除触发条件漂移。
 5. `.gitignore` 忽略 `examples/plugins/**/dist/`，避免示例安装包被提交。
 6. 同步 `docs/architecture/README.md` 的 Runtime Manager 职责与状态归属，以及 `contracts/README.md` 的帧类型列表。
-7. 补测试：服务方 64 个待处理调用上限、服务方崩溃退出、迟到结果、调用方停止时未完成的出站调用。
+7. 补测试：服务方 64 个待处理调用上限、服务方崩溃退出、迟到结果、调用方停止时未完成的出站调用。补测试时发现并修复一处缺陷：提供者进程退出时调用方收到的是 `plugin.internal_error` 而不是 `plugin.service_unavailable`。
 8. 拆分提交：契约与生成物、Server、SDK、示例、文档。
-9. 文档整理：[通用插件服务调用](../plugin-services.md) 改写为最终状态说明；删除三份过程台账；本目录其余插件业务文档在 R2 各插件仓库有首次提交后迁入插件侧，主仓库只保留宿主能力的计划。
+9. 文档整理：[通用插件服务调用](../plugin-services.md) 与现行语义对齐；删除三份过程台账；本目录其余插件业务文档在 R2 结构重组完成后迁入插件侧，主仓库只保留宿主能力的计划。
 10. 清理 `external/参考项目`：顶层 2026-08-30 的旧副本与 zip 约 4.1G、采集脚本、`__pycache__`、历史方案目录。删除前逐项列出并取得用户确认。把 `GachaClock-data` 与 `2026-09-19/genshin.py` 登记进来源清单。
 
 验收：`docs/engineering/quality-gates.md` 中契约、Server、SDK、示例与文档对应的门禁通过；`git status` 干净。
