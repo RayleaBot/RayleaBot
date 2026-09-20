@@ -34,7 +34,7 @@ func TestBuildBuiltinCommandsProjectsUnifiedTriggers(t *testing.T) {
 		{ID: "guide", Name: "攻略", EffectiveName: "攻略", TriggerType: "exact", Description: "查看攻略", Usage: "/攻略 <角色>", Permission: "everyone"},
 		{ID: "fortune", Name: "运势", EffectiveName: "今日运势", TriggerType: "setting", Description: "查看运势", Usage: "今日运势 [日期]", Permission: "everyone"},
 	}
-	items := buildBuiltinCommands(commands, config.Config{Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Prefixes: []string{"/", "*"}}}})
+	items := buildBuiltinCommands(commands, config.Config{Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Prefixes: []string{"/", "*"}}}}, commandPrefixView{all: []string{"/", "*"}})
 	if len(items) != 3 {
 		t.Fatalf("items = %#v", items)
 	}
@@ -60,7 +60,7 @@ func TestBuiltinHelpContainsOnlyGroupedCommands(t *testing.T) {
 	help := buildBuiltinHelp(&plugins.HelpView{Title: "订阅与解析", Summary: "订阅和解析命令"}, []plugins.CommandGroup{
 		{ID: "subscription", Title: "订阅操作", Commands: []string{"status"}},
 		{ID: "maintenance", Title: "维护", Commands: []string{"refresh", "missing"}},
-	}, commands, config.Config{Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Prefixes: []string{"#"}}}})
+	}, commands, config.Config{Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Prefixes: []string{"#"}}}}, commandPrefixView{all: []string{"#"}})
 	groups, ok := help["groups"].([]map[string]any)
 	if !ok || len(groups) != 2 {
 		t.Fatalf("groups = %#v", help["groups"])
@@ -78,8 +78,8 @@ func TestBuiltinPluginMenuAvoidsDuplicateGroupedCommands(t *testing.T) {
 	commands := []plugins.CommandView{{ID: "status", Name: "订阅状态", EffectiveName: "订阅状态", TriggerType: "exact", Description: "查看状态", Usage: "/订阅状态", Permission: "everyone"}}
 	data := builtinPluginMenuData(map[string]any{
 		"name":     "订阅与解析",
-		"commands": buildBuiltinCommands(commands, config.Config{}),
-		"help":     buildBuiltinHelp(&plugins.HelpView{}, []plugins.CommandGroup{{ID: "subscription", Title: "订阅", Commands: []string{"status"}}}, commands, config.Config{}),
+		"commands": buildBuiltinCommands(commands, config.Config{}, commandPrefixView{}),
+		"help":     buildBuiltinHelp(&plugins.HelpView{}, []plugins.CommandGroup{{ID: "subscription", Title: "订阅", Commands: []string{"status"}}}, commands, config.Config{}, commandPrefixView{}),
 	}, config.Config{})
 	groups := data["groups"].([]map[string]any)
 	if len(groups) != 1 || groups[0]["title"] != "订阅" {

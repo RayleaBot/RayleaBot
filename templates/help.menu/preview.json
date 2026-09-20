@@ -13,7 +13,12 @@
   "permission": {
     "level": "admin"
   },
-  "command_prefixes": ["/", "*"],
+  "command_prefixes": ["*", "星铁", "/"],
+  "prefix_chips": [
+    { "text": "*", "dedicated": true },
+    { "text": "星铁", "dedicated": true },
+    { "text": "/", "dedicated": false }
+  ],
   "groups": [
     {
       "title": "基础指令",
@@ -22,7 +27,8 @@
           "name": "weather",
           "description": "查询天气",
           "trigger_type": "exact",
-          "command_prefixes": ["/", "*"],
+          "command_prefixes": ["*", "星铁", "/"],
+          "primary_prefix": "*",
           "usage_args": "<城市> [天数]",
           "usage_parts": [
             { "kind": "required", "text": "城市" },
@@ -40,7 +46,8 @@
           "name": "已适配角色列表",
           "description": "查看当前已适配攻略图的全部角色",
           "trigger_type": "pattern",
-          "command_prefixes": ["/", "*"],
+          "command_prefixes": ["*", "星铁", "/"],
+          "primary_prefix": "*",
           "usage": "角色列表",
           "usage_parts": [
             { "kind": "literal", "text": "角色列表" }
@@ -52,7 +59,8 @@
           "name": "角色攻略",
           "description": "按角色名或别名查询攻略图",
           "trigger_type": "pattern",
-          "command_prefixes": ["/", "*"],
+          "command_prefixes": ["*", "星铁", "/"],
+          "primary_prefix": "*",
           "usage": "<角色名>攻略",
           "usage_parts": [
             { "kind": "required", "text": "角色名" },

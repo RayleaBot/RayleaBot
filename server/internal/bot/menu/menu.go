@@ -286,16 +286,45 @@ func firstBuiltinMenuText(values ...string) string {
 	return ""
 }
 
-func buildBuiltinCommands(commands []plugins.CommandView, cfg config.Config) []map[string]any {
+// commandPrefixView is how the menu shows the prefixes that address one plugin:
+// dedicated prefixes first, then the global ones the plugin accepts. Usage lines
+// are written with the first of them so they can be sent as shown.
+type commandPrefixView struct {
+	all       []string
+	dedicated []string
+}
+
+func pluginPrefixView(prefixes plugins.CommandPrefixes, cfg config.Config) commandPrefixView {
+	return commandPrefixView{all: prefixes.EffectivePrefixes(cfg.CommandPrefixes()), dedicated: append([]string(nil), prefixes.Dedicated...)}
+}
+
+// chips lists every prefix once, marking the dedicated ones so the template can
+// set them apart from the global prefixes.
+func (v commandPrefixView) chips() []map[string]any {
+	chips := make([]map[string]any, 0, len(v.all))
+	for _, prefix := range v.all {
+		chips = append(chips, map[string]any{"text": prefix, "dedicated": slices.Contains(v.dedicated, prefix)})
+	}
+	return chips
+}
+
+func (v commandPrefixView) primary() string {
+	if len(v.all) == 0 {
+		return ""
+	}
+	return v.all[0]
+}
+
+func buildBuiltinCommands(commands []plugins.CommandView, cfg config.Config, view commandPrefixView) []map[string]any {
 	items := make([]map[string]any, 0, len(commands))
 	for _, command := range commands {
-		items = append(items, buildBuiltinCommand(command, cfg))
+		items = append(items, buildBuiltinCommand(command, cfg, view))
 	}
 	return items
 }
 
-func buildBuiltinCommand(command plugins.CommandView, cfg config.Config) map[string]any {
-	prefixes := builtinMenuPrefixes(cfg)
+func buildBuiltinCommand(command plugins.CommandView, cfg config.Config, view commandPrefixView) map[string]any {
+	prefixes := view.all
 	commandName := firstBuiltinMenuText(command.EffectiveName, command.Name)
 	triggerType := normalizeBuiltinMenuTriggerType(command.TriggerType)
 	item := map[string]any{
@@ -304,6 +333,7 @@ func buildBuiltinCommand(command plugins.CommandView, cfg config.Config) map[str
 		"title":            firstBuiltinMenuText(command.Name, commandName),
 		"trigger_type":     triggerType,
 		"command_prefixes": append([]string(nil), prefixes...),
+		"primary_prefix":   view.primary(),
 		"description":      firstBuiltinMenuText(command.Description, command.Name, commandName),
 		"permission":       builtinMenuEffectiveCommandPermission(command.Permission, cfg),
 	}
@@ -324,7 +354,7 @@ func buildBuiltinCommand(command plugins.CommandView, cfg config.Config) map[str
 	return item
 }
 
-func buildBuiltinHelp(help *plugins.HelpView, groups []plugins.CommandGroup, commands []plugins.CommandView, cfg config.Config) map[string]any {
+func buildBuiltinHelp(help *plugins.HelpView, groups []plugins.CommandGroup, commands []plugins.CommandView, cfg config.Config, view commandPrefixView) map[string]any {
 	result := map[string]any{}
 	if help != nil && help.Title != "" {
 		result["title"] = help.Title
@@ -344,7 +374,7 @@ func buildBuiltinHelp(help *plugins.HelpView, groups []plugins.CommandGroup, com
 			if !ok {
 				continue
 			}
-			entry := buildBuiltinCommand(command, cfg)
+			entry := buildBuiltinCommand(command, cfg, view)
 			entry["command_name"] = stringValueFromMap(entry, "name")
 			items = append(items, entry)
 		}
@@ -361,8 +391,7 @@ func buildBuiltinHelp(help *plugins.HelpView, groups []plugins.CommandGroup, com
 	return result
 }
 
-func applyBuiltinHelpCommandPrefixes(help map[string]any, cfg config.Config) map[string]any {
-	prefixes := builtinMenuPrefixes(cfg)
+func applyBuiltinHelpCommandPrefixes(help map[string]any, prefixes []string) map[string]any {
 	groups, _ := help["groups"].([]map[string]any)
 	for _, group := range groups {
 		items, _ := group["items"].([]map[string]any)
@@ -414,6 +443,7 @@ func (s *Service) visibleBuiltinMenuItems(event chatevent.NormalizedEvent) []map
 			continue
 		}
 		view := plugins.BuildSummaryView(snapshot, conflicts[snapshot.PluginID])
+		prefixView := pluginPrefixView(snapshot.CommandPrefixes, cfg)
 		commands := visibleBuiltinCommands(view.Commands, cfg, runtimeEvent)
 		help := visibleBuiltinHelp(view.Help, commands)
 		if len(commands) == 0 && help == nil {
@@ -425,10 +455,14 @@ func (s *Service) visibleBuiltinMenuItems(event chatevent.NormalizedEvent) []map
 			"plugin_name":    view.Name,
 			"plugin_version": view.Version,
 			"description":    view.Description,
-			"commands":       buildBuiltinCommands(commands, cfg),
+			"commands":       buildBuiltinCommands(commands, cfg, prefixView),
+			// The prefixes that address this plugin, dedicated ones first.
+			"command_prefixes":   prefixView.all,
+			"dedicated_prefixes": prefixView.dedicated,
+			"prefix_chips":       prefixView.chips(),
 		}
 		if help != nil {
-			item["help"] = buildBuiltinHelp(help, view.CommandGroups, commands, cfg)
+			item["help"] = buildBuiltinHelp(help, view.CommandGroups, commands, cfg, prefixView)
 		}
 		items = append(items, item)
 	}
@@ -460,10 +494,16 @@ func builtinRootMenuData(items []map[string]any, cfg config.Config) map[string]a
 		if firstTarget == "" {
 			firstTarget = target
 		}
-		rows = append(rows, map[string]any{
+		row := map[string]any{
 			"name":        stringValueFromMap(item, "name"),
 			"description": firstBuiltinMenuText(stringValueFromMap(item, "description"), stringValueFromMap(help, "summary"), "可用插件菜单"),
-		})
+		}
+		// A plugin with dedicated prefixes is addressed differently from the rest,
+		// so its card says how.
+		if dedicated, _ := item["dedicated_prefixes"].([]string); len(dedicated) > 0 {
+			row["prefix_chips"] = item["prefix_chips"]
+		}
+		rows = append(rows, row)
 	}
 	return map[string]any{
 		"title":            "插件菜单",
@@ -503,7 +543,8 @@ func builtinPluginMenuData(item map[string]any, cfg config.Config) map[string]an
 	helpGroups := []map[string]any{}
 	if help, ok := item["help"].(map[string]any); ok {
 		commands = builtinCommandsNotCoveredByHelp(commands, builtinHelpCommandNames(help))
-		help = applyBuiltinHelpCommandPrefixes(help, cfg)
+		pluginPrefixes, _ := item["command_prefixes"].([]string)
+		help = applyBuiltinHelpCommandPrefixes(help, pluginPrefixes)
 		if values, ok := help["groups"].([]map[string]any); ok {
 			helpGroups = values
 		}
@@ -520,7 +561,8 @@ func builtinPluginMenuData(item map[string]any, cfg config.Config) map[string]an
 		"subtitle":         subtitle,
 		"plugin_name":      stringValueFromMap(item, "plugin_name"),
 		"plugin_version":   stringValueFromMap(item, "plugin_version"),
-		"command_prefixes": builtinMenuPrefixes(cfg),
+		"command_prefixes": item["command_prefixes"],
+		"prefix_chips":     item["prefix_chips"],
 		"groups":           groups,
 	}
 }

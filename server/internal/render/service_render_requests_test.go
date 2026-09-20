@@ -167,6 +167,73 @@ func TestServiceRenderHelpMenuUsesCompactPrefixesAndArgumentKinds(t *testing.T) 
 	}
 }
 
+func TestServiceRenderHelpMenuWritesUsageWithThePluginPrefix(t *testing.T) {
+	t.Parallel()
+
+	runner := &fakeRunner{}
+	service, err := NewService(Options{
+		RepoRoot:           filepath.Join("..", "..", ".."),
+		OutputRoot:         filepath.Join(t.TempDir(), "render-help-menu-prefixes"),
+		Store:              openRenderTestStore(t),
+		Runner:             runner,
+		WorkerCount:        1,
+		QueueMaxLength:     2,
+		QueueWaitTimeout:   time.Second,
+		RenderTimeout:      time.Second,
+		MaxRenderDataBytes: 256 * 1024,
+	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	})
+
+	_, err = service.Render(context.Background(), Request{
+		Template: "help.menu",
+		Data: map[string]any{
+			"title":            "崩坏：星穹铁道",
+			"command_prefixes": []string{"*", "星铁"},
+			"prefix_chips": []map[string]any{
+				{"text": "*", "dedicated": true},
+				{"text": "/", "dedicated": false},
+			},
+			"groups": []map[string]any{{
+				"title": "信息查询",
+				"items": []map[string]any{{
+					"name":             "体力",
+					"description":      "查询开拓力",
+					"trigger_type":     "exact",
+					"command_prefixes": []string{"*", "/"},
+					"primary_prefix":   "*",
+					"usage_args":       "[UID]",
+					"usage_parts":      []map[string]any{{"kind": "optional", "text": "UID"}},
+				}},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	doc, ok := runner.lastDocument()
+	if !ok {
+		t.Fatal("expected render document")
+	}
+	for _, want := range []string{
+		`<code class="command-prefixes__dedicated" aria-label="专属前缀 *">*</code><code>/</code>`,
+		`<code><span class="command-usage__lead">*</span><span class="command-usage__name">体力</span>`,
+	} {
+		if !strings.Contains(doc.HTML, want) {
+			t.Fatalf("help menu html missing %q:\n%s", want, doc.HTML)
+		}
+	}
+	if strings.Contains(doc.HTML, `class="command-prefix-cue"`) {
+		t.Fatalf("a command with a known prefix still shows the placeholder cue:\n%s", doc.HTML)
+	}
+}
+
 func TestServiceRenderLeaderboardListTemplate(t *testing.T) {
 	t.Parallel()
 

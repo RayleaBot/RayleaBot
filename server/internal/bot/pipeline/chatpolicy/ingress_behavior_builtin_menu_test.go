@@ -181,12 +181,14 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsHeaderBadge(t *test
 		t.Fatalf("unexpected plugin menu reply: count=%d image=%q", sender.replyCount, sender.lastReplyImage)
 	}
 	html := runner.LastHTML()
-	for _, want := range []string{`class="command-prefixes"`, `class="command-prefixes__label">前缀</span>`, `class="command-prefix-cue"`, `<code>#</code>`, `<code>*</code>`} {
+	// The page lists the prefixes that trigger this plugin's commands. The menu's
+	// own prefixes only open the menu, so they are not shown as command prefixes.
+	for _, want := range []string{`class="command-prefixes"`, `class="command-prefixes__label">前缀</span>`, `<code>/</code>`, `<span class="command-usage__lead">/</span><span class="command-usage__name">订阅状态</span>`} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("builtin plugin menu html missing %q:\n%s", want, html)
 		}
 	}
-	for _, unwanted := range []string{"command-guide__block--prefixes", "command-usage__prefix", "command-usage__text"} {
+	for _, unwanted := range []string{"command-guide__block--prefixes", "command-usage__prefix", "command-usage__text", `class="command-prefix-cue"`, `<code>#</code>`} {
 		if strings.Contains(html, unwanted) {
 			t.Fatalf("builtin plugin menu html contains obsolete prefix markup %q:\n%s", unwanted, html)
 		}

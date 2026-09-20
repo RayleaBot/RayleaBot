@@ -1,6 +1,24 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
+    "prefix_chips": {
+      "type": "array",
+      "description": "Prefixes that address one plugin, dedicated ones first. Present on a plugin page and on the cards of plugins that declare dedicated prefixes.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "dedicated"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dedicated": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
     "usage_part": {
       "type": "object",
       "required": ["kind", "text"],
@@ -35,6 +53,9 @@
       "items": {
         "type": "string"
       }
+    },
+    "prefix_chips": {
+      "$ref": "#/$defs/prefix_chips"
     },
     "trigger_examples": {
       "type": "array",
@@ -115,6 +136,12 @@
               "type": "string"
             }
           },
+          "prefix_chips": {
+            "$ref": "#/$defs/prefix_chips"
+          },
+          "primary_prefix": {
+            "type": "string"
+          },
           "permission": {
             "type": "string",
             "enum": ["everyone", "group_admin", "super_admin"]
@@ -175,6 +202,9 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "primary_prefix": {
+                  "type": "string"
                 },
                 "permission": {
                   "type": "string",

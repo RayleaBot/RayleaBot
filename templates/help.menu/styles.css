@@ -312,6 +312,17 @@ h1::before {
   font-weight: var(--weight-bold);
 }
 
+/* A dedicated prefix addresses only this plugin; global ones are shared. */
+.command-prefixes code.command-prefixes__dedicated {
+  color: var(--color-accent-strong);
+  font-weight: var(--weight-extrabold);
+}
+
+.command-prefixes--cell {
+  width: fit-content;
+  margin-top: var(--space-sm);
+}
+
 .command-prefixes code + code::before {
   content: "·";
   margin: 0 7px;
@@ -494,6 +505,12 @@ h1::before {
   padding: 5px 6px;
   font-size: var(--text-xs);
   line-height: 1.8;
+}
+
+/* The usage line is written with the plugin's first prefix so it can be sent as shown. */
+.command-usage__lead {
+  color: var(--color-accent-strong);
+  font-weight: var(--weight-extrabold);
 }
 
 .command-prefix-cue {

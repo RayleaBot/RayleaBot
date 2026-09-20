@@ -34,7 +34,14 @@
         <div class="page-header__title-area">
           <h1>{{ .title }}</h1>
           {{ if .subtitle }}<p class="subtitle">{{ .subtitle }}</p>{{ end }}
-          {{ if .command_prefixes }}
+          {{ if .prefix_chips }}
+          <div class="command-prefixes" aria-label="可用指令前缀">
+            <span class="command-prefixes__label">前缀</span>
+            <span class="command-prefixes__values">
+              {{ template "prefix-chips" .prefix_chips }}
+            </span>
+          </div>
+          {{ else if .command_prefixes }}
           <div class="command-prefixes" aria-label="可用指令前缀">
             <span class="command-prefixes__label">前缀</span>
             <span class="command-prefixes__values">
@@ -101,7 +108,7 @@
             {{ $commandName := .name }}
             {{ if and .trigger_type (eq .trigger_type "pattern") .usage .command_prefixes }}
             <div class="command-usage" aria-label="指令示意">
-              <code><span class="command-prefix-cue" aria-label="需添加上方任一前缀">前缀</span>{{- if .usage_parts -}}
+              <code>{{ template "usage-prefix" . }}{{- if .usage_parts -}}
                 {{- template "usage-parts" .usage_parts -}}
                 {{- else -}}
                 <span class="command-usage__name">{{ .usage }}</span>
@@ -109,7 +116,7 @@
             </div>
             {{ else if and .command_prefixes $commandName }}
             <div class="command-usage" aria-label="指令示意">
-              <code><span class="command-prefix-cue" aria-label="需添加上方任一前缀">前缀</span><span class="command-usage__name">{{ $commandName }}</span>{{- if .usage_parts -}}
+              <code>{{ template "usage-prefix" . }}<span class="command-usage__name">{{ $commandName }}</span>{{- if .usage_parts -}}
                 {{- template "usage-parts" .usage_parts -}}
                 {{- else if .usage_args -}}
                 <span class="command-usage__args">{{ .usage_args }}</span>
@@ -132,6 +139,14 @@
             {{ end }}
           </div>
           <p class="description">{{ .description }}</p>
+          {{ if .prefix_chips }}
+          <div class="command-prefixes command-prefixes--cell" aria-label="该插件的指令前缀">
+            <span class="command-prefixes__label">前缀</span>
+            <span class="command-prefixes__values">
+              {{ template "prefix-chips" .prefix_chips }}
+            </span>
+          </div>
+          {{ end }}
         </article>
         {{ end }}
       </section>
@@ -150,5 +165,19 @@
     {{- else -}}
     <span class="command-usage__name">{{ .text }}</span>
     {{- end -}}
+  {{- end -}}
+{{- end }}
+
+{{ define "prefix-chips" -}}
+  {{- range . -}}
+    <code{{ if .dedicated }} class="command-prefixes__dedicated" aria-label="专属前缀 {{ .text }}"{{ end }}>{{ .text }}</code>
+  {{- end -}}
+{{- end }}
+
+{{ define "usage-prefix" -}}
+  {{- if .primary_prefix -}}
+  <span class="command-usage__lead">{{ .primary_prefix }}</span>
+  {{- else -}}
+  <span class="command-prefix-cue" aria-label="需添加上方任一前缀">前缀</span>
   {{- end -}}
 {{- end }}
