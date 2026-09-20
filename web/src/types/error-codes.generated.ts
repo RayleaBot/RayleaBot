@@ -375,7 +375,7 @@ export const errorMessages = {
     "upstream_request_failed": "上游请求失败",
     "upstream_response_too_large": "上游响应超过大小限制",
     "user_rate_limited": "用户命令触发冷却限流",
-    "value_too_large": "写入值超过大小限制"
+    "value_too_large": "内容超过平台大小限制"
   },
   "plugin": {
     "artifact_invalid": "插件产物结构或入口校验失败",

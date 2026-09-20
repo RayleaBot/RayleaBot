@@ -267,8 +267,12 @@ codes:
   platform.value_too_large:
     code: platform.value_too_large
     domain: platform
-    message: 写入值超过大小限制
-    description: A requested value exceeded the configured platform storage size limit.
+    message: 内容超过平台大小限制
+    description: >-
+      A value or frame exceeded a configured platform size limit. Scopes: a plugin storage write
+      larger than the storage value or quota limit; a plugin.call whose plugin.request frame exceeds
+      the provider's IPC frame limit, or whose result frame exceeds the caller's. The oversized
+      content is not delivered and neither plugin process is recycled.
     http_status: 413
     retryable: false
     applies_to: [http, websocket, plugin_protocol]

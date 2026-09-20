@@ -53,7 +53,7 @@ func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.F
 		return nil, errorf(codePluginProtocolViolation, "plugin reused a local action request_id within one event delivery", nil)
 	}
 	if action.Kind == "plugin.call" && m.snap.State == StateStopping {
-		return &localActionRejection{parentRequestID: parentRequestID, requestID: frame.RequestID, code: "plugin.service_unavailable", message: "service calls are unavailable while the caller is stopping"}, nil
+		return &localActionRejection{parentRequestID: parentRequestID, requestID: frame.RequestID, code: codePluginServiceUnavailable, message: "service calls are unavailable while the caller is stopping"}, nil
 	}
 	if m.pendingLocalActions >= maxPendingLocalActions {
 		return &localActionRejection{
@@ -154,7 +154,7 @@ func (m *Manager) executeLocalAction(ctx context.Context, handle *Handle, parent
 		encoded, encodeErr := json.Marshal(response)
 		if encodeErr != nil || len(encoded) > positiveInt(handle.Spec.IPCMessageMaxBytes, 8*1024*1024) {
 			result = nil
-			err = errorf("platform.value_too_large", "service response exceeds caller frame size", nil)
+			err = errorf(codePlatformValueTooLarge, "service response exceeds caller frame size", nil)
 		}
 	}
 	if err != nil {

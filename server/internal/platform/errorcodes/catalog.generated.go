@@ -152,7 +152,7 @@ var catalog = map[string]Definition{
 	PlatformUpstreamRequestFailed:             {Code: PlatformUpstreamRequestFailed, HTTPStatus: 502, Message: "上游请求失败", Retryable: true, Surfaces: "http,websocket,plugin_protocol,readiness"},
 	PlatformUpstreamResponseTooLarge:          {Code: PlatformUpstreamResponseTooLarge, HTTPStatus: 502, Message: "上游响应超过大小限制", Retryable: false, Surfaces: "http,websocket,plugin_protocol,task"},
 	PlatformUserRateLimited:                   {Code: PlatformUserRateLimited, HTTPStatus: 0, Message: "用户命令触发冷却限流", Retryable: true, Surfaces: "plugin_protocol,logs"},
-	PlatformValueTooLarge:                     {Code: PlatformValueTooLarge, HTTPStatus: 413, Message: "写入值超过大小限制", Retryable: false, Surfaces: "http,websocket,plugin_protocol"},
+	PlatformValueTooLarge:                     {Code: PlatformValueTooLarge, HTTPStatus: 413, Message: "内容超过平台大小限制", Retryable: false, Surfaces: "http,websocket,plugin_protocol"},
 	PluginArtifactInvalid:                     {Code: PluginArtifactInvalid, HTTPStatus: 400, Message: "插件产物结构或入口校验失败", Retryable: false, Surfaces: "http,task,plugin_protocol"},
 	PluginCallChainRejected:                   {Code: PluginCallChainRejected, HTTPStatus: 0, Message: "不支持递归插件服务调用", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginContractUnsupported:                 {Code: PluginContractUnsupported, HTTPStatus: 409, Message: "插件合同版本不受支持", Retryable: false, Surfaces: "http,task,cli,plugin_protocol,backup,restore,update,readiness"},

@@ -57,7 +57,7 @@ func (m *Manager) DeliverEvent(ctx context.Context, event chatevent.Event) (deli
 		encoded, err := json.Marshal(frame)
 		if err != nil || len(encoded) > positiveInt(handle.Spec.IPCMessageMaxBytes, 8*1024*1024) {
 			m.removeEventSession(handle, requestID)
-			return plugins.Delivery{}, errorf("platform.value_too_large", "service request exceeds provider frame size", nil)
+			return plugins.Delivery{}, errorf(codePlatformValueTooLarge, "service request exceeds provider frame size", nil)
 		}
 	}
 	if err := ctx.Err(); err != nil {

@@ -23,19 +23,21 @@ const (
 )
 
 const (
-	codePlatformInvalidRequest  = errorcodes.PlatformInvalidRequest
-	codePlatformResourceMissing = errorcodes.PlatformResourceMissing
-	codePlatformRateLimited     = errorcodes.PlatformRateLimited
-	codePluginInitTimeout       = errorcodes.PluginInitTimeout
-	codePluginEventTimeout      = errorcodes.PluginEventTimeout
-	codePluginEventCanceled     = errorcodes.PluginEventCanceled
-	codePluginInternalError     = errorcodes.PluginInternalError
-	codePluginNotHandled        = errorcodes.PluginNotHandled
-	codePluginProtocolViolation = errorcodes.PluginProtocolViolation
-	codePluginShutdownTimeout   = errorcodes.PluginShutdownTimeout
-	codePluginStopping          = errorcodes.PluginStopping
-	codePluginArtifactInvalid   = errorcodes.PluginArtifactInvalid
-	codePluginPlatformMismatch  = errorcodes.PluginPlatformMismatch
+	codePlatformInvalidRequest   = errorcodes.PlatformInvalidRequest
+	codePlatformResourceMissing  = errorcodes.PlatformResourceMissing
+	codePlatformRateLimited      = errorcodes.PlatformRateLimited
+	codePlatformValueTooLarge    = errorcodes.PlatformValueTooLarge
+	codePluginInitTimeout        = errorcodes.PluginInitTimeout
+	codePluginEventTimeout       = errorcodes.PluginEventTimeout
+	codePluginEventCanceled      = errorcodes.PluginEventCanceled
+	codePluginInternalError      = errorcodes.PluginInternalError
+	codePluginNotHandled         = errorcodes.PluginNotHandled
+	codePluginProtocolViolation  = errorcodes.PluginProtocolViolation
+	codePluginShutdownTimeout    = errorcodes.PluginShutdownTimeout
+	codePluginStopping           = errorcodes.PluginStopping
+	codePluginServiceUnavailable = errorcodes.PluginServiceUnavailable
+	codePluginArtifactInvalid    = errorcodes.PluginArtifactInvalid
+	codePluginPlatformMismatch   = errorcodes.PluginPlatformMismatch
 )
 
 func errorf(code, message string, err error) *plugins.Error {

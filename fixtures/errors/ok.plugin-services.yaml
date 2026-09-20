@@ -17,5 +17,8 @@ input:
   - code: plugin.call_chain_rejected
     message: 通用服务错误示例
     applies_to: plugin_protocol
+  - code: platform.value_too_large
+    message: 通用服务错误示例
+    applies_to: plugin_protocol
 expect:
   valid: true
