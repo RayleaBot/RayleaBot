@@ -115,6 +115,12 @@ func (m *Manager) abortPendingLocked(runtimeErr *plugins.Error) {
 		}
 		session.completed = true
 		session.err = runtimeErr
+		if session.event.EventType == "plugin.request" {
+			// The caller must see a lost provider as an unavailable service. It
+			// cannot infer that from the runtime state, which is updated only
+			// after the exiting process has been reaped.
+			session.err = errorf(codePluginServiceUnavailable, "service provider stopped or changed runtime", runtimeErr)
+		}
 		m.releaseSessionActionsLocked(session)
 		session.cancel()
 		close(session.done)

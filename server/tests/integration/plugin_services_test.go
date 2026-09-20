@@ -333,3 +333,148 @@ func buildServiceExample(t *testing.T, name string) pluginruntime.Spec {
 	}
 	return pluginruntime.Spec{PluginID: manifest.ID, Command: binary, WorkDir: directory, Services: manifest.Services, InitTimeout: 5 * time.Second, EventTimeout: 5 * time.Second, ShutdownGrace: time.Second, EffectiveConcurrency: 1, IPCMessageMaxBytes: 8 * 1024 * 1024, ValidateFrames: true}
 }
+
+// Each scenario owns its plugin instances, so an abandoned wait in one does not
+// occupy a provider used by another.
+func TestPluginServiceLifecycleEdges(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	var registry *pluginruntime.Registry
+	waiting := make(chan string, 8)
+	actions := localaction.New(localaction.Deps{CallService: func(ctx context.Context, caller string, request plugins.ServiceCall, origin chatevent.Event) (map[string]any, error) {
+		return registry.CallService(ctx, caller, request, origin)
+	}})
+	execute := func(ctx context.Context, pluginID, requestID string, action plugins.Action, origin chatevent.Event) (map[string]any, error) {
+		if action.Kind != "storage.kv" {
+			return actions.Execute(ctx, pluginID, requestID, action, origin)
+		}
+		if action.StorageKey == "waiting" {
+			select {
+			case waiting <- pluginID:
+			default:
+			}
+		}
+		return map[string]any{}, nil
+	}
+	registry = pluginruntime.NewRegistry(logger, pluginruntime.Options{ExecuteLocalAction: execute})
+	providerSpec := buildServiceExample(t, "example-service-provider")
+	consumerSpec := buildServiceExample(t, "example-service-consumer")
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := registry.StopAll(ctx); err != nil {
+			t.Errorf("stop service runtimes: %v", err)
+		}
+	})
+	start := func(t *testing.T, spec pluginruntime.Spec, provider string) *pluginruntime.Manager {
+		t.Helper()
+		manager := registry.GetOrCreate(spec.PluginID)
+		if err := manager.Start(t.Context(), spec, pluginruntime.InitPayload{Timezone: "UTC", CommandPrefixes: []string{"/"}, Config: map[string]any{"provider": provider}}); err != nil {
+			t.Fatal(err)
+		}
+		return manager
+	}
+	origin := chatevent.Event{EventID: "fixture-origin", EventType: "management.action", SourceProtocol: "platform", SourceAdapter: "management.internal", BotID: "fixture-bot", Timestamp: time.Now().UnixMilli(), Actor: &chatevent.Actor{ID: "fixture-user"}}
+	waitCall := func(target string) plugins.ServiceCall {
+		return plugins.ServiceCall{TargetPluginID: target, Service: "resource", ServiceVersion: 1, Method: "wait", Params: map[string]any{}}
+	}
+	awaitWaiting := func(t *testing.T, pluginID string) {
+		t.Helper()
+		select {
+		case started := <-waiting:
+			if started != pluginID {
+				t.Fatalf("wait handler started in %s, want %s", started, pluginID)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("wait handler did not start")
+		}
+	}
+	assertCode := func(t *testing.T, err error, code string) *plugins.Error {
+		t.Helper()
+		var failure *plugins.Error
+		if !errors.As(err, &failure) || failure.Code != code {
+			t.Fatalf("expected %s, got %v", code, err)
+		}
+		return failure
+	}
+
+	t.Run("provider pending limit rejects further calls", func(t *testing.T) {
+		spec := providerSpec
+		spec.PluginID = "limit-provider"
+		manager := start(t, spec, "")
+		ctx, cancel := context.WithCancel(t.Context())
+		var calls sync.WaitGroup
+		for range 64 {
+			calls.Go(func() { _, _ = registry.CallService(ctx, "limit-caller", waitCall(spec.PluginID), origin) })
+		}
+		awaitWaiting(t, spec.PluginID)
+		// One handler runs; the rest queue inside the provider but are already
+		// pending on the host, which is what the limit counts.
+		time.Sleep(500 * time.Millisecond)
+		probe, stop := context.WithTimeout(t.Context(), time.Second)
+		_, err := registry.CallService(probe, "limit-caller", waitCall(spec.PluginID), origin)
+		stop()
+		if failure := assertCode(t, err, "platform.rate_limited"); failure.Details["limit"] != 64 {
+			t.Fatalf("limit details = %#v", failure.Details)
+		}
+		cancel()
+		calls.Wait()
+		if manager.Snapshot().State != pluginruntime.StateRunning {
+			t.Fatalf("provider state = %s", manager.Snapshot().State)
+		}
+	})
+	t.Run("provider crash fails the in-flight call", func(t *testing.T) {
+		spec := providerSpec
+		spec.PluginID = "crash-provider"
+		manager := start(t, spec, "")
+		finished := make(chan error, 1)
+		go func() {
+			_, err := registry.CallService(t.Context(), "crash-caller", waitCall(spec.PluginID), origin)
+			finished <- err
+		}()
+		awaitWaiting(t, spec.PluginID)
+		process, err := os.FindProcess(manager.Snapshot().PID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := process.Kill(); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case err := <-finished:
+			assertCode(t, err, "plugin.service_unavailable")
+		case <-time.After(3 * time.Second):
+			t.Fatal("call did not settle after the provider exited")
+		}
+	})
+	t.Run("stopping the caller settles its outgoing call", func(t *testing.T) {
+		target := providerSpec
+		target.PluginID = "stop-provider"
+		target.EventTimeout = time.Second
+		targetManager := start(t, target, "")
+		caller := consumerSpec
+		caller.PluginID = "stop-consumer"
+		callerManager := start(t, caller, target.PluginID)
+		finished := make(chan error, 1)
+		go func() {
+			event := origin
+			event.PayloadFields = map[string]any{"action": "query", "payload": map[string]any{"method": "wait", "params": map[string]any{"id": "fixture-item"}}}
+			_, err := callerManager.DeliverEvent(t.Context(), event)
+			finished <- err
+		}()
+		awaitWaiting(t, target.PluginID)
+		stopCtx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+		defer cancel()
+		if err := callerManager.Stop(stopCtx); err != nil {
+			t.Fatalf("caller did not stop while its service call was outstanding: %v", err)
+		}
+		select {
+		case err := <-finished:
+			assertCode(t, err, "plugin.event_canceled")
+		case <-time.After(time.Second):
+			t.Fatal("caller event did not settle")
+		}
+		if targetManager.Snapshot().State != pluginruntime.StateRunning {
+			t.Fatalf("provider state = %s", targetManager.Snapshot().State)
+		}
+	})
+}
