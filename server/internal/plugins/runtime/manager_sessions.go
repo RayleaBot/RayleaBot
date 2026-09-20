@@ -7,7 +7,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 const expiredEventRetention = 5 * time.Minute
@@ -232,16 +231,13 @@ func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, mess
 		ErrorMessage: runtimeErr.Message,
 		ErrorDetails: cloneDetails(runtimeErr.Details),
 	}
-	// Write after releasing the manager lock so cancellation does not depend on
-	// the provider's normal event concurrency.
-	notify := false
+	// Settle the caller's outstanding service calls after releasing the manager
+	// lock. A timed-out plugin.request is not announced to its provider, which
+	// stops at deadline_at_ms; its late terminal frame matches an expired event.
 	var canceledCalls []string
 	defer func() {
 		for _, requestID := range canceledCalls {
 			_ = handle.WriteJSONLine(localErrorFrame(requestID, code, message, nil))
-		}
-		if notify {
-			_ = handle.WriteJSONLine(pluginwire.CancelFrame{Type: "cancel", RequestID: session.requestID})
 		}
 	}()
 
@@ -264,7 +260,6 @@ func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, mess
 	}
 	m.completeEventLocked(session, delivery, runtimeErr)
 	m.markEventExpiredLocked(session.requestID)
-	notify = session.event.EventType == "plugin.request"
 	return delivery, runtimeErr
 }
 

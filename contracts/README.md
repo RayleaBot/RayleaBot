@@ -73,7 +73,7 @@
   - 当前固定 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
   - `error` 帧由插件终态失败与平台 local action 失败共用，固定包含 `code`、`message`，可选 `details`
   - 只有 init 携带协议版本和插件身份；后续帧使用最小 envelope
-  - `plugin.call` 定向调用已运行插件的静态服务，提供者接收 `plugin.request` 并使用自己的事件上下文；`cancel` 只取消关联服务调用，首版禁止自调用和嵌套服务调用
+  - `plugin.call` 定向调用已运行插件的静态服务，提供者接收 `plugin.request` 并使用自己的事件上下文；没有取消帧，调用方放弃后提供者处理到 `deadline_at_ms`，迟到终态被忽略；首版禁止自调用和嵌套服务调用
   - `message.send` 统一发送与回复；非终态动作通过独立 `request_id` 和当前事件 `parent_request_id` 关联
   - `init.bots` 提供按适配器实例区分的身份列表；`bot.identities.changed` 通过 `payload.bots` 替换整个列表
   - 未知或已停用实例不出现在身份列表中；空列表清除旧身份。身份包含 `source_adapter`、`source_protocol`、`id`，不跨实例合并。连接可用性仍由 adapter 动作的正式结果表达

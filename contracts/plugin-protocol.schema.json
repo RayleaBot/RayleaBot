@@ -33,9 +33,6 @@
     },
     {
       "$ref": "#/$defs/shutdown"
-    },
-    {
-      "$ref": "#/$defs/cancel"
     }
   ],
   "$defs": {
@@ -3129,27 +3126,6 @@
           "$ref": "#/$defs/service_origin"
         }
       }
-    },
-    "cancel": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/common"
-        },
-        {
-          "type": "object",
-          "required": [
-            "type"
-          ],
-          "properties": {
-            "type": {
-              "const": "cancel"
-            },
-            "parent_request_id": {"type": "string", "minLength": 1}
-          }
-        }
-      ],
-      "unevaluatedProperties": false,
-      "description": "One-way cancellation for service calls only. plugin->platform must include parent_request_id for the owning event and request_id for its pending plugin.call action; platform->plugin uses request_id for a pending plugin.request event without a parent. No acknowledgement. Unknown or completed IDs are ignored. Ordinary events/actions are not canceled by this frame."
     }
   },
   "x-message-catalog": [
@@ -3245,16 +3221,6 @@
         "request_id",
         "reason"
       ]
-    },
-    {
-      "type": "cancel",
-      "direction": "bidirectional",
-      "request_id_policy": "required_same_as_request",
-      "required_fields": [
-        "type",
-        "request_id"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.plugin-call-cancel.yaml"
     }
   ],
   "x-fixtures": [
@@ -3262,7 +3228,6 @@
     "fixtures/plugin-protocol/invalid.plugin-call-without-parent.json",
     "fixtures/plugin-protocol/invalid.plugin-request-without-metadata.json",
     "fixtures/plugin-protocol/invalid.service-metadata-on-message.json",
-    "fixtures/plugin-protocol/ok.plugin-call-cancel.yaml",
     "fixtures/plugin-protocol/ok.init.yaml",
     "fixtures/plugin-protocol/ok.config-changed.yaml",
     "fixtures/plugin-protocol/edge.config-changed-empty.yaml",
@@ -3339,7 +3304,7 @@
       "max_call_seconds": 30
     },
     "deadline": "The minimum of 30 seconds, caller event deadline and target event timeout. Queueing consumes the same deadline.",
-    "cancellation": "cancel retires the caller action and cancels the target event; SDK cancels queued/running service handlers without blocking its reader. No automatic replay; started side effects cannot be rolled back.",
+    "abandonment": "There is no cancel frame. When the caller event ends, times out or the caller stops, the host fails the pending plugin.call and stops waiting. The provider keeps its plugin.request until deadline_at_ms; the host ignores its late terminal frame. No automatic replay; started side effects cannot be rolled back.",
     "caller": "Host derives caller_plugin_id and origin from the owning runtime/event. Provider owns business authorization.",
     "business_errors": "A provider error is forwarded as an error frame with its original code/message/details; normal plugin protocol code syntax applies. Host does not interpret business-specific data.",
     "logging": "Routing logs exclude params, result bodies and provider error details."

@@ -174,18 +174,34 @@ func TestPluginServicesAcrossNativeSDKProcesses(t *testing.T) {
 			t.Fatalf("oversized call damaged provider: %v", err)
 		}
 	})
-	t.Run("SDK cancellation releases provider concurrency", func(t *testing.T) {
-		_, err := invoke(t.Context(), "wait", 200)
-		assertCode(t, err, "plugin.event_canceled")
+	t.Run("abandoned call occupies the provider until its deadline", func(t *testing.T) {
+		// The host sends no cancellation. A dedicated pair with a short provider
+		// timeout keeps the shared provider free for the following scenarios.
+		target := providerSpec
+		target.PluginID = "deadline-provider"
+		target.EventTimeout = time.Second
+		targetManager := start(target)
+		caller := consumerSpec
+		caller.PluginID = "deadline-consumer"
+		callerManager := registry.GetOrCreate(caller.PluginID)
+		if err := callerManager.Start(t.Context(), caller, pluginruntime.InitPayload{Timezone: "UTC", CommandPrefixes: []string{"/"}, Config: map[string]any{"provider": target.PluginID}}); err != nil {
+			t.Fatal(err)
+		}
+		call := func(method string, timeoutMS int) error {
+			event := origin
+			event.PayloadFields = map[string]any{"action": "query", "payload": map[string]any{"method": method, "timeout_ms": timeoutMS, "params": map[string]any{"id": "fixture-item"}}}
+			_, err := callerManager.DeliverEvent(t.Context(), event)
+			return err
+		}
+		assertCode(t, call("wait", 200), "plugin.event_canceled")
 		select {
 		case <-waiting:
 		case <-time.After(time.Second):
 			t.Fatal("wait handler did not start")
 		}
-		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-		defer cancel()
-		if _, err := invoke(ctx, "query", 0); err != nil {
-			t.Fatalf("canceled call retained provider slot: %v", err)
+		time.Sleep(target.EventTimeout)
+		if err := call("query", 0); err != nil || targetManager.Snapshot().State != pluginruntime.StateRunning {
+			t.Fatalf("provider did not recover after the abandoned call's deadline: state=%s err=%v", targetManager.Snapshot().State, err)
 		}
 	})
 	t.Run("parent deadline releases caller and provider", func(t *testing.T) {

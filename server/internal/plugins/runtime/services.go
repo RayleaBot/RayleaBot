@@ -139,9 +139,9 @@ func decodeServiceObject(raw []byte) (map[string]any, error) {
 
 // Stop retains the existing drain policy for ordinary events, while retiring
 // incoming services and canceling outgoing calls before waiting for that drain.
-// The caller holds m.mu; cancellation frames are written after releasing it.
-func (m *Manager) retireServiceCallsLocked() []string {
-	var requests []string
+// The caller holds m.mu. The stopping provider is not told about retired
+// requests; its late terminal frames match expired events and are ignored.
+func (m *Manager) retireServiceCallsLocked() {
 	for _, session := range m.pendingEvents {
 		for _, cancel := range session.serviceCancels {
 			cancel()
@@ -152,7 +152,5 @@ func (m *Manager) retireServiceCallsLocked() []string {
 		failure := errorf(errorcodes.PluginServiceUnavailable, "service provider is stopping", nil)
 		m.completeEventLocked(session, plugins.Delivery{RequestID: session.requestID, ErrorCode: failure.Code, ErrorMessage: failure.Message}, failure)
 		m.markEventExpiredLocked(session.requestID)
-		requests = append(requests, session.requestID)
 	}
-	return requests
 }

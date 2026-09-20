@@ -274,19 +274,6 @@ func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRe
 	if m.proc != handle {
 		return nil, nil
 	}
-	if frame.Type == "cancel" {
-		parentID := strings.TrimSpace(frame.ParentRequestID)
-		if parentID == "" {
-			return nil, errorf(codePluginProtocolViolation, "service cancellation requires parent_request_id", nil)
-		}
-		if session := m.pendingEvents[parentID]; session != nil {
-			if cancel := session.serviceCancels[frame.RequestID]; cancel != nil {
-				cancel()
-			}
-		}
-		return nil, nil
-	}
-
 	if ping := m.pendingPings[frame.RequestID]; ping != nil {
 		if frame.Type != "pong" {
 			return nil, errorf(codePluginProtocolViolation, "plugin returned unexpected frame type in response to ping", nil)

@@ -38,8 +38,6 @@ type runtimeState struct {
 	commandPrefixes []string
 	config          atomic.Pointer[configSnapshot]
 	services        map[serviceMethod]ServiceHandler
-	serviceMu       sync.Mutex
-	serviceCancels  map[string]context.CancelFunc
 }
 
 type configSnapshot struct {
@@ -102,13 +100,12 @@ func Run(ctx context.Context, options Options, handler Handler) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	state := &runtimeState{
-		client:         newRuntimeClient(out, actionTimeout),
-		handler:        handler,
-		logger:         logger,
-		shutdownGrace:  shutdownGrace,
-		cancel:         cancel,
-		services:       services,
-		serviceCancels: make(map[string]context.CancelFunc),
+		client:        newRuntimeClient(out, actionTimeout),
+		handler:       handler,
+		logger:        logger,
+		shutdownGrace: shutdownGrace,
+		cancel:        cancel,
+		services:      services,
 	}
 	state.config.Store(&configSnapshot{values: map[string]any{}})
 	defer state.client.rejectPending(context.Canceled)
@@ -187,11 +184,6 @@ func (state *runtimeState) run(ctx context.Context, in io.Reader) error {
 			}); err != nil {
 				return err
 			}
-		case "cancel":
-			if !initialized {
-				return protocolError("received cancel before init")
-			}
-			state.cancelService(frame.RequestID)
 		case "shutdown":
 			state.cancel()
 			state.client.rejectPending(errors.New("received shutdown"))
@@ -296,12 +288,11 @@ func (state *runtimeState) applyControlEvent(event Event) error {
 func (state *runtimeState) startEvent(ctx context.Context, requestID string, event Event) {
 	handler := state.handler.Handle
 	serviceEvent := event.EventType == "plugin.request" && event.ServiceRequest != nil
+	// A service request runs until its host-assigned deadline. The host sends no
+	// cancellation, so a handler should return as soon as its context ends.
+	stopService := func() {}
 	if serviceEvent {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithDeadline(ctx, time.UnixMilli(event.ServiceRequest.DeadlineAtMs))
-		state.serviceMu.Lock()
-		state.serviceCancels[requestID] = cancel
-		state.serviceMu.Unlock()
+		ctx, stopService = context.WithDeadline(ctx, time.UnixMilli(event.ServiceRequest.DeadlineAtMs))
 		handler = state.handleService
 	}
 	if event.Session != nil {
@@ -319,16 +310,7 @@ func (state *runtimeState) startEvent(ctx context.Context, requestID string, eve
 	state.handlers.Add(1)
 	go func() {
 		defer state.handlers.Done()
-		if serviceEvent {
-			defer func() {
-				state.serviceMu.Lock()
-				if cancel := state.serviceCancels[requestID]; cancel != nil {
-					cancel()
-					delete(state.serviceCancels, requestID)
-				}
-				state.serviceMu.Unlock()
-			}()
-		}
+		defer stopService()
 		select {
 		case state.semaphore <- struct{}{}:
 			defer func() { <-state.semaphore }()

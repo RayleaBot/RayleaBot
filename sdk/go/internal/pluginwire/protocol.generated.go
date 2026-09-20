@@ -215,12 +215,6 @@ type ShutdownFrame struct {
 	Reason    string `json:"reason"`
 }
 
-type CancelFrame struct {
-	Type            string `json:"type"`
-	RequestID       string `json:"request_id"`
-	ParentRequestID string `json:"parent_request_id,omitempty"`
-}
-
 type ErrorFrame struct {
 	Type      string         `json:"type"`
 	RequestID string         `json:"request_id"`
@@ -669,21 +663,6 @@ func (frame Frame) MarshalJSON() ([]byte, error) {
 			}
 			object["reason"] = value
 		}
-		if _, present := object["request_id"]; !present {
-			value, err := json.Marshal(frame.RequestID)
-			if err != nil {
-				return nil, err
-			}
-			object["request_id"] = value
-		}
-		if _, present := object["type"]; !present {
-			value, err := json.Marshal(frame.Type)
-			if err != nil {
-				return nil, err
-			}
-			object["type"] = value
-		}
-	case "cancel":
 		if _, present := object["request_id"]; !present {
 			value, err := json.Marshal(frame.RequestID)
 			if err != nil {

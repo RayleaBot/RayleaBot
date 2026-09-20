@@ -111,9 +111,6 @@ func (actions *Actions) Call(ctx context.Context, action string, input any, outp
 		}
 		return nil
 	case <-waitCtx.Done():
-		if action == "plugin.call" {
-			_ = client.writer.write(protocolFrame{Type: "cancel", RequestID: requestID, ParentRequestID: actions.event.RequestID})
-		}
 		// The host may still execute the action. Keep its response association
 		// until it settles or the event's bounded terminal drain retires it.
 		return fmt.Errorf("rayleabot: %s action: %w", action, waitCtx.Err())

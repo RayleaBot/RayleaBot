@@ -9,7 +9,9 @@ import (
 	"time"
 )
 
-func TestServiceCancellationRemovesQueuedHandlerWithoutBlockingReader(t *testing.T) {
+// The host never cancels a service request; a request still queued behind the
+// concurrency limit when its deadline passes must not run afterwards.
+func TestServiceDeadlineRetiresQueuedHandlerWithoutBlockingReader(t *testing.T) {
 	in, send := io.Pipe()
 	receive, out := io.Pipe()
 	t.Cleanup(func() { _ = send.Close(); _ = in.Close(); _ = out.Close(); _ = receive.Close() })
@@ -72,11 +74,11 @@ func TestServiceCancellationRemovesQueuedHandlerWithoutBlockingReader(t *testing
 	}
 	write(map[string]any{"type": "event", "request_id": "queued", "event": map[string]any{
 		"event_id": "queued", "event_type": "plugin.request", "source_protocol": "platform", "source_adapter": "plugins.internal", "timestamp": 1,
-		"payload": map[string]any{"service_request": ServiceRequest{CallerPluginID: "consumer", Service: "resource", ServiceVersion: 1, Method: "query", Params: map[string]any{}, DeadlineAtMs: time.Now().Add(time.Minute).UnixMilli()}},
+		"payload": map[string]any{"service_request": ServiceRequest{CallerPluginID: "consumer", Service: "resource", ServiceVersion: 1, Method: "query", Params: map[string]any{}, DeadlineAtMs: time.Now().Add(50 * time.Millisecond).UnixMilli()}},
 	}})
-	write(map[string]any{"type": "cancel", "request_id": "queued"})
 	write(map[string]any{"type": "ping", "request_id": "barrier"})
 	read("pong", "barrier")
+	time.Sleep(100 * time.Millisecond)
 	close(release)
 	read("result", "ordinary")
 	write(map[string]any{"type": "shutdown", "request_id": "stop", "reason": "test"})
@@ -89,7 +91,7 @@ func TestServiceCancellationRemovesQueuedHandlerWithoutBlockingReader(t *testing
 		t.Fatal("runtime did not settle handlers")
 	}
 	if calls.Load() != 0 {
-		t.Fatal("canceled queued service handler ran")
+		t.Fatal("expired queued service handler ran")
 	}
 }
 

@@ -61,24 +61,8 @@ func (m *Manager) Stop(ctx context.Context) error {
 		}
 	}
 	m.snap.State = StateStopping
-	serviceRequests := m.retireServiceCallsLocked()
+	m.retireServiceCallsLocked()
 	m.mu.Unlock()
-
-	if len(serviceRequests) > 0 {
-		writeCtx, cancelWrite := context.WithTimeout(ctx, max(handle.Spec.ShutdownGrace, time.Second))
-		stopWrite := context.AfterFunc(writeCtx, func() { _ = handle.Stdin.Close() })
-		for _, id := range serviceRequests {
-			if err := handle.WriteJSONLine(pluginwire.CancelFrame{Type: "cancel", RequestID: id}); err != nil {
-				break
-			}
-		}
-		stopWrite()
-		writeErr := writeCtx.Err()
-		cancelWrite()
-		if writeErr != nil {
-			return m.failRuntime(handle, codePluginShutdownTimeout, "plugin service cancellation timed out", writeErr)
-		}
-	}
 
 	for {
 		m.mu.RLock()

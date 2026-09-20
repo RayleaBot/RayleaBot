@@ -90,14 +90,6 @@ func (state *runtimeState) handleService(ctx context.Context, event *EventContex
 	return event.Result(result)
 }
 
-func (state *runtimeState) cancelService(requestID string) {
-	state.serviceMu.Lock()
-	defer state.serviceMu.Unlock()
-	if cancel := state.serviceCancels[requestID]; cancel != nil {
-		cancel()
-	}
-}
-
 func (event *EventContext) FailDetails(code, message string, details map[string]any) error {
 	return event.writeTerminal(protocolFrame{Type: "error", RequestID: event.RequestID, Code: code, Message: message, Details: details})
 }
