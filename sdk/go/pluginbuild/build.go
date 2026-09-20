@@ -57,12 +57,13 @@ type Result struct {
 }
 
 type Manifest struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Version         string `json:"version"`
-	ManifestVersion string `json:"manifest_version"`
-	MinCoreVersion  string `json:"min_core_version"`
-	License         string `json:"license"`
+	ID              string            `json:"id"`
+	Name            string            `json:"name"`
+	Version         string            `json:"version"`
+	ManifestVersion string            `json:"manifest_version"`
+	MinCoreVersion  string            `json:"min_core_version"`
+	License         string            `json:"license"`
+	Services        []ManifestService `json:"services,omitempty"`
 	ManagementUI    *struct {
 		Entry string `json:"entry"`
 		Pages []struct {
@@ -70,6 +71,12 @@ type Manifest struct {
 			Label string `json:"label"`
 		} `json:"pages"`
 	} `json:"management_ui,omitempty"`
+}
+
+type ManifestService struct {
+	Name    string   `json:"name"`
+	Version int      `json:"version"`
+	Methods []string `json:"methods"`
 }
 
 type Artifact struct {
@@ -260,6 +267,8 @@ func finalizeArtifact(root, staging, outputDir string, manifest Manifest, entry,
 // coreVersionBeforeManifestV4 matches min_core_version values older than the
 // first core that accepts manifest v4, including 0.7.0 prereleases.
 var coreVersionBeforeManifestV4 = regexp.MustCompile(`^0\.([0-6]\.|7\.0-)`)
+var coreVersionBeforeServices = regexp.MustCompile(`^0\.7\.(0($|-|\+)|1-)`)
+var serviceIdentifier = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,63}$`)
 
 func validateManifest(manifest Manifest, platform string) error {
 	if manifest.ID == "" || manifest.Name == "" || manifest.Version == "" || manifest.MinCoreVersion == "" || manifest.License == "" {
@@ -271,11 +280,43 @@ func validateManifest(manifest Manifest, platform string) error {
 	if coreVersionBeforeManifestV4.MatchString(manifest.MinCoreVersion) {
 		return fmt.Errorf("pluginbuild: manifest_version %s requires min_core_version 0.7.0 or later", ManifestVersion)
 	}
+	if len(manifest.Services) > 0 && coreVersionBeforeServices.MatchString(manifest.MinCoreVersion) {
+		return errors.New("pluginbuild: services require min_core_version 0.7.1 or later")
+	}
+	if err := validateServices(manifest.Services); err != nil {
+		return err
+	}
 	if strings.TrimSpace(platform) == "" {
 		return nil
 	}
 	_, err := resolveTarget(platform)
 	return err
+}
+
+func validateServices(services []ManifestService) error {
+	if len(services) > 32 {
+		return errors.New("pluginbuild: too many service declarations")
+	}
+	type identity struct {
+		name    string
+		version int
+	}
+	seen := map[identity]bool{}
+	for _, service := range services {
+		key := identity{service.Name, service.Version}
+		if !serviceIdentifier.MatchString(service.Name) || service.Version < 1 || int64(service.Version) > 2147483647 || len(service.Methods) < 1 || len(service.Methods) > 64 || seen[key] {
+			return errors.New("pluginbuild: invalid or duplicate service declaration")
+		}
+		seen[key] = true
+		methods := map[string]bool{}
+		for _, method := range service.Methods {
+			if !serviceIdentifier.MatchString(method) || methods[method] {
+				return errors.New("pluginbuild: invalid or duplicate service method")
+			}
+			methods[method] = true
+		}
+	}
+	return nil
 }
 
 func resolveTarget(platform string) (target, error) {

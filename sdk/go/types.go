@@ -19,6 +19,7 @@ type Options struct {
 	Logger        *slog.Logger
 	ActionTimeout time.Duration
 	ShutdownGrace time.Duration
+	Services      []Service
 }
 
 type Handler interface {
@@ -55,6 +56,7 @@ type Event struct {
 	Webhook        *Webhook
 	Payload        map[string]any
 	Session        *SessionRef
+	ServiceRequest *ServiceRequest
 	Raw            json.RawMessage
 }
 

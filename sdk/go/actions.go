@@ -1,6 +1,7 @@
 package rayleabot
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -97,11 +98,22 @@ func (actions *Actions) Call(ctx context.Context, action string, input any, outp
 		if output == nil || len(frame.Data) == 0 || string(frame.Data) == "null" {
 			return nil
 		}
+		if action == "plugin.call" {
+			decoder := json.NewDecoder(bytes.NewReader(frame.Data))
+			decoder.UseNumber()
+			if err := decoder.Decode(output); err != nil {
+				return fmt.Errorf("rayleabot: decode service response: %w", err)
+			}
+			return nil
+		}
 		if err := json.Unmarshal(frame.Data, output); err != nil {
 			return fmt.Errorf("rayleabot: decode %s action response: %w", action, err)
 		}
 		return nil
 	case <-waitCtx.Done():
+		if action == "plugin.call" {
+			_ = client.writer.write(protocolFrame{Type: "cancel", RequestID: requestID, ParentRequestID: actions.event.RequestID})
+		}
 		// The host may still execute the action. Keep its response association
 		// until it settles or the event's bounded terminal drain retires it.
 		return fmt.Errorf("rayleabot: %s action: %w", action, waitCtx.Err())

@@ -2,6 +2,7 @@ package rayleabot
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -36,6 +37,9 @@ type runtimeState struct {
 	superAdmins     []string
 	commandPrefixes []string
 	config          atomic.Pointer[configSnapshot]
+	services        map[serviceMethod]ServiceHandler
+	serviceMu       sync.Mutex
+	serviceCancels  map[string]context.CancelFunc
 }
 
 type configSnapshot struct {
@@ -61,8 +65,15 @@ type EventContext struct {
 }
 
 func Run(ctx context.Context, options Options, handler Handler) error {
-	if handler == nil {
+	services, err := compileServices(options.Services)
+	if err != nil {
+		return err
+	}
+	if handler == nil && len(services) == 0 {
 		return errors.New("rayleabot: handler is required")
+	}
+	if handler == nil {
+		handler = HandlerFunc(func(context.Context, *EventContext) error { return nil })
 	}
 	in := options.Stdin
 	if in == nil {
@@ -91,11 +102,13 @@ func Run(ctx context.Context, options Options, handler Handler) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	state := &runtimeState{
-		client:        newRuntimeClient(out, actionTimeout),
-		handler:       handler,
-		logger:        logger,
-		shutdownGrace: shutdownGrace,
-		cancel:        cancel,
+		client:         newRuntimeClient(out, actionTimeout),
+		handler:        handler,
+		logger:         logger,
+		shutdownGrace:  shutdownGrace,
+		cancel:         cancel,
+		services:       services,
+		serviceCancels: make(map[string]context.CancelFunc),
 	}
 	state.config.Store(&configSnapshot{values: map[string]any{}})
 	defer state.client.rejectPending(context.Canceled)
@@ -174,6 +187,11 @@ func (state *runtimeState) run(ctx context.Context, in io.Reader) error {
 			}); err != nil {
 				return err
 			}
+		case "cancel":
+			if !initialized {
+				return protocolError("received cancel before init")
+			}
+			state.cancelService(frame.RequestID)
 		case "shutdown":
 			state.cancel()
 			state.client.rejectPending(errors.New("received shutdown"))
@@ -217,6 +235,13 @@ func (state *runtimeState) decodeEvent(frame protocolFrame) (Event, error) {
 	if err := json.Unmarshal(frame.Event, &wire); err != nil {
 		return Event{}, protocolError("invalid event payload")
 	}
+	if wire.EventType == "plugin.request" {
+		decoder := json.NewDecoder(bytes.NewReader(frame.Event))
+		decoder.UseNumber()
+		if err := decoder.Decode(&wire); err != nil {
+			return Event{}, protocolError("invalid service event payload")
+		}
+	}
 	event := Event{EventID: wire.EventID, SourceProtocol: wire.SourceProtocol, SourceAdapter: wire.SourceAdapter, EventType: wire.EventType, Timestamp: wire.Timestamp, Webhook: wire.Webhook, Raw: append(json.RawMessage(nil), frame.Event...)}
 	if wire.Actor != nil {
 		event.Actor = *wire.Actor
@@ -234,6 +259,15 @@ func (state *runtimeState) decodeEvent(frame protocolFrame) (Event, error) {
 		return Event{}, protocolError("invalid event payload")
 	}
 	event.Payload = application.Payload
+	if wire.Payload != nil {
+		event.ServiceRequest = wire.Payload.ServiceRequest
+	}
+	if event.EventType == "plugin.request" {
+		request := event.ServiceRequest
+		if request == nil || request.Params == nil || request.CallerPluginID == "" || request.DeadlineAtMs <= 0 {
+			return Event{}, protocolError("invalid service request metadata")
+		}
+	}
 	if wire.Payload != nil && wire.Payload.Session != nil {
 		ref := wire.Payload.Session
 		event.Session = &SessionRef{SessionID: ref.SessionID, Scope: ref.Scope, ExpiresAtMS: ref.ExpiresAtMs}
@@ -261,6 +295,15 @@ func (state *runtimeState) applyControlEvent(event Event) error {
 
 func (state *runtimeState) startEvent(ctx context.Context, requestID string, event Event) {
 	handler := state.handler.Handle
+	serviceEvent := event.EventType == "plugin.request" && event.ServiceRequest != nil
+	if serviceEvent {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, time.UnixMilli(event.ServiceRequest.DeadlineAtMs))
+		state.serviceMu.Lock()
+		state.serviceCancels[requestID] = cancel
+		state.serviceMu.Unlock()
+		handler = state.handleService
+	}
 	if event.Session != nil {
 		if event.EventType == "session.expired" {
 			state.client.callbacks.forget(event.Session.SessionID)
@@ -276,6 +319,16 @@ func (state *runtimeState) startEvent(ctx context.Context, requestID string, eve
 	state.handlers.Add(1)
 	go func() {
 		defer state.handlers.Done()
+		if serviceEvent {
+			defer func() {
+				state.serviceMu.Lock()
+				if cancel := state.serviceCancels[requestID]; cancel != nil {
+					cancel()
+					delete(state.serviceCancels, requestID)
+				}
+				state.serviceMu.Unlock()
+			}()
+		}
 		select {
 		case state.semaphore <- struct{}{}:
 			defer func() { <-state.semaphore }()
@@ -287,8 +340,17 @@ func (state *runtimeState) startEvent(ctx context.Context, requestID string, eve
 		}
 		eventContext := state.newEventContext(requestID, event)
 		defer func() {
+			if serviceEvent && ctx.Err() != nil {
+				state.client.retireEvent(eventContext)
+			}
+		}()
+		defer func() {
 			if recovered := recover(); recovered != nil {
-				state.logger.Error("plugin event handler panic", "request_id", requestID, "panic", redact(fmt.Sprint(recovered)), "stack", string(debug.Stack()))
+				if serviceEvent {
+					state.logger.Error("plugin service handler panic", "request_id", requestID)
+				} else {
+					state.logger.Error("plugin event handler panic", "request_id", requestID, "panic", redact(fmt.Sprint(recovered)), "stack", string(debug.Stack()))
+				}
 				if !eventContext.terminal.Load() {
 					_ = eventContext.Fail("plugin.internal_error", "plugin event handler panicked")
 				}
