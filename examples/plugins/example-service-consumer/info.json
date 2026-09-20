@@ -1,0 +1,19 @@
+{
+  "id": "example-service-consumer",
+  "name": "通用服务调用者示例",
+  "version": "1.0.0",
+  "manifest_version": "4",
+  "min_core_version": "0.7.1",
+  "license": "AGPL-3.0-only",
+  "services": [{"name": "resource", "version": 1, "methods": ["query"]}],
+  "default_config": {"provider": "example-service-provider"},
+  "commands": [
+    {
+      "id": "service_demo",
+      "name": "服务调用示例",
+      "description": "调用另一个插件公开的 resource 服务",
+      "usage": "服务调用示例",
+      "trigger": {"type": "exact", "names": ["服务调用示例"]}
+    }
+  ]
+}

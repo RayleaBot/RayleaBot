@@ -11,6 +11,8 @@ use (
 	./examples/plugins/example-plugin-list
 	./examples/plugins/example-render-card
 	./examples/plugins/example-scheduler
+	./examples/plugins/example-service-provider
+	./examples/plugins/example-service-consumer
 	./examples/plugins/example-webhook
 	./examples/plugins/hello-go
 	./examples/plugins/notice-logger
