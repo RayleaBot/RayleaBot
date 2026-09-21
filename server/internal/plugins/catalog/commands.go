@@ -65,7 +65,7 @@ func ProjectCommandPrefixes(snapshot plugins.Snapshot, settings map[string]any) 
 	if tokens, hasSetting := commandTokensFromSetting(settings, declared.SettingsKey); hasSetting && (len(tokens) > 0 || declared.AcceptGlobal) {
 		dedicated = tokens
 	}
-	return plugins.CommandPrefixes{Dedicated: plugins.SortCommandPrefixes(dedicated), IgnoreGlobal: !declared.AcceptGlobal}
+	return plugins.CommandPrefixes{Dedicated: dedicated, IgnoreGlobal: !declared.AcceptGlobal}
 }
 
 func validCommandPattern(pattern string) bool {

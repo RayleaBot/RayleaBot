@@ -97,8 +97,10 @@ func HasDedicatedMatch(matches []CommandMatch) bool {
 }
 
 func matchPluginCommand(entry CommandEntry, text, globalPrefix, afterGlobal string) (CommandMatch, bool) {
-	// A dedicated prefix may stand alone or follow the global prefix.
-	for _, prefix := range entry.Prefixes.Dedicated {
+	// A dedicated prefix may stand alone or follow the global prefix. Longer
+	// prefixes are tried first so a shorter one never hides them; the declared
+	// order is kept for display.
+	for _, prefix := range SortCommandPrefixes(entry.Prefixes.Dedicated) {
 		if match, ok := matchAfterPrefix(entry, text, prefix); ok {
 			match.Tier, match.Prefix = CommandTierDedicated, prefix
 			return match, true
