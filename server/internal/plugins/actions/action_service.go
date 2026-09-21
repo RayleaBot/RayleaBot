@@ -23,6 +23,9 @@ type Deps struct {
 	Renderer             Renderer
 	ResolveOneBotAdapter func(sourceAdapter, sourceProtocol string) (OneBotAdapter, error)
 	Governance           GovernanceService
+	// PluginDataRoot holds each plugin's data directory, <root>/<plugin_id>;
+	// render.image reads path resources from the caller's directory.
+	PluginDataRoot string
 }
 
 type Service struct{ actionRegistry *Registry }

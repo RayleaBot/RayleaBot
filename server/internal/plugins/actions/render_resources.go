@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -62,6 +64,10 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 	defer cancel()
 	client := newHTTPClient(renderImageResourceRequestTimeout, maxRenderImageResourceBytes)
 	defer client.close()
+	dataDir := ""
+	if deps.PluginDataRoot != "" {
+		dataDir = filepath.Join(deps.PluginDataRoot, req.PluginID)
+	}
 	results := make([]renderImageResourceFetchResult, len(req.Action.RenderResources))
 	semaphore := make(chan struct{}, renderImageResourceConcurrency)
 	var wait sync.WaitGroup
@@ -76,7 +82,14 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 				results[index].reason = "timeout"
 				return
 			}
-			prefetched, reason, fetchErr := fetchRenderImageResource(resourceCtx, client, workspace, index, spec, 0, maxRenderImageResourceBytes)
+			var prefetched *prefetchedRenderImageResource
+			var reason string
+			var fetchErr error
+			if spec.Path != "" {
+				prefetched, reason, fetchErr = copyLocalRenderImageResource(resourceCtx, dataDir, workspace, index, spec)
+			} else {
+				prefetched, reason, fetchErr = fetchRenderImageResource(resourceCtx, client, workspace, index, spec, 0, maxRenderImageResourceBytes)
+			}
 			results[index] = renderImageResourceFetchResult{prefetched: prefetched, reason: reason, err: fetchErr}
 		}(index, spec)
 	}
@@ -182,27 +195,83 @@ func downloadRenderImageResourceCandidate(ctx context.Context, client *httpClien
 			_ = os.Remove(downloadPath)
 			return RenderImageResource{}, "http_status", errRenderImageResourceUnavailable
 		}
-
-		mime, extension, err := detectRenderImageResource(downloadPath)
-		if err != nil {
-			_ = os.Remove(downloadPath)
-			return RenderImageResource{}, "unsupported_image", errRenderImageResourceUnavailable
-		}
-		finalPath := filepath.Join(workspace, fmt.Sprintf("resource-%02d-%02d%s", requestIndex, candidateIndex, extension))
-		_ = os.Remove(finalPath)
-		if err := os.Rename(downloadPath, finalPath); err != nil {
-			_ = os.Remove(downloadPath)
-			return RenderImageResource{}, "filesystem", err
-		}
-		return RenderImageResource{
-			ID:     resourceID,
-			Path:   finalPath,
-			MIME:   mime,
-			SHA256: hex.EncodeToString(hash.Sum(nil)),
-			Size:   response.BodyBytes,
-		}, "", nil
+		return finishRenderImageResource(workspace, downloadPath, requestIndex, candidateIndex, resourceID, hex.EncodeToString(hash.Sum(nil)), response.BodyBytes)
 	}
 	return RenderImageResource{}, "redirect", errRenderImageResourceUnavailable
+}
+
+// finishRenderImageResource checks that a workspace copy is an accepted image
+// and gives it the extension the renderer expects.
+func finishRenderImageResource(workspace, downloadPath string, requestIndex, candidateIndex int, resourceID, digest string, size int64) (RenderImageResource, string, error) {
+	mime, extension, err := detectRenderImageResource(downloadPath)
+	if err != nil {
+		_ = os.Remove(downloadPath)
+		return RenderImageResource{}, "unsupported_image", errRenderImageResourceUnavailable
+	}
+	finalPath := filepath.Join(workspace, fmt.Sprintf("resource-%02d-%02d%s", requestIndex, candidateIndex, extension))
+	_ = os.Remove(finalPath)
+	if err := os.Rename(downloadPath, finalPath); err != nil {
+		_ = os.Remove(downloadPath)
+		return RenderImageResource{}, "filesystem", err
+	}
+	return RenderImageResource{ID: resourceID, Path: finalPath, MIME: mime, SHA256: digest, Size: size}, "", nil
+}
+
+// copyLocalRenderImageResource copies an image from the plugin's data
+// directory into the workspace, so the plugin rewriting the file cannot change
+// a render in progress. The file is opened inside the data directory; a path
+// that leaves it through a link is left unresolved like a missing file.
+func copyLocalRenderImageResource(ctx context.Context, dataDir, workspace string, requestIndex int, spec plugins.RenderImageResource) (*prefetchedRenderImageResource, string, error) {
+	if dataDir == "" {
+		return nil, "missing", nil
+	}
+	source, err := os.OpenInRoot(dataDir, filepath.FromSlash(spec.Path))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, "missing", nil
+		}
+		return nil, "unreadable", nil
+	}
+	defer func(release func() error) { _ = release() }(source.Close)
+	info, err := source.Stat()
+	switch {
+	case err != nil || !info.Mode().IsRegular():
+		return nil, "unreadable", nil
+	case info.Size() <= 0:
+		return nil, "unsupported_image", nil
+	case info.Size() > maxRenderImageResourceBytes:
+		return nil, "too_large", nil
+	}
+
+	downloadPath := filepath.Join(workspace, fmt.Sprintf("resource-%02d-00.download", requestIndex))
+	target, err := os.OpenFile(downloadPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return nil, "", err
+	}
+	hash := sha256.New()
+	size, copyErr := fsguard.CopyAtMost(ctx, io.MultiWriter(target, hash), source, maxRenderImageResourceBytes)
+	if closeErr := target.Close(); closeErr != nil && copyErr == nil {
+		_ = os.Remove(downloadPath)
+		return nil, "", closeErr
+	}
+	if copyErr != nil || size <= 0 {
+		_ = os.Remove(downloadPath)
+		switch {
+		case errors.Is(copyErr, fsguard.ErrSizeLimit):
+			return nil, "too_large", nil
+		case errors.Is(copyErr, context.DeadlineExceeded) || errors.Is(copyErr, context.Canceled):
+			return nil, "timeout", nil
+		}
+		return nil, "unreadable", nil
+	}
+	resource, reason, err := finishRenderImageResource(workspace, downloadPath, requestIndex, 0, spec.ID, hex.EncodeToString(hash.Sum(nil)), size)
+	if err != nil {
+		if reason == "filesystem" {
+			return nil, "", err
+		}
+		return nil, reason, nil
+	}
+	return &prefetchedRenderImageResource{resource: resource, spec: spec, requestIndex: requestIndex}, "", nil
 }
 
 func reduceRenderImageResourceSet(ctx context.Context, client *httpClient, workspace string, items []prefetchedRenderImageResource) ([]prefetchedRenderImageResource, error) {

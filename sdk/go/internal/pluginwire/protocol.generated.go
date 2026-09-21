@@ -360,9 +360,10 @@ type ProtocolActionRenderImageFrame struct {
 
 type ProtocolRenderImageResourceFrame struct {
 	ID           string   `json:"id"`
-	URL          string   `json:"url"`
+	URL          string   `json:"url,omitempty"`
 	FallbackURLs []string `json:"fallback_urls,omitempty"`
 	Referer      string   `json:"referer,omitempty"`
+	Path         string   `json:"path,omitempty"`
 }
 
 type Frame struct {

@@ -5,20 +5,24 @@ import (
 	"errors"
 	"maps"
 	"net/url"
+	"path"
 	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/browser"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 )
 
 const (
-	maxRenderImageResources         = 16
+	maxRenderImageResources         = 256
+	maxRenderImageURLResources      = 16
 	maxRenderImageResourceFallbacks = 4
+	maxRenderImageResourcePath      = 1024
 )
 
 var (
@@ -466,6 +470,7 @@ func parseRenderImageResources(frames []pluginwire.ProtocolRenderImageResourceFr
 	}
 	resources := make([]plugins.RenderImageResource, 0, len(frames))
 	seenIDs := make(map[string]struct{}, len(frames))
+	urlResources := 0
 	for _, frame := range frames {
 		id := strings.TrimSpace(frame.ID)
 		if !renderImageResourceIDPattern.MatchString(id) {
@@ -476,6 +481,16 @@ func parseRenderImageResources(frames []pluginwire.ProtocolRenderImageResourceFr
 		}
 		seenIDs[id] = struct{}{}
 
+		if frame.Path != "" {
+			if frame.URL != "" || len(frame.FallbackURLs) > 0 || frame.Referer != "" || !validRenderImageResourcePath(frame.Path) {
+				return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid render.image resource path", nil)
+			}
+			resources = append(resources, plugins.RenderImageResource{ID: id, Path: frame.Path})
+			continue
+		}
+		if urlResources++; urlResources > maxRenderImageURLResources {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has too many render.image URL resources", nil)
+		}
 		primary, err := parseRenderImageResourceURL(frame.URL)
 		if err != nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid render.image resource URL", err)
@@ -515,6 +530,20 @@ func parseRenderImageResources(frames []pluginwire.ProtocolRenderImageResourceFr
 		})
 	}
 	return resources, nil
+}
+
+// validRenderImageResourcePath accepts canonical relative slash paths whose
+// segments are portable on Windows, the same shape the contract pattern allows.
+func validRenderImageResourcePath(value string) bool {
+	if len(value) > maxRenderImageResourcePath || path.Clean(value) != value || strings.HasPrefix(value, "/") {
+		return false
+	}
+	for _, segment := range strings.Split(value, "/") {
+		if !fsguard.WindowsSegment(segment) {
+			return false
+		}
+	}
+	return true
 }
 
 func parseRenderImageResourceURL(value string) (string, error) {

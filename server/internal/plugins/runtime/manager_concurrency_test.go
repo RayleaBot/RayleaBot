@@ -444,6 +444,39 @@ func TestParseRenderImageActionRejectsDuplicateResourceIDs(t *testing.T) {
 	}
 }
 
+func TestParseRenderImageActionPathResources(t *testing.T) {
+	t.Parallel()
+
+	resources := make([]string, 0, 40)
+	for index := range 24 {
+		resources = append(resources, fmt.Sprintf(`{"id": "face-%d", "path": "assets/meta/芙宁娜/face-%d.webp"}`, index, index))
+	}
+	for index := range 16 {
+		resources = append(resources, fmt.Sprintf(`{"id": "remote-%d", "url": "https://example.com/%d.png"}`, index, index))
+	}
+	action, err := ParseLocalAction("render.image", json.RawMessage(`{"template": "panel", "resources": [`+strings.Join(resources, ",")+`], "data": {}}`))
+	if err != nil {
+		t.Fatalf("ParseLocalAction(render.image path resources): %v", err)
+	}
+	if len(action.RenderResources) != 40 || action.RenderResources[0].Path != "assets/meta/芙宁娜/face-0.webp" || action.RenderResources[0].URL != "" {
+		t.Fatalf("RenderResources = %#v", action.RenderResources)
+	}
+
+	for name, resource := range map[string]string{
+		"17th url":     strings.Join(append(resources, `{"id": "remote-extra", "url": "https://example.com/extra.png"}`), ","),
+		"parent":       `{"id": "face", "path": "assets/../secret.png"}`,
+		"absolute":     `{"id": "face", "path": "/etc/secret.png"}`,
+		"backslash":    `{"id": "face", "path": "assets\secret.png"}`,
+		"device":       `{"id": "face", "path": "assets/CON.png"}`,
+		"url and path": `{"id": "face", "url": "https://example.com/face.png", "path": "assets/face.png"}`,
+	} {
+		_, err := ParseLocalAction("render.image", json.RawMessage(`{"template": "panel", "resources": [`+resource+`], "data": {}}`))
+		if err == nil {
+			t.Fatalf("%s: expected render.image resources to fail", name)
+		}
+	}
+}
+
 func TestClassifyProtocolReadErrorTreatsExitedProcessAsInternalError(t *testing.T) {
 	t.Parallel()
 

@@ -75,9 +75,12 @@ func (a Action) MessageCommand() chatevent.MessageCommand {
 	}
 }
 
+// RenderImageResource names one image by URL or by a path inside the calling
+// plugin's data directory; exactly one of URL and Path is set.
 type RenderImageResource struct {
 	ID           string
 	URL          string
 	FallbackURLs []string
 	Referer      string
+	Path         string
 }

@@ -357,11 +357,15 @@ type RenderImageRequest struct {
 	Resources    []RenderImageResource `json:"resources,omitempty"`
 }
 
+// RenderImageResource is an image the host resolves before rendering. Set URL
+// (with optional FallbackURLs and Referer) for an HTTPS image, or Path for an
+// image file inside RAYLEABOT_PLUGIN_DATA_DIR, given as a relative slash path.
 type RenderImageResource struct {
 	ID           string   `json:"id"`
-	URL          string   `json:"url"`
+	URL          string   `json:"url,omitempty"`
 	FallbackURLs []string `json:"fallback_urls,omitempty"`
 	Referer      string   `json:"referer,omitempty"`
+	Path         string   `json:"path,omitempty"`
 }
 
 func (actions *Actions) RenderImage(ctx context.Context, request RenderImageRequest) (ActionResult, error) {

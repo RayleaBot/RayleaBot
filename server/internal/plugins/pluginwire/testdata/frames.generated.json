@@ -487,6 +487,53 @@
     ]
   },
   {
+    "name": "invalid.render-image-resource-path.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-render-image-path-1",
+        "action": "render.image",
+        "data": {
+          "template": "summary",
+          "resources": [
+            {
+              "id": "face",
+              "path": "assets/../../server.key.png"
+            }
+          ],
+          "data": {
+            "title": "Fixture"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.render-image-resource-source.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-render-image-source-1",
+        "action": "render.image",
+        "data": {
+          "template": "summary",
+          "resources": [
+            {
+              "id": "face",
+              "url": "https://example.com/face.png",
+              "path": "assets/face.png"
+            }
+          ],
+          "data": {
+            "title": "Fixture"
+          }
+        }
+      }
+    ]
+  },
+  {
     "name": "invalid.session-closed.yaml",
     "valid": false,
     "frames": [
@@ -1122,6 +1169,41 @@
         "request_id": "event-qq-group-1",
         "status": "success",
         "data": {}
+      }
+    ]
+  },
+  {
+    "name": "ok.render-image-local-resource.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-render-image-local-1",
+        "action": "render.image",
+        "data": {
+          "template": "summary",
+          "resources": [
+            {
+              "id": "face",
+              "path": "assets/miao-plugin/meta-gs/character/芙宁娜/imgs/face.webp"
+            },
+            {
+              "id": "banner",
+              "url": "https://example.com/banner.png"
+            }
+          ],
+          "data": {
+            "title": "Fixture"
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-render-image-local-1",
+        "status": "success",
+        "data": {
+          "artifact_id": "render-fixture"
+        }
       }
     ]
   },

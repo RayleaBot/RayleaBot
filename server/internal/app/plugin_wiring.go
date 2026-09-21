@@ -111,6 +111,7 @@ func buildLocalActionService(
 		Scheduler:            localaction.Scheduler(platform.Scheduler),
 		MessageSender:        localaction.OutboundMessageSender(eventStack.Dispatcher),
 		Renderer:             localaction.RendererFromService(renderer),
+		PluginDataRoot:       pluginDataRoot(platform),
 		ResolveOneBotAdapter: eventStack.ResolveOneBotAdapter,
 		Governance:           governanceService,
 	})
@@ -153,11 +154,16 @@ func buildPluginServices(deps pluginServiceDeps) (pluginServices, error) {
 	}, nil
 }
 
+// pluginDataRoot is data/plugins, next to the state database.
+func pluginDataRoot(platform PlatformState) string {
+	return filepath.Join(filepath.Dir(platform.Storage.Path), "plugins")
+}
+
 func buildPluginLifecycle(deps pluginServiceDeps) (*pluginservice.Controller, error) {
 	return pluginservice.NewController(pluginservice.Deps{
 		CurrentConfig:       deps.Runtime.CurrentConfig,
 		RepoRoot:            deps.Runtime.RepoRoot(),
-		PluginDataRoot:      filepath.Join(filepath.Dir(deps.Platform.Storage.Path), "plugins"),
+		PluginDataRoot:      pluginDataRoot(deps.Platform),
 		Logger:              deps.Runtime.RuntimeLogger(),
 		Plugins:             deps.Plugins.Plugins,
 		DesiredStateRepo:    deps.Plugins.PluginRepository,

@@ -2019,6 +2019,13 @@
         }
       }
     },
+    "render_image_resource_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z][A-Za-z0-9._-]*$",
+      "description": "Request-local resource identifier. IDs must be unique within one render.image request. Templates reference this value through a host-recognized data-render-resource attribute."
+    },
     "render_image_resource_url": {
       "type": "string",
       "minLength": 1,
@@ -2026,41 +2033,75 @@
       "pattern": "^https://",
       "description": "HTTPS image URL fetched by the platform. User information and fragments are rejected at runtime; every redirect must remain HTTPS."
     },
-    "render_image_resource": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "url"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64,
-          "pattern": "^[A-Za-z][A-Za-z0-9._-]*$",
-          "description": "Request-local resource identifier. IDs must be unique within one render.image request. Templates reference this value through a host-recognized data-render-resource attribute."
-        },
-        "url": {
-          "$ref": "#/$defs/render_image_resource_url"
-        },
-        "fallback_urls": {
-          "type": "array",
-          "maxItems": 4,
-          "uniqueItems": true,
-          "items": {
-            "$ref": "#/$defs/render_image_resource_url"
+    "render_image_resource_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^/\\\\:\u0000-\u001f<>\"|?*]+(?:/[^/\\\\:\u0000-\u001f<>\"|?*]+)*$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "(^|/)(\\.{1,2}|[^/]*[ .])(/|$)"
           },
-          "description": "Ordered lower-priority HTTPS candidates. The platform tries these only when the primary URL cannot produce an accepted image or when the retained resource set must be reduced to the request limit."
+          {
+            "pattern": "(^|/)(?:[Cc][Oo][Nn](?:[Ii][Nn]\\$|[Oo][Uu][Tt]\\$)?|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|(?:[Cc][Oo][Mm]|[Ll][Pp][Tt])[1-9¹²³]) *(?:\\.[^/]*)?(/|$)"
+          }
+        ]
+      },
+      "description": "Canonical relative slash path of an image file inside the calling plugin's data directory, the directory passed as RAYLEABOT_PLUGIN_DATA_DIR. Segments are portable file names: empty, '.', '..', trailing dot or space, and Windows device names are rejected. The platform opens the file within that directory without following links out of it."
+    },
+    "render_image_resource": {
+      "description": "Image the platform resolves before rendering: an HTTPS image it fetches, or an image file it reads from the calling plugin's data directory.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "url"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/render_image_resource_id"
+            },
+            "url": {
+              "$ref": "#/$defs/render_image_resource_url"
+            },
+            "fallback_urls": {
+              "type": "array",
+              "maxItems": 4,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/render_image_resource_url"
+              },
+              "description": "Ordered lower-priority HTTPS candidates. The platform tries these only when the primary URL cannot produce an accepted image or when the retained resource set must be reduced to the request limit."
+            },
+            "referer": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048,
+              "pattern": "^https://",
+              "description": "Optional HTTPS Referer sent by the platform while fetching this resource. No Cookie, Authorization, or arbitrary request headers can be supplied through render.image."
+            }
+          }
         },
-        "referer": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 2048,
-          "pattern": "^https://",
-          "description": "Optional HTTPS Referer sent by the platform while fetching this resource. No Cookie, Authorization, or arbitrary request headers can be supplied through render.image."
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "path"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/render_image_resource_id"
+            },
+            "path": {
+              "$ref": "#/$defs/render_image_resource_path"
+            }
+          }
         }
-      }
+      ]
     },
     "action_render_image_data": {
       "type": "object",
@@ -2092,11 +2133,19 @@
         },
         "resources": {
           "type": "array",
-          "maxItems": 16,
+          "maxItems": 256,
           "items": {
             "$ref": "#/$defs/render_image_resource"
           },
-          "description": "Optional platform-prefetched image resources. JPEG, PNG, GIF, and WebP are accepted. Each downloaded response body is limited to 16 MiB, retained resources are limited to 96 MiB per request, and all resource work shares a 30 second deadline. Fetch or image validation failure leaves the resource unresolved so the template's existing fallback remains visible; malformed input rejects the action."
+          "contains": {
+            "type": "object",
+            "required": [
+              "url"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 16,
+          "description": "Optional image resources resolved by the platform. At most 16 entries use url. JPEG, PNG, GIF, and WebP are accepted. Each image is limited to 16 MiB, retained resources are limited to 96 MiB per request, and all resource work shares a 30 second deadline. A failed fetch, a missing or unreadable local file, or failed image validation leaves the resource unresolved so the template's existing fallback remains visible; malformed input rejects the action."
         },
         "data": {
           "type": "object",
@@ -3239,6 +3288,9 @@
     "fixtures/plugin-protocol/invalid.governance-write-without-scope.yaml",
     "fixtures/plugin-protocol/ok.scheduler-create.yaml",
     "fixtures/plugin-protocol/ok.render-image.yaml",
+    "fixtures/plugin-protocol/ok.render-image-local-resource.yaml",
+    "fixtures/plugin-protocol/invalid.render-image-resource-path.yaml",
+    "fixtures/plugin-protocol/invalid.render-image-resource-source.yaml",
     "fixtures/plugin-protocol/ok.secret-write.yaml",
     "fixtures/plugin-protocol/ok.secret-delete.yaml",
     "fixtures/plugin-protocol/ok.browser-launch.yaml",

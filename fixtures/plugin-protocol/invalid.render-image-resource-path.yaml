@@ -1,0 +1,15 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: action
+    request_id: action-render-image-path-1
+    action: render.image
+    data:
+      template: summary
+      resources:
+        - id: face
+          path: assets/../../server.key.png
+      data:
+        title: Fixture
+expect:
+  valid: false
