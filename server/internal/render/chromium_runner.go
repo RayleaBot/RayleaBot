@@ -33,6 +33,12 @@ const adaptiveDocumentHeightExpression = `(() => {
   if (body.children.length === 0 && body.textContent.trim()) {
     return Math.max(1, Math.ceil(body.scrollHeight));
   }
+  // A body that hides its overflow fixes the page to its own box; whatever
+  // reaches past it is not shown.
+  const overflow = getComputedStyle(body).overflowY;
+  if (overflow === "hidden" || overflow === "clip") {
+    return Math.max(1, Math.ceil(body.getBoundingClientRect().bottom));
+  }
 
   let top = 0;
   let bottom = 0;

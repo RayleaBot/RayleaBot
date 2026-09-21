@@ -420,6 +420,35 @@ func TestChromiumRunnerLoadsRelativeTemplateAssets(t *testing.T) {
 	}
 }
 
+func TestChromiumRunnerMeasuresPageFromBodyThatHidesOverflow(t *testing.T) {
+	runner := newTestChromiumRunner(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+
+	for _, test := range []struct {
+		overflow string
+		height   int
+	}{{"visible", 280}, {"hidden", 100}} {
+		content, err := runner.Render(ctx, Document{
+			Template: "overflow.check", Output: "png", Width: 320, Height: 60, AutoHeight: true,
+			HTML: `<!doctype html><html><head><style>
+      body { margin: 0; width: 320px; height: 100px; position: relative; overflow: ` + test.overflow + `; }
+      div { position: absolute; top: 80px; width: 40px; height: 200px; background: #f00; }
+    </style></head><body><div></div></body></html>`,
+		})
+		if err != nil {
+			t.Fatalf("Render with overflow %s: %v", test.overflow, err)
+		}
+		screenshot, err := png.Decode(bytes.NewReader(content))
+		if err != nil {
+			t.Fatalf("decode screenshot: %v", err)
+		}
+		if screenshot.Bounds().Dy() != test.height {
+			t.Errorf("overflow %s: height = %d, want %d", test.overflow, screenshot.Bounds().Dy(), test.height)
+		}
+	}
+}
+
 func TestChromiumRunnerLoadsPrefetchedRenderResource(t *testing.T) {
 	runner := newTestChromiumRunner(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
