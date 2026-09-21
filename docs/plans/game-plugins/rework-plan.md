@@ -203,6 +203,7 @@
 - 星铁“角色”与新增“练度统计”按 miao character/avatar-list 与 profile-stat 的星铁分支；绝区零“卡片”“角色”按 ZZZ-Plugin card（上游同一命令），新增“练度统计”按 proficiency（上游读已保存面板，这里直接读代理人详情）。资料条目新增 `abbr`，由 import-aliases.py 单独写入 miao 的角色与武器简称（星铁角色简称此前缺失）。
 - 帮助：共享库新增 `HelpImageBuilder`（按清单分组、带命令 ID 与名称），原神按 miao help、星铁按 StarRail-plugin help、绝区零按 ZZZ-Plugin help 出图；图标取上游帮助中列出该命令的条目，未列出的不显示。
 - 第一批剩余：原神天赋统计（miao 天赋统计需要材料周期资料）与抽卡“全部记录”（gacha-all-log）。下一步进入第二批。
+- 第二批进行中：原神札记按 Yunzai html/ledger/ledger-gs、星铁月历按 StarRail-plugin month、绝区零月报按 ZZZ-Plugin monthly。上游用 G2Plot 或 ECharts 画的环形图不分发这两个库，按上游的起点、方向、半径、圆角、配色与标签规则由构建函数输出 SVG。
 - 修复：三个插件的通用结果卡片声明未接受宿主加入的 `render_footer`，图片回复此前一律退回文字。
 
 ### R5 功能补齐
