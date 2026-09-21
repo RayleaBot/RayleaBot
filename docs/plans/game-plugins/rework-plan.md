@@ -209,7 +209,8 @@
 - 月报统计：原神与星铁按 Yunzai 原神插件 ledger-count-gs、ledger-count-sr（最近十二个月或“去年”“今年”“2025年”指定的年份），绝区零按 ZZZ-Plugin monthly/collect。共享库按上游在每次月报查询时保存该月，统计前补存官方仍提供且未在月末后保存过的月份，再把全部已保存月份交给插件的 `MonthlyStats` 构建函数；G2Plot 柱状图与环形图由共享库 `G2Column`、`G2Ring` 输出 SVG，纵轴刻度与上游打包的 g2plot 一致。星铁新增素材来源“原神插件星铁图片”，只下载页头标志所在目录。
 - 原神七圣召唤按 Yunzai deckList 与 deck（牌组命令可接编号），角色卡片与探索按 Yunzai html/player/role-card、role-explore（探索页总数取自上游 defSet 固定快照）。“七圣查询牌”对应的 deckCard 尚未出图：完整收藏有三百多张官方卡图，超过宿主单次 256 项资源（另有每次 96 MiB 的保留上限）；需要先决定是否放宽宿主的资源上限，再移植该页。“七圣”一词没有上游对应页面，保持文字。
 - 日历：原神与星铁按 miao 的 Calendar 与 CalendarSr（wiki/calendar 页面，列表模式另用一份窄模板），绝区零同 ZZZ-Plugin 显示官方“活动日历”公告的图片。共享库的公告读取拆出原始列表、正文与图片公告，交给插件新增的 `Calendar` 构建函数。miao 另从其 HTTP 服务读取的时间修正不调用（公开资料只访问官方 HTTPS 接口）。共享库新增 `ImageResources.Prefetch` 并发缓存官方图片，原神日历首次出图由约 50 秒降到约 13 秒。
-- 第二批剩余：七圣召唤卡牌页（见上条）、图鉴、模拟抽卡、排名。
+- 图鉴（进行中）：共享库新增 `Entry` 构建函数与 `talent-wiki` 命令；原神“胡桃天赋”“夜兰命座”按 miao wiki/character-talent 出图，资料运行时读取素材更新下载的 miao 角色 data.json（miao 素材来源保留 `.json`）。未做：原神“图鉴/资料”的 miao character-wiki（上游的持有率与配装统计来自 miao 自有 HTTP 服务与 lelaer.com，公开资料只访问官方 HTTPS 接口，需决定去留）、星铁的 miao 天赋页（行迹树）、绝区零 ZZZ-Plugin 的技能与影画页。
+- 第二批剩余：七圣召唤卡牌页（见上条）、图鉴其余部分、模拟抽卡、排名。
 - 修复：三个插件的通用结果卡片声明未接受宿主加入的 `render_footer`，图片回复此前一律退回文字。
 
 ### R5 功能补齐
