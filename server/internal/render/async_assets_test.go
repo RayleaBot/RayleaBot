@@ -94,6 +94,62 @@ func TestChromiumRunnerBindsResourceAsCSSBackground(t *testing.T) {
 	}
 }
 
+func TestChromiumRunnerExposesResourcesToStylesheetsAndFonts(t *testing.T) {
+	var encoded bytes.Buffer
+	green := color.RGBA{R: 16, G: 200, B: 80, A: 255}
+	if err := png.Encode(&encoded, singlePixel(green)); err != nil {
+		t.Fatal(err)
+	}
+	font, err := os.ReadFile(filepath.Join("..", "..", "..", "templates", "help.menu", "assets", "fonts", "noto-sans-sc", "k3kXo84MPvpLmixcA63oeALRLoKI.woff2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := t.TempDir()
+	resources := []RenderResource{}
+	for _, item := range []struct {
+		id, mime string
+		content  []byte
+	}{{"panel-bg", "image/png", encoded.Bytes()}, {"probe-font", "font/woff2", font}} {
+		path := filepath.Join(directory, item.id)
+		if err := os.WriteFile(path, item.content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		digest := sha256.Sum256(item.content)
+		resources = append(resources, RenderResource{ID: item.id, Path: path, MIME: item.mime, SHA256: hex.EncodeToString(digest[:]), Size: int64(len(item.content))})
+	}
+	runner := newTestChromiumRunner(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	// The page turns its right half red unless the font resource is loaded
+	// under its resource ID when fonts settle.
+	content, err := runner.Render(ctx, Document{Width: 64, Height: 64, Output: "png",
+		HTML: `<!doctype html><html><head><style>body{margin:0;display:flex} div{width:32px;height:64px;background:#000 var(--render-resource-panel-bg) center/cover}</style></head>
+<body><div></div><i id="probe" style="width:32px;height:64px;background:rgb(240,16,16)"></i><script>
+const mark = () => {
+  if (Array.from(document.fonts).some((face) => face.family.replaceAll('"', "") === "probe-font" && face.status === "loaded")) {
+    document.getElementById("probe").style.background = "rgb(16,200,80)";
+  }
+};
+document.fonts.ready.then(mark);
+document.fonts.addEventListener("loadingdone", mark);
+</script></body></html>`,
+		Resources: resources,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	screenshot, err := png.Decode(bytes.NewReader(content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range []int{16, 48} {
+		r, g, b, a := screenshot.At(x, 32).RGBA()
+		if actual := (color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)}); actual != green {
+			t.Fatalf("pixel %d = %v, want %v (left: root background variable, right: font family)", x, actual, green)
+		}
+	}
+}
+
 func assertDelayedResourcePaint(t *testing.T, contentType string, payload []byte, want color.RGBA, document func(string) Document) {
 	t.Helper()
 	runner := newTestChromiumRunner(t)

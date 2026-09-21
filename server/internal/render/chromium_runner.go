@@ -248,10 +248,25 @@ func bindRenderResourcesExpression(resources map[string]string) (string, error) 
 	}
 	return `(async () => {
   const resources = ` + string(payload) + `;
-  const images = Array.from(document.querySelectorAll("img[data-render-resource]"));
-  await Promise.all(images.map(async (image) => {
+  // Fonts register as font families named after their resource IDs. Images
+  // are also exposed on the root element as --render-resource-<id>, so
+  // template stylesheets can use them anywhere.
+  const images = {};
+  const fonts = [];
+  for (const [id, source] of Object.entries(resources)) {
+    if (/\.(ttf|otf|woff2?)$/i.test(source)) {
+      const face = new FontFace(id, "url(" + JSON.stringify(source) + ")");
+      document.fonts.add(face);
+      fonts.push(face.load().catch(() => null));
+      continue;
+    }
+    images[id] = source;
+    document.documentElement.style.setProperty("--render-resource-" + id, "url(" + JSON.stringify(source) + ")");
+  }
+  const elements = Array.from(document.querySelectorAll("img[data-render-resource]"));
+  await Promise.all(elements.map(async (image) => {
     const resourceID = image.dataset.renderResource || "";
-    const source = resources[resourceID];
+    const source = images[resourceID];
     if (!source) {
       return;
     }
@@ -271,13 +286,14 @@ func bindRenderResourcesExpression(resources map[string]string) (string, error) 
   }));
   // Other elements receive the image as the --render-resource custom property,
   // for templates that draw it as a CSS background. The local asset wait that
-  // follows loads it before capture.
+  // follows loads these backgrounds before capture.
   for (const element of document.querySelectorAll("[data-render-resource]:not(img)")) {
-    const source = resources[element.dataset.renderResource || ""];
+    const source = images[element.dataset.renderResource || ""];
     if (source) {
       element.style.setProperty("--render-resource", "url(" + JSON.stringify(source) + ")");
     }
   }
+  await Promise.all(fonts);
   return true;
 })()`, nil
 }

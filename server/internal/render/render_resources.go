@@ -15,6 +15,10 @@ var supportedRenderResourceMIMEs = map[string]string{
 	"image/jpeg": ".jpg",
 	"image/png":  ".png",
 	"image/webp": ".webp",
+	"font/ttf":   ".ttf",
+	"font/otf":   ".otf",
+	"font/woff":  ".woff",
+	"font/woff2": ".woff2",
 }
 
 func normalizeRenderResources(resources []RenderResource) ([]RenderResource, error) {

@@ -203,7 +203,7 @@ func downloadRenderImageResourceCandidate(ctx context.Context, client *httpClien
 // finishRenderImageResource checks that a workspace copy is an accepted image
 // and gives it the extension the renderer expects.
 func finishRenderImageResource(workspace, downloadPath string, requestIndex, candidateIndex int, resourceID, digest string, size int64) (RenderImageResource, string, error) {
-	mime, extension, err := detectRenderImageResource(downloadPath)
+	mime, extension, err := detectRenderResource(downloadPath)
 	if err != nil {
 		_ = os.Remove(downloadPath)
 		return RenderImageResource{}, "unsupported_image", errRenderImageResourceUnavailable
@@ -322,7 +322,7 @@ func renderImageResourceTotal(items []prefetchedRenderImageResource) int64 {
 
 func renderImageResourceHeaders(referer string) map[string]string {
 	headers := map[string]string{
-		"Accept":        "image/webp,image/png,image/jpeg,image/gif,*/*;q=0.1",
+		"Accept":        "image/webp,image/png,image/jpeg,image/gif,font/woff2,font/woff,font/ttf,font/otf,*/*;q=0.1",
 		"Cache-Control": "no-cache",
 		"Pragma":        "no-cache",
 		"User-Agent":    renderImageResourceUserAgent,
@@ -349,7 +349,7 @@ func resolveRenderImageResourceRedirect(currentURL, location string) (string, er
 	return resolved.String(), nil
 }
 
-func detectRenderImageResource(path string) (string, string, error) {
+func detectRenderResource(path string) (string, string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return "", "", err
@@ -374,6 +374,14 @@ func detectRenderImageResource(path string) (string, string, error) {
 		return mime, ".gif", nil
 	case "image/webp":
 		return mime, ".webp", nil
+	case "font/ttf":
+		return mime, ".ttf", nil
+	case "font/otf":
+		return mime, ".otf", nil
+	case "font/woff":
+		return mime, ".woff", nil
+	case "font/woff2":
+		return mime, ".woff2", nil
 	default:
 		return "", "", errRenderImageResourceUnavailable
 	}

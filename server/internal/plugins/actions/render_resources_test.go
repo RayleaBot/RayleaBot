@@ -132,6 +132,7 @@ func TestPrefetchRenderImageResourcesReadsCallerDataDirectory(t *testing.T) {
 	content := append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte("fixture-local-resource")...)
 	writeResourceFixture(t, filepath.Join(root, "plugin.render", "assets", "芙宁娜", "face.png"), content)
 	writeResourceFixture(t, filepath.Join(root, "plugin.render", "assets", "note.txt"), []byte("not an image"))
+	writeResourceFixture(t, filepath.Join(root, "plugin.render", "assets", "font.woff2"), append([]byte("wOF2"), make([]byte, 60)...))
 	writeResourceFixture(t, filepath.Join(root, "plugin.other", "face.png"), content)
 	linked := os.Symlink(filepath.Join(root, "plugin.other"), filepath.Join(root, "plugin.render", "other")) == nil
 
@@ -143,13 +144,14 @@ func TestPrefetchRenderImageResourcesReadsCallerDataDirectory(t *testing.T) {
 			{ID: "missing", Path: "assets/missing.png"},
 			{ID: "text", Path: "assets/note.txt"},
 			{ID: "linked", Path: "other/face.png"},
+			{ID: "font", Path: "assets/font.woff2"},
 		}},
 	})
 	if err != nil {
 		t.Fatalf("prefetchRenderImageResources: %v", err)
 	}
 	defer cleanup()
-	if len(resources) != 1 || resources[0].ID != "face" || resources[0].MIME != "image/png" || resources[0].Size != int64(len(content)) {
+	if len(resources) != 2 || resources[0].ID != "face" || resources[0].MIME != "image/png" || resources[0].Size != int64(len(content)) || resources[1].MIME != "font/woff2" {
 		t.Fatalf("resources = %#v (link created: %v)", resources, linked)
 	}
 	digest := sha256.Sum256(content)

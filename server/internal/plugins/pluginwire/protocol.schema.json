@@ -2024,7 +2024,7 @@
       "minLength": 1,
       "maxLength": 64,
       "pattern": "^[A-Za-z][A-Za-z0-9._-]*$",
-      "description": "Request-local resource identifier. IDs must be unique within one render.image request. Templates reference it with a data-render-resource attribute: the platform sets an img element's source to the resolved image, and gives any other element the image as the --render-resource CSS custom property, a url() value for backgrounds."
+      "description": "Request-local resource identifier. IDs must be unique within one render.image request. A resolved image is available to the whole page as the root CSS custom property --render-resource-<id> (a url() value); templates can also mark elements with a data-render-resource attribute: an img element's source becomes the image, and any other element receives it as the --render-resource custom property. A resolved font is registered as a font family named after the ID."
     },
     "render_image_resource_url": {
       "type": "string",
@@ -2048,10 +2048,10 @@
           }
         ]
       },
-      "description": "Canonical relative slash path of an image file inside the calling plugin's data directory, the directory passed as RAYLEABOT_PLUGIN_DATA_DIR. Segments are portable file names: empty, '.', '..', trailing dot or space, and Windows device names are rejected. The platform opens the file within that directory without following links out of it."
+      "description": "Canonical relative slash path of an image or font file inside the calling plugin's data directory, the directory passed as RAYLEABOT_PLUGIN_DATA_DIR. Segments are portable file names: empty, '.', '..', trailing dot or space, and Windows device names are rejected. The platform opens the file within that directory without following links out of it."
     },
     "render_image_resource": {
-      "description": "Image the platform resolves before rendering: an HTTPS image it fetches, or an image file it reads from the calling plugin's data directory.",
+      "description": "Image or font the platform resolves before rendering: fetched from an HTTPS URL, or read from the calling plugin's data directory.",
       "oneOf": [
         {
           "type": "object",
@@ -2145,7 +2145,7 @@
           },
           "minContains": 0,
           "maxContains": 16,
-          "description": "Optional image resources resolved by the platform. At most 16 entries use url. JPEG, PNG, GIF, and WebP are accepted. Each image is limited to 16 MiB, retained resources are limited to 96 MiB per request, and all resource work shares a 30 second deadline. A failed fetch, a missing or unreadable local file, or failed image validation leaves the resource unresolved so the template's existing fallback remains visible; malformed input rejects the action."
+          "description": "Optional image resources resolved by the platform. At most 16 entries use url. JPEG, PNG, GIF, and WebP images and TrueType, OpenType, WOFF, and WOFF2 fonts are accepted. Each resource is limited to 16 MiB, retained resources are limited to 96 MiB per request, and all resource work shares a 30 second deadline. A failed fetch, a missing or unreadable local file, or a file that is not an accepted image or font leaves the resource unresolved so the template's existing fallback remains visible; malformed input rejects the action."
         },
         "data": {
           "type": "object",

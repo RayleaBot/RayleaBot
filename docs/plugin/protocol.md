@@ -178,12 +178,18 @@ QQ 官方机器人事件的原生投影位于 `event.payload.qq_official`，包�
 
 ### 渲染资源
 
-`render.image.resources` 中的每项图片由宿主在渲染前解析，模板用 `data-render-resource` 属性引用：`img` 元素的图片地址被替换为该资源；其他元素获得 CSS 自定义属性 `--render-resource`（`url()` 值），模板可写 `background-image: var(--render-resource)` 作为背景。
+`render.image.resources` 中的每项图片或字体由宿主在渲染前解析，模板按资源 ID 引用：
+
+- 图片在整页根元素上提供 CSS 自定义属性 `--render-resource-<id>`（`url()` 值），模板样式可直接写 `background-image: var(--render-resource-bg)`；用于 `var()` 的 ID 不含 `.`。
+- 带 `data-render-resource` 属性的 `img` 元素，图片地址替换为该资源；其他元素获得自定义属性 `--render-resource`，适合列表中逐项不同的背景。自定义属性默认继承，缺少资源的子元素会显示父元素的图，模板可声明 `@property --render-resource { syntax: "*"; inherits: false; }`。
+- 字体以资源 ID 为字体族名注册，截图前完成加载，模板写 `font-family: "<id>", sans-serif`。
+
+资源有两类来源：
 
 - `url` 项由宿主预取，最多 16 项，不拦截私网地址。插件需要其他 HTTP 请求时使用自己的 HTTP 客户端。
-- `path` 项是插件数据目录（`RAYLEABOT_PLUGIN_DATA_DIR`）内的相对斜杠路径，用于插件自行下载或生成的图片。宿主只在该目录内打开文件，不跟随指向目录外的链接，并在渲染前复制一份，插件随后改写文件不影响本次渲染。
+- `path` 项是插件数据目录（`RAYLEABOT_PLUGIN_DATA_DIR`）内的相对斜杠路径，用于插件自行下载或生成的文件。宿主只在该目录内打开文件，不跟随指向目录外的链接，并在渲染前复制一份，插件随后改写文件不影响本次渲染。
 
-两类资源共用图片格式、单项大小、总量和处理期限限制，单次请求最多 256 项。取图失败、文件缺失或不是可接受的图片时该项保持未解析，模板原有的回退内容继续显示。
+接受 JPEG、PNG、GIF、WebP 图片与 TrueType、OpenType、WOFF、WOFF2 字体。两类来源共用单项大小、总量和处理期限限制，单次请求最多 256 项。取回失败、文件缺失或不是可接受的格式时该项保持未解析，模板原有的回退内容继续显示。
 
 ### Webhook
 
