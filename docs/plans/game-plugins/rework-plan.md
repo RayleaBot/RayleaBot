@@ -207,8 +207,8 @@
 - 其余战绩：星铁模拟宇宙、寰宇蝗灾、差分宇宙按 StarRail-plugin rogue、rogue_locust、rogueTourn；新增上游的“常规演算”“周期演算”（本期、上期，可选第一至三次，共用 rogueTournNormal 与 rogueTournWeek 的模板）。黄金与机械、不可知域、货币战争上游没有出图，保持文字。绝区零枯萎苗圃、迷失之地、迷宫诡域、迷宫记录、区域收集按 ZZZ-Plugin hollowZero、hollowZeroS2、zenkov（index 与 detail 共用模板）、explorationDetail；“枯萎苗圃”改为按上游查询概要，尼尼微受过伤害时再读刀耕火焚记录。
 - 共享库新增 `game.json` 的 `hints`：上游只回复提示的命令（绝区零“零号空洞”、星铁“周期演算”）按命令 ID 给出固定回复。
 - 月报统计：原神与星铁按 Yunzai 原神插件 ledger-count-gs、ledger-count-sr（最近十二个月或“去年”“今年”“2025年”指定的年份），绝区零按 ZZZ-Plugin monthly/collect。共享库按上游在每次月报查询时保存该月，统计前补存官方仍提供且未在月末后保存过的月份，再把全部已保存月份交给插件的 `MonthlyStats` 构建函数；G2Plot 柱状图与环形图由共享库 `G2Column`、`G2Ring` 输出 SVG，纵轴刻度与上游打包的 g2plot 一致。星铁新增素材来源“原神插件星铁图片”，只下载页头标志所在目录。
-- 原神七圣召唤按 Yunzai deckList 与 deck（牌组命令可接编号），角色卡片与探索按 Yunzai html/player/role-card、role-explore（探索页总数取自上游 defSet 固定快照）。“七圣查询牌”对应的 deckCard 尚未出图：完整收藏有三百多张官方卡图，超过宿主单次 256 项资源，首次按需缓存逐张下载也会超出事件时限；需要先决定放宽宿主资源上限或由共享库并发缓存并缩小卡图，再移植该页。“七圣”一词没有上游对应页面，保持文字。
-- 日历：原神与星铁按 miao 的 Calendar 与 CalendarSr（wiki/calendar 页面，列表模式另用一份窄模板），绝区零同 ZZZ-Plugin 显示官方“活动日历”公告的图片。共享库的公告读取拆出原始列表、正文与图片公告，交给插件新增的 `Calendar` 构建函数。miao 另从其 HTTP 服务读取的时间修正不调用（公开资料只访问官方 HTTPS 接口）。首次出图时官方图片逐张缓存，冷启动约需数十秒，与七圣召唤卡牌页一样需要共享库并发缓存。
+- 原神七圣召唤按 Yunzai deckList 与 deck（牌组命令可接编号），角色卡片与探索按 Yunzai html/player/role-card、role-explore（探索页总数取自上游 defSet 固定快照）。“七圣查询牌”对应的 deckCard 尚未出图：完整收藏有三百多张官方卡图，超过宿主单次 256 项资源（另有每次 96 MiB 的保留上限）；需要先决定是否放宽宿主的资源上限，再移植该页。“七圣”一词没有上游对应页面，保持文字。
+- 日历：原神与星铁按 miao 的 Calendar 与 CalendarSr（wiki/calendar 页面，列表模式另用一份窄模板），绝区零同 ZZZ-Plugin 显示官方“活动日历”公告的图片。共享库的公告读取拆出原始列表、正文与图片公告，交给插件新增的 `Calendar` 构建函数。miao 另从其 HTTP 服务读取的时间修正不调用（公开资料只访问官方 HTTPS 接口）。共享库新增 `ImageResources.Prefetch` 并发缓存官方图片，原神日历首次出图由约 50 秒降到约 13 秒。
 - 第二批剩余：七圣召唤卡牌页（见上条）、图鉴、模拟抽卡、排名。
 - 修复：三个插件的通用结果卡片声明未接受宿主加入的 `render_footer`，图片回复此前一律退回文字。
 
