@@ -59,7 +59,7 @@
 | R1 | 裁剪 | 完成；保险库相关的两项并入 R2 第 1 项 |
 | R2 | 结构重组与账号库修复 | 完成；单独检出构建待 SDK 与共享库发布 tag |
 | R3 | 命令层 | 完成；上游没有对应写法的命令按已确认决定第 7 项处理 |
-| R4 | 图片输出 | 进行中；第一批除原神天赋统计与抽卡全部记录外完成 |
+| R4 | 图片输出 | 进行中；第一批除原神天赋统计与抽卡全部记录外完成，第二批完成月报与其余战绩 |
 | R5 | 功能补齐 | 未开始 |
 | R6 | 素材下载 | 进行中；第 1 项完成 |
 | R7 | 验收与交付 | 未开始 |
@@ -204,6 +204,9 @@
 - 帮助：共享库新增 `HelpImageBuilder`（按清单分组、带命令 ID 与名称），原神按 miao help、星铁按 StarRail-plugin help、绝区零按 ZZZ-Plugin help 出图；图标取上游帮助中列出该命令的条目，未列出的不显示。
 - 第一批剩余：原神天赋统计（miao 天赋统计需要材料周期资料）与抽卡“全部记录”（gacha-all-log）。下一步进入第二批。
 - 第二批进行中：原神札记按 Yunzai html/ledger/ledger-gs、星铁月历按 StarRail-plugin month、绝区零月报按 ZZZ-Plugin monthly。上游用 G2Plot 或 ECharts 画的环形图不分发这两个库，按上游的起点、方向、半径、圆角、配色与标签规则由构建函数输出 SVG。
+- 其余战绩：星铁模拟宇宙、寰宇蝗灾、差分宇宙按 StarRail-plugin rogue、rogue_locust、rogueTourn；新增上游的“常规演算”“周期演算”（本期、上期，可选第一至三次，共用 rogueTournNormal 与 rogueTournWeek 的模板）。黄金与机械、不可知域、货币战争上游没有出图，保持文字。绝区零枯萎苗圃、迷失之地、迷宫诡域、迷宫记录、区域收集按 ZZZ-Plugin hollowZero、hollowZeroS2、zenkov（index 与 detail 共用模板）、explorationDetail；“枯萎苗圃”改为按上游查询概要，尼尼微受过伤害时再读刀耕火焚记录。
+- 共享库新增 `game.json` 的 `hints`：上游只回复提示的命令（绝区零“零号空洞”、星铁“周期演算”）按命令 ID 给出固定回复。
+- 第二批剩余：月报统计（原神 ledger-count、星铁与绝区零的统计页）、原神七圣召唤与角色卡片、图鉴、模拟抽卡、排名、日历。
 - 修复：三个插件的通用结果卡片声明未接受宿主加入的 `render_footer`，图片回复此前一律退回文字。
 
 ### R5 功能补齐
