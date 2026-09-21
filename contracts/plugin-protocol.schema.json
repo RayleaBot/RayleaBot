@@ -2024,7 +2024,7 @@
       "minLength": 1,
       "maxLength": 64,
       "pattern": "^[A-Za-z][A-Za-z0-9._-]*$",
-      "description": "Request-local resource identifier. IDs must be unique within one render.image request. Templates reference this value through a host-recognized data-render-resource attribute."
+      "description": "Request-local resource identifier. IDs must be unique within one render.image request. Templates reference it with a data-render-resource attribute: the platform sets an img element's source to the resolved image, and gives any other element the image as the --render-resource CSS custom property, a url() value for backgrounds."
     },
     "render_image_resource_url": {
       "type": "string",

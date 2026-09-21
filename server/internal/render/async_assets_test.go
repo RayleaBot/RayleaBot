@@ -62,6 +62,38 @@ func TestChromiumRunnerWaitsForDelayedImageFallback(t *testing.T) {
 	})
 }
 
+func TestChromiumRunnerBindsResourceAsCSSBackground(t *testing.T) {
+	var encoded bytes.Buffer
+	green := color.RGBA{R: 16, G: 200, B: 80, A: 255}
+	if err := png.Encode(&encoded, singlePixel(green)); err != nil {
+		t.Fatal(err)
+	}
+	resourcePath := filepath.Join(t.TempDir(), "background.png")
+	if err := os.WriteFile(resourcePath, encoded.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(encoded.Bytes())
+	runner := newTestChromiumRunner(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	content, err := runner.Render(ctx, Document{Width: 64, Height: 64, Output: "png",
+		HTML: `<!doctype html><html><head><style>body{margin:0} div{width:64px;height:64px;background:#000 var(--render-resource) center/cover}</style></head>
+<body><div data-render-resource="bg"></div></body></html>`,
+		Resources: []RenderResource{{ID: "bg", Path: resourcePath, MIME: "image/png", SHA256: hex.EncodeToString(digest[:]), Size: int64(encoded.Len())}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	screenshot, err := png.Decode(bytes.NewReader(content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, g, b, a := screenshot.At(32, 32).RGBA()
+	if actual := (color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)}); actual != green {
+		t.Fatalf("background was not painted: got %v want %v", actual, green)
+	}
+}
+
 func assertDelayedResourcePaint(t *testing.T, contentType string, payload []byte, want color.RGBA, document func(string) Document) {
 	t.Helper()
 	runner := newTestChromiumRunner(t)

@@ -178,7 +178,7 @@ QQ 官方机器人事件的原生投影位于 `event.payload.qq_official`，包�
 
 ### 渲染资源
 
-`render.image.resources` 中的每项图片由宿主在渲染前解析，模板通过 `data-render-resource` 引用：
+`render.image.resources` 中的每项图片由宿主在渲染前解析，模板用 `data-render-resource` 属性引用：`img` 元素的图片地址被替换为该资源；其他元素获得 CSS 自定义属性 `--render-resource`（`url()` 值），模板可写 `background-image: var(--render-resource)` 作为背景。
 
 - `url` 项由宿主预取，最多 16 项，不拦截私网地址。插件需要其他 HTTP 请求时使用自己的 HTTP 客户端。
 - `path` 项是插件数据目录（`RAYLEABOT_PLUGIN_DATA_DIR`）内的相对斜杠路径，用于插件自行下载或生成的图片。宿主只在该目录内打开文件，不跟随指向目录外的链接，并在渲染前复制一份，插件随后改写文件不影响本次渲染。

@@ -269,6 +269,15 @@ func bindRenderResourcesExpression(resources map[string]string) (string, error) 
       } catch (_) {}
     }
   }));
+  // Other elements receive the image as the --render-resource custom property,
+  // for templates that draw it as a CSS background. The local asset wait that
+  // follows loads it before capture.
+  for (const element of document.querySelectorAll("[data-render-resource]:not(img)")) {
+    const source = resources[element.dataset.renderResource || ""];
+    if (source) {
+      element.style.setProperty("--render-resource", "url(" + JSON.stringify(source) + ")");
+    }
+  }
   return true;
 })()`, nil
 }
