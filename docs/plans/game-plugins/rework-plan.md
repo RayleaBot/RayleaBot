@@ -59,7 +59,7 @@
 | R1 | 裁剪 | 完成；保险库相关的两项并入 R2 第 1 项 |
 | R2 | 结构重组与账号库修复 | 完成；单独检出构建待 SDK 与共享库发布 tag |
 | R3 | 命令层 | 完成；上游没有对应写法的命令按已确认决定第 7 项处理 |
-| R4 | 图片输出 | 进行中；三游戏体力完成 |
+| R4 | 图片输出 | 进行中；三游戏体力、原神面板完成 |
 | R5 | 功能补齐 | 未开始 |
 | R6 | 素材下载 | 进行中；第 1 项完成 |
 | R7 | 验收与交付 | 未开始 |
@@ -190,10 +190,10 @@
 
 进度（2026-09-21）：
 
-- 宿主：render.image 资源新增 `path`，引用插件数据目录内的图片，单次最多 256 项（`url` 项仍最多 16 项）；带 `data-render-resource` 的非 `img` 元素获得 `--render-resource` 自定义属性，模板可作 CSS 背景或 `border-image`。
+- 宿主：render.image 资源新增 `path`，引用插件数据目录内的文件，单次最多 256 项（`url` 项仍最多 16 项）；图片以根元素自定义属性 `--render-resource-<id>` 提供给样式，带 `data-render-resource` 的非 `img` 元素另获得 `--render-resource`；资源可为字体，以资源 ID 注册为字体族。上游样式表因此可以按原样转换，只把 `url()` 换成对应变量。
 - 共享库：游戏插件按操作名登记图片构建函数（`gamekit.ImageBuilder`），模板与构建代码留在所属插件；`sendView` 依次尝试功能模板、通用结果卡片、文字。构建函数可用 `ImageContext.Query` 追加同角色查询，请求者头像由宿主身份注入（模板声明 `user` 与 `permission`）。
-- 按上游缩放比例用 CSS `zoom` 出图，字体暂用系统字体。
-- 已完成：原神体力（Yunzai 原神插件 daily-note-gs）、星铁体力（StarRail-plugin new_note）、绝区零体力（ZZZ-Plugin note）。
+- 按上游缩放比例用 CSS `zoom` 出图；上游字体随素材下载，按上游字体族名注册。
+- 已完成：原神体力（Yunzai 原神插件 daily-note-gs）、星铁体力（StarRail-plugin new_note）、绝区零体力（ZZZ-Plugin note）、原神单角色面板（miao profile-detail：评分明细由 runScore 按上游 getMarkDetail 返回，含强化次数与有效词条数）。
 - 修复：三个插件的通用结果卡片声明未接受宿主加入的 `render_footer`，图片回复此前一律退回文字。
 
 ### R5 功能补齐
