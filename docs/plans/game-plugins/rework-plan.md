@@ -59,7 +59,7 @@
 | R1 | 裁剪 | 完成；保险库相关的两项并入 R2 第 1 项 |
 | R2 | 结构重组与账号库修复 | 完成；单独检出构建待 SDK 与共享库发布 tag |
 | R3 | 命令层 | 完成；上游没有对应写法的命令按已确认决定第 7 项处理 |
-| R4 | 图片输出 | 进行中；三游戏体力、原神面板完成 |
+| R4 | 图片输出 | 进行中；三游戏体力、原神与星铁面板完成 |
 | R5 | 功能补齐 | 未开始 |
 | R6 | 素材下载 | 进行中；第 1 项完成 |
 | R7 | 验收与交付 | 未开始 |
@@ -193,7 +193,9 @@
 - 宿主：render.image 资源新增 `path`，引用插件数据目录内的文件，单次最多 256 项（`url` 项仍最多 16 项）；图片以根元素自定义属性 `--render-resource-<id>` 提供给样式，带 `data-render-resource` 的非 `img` 元素另获得 `--render-resource`；资源可为字体，以资源 ID 注册为字体族。上游样式表因此可以按原样转换，只把 `url()` 换成对应变量。
 - 共享库：游戏插件按操作名登记图片构建函数（`gamekit.ImageBuilder`），模板与构建代码留在所属插件；`sendView` 依次尝试功能模板、通用结果卡片、文字。构建函数可用 `ImageContext.Query` 追加同角色查询，请求者头像由宿主身份注入（模板声明 `user` 与 `permission`）。
 - 按上游缩放比例用 CSS `zoom` 出图；上游字体随素材下载，按上游字体族名注册。
-- 已完成：原神体力（Yunzai 原神插件 daily-note-gs）、星铁体力（StarRail-plugin new_note）、绝区零体力（ZZZ-Plugin note）、原神单角色面板（miao profile-detail：评分明细由 runScore 按上游 getMarkDetail 返回，含强化次数与有效词条数）。
+- 已完成：原神体力（Yunzai 原神插件 daily-note-gs）、星铁体力（StarRail-plugin new_note）、绝区零体力（ZZZ-Plugin note）、原神与星铁单角色面板（miao profile-detail：评分明细由 runScore 按上游 getMarkDetail 返回，含强化次数与有效词条数；星铁含行迹树与光锥卡）。
+- 修正：星铁面板伤害的敌人等级按上游改为 80（原为无依据的 95）；运行时 `Meta.getMeta` 替身补上第三个参数，百分比词条按上游格式显示。
+- 下一步：绝区零面板需要 ZZZ-Plugin 按需逐个下载的角色、音擎与驱动盘图（ZZZeroUID 镜像，含 http 节点），随 R6 按上游的按需下载实现；之后是抽卡分析、深渊类战绩、角色列表与练度统计、帮助。
 - 修复：三个插件的通用结果卡片声明未接受宿主加入的 `render_footer`，图片回复此前一律退回文字。
 
 ### R5 功能补齐
