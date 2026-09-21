@@ -59,7 +59,7 @@
 | R1 | 裁剪 | 完成；保险库相关的两项并入 R2 第 1 项 |
 | R2 | 结构重组与账号库修复 | 完成；单独检出构建待 SDK 与共享库发布 tag |
 | R3 | 命令层 | 完成；上游没有对应写法的命令按已确认决定第 7 项处理 |
-| R4 | 图片输出 | 进行中；第一批除原神天赋统计外完成，第二批完成月报、月报统计、其余战绩与日历 |
+| R4 | 图片输出 | 进行中；第一批完成，第二批完成月报、月报统计、其余战绩与日历 |
 | R5 | 功能补齐 | 未开始 |
 | R6 | 素材下载 | 进行中；第 1 项完成 |
 | R7 | 验收与交付 | 未开始 |
@@ -202,7 +202,7 @@
 - 原神幽境危战按 miao stat/hard-summary（角色卡片取实时角色详情，赋光之人经账号插件新增的 `hard_challenge_popularity` 查询标记），深渊第 9 至 12 层按 Yunzai html/abyss/abyss-floor（新增命令，经 `Queries` 改用深渊查询）；原神“角色”按 miao character/avatar-list，新增“练度统计”按 character/profile-stat（圣遗物评分经共享库新增的 `ImageContext.Score` 运行固定上游评分）。共享库另新增 `ImageContext.Word`（命令原词）。
 - 星铁“角色”与新增“练度统计”按 miao character/avatar-list 与 profile-stat 的星铁分支；绝区零“卡片”“角色”按 ZZZ-Plugin card（上游同一命令），新增“练度统计”按 proficiency（上游读已保存面板，这里直接读代理人详情）。资料条目新增 `abbr`，由 import-aliases.py 单独写入 miao 的角色与武器简称（星铁角色简称此前缺失）。
 - 帮助：共享库新增 `HelpImageBuilder`（按清单分组、带命令 ID 与名称），原神按 miao help、星铁按 StarRail-plugin help、绝区零按 ZZZ-Plugin help 出图；图标取上游帮助中列出该命令的条目，未列出的不显示。
-- 第一批剩余：原神天赋统计（miao 天赋统计需要材料周期资料）。
+- 原神新增上游的“天赋统计”，按 miao character/profile-stat 的天赋模式出图（周本与天赋书、今日高亮、星级元素与周几筛选）。第一批完成。
 - 第二批进行中：原神札记按 Yunzai html/ledger/ledger-gs、星铁月历按 StarRail-plugin month、绝区零月报按 ZZZ-Plugin monthly。上游用 G2Plot 或 ECharts 画的环形图不分发这两个库，按上游的起点、方向、半径、圆角、配色与标签规则由构建函数输出 SVG。
 - 其余战绩：星铁模拟宇宙、寰宇蝗灾、差分宇宙按 StarRail-plugin rogue、rogue_locust、rogueTourn；新增上游的“常规演算”“周期演算”（本期、上期，可选第一至三次，共用 rogueTournNormal 与 rogueTournWeek 的模板）。黄金与机械、不可知域、货币战争上游没有出图，保持文字。绝区零枯萎苗圃、迷失之地、迷宫诡域、迷宫记录、区域收集按 ZZZ-Plugin hollowZero、hollowZeroS2、zenkov（index 与 detail 共用模板）、explorationDetail；“枯萎苗圃”改为按上游查询概要，尼尼微受过伤害时再读刀耕火焚记录。
 - 共享库新增 `game.json` 的 `hints`：上游只回复提示的命令（绝区零“零号空洞”、星铁“周期演算”）按命令 ID 给出固定回复。
