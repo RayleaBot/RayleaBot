@@ -59,7 +59,7 @@
 | R1 | 裁剪 | 完成；保险库相关的两项并入 R2 第 1 项 |
 | R2 | 结构重组与账号库修复 | 完成；单独检出构建待 SDK 与共享库发布 tag |
 | R3 | 命令层 | 完成；上游没有对应写法的命令按已确认决定第 7 项处理 |
-| R4 | 图片输出 | 进行中；三游戏体力、单角色面板、抽卡分析与主要深渊类战绩完成 |
+| R4 | 图片输出 | 进行中；第一批除原神天赋统计与抽卡全部记录外完成 |
 | R5 | 功能补齐 | 未开始 |
 | R6 | 素材下载 | 进行中；第 1 项完成 |
 | R7 | 验收与交付 | 未开始 |
@@ -200,7 +200,9 @@
 - 深渊类战绩：原神深渊与剧诗按 Yunzai 原神插件 html/abyss；星铁混沌回忆、虚构叙事、末日幻影按 StarRail-plugin challenge/index（合一模板，按玩法类名区分底图与少数样式），异相仲裁按 index_peak 与 peak_recent（往期并排最近三期），补上上游的“深渊”（三种玩法并排）与“最新深渊”（按上游两周轮换）；绝区零式舆防卫战、危局强袭战、拟境湮灭战、临界推演、拟真鏖战试炼按 ZZZ-Plugin 对应页面。上游末尾的群排名开关提示改为本插件的“提交挑战”。
 - 共享库配合：`ImageContext.Input` 带上命令的查询输入（例如上期）；`FetchURLResource` 与 `ImageResources` 按需缓存官方图片地址并按文件去重（各游戏插件新增“官方图片缓存”来源）；`Assets.Queries` 允许命令改用其他操作的查询；异相仲裁新增 `peak_period` 输入，账号插件按官方接口以 3 请求上期与往期（原先以 2 请求不符合接口）。
 - 原神幽境危战按 miao stat/hard-summary（角色卡片取实时角色详情，赋光之人经账号插件新增的 `hard_challenge_popularity` 查询标记），深渊第 9 至 12 层按 Yunzai html/abyss/abyss-floor（新增命令，经 `Queries` 改用深渊查询）；原神“角色”按 miao character/avatar-list，新增“练度统计”按 character/profile-stat（圣遗物评分经共享库新增的 `ImageContext.Score` 运行固定上游评分）。共享库另新增 `ImageContext.Word`（命令原词）。
-- 下一步：星铁与绝区零的角色列表与练度统计、原神天赋统计、帮助。
+- 星铁“角色”与新增“练度统计”按 miao character/avatar-list 与 profile-stat 的星铁分支；绝区零“卡片”“角色”按 ZZZ-Plugin card（上游同一命令），新增“练度统计”按 proficiency（上游读已保存面板，这里直接读代理人详情）。资料条目新增 `abbr`，由 import-aliases.py 单独写入 miao 的角色与武器简称（星铁角色简称此前缺失）。
+- 帮助：共享库新增 `HelpImageBuilder`（按清单分组、带命令 ID 与名称），原神按 miao help、星铁按 StarRail-plugin help、绝区零按 ZZZ-Plugin help 出图；图标取上游帮助中列出该命令的条目，未列出的不显示。
+- 第一批剩余：原神天赋统计（miao 天赋统计需要材料周期资料）与抽卡“全部记录”（gacha-all-log）。下一步进入第二批。
 - 修复：三个插件的通用结果卡片声明未接受宿主加入的 `render_footer`，图片回复此前一律退回文字。
 
 ### R5 功能补齐
