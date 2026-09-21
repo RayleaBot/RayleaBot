@@ -59,7 +59,7 @@
 | R1 | 裁剪 | 完成；保险库相关的两项并入 R2 第 1 项 |
 | R2 | 结构重组与账号库修复 | 完成；单独检出构建待 SDK 与共享库发布 tag |
 | R3 | 命令层 | 完成；上游没有对应写法的命令按已确认决定第 7 项处理 |
-| R4 | 图片输出 | 进行中；三游戏体力与单角色面板完成 |
+| R4 | 图片输出 | 进行中；三游戏体力、单角色面板与抽卡分析完成 |
 | R5 | 功能补齐 | 未开始 |
 | R6 | 素材下载 | 进行中；第 1 项完成 |
 | R7 | 验收与交付 | 未开始 |
@@ -196,7 +196,8 @@
 - 已完成：原神体力（Yunzai 原神插件 daily-note-gs）、星铁体力（StarRail-plugin new_note）、绝区零体力（ZZZ-Plugin note）、原神与星铁单角色面板（miao profile-detail：评分明细由 runScore 按上游 getMarkDetail 返回，含强化次数与有效词条数；星铁含行迹树与光锥卡）。
 - 修正：星铁面板伤害的敌人等级按上游改为 80（原为无依据的 95）；运行时 `Meta.getMeta` 替身补上第三个参数，百分比词条按上游格式显示。
 - 绝区零单角色面板（ZZZ-Plugin panel/card）：评分脚本另返回权重、每条副词条强化次数与 propertyStats；面板保留官方条目（`CharacterPanel.Official`）供出图；立绘、音擎与套装图按上游从 ZZZeroUID 镜像按需下载（`artwork` 来源的 `mirrors`），上游三个 SVG 属性图标不是可接受的渲染资源，不显示。
-- 下一步：抽卡分析、深渊类战绩、角色列表与练度统计、帮助。
+- 抽卡分析：原神按 Yunzai gacha-log（命令词选池、统计与 UP 判定同 gachaLog），星铁按 StarRail-plugin gatcha/new（统计同 GatchaData.stat，上游卡池表停在 2.4，分组改用本插件卡池资料），绝区零按 ZZZ-Plugin gachalog（同 anaylizeGachaLog，代理人头像从官方图片地址按需下载）。共享库新增 `GachaImageBuilder`，把档案、角色与命令词交给插件。原神“全部记录”对应的 gacha-all-log 尚未移植，目前按角色池出图。
+- 下一步：深渊类战绩、角色列表与练度统计、帮助。
 - 修复：三个插件的通用结果卡片声明未接受宿主加入的 `render_footer`，图片回复此前一律退回文字。
 
 ### R5 功能补齐
