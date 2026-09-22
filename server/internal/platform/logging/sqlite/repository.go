@@ -82,7 +82,7 @@ func (r *Repository) ListSummaries(ctx context.Context, query logging.Query) ([]
 		`SELECT id, log_id, boot_id, ts, level, source, message, plugin_id, request_id
 		 FROM management_logs
 		 WHERE `+strings.Join(clauses, " AND ")+`
-		 ORDER BY ts DESC, id DESC
+		 ORDER BY `+logTimestampExpr+` DESC, id DESC
 		 LIMIT ?`,
 		args...,
 	)
@@ -144,10 +144,10 @@ func (r *Repository) ListPage(ctx context.Context, query logging.PageQuery) (log
 	if cursor != nil {
 		switch direction {
 		case logging.PageDirectionOlder:
-			clauses = append(clauses, "("+logTimestampExpr+" < julianday(?) OR ("+logTimestampExpr+" = julianday(?) AND id < ?))")
+			clauses = append(clauses, "("+logTimestampExpr+" < ? OR ("+logTimestampExpr+" = ? AND id < ?))")
 			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
 		case logging.PageDirectionNewer:
-			clauses = append(clauses, "("+logTimestampExpr+" > julianday(?) OR ("+logTimestampExpr+" = julianday(?) AND id > ?))")
+			clauses = append(clauses, "("+logTimestampExpr+" > ? OR ("+logTimestampExpr+" = ? AND id > ?))")
 			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
 		default:
 			return logging.PageResult{}, fmt.Errorf("%w: unsupported direction %q", logging.ErrInvalidCursor, direction)
@@ -286,7 +286,22 @@ type filterSpec struct {
 	EndAt     string
 }
 
-const logTimestampExpr = "julianday(ts)"
+// 旧记录可能含偏移或可变小数精度。只把整秒交给 SQLite 转 UTC，
+// 小数部分独立补齐，避免 julianday 的毫秒精度吞掉纳秒顺序或边界。
+const logTimestampExpr = `(CASE WHEN length(ts) = 30 AND substr(ts, -1) = 'Z' THEN ts ELSE
+ strftime('%Y-%m-%dT%H:%M:%S', substr(ts, 1, 19) ||
+   CASE WHEN substr(ts, -1) = 'Z' THEN 'Z' ELSE substr(ts, -6) END) || '.' ||
+ substr((CASE WHEN substr(ts, 20, 1) = '.' THEN
+   substr(ts, 21, length(ts) - 20 - CASE WHEN substr(ts, -1) = 'Z' THEN 1 ELSE 6 END)
+   ELSE '' END) || '000000000', 1, 9) || 'Z' END)`
+
+func normalizeLogQueryTimestamp(value string) string {
+	instant, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(value))
+	if err != nil {
+		return strings.TrimSpace(value)
+	}
+	return logging.FormatTimestamp(instant)
+}
 
 func buildLogFilterClauses(spec filterSpec) ([]string, []any) {
 	clauses := []string{"1 = 1"}
@@ -322,12 +337,12 @@ func buildLogFilterClauses(spec filterSpec) ([]string, []any) {
 		args = append(args, strings.TrimSpace(spec.BootID))
 	}
 	if spec.StartAt != "" {
-		clauses = append(clauses, logTimestampExpr+" >= julianday(?)")
-		args = append(args, strings.TrimSpace(spec.StartAt))
+		clauses = append(clauses, logTimestampExpr+" >= ?")
+		args = append(args, normalizeLogQueryTimestamp(spec.StartAt))
 	}
 	if spec.EndAt != "" {
-		clauses = append(clauses, logTimestampExpr+" <= julianday(?)")
-		args = append(args, strings.TrimSpace(spec.EndAt))
+		clauses = append(clauses, logTimestampExpr+" <= ?")
+		args = append(args, normalizeLogQueryTimestamp(spec.EndAt))
 	}
 	return clauses, args
 }
@@ -401,6 +416,11 @@ func decodeLogCursor(raw string) (*logCursor, error) {
 	if cursor.RowID <= 0 || strings.TrimSpace(cursor.Timestamp) == "" {
 		return nil, fmt.Errorf("%w: cursor payload is incomplete", logging.ErrInvalidCursor)
 	}
+	instant, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(cursor.Timestamp))
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid cursor timestamp", logging.ErrInvalidCursor)
+	}
+	cursor.Timestamp = logging.FormatTimestamp(instant)
 
 	return &cursor, nil
 }
@@ -447,9 +467,9 @@ func (r *Repository) hasRows(ctx context.Context, spec filterSpec, boundary logB
 	clauses, args := buildLogFilterClauses(spec)
 	switch boundary {
 	case logBoundaryOlder:
-		clauses = append(clauses, "("+logTimestampExpr+" < julianday(?) OR ("+logTimestampExpr+" = julianday(?) AND id < ?))")
+		clauses = append(clauses, "("+logTimestampExpr+" < ? OR ("+logTimestampExpr+" = ? AND id < ?))")
 	case logBoundaryNewer:
-		clauses = append(clauses, "("+logTimestampExpr+" > julianday(?) OR ("+logTimestampExpr+" = julianday(?) AND id > ?))")
+		clauses = append(clauses, "("+logTimestampExpr+" > ? OR ("+logTimestampExpr+" = ? AND id > ?))")
 	default:
 		return false, fmt.Errorf("unsupported log boundary %q", boundary)
 	}

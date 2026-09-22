@@ -54,10 +54,7 @@ func Bootstrap() *slog.Logger {
 
 // NewWithStreamAndController creates a logger with a management log stream and
 // a LevelController that allows changing the log level at runtime.
-func NewWithStreamAndController(levelName string, redactText func(string) string, location *time.Location) (*slog.Logger, *Stream, *LevelController, error) {
-	if location == nil {
-		return nil, nil, nil, fmt.Errorf("log timezone is required")
-	}
+func NewWithStreamAndController(levelName string, redactText func(string) string) (*slog.Logger, *Stream, *LevelController, error) {
 	level, err := parseLevel(levelName)
 	if err != nil {
 		return nil, nil, nil, err
@@ -69,7 +66,7 @@ func NewWithStreamAndController(levelName string, redactText func(string) string
 	stream := NewStream(32)
 	stream.SetBootID(generateBootID())
 	writer := NewSummaryWriter(os.Stdout, stream, redactText)
-	logger := newLoggerWithLevelVar(writer, &lc.levelVar, location)
+	logger := newLoggerWithLevelVar(writer, &lc.levelVar)
 	return logger, stream, lc, nil
 }
 
@@ -104,18 +101,13 @@ func newLoggerWithWriter(level slog.Level, writer io.Writer) *slog.Logger {
 	)
 }
 
-func newLoggerWithLevelVar(writer io.Writer, levelVar *slog.LevelVar, location *time.Location) *slog.Logger {
+func newLoggerWithLevelVar(writer io.Writer, levelVar *slog.LevelVar) *slog.Logger {
 	return slog.New(
 		newRequestIDHandler(slog.NewJSONHandler(
 			writer,
 			&slog.HandlerOptions{
-				Level: levelVar,
-				ReplaceAttr: func(groups []string, attr slog.Attr) slog.Attr {
-					if attr.Key == slog.TimeKey && attr.Value.Kind() == slog.KindTime {
-						attr.Value = slog.TimeValue(attr.Value.Time().In(location))
-					}
-					return replaceAttr(groups, attr)
-				},
+				Level:       levelVar,
+				ReplaceAttr: replaceAttr,
 			},
 		)),
 	)
@@ -181,6 +173,7 @@ func replaceAttr(_ []string, attr slog.Attr) slog.Attr {
 	case slog.TimeKey:
 		if attr.Value.Kind() == slog.KindTime {
 			attr.Key = "ts"
+			attr.Value = slog.StringValue(FormatTimestamp(attr.Value.Time()))
 		}
 	case slog.MessageKey:
 		attr.Key = "msg"

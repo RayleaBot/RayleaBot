@@ -213,6 +213,10 @@ func NormalizeSummary(summary Summary) Summary {
 	return summary
 }
 
+func FormatTimestamp(instant time.Time) string {
+	return instant.UTC().Format("2006-01-02T15:04:05.000000000Z")
+}
+
 func normalizeSummaryTimestamp(raw string) string {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -224,7 +228,7 @@ func normalizeSummaryTimestamp(raw string) string {
 		return trimmed
 	}
 
-	return parsed.UTC().Format(time.RFC3339Nano)
+	return FormatTimestamp(parsed)
 }
 
 func IsSupportedProtocol(protocol string) bool {

@@ -92,6 +92,7 @@ channels:
             timestamp:
               type: string
               format: date-time
+              description: Log creation instant in UTC RFC3339 with a Z suffix and nine fractional second digits, matching the HTTP log summary. Readers accept historical RFC3339 offsets and variable fractional precision.
             level:
               type: string
               enum: [debug, info, warn, error]
@@ -432,6 +433,7 @@ channels:
             timestamp:
               type: string
               format: date-time
+              description: UTC collection instant with a Z suffix and nine fractional second digits. Any source timestamp embedded in text remains unchanged.
         required: [plugin_id, stream, text, timestamp]
         example_ref: fixtures/websocket/ok.plugins-console-stderr.json
 

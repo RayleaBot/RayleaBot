@@ -119,7 +119,7 @@ func TestLogsWebSocketReplaysOutboundDeliverySummary(t *testing.T) {
 	if !ok || strings.TrimSpace(timestamp) == "" {
 		t.Fatalf("expected websocket frame timestamp, got %#v", frame["timestamp"])
 	}
-	if _, err := time.Parse(time.RFC3339, timestamp); err != nil {
+	if instant, err := time.Parse(time.RFC3339Nano, timestamp); err != nil || logging.FormatTimestamp(instant) != timestamp {
 		t.Fatalf("unexpected websocket frame timestamp: %v", err)
 	}
 

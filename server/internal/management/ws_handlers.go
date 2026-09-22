@@ -201,7 +201,7 @@ func newLogFrame(summary logging.Summary) managementevents.Frame {
 	return managementevents.Frame{
 		Channel:   "logs",
 		Type:      "logs.appended",
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Timestamp: logging.FormatTimestamp(time.Now()),
 		Data:      summary,
 	}
 }
@@ -239,7 +239,7 @@ func (h *ConsoleHandler) HandlePluginConsoleWebSocket() http.HandlerFunc {
 }
 
 func newConsoleFrame(entry console.Entry) managementevents.Frame {
-	timestamp := entry.Timestamp.UTC().Format(time.RFC3339)
+	timestamp := logging.FormatTimestamp(entry.Timestamp)
 	return managementevents.Frame{
 		Channel:   "plugin_console",
 		Type:      "plugins.console",

@@ -2,7 +2,7 @@
   "items": [
     {
       "log_id": "log_current_session_0002",
-      "timestamp": "2026-03-20T10:00:02Z",
+      "timestamp": "2026-03-20T10:00:02.000000000Z",
       "level": "info",
       "source": "runtime",
       "message": "插件raylea.echo心跳正常：请求 req_echo_0001",
@@ -11,7 +11,7 @@
     },
     {
       "log_id": "log_current_session_0001",
-      "timestamp": "2026-03-20T10:00:01Z",
+      "timestamp": "2026-03-20T10:00:01.000000000Z",
       "level": "error",
       "source": "runtime",
       "message": "插件weather运行时 stderr 输出超过速率限制，已截断",

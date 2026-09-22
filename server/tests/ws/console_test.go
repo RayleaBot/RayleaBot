@@ -47,8 +47,8 @@ func TestPluginConsoleWebSocketReplaysBufferedFrames(t *testing.T) {
 	if data["text"] != "Traceback (most recent call last): ..." {
 		t.Fatalf("unexpected text: got %#v", data["text"])
 	}
-	if data["timestamp"] != "2026-03-20T10:00:00Z" {
-		t.Fatalf("unexpected data timestamp: got %#v want %q", data["timestamp"], "2026-03-20T10:00:00Z")
+	if data["timestamp"] != "2026-03-20T10:00:00.000000000Z" {
+		t.Fatalf("unexpected data timestamp: got %#v", data["timestamp"])
 	}
 }
 

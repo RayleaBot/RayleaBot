@@ -9,7 +9,7 @@ response:
   body:
     items:
       - log_id: log_outbound_failed_0001
-        timestamp: "2026-04-10T09:18:01Z"
+        timestamp: "2026-04-10T09:18:01.000000000Z"
         level: warn
         source: adapter.onebot11
         protocol: onebot11
@@ -17,7 +17,7 @@ response:
         plugin_id: raylea.echo
         request_id: req_runtime_delivery_0002
       - log_id: log_outbound_delivered_0001
-        timestamp: "2026-04-10T09:18:00Z"
+        timestamp: "2026-04-10T09:18:00.000000000Z"
         level: info
         source: adapter.onebot11
         protocol: onebot11

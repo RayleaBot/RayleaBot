@@ -4,10 +4,10 @@
   "frame": {
     "channel": "logs",
     "type": "logs.appended",
-    "timestamp": "2026-03-20T10:00:00Z",
+    "timestamp": "2026-03-20T10:00:00.000000000Z",
     "data": {
       "log_id": "log_task_0001",
-      "timestamp": "2026-03-20T10:00:00Z",
+      "timestamp": "2026-03-20T10:00:00.000000000Z",
       "level": "info",
       "source": "tasks",
       "message": "任务已提交 plugin.install：install plugin from local_directory: weather"

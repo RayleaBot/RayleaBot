@@ -9,13 +9,13 @@ response:
   body:
     items:
       - log_id: log_adapter_0001
-        timestamp: "2026-03-20T10:00:01Z"
+        timestamp: "2026-03-20T10:00:01.000000000Z"
         level: error
         source: adapter.onebot11
         protocol: onebot11
         message: "OneBot 主动 WebSocket 连接断开：ws://127.0.0.1:6700"
       - log_id: log_runtime_0001
-        timestamp: "2026-03-20T10:00:00Z"
+        timestamp: "2026-03-20T10:00:00.000000000Z"
         level: error
         source: runtime
         message: 插件weather运行时 stderr 输出超过速率限制，已截断

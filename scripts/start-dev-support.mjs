@@ -3,6 +3,8 @@ import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
+import { Writable } from "node:stream";
+import { finished } from "node:stream/promises";
 
 export const WEB_DEV_PROFILE = "web-dev";
 export const BUILD_PROFILE = "build";
@@ -39,14 +41,15 @@ export function loadStartEnvironmentFile({
   return environmentPath;
 }
 
-export function formatLocalLogDate(date = new Date()) {
+export function formatUTCLogTimestamp(date = new Date()) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     throw new Error("date must be a valid Date");
   }
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return date.toISOString().replace(/Z$/, "000000Z");
+}
+
+export function formatUTCLogDate(date = new Date()) {
+  return formatUTCLogTimestamp(date).slice(0, 10);
 }
 
 export function resolveDatedLogPath({ rootDir, scope = "", type, date = new Date() } = {}) {
@@ -60,8 +63,49 @@ export function resolveDatedLogPath({ rootDir, scope = "", type, date = new Date
   if (scope) {
     segments.push(scope);
   }
-  segments.push(type, `${formatLocalLogDate(date)}.log`);
+  segments.push(type, `${formatUTCLogDate(date)}.log`);
   return path.join(...segments);
+}
+
+export function createDatedLogWriter({ rootDir, scope = "", type, now = () => new Date() } = {}) {
+  let file;
+  let activePath;
+  let completion;
+  const currentPath = () => resolveDatedLogPath({ rootDir, scope, type, date: now() });
+  const closeFile = async () => {
+    const previous = file;
+    file = undefined;
+    await previous?.close();
+  };
+  const append = async ({ filePath, chunk }) => {
+    if (filePath !== activePath) {
+      await closeFile();
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      file = await fs.open(filePath, "a");
+      activePath = filePath;
+    }
+    await file.writeFile(chunk);
+  };
+  const stream = new Writable({
+    objectMode: true,
+    write(entry, _encoding, callback) { append(entry).then(() => callback(), callback); },
+    final(callback) { closeFile().then(() => callback(), callback); },
+    destroy(error, callback) { closeFile().then(() => callback(error), (closeError) => callback(error ?? closeError)); },
+  });
+  return {
+    get path() { return currentPath(); },
+    write(chunk) {
+      // 在接收输出时确定 UTC 日期，磁盘写入排队不能把午夜前的日志归到次日。
+      return stream.write({ filePath: currentPath(), chunk });
+    },
+    end() {
+      if (!completion) {
+        completion = finished(stream);
+        stream.end();
+      }
+      return completion;
+    },
+  };
 }
 
 export function resolveStartProfile(env = process.env) {

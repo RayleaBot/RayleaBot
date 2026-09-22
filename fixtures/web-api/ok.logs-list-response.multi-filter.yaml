@@ -9,14 +9,14 @@ response:
   body:
     items:
       - log_id: log_multi_filter_0002
-        timestamp: "2026-03-20T10:00:01Z"
+        timestamp: "2026-03-20T10:00:01.000000000Z"
         level: warn
         source: runtime
         message: Echo 插件运行警告：请求 req_echo_0001
         plugin_id: raylea.echo
         request_id: req_echo_0001
       - log_id: log_multi_filter_0001
-        timestamp: "2026-03-20T10:00:00Z"
+        timestamp: "2026-03-20T10:00:00.000000000Z"
         level: error
         source: runtime
         message: 天气插件运行异常：请求 req_weather_0001

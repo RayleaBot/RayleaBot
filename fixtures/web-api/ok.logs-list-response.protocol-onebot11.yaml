@@ -9,21 +9,21 @@ response:
   body:
     items:
       - log_id: log_protocol_0003
-        timestamp: "2026-03-20T10:00:02Z"
+        timestamp: "2026-03-20T10:00:02.000000000Z"
         level: info
         source: bridge
         protocol: onebot11
         message: "10001: [测试群(2001)]管理员/测试用户A(3001): hello bridge"
         request_id: req_bridge_0001
       - log_id: log_protocol_0002
-        timestamp: "2026-03-20T10:00:01Z"
+        timestamp: "2026-03-20T10:00:01.000000000Z"
         level: error
         source: adapter.onebot11
         protocol: onebot11
         message: "OneBot 主动 WebSocket 鉴权失败：ws://127.0.0.1:6700"
         request_id: req_adapter_0002
       - log_id: log_protocol_0001
-        timestamp: "2026-03-20T10:00:00Z"
+        timestamp: "2026-03-20T10:00:00.000000000Z"
         level: warn
         source: adapter
         protocol: onebot11

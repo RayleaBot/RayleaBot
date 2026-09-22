@@ -176,7 +176,7 @@ export const config = {
     renderTimeoutSeconds: '单张图片渲染超时；超时后任务被取消并记录失败。',
     renderQueueWaitTimeoutSeconds: '渲染任务在队列中等待执行的最长时间。',
     renderQueueMaxLength: '渲染队列容量上限；新任务在队满时被拒绝。',
-    schedulerTimezone: '定时任务、服务日志、管理界面时间及日志筛选使用的时区。默认上海（UTC+08:00），地区时区自动遵循夏令时规则。',
+    schedulerTimezone: '定时任务、管理界面时间及日志筛选使用的时区。默认上海（UTC+08:00），地区时区自动遵循夏令时规则；日志记录和文件分日统一使用 UTC。',
     runtimePluginInitTimeoutSeconds: '单个插件初始化（加载、握手）允许的最长时间。',
     runtimePluginEventTimeoutSeconds: '插件处理单个事件的最长时间；超时后事件被丢弃。',
     runtimeMaxPendingEventsPerPlugin: '每个插件可挂起的事件数上限；超出后新事件被丢弃。',

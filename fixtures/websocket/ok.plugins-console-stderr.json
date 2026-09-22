@@ -4,12 +4,12 @@
   "frame": {
     "channel": "plugin_console",
     "type": "plugins.console",
-    "timestamp": "2026-03-17T09:32:00Z",
+    "timestamp": "2026-03-17T09:32:00.000000000Z",
     "data": {
       "plugin_id": "weather",
       "stream": "stderr",
       "text": "Traceback (most recent call last): ...",
-      "timestamp": "2026-03-17T09:32:00Z"
+      "timestamp": "2026-03-17T09:32:00.000000000Z"
     }
   },
   "expect": {

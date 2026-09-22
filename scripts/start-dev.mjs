@@ -21,6 +21,7 @@ import {
   createDevelopmentServerWatcherEnvironment,
   createDevelopmentServerLease,
   createDevEnvironment,
+  createDatedLogWriter,
   createDependencyInstallEnvironment,
   createServerDevelopmentEnvironment,
   isProcessRunning,
@@ -28,8 +29,8 @@ import {
   requestDevelopmentServerShutdown,
   createTrustedChildEnvironment,
   describeCommandFailure,
+  formatUTCLogTimestamp,
   loadStartEnvironmentFile,
-  resolveDatedLogPath,
   resolveBackendBaseUrl,
   resolveInstallMode,
   resolveCorepackCliPath,
@@ -87,17 +88,13 @@ const developmentServerWatcherEnvironment = createDevelopmentServerWatcherEnviro
   ownerPid: process.pid,
 });
 const launcherDir = path.join(rootDir, "launcher");
-const logDate = new Date();
-const webDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "web", date: logDate });
-const launcherLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "launcher", date: logDate });
-const serverDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "server", date: logDate });
-const startLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "start", date: logDate });
-const buildLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "build", date: logDate });
+const developmentLogs = Object.fromEntries(["web", "launcher", "server", "start", "build"].map((type) => [
+  type, createDatedLogWriter({ rootDir, scope: "dev", type }),
+]));
 const longRunningChildren = new Set();
 const childOutputTails = new WeakMap();
 const childOutputTailLimit = 64 * 1024;
 const cleanupCallbacks = new Set();
-let startLog;
 let shuttingDown = false;
 let activeServerDevLeaseId = "";
 let startupIdentity = "";
@@ -110,9 +107,7 @@ let onGoInputsChanged = () => {};
 let toolIdentity;
 const scriptInputs = ["start-dev.mjs", "dev-build-cache.mjs", "plugin-dev-workspace.mjs", "start-dev-support.mjs", "development-client.mjs", "file-content-tracker.mjs", "log-redaction.mjs"].map((name) => path.join(scriptDir, name));
 
-await prepareLogDirectories([webDevLogPath, launcherLogPath, serverDevLogPath, startLogPath, buildLogPath]);
 await fsp.mkdir(childGoCacheDir, { recursive: true });
-startLog = fs.createWriteStream(startLogPath, { flags: "a" });
 
 process.once("SIGINT", () => {
   void shutdown(130);
@@ -129,13 +124,13 @@ try {
   }));
   await main();
   await cleanup();
-  startLog.end();
 } catch (error) {
   log(`启动失败：${error?.message ?? error}`, "error");
-  log(`启动日志：${relativePath(startLogPath)}`, "error");
+  log(`启动日志：${relativePath(developmentLogs.start.path)}`, "error");
   await cleanup();
-  startLog.end();
   process.exitCode = 1;
+} finally {
+  await closeLogs();
 }
 
 async function main() {
@@ -240,7 +235,7 @@ async function runLauncherDevProfile({ installMode, devEnvironment, serverDevEnv
       ...developmentControlEnvironment,
       ...(serverReloadMode === SERVER_RELOAD_WATCH ? developmentServerWatcherEnvironment : {}),
     }),
-    logPath: launcherLogPath,
+    logType: "launcher",
   });
 }
 
@@ -750,7 +745,7 @@ function startServerDevProcess(serverDevEnvironment) {
   ], {
     cwd: serverDir,
     env: serverDevEnvironment,
-    logPath: serverDevLogPath,
+    logType: "server",
   });
 }
 
@@ -775,7 +770,7 @@ async function waitForServerProcess(child, backendBaseUrl, readyMessage) {
     }
     await delay(500);
   }
-  throw new Error(`Server 热重载未在 30 秒内完成首次构建，日志见 ${relativePath(serverDevLogPath)}。`);
+  throw new Error(`Server 热重载未在 30 秒内完成首次构建，日志见 ${relativePath(developmentLogs.server.path)}。`);
 }
 
 async function watchServerSources(onChange) {
@@ -830,7 +825,7 @@ async function launchCachedLauncher(environment) {
   await fsp.copyFile(output, executable);
   try {
     await runCommand("启动 Launcher", executable, [], {
-      cwd: launcherDir, env: { ...environment, ...developmentControlEnvironment, ...(activeServerDevLeaseId || reusedRuntime ? developmentServerWatcherEnvironment : {}), GOWORK: "off" }, logPath: launcherLogPath,
+      cwd: launcherDir, env: { ...environment, ...developmentControlEnvironment, ...(activeServerDevLeaseId || reusedRuntime ? developmentServerWatcherEnvironment : {}), GOWORK: "off" }, logType: "launcher",
       // SW_HIDE overrides the first ShowWindow call, leaving the interactive UI invisible.
       windowsHide: false,
     });
@@ -910,7 +905,7 @@ async function ensureWebDevServer(devEnvironment) {
   const child = spawnManaged("pnpm", ["dev"], {
     cwd: webDir,
     env: devEnvironment,
-    logPath: webDevLogPath,
+    logType: "web",
   });
 
   await waitForWebDevServer(child, devEnvironment.VITE_BACKEND_TARGET);
@@ -929,12 +924,12 @@ async function waitForWebDevServer(child, backendBaseUrl) {
     }
     await delay(500);
   }
-  throw new Error(`Web 开发服务器未在 30 秒内就绪，日志见 ${relativePath(webDevLogPath)}。`);
+  throw new Error(`Web 开发服务器未在 30 秒内就绪，日志见 ${relativePath(developmentLogs.web.path)}。`);
 }
 
-async function runCommand(label, command, args, { cwd, env = {}, logPath, windowsHide = true } = {}) {
+async function runCommand(label, command, args, { cwd, env = {}, logType, windowsHide = true } = {}) {
   log(`${label}...`);
-  const child = spawnManaged(command, args, { cwd, env, logPath, windowsHide });
+  const child = spawnManaged(command, args, { cwd, env, logType, windowsHide });
   const exit = await waitForChild(child);
   if (exit.code !== 0) {
     const output = childOutputTails.get(child)?.() ?? "";
@@ -944,11 +939,11 @@ async function runCommand(label, command, args, { cwd, env = {}, logPath, window
   }
 }
 
-function spawnManaged(command, args, { cwd, env = {}, logPath, windowsHide = true } = {}) {
+function spawnManaged(command, args, { cwd, env = {}, logType = "build", windowsHide = true } = {}) {
   const commandText = [command, ...args].join(" ");
   writeStartLog(`$ ${commandText}\n`);
-  const childLog = fs.createWriteStream(logPath ?? buildLogPath, { flags: "a" });
-  writeStartLog(`子进程日志：${relativePath(logPath ?? buildLogPath)}\n`);
+  const childLog = developmentLogs[logType];
+  writeStartLog(`子进程日志：${relativePath(childLog.path)}\n`);
   const spawnSpec = createSpawnSpec(command, args);
   const childOverrides = command === "pnpm"
     ? createDependencyInstallEnvironment(env)
@@ -979,7 +974,6 @@ function spawnManaged(command, args, { cwd, env = {}, logPath, windowsHide = tru
   child.once("close", () => {
     stdout.end();
     stderr.end();
-    childLog?.end();
     longRunningChildren.delete(child);
   });
   return child;
@@ -1063,7 +1057,7 @@ async function shutdown(code) {
   shuttingDown = true;
   log("正在关闭开发进程。");
   await cleanup();
-  startLog.end();
+  await closeLogs();
   process.exit(code);
 }
 
@@ -1119,13 +1113,11 @@ function log(message, level = "info") {
 }
 
 function writeStartLog(chunk) {
-  startLog?.write(`[${new Date().toISOString()}] ${redactLogLine(chunk)}`);
+  developmentLogs.start.write(`[${formatUTCLogTimestamp()}] ${redactLogLine(chunk)}`);
 }
 
-async function prepareLogDirectories(paths) {
-  await Promise.all([...new Set(paths.map((targetPath) => path.dirname(targetPath)))].map((directory) => {
-    return fsp.mkdir(directory, { recursive: true });
-  }));
+async function closeLogs() {
+  await Promise.all(Object.values(developmentLogs).map((writer) => writer.end()));
 }
 
 function shouldSkipLaunch() {

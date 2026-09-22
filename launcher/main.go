@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"io/fs"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -72,6 +73,8 @@ func relaunchWaitPID(args []string) (int, bool) {
 }
 
 func main() {
+	logger := newLauncherLogger(os.Stderr)
+	slog.SetDefault(logger)
 	// Wails exits a second instance immediately, so wait before it takes the lock.
 	if pid, ok := relaunchWaitPID(os.Args[1:]); ok {
 		desktop.WaitForProcessExit(pid)
@@ -96,6 +99,7 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "RayleaLauncher",
 		Description: "RayleaBot 桌面启动器",
+		Logger:      logger,
 		Icon:        icon,
 		Services:    []application.Service{application.NewService(service)},
 		Assets: application.AssetOptions{

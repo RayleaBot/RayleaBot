@@ -30,11 +30,7 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	}
 
 	managementRedactor := redact.NewManagementRedactor(cfg)
-	location, err := config.LoadTimezone(cfg.Scheduler.Timezone)
-	if err != nil {
-		return appBuildState{}, err
-	}
-	logger, logStream, logLevel, err := logging.NewWithStreamAndController(cfg.Log.Level, managementRedactor.Redact, location)
+	logger, logStream, logLevel, err := logging.NewWithStreamAndController(cfg.Log.Level, managementRedactor.Redact)
 	if err != nil {
 		return appBuildState{}, err
 	}

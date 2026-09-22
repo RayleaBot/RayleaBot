@@ -112,7 +112,7 @@ export function sortLogItemsAsc(items: LogSummary[]) {
     const leftTimestamp = toComparableTimestamp(left.timestamp)
     const rightTimestamp = toComparableTimestamp(right.timestamp)
     if (leftTimestamp !== rightTimestamp) {
-      return leftTimestamp - rightTimestamp
+      return leftTimestamp < rightTimestamp ? -1 : 1
     }
     return getLogIdentityKey(left).localeCompare(getLogIdentityKey(right))
   })
@@ -233,7 +233,12 @@ export function normalizeFilterValues(values: string[] | undefined | null) {
 }
 
 function toComparableTimestamp(value: string) {
-  return timestampMilliseconds(value) ?? 0
+  const milliseconds = timestampMilliseconds(value)
+  if (milliseconds === null) return 0n
+  // Date 只保留毫秒；日志排序还需要 RFC3339 时间戳的小数余量。
+  const fraction = value.trim().match(/\.(\d{1,9})(?:Z|[+-]\d{2}:\d{2})$/i)?.[1]
+  const remainder = fraction ? BigInt(fraction.padEnd(9, '0').slice(3)) : 0n
+  return BigInt(Math.trunc(milliseconds)) * 1_000_000n + remainder
 }
 
 function sameFilterValues(left: string[], right: string[]) {

@@ -42,8 +42,10 @@ describe('management time zones', () => {
     const config = useConfigStore()
     config.effectiveTimezone = 'Asia/Shanghai'
     config.document = { scheduler: { timezone: 'America/New_York' } } as never
-    expect(formatDateTime('2026-01-15T20:30:00Z')).toContain('04:30:00')
+    const utcLogTimestamp = '2026-01-15T20:30:00.123456789Z'
+    expect(formatDateTime(utcLogTimestamp)).toContain('04:30:00')
+    expect(formatDateTime('2026-01-16T04:30:00.123456789+08:00')).toBe(formatDateTime(utcLogTimestamp))
     config.effectiveTimezone = 'America/New_York'
-    expect(formatDateTime('2026-01-15T20:30:00Z')).toContain('15:30:00')
+    expect(formatDateTime(utcLogTimestamp)).toContain('15:30:00')
   })
 })

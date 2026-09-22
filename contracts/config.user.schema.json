@@ -325,7 +325,7 @@
           "type": "string",
           "minLength": 1,
           "default": "Asia/Shanghai",
-          "description": "IANA timezone identifier used for scheduled tasks, server log timestamps, management time display, and plugin display dates through init.timezone. Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.",
+          "description": "IANA timezone identifier used for scheduled tasks, management time display and log date filters, and plugin display dates through init.timezone. Log records, storage, API timestamps and daily log files use UTC independently of this setting. Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.",
           "x-apply-policy": "restart_required"
         }
       }

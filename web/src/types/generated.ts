@@ -1441,6 +1441,7 @@ export interface components {
         LogScope: "history" | "current_session";
         LogSummaryFields: {
             log_id: string;
+            /** @description Log creation instant in UTC RFC3339 with a Z suffix and nine fractional second digits. Readers accept historical RFC3339 offsets and variable fractional precision. Source event time, when present, remains a separate detail field; management display and date filters use effective_timezone. */
             timestamp: string;
             level: components["schemas"]["LogLevel"];
             source: string;
@@ -2235,7 +2236,7 @@ export interface components {
             };
             scheduler: {
                 /**
-                 * @description IANA timezone identifier used for scheduled tasks, server log timestamps, management time display, and plugin display dates through init.timezone. Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.
+                 * @description IANA timezone identifier used for scheduled tasks, management time display and log date filters, and plugin display dates through init.timezone. Log records, storage, API timestamps and daily log files use UTC independently of this setting. Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.
                  * @default Asia/Shanghai
                  */
                 timezone: string;

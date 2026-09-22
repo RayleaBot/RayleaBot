@@ -439,17 +439,21 @@ func (p *ProcessController) appendLog(scope, stream, text string) {
 	p.logMu.Lock()
 	defer p.logMu.Unlock()
 	directory := filepath.Join(p.LogDirectory(), scope)
+	appendLogAt(directory, stream, text, time.Now())
+}
+
+func appendLogAt(directory, stream, text string, instant time.Time) {
 	if os.MkdirAll(directory, 0o755) != nil {
 		return
 	}
-	now := time.Now()
+	now := instant.UTC()
 	filePath := filepath.Join(directory, now.Format("2006-01-02")+".log")
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return
 	}
 	defer file.Close()
-	_, _ = fmt.Fprintf(file, "[%s] [%s] %s", now.Format(time.RFC3339), stream, text)
+	_, _ = fmt.Fprintf(file, "[%s] [%s] %s", now.Format("2006-01-02T15:04:05.000000000Z"), stream, text)
 }
 
 func secureToken() (string, error) {

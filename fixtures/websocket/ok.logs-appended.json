@@ -4,10 +4,10 @@
   "frame": {
     "channel": "logs",
     "type": "logs.appended",
-    "timestamp": "2026-03-17T09:31:00Z",
+    "timestamp": "2026-03-17T09:31:00.000000000Z",
     "data": {
       "log_id": "log_adapter_0001",
-      "timestamp": "2026-03-17T09:31:00Z",
+      "timestamp": "2026-03-17T09:31:00.000000000Z",
       "level": "warn",
       "source": "adapter.onebot11",
       "message": "OneBot 主动 WebSocket 鉴权失败：ws://127.0.0.1:6700",

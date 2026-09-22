@@ -22,7 +22,7 @@ import {
   createTrustedChildEnvironment,
   createLauncherGoArgs,
   describeCommandFailure,
-  formatLocalLogDate,
+  formatUTCLogDate,
   loadStartEnvironmentFile,
   isProcessRunning,
   parseDevelopmentServerLease,
@@ -63,13 +63,13 @@ test("loads the optional root environment file", () => {
   }), /denied/);
 });
 
-test("formats local log dates", () => {
-  assert.equal(formatLocalLogDate(new Date(2026, 5, 3, 12, 0, 0)), "2026-06-03");
+test("formats UTC log dates", () => {
+  assert.equal(formatUTCLogDate(new Date(Date.UTC(2026, 5, 3, 12, 0, 0))), "2026-06-03");
 });
 
 test("resolves dated dev log paths by type", () => {
   const rootDir = path.join("C:", "RayleaBot");
-  const date = new Date(2026, 5, 13, 12, 0, 0);
+  const date = new Date(Date.UTC(2026, 5, 13, 12, 0, 0));
 
   assert.deepEqual(
     ["server", "web", "launcher", "start"].map((type) => resolveDatedLogPath({

@@ -8,7 +8,7 @@ response:
   status: 200
   body:
     log_id: log_bridge_0001
-    timestamp: "2026-03-20T10:00:02Z"
+    timestamp: "2026-03-20T10:00:02.000000000Z"
     level: info
     source: bridge
     protocol: onebot11

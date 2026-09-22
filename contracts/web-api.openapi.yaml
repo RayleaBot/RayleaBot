@@ -3067,6 +3067,7 @@ components:
           minLength: 1
         timestamp:
           type: string
+          description: Log creation instant in UTC RFC3339 with a Z suffix and nine fractional second digits. Readers accept historical RFC3339 offsets and variable fractional precision. Source event time, when present, remains a separate detail field; management display and date filters use effective_timezone.
         level:
           $ref: '#/components/schemas/LogLevel'
         source:
