@@ -2133,7 +2133,7 @@
         },
         "resources": {
           "type": "array",
-          "maxItems": 256,
+          "maxItems": 512,
           "items": {
             "$ref": "#/$defs/render_image_resource"
           },

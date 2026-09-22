@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	maxRenderImageResources         = 256
+	maxRenderImageResources         = 512
 	maxRenderImageURLResources      = 16
 	maxRenderImageResourceFallbacks = 4
 	maxRenderImageResourcePath      = 1024
