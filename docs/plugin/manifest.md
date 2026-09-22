@@ -23,7 +23,7 @@
 | `block` | 成功处理消息后默认阻断后续插件层，默认 `false` |
 | `events` | 静态事件订阅；省略或空数组表示不接收普通事件 |
 | `default_config` | 内联默认配置 |
-| `commands`、`command_groups`、`help` | 命令、真实命令分组和帮助标题/摘要 |
+| `commands`、`command_groups`、`help` | 命令、真实命令分组，帮助标题/摘要与插件自带的帮助命令 |
 | `management_ui` | 单一 UI 入口及页面 ID/标签 |
 | `webhooks` | 宿主启动时注册的静态 webhook |
 
@@ -47,7 +47,7 @@ manifest 不声明宿主权限。插件进程是管理员确认安装的完全�
 - `pattern`：Go regexp 规则。
 - `setting`：从 `default_config` 与保存配置的 `settings_key` 推导实际触发词。
 
-`command_groups[].commands` 只能引用存在的命令 ID。帮助菜单从命令和分组生成；`help` 只提供标题与摘要，不能声明没有对应命令的任意项目。
+`command_groups[].commands` 只能引用存在的命令 ID。帮助菜单从命令和分组生成；`help` 只提供标题与摘要，不能声明没有对应命令的任意项目。插件自己画帮助时，`help.command` 指向该命令（须为 `exact` 触发），内置菜单对这个插件的页面（如“/插件名帮助”）改为以该命令的主触发词投递给插件，总菜单仍由宿主生成。
 
 同名有效触发词会在管理面标记冲突。命令权限由 `command.permission`、全局默认权限、黑白名单、冷却和超级管理员共同决定。
 

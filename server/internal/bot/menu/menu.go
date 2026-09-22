@@ -71,6 +71,9 @@ type Request struct {
 	Target  string
 	Prefix  string
 	Command string
+	// Delegate is set when the named plugin answers its own menu: the message
+	// goes to that plugin's help command instead of the builtin page.
+	Delegate *plugins.CommandMatch
 }
 
 type pluginIdentity struct {
@@ -112,7 +115,7 @@ func (s *Service) currentMatcher() *builtinMatcher {
 
 func (s *Service) Handle(ctx context.Context, event chatevent.NormalizedEvent) bool {
 	request := s.Match(event)
-	if !request.Matched {
+	if !request.Matched || request.Delegate != nil {
 		return false
 	}
 
@@ -167,12 +170,12 @@ func (s *Service) Match(event chatevent.NormalizedEvent) Request {
 	commandName := strings.TrimSpace(parsed.Command)
 	for _, name := range matcher.commands {
 		if commandName == name {
-			return Request{
+			return s.withHelpDelegate(Request{
 				Matched: true,
 				Target:  strings.TrimSpace(strings.Join(parsed.Args, " ")),
 				Prefix:  parsed.Prefix,
 				Command: commandName,
-			}
+			})
 		}
 		if strings.HasSuffix(commandName, name) {
 			target := strings.TrimSpace(strings.TrimSuffix(commandName, name))
@@ -180,16 +183,43 @@ func (s *Service) Match(event chatevent.NormalizedEvent) Request {
 				if s.hasExactPluginCommand(commandName) {
 					continue
 				}
-				return Request{
+				return s.withHelpDelegate(Request{
 					Matched: true,
 					Target:  target,
 					Prefix:  parsed.Prefix,
 					Command: commandName,
-				}
+				})
 			}
 		}
 	}
 	return Request{}
+}
+
+// withHelpDelegate hands a plugin's menu page to the help command its
+// manifest names, by that command's first name.
+func (s *Service) withHelpDelegate(request Request) Request {
+	if request.Target == "" || s.plugins == nil {
+		return request
+	}
+	target := normalizeMenuLookup(request.Target)
+	for _, snapshot := range s.plugins.List() {
+		if snapshot.RegistrationState != plugins.RegistrationStateInstalled || snapshot.DesiredState != plugins.DesiredStateEnabled || !snapshot.Valid {
+			continue
+		}
+		if target != normalizeMenuLookup(snapshot.PluginID) && target != normalizeMenuLookup(snapshot.Name) {
+			continue
+		}
+		if snapshot.Help == nil || snapshot.Help.Command == "" {
+			return request
+		}
+		for _, command := range snapshot.Commands {
+			if command.ID == snapshot.Help.Command && len(command.TriggerNames) > 0 {
+				request.Delegate = &plugins.CommandMatch{PluginID: snapshot.PluginID, Tier: plugins.CommandTierGlobal, Prefix: request.Prefix, Command: command.TriggerNames[0], Args: []string{}, Declaration: command}
+			}
+		}
+		return request
+	}
+	return request
 }
 
 func (s *Service) hasExactPluginCommand(commandName string) bool {

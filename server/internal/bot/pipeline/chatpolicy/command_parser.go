@@ -31,7 +31,10 @@ func (s *Service) resolveCommand(event chatevent.NormalizedEvent) commandResolut
 		matches = plugins.ResolveCommandMatches(s.plugins.Commands(), event.PlainText, s.config().CommandPrefixes())
 	}
 	if s.menu != nil && !plugins.HasDedicatedMatch(matches) {
-		if builtin := s.menu.Match(event); builtin.Matched {
+		if builtin := s.menu.Match(event); builtin.Delegate != nil {
+			delegate := *builtin.Delegate
+			return commandResolution{matches: []plugins.CommandMatch{delegate}, parsed: command.ParseResult{IsCommand: true, Command: delegate.Command, Args: delegate.Args, Prefix: delegate.Prefix}}
+		} else if builtin.Matched {
 			return commandResolution{parsed: command.ParseResult{
 				IsCommand: true,
 				Command:   builtin.Command,

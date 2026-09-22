@@ -72,6 +72,9 @@ type RenderTemplate struct {
 type Help struct {
 	Title   string
 	Summary string
+	// Command is the ID of the plugin's own help command, which answers the
+	// builtin menu's page for this plugin.
+	Command string
 }
 
 type Snapshot struct {

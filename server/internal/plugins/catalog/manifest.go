@@ -75,6 +75,7 @@ type manifestCommandGroup struct {
 type manifestHelp struct {
 	Title   string `json:"title"`
 	Summary string `json:"summary"`
+	Command string `json:"command"`
 }
 
 type manifestManagementUI struct {
@@ -143,7 +144,7 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 	}
 	var help *plugins.Help
 	if manifest.Help != nil {
-		help = &plugins.Help{Title: manifest.Help.Title, Summary: manifest.Help.Summary}
+		help = &plugins.Help{Title: manifest.Help.Title, Summary: manifest.Help.Summary, Command: manifest.Help.Command}
 	}
 	templates, err := discoverRenderTemplates(filepath.Dir(infoPath))
 	if err != nil {
@@ -219,6 +220,22 @@ func validateManifestSemantics(manifest manifestDocument) error {
 			if _, exists := commandIDs[commandID]; !exists {
 				return fmt.Errorf("command_groups[%d] references unknown command %q", index, commandID)
 			}
+		}
+	}
+	if manifest.Help != nil && manifest.Help.Command != "" {
+		// The menu hands the plugin its help by the command's first name, so the
+		// command must have names.
+		found := false
+		for _, command := range manifest.Commands {
+			if command.ID == manifest.Help.Command {
+				if command.Trigger.Type != "exact" {
+					return fmt.Errorf("help.command %q must have an exact trigger", command.ID)
+				}
+				found = true
+			}
+		}
+		if !found {
+			return fmt.Errorf("help.command references unknown command %q", manifest.Help.Command)
 		}
 	}
 	if manifest.ManagementUI != nil {

@@ -1,0 +1,32 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "invalid",
+  "input": {
+    "id": "bad-help-command",
+    "name": "Bad Help Command",
+    "version": "1.0.0",
+    "manifest_version": "4",
+    "license": "MIT",
+    "min_core_version": "0.7.0",
+    "commands": [
+      {
+        "id": "help",
+        "name": "帮助",
+        "description": "显示帮助",
+        "usage": "/帮助",
+        "permission": "everyone",
+        "trigger": {
+          "type": "pattern",
+          "pattern": "^帮助$"
+        }
+      }
+    ],
+    "help": {
+      "title": "Bad",
+      "command": "help"
+    }
+  },
+  "expect": {
+    "valid": false
+  }
+}

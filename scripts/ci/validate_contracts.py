@@ -298,6 +298,14 @@ def plugin_info_package_errors(document: dict[str, Any], manifest: Any) -> list[
                 errors.append(f"command_groups/{index}: unknown command id: {command_id}")
     if len(group_ids) != len(set(group_ids)):
         errors.append("command_groups: group ids must be unique")
+    help_block = manifest.get("help")
+    help_command = help_block.get("command") if isinstance(help_block, dict) else None
+    if isinstance(help_command, str):
+        triggers = [command.get("trigger", {}) for command in manifest.get("commands", []) if isinstance(command, dict) and command.get("id") == help_command]
+        if not triggers:
+            errors.append(f"help.command: unknown command id: {help_command}")
+        elif not isinstance(triggers[0], dict) or triggers[0].get("type") != "exact":
+            errors.append(f"help.command: {help_command} must have an exact trigger")
 
     if package_files is None:
         return errors

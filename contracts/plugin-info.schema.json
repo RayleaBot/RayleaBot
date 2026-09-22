@@ -163,7 +163,8 @@
       "type": "object", "additionalProperties": false,
       "properties": {
         "title": { "type": "string", "minLength": 1 },
-        "summary": { "type": "string", "minLength": 1 }
+        "summary": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1, "description": "ID of the plugin's own help command, which must have an exact trigger. The builtin menu hands its page for this plugin to that command, sent as the command's first name." }
       }
     },
     "management_ui": {
@@ -247,6 +248,7 @@
     "fixtures/plugin-info/edge.empty-events.json",
     "fixtures/plugin-info/invalid.legacy-v3.json",
     "fixtures/plugin-info/invalid.command-group-reference.json",
+    "fixtures/plugin-info/invalid.help-command-pattern.json",
     "fixtures/plugin-info/ok.priority-block.json",
     "fixtures/plugin-info/invalid.priority-range.json",
     "fixtures/plugin-info/invalid.min-core-before-v4.json",

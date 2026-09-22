@@ -62,7 +62,8 @@
     ],
     "help": {
       "title": "订阅与解析",
-      "summary": "管理订阅推送与链接解析"
+      "summary": "管理订阅推送与链接解析",
+      "command": "subscription-status"
     }
   },
   "expect": {
