@@ -79,21 +79,54 @@ export async function loadPluginWorkspace(workspacePath) {
       throw new Error(`${workspacePath} resolves duplicate plugin id ${pluginID}.`)
     }
     seen.add(pluginID)
+    const hasGoModule = fs.existsSync(path.join(pluginPath, 'go.mod'))
     plugins.push({
       id: pluginID,
       path: pluginPath,
       enabled: true,
-      hasGoModule: fs.existsSync(path.join(pluginPath, 'go.mod')),
+      hasGoModule,
+      goModules: hasGoModule ? await readLocalGoModules(pluginPath) : [],
     })
   }
   return { workspaceVersion: '2', plugins }
 }
 
+// readLocalGoModules lists the other local modules a plugin's own go.work
+// uses, such as a shared library checked out next to it, so development
+// builds resolve them the same way.
+export async function readLocalGoModules(pluginPath) {
+  let raw
+  try {
+    raw = await fsp.readFile(path.join(pluginPath, 'go.work'), 'utf8')
+  } catch (error) {
+    if (error?.code === 'ENOENT') return []
+    throw error
+  }
+  const text = raw.replace(/\/\/.*$/gm, '')
+  const entries = []
+  for (const match of text.matchAll(/^\s*use\s*\(([^)]*)\)/gm)) entries.push(...match[1].split(/\r?\n/))
+  for (const match of text.matchAll(/^\s*use\s+([^\s(].*)$/gm)) entries.push(match[1])
+  const modules = []
+  for (const entry of entries) {
+    const value = entry.trim().replace(/^"(.*)"$/, '$1').replace(/^`(.*)`$/, '$1')
+    if (!value) continue
+    const modulePath = path.resolve(pluginPath, value)
+    if (modulePath !== path.resolve(pluginPath) && fs.existsSync(path.join(modulePath, 'go.mod')) && !modules.includes(modulePath)) {
+      modules.push(modulePath)
+    }
+  }
+  return modules
+}
+
 export async function collectWorkspaceSDKVersions(plugins) {
   const versions = new Set()
+  const modulePaths = new Set()
   for (const plugin of plugins) {
     if (plugin.hasGoModule === false) continue
-    const goMod = await fsp.readFile(path.join(plugin.path, 'go.mod'), 'utf8')
+    for (const modulePath of [plugin.path, ...(plugin.goModules ?? [])]) modulePaths.add(path.resolve(modulePath))
+  }
+  for (const modulePath of modulePaths) {
+    const goMod = await fsp.readFile(path.join(modulePath, 'go.mod'), 'utf8')
     const matches = goMod.matchAll(/github\.com\/RayleaBot\/RayleaBot\/sdk\/go\s+(v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/g)
     for (const match of matches) {
       versions.add(match[1])
@@ -136,12 +169,41 @@ export function createDevelopmentReloadQueue() {
   }
 }
 
-export function renderDevelopmentGoWork({ sdkGoPath, sdkGoVersions = [], plugins, goVersion = toolVersions.golang }) {
-  const modulePaths = [sdkGoPath, ...plugins.filter((plugin) => plugin.hasGoModule !== false).map((plugin) => plugin.path)]
+// collectLocalModuleReplacements points every version the workspace modules
+// require of a local module at its checkout, as the plugin go.work does; Go
+// otherwise looks the unpublished version up remotely.
+export async function collectLocalModuleReplacements(plugins) {
+  const local = new Map()
+  const modulePaths = new Set()
+  for (const plugin of plugins) {
+    if (plugin.hasGoModule === false) continue
+    modulePaths.add(path.resolve(plugin.path))
+    for (const modulePath of plugin.goModules ?? []) {
+      modulePaths.add(path.resolve(modulePath))
+      const name = /^module\s+(\S+)/m.exec(await fsp.readFile(path.join(modulePath, 'go.mod'), 'utf8'))?.[1]
+      if (name && name !== 'github.com/RayleaBot/RayleaBot/sdk/go' && !local.has(name)) local.set(name, path.resolve(modulePath))
+    }
+  }
+  const replacements = new Map()
+  for (const modulePath of modulePaths) {
+    const goMod = await fsp.readFile(path.join(modulePath, 'go.mod'), 'utf8')
+    for (const [name, target] of local) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      for (const match of goMod.matchAll(new RegExp(`${escaped}\\s+(v\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)`, 'g'))) {
+        replacements.set(`${name} ${match[1]}`, { module: name, version: match[1], path: target })
+      }
+    }
+  }
+  return [...replacements.values()].sort((a, b) => `${a.module} ${a.version}`.localeCompare(`${b.module} ${b.version}`))
+}
+
+export function renderDevelopmentGoWork({ sdkGoPath, sdkGoVersions = [], moduleReplacements = [], plugins, goVersion = toolVersions.golang }) {
+  const modulePaths = [sdkGoPath, ...plugins.filter((plugin) => plugin.hasGoModule !== false).flatMap((plugin) => [plugin.path, ...(plugin.goModules ?? [])])]
   const uniquePaths = [...new Set(modulePaths.map((modulePath) => path.resolve(modulePath)))]
   const uses = uniquePaths.map((modulePath) => `\t${quoteGoWorkPath(modulePath)}`).join('\n')
   const replacements = [...new Set(sdkGoVersions)]
     .map((version) => `replace github.com/RayleaBot/RayleaBot/sdk/go ${version} => ${quoteGoWorkPath(sdkGoPath)}`)
+    .concat(moduleReplacements.map(({ module, version, path: target }) => `replace ${module} ${version} => ${quoteGoWorkPath(target)}`))
     .join('\n')
   return `go ${goVersion}\n\nuse (\n${uses}\n)\n${replacements ? `\n${replacements}\n` : ''}`
 }

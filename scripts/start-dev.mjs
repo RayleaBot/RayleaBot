@@ -39,6 +39,7 @@ import {
   waitForChildProcessExit,
 } from "./start-dev-support.mjs";
 import {
+  collectLocalModuleReplacements,
   collectWorkspaceSDKVersions,
   createDevelopmentReloadQueue,
   currentPluginPlatform,
@@ -254,7 +255,7 @@ async function buildDevelopmentPlugins(pluginDev, pluginIDs) {
   if (!workspace.plugins.length) return { workspace, platform, plugins: [] };
   await writeIfChanged(pluginDevGoWorkPath, renderDevelopmentGoWork({
     sdkGoPath: path.join(rootDir, "sdk", "go"),
-    sdkGoVersions: await collectWorkspaceSDKVersions(workspace.plugins), plugins: workspace.plugins,
+    sdkGoVersions: await collectWorkspaceSDKVersions(workspace.plugins), moduleReplacements: await collectLocalModuleReplacements(workspace.plugins), plugins: workspace.plugins,
   }));
   const helper = path.join(cacheDir, "raylea-plugin" + nativeExecutableSuffix(platform));
   await cachedGoBuild("plugin-builder", { cwd: path.join(rootDir, "sdk", "go"), main: "./cmd/raylea-plugin", output: helper });
@@ -266,11 +267,16 @@ async function buildDevelopmentPlugins(pluginDev, pluginIDs) {
     };
     const uiDir = path.join(plugin.path, "ui");
     const hasUI = fs.existsSync(path.join(uiDir, "package.json"));
+    // A plugin whose UI links more than the Vue SDK prepares those links with
+    // its own scripts/prepare-ui.mjs, given the Vue SDK directory.
+    const prepareUI = path.join(plugin.path, "scripts", "prepare-ui.mjs");
+    const hasPrepareUI = hasUI && fs.existsSync(prepareUI);
     if (hasUI) {
+      if (hasPrepareUI) await runCommand("准备插件 UI 依赖 " + plugin.id, process.execPath, [prepareUI, path.join(rootDir, "sdk", "vue")], { cwd: plugin.path });
       await mirrorVueSDK({ sdkVuePath: path.join(rootDir, "sdk", "vue"), pluginPath: plugin.path });
       await ensureDependencies(plugin.id + "-ui", uiDir, resolveInstallMode(process.env), [path.join(rootDir, "sdk", "vue", "package.json")]);
       await buildCache.run(plugin.id + "-ui", {
-        inputs: async () => [...await treeInputs(uiDir), ...await treeInputs(path.join(rootDir, "sdk", "vue")), ...scriptInputs],
+        inputs: async () => [...await treeInputs(uiDir), ...await treeInputs(path.join(rootDir, "sdk", "vue")), ...(hasPrepareUI ? await treeInputs(path.join(plugin.path, ".rayleabot")) : []), ...scriptInputs],
         identity: toolIdentity, outputs: [path.join(uiDir, "dist"), path.join(uiDir, "dist", "index.html")],
         build: () => runCommand("构建插件 UI " + plugin.id, "pnpm", ["build"], { cwd: uiDir }),
       });
@@ -384,7 +390,7 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
   };
   const graphWatchers = new Map();
   onGoInputsChanged = () => {
-    const excluded = [toolIdentity.go.GOROOT, toolIdentity.go.GOMODCACHE, launcherDir, serverDir, path.join(rootDir, "sdk"), ...pluginWorkspace.plugins.map((plugin) => plugin.path)].filter(Boolean);
+    const excluded = [toolIdentity.go.GOROOT, toolIdentity.go.GOMODCACHE, launcherDir, serverDir, path.join(rootDir, "sdk"), ...pluginWorkspace.plugins.flatMap((plugin) => [plugin.path, ...(plugin.goModules ?? [])])].filter(Boolean);
     const directories = new Set();
     for (const file of activeGoInputs) {
       if (excluded.some((root) => file === root || file.startsWith(root + path.sep))) continue;
@@ -410,11 +416,18 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
   };
   const refreshWorkspaceWatch = async () => {
     const workspace = pluginDev.mode === PLUGIN_DEV_OFF ? { plugins: [] } : await loadPluginWorkspace(pluginDev.workspacePath);
+    const sharedModules = [...new Set(workspace.plugins.flatMap((plugin) => plugin.goModules ?? []))]
+      .filter((modulePath) => modulePath !== path.join(rootDir, "sdk", "go"))
+      .map((modulePath) => ({ id: "module:" + modulePath, path: modulePath, hasGoModule: true }));
+    const queueModuleUsers = (module, file) => {
+      for (const plugin of workspace.plugins.filter((item) => item.goModules?.includes(module.path))) queuePlugin(plugin, file);
+    };
     const newStop = pluginDev.mode === PLUGIN_DEV_WATCH ? await watchPluginWorkspace(workspace.plugins, queuePlugin, reportError, (file) => activeGoInputs.has(file)) : async () => {};
+    const stopModules = pluginDev.mode === PLUGIN_DEV_WATCH ? await watchPluginWorkspace(sharedModules, queueModuleUsers, reportError, (file) => activeGoInputs.has(file)) : async () => {};
     await stopPluginWatching();
-    stopPluginWatching = newStop;
+    stopPluginWatching = async () => { await newStop(); await stopModules(); };
     pluginWorkspace = workspace;
-    goInputRegistry.retainRoots([serverDir, launcherDir, path.join(rootDir, "sdk", "go"), ...workspace.plugins.filter((plugin) => plugin.hasGoModule).map((plugin) => plugin.path)]);
+    goInputRegistry.retainRoots([serverDir, launcherDir, path.join(rootDir, "sdk", "go"), ...workspace.plugins.filter((plugin) => plugin.hasGoModule).flatMap((plugin) => [plugin.path, ...(plugin.goModules ?? [])])]);
     onGoInputsChanged();
   };
   const stopServerWatch = await watchServerSources((file) => {

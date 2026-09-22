@@ -5,6 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 
 import {
+  collectLocalModuleReplacements,
   collectWorkspaceSDKVersions,
   createDevelopmentReloadQueue,
   currentPluginPlatform,
@@ -13,6 +14,7 @@ import {
   PLUGIN_DEV_SYNC,
   PLUGIN_DEV_WATCH,
   mirrorVueSDK,
+  readLocalGoModules,
   renderDevelopmentGoWork,
   resolvePluginDevMode,
   watchPluginWorkspace,
@@ -64,6 +66,32 @@ test('development go.work includes the SDK, plugin modules and SDK replacement o
   assert.equal((rendered.match(/plugins(?:\\\\|\/)echo/g) ?? []).length, 1)
   assert.match(rendered, /RayleaBot(?:\\\\|\/)sdk(?:\\\\|\/)go/)
   assert.equal((rendered.match(/replace github\.com\/RayleaBot\/RayleaBot\/sdk\/go v0\.2\.0/g) ?? []).length, 1)
+})
+
+test('development go.work adds the local modules a plugin go.work uses', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'rayleabot-plugin-gowork-'))
+  t.after(() => fs.rm(root, { recursive: true, force: true }))
+  const plugin = path.join(root, 'plugins', 'game')
+  const kit = path.join(root, 'plugins', 'kit')
+  const sdk = path.join(root, 'RayleaBot', 'sdk', 'go')
+  for (const directory of [plugin, kit, sdk]) {
+    await fs.mkdir(directory, { recursive: true })
+    await fs.writeFile(path.join(directory, 'go.mod'), 'module example/' + path.basename(directory) + '\n\nrequire github.com/RayleaBot/RayleaBot/sdk/go v0.7.1\n')
+  }
+  await fs.appendFile(path.join(plugin, 'go.mod'), 'require example/kit v0.1.0\n')
+  await fs.writeFile(path.join(plugin, 'go.work'), 'go 1.26.6\n\nuse (\n\t.\n\t../kit // shared library\n\t"../../RayleaBot/sdk/go"\n\t../missing\n)\n\nreplace example/kit v0.1.0 => ../kit\n')
+
+  const modules = await readLocalGoModules(plugin)
+  assert.deepEqual(modules, [kit, sdk])
+  assert.deepEqual(await readLocalGoModules(kit), [])
+  const plugins = [{ path: plugin, goModules: modules }]
+  const moduleReplacements = await collectLocalModuleReplacements(plugins)
+  assert.deepEqual(moduleReplacements, [{ module: 'example/kit', version: 'v0.1.0', path: kit }])
+  const rendered = renderDevelopmentGoWork({ sdkGoPath: sdk, sdkGoVersions: await collectWorkspaceSDKVersions(plugins), moduleReplacements, plugins })
+  assert.equal((rendered.match(/plugins(?:\\\\|\/)kit/g) ?? []).length, 2)
+  assert.match(rendered, /replace example\/kit v0\.1\.0 => /)
+  assert.equal((rendered.match(/sdk(?:\\\\|\/)go"/g) ?? []).length, 2)
+  assert.match(rendered, /replace github\.com\/RayleaBot\/RayleaBot\/sdk\/go v0\.7\.1/)
 })
 
 test('collects SDK versions declared by independent plugin modules', async (t) => {
