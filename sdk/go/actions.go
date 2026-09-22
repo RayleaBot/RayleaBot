@@ -348,6 +348,12 @@ func (actions *Actions) SchedulerCreate(ctx context.Context, request SchedulerCr
 	return actions.callResult(ctx, "scheduler.create", request)
 }
 
+// SchedulerDelete removes a task this plugin created with SchedulerCreate.
+// Deleting a task that is already gone is not an error.
+func (actions *Actions) SchedulerDelete(ctx context.Context, taskID string) (ActionResult, error) {
+	return actions.callResult(ctx, "scheduler.delete", map[string]string{"task_id": taskID})
+}
+
 type RenderImageRequest struct {
 	Template     string                `json:"template"`
 	Data         map[string]any        `json:"data"`
