@@ -212,14 +212,14 @@
 - 其余战绩：星铁模拟宇宙、寰宇蝗灾、差分宇宙按 StarRail-plugin rogue、rogue_locust、rogueTourn；新增上游的“常规演算”“周期演算”（本期、上期，可选第一至三次，共用 rogueTournNormal 与 rogueTournWeek 的模板）。黄金与机械、不可知域、货币战争上游没有出图，保持文字。绝区零枯萎苗圃、迷失之地、迷宫诡域、迷宫记录、区域收集按 ZZZ-Plugin hollowZero、hollowZeroS2、zenkov（index 与 detail 共用模板）、explorationDetail；“枯萎苗圃”改为按上游查询概要，尼尼微受过伤害时再读刀耕火焚记录。
 - 共享库新增 `game.json` 的 `hints`：上游只回复提示的命令（绝区零“零号空洞”、星铁“周期演算”）按命令 ID 给出固定回复。
 - 月报统计：原神与星铁按 Yunzai 原神插件 ledger-count-gs、ledger-count-sr（最近十二个月或“去年”“今年”“2025年”指定的年份），绝区零按 ZZZ-Plugin monthly/collect。共享库按上游在每次月报查询时保存该月，统计前补存官方仍提供且未在月末后保存过的月份，再把全部已保存月份交给插件的 `MonthlyStats` 构建函数；G2Plot 柱状图与环形图由共享库 `G2Column`、`G2Ring` 输出 SVG，纵轴刻度与上游打包的 g2plot 一致。星铁新增素材来源“原神插件星铁图片”，只下载页头标志所在目录。
-- 原神七圣召唤按 Yunzai deckList 与 deck（牌组命令可接编号），角色卡片与探索按 Yunzai html/player/role-card、role-explore（探索页总数取自上游 defSet 固定快照）。“七圣查询牌”对应的 deckCard 尚未出图：完整收藏有三百多张官方卡图，超过宿主单次 256 项资源（另有每次 96 MiB 的保留上限）；需要先决定是否放宽宿主的资源上限，再移植该页。“七圣”一词没有上游对应页面，保持文字。
+- 原神七圣召唤按 Yunzai deckList 与 deck（牌组命令可接编号），角色卡片与探索按 Yunzai html/player/role-card、role-explore（探索页总数取自上游 defSet 固定快照）。“七圣查询牌”按 deckCard 出图（带“角色”“行动”时只画一类）；完整收藏有三百多张官方卡图，按已确认决定第 9 项把宿主单次资源上限提高到 512 项（每次 96 MiB 的保留上限不变）。“七圣”一词没有上游对应页面，保持文字。
 - 日历：原神与星铁按 miao 的 Calendar 与 CalendarSr（wiki/calendar 页面，列表模式另用一份窄模板），绝区零同 ZZZ-Plugin 显示官方“活动日历”公告的图片。共享库的公告读取拆出原始列表、正文与图片公告，交给插件新增的 `Calendar` 构建函数。miao 另从其 HTTP 服务读取的时间修正不调用（公开资料只访问官方 HTTPS 接口）。共享库新增 `ImageResources.Prefetch` 并发缓存官方图片，原神日历首次出图由约 50 秒降到约 13 秒。
 - 图鉴（进行中）：共享库新增 `Entry` 构建函数与 `talent-wiki` 命令；原神“胡桃天赋”“夜兰命座”按 miao wiki/character-talent 出图，资料运行时读取素材更新下载的 miao 角色 data.json（miao 素材来源保留 `.json`）。星铁“希儿天赋/行迹/星魂”按同一页面的星铁模式出图（数值按上游 getDesc 代入，数字格式同 JavaScript toFixed）。未做：原神“图鉴/资料”的 miao character-wiki（上游的持有率与配装统计来自 miao 自有 HTTP 服务与 lelaer.com，公开资料只访问官方 HTTPS 接口，需决定去留）、绝区零 ZZZ-Plugin 的技能与影画页（资料来自第三方 static.nanoka.cc）。另修复：星铁 miao 素材来源补上日历用到的 `resources/wiki/`；新增的素材路径审计确认三个插件引用的上游文件都在各自来源的下载范围内。
 - 模拟抽卡：原神十连按 Yunzai html/gacha/gacha-trial（排序、重复角色的星尘星辉、五星抽数与随机光影、角上的群名片与保底或定轨同上游），星铁按 StarRail-plugin gachasimulation（按抽取顺序排成三行）；StarRail-plugin 的图只覆盖其旧卡池，缺图的角色与光锥改用 miao 的立绘与光锥图。共享库新增 `SimulationImage` 构建函数，每抽记录抽到的种类 `item`；触发词改回上游写法（原神支持十连2、武器十连、常驻十连、单抽），未写卡池时抽角色池。“定轨”不带参数时按 Yunzai 依次切换本期五星武器，额度用完的回复按两个上游的措辞。
 - 宿主：出图高度原先按所有元素的盒子测量，被裁剪的部分也会撑高页面；`body` 隐藏溢出时改为取 `body` 自身的盒子，星铁十连页这类把页面固定在 html 与 body 尺寸内的上游页面得以按原尺寸出图。
 - 群排名：原神与星铁按 miao 的 ProfileRank 与 character/rank-profile-list 重做。群内查看面板时按 UID 与角色记录该面板、评分与等级、计算规则默认条目（defDmgKey/defDmgIdx，计算脚本新增 `default` 标记）的期望伤害；“<角色>排名”按伤害（带圣遗物、遗器或评分时按评分）列前十五名，不写角色时列出各角色第一，“最强/最高分<角色>”显示第一名面板，新增超级管理员的重置排名与群管理员的刷新排名、开启/关闭排名，措辞同上游。上游“词条”“双爆”排名因 miao 评分明细已不含对应数值而恒为暂无排名，这里相同；“极限”面板读取鲸泽的本地文件，不提供。上游不写角色时的列表会因读取空角色而报错，这里按其意图列出。共享库新增 `Rank` 构建函数、`ImageResources.Remote`（OneBot 成员头像，与宿主相同取 QQ 头像地址）与资源上限保护（超过 256 项或 16 项地址资源时略去多余图片），资料目录导入 miao 的套装简称 `set_abbrs`。星铁记忆与欢愉命途上游把页面加宽到 970，这里保持 900 宽按比例缩小。
 - 绝区零排名：按 ZZZ-Plugin 由群内战绩查询组成。共享库新增 `game.json` 的 `query_ranks` 与 `QueryRank` 构建函数：群内查询式舆、危局、拟境、临界或爬塔后保存该 UID 最近一次结果并加入本群排名，“显示/隐藏××排名”按玩法或全部切换（再次查询保留已选的隐藏，上游每次查询都会重新显示），排名时按宿主的群成员列表剔除已退群成员。插件按上游只取本期并按各玩法规则排序，取前十五名，按 rank 下九个页面出图（爬塔四个赛季各一页）；“爬塔排名”列出可查询的赛季。战绩图末尾恢复上游的显示/隐藏状态提示（此前改为提示“提交挑战”）。上游临界推演无人上榜的回复误写为危局，这里改正。
-- 第二批剩余：七圣召唤卡牌页（见上条）、图鉴其余部分。
+- 第二批剩余：原神“图鉴/资料”（miao character-wiki，按已确认决定第 10 项读取 miao.games 与 lelaer.com 的统计）、绝区零技能与影画页（按第 11 项读取 nanoka）。
 - 修复：三个插件的通用结果卡片声明未接受宿主加入的 `render_footer`，图片回复此前一律退回文字。
 
 ### R5 功能补齐
