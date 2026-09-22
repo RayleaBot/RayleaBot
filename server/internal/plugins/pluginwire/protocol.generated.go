@@ -349,6 +349,10 @@ type ProtocolActionSchedulerCreateFrame struct {
 	Payload   json.RawMessage `json:"payload,omitempty"`
 }
 
+type ProtocolActionSchedulerDeleteFrame struct {
+	TaskID string `json:"task_id"`
+}
+
 type ProtocolActionRenderImageFrame struct {
 	Template     string                             `json:"template"`
 	Theme        string                             `json:"theme,omitempty"`

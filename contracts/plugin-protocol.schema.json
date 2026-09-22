@@ -1237,6 +1237,9 @@
           "$ref": "#/$defs/action_scheduler_create"
         },
         {
+          "$ref": "#/$defs/action_scheduler_delete"
+        },
+        {
           "$ref": "#/$defs/action_render_image"
         },
         {
@@ -2019,6 +2022,19 @@
         }
       }
     },
+    "action_scheduler_delete_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "render_image_resource_id": {
       "type": "string",
       "minLength": 1,
@@ -2578,6 +2594,38 @@
             },
             "data": {
               "$ref": "#/$defs/action_scheduler_create_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_scheduler_delete": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "scheduler.delete"
+            },
+            "data": {
+              "$ref": "#/$defs/action_scheduler_delete_data"
             }
           }
         }
@@ -3287,6 +3335,7 @@
     "fixtures/plugin-protocol/ok.governance-scoped-write.yaml",
     "fixtures/plugin-protocol/invalid.governance-write-without-scope.yaml",
     "fixtures/plugin-protocol/ok.scheduler-create.yaml",
+    "fixtures/plugin-protocol/ok.scheduler-delete.yaml",
     "fixtures/plugin-protocol/ok.render-image.yaml",
     "fixtures/plugin-protocol/ok.render-image-local-resource.yaml",
     "fixtures/plugin-protocol/invalid.render-image-resource-path.yaml",

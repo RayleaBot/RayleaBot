@@ -141,7 +141,7 @@ Go SDK 的 `CallService` 在本地 context 结束时返回错误，并保留响�
 - `governance.blacklist.read` / `write`
 - `governance.whitelist.read` / `write`
 - `governance.command_policy.read`
-- `scheduler.create`
+- `scheduler.create` / `delete`（插件只能删除自己创建的任务，任务已不存在时返回 `deleted=false`）
 - `render.image`
 - OneBot family actions
 - provider 扩展动作

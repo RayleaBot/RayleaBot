@@ -60,6 +60,7 @@ MODELS = {
     "ProtocolActionGovernanceBlacklistWriteFrame": "/$defs/action_governance_blacklist_write_data",
     "ProtocolActionGovernanceWhitelistWriteFrame": "/$defs/action_governance_whitelist_write_data",
     "ProtocolActionSchedulerCreateFrame": "/$defs/action_scheduler_create_data",
+    "ProtocolActionSchedulerDeleteFrame": "/$defs/action_scheduler_delete_data",
     "ProtocolActionRenderImageFrame": "/$defs/action_render_image_data",
     "ProtocolRenderImageResourceFrame": "/$defs/render_image_resource",
 }

@@ -1263,6 +1263,29 @@
     ]
   },
   {
+    "name": "ok.scheduler-delete.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-scheduler-delete-1",
+        "action": "scheduler.delete",
+        "data": {
+          "task_id": "daily-refresh"
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-scheduler-delete-1",
+        "status": "success",
+        "data": {
+          "task_id": "daily-refresh",
+          "deleted": true
+        }
+      }
+    ]
+  },
+  {
     "name": "ok.secret-delete.yaml",
     "valid": true,
     "frames": [
