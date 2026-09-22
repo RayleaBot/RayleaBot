@@ -1,7 +1,7 @@
 import { StringDecoder } from "node:string_decoder";
 
 const sensitiveKey = /access_token|authorization|cookie|proxy_url|secret|token|password|passwd|api_key/i;
-const assignment = /(\b(?:setup_token|access_token|refresh_token|token|secret|password|passwd|api_key|rkey|SESSDATA|bili_jct)\s*[:=]\s*)([^&\s"'<>;,]+)/gi;
+const assignment = /(\b(?:setup_token|access_token|refresh_token|token|secret|password|passwd|api_key|rkey|SESSDATA|bili_jct|ltoken(?:_v2)?|cookie_token(?:_v2)?|stoken(?:_v2)?|login_ticket|authkey|game_token|combo_token)\s*[:=]\s*)([^&\s"'<>;,]+)/gi;
 const header = /(\b(?:authorization|cookie|set-cookie)\s*[:=]\s*)([^\r\n]+)/gi;
 
 export function redactText(value) {

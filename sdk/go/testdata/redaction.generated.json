@@ -7,5 +7,8 @@
   {"input":"SESSDATA=fixture-session bili_jct=fixture-csrf refresh_token=fixture-refresh","output":"SESSDATA=[REDACTED] bili_jct=[REDACTED] refresh_token=[REDACTED]"},
   {"input":"request_id=req-1 code=plugin.internal_error count=0","output":"request_id=req-1 code=plugin.internal_error count=0"},
   {"input":"token_count=20 mytoken=value tokenize=ok","output":"token_count=20 mytoken=value tokenize=ok"},
+  {"input":"ltuid_v2=100000001; ltoken_v2=v2_fixture-ltoken; cookie_token_v2=v2_fixture-cookie; account_mid_v2=fixture-mid","output":"ltuid_v2=100000001; ltoken_v2=[REDACTED]; cookie_token_v2=[REDACTED]; account_mid_v2=fixture-mid"},
+  {"input":"stoken=v2_fixture-stoken;stuid=100000001 login_ticket=fixture-ticket","output":"stoken=[REDACTED];stuid=100000001 login_ticket=[REDACTED]"},
+  {"input":"https://public-operation-hk4e.mihoyo.com/gacha_info/api/getGachaLog?authkey_ver=1&authkey=fixture%2Bkey&page=1","output":"https://public-operation-hk4e.mihoyo.com/gacha_info/api/getGachaLog?authkey_ver=1&authkey=[REDACTED]&page=1"},
   {"input":"  ordinary message\n","output":"  ordinary message\n"}
 ]
