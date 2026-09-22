@@ -109,6 +109,7 @@ func buildLocalActionService(
 		Conversations:        eventStack.Conversations,
 		Browser:              browserManager,
 		Scheduler:            localaction.Scheduler(platform.Scheduler),
+		SchedulerDelete:      localaction.SchedulerDelete(platform.Scheduler),
 		MessageSender:        localaction.OutboundMessageSender(eventStack.Dispatcher),
 		Renderer:             localaction.RendererFromService(renderer),
 		PluginDataRoot:       pluginDataRoot(platform),

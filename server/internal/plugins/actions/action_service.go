@@ -19,6 +19,7 @@ type Deps struct {
 	Conversations        *conversation.Registry
 	Browser              BrowserSessionManager
 	Scheduler            SchedulerCreateFunc
+	SchedulerDelete      SchedulerDeleteFunc
 	MessageSender        MessageSendFunc
 	Renderer             Renderer
 	ResolveOneBotAdapter func(sourceAdapter, sourceProtocol string) (OneBotAdapter, error)

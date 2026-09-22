@@ -595,6 +595,40 @@ func TestEngine_UpsertTask(t *testing.T) {
 	}
 }
 
+func TestEngine_DeletePluginTaskOnlyRemovesOwnTask(t *testing.T) {
+	t.Parallel()
+
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+	engine, err := New(Options{Repository: repo, Logger: testLogger(), Timezone: "Asia/Shanghai"})
+	if err != nil {
+		t.Fatalf("new engine: %v", err)
+	}
+	ctx := context.Background()
+	if _, err := engine.UpsertTaskWithLabel(ctx, "weather", "daily_report", "每日早报", "0 8 * * *", nil); err != nil {
+		t.Fatalf("UpsertTask: %v", err)
+	}
+	if deleted, err := engine.DeletePluginTask(ctx, "other", "daily_report"); err != nil || deleted {
+		t.Fatalf("another plugin deleted the task: %v %v", deleted, err)
+	}
+	if deleted, err := engine.DeletePluginTask(ctx, "weather", "daily_report"); err != nil || !deleted {
+		t.Fatalf("owner could not delete the task: %v %v", deleted, err)
+	}
+	if len(engine.Jobs()) != 0 {
+		t.Fatalf("task still scheduled")
+	}
+	jobs, err := repo.LoadJobs(ctx)
+	if err != nil || len(jobs) != 0 {
+		t.Fatalf("task still stored: %d %v", len(jobs), err)
+	}
+	if deleted, err := engine.DeletePluginTask(ctx, "weather", "daily_report"); err != nil || deleted {
+		t.Fatalf("deleting a gone task: %v %v", deleted, err)
+	}
+}
+
 func TestEngine_UpsertTaskPreservesRunState(t *testing.T) {
 	t.Parallel()
 

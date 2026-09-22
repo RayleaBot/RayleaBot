@@ -29,6 +29,14 @@ func Scheduler(engine *scheduler.Engine) SchedulerCreateFunc {
 	}
 }
 
+// SchedulerDelete removes only tasks the calling plugin created.
+func SchedulerDelete(engine *scheduler.Engine) SchedulerDeleteFunc {
+	if engine == nil {
+		return nil
+	}
+	return engine.DeletePluginTask
+}
+
 func ConfigChangedDispatcher(dispatcher *dispatch.Dispatcher) ConfigChangeDispatcher {
 	if dispatcher == nil {
 		return nil

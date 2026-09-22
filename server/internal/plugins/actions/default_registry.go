@@ -28,6 +28,7 @@ func defaultRegistrarItems() []registrar {
 	items := make([]registrar, 0, 16)
 	items = append(items,
 		schedulerCreateRegistrar(),
+		schedulerDeleteRegistrar(),
 		secretReadRegistrar(),
 		secretMutationRegistrar("secret.write"),
 		secretMutationRegistrar("secret.delete"),
@@ -75,6 +76,24 @@ func executeSchedulerCreate(ctx context.Context, deps Deps, req ActionRequest) (
 		"task_id":  job.JobID,
 		"next_run": job.NextRun.UTC().Format(time.RFC3339),
 	}, nil
+}
+
+func schedulerDeleteRegistrar() registrar {
+	return registrar{
+		kind: "scheduler.delete",
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				if deps.SchedulerDelete == nil {
+					return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "scheduler engine is not available"}
+				}
+				deleted, err := deps.SchedulerDelete(ctx, req.PluginID, req.Action.SchedulerTaskID)
+				if err != nil {
+					return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "scheduler.delete failed", Err: err}
+				}
+				return map[string]any{"task_id": req.Action.SchedulerTaskID, "deleted": deleted}, nil
+			}
+		},
+	}
 }
 
 func secretReadRegistrar() registrar {

@@ -431,6 +431,28 @@ func (e *Engine) Unregister(ctx context.Context, jobID string) error {
 	return nil
 }
 
+// DeletePluginTask removes a task a plugin created with scheduler.create. A
+// task of another plugin, or one already gone, is left alone and reported as
+// not deleted.
+func (e *Engine) DeletePluginTask(ctx context.Context, pluginID, taskID string) (bool, error) {
+	e.mutationMu.Lock()
+	defer e.mutationMu.Unlock()
+	e.mu.Lock()
+	job, ok := e.jobs[taskID]
+	e.mu.Unlock()
+	if !ok || job.PluginID != pluginID {
+		return false, nil
+	}
+	if err := e.repo.DeleteJob(ctx, taskID); err != nil {
+		return false, fmt.Errorf("delete scheduled task %s: %w", taskID, err)
+	}
+	e.mu.Lock()
+	delete(e.jobs, taskID)
+	e.mu.Unlock()
+	e.nextJobRevision()
+	return true, nil
+}
+
 // UnregisterByPlugin removes all jobs for a given plugin.
 func (e *Engine) UnregisterByPlugin(ctx context.Context, pluginID string) error {
 	e.mutationMu.Lock()

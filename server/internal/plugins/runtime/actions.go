@@ -588,6 +588,18 @@ func parseSchedulerCreateAction(raw json.RawMessage) (*plugins.Action, error) {
 	}, nil
 }
 
+func parseSchedulerDeleteAction(raw json.RawMessage) (*plugins.Action, error) {
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionSchedulerDeleteFrame](raw, "scheduler.delete")
+	if err != nil {
+		return nil, err
+	}
+	taskID := strings.TrimSpace(frame.TaskID)
+	if taskID == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required scheduler.delete fields", nil)
+	}
+	return &plugins.Action{Kind: "scheduler.delete", SchedulerTaskID: taskID}, nil
+}
+
 func parseOutboundActionSegments(raw []pluginwire.ProtocolSegmentFrame) ([]chatevent.MessageSegment, error) {
 	if len(raw) == 0 {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required rich message segments", nil)

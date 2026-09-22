@@ -75,6 +75,8 @@ func ParseLocalAction(kind string, raw json.RawMessage) (*plugins.Action, error)
 		return parseGovernanceCommandPolicyReadAction(raw)
 	case "scheduler.create":
 		return parseSchedulerCreateAction(raw)
+	case "scheduler.delete":
+		return parseSchedulerDeleteAction(raw)
 	case "render.image":
 		return parseRenderImageAction(raw)
 	case "message.send":
@@ -107,6 +109,7 @@ func isLocalActionKind(kind string) bool {
 		"governance.whitelist.write",
 		"governance.command_policy.read",
 		"scheduler.create",
+		"scheduler.delete",
 		"render.image",
 		"message.send":
 		return true

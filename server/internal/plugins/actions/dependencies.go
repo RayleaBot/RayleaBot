@@ -36,6 +36,10 @@ type ScheduledTask struct {
 
 type SchedulerCreateFunc func(context.Context, string, string, string, string, []byte) (ScheduledTask, error)
 
+// SchedulerDeleteFunc removes a plugin's own scheduled task and reports
+// whether it existed.
+type SchedulerDeleteFunc func(ctx context.Context, pluginID, taskID string) (bool, error)
+
 // BrowserSessionManager starts and stops host-managed browser sessions for
 // plugins. The host owns process launch, profile isolation, and shutdown; the
 // plugin interacts with the returned CDP endpoint directly.
