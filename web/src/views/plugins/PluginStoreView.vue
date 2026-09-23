@@ -331,7 +331,6 @@ onMounted(() => {
                 :href="plugin.repository_url"
                 target="_blank"
                 rel="noopener noreferrer"
-                shape="circle"
                 variant="ghost"
                 :aria-label="t('plugins.store.repository')"
               >

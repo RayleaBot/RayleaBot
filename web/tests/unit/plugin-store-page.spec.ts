@@ -74,6 +74,25 @@ describe('PluginStoreView', () => {
     })
   })
 
+  it('opens the plugin repository as an external link', async () => {
+    const store = usePluginStore()
+    store.items = [echoPlugin]
+    store.sources = [officialSource]
+    store.source = officialSource
+    store.total = 1
+    vi.spyOn(store, 'fetchSources').mockResolvedValue(store.sources)
+    vi.spyOn(store, 'fetchEntries').mockResolvedValue({ items: store.items, total: 1, source: officialSource })
+    vi.spyOn(store, 'refreshSource').mockResolvedValue(officialSource)
+
+    const wrapper = mount(PluginStoreView, { global: { plugins: [getActivePinia()!] } })
+    await flushPromises()
+
+    const link = wrapper.get('a[aria-label="打开源码仓库"]')
+    expect(link.attributes('href')).toBe('https://github.com/RayleaBot/plugin-echo')
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('rel')).toBe('noopener noreferrer')
+  })
+
   it('keeps cached entries when refreshing the selected source fails', async () => {
     const store = usePluginStore()
     store.items = [echoPlugin]

@@ -2,14 +2,19 @@
 import { LoaderCircleIcon } from '@lucide/vue'
 import { Button, type ButtonVariants } from '@/components/ui/button'
 
+// href renders the button as a link, e.g. to an external repository.
 withDefaults(defineProps<{
   variant?: ButtonVariants['variant']; size?: ButtonVariants['size']; loading?: boolean; disabled?: boolean
-  type?: 'button' | 'submit' | 'reset'
+  type?: 'button' | 'submit' | 'reset'; href?: string
 }>(), { variant: 'outline', size: 'default', type: 'button' })
 </script>
 
 <template>
-  <Button :variant="variant" :size="size" :type="type" :disabled="disabled || loading" :aria-busy="loading || undefined" class="app-button">
+  <Button v-if="href" as="a" :href="href" :variant="variant" :size="size" class="app-button">
+    <slot name="icon" />
+    <slot />
+  </Button>
+  <Button v-else :variant="variant" :size="size" :type="type" :disabled="disabled || loading" :aria-busy="loading || undefined" class="app-button">
     <LoaderCircleIcon v-if="loading" class="app-spinner" aria-hidden="true" />
     <slot v-else name="icon" />
     <slot />
