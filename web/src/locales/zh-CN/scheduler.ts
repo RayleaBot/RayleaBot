@@ -86,19 +86,10 @@ export const scheduler = {
     total: '已执行 {count} 次',
     success: '成功 {count}',
     failed: '失败 {count}',
-    timeout: '超时 {count}',
-    retry: '重试 {count}',
     other: '其他 {count}',
   },
   empty: {
     title: '暂无定时任务',
     description: '插件创建定时任务后会显示在这里',
-  },
-  aria: {
-    success: '成功次数',
-    failed: '失败次数',
-    timeout: '超时次数',
-    retry: '重试次数',
-    other: '其他次数',
   },
 } as const

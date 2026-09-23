@@ -11,7 +11,6 @@ export const ui = {
   "showPassword": "显示密码",
   "hidePassword": "隐藏密码",
   "clearInput": "清除输入",
-  "refresh": "刷新",
   "search": "搜索",
   "loading": "加载中",
   "select": "请选择",

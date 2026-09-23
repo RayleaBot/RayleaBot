@@ -1,5 +1,4 @@
 export const logs = {
-  title: '实时日志',
   currentTitle: '实时日志',
   historyTitle: '历史日志',
   filters: {
@@ -13,7 +12,6 @@ export const logs = {
     apply: '应用筛选',
     all: '全部',
     sourcePlaceholder: '例如 runtime / adapter.onebot11',
-    pluginPlaceholder: '例如 weather',
     requestPlaceholder: '例如 req_*',
   },
   fields: {

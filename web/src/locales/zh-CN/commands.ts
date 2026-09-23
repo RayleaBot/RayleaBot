@@ -1,6 +1,5 @@
 export const commands = {
   title: '指令中心',
-  subtitle: '查看当前生效的命令权限、用法和可用状态。',
   actions: {
     openPermissionPolicy: '权限策略',
   },
@@ -21,7 +20,6 @@ export const commands = {
     usage: '用法',
     permission: '权限',
     declaredPermission: '声明权限',
-    effectivePermission: '生效权限',
     permissionSource: '权限来源',
     source: '触发方式',
     plugin: '所属插件',

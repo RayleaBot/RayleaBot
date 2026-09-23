@@ -28,12 +28,6 @@ export const auth = {
     retained: '配置、数据和已安装插件会保留，原有登录会话将失效。',
     back: '返回登录',
   },
-  alerts: {
-    bootstrapUnavailable: '暂时无法进入管理界面',
-    launcherManualLogin: '请手动登录',
-    loginIncomplete: '登录未完成',
-    setupIncomplete: '创建管理员账号未完成',
-  },
   feedback: {
     loginSuccess: '已登录',
     setupSuccess: '管理员账号已创建',

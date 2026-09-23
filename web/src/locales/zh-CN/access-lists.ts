@@ -29,13 +29,9 @@ export const accessLists = {
     group: '群',
   },
   entryForm: {
-    targetId: '目标 ID',
-    reason: '原因',
-    add: '保存条目',
     remove: '移除',
     placeholderTargetId: '输入用户 ID 或群 ID',
     placeholderReason: '填写原因',
-    scope: '类型',
     searchPlaceholder: '搜索目标 ID 或原因',
   },
   table: {
@@ -58,8 +54,6 @@ export const accessLists = {
     whitelistDescription: '当前没有用户或群白名单记录。',
   },
   whitelist: {
-    enabled: '启用白名单前置检查',
-    enabledHint: '启用后，仅白名单中的用户或群会进入命令分发。',
     emptyWarningTitle: '白名单已启用且当前为空',
     emptyWarningDescription: '除超级管理员外，所有命令都会被挡下。请尽快补充条目，或先关闭白名单。',
     enableConfirmTitle: '确认启用空白名单',
@@ -75,9 +69,6 @@ export const accessLists = {
     whitelistDisabled: '白名单已关闭。',
   },
   modal: {
-    addTitle: '添加{target}',
-    addTargetWhitelist: '白名单条目',
-    addTargetBlacklist: '黑名单条目',
     save: '保存',
     cancel: '取消',
   },
