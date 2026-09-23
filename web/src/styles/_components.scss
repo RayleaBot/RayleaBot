@@ -220,15 +220,6 @@
   line-height: 1.5;
 }
 
-.mono-list {
-  display: grid;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
-
-.drawer-section { margin-top: 24px; }
-
 .logs-filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
