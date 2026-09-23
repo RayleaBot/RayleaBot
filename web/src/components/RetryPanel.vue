@@ -2,49 +2,21 @@
 import { t } from '@/i18n'
 import AppButton from '@/components/AppButton.vue'
 import { CircleAlertIcon, RotateCwIcon } from '@lucide/vue'
-import { computed, getCurrentInstance } from 'vue'
-import type { Router } from 'vue-router'
 
-import AppFallback from '@/components/fallback/AppFallback.vue'
-import { resolveExceptionStatus, type ExceptionStatus } from '@/lib/exception-status'
-
-const props = defineProps<{
+defineProps<{
   title: string
   description: string
   loading?: boolean
-  retryLabel?: string
-  status?: ExceptionStatus
-  error?: unknown
-  variant?: 'compact' | 'page'
 }>()
 
 defineEmits<{
   retry: []
 }>()
-
-const instance = getCurrentInstance()
-const router = instance?.appContext.config.globalProperties.$router as Router | undefined
-const isPageVariant = computed(() => props.variant === 'page')
-const fallbackStatus = computed(() => props.status ?? resolveExceptionStatus(props.error))
-
-function goHome() {
-  void router?.push({ name: 'status' })
-}
 </script>
 
 <template>
   <section class="retry-panel" role="alert">
-    <AppFallback
-      v-if="isPageVariant"
-      :status="fallbackStatus"
-      :title="title"
-      :description="description"
-      :retry-label="retryLabel"
-      :retry-loading="loading"
-      @home="goHome"
-      @retry="$emit('retry')"
-    />
-    <div v-else class="retry-panel__inline">
+    <div class="retry-panel__inline">
       <CircleAlertIcon class="retry-panel__icon" :size="28" aria-hidden="true" />
       <div class="retry-panel__copy">
         <strong>{{ title }}</strong>
@@ -52,12 +24,11 @@ function goHome() {
       </div>
       <AppButton :loading="loading" @click="$emit('retry')">
         <template #icon><RotateCwIcon :size="16" /></template>
-        {{ retryLabel ?? t('ui.retry') }}
+        {{ t('ui.retry') }}
       </AppButton>
     </div>
   </section>
 </template>
-
 <style scoped lang="scss">
 .retry-panel__inline {
   display: grid;

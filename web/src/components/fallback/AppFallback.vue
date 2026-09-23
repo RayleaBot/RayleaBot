@@ -11,19 +11,15 @@ import type { ExceptionStatus } from '@/lib/exception-status'
 
 const props = withDefaults(defineProps<{
   description?: string
-  homeLabel?: string
   retryLabel?: string
   retryLoading?: boolean
-  showHome?: boolean
   showRetry?: boolean
   status: ExceptionStatus
   title?: string
 }>(), {
   description: '',
-  homeLabel: '',
   retryLabel: '',
   retryLoading: false,
-  showHome: true,
   showRetry: true,
   title: '',
 })
@@ -48,7 +44,6 @@ const fallbackIcon = computed(() => {
 
 const titleText = computed(() => props.title || t(`fallback.status.${props.status}.title`))
 const descriptionText = computed(() => props.description || t(`fallback.status.${props.status}.description`))
-const homeButtonLabel = computed(() => props.homeLabel || t('fallback.actions.backHome'))
 const retryButtonLabel = computed(() => props.retryLabel || t('fallback.actions.retry'))
 </script>
 
@@ -61,9 +56,9 @@ const retryButtonLabel = computed(() => props.retryLabel || t('fallback.actions.
       <p>{{ descriptionText }}</p>
 
       <div class="vben-fallback__actions">
-        <AppButton v-if="showHome" size="lg" @click="emit('home')">
+        <AppButton size="lg" @click="emit('home')">
           <template #icon><ArrowLeftIcon /></template>
-          {{ homeButtonLabel }}
+          {{ t('fallback.actions.backHome') }}
         </AppButton>
         <AppButton v-if="showRetry" variant="default" size="lg" :loading="retryLoading" @click="emit('retry')">
           <template #icon><RotateCwIcon /></template>

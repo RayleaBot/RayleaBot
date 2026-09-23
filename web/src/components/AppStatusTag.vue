@@ -2,15 +2,14 @@
 import AppBadge from '@/components/AppBadge.vue'
 import { computed } from 'vue'
 
-import { resolveStatusTone, type StatusTone } from '@/lib/status-tone'
+import { resolveStatusTone } from '@/lib/status-tone'
 
 const props = defineProps<{
   label: string
   status?: string | null
-  tone?: StatusTone
 }>()
 
-const resolvedTone = computed(() => props.tone ?? resolveStatusTone(props.status))
+const resolvedTone = computed(() => resolveStatusTone(props.status))
 </script>
 
 <template><AppBadge class="app-status-tag" :tone="resolvedTone">{{ label }}</AppBadge></template>

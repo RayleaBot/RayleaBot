@@ -8,7 +8,7 @@ defineProps<{
   shadow?: 'sm' | 'md' | 'lg' | 'none'
   size?: 'default' | 'small'
   title?: string
-  variant?: 'default' | 'stat' | 'highlight' | 'flat'
+  variant?: 'default' | 'highlight' | 'flat'
 }>()
 </script>
 
@@ -60,8 +60,7 @@ defineProps<{
   background: var(--surface-attention);
 }
 
-.app-card--flat,
-.app-card--stat {
+.app-card--flat {
   box-shadow: none;
   background: transparent;
 }

@@ -7,7 +7,6 @@ const props = withDefaults(defineProps<{
   checked: boolean
   loading?: boolean
   disabled?: boolean
-  compact?: boolean
   iconOnly?: boolean
   dataTestid?: string
   checkedLabel: string
@@ -15,7 +14,6 @@ const props = withDefaults(defineProps<{
 }>(), {
   loading: false,
   disabled: false,
-  compact: false,
   iconOnly: false,
 })
 
@@ -49,7 +47,6 @@ function handleClick(event: MouseEvent) {
     role="switch"
     class="plugin-holo-button"
     :class="[
-      compact && 'plugin-holo-button--compact',
       iconOnly && 'plugin-holo-button--icon',
       checked && 'is-checked',
       loading && 'is-loading',
@@ -103,12 +100,6 @@ function handleClick(event: MouseEvent) {
   appearance: none;
   transition: opacity 150ms ease;
   user-select: none;
-}
-
-.plugin-holo-button--compact {
-  --button-width: 92px;
-  --button-height: 36px;
-  --thumb-size: 28px;
 }
 
 .plugin-holo-button:hover:not(:disabled):not(.is-checked) .plugin-holo-button__track {
@@ -170,12 +161,6 @@ function handleClick(event: MouseEvent) {
   transition: border-color 150ms ease;
 }
 
-.plugin-holo-button--compact .plugin-holo-button__thumb-inner {
-  width: 11px;
-  height: 11px;
-  border-width: 1.5px;
-}
-
 .plugin-holo-button.is-loading .plugin-holo-button__thumb-inner {
   display: block;
   animation: spinner 0.6s linear infinite;
@@ -207,18 +192,10 @@ function handleClick(event: MouseEvent) {
   transition: opacity var(--motion-fast) var(--motion-easing);
 }
 
-.plugin-holo-button--compact .plugin-holo-button__text {
-  font-size: 13px;
-}
-
 .plugin-holo-button__text--off {
   right: 14px;
   color: var(--off-text);
   opacity: 1;
-}
-
-.plugin-holo-button--compact .plugin-holo-button__text--off {
-  right: 11px;
 }
 
 .plugin-holo-button__text--on {
@@ -226,10 +203,6 @@ function handleClick(event: MouseEvent) {
   color: var(--on-text);
   opacity: 0;
   transform: translateY(-50%);
-}
-
-.plugin-holo-button--compact .plugin-holo-button__text--on {
-  left: 11px;
 }
 
 .plugin-holo-button.is-checked .plugin-holo-button__track {

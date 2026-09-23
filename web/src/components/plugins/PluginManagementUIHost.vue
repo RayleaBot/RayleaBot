@@ -213,7 +213,7 @@ onBeforeUnmount(() => {
       <div class="table-actions"><AppButton variant="default" @click="acceptUnverifiedSource">{{ t('plugins.managementUi.confirmAction') }}</AppButton></div>
     </section>
 
-    <RetryPanel v-else-if="fatalError" :title="t('plugins.managementUi.loadFailed')" :description="fatalError" :loading="false" variant="compact" @retry="restartFrame" />
+    <RetryPanel v-else-if="fatalError" :title="t('plugins.managementUi.loadFailed')" :description="fatalError" :loading="false" @retry="restartFrame" />
 
     <div v-else class="plugin-management-ui-frame-shell">
       <AppLoadingPanel :busy="waitingForLoad" :label="busyLabel">

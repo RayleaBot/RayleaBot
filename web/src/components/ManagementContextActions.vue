@@ -1,18 +1,12 @@
 <script setup lang="ts">
 import AppButton from '@/components/AppButton.vue'
-import type { RouteLocationRaw } from 'vue-router'
-
+import type { ManagementContextAction } from '@/lib/management-links'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
 
 const navigate = useMotionNavigation()
 
 defineProps<{
-  actions: Array<{
-    key: string
-    label: string
-    to: RouteLocationRaw
-  }>
-  size?: 'large' | 'middle' | 'small'
+  actions: ManagementContextAction[]
 }>()
 
 const emit = defineEmits<{
@@ -25,7 +19,7 @@ const emit = defineEmits<{
     <AppButton
       v-for="action in actions"
       :key="action.key"
-      :size="size === 'large' ? 'lg' : size === 'middle' ? 'default' : 'sm'"
+      size="sm"
       @click="() => { emit('action'); void navigate(action.to) }"
     >
       {{ action.label }}
