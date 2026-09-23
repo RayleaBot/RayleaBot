@@ -2064,7 +2064,7 @@
           }
         ]
       },
-      "description": "Canonical relative slash path of an image or font file inside the calling plugin's data directory, the directory passed as RAYLEABOT_PLUGIN_DATA_DIR. Segments are portable file names: empty, '.', '..', trailing dot or space, and Windows device names are rejected. The platform opens the file within that directory without following links out of it."
+      "description": "Canonical relative slash path of an image or font file inside the calling plugin's data directory, the directory passed as RAYLEABOT_PLUGIN_DATA_DIR; when no file exists there, the same path inside the plugin's package directory, passed as RAYLEABOT_PLUGIN_PACKAGE_DIR. A file the plugin writes to its data directory therefore replaces one shipped in its package. Segments are portable file names: empty, '.', '..', trailing dot or space, and Windows device names are rejected. The platform opens the file within those directories without following links out of them."
     },
     "render_image_resource": {
       "description": "Image or font the platform resolves before rendering: fetched from an HTTPS URL, or read from the calling plugin's data directory.",

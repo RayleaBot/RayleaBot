@@ -64,9 +64,18 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 	defer cancel()
 	client := newHTTPClient(renderImageResourceRequestTimeout, maxRenderImageResourceBytes)
 	defer client.close()
-	dataDir := ""
+	// A path resource is read from the plugin's data directory, else from its
+	// package, so a file the plugin writes replaces one it ships.
+	roots := []string{}
 	if deps.PluginDataRoot != "" {
-		dataDir = filepath.Join(deps.PluginDataRoot, req.PluginID)
+		roots = append(roots, filepath.Join(deps.PluginDataRoot, req.PluginID))
+	}
+	if deps.Plugins != nil {
+		for _, snapshot := range deps.Plugins.List() {
+			if snapshot.PluginID == req.PluginID && snapshot.PackageRootPath != "" {
+				roots = append(roots, snapshot.PackageRootPath)
+			}
+		}
 	}
 	results := make([]renderImageResourceFetchResult, len(req.Action.RenderResources))
 	semaphore := make(chan struct{}, renderImageResourceConcurrency)
@@ -86,7 +95,7 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 			var reason string
 			var fetchErr error
 			if spec.Path != "" {
-				prefetched, reason, fetchErr = copyLocalRenderImageResource(resourceCtx, dataDir, workspace, index, spec)
+				prefetched, reason, fetchErr = copyLocalRenderImageResource(resourceCtx, roots, workspace, index, spec)
 			} else {
 				prefetched, reason, fetchErr = fetchRenderImageResource(resourceCtx, client, workspace, index, spec, 0, maxRenderImageResourceBytes)
 			}
@@ -221,16 +230,21 @@ func finishRenderImageResource(workspace, downloadPath string, requestIndex, can
 // directory into the workspace, so the plugin rewriting the file cannot change
 // a render in progress. The file is opened inside the data directory; a path
 // that leaves it through a link is left unresolved like a missing file.
-func copyLocalRenderImageResource(ctx context.Context, dataDir, workspace string, requestIndex int, spec plugins.RenderImageResource) (*prefetchedRenderImageResource, string, error) {
-	if dataDir == "" {
-		return nil, "missing", nil
-	}
-	source, err := os.OpenInRoot(dataDir, filepath.FromSlash(spec.Path))
-	if err != nil {
+func copyLocalRenderImageResource(ctx context.Context, roots []string, workspace string, requestIndex int, spec plugins.RenderImageResource) (*prefetchedRenderImageResource, string, error) {
+	var source *os.File
+	for _, root := range roots {
+		file, err := os.OpenInRoot(root, filepath.FromSlash(spec.Path))
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil, "missing", nil
+			continue
 		}
-		return nil, "unreadable", nil
+		if err != nil {
+			return nil, "unreadable", nil
+		}
+		source = file
+		break
+	}
+	if source == nil {
+		return nil, "missing", nil
 	}
 	defer func(release func() error) { _ = release() }(source.Close)
 	info, err := source.Stat()

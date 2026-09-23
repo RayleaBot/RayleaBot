@@ -264,6 +264,9 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	if !slices.Contains(spec.Env, "RAYLEABOT_PLUGIN_DATA_DIR="+dataDir) {
 		t.Fatalf("plugin data directory is not injected: %#v", spec.Env)
 	}
+	if spec.WorkDir == "" || !slices.Contains(spec.Env, "RAYLEABOT_PLUGIN_PACKAGE_DIR="+spec.WorkDir) {
+		t.Fatalf("plugin package directory is not injected: %#v", spec.Env)
+	}
 	if info, err := os.Stat(dataDir); err != nil || !info.IsDir() {
 		t.Fatalf("plugin data directory was not created: %v", err)
 	}

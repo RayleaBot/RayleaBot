@@ -160,6 +160,45 @@ func TestPrefetchRenderImageResourcesReadsCallerDataDirectory(t *testing.T) {
 	}
 }
 
+type packageCatalog []plugins.Snapshot
+
+func (c packageCatalog) List() []plugins.Snapshot { return c }
+
+func TestPrefetchRenderImageResourcesFallsBackToThePluginPackage(t *testing.T) {
+	t.Parallel()
+
+	dataRoot, packageRoot := t.TempDir(), t.TempDir()
+	png := func(label string) []byte {
+		return append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte(label)...)
+	}
+	writeResourceFixture(t, filepath.Join(dataRoot, "plugin.render", "assets", "source", "synced.png"), png("synced by the plugin"))
+	writeResourceFixture(t, filepath.Join(packageRoot, "assets", "source", "synced.png"), png("shipped in the package"))
+	writeResourceFixture(t, filepath.Join(packageRoot, "assets", "source", "shipped.png"), png("only in the package"))
+
+	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{PluginDataRoot: dataRoot, Plugins: packageCatalog{{PluginID: "plugin.other", PackageRootPath: dataRoot}, {PluginID: "plugin.render", PackageRootPath: packageRoot}}}, ActionRequest{
+		PluginID:  "plugin.render",
+		RequestID: "render-resource-package",
+		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{
+			{ID: "synced", Path: "assets/source/synced.png"},
+			{ID: "shipped", Path: "assets/source/shipped.png"},
+			{ID: "missing", Path: "assets/source/missing.png"},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("prefetchRenderImageResources: %v", err)
+	}
+	defer cleanup()
+	if len(resources) != 2 {
+		t.Fatalf("resources = %#v", resources)
+	}
+	for i, want := range [][]byte{png("synced by the plugin"), png("only in the package")} {
+		digest := sha256.Sum256(want)
+		if resources[i].SHA256 != hex.EncodeToString(digest[:]) {
+			t.Fatalf("resource %s came from the wrong directory", resources[i].ID)
+		}
+	}
+}
+
 func writeResourceFixture(t *testing.T, path string, content []byte) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

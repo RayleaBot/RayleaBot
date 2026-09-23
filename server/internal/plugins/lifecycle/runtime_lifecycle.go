@@ -232,7 +232,7 @@ func (c *Controller) buildStartInputs(ctx context.Context, pluginID string) (plu
 	if err != nil {
 		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, fmt.Errorf("prepare plugin data directory: %w", err)
 	}
-	spec.Env = append(spec.Env, "RAYLEABOT_PLUGIN_DATA_DIR="+dataDir)
+	spec.Env = append(spec.Env, "RAYLEABOT_PLUGIN_DATA_DIR="+dataDir, "RAYLEABOT_PLUGIN_PACKAGE_DIR="+spec.WorkDir)
 
 	settings, err := c.settings.Read(ctx, pluginID)
 	if err != nil {

@@ -365,7 +365,8 @@ type RenderImageRequest struct {
 
 // RenderImageResource is an image the host resolves before rendering. Set URL
 // (with optional FallbackURLs and Referer) for an HTTPS image, or Path for an
-// image file inside RAYLEABOT_PLUGIN_DATA_DIR, given as a relative slash path.
+// image file given as a relative slash path inside RAYLEABOT_PLUGIN_DATA_DIR,
+// or, when it is not there, inside RAYLEABOT_PLUGIN_PACKAGE_DIR.
 type RenderImageResource struct {
 	ID           string   `json:"id"`
 	URL          string   `json:"url,omitempty"`
