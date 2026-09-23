@@ -7,7 +7,6 @@ const uiShellStore = useUiShellStore()
 
 const props = withDefaults(defineProps<{
   description?: string
-  eyebrow?: string
   fullHeight?: boolean
   showHeader?: boolean
   title: string
@@ -32,7 +31,6 @@ const pageClasses = computed(() => {
     <h1 v-if="!showHeader" class="sr-only">{{ title }}</h1>
     <header v-else class="app-page__header">
       <div class="app-page__heading">
-        <span v-if="eyebrow" class="page-eyebrow">{{ eyebrow }}</span>
         <div class="app-page__title-row">
           <h1 v-if="!$slots.title">{{ title }}</h1>
           <div v-else class="app-page__title-slot-wrapper">

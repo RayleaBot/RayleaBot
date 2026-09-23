@@ -865,30 +865,6 @@ function returnToPluginList() {
     font-size: 12px;
     opacity: 0.8;
   }
-
-  &.app-tag-success {
-    background: color-mix(in srgb, var(--success) 10%, transparent);
-    color: var(--success);
-    border-color: color-mix(in srgb, var(--success) 20%, transparent);
-  }
-
-  &.app-tag-warning {
-    background: color-mix(in srgb, var(--warning) 10%, transparent);
-    color: var(--warning);
-    border-color: color-mix(in srgb, var(--warning) 20%, transparent);
-  }
-
-  &.app-tag-error {
-    background: color-mix(in srgb, var(--danger) 10%, transparent);
-    color: var(--danger);
-    border-color: color-mix(in srgb, var(--danger) 20%, transparent);
-  }
-
-  &.app-tag-default {
-    background: color-mix(in srgb, var(--muted) 10%, transparent);
-    color: var(--muted);
-    border-color: color-mix(in srgb, var(--muted) 20%, transparent);
-  }
 }
 
 .plugin-detail-hero__facts {
@@ -1053,12 +1029,6 @@ function returnToPluginList() {
     word-break: break-word;
     font-size: 0.84rem;
   }
-}
-
-.cap-tag {
-  font-size: 13px;
-  border-radius: 4px;
-  margin-block: 2px;
 }
 
 .metadata-json {

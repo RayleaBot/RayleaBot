@@ -347,21 +347,6 @@ function getSectionIcon(key: string) {
   border: 1px solid color-mix(in srgb, var(--success) 32%, var(--border));
 }
 
-.plugin-settings-board__title {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.plugin-settings-board__title h2 {
-  margin: 0;
-  color: var(--text);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.plugin-settings-board__icon,
 .plugin-settings-setting-row__icon {
   display: inline-flex;
   align-items: center;
@@ -370,11 +355,6 @@ function getSectionIcon(key: string) {
   color: var(--muted);
   background: transparent;
   border: 0;
-}
-
-.plugin-settings-board__icon {
-  width: 28px;
-  height: 28px;
 }
 
 .plugin-settings-form-matrix {

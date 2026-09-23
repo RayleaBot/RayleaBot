@@ -596,10 +596,6 @@ function toggleRootGroup(key: string) {
   font-weight: 600;
 }
 
-.sidebar-navigation :deep(.sidebar-navigation__plugin-resource--expanded) {
-  font-weight: 600;
-}
-
 .sidebar-navigation :deep(.sidebar-navigation__plugin-child) {
   padding-inline-start: 40px !important;
   animation: sidebar-navigation-reveal 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -611,13 +607,6 @@ function toggleRootGroup(key: string) {
 
 .sidebar-navigation__loading-icon {
   animation: sidebar-navigation-spin 900ms linear infinite;
-}
-
-.sidebar-navigation :deep(.sidebar-navigation__plugin-retry) {
-  height: auto;
-  min-height: 36px;
-  line-height: 1.35;
-  white-space: normal;
 }
 
 .sidebar-navigation__filter {

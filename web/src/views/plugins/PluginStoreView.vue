@@ -547,14 +547,6 @@ onMounted(() => {
 
 .confirm-details { margin-top: 18px; }
 
-.permission-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.permission-list .app-tag { margin: 0; }
-
 .source-manager-header { margin-bottom: 16px; }
 .source-manager-header p { margin: 0; color: var(--muted); }
 

@@ -113,11 +113,7 @@
 
 .app-view-card,
 .app-data-table,
-.tasks-empty-card,
-.commands-data-table,
-.plugins-data-table,
-.logs-data-table,
-.tasks-data-table {
+.commands-data-table {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--app-card-radius) !important;
@@ -127,12 +123,6 @@
 
 .app-data-table {
   overflow: hidden;
-}
-
-.content-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
-  gap: var(--app-layout-gap);
 }
 
 .card-header {
@@ -191,8 +181,7 @@
 .readiness-check--warning .readiness-check__icon { color: var(--warning); }
 .readiness-check--danger .readiness-check__icon { color: var(--danger); }
 
-.issues-list,
-.events-section {
+.issues-list {
   display: grid;
   gap: 8px;
 }
@@ -231,18 +220,6 @@
   line-height: 1.5;
 }
 
-.event-item {
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface-soft);
-}
-
-.event-item--success { border-color: var(--border-success); }
-.event-item--warning { border-color: var(--border-warning); }
-.event-item--danger { border-color: var(--border-danger); }
-.event-item__time { color: var(--muted); }
-
 .mono-list {
   display: grid;
   gap: 6px;
@@ -250,20 +227,12 @@
   font-size: 13px;
 }
 
-.mobile-data-copy { margin: 14px 0 0; }
 .drawer-section { margin-top: 24px; }
-.drawer-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 .logs-filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
-}
-
-.logs-filter-actions {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
 }
 
 .data-viewport {
@@ -277,8 +246,7 @@
   background: var(--surface-strong);
 }
 
-.data-viewport__header,
-.data-panel-header {
+.data-viewport__header {
   display: grid;
   gap: 12px;
   align-items: center;

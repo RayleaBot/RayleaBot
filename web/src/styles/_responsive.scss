@@ -4,10 +4,6 @@
     padding: var(--space-lg);
   }
 
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
-
   .readiness-checks {
     grid-template-columns: repeat(3, 1fr);
   }

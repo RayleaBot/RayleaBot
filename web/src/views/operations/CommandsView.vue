@@ -425,14 +425,6 @@ onMounted(() => {
   }
 }
 
-:global(.commands-plugin-select-popup) {
-  z-index: 1060;
-}
-
-:deep(.app-data-table-row:hover > td) {
-  background: var(--surface-accent) !important;
-}
-
 .card-header {
   display: flex;
   align-items: center;
@@ -519,10 +511,6 @@ onMounted(() => {
 }
 
 @media (max-width: #{bp.$phone - 1px}) {
-  .commands-page__actions {
-    justify-content: flex-end;
-  }
-
   .commands-data-table {
     display: none;
   }

@@ -471,12 +471,6 @@ async function reloadPlugin(pluginId: string) {
   border-bottom: 1px solid var(--border);
   padding: var(--space-md) var(--space-lg);
   background: var(--surface);
-
-  :deep(.app-table-toolbar-right) {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-  }
 }
 
 .toolbar-filters {

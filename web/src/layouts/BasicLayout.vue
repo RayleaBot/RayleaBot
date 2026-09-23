@@ -969,8 +969,7 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .admin-layout__brand:focus-visible,
-.admin-layout__icon-button:focus-visible,
-.admin-layout__shutdown-button:focus-visible {
+.admin-layout__icon-button:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: var(--focus-outline-offset);
 }
@@ -982,8 +981,7 @@ onBeforeUnmount(() => {
 
 @media (forced-colors: active) {
   .admin-layout__brand:focus-visible,
-  .admin-layout__icon-button:focus-visible,
-  .admin-layout__shutdown-button:focus-visible {
+  .admin-layout__icon-button:focus-visible {
     outline-color: Highlight;
   }
 }

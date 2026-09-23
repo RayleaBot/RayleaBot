@@ -1,15 +1,4 @@
 @use './breakpoints.generated' as bp;
-.page-eyebrow {
-  margin-bottom: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-}
-
-.section-gap {
-  width: 100%;
-}
-
 .admin-layout {
   height: 100vh;
   background: transparent;
@@ -360,11 +349,6 @@
   height: 28px;
 }
 
-.admin-layout__shutdown-button {
-  min-height: 30px;
-  border-radius: 8px;
-}
-
 .admin-layout__content {
   flex: 1 1 auto;
   padding: var(--app-shell-padding-block) var(--app-shell-padding-inline) 24px;
@@ -374,10 +358,6 @@
   gap: var(--app-layout-gap);
   overflow: auto;
   overscroll-behavior: contain;
-}
-
-.admin-layout__shutdown-banner {
-  width: 100%;
 }
 
 .admin-layout__route-stage {
@@ -398,13 +378,6 @@
   gap: 8px;
   padding: 8px 10px 4px;
   color: var(--sider-brand-text);
-}
-
-.admin-layout__pending-panel,
-.auth-layout__pending-panel {
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.5;
 }
 
 .admin-layout__search-button {

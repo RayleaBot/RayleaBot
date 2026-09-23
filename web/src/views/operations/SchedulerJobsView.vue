@@ -1032,10 +1032,6 @@ async function copyToClipboard(text?: string) {
   gap: 20px;
 }
 
-.modal-console-skeleton {
-  min-height: 360px;
-}
-
 .console-pane-left {
   border-right: 1px solid var(--border);
   padding-right: 20px;
