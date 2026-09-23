@@ -11,7 +11,7 @@ import AppCard from '@/components/AppCard.vue'
 import GovernanceScopeEditor from '@/components/governance/GovernanceScopeEditor.vue'
 import { governanceEntryKey, governanceScopeLabel } from '@/lib/governance-scope'
 import { formatDateTime } from '@/lib/format'
-import { notifyError, notifySuccess } from '@/adapter/feedback'
+import { copyText } from '@/adapter/clipboard'
 import { t } from '@/i18n'
 import type { BlacklistEntry, GovernanceEntryType, GovernanceBlacklistResponse } from '@/types/api'
 import type { AccessListEditor } from './useAccessListEditor'
@@ -53,13 +53,8 @@ function getEntryTypeTagColor(type: GovernanceEntryType) {
   return type === 'user' ? 'info' : 'neutral'
 }
 
-async function copyTargetId(targetId: string) {
-  try {
-    await navigator.clipboard.writeText(targetId)
-    notifySuccess(t('accessLists.actions.copyTargetId'))
-  } catch {
-    notifyError(t('ui.clipboard.copyFailed'))
-  }
+function copyTargetId(targetId: string) {
+  return copyText(targetId, t('accessLists.actions.copyTargetId'))
 }
 
 </script>

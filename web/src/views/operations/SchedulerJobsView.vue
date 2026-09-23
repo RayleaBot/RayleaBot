@@ -25,7 +25,7 @@ import {
 } from '@lucide/vue'
 import { computed } from 'vue'
 
-import { notifyError, notifySuccess } from '@/adapter/feedback'
+import { copyText } from '@/adapter/clipboard'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -72,14 +72,8 @@ function schedulerRowKey(row: SchedulerJobSummary) {
   return row.job_id
 }
 
-async function copyToClipboard(text?: string) {
-  if (!text) return
-  try {
-    await navigator.clipboard.writeText(text)
-    notifySuccess(t('scheduler.errorCopied'))
-  } catch {
-    notifyError(t('ui.clipboard.copyFailed'))
-  }
+function copyToClipboard(text: string) {
+  return copyText(text, t('scheduler.errorCopied'))
 }
 
 </script>

@@ -7,7 +7,7 @@ import AppCheckbox from '@/components/AppCheckbox.vue'
 import { computed, ref } from 'vue'
 import { CopyIcon } from '@lucide/vue'
 
-import { notifyError, notifySuccess } from '@/adapter/feedback'
+import { copyText } from '@/adapter/clipboard'
 import { t } from '@/i18n'
 import type { OneBotSettings, OneBotTransport } from '@/lib/adapters'
 import { buildOneBot11ReverseWsUrl, buildOneBot11WebhookUrl } from '@/lib/protocols'
@@ -50,11 +50,8 @@ function selectMode(value: string) {
     enableTransport(key, value === 'http' ? key === 'http_api' || key === 'webhook' : key === value)
   }
 }
-async function copyAddress(key: OneBotTransport) {
-  try {
-    await navigator.clipboard.writeText(String(settings.value[key].url))
-    notifySuccess(t('protocols.transportFields.copied'))
-  } catch { notifyError(t('protocols.transportFields.copyFailed')) }
+function copyAddress(key: OneBotTransport) {
+  return copyText(String(settings.value[key].url), t('protocols.transportFields.copied'), t('protocols.transportFields.copyFailed'))
 }
 </script>
 
