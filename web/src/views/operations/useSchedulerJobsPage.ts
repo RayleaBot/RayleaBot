@@ -1,4 +1,4 @@
-import { computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
+import { onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
@@ -13,7 +13,6 @@ export function useSchedulerJobsPage() {
   const schedulerStore = useSchedulerJobsStore()
   const pluginsStore = usePluginsStore()
   const state = storeToRefs(schedulerStore)
-  const pluginMap = computed(() => new Map(pluginsStore.items.map(plugin => [plugin.id, plugin])))
   const searchQuery = ref('')
   const statusFilter = ref<'all' | 'success' | 'error'>('all')
   const sortBy = ref<'name' | 'last_run' | 'duration'>('name')
@@ -73,7 +72,7 @@ export function useSchedulerJobsPage() {
   onUnmounted(deactivatePage)
 
   return {
-    ...state, schedulerStore, pluginsStore, pluginMap, pluginName,
+    ...state, schedulerStore, pluginName, now,
     searchQuery, statusFilter, sortBy, loadSchedulerJobs, triggerJob, getNextRunRelativeText,
   }
 }

@@ -1,53 +1,23 @@
 <script setup lang="ts">
-import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
-import AppPopover from '@/components/AppPopover.vue'
-import AppDialog from '@/components/AppDialog.vue'
-import AppDataTable from '@/components/AppDataTable.vue'
-import AppSelect from '@/components/AppSelect.vue'
-import AppSegmented from '@/components/AppSegmented.vue'
-import AppTag from '@/components/AppTag.vue'
-import AppSkeleton from '@/components/AppSkeleton.vue'
-import AppInput from '@/components/AppInput.vue'
-import AppCard from '@/components/AppCard.vue'
-import AppButton from '@/components/AppButton.vue'
-import {
-  CircleCheckIcon,
-  CircleXIcon,
-  ClockIcon,
-  EyeIcon,
-  ZapIcon,
-  SearchIcon,
-  MessageSquareIcon,
-  CopyIcon,
-  InfoIcon,
-  CheckIcon,
-  TriangleAlertIcon,
-} from '@lucide/vue'
-import { computed } from 'vue'
+import { SearchIcon } from '@lucide/vue'
 
-import { copyText } from '@/adapter/clipboard'
+import AppCard from '@/components/AppCard.vue'
+import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppSegmented from '@/components/AppSegmented.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import { formatDateTime } from '@/lib/format'
 import { t } from '@/i18n'
-import PluginIcon from '@/components/plugins/PluginIcon.vue'
-import type { SchedulerJobSummary } from '@/types/api'
-import {
-  conversationText,
-  displayText,
-  formatCronSchedule,
-  formatDurationMs,
-  getDurationClass,
-  getHealthRingStyle,
-  getSuccessRate,
-  successRateText,
-} from '@/lib/scheduler-job-display'
-import { useSchedulerJobsPage } from './useSchedulerJobsPage'
+import SchedulerJobDetailDialog from './SchedulerJobDetailDialog.vue'
+import SchedulerJobTable from './SchedulerJobTable.vue'
 import { useSchedulerJobDetail } from './useSchedulerJobDetail'
+import { useSchedulerJobsPage } from './useSchedulerJobsPage'
 
 const {
-  schedulerStore, pluginsStore, pluginMap, pluginName,
+  schedulerStore, pluginName, now,
   error, loading, sortedItems, triggeringJobId, total, nextCursor, loadingMore,
   searchQuery, statusFilter, sortBy, loadSchedulerJobs, triggerJob, getNextRunRelativeText,
 } = useSchedulerJobsPage()
@@ -59,422 +29,97 @@ const {
   finishJobDetailClose,
   showJobDetail,
 } = useSchedulerJobDetail()
-const tableColumns = computed(() => [
-  { label: `${t('scheduler.fields.plugin')} / ${t('scheduler.fields.task')}`, key: 'plugin', width: 300 },
-  { label: `${t('scheduler.fields.label')} / ${t('scheduler.fields.conversation')}`, key: 'label', width: 250 },
-  { label: `${t('scheduler.fields.cron')} / ${t('scheduler.fields.nextRun')}`, key: 'cron', width: 320 },
-  { label: `${t('scheduler.fields.lastRun')} / ${t('scheduler.fields.duration')}`, key: 'lastRun', width: 240 },
-  { label: `${t('scheduler.fields.stats')} / ${t('scheduler.fields.lastError')}`, key: 'stats', width: 280 },
-  { label: t('scheduler.fields.actions'), key: 'actions', width: 180 },
-])
-
-function schedulerRowKey(row: SchedulerJobSummary) {
-  return row.job_id
-}
-
-function copyToClipboard(text: string) {
-  return copyText(text, t('scheduler.errorCopied'))
-}
-
 </script>
 
 <template>
   <AppPage :title="t('scheduler.title')">
     <div class="scheduler-page-container">
-      <!-- 任务筛选 -->
       <div class="scheduler-filter-card">
-      <div class="filter-left">
-        <AppInput
-          v-model="searchQuery" :maxlength="200"
-          :placeholder="t('scheduler.searchPlaceholder')"
-          allow-clear
-          wrapper-class="filter-search-input" :aria-label="t('scheduler.searchLabel')"
-        >
-          <template #prefix>
-            <SearchIcon class="search-icon" />
-          </template>
-        </AppInput>
+        <div class="filter-left">
+          <AppInput
+            v-model="searchQuery"
+            :maxlength="200"
+            :placeholder="t('scheduler.searchPlaceholder')"
+            allow-clear
+            wrapper-class="filter-search-input"
+            :aria-label="t('scheduler.searchLabel')"
+          >
+            <template #prefix>
+              <SearchIcon class="search-icon" />
+            </template>
+          </AppInput>
 
-        <AppSegmented
-          v-model="statusFilter"
-          :options="[
-            { label: t('scheduler.filterAll'), value: 'all' },
-            { label: t('scheduler.healthy'), value: 'success' },
-            { label: t('scheduler.filterError'), value: 'error' },
-          ]"
-          class="filter-segmented" :aria-label="t('scheduler.filterLabel')"
-        />
-      </div>
-
-      <div class="filter-right">
-        <div class="sort-wrapper">
-          <span class="sort-label">{{ t('scheduler.sortCaption') }}</span>
-          <AppSelect v-model="sortBy" wrapper-class="sort-select" :aria-label="t('scheduler.sortLabel')" :options="[
-            { value: 'name', label: t('scheduler.sortName') },
-            { value: 'last_run', label: t('scheduler.sortLastRun') },
-            { value: 'duration', label: t('scheduler.sortDuration') },
-          ]" />
+          <AppSegmented
+            v-model="statusFilter"
+            :options="[
+              { label: t('scheduler.filterAll'), value: 'all' },
+              { label: t('scheduler.healthy'), value: 'success' },
+              { label: t('scheduler.filterError'), value: 'error' },
+            ]"
+            class="filter-segmented"
+            :aria-label="t('scheduler.filterLabel')"
+          />
         </div>
 
+        <div class="filter-right">
+          <div class="sort-wrapper">
+            <span class="sort-label">{{ t('scheduler.sortCaption') }}</span>
+            <AppSelect v-model="sortBy" wrapper-class="sort-select" :aria-label="t('scheduler.sortLabel')" :options="[
+              { value: 'name', label: t('scheduler.sortName') },
+              { value: 'last_run', label: t('scheduler.sortLastRun') },
+              { value: 'duration', label: t('scheduler.sortDuration') },
+            ]" />
+          </div>
+        </div>
+      </div>
+
+      <div class="scheduler-content-stage">
+        <RetryPanel
+          v-if="error && sortedItems.length === 0"
+          :title="t('errors.common.loadFailed')"
+          :description="error"
+          :loading="loading"
+          @retry="loadSchedulerJobs"
+        />
+
+        <AppCard v-else-if="loading && sortedItems.length === 0" class="scheduler-loading-card" borderless>
+          <AppSkeleton :rows="6" />
+        </AppCard>
+
+        <AppEmptyState
+          v-else-if="sortedItems.length === 0"
+          icon="box"
+          :title="t('scheduler.empty.title')"
+          :description="searchQuery ? t('scheduler.noMatches') : t('scheduler.empty.description')"
+        />
+
+        <SchedulerJobTable
+          v-else
+          :jobs="sortedItems"
+          :now="now"
+          :triggering-job-id="triggeringJobId"
+          @view="showJobDetail"
+          @trigger="triggerJob"
+        />
       </div>
     </div>
-
-    <div class="scheduler-content-stage">
-      <!-- 异常状态加载及重试面板 -->
-      <RetryPanel
-      v-if="error && sortedItems.length === 0"
-      :title="t('errors.common.loadFailed')"
-      :description="error"
-      :loading="loading"
-      @retry="loadSchedulerJobs"
-    />
-
-    <AppCard v-else-if="loading && sortedItems.length === 0" class="scheduler-loading-card" borderless>
-      <AppSkeleton :rows="6" />
-    </AppCard>
-
-    <AppEmptyState
-      v-else-if="sortedItems.length === 0"
-      icon="box"
-      :title="t('scheduler.empty.title')"
-      :description="searchQuery ? t('scheduler.noMatches') : t('scheduler.empty.description')"
-    />
-
-    <!-- 任务表格 -->
-    <div v-else class="table-container-wrapper">
-      <AppDataTable
-        class="scheduler-data-table app-data-table refactored-table"
-        :columns="tableColumns"
-        :rows="sortedItems"
-        :row-key="schedulerRowKey"
-       :min-width="1450" :label="t('scheduler.title')">
-        <template #empty>
-          {{ t('display.empty') }}
-        </template>
-
-        <template #cell="{ column, row: record }">
-          <!-- 1. 插件与任务合并列 -->
-          <template v-if="column.key === 'plugin'">
-            <div class="scheduler-cell-plugin-task">
-              <PluginIcon :plugin-id="record.plugin_id" :icon="pluginMap.get(record.plugin_id)?.icon" :version="pluginMap.get(record.plugin_id)?.version" :refresh-key="pluginsStore.iconRevision" />
-              <div class="meta-content">
-                <div class="top-row">
-                  <strong class="plugin-name">{{ pluginName(record) }}</strong>
-                  <span class="task-tag">{{ record.task_name }}</span>
-                </div>
-                <div class="bottom-row">
-                  <span class="plugin-id" :title="t('scheduler.pluginId')">{{ record.plugin_id }}</span>
-                  <span class="divider">/</span>
-                  <span class="job-id" :title="t('scheduler.jobId')">{{ record.job_id }}</span>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- 2. 自定义内容与会话 ID 合并列 -->
-          <template v-else-if="column.key === 'label'">
-            <div class="scheduler-cell-label-conv">
-              <div class="label-text" :title="record.log_label || record.payload_summary.content">
-                {{ displayText(record.log_label || record.payload_summary.content) }}
-              </div>
-              <div class="conv-tag-row">
-                <template v-if="conversationText(record)">
-                  <span class="conv-badge">
-                    <MessageSquareIcon class="badge-icon" />
-                    <span class="badge-text">{{ conversationText(record) }}</span>
-                  </span>
-                </template>
-                <template v-else>
-                  <span class="conv-badge global">{{ t('scheduler.globalConversation') }}</span>
-                </template>
-              </div>
-            </div>
-          </template>
-
-          <!-- 3. 定时计划与下一次执行列 -->
-          <template v-else-if="column.key === 'cron'">
-            <div class="scheduler-cell-cron-next">
-              <div class="cron-expr-row" :title="t('scheduler.expression', { expression: record.cron_expr, timeZone: record.timezone })">
-                <span class="chinese-cron">{{ formatCronSchedule(record.cron_expr) }}</span>
-                <span class="raw-cron">{{ record.cron_expr }}</span>
-              </div>
-              <div class="next-run-row">
-                <ClockIcon class="clock-icon" />
-                <span class="next-time" :title="formatDateTime(record.next_run)">
-                  {{ formatDateTime(record.next_run) }}
-                </span>
-                <span class="relative-time-pill" v-if="record.next_run">
-                  {{ getNextRunRelativeText(record.next_run) }}
-                </span>
-              </div>
-            </div>
-          </template>
-
-          <!-- 4. 最近执行与耗时列 -->
-          <template v-else-if="column.key === 'lastRun'">
-            <div class="scheduler-cell-run-duration">
-              <div class="last-run-time">
-                {{ record.last_run ? formatDateTime(record.last_run) : t('scheduler.neverRun') }}
-              </div>
-              <div class="duration-row" v-if="record.last_run">
-                <span class="duration-badge" :class="getDurationClass(record.last_duration_ms)">
-                  {{ formatDurationMs(record.last_duration_ms) }}
-                </span>
-              </div>
-            </div>
-          </template>
-
-          <!-- 5. 执行情况与最近错误列 -->
-          <template v-else-if="column.key === 'stats'">
-            <div class="scheduler-cell-health-stats">
-              <div class="stats-header">
-                <span class="total-count">{{ t('scheduler.stats.total', { count: record.stats.total }) }}</span>
-                <span class="success-rate-pct">{{ successRateText(record.stats) }}</span>
-              </div>
-
-              <!-- 运行结果占比 -->
-              <div class="mini-stacked-bar" v-if="record.stats.total > 0">
-                <div
-                  class="bar-success"
-                  :style="{ width: `${(record.stats.success / record.stats.total) * 100}%` }"
-                  :title="t('scheduler.stats.success', { count: record.stats.success })"
-                ></div>
-                <div
-                  class="bar-failed"
-                  :style="{ width: `${(record.stats.failed / record.stats.total) * 100}%` }"
-                  :title="t('scheduler.stats.failed', { count: record.stats.failed })"
-                ></div>
-                <div
-                  class="bar-other"
-                  :style="{ width: `${((record.stats.total - record.stats.success - record.stats.failed) / record.stats.total) * 100}%` }"
-                  :title="t('scheduler.stats.other', { count: record.stats.total - record.stats.success - record.stats.failed })"
-                ></div>
-              </div>
-
-              <!-- 错误气泡 -->
-              <div class="error-badge-row" v-if="record.last_error">
-                <AppPopover :title="t('scheduler.recentError')" side="left">
-                  <template #content>
-                    <div class="error-popover-content">
-                      <div class="err-title">
-                        <TriangleAlertIcon class="err-icon" />
-                        <strong>{{ record.last_error.code }}</strong>
-                      </div>
-                      <div class="err-msg">{{ record.last_error.message }}</div>
-                      <AppButton size="sm" variant="link" class="copy-err-btn" @click="copyToClipboard(`${record.last_error.code}: ${record.last_error.message}`)">
-                        <template #icon><CopyIcon /></template>
-                        {{ t('scheduler.copyError') }}
-                      </AppButton>
-                    </div>
-                  </template>
-                  <button type="button" class="error-capsule">
-                    {{ record.last_error.code }}
-                  </button>
-                </AppPopover>
-              </div>
-              <div class="success-dot-row" v-else-if="record.stats.total > 0">
-                <span class="success-dot"><CheckIcon class="ok-icon" /> {{ t('scheduler.healthy') }}</span>
-              </div>
-            </div>
-          </template>
-
-          <!-- 6. 操作列 -->
-          <template v-else-if="column.key === 'actions'">
-            <div class="scheduler-actions">
-              <AppButton size="sm" class="action-btn view-btn" @click="showJobDetail(record)">
-                <template #icon>
-                  <EyeIcon />
-                </template>
-                {{ t('scheduler.view') }}
-              </AppButton>
-              <AppButton
-                size="sm"
-                class="action-btn trigger-btn"
-                :loading="triggeringJobId === record.job_id"
-                @click="triggerJob(record)"
-              >
-                <template #icon>
-                  <ZapIcon />
-                </template>
-                {{ t('scheduler.trigger') }}
-              </AppButton>
-            </div>
-          </template>
-        </template>
-      </AppDataTable>
-      <div class="scheduler-mobile-list" :aria-label="t('scheduler.listLabel')">
-        <article v-for="job in sortedItems" :key="job.job_id" class="scheduler-mobile-row">
-          <div class="scheduler-mobile-row__heading">
-            <div>
-              <strong>{{ pluginName(job) }}</strong>
-              <span>{{ job.task_name }}</span>
-            </div>
-            <AppTag :tone="job.last_error ? 'danger' : 'success'">
-              {{ job.last_error ? job.last_error.code : t('scheduler.normal') }}
-            </AppTag>
-          </div>
-          <dl>
-            <div><dt>{{ t('scheduler.schedule') }}</dt><dd>{{ formatCronSchedule(job.cron_expr) }}</dd></div>
-            <div><dt>{{ t('scheduler.nextExecution') }}</dt><dd>{{ formatDateTime(job.next_run) }}</dd></div>
-            <div><dt>{{ t('scheduler.recentDuration') }}</dt><dd>{{ formatDurationMs(job.last_duration_ms) }}</dd></div>
-          </dl>
-          <div class="scheduler-mobile-row__actions">
-            <AppButton @click="showJobDetail(job)">{{ t('scheduler.view') }}</AppButton>
-            <AppButton
-              variant="default"
-              :loading="triggeringJobId === job.job_id"
-              @click="triggerJob(job)"
-            >
-              {{ t('scheduler.trigger') }}
-            </AppButton>
-          </div>
-        </article>
-      </div>
-    </div>
-  </div>
-</div>
 
     <AppCollectionPagination :loaded="sortedItems.length" :total="total" :next-cursor="nextCursor" :loading="loadingMore || loading" @more="schedulerStore.loadMore().catch(() => undefined)" />
 
-    <AppDialog :open="detailVisible" :title="t('scheduler.detailTitle')" :width="800" @close="closeJobDetail" @after-close="finishJobDetailClose">
-                <div
-                  v-if="currentJob"
-                  key="content"
-                  class="modal-console-layout"
-                >
-                <!-- 左侧：系统参数面板 -->
-                <div class="console-pane-left">
-                  <div class="pane-group">
-                    <div class="pane-group-title">{{ t('scheduler.identitySection') }}</div>
-                    <div class="info-block">
-                      <span class="label">{{ t('scheduler.pluginModule') }}</span>
-                      <span class="value bold">{{ pluginName(currentJob) }}<span class="sr-only"> / </span></span>
-                      <span class="sub-val">{{ currentJob.plugin_id }}</span>
-                    </div>
-                    <div class="info-block">
-                      <span class="label">{{ t('scheduler.taskName') }}</span>
-                      <span class="value bold">{{ currentJob.task_name }}<span class="sr-only"> / </span></span>
-                      <span class="sub-val">{{ currentJob.job_id }}</span>
-                    </div>
-                  </div>
-
-                  <div class="pane-group">
-                    <div class="pane-group-title">{{ t('scheduler.scheduleSection') }}</div>
-                    <div class="info-block inline">
-                      <div>
-                        <span class="label">{{ t('scheduler.cronRule') }}</span>
-                        <span class="value code">{{ currentJob.cron_expr }}</span>
-                      </div>
-                      <div>
-                        <span class="label">{{ t('scheduler.timeZone') }}</span>
-                        <span class="value code">{{ currentJob.timezone }}</span>
-                      </div>
-                    </div>
-                    <div class="info-block">
-                      <span class="label">{{ t('scheduler.scheduleMeaning') }}</span>
-                      <span class="value highlight">{{ formatCronSchedule(currentJob.cron_expr) }}</span>
-                    </div>
-                  </div>
-
-                  <div class="pane-group">
-                    <div class="pane-group-title">{{ t('scheduler.contextSection') }}</div>
-                    <div class="info-block inline">
-                      <div>
-                        <span class="label">{{ t('scheduler.fields.conversation') }}</span>
-                        <span class="value code">{{ conversationText(currentJob) || t('scheduler.globalTask') }}</span>
-                      </div>
-                    </div>
-                    <div class="info-block">
-                      <span class="label">{{ t('scheduler.contentLabel') }}</span>
-                      <span class="value">{{ displayText(currentJob.log_label || currentJob.payload_summary.content) }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 右侧：健康运行分析仪 -->
-                <div class="console-pane-right">
-                  <div class="pane-group-title">{{ t('scheduler.healthSection') }}</div>
-
-                  <div class="health-instrument">
-                    <!-- 仪表圆环 -->
-                    <div class="health-gauge" :style="getHealthRingStyle(currentJob.stats)">
-                      <div class="gauge-center">
-                        <span class="gauge-pct">{{ currentJob.stats.total ? `${getSuccessRate(currentJob.stats)}%` : '-' }}</span>
-                        <span class="gauge-desc">{{ t('scheduler.health') }}</span>
-                      </div>
-                    </div>
-
-                    <!-- 数据列项 -->
-                    <div class="gauge-stats-list">
-                      <div class="stat-item success">
-                        <CircleCheckIcon />
-                        <span class="lbl">{{ t('scheduler.successRuns') }}</span>
-                        <span class="val">{{ t('scheduler.runCount', { count: currentJob.stats.success }) }}</span>
-                      </div>
-                      <div class="stat-item failed">
-                        <CircleXIcon />
-                        <span class="lbl">{{ t('scheduler.failedRuns') }}</span>
-                        <span class="val">{{ t('scheduler.runCount', { count: currentJob.stats.failed }) }}</span>
-                      </div>
-                      <div class="stat-item warning">
-                        <ClockIcon />
-                        <span class="lbl">{{ t('scheduler.timeoutRuns') }}</span>
-                        <span class="val">{{ t('scheduler.runCount', { count: currentJob.stats.timeout }) }}</span>
-                      </div>
-                      <div class="stat-item other">
-                        <InfoIcon />
-                        <span class="lbl">{{ t('scheduler.retryRuns') }}</span>
-                        <span class="val">{{ t('scheduler.runCount', { count: currentJob.stats.retry }) }}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="pane-group margin-top">
-                    <div class="pane-group-title">{{ t('scheduler.performanceSection') }}</div>
-                    <div class="info-block inline">
-                      <div>
-                        <span class="label">{{ t('scheduler.previousRun') }}</span>
-                        <span class="value small-text">{{ currentJob.last_run ? formatDateTime(currentJob.last_run) : t('scheduler.notStarted') }}</span>
-                      </div>
-                      <div>
-                        <span class="label">{{ t('scheduler.runDuration') }}</span>
-                        <span class="value highlight">{{ formatDurationMs(currentJob.last_duration_ms) }}</span>
-                      </div>
-                    </div>
-                    <div class="info-block">
-                      <span class="label">{{ t('scheduler.scheduledNextRun') }}</span>
-                      <span class="value small-text">
-                        {{ currentJob.next_run ? formatDateTime(currentJob.next_run) : t('scheduler.notScheduled') }}
-                        <span class="rel-time" v-if="currentJob.next_run">({{ getNextRunRelativeText(currentJob.next_run) }})</span>
-                      </span>
-                    </div>
-                  </div>
-
-                  <!-- 最近运行错误报告区 -->
-                  <div class="console-error-report" v-if="currentJob.last_error">
-                    <div class="report-head">
-                      <TriangleAlertIcon />
-                      <span>{{ t('scheduler.errorReport') }}</span>
-                    </div>
-                    <div class="report-body">
-                      <div class="err-code">{{ t('scheduler.errorCode') }} <code>{{ currentJob.last_error.code }}</code></div>
-                      <p class="err-msg">{{ currentJob.last_error.message }}</p>
-                      <AppButton size="sm" class="copy-console-err-btn" @click="copyToClipboard(`${currentJob.last_error.code}: ${currentJob.last_error.message}`)" variant="destructive">
-                        <template #icon><CopyIcon /></template>
-                        {{ t('scheduler.copyDiagnosis') }}
-                      </AppButton>
-                    </div>
-                  </div>
-                </div>
-              </div>
-    </AppDialog>
+    <SchedulerJobDetailDialog
+      :open="detailVisible"
+      :job="currentJob"
+      :plugin-name="currentJob ? pluginName(currentJob) : ''"
+      :next-run-text="currentJob?.next_run ? getNextRunRelativeText(currentJob.next_run) : ''"
+      @close="closeJobDetail"
+      @after-close="finishJobDetailClose"
+    />
   </AppPage>
 </template>
 
 <style lang="scss" scoped>
 @use '@/styles/breakpoints.generated' as bp;
 .lucide { width: 16px; height: 16px; flex-shrink: 0; }
-.error-capsule:focus-visible { outline: 2px solid var(--focus); outline-offset: var(--focus-outline-offset); }
 .scheduler-page-container {
   display: grid;
   gap: var(--space-md);
@@ -558,710 +203,5 @@ function copyToClipboard(text: string) {
   background: var(--surface);
   border: 1px solid var(--border);
   padding: 24px;
-}
-
-.table-container-wrapper {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-  overflow: hidden;
-}
-
-.refactored-table :deep(th) { font-weight: 600; color: var(--text); }
-.refactored-table :deep(th:last-child), .refactored-table :deep(td:last-child) { position: sticky; right: 0; z-index: 1; background: var(--surface-strong); border-left: 1px solid var(--border); }
-.refactored-table :deep(th:last-child) { background: var(--surface-soft); }
-
-.scheduler-mobile-list {
-  display: none;
-}
-
-.scheduler-mobile-row {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.scheduler-mobile-row__heading,
-.scheduler-mobile-row__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.scheduler-mobile-row__heading > div {
-  display: grid;
-  min-width: 0;
-}
-
-.scheduler-mobile-row__heading span {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.scheduler-mobile-row dl {
-  display: grid;
-  gap: 0;
-  margin: 0;
-}
-
-.scheduler-mobile-row dl > div {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: 12px;
-  padding-block: 8px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.scheduler-mobile-row dt,
-.scheduler-mobile-row dd {
-  margin: 0;
-  font-size: 13px;
-}
-
-.scheduler-mobile-row dt {
-  color: var(--muted);
-}
-
-.scheduler-mobile-row dd {
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: #{bp.$phone - 1px}) {
-  .scheduler-data-table {
-    display: none;
-  }
-
-  .scheduler-mobile-list {
-    display: grid;
-  }
-
-  .scheduler-mobile-row__actions > * {
-    min-height: 44px;
-    flex: 1 1 0;
-  }
-}
-
-/* 单元格布局 */
-.scheduler-cell-plugin-task {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  white-space: nowrap;
-
-
-
-  .meta-content {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  .top-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-
-    .plugin-name {
-      font-size: 14px;
-      color: var(--text);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-weight: 600;
-    }
-
-    .task-tag {
-      font-size: 13px;
-      background: color-mix(in srgb, var(--accent) 8%, transparent);
-      color: var(--accent);
-      border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-weight: 500;
-      white-space: nowrap;
-    }
-  }
-
-  .bottom-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 13px;
-    color: var(--muted);
-    font-family: var(--font-mono);
-
-    span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .divider {
-      color: color-mix(in srgb, var(--border) 60%, transparent);
-    }
-  }
-}
-
-.scheduler-cell-label-conv {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-  white-space: nowrap;
-
-  .label-text {
-    font-size: 13px;
-    color: var(--text);
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .conv-tag-row {
-    display: flex;
-    align-items: center;
-  }
-
-  .conv-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 13px;
-    background: color-mix(in srgb, var(--text) 5%, transparent);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 1px 6px;
-    border-radius: 6px;
-    max-width: 160px;
-    font-family: var(--font-mono);
-
-    .badge-icon {
-      font-size: 12px;
-    }
-    .badge-text {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    &.global {
-      background: color-mix(in srgb, var(--success) 6%, transparent);
-      border-color: color-mix(in srgb, var(--success) 18%, transparent);
-      color: var(--success);
-      font-weight: 500;
-    }
-  }
-}
-
-.scheduler-cell-cron-next {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-  white-space: nowrap;
-
-  .cron-expr-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-    flex-shrink: 0;
-
-    .chinese-cron {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .raw-cron {
-      font-size: 13px;
-      font-family: var(--font-mono);
-      color: var(--muted);
-      background: color-mix(in srgb, var(--text) 4%, transparent);
-      padding: 0 4px;
-      border-radius: 3px;
-    }
-  }
-
-  .next-run-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--muted);
-
-    .clock-icon {
-      font-size: 13px;
-    }
-
-    .next-time {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .relative-time-pill {
-      font-size: 12px;
-      background: var(--accent-soft);
-      color: var(--accent);
-      padding: 0px 5px;
-      border-radius: 4px;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-  }
-}
-
-.scheduler-cell-run-duration {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  white-space: nowrap;
-
-  .last-run-time {
-    font-size: 12px;
-    color: var(--text);
-  }
-
-  .duration-row {
-    display: flex;
-  }
-
-  .duration-badge {
-    font-size: 13px;
-    font-weight: 600;
-    padding: 1px 6px;
-    border-radius: 5px;
-    font-family: var(--font-mono);
-    border: 1px solid transparent;
-
-    &.duration-fast {
-      background: color-mix(in srgb, var(--success) 8%, transparent);
-      border-color: color-mix(in srgb, var(--success) 20%, transparent);
-      color: var(--success);
-    }
-
-    &.duration-normal {
-      background: color-mix(in srgb, var(--accent) 8%, transparent);
-      border-color: color-mix(in srgb, var(--accent) 20%, transparent);
-      color: var(--accent);
-    }
-
-    &.duration-slow {
-      background: color-mix(in srgb, var(--warning) 8%, transparent);
-      border-color: color-mix(in srgb, var(--warning) 20%, transparent);
-      color: var(--warning);
-    }
-  }
-}
-
-.scheduler-cell-health-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  width: 100%;
-  white-space: nowrap;
-
-  .stats-header {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--muted);
-    font-weight: 500;
-    white-space: nowrap;
-    padding-right: 0;
-  }
-
-  .mini-stacked-bar {
-    display: flex;
-    height: 6px;
-    width: 140px;
-    background: color-mix(in srgb, var(--text) 8%, transparent);
-    border-radius: 3px;
-    overflow: hidden;
-
-    .bar-success {
-      height: 100%;
-      background: var(--success);
-    }
-
-    .bar-failed {
-      height: 100%;
-      background: var(--danger);
-    }
-
-    .bar-other {
-      height: 100%;
-      background: var(--warning);
-    }
-  }
-
-  .error-badge-row {
-    display: flex;
-    margin-top: 2px;
-  }
-
-  .error-capsule {
-    font-size: 12px;
-    font-weight: 700;
-    background: color-mix(in srgb, var(--danger) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--danger) 24%, transparent);
-    color: var(--danger);
-    padding: 1px 6px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    transition: background-color 150ms ease, color 150ms ease;
-
-    &:hover {
-      background: var(--danger);
-      color: var(--on-brand);
-      box-shadow: 0 2px 6px color-mix(in srgb, var(--danger) 30%, transparent);
-    }
-  }
-
-  .success-dot-row {
-    display: flex;
-    align-items: center;
-    margin-top: 2px;
-  }
-
-  .success-dot {
-    font-size: 13px;
-    color: var(--success);
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-
-    .ok-icon {
-      font-size: 12px;
-    }
-  }
-}
-
-/* 气泡故障面板样式 */
-.error-popover-content {
-  max-width: 280px;
-  padding: 4px;
-
-  .err-title {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--danger);
-    font-size: 13px;
-    margin-bottom: 6px;
-
-    .err-icon {
-      font-size: 14px;
-    }
-  }
-
-  .err-msg {
-    font-size: 12px;
-    color: var(--text);
-    background: color-mix(in srgb, var(--text) 4%, transparent);
-    padding: 6px 8px;
-    border-radius: 6px;
-    word-break: break-all;
-    font-family: var(--font-mono);
-    max-height: 120px;
-    overflow-y: auto;
-  }
-
-  .copy-err-btn {
-    padding: 0;
-    height: auto;
-    font-size: 13px;
-    margin-top: 8px;
-  }
-}
-
-.scheduler-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-
-  .action-btn {
-    height: 28px;
-    font-size: 12px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: var(--surface);
-    transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
-
-    &:hover {
-      border-color: var(--border-strong);
-    }
-
-    &.view-btn:hover {
-      color: var(--accent) !important;
-      border-color: var(--accent) !important;
-      background: var(--surface-accent) !important;
-    }
-
-    &.trigger-btn:hover {
-      color: var(--success) !important;
-      border-color: var(--success) !important;
-      background: var(--surface-success) !important;
-    }
-  }
-}
-
-.modal-console-layout {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: 20px;
-}
-
-.console-pane-left {
-  border-right: 1px solid var(--border);
-  padding-right: 20px;
-}
-
-.console-pane-left,
-.console-pane-right {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  .pane-group-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--accent);
-    letter-spacing: 0;
-    margin-bottom: 8px;
-  }
-
-  .pane-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .info-block {
-    display: flex;
-    flex-direction: column;
-    background: color-mix(in srgb, var(--text) 3%, transparent);
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-
-    .label {
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 3px;
-    }
-
-    .value {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-
-      &.bold {
-        font-weight: 700;
-        font-size: 14px;
-      }
-      &.code {
-        font-family: var(--font-mono);
-        color: var(--text);
-        background: color-mix(in srgb, var(--text) 5%, transparent);
-        padding-inline: 4px;
-        border-radius: 3px;
-        font-size: 12px;
-        width: fit-content;
-      }
-      &.highlight {
-        color: var(--accent);
-        font-weight: 700;
-      }
-    }
-
-    .sub-val {
-      font-size: 13px;
-      color: var(--muted);
-      font-family: var(--font-mono);
-      margin-top: 2px;
-    }
-
-    &.inline {
-      flex-direction: row;
-      justify-content: space-between;
-      gap: 12px;
-
-      & > div {
-        display: flex;
-        flex-direction: column;
-        flex: 1 1 0%;
-      }
-    }
-  }
-}
-
-.console-pane-right {
-  .margin-top {
-    margin-top: 4px;
-  }
-
-  .small-text {
-    font-size: 12px !important;
-  }
-
-  .rel-time {
-    color: var(--accent);
-    font-weight: 600;
-    margin-left: 4px;
-  }
-
-  /* 运行健康仪表盘 */
-  .health-instrument {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    background: color-mix(in srgb, var(--text) 3%, transparent);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px;
-  }
-
-  .health-gauge {
-    width: 90px;
-    height: 90px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px; // 圆环粗细
-    flex-shrink: 0;
-
-    .gauge-center {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      background: var(--surface) !important;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .gauge-pct {
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--text);
-      line-height: 1;
-    }
-
-    .gauge-desc {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 2px;
-    }
-  }
-
-  .gauge-stats-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    flex: 1 1 auto;
-
-    .stat-item {
-      display: flex;
-      align-items: center;
-      font-size: 12px;
-      font-weight: 500;
-
-      span.lbl {
-        margin-left: 6px;
-        color: var(--muted);
-      }
-
-      span.val {
-        margin-left: auto;
-        font-family: var(--font-mono);
-        font-weight: 700;
-      }
-
-      &.success { color: var(--success); }
-      &.failed { color: var(--danger); }
-      &.warning { color: var(--warning); }
-      &.other { color: var(--muted); }
-    }
-  }
-
-  /* 故障诊断 */
-  .console-error-report {
-    background: color-mix(in srgb, var(--danger) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent);
-    border-radius: 10px;
-    padding: 12px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-
-    .report-head {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--danger);
-    }
-
-    .report-body {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-
-      .err-code {
-        font-size: 12px;
-        color: var(--text);
-
-        code {
-          font-family: var(--font-mono);
-          background: color-mix(in srgb, var(--danger) 15%, transparent);
-          padding: 1px 5px;
-          border-radius: 4px;
-          color: var(--danger);
-          font-weight: 700;
-        }
-      }
-
-      .err-msg {
-        font-size: 13px;
-        color: var(--text);
-        font-family: var(--font-mono);
-        background: color-mix(in srgb, var(--surface) 60%, transparent);
-        padding: 8px;
-        border-radius: 6px;
-        max-height: 80px;
-        overflow-y: auto;
-        word-break: break-all;
-        margin: 0;
-        border: 1px solid color-mix(in srgb, var(--danger) 10%, transparent);
-      }
-
-      .copy-console-err-btn {
-        margin-top: 4px;
-        font-size: 13px;
-        height: 28px;
-        width: fit-content;
-        align-self: flex-end;
-      }
-    }
-  }
 }
 </style>
