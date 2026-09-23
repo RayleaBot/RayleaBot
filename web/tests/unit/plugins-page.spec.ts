@@ -210,6 +210,39 @@ describe('PluginsPage', () => {
     expect(notifySuccess).not.toHaveBeenCalled()
   })
 
+  it('shows error feedback when enabling or disabling fails', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    const store = usePluginsStore()
+    store.items = [{
+      id: 'weather',
+      name: 'Weather',
+      role: 'community',
+      state: 'running',
+      commands: [],
+      command_conflicts: [],
+    }]
+
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    const executeSpy = vi.spyOn(store, 'executeAction').mockRejectedValue(new Error('disable failed'))
+
+    const wrapper = mount(PluginsPage, {
+      global: {
+        plugins: [getActivePinia()!, router],
+      },
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-testid="plugin-enable-button-weather"]').trigger('click')
+    await flushPromises()
+
+    expect(executeSpy).toHaveBeenCalledWith('weather', 'disable')
+    expect(notifyError).toHaveBeenCalledTimes(1)
+    expect(notifySuccess).not.toHaveBeenCalled()
+  })
+
   it('renders source, trust, and command conflict metadata', async () => {
     const router = createRouter({
       history: createMemoryHistory(),

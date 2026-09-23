@@ -85,17 +85,13 @@ function openSummary(id: string) {
   summaryDrawerVisible.value = true
 }
 
-async function reloadPlugin(pluginId: string) {
+async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 'reload') {
   try {
-    await pluginsStore.executeAction(pluginId, 'reload')
+    await pluginsStore.executeAction(pluginId, action)
     notifySuccess(t('plugins.actionAccepted'))
   } catch (error) {
     notifyError(getDisplayErrorMessage(error))
   }
-}
-
-function togglePlugin(pluginId: string, state?: string) {
-  return pluginsStore.executeAction(pluginId, state === 'disabled' ? 'enable' : 'disable')
 }
 </script>
 
@@ -166,8 +162,8 @@ function togglePlugin(pluginId: string, state?: string) {
               @detail="navigate(buildPluginDetailLocation(item.id))"
               @summary="openSummary(item.id)"
               @manage="navigate(buildPluginDetailLocation(item.id, { panel: 'management-ui' }))"
-              @reload="reloadPlugin(item.id)"
-              @toggle="togglePlugin(item.id, item.state)"
+              @reload="runPluginAction(item.id, 'reload')"
+              @toggle="runPluginAction(item.id, item.state === 'disabled' ? 'enable' : 'disable')"
             />
           </div>
         </div>
