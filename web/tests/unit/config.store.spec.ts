@@ -34,7 +34,6 @@ describe('config store', () => {
     await store.fetchConfig()
 
     expect(store.document).toEqual(config)
-    expect(store.applyEffects).toBeNull()
     expect(store.redactedFields).toEqual([])
     expect(store.restartRequired).toBeNull()
   })
@@ -65,11 +64,6 @@ describe('config store', () => {
 
     expect(response.restart_required).toBe(true)
     expect(response.apply_effects.restart_required_fields).toEqual(['server.port'])
-    expect(store.applyEffects).toEqual({
-      applied_now: ['log.level'],
-      reloaded_now: [],
-      restart_required_fields: ['server.port'],
-    })
     expect(store.document).toEqual(config)
     expect(store.restartRequired).toBe(true)
   })

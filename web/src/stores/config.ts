@@ -4,12 +4,11 @@ import { defineStore } from 'pinia'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import { DEFAULT_TIME_ZONE } from '@/lib/time-zone'
-import type { ConfigApplyEffects, ConfigDocument, ConfigSnapshotResponse, ConfigUpdateResponse } from '@/types/api'
+import type { ConfigDocument, ConfigSnapshotResponse, ConfigUpdateResponse } from '@/types/api'
 
 export const useConfigStore = defineStore('config', () => {
   const document = ref<ConfigDocument | null>(null)
   const effectiveTimezone = ref(DEFAULT_TIME_ZONE)
-  const applyEffects = ref<ConfigApplyEffects | null>(null)
   const redactedFields = ref<string[]>([])
   const restartRequired = ref<boolean | null>(null)
   const loading = ref(false)
@@ -31,7 +30,6 @@ export const useConfigStore = defineStore('config', () => {
       const response = await apiRequest<ConfigSnapshotResponse>('/api/config')
       document.value = response.config
       effectiveTimezone.value = response.effective_timezone || DEFAULT_TIME_ZONE
-      applyEffects.value = null
       redactedFields.value = response.redacted_fields ?? []
       restartRequired.value = null
     } catch (err) {
@@ -52,7 +50,6 @@ export const useConfigStore = defineStore('config', () => {
       })
       document.value = response.config
       effectiveTimezone.value = response.effective_timezone || DEFAULT_TIME_ZONE
-      applyEffects.value = response.apply_effects
       redactedFields.value = response.redacted_fields ?? []
       restartRequired.value = response.restart_required
       return response
@@ -65,7 +62,6 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   return {
-    applyEffects,
     document,
     effectiveTimezone,
     error,
