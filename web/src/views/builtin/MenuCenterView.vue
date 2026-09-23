@@ -14,29 +14,19 @@ import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import NativeTemplatePreviewFrame from '@/components/NativeTemplatePreviewFrame.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import { getPrimaryCommandPrefix } from '@/lib/command-usage'
 import { t } from '@/i18n'
+import {
+  buildMenuTriggerExamples,
+  buildPluginMenuGroups,
+  buildRootMenuItems,
+  defaultMenuCommands,
+  normalizeMenuTokens,
+  renderMenuPreviewFooter,
+} from '@/lib/menu-preview'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
 import { usePluginCollection } from '@/lib/use-plugin-collection'
-import type {
-  CommandPermissionLevel,
-  ConfigDocument,
-  PluginCommandSummary,
-  PluginSummary,
-} from '@/types/api'
-
-const defaultMenuCommands = ['help', '帮助']
-const defaultRenderFooterTemplate = 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}'
-const previewDevelopmentVersion = '开发版本'
-const previewSystemMenuPluginName = 'RayleaBot'
-
-type CommandUsagePartKind = 'literal' | 'required' | 'optional'
-
-interface CommandUsagePart {
-  kind: CommandUsagePartKind
-  text: string
-}
+import type { ConfigDocument } from '@/types/api'
 
 const configStore = useConfigStore()
 const pluginsStore = usePluginsStore()
@@ -51,7 +41,8 @@ const activeTab = ref<'root' | 'plugin'>('root')
 
 const pageError = computed(() => configError.value ?? pluginsError.value)
 const loading = computed(() => configLoading.value || pluginsLoading.value)
-const pageErrorToast = computed(() => (
+
+useToastFeedback(computed(() => (
   pageError.value && configDocument.value
     ? {
         key: `menu-center-error:${pageError.value}`,
@@ -59,14 +50,19 @@ const pageErrorToast = computed(() => (
         message: pageError.value,
       }
     : null
-))
+)))
 
-useToastFeedback(pageErrorToast)
-const inheritedCommandPrefixes = computed(() => normalizeTokens(configDocument.value?.command?.prefixes).length > 0
-  ? normalizeTokens(configDocument.value?.command?.prefixes)
-  : ['/'])
+const inheritedCommandPrefixes = computed(() => {
+  const prefixes = normalizeMenuTokens(configDocument.value?.command?.prefixes)
+  return prefixes.length > 0 ? prefixes : ['/']
+})
+const inheritedPrefixLabel = computed(() => inheritedCommandPrefixes.value.join('、'))
 const effectiveMenuPrefixes = computed(() => draftPrefixes.value.length > 0 ? draftPrefixes.value : inheritedCommandPrefixes.value)
-const primaryMenuPrefix = computed(() => getPrimaryCommandPrefix(effectiveMenuPrefixes.value))
+const previewContext = computed(() => ({
+  prefixes: effectiveMenuPrefixes.value,
+  defaultPermission: configDocument.value?.permission?.default_level,
+}))
+const footerTemplate = computed(() => configDocument.value?.render?.footer_template)
 
 const enabledPlugins = computed(() => sortedItems.value
   .filter((plugin) => plugin.state === 'running')
@@ -78,43 +74,9 @@ const selectedPlugin = computed(() => (
     ?? null
 ))
 
-const rootPreviewItems = computed(() => enabledPlugins.value
-  .map((plugin) => ({
-    name: plugin.name || plugin.id,
-    description: plugin.help?.summary || plugin.commands[0]?.description || plugin.id,
-  })))
-
-const selectedPluginPreviewGroups = computed(() => {
-  const plugin = selectedPlugin.value
-  if (!plugin) {
-    return []
-  }
-
-  const commandByID = new Map(plugin.commands.map((command) => [command.id, command]))
-  const covered = new Set<string>()
-  const groups: Array<{ title: string, items: Array<Record<string, unknown>> }> = []
-  for (const group of plugin.command_groups) {
-    const items = group.commands.flatMap((commandID) => {
-      const command = commandByID.get(commandID)
-      if (!command) {
-        return []
-      }
-      covered.add(command.id)
-      return [commandPreviewItem(command)]
-    })
-    if (items.length > 0) {
-      groups.push({ title: group.title, items })
-    }
-  }
-
-  const ungrouped = plugin.commands
-    .filter((command) => !covered.has(command.id))
-    .map(commandPreviewItem)
-  if (ungrouped.length > 0) {
-    groups.push({ title: '其他命令', items: ungrouped })
-  }
-
-  return groups
+const rootMenuTriggerExamples = computed(() => {
+  const plugin = enabledPlugins.value[0]
+  return buildMenuTriggerExamples(plugin ? plugin.name || plugin.id : null, effectiveMenuPrefixes.value, draftCommands.value)
 })
 
 const rootPreviewData = computed(() => ({
@@ -122,8 +84,8 @@ const rootPreviewData = computed(() => ({
   subtitle: '当前可用插件',
   command_prefixes: effectiveMenuPrefixes.value,
   trigger_examples: rootMenuTriggerExamples.value,
-  items: rootPreviewItems.value,
-  render_footer: renderNativeMenuPreviewFooter(configDocument.value?.render?.footer_template),
+  items: buildRootMenuItems(enabledPlugins.value),
+  render_footer: renderMenuPreviewFooter(footerTemplate.value),
 }))
 
 const selectedPluginPreviewData = computed(() => {
@@ -133,34 +95,31 @@ const selectedPluginPreviewData = computed(() => {
       title: '插件菜单',
       subtitle: '当前没有可预览的插件菜单。',
       groups: [],
-      render_footer: renderNativeMenuPreviewFooter(configDocument.value?.render?.footer_template),
+      render_footer: renderMenuPreviewFooter(footerTemplate.value),
     }
   }
   return {
     title: plugin.name || plugin.id,
     subtitle: plugin.help?.summary || plugin.commands[0]?.description || plugin.id,
     command_prefixes: effectiveMenuPrefixes.value,
-    groups: selectedPluginPreviewGroups.value,
-    render_footer: renderNativeMenuPreviewFooter(configDocument.value?.render?.footer_template, plugin),
+    groups: buildPluginMenuGroups(plugin, previewContext.value),
+    render_footer: renderMenuPreviewFooter(footerTemplate.value, plugin),
   }
 })
-
-const inheritedPrefixLabel = computed(() => inheritedCommandPrefixes.value.join('、'))
-const rootMenuTriggerExamples = computed(() => buildMenuTriggerExamples(enabledPlugins.value[0] ?? null))
 
 const hasUnsavedChanges = computed(() => {
   const source = configDocument.value
   if (!source) {
     return false
   }
-  return JSON.stringify(draftCommands.value) !== JSON.stringify(normalizeTokens(source.builtin_features?.menu?.commands, defaultMenuCommands))
-    || JSON.stringify(draftPrefixes.value) !== JSON.stringify(normalizeTokens(source.builtin_features?.menu?.prefixes))
+  return JSON.stringify(draftCommands.value) !== JSON.stringify(normalizeMenuTokens(source.builtin_features?.menu?.commands, defaultMenuCommands))
+    || JSON.stringify(draftPrefixes.value) !== JSON.stringify(normalizeMenuTokens(source.builtin_features?.menu?.prefixes))
 })
 
 watch(configDocument, (value, previous) => {
   if (value && previous && JSON.stringify(value) === JSON.stringify(previous)) return
-  draftCommands.value = normalizeTokens(value?.builtin_features?.menu?.commands, defaultMenuCommands)
-  draftPrefixes.value = normalizeTokens(value?.builtin_features?.menu?.prefixes)
+  draftCommands.value = normalizeMenuTokens(value?.builtin_features?.menu?.commands, defaultMenuCommands)
+  draftPrefixes.value = normalizeMenuTokens(value?.builtin_features?.menu?.prefixes)
 }, { immediate: true })
 
 watch(enabledPlugins, (plugins) => {
@@ -178,167 +137,8 @@ async function loadPage() {
   ])
 }
 
-function normalizeTokens(values?: readonly string[] | null, fallback: string[] = []) {
-  const seen = new Set<string>()
-  const items: string[] = []
-  for (const value of values ?? fallback) {
-    const trimmed = String(value).trim()
-    if (!trimmed || seen.has(trimmed)) {
-      continue
-    }
-    seen.add(trimmed)
-    items.push(trimmed)
-  }
-  return items
-}
-
 function compareLabel(left: string, right: string) {
   return left.localeCompare(right, 'zh-CN')
-}
-
-function secondaryMenuPrefix() {
-  return effectiveMenuPrefixes.value[1] || primaryMenuPrefix.value
-}
-
-function buildMenuTriggerExamples(plugin: PluginSummary | null) {
-  if (!plugin) {
-    return []
-  }
-  const target = plugin.name || plugin.id
-  const commands = normalizeTokens(draftCommands.value, defaultMenuCommands)
-  const examples = [`${primaryMenuPrefix.value}${commands[0] || defaultMenuCommands[0]} ${target}`]
-  if ((commands[1] || commands[0] || defaultMenuCommands[1])) {
-    examples.push(`${secondaryMenuPrefix()}${target}${commands[1] || commands[0] || defaultMenuCommands[1]}`)
-  }
-  return examples
-}
-
-function renderNativeMenuPreviewFooter(template?: string, plugin?: Pick<PluginSummary, 'id' | 'name' | 'version'> | null) {
-  const source = template?.trim() || defaultRenderFooterTemplate
-  const pluginName = plugin ? plugin.name || plugin.id : previewSystemMenuPluginName
-  const pluginVersion = displayPreviewVersion(plugin?.version)
-  return source
-    .replaceAll('{{rayleabot_version}}', previewDevelopmentVersion)
-    .replaceAll('{{plugin_name}}', pluginName)
-    .replaceAll('{{plugin_version}}', pluginVersion)
-}
-
-function displayPreviewVersion(version?: string | null) {
-  const normalized = String(version ?? '').trim()
-  return normalized && normalized !== '0.0.0-dev' ? normalized : previewDevelopmentVersion
-}
-
-function commandPreviewItem(command: PluginCommandSummary) {
-  return {
-    name: command.effective_names[0] || command.name,
-    ...commandPreviewFields(command),
-    description: command.description || command.name,
-    permission: effectiveCommandPermission(command),
-  }
-}
-
-function commandPreviewFields(command: PluginCommandSummary) {
-  if (command.trigger.type === 'pattern') {
-    const usage = patternCommandUsage(command.usage, effectiveMenuPrefixes.value)
-    return {
-      trigger_type: command.trigger.type,
-      command_prefixes: effectiveMenuPrefixes.value,
-      usage,
-      usage_parts: commandUsageParts(usage, 'literal'),
-    }
-  }
-  const commandName = command.effective_names[0] || command.name
-  const usageArgs = commandUsageArgs(commandName, command.usage, effectiveMenuPrefixes.value)
-  return {
-    trigger_type: command.trigger.type,
-    command_prefixes: effectiveMenuPrefixes.value,
-    ...(usageArgs
-      ? {
-          usage_args: usageArgs,
-          usage_parts: commandUsageParts(usageArgs, 'required'),
-        }
-      : {}),
-  }
-}
-
-function effectiveCommandPermission(command: PluginCommandSummary): CommandPermissionLevel {
-  const declaredPermission = String(command.permission ?? '').trim()
-  if (declaredPermission) {
-    return normalizeCommandPermission(declaredPermission)
-  }
-  return normalizeCommandPermission(configDocument.value?.permission?.default_level)
-}
-
-function normalizeCommandPermission(value: unknown): CommandPermissionLevel {
-  switch (String(value ?? '').trim()) {
-    case 'super_admin':
-      return 'super_admin'
-    case 'group_admin':
-      return 'group_admin'
-    case 'everyone':
-      return 'everyone'
-    default:
-      return 'everyone'
-  }
-}
-
-function patternCommandUsage(usage: string | null | undefined, prefixes: string[]) {
-  const value = String(usage ?? '').trim()
-  if (!value) {
-    return ''
-  }
-  return stripCommandExamplePrefix(value, prefixes)
-}
-
-function stripCommandExamplePrefix(value: string, prefixes: string[]) {
-  const examplePrefixes = [...new Set([...prefixes, '/', '#', '*', '＊'])]
-    .map((prefix) => prefix.trim())
-    .filter(Boolean)
-    .sort((left, right) => right.length - left.length)
-  const matchedPrefix = examplePrefixes.find((prefix) => value.startsWith(prefix))
-  return matchedPrefix ? value.slice(matchedPrefix.length).trimStart() : value
-}
-
-function commandUsageArgs(commandName?: string | null, usage?: string | null, prefixes: string[] = []) {
-  const command = String(commandName ?? '').trim()
-  let value = String(usage ?? '').trim()
-  if (!command || !value) {
-    return ''
-  }
-  value = stripCommandExamplePrefix(value, prefixes)
-  if (value === command) {
-    return ''
-  }
-  if (value.startsWith(command)) {
-    return value.slice(command.length).trim()
-  }
-  return ''
-}
-
-function commandUsageParts(usage: string, plainKind: 'literal' | 'required'): CommandUsagePart[] {
-  const source = usage.trim()
-  if (!source) {
-    return []
-  }
-
-  const parts: CommandUsagePart[] = []
-  const pattern = /\[([^\]]+)\]|<([^>]+)>/g
-  let cursor = 0
-  for (const match of source.matchAll(pattern)) {
-    const index = match.index ?? cursor
-    appendCommandUsagePart(parts, plainKind, source.slice(cursor, index))
-    appendCommandUsagePart(parts, match[1] === undefined ? 'required' : 'optional', match[1] ?? match[2] ?? '')
-    cursor = index + match[0].length
-  }
-  appendCommandUsagePart(parts, plainKind, source.slice(cursor))
-  return parts
-}
-
-function appendCommandUsagePart(parts: CommandUsagePart[], kind: CommandUsagePartKind, text: string) {
-  const normalized = text.trim()
-  if (normalized) {
-    parts.push({ kind, text: normalized })
-  }
 }
 
 function patchBuiltinMenuConfig(source: ConfigDocument) {
@@ -347,8 +147,8 @@ function patchBuiltinMenuConfig(source: ConfigDocument) {
     builtin_features: {
       ...(source.builtin_features ?? {}),
       menu: {
-        commands: normalizeTokens(draftCommands.value, defaultMenuCommands),
-        prefixes: normalizeTokens(draftPrefixes.value),
+        commands: normalizeMenuTokens(draftCommands.value, defaultMenuCommands),
+        prefixes: normalizeMenuTokens(draftPrefixes.value),
       },
     },
   } as ConfigDocument
