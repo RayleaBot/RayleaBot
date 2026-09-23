@@ -13,11 +13,10 @@ import {
   EraserIcon,
   RotateCwIcon,
 } from '@lucide/vue'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
-import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import PluginIcon from '@/components/plugins/PluginIcon.vue'
@@ -34,16 +33,9 @@ import {
   getPluginRoleLabel,
   getPluginStateLabel,
 } from '@/lib/display'
-import { getDisplayErrorMessage, getErrorCodeMessage } from '@/lib/error-text'
+import { getErrorCodeMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
-import {
-  areLocationQueriesEqual,
-  buildPluginDetailLocation,
-  buildPluginWorkbenchActions,
-  readPluginDetailPanel,
-  readPluginManagementPage,
-  type PluginDetailPanel,
-} from '@/lib/management-links'
+import { buildPluginWorkbenchActions } from '@/lib/management-links'
 import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
@@ -55,12 +47,12 @@ import type { PluginDetail } from '@/types/api'
 import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import { usePluginConsolePanel, type PluginDetailInnerTab } from './usePluginConsolePanel'
+import { usePluginDetail } from './usePluginDetail'
+import { usePluginDetailPanels } from './usePluginDetailPanels'
 
-type PluginPanelOption = { label: string; value: string }
 const CONSOLE_ROW_ESTIMATED_HEIGHT = 84
 
 const route = useRoute()
-const router = useRouter()
 const navigate = useMotionNavigation()
 const pluginsStore = usePluginsStore()
 const pluginConsoleStore = usePluginConsoleStore()
@@ -68,15 +60,30 @@ const socketStore = useSocketStore()
 const configStore = useConfigStore()
 const uiShellStore = useUiShellStore()
 
-const { actionPending, current, detailLoading } = storeToRefs(pluginsStore)
 const { document: configDocument } = storeToRefs(configStore)
 const { siderCollapsed } = storeToRefs(uiShellStore)
 
 const pluginId = computed(() => String(route.params.id))
-const currentPlugin = computed(() => current.value?.id === pluginId.value ? current.value : null)
+const {
+  actionPending,
+  currentPlugin,
+  detailLoading,
+  getToggleAction,
+  loadDetail,
+  loadError,
+  runAction,
+  uninstallDialogVisible,
+  uninstallPlugin,
+} = usePluginDetail(pluginId)
+const {
+  activeManagementPage,
+  activePanel,
+  activePanelKey,
+  managementPanelTitle,
+  panelOptions,
+  setActivePanelKey,
+} = usePluginDetailPanels(pluginId, currentPlugin)
 const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
-const loadError = ref<string | null>(null)
-const operationError = ref<string | null>(null)
 const {
   activeDetailTab,
   clearConsole,
@@ -103,57 +110,9 @@ const {
   socketStore,
 })
 void consoleViewportRef
-const uninstallDialogVisible = ref(false)
-let detailLoadVersion = 0
-let pageActive = true
 
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
-const requestedPanel = computed(() => readPluginDetailPanel(route.query))
-const requestedManagementPage = computed(() => readPluginManagementPage(route.query))
-const hasManagementUI = computed(() => (currentPlugin.value?.management_ui?.pages?.length ?? 0) > 0)
-const managementPages = computed(() => {
-  const managementUI = currentPlugin.value?.management_ui
-  return managementUI?.pages ?? []
-})
-const activeManagementPage = computed(() => {
-  if (!hasManagementUI.value) {
-    return null
-  }
-
-  return managementPages.value.find((page) => page.id === requestedManagementPage.value)
-    ?? managementPages.value[0]
-    ?? null
-})
-const activePanel = computed<PluginDetailPanel>(() => {
-  if (requestedPanel.value === 'management-ui' && currentPlugin.value && !hasManagementUI.value) {
-    return 'overview'
-  }
-
-  return requestedPanel.value
-})
-const activePanelKey = computed(() => (
-  activePanel.value === 'management-ui' && activeManagementPage.value
-    ? `management-ui:${activeManagementPage.value.id}`
-    : activePanel.value
-))
-const panelOptions = computed(() => {
-  const options: PluginPanelOption[] = [
-    { label: t('plugins.panels.overview'), value: 'overview' },
-  ]
-
-  if (hasManagementUI.value) {
-    for (const page of managementPages.value) {
-      options.push({
-        label: page.label?.trim() || t('plugins.panels.managementUi'),
-        value: `management-ui:${page.id}`,
-      })
-    }
-  }
-
-  return options
-})
 const pluginWorkbenchActions = computed(() => buildPluginWorkbenchActions(pluginId.value))
-const managementPanelTitle = computed(() => activeManagementPage.value?.label?.trim() || t('plugins.sections.managementUi'))
 const pluginDisplayName = computed(() => (
   currentPlugin.value?.name?.trim() || pluginsStore.getPluginDisplayName(pluginId.value)
 ))
@@ -188,82 +147,6 @@ const runtimeInfoRows = computed(() => [
   { key: 'priority', label: t('plugins.fields.priority'), value: currentPlugin.value?.priority ?? 0 },
   { key: 'block', label: t('plugins.fields.propagation'), value: t(currentPlugin.value?.block ? 'plugins.propagation.stop' : 'plugins.propagation.continue') },
 ])
-const detailErrorToast = computed(() => {
-  if (operationError.value) {
-    return {
-      key: `plugin-detail-operation:${operationError.value}`,
-      level: 'error' as const,
-      message: operationError.value,
-    }
-  }
-
-  if (loadError.value) {
-    return {
-      key: `plugin-detail-load:${loadError.value}`,
-      level: 'error' as const,
-      message: loadError.value,
-    }
-  }
-
-  return null
-})
-
-useToastFeedback(detailErrorToast)
-
-async function loadDetail() {
-  const requestedPluginId = pluginId.value
-  const requestVersion = ++detailLoadVersion
-  loadError.value = null
-  try {
-    await Promise.all([
-      pluginsStore.fetchDetail(requestedPluginId),
-      pluginConsoleStore.fetchOutboundConsoleHistory(requestedPluginId).catch(() => []),
-      configStore.fetchConfig().catch(() => undefined),
-    ])
-
-    if (!isCurrentDetailRequest(requestVersion, requestedPluginId)) {
-      return
-    }
-
-    socketStore.setConsolePlugin(requestedPluginId)
-  } catch (error) {
-    if (!isCurrentDetailRequest(requestVersion, requestedPluginId)) {
-      return
-    }
-
-    loadError.value = getDisplayErrorMessage(error, 'errors.common.loadFailed')
-  }
-}
-
-function isCurrentDetailRequest(requestVersion: number, requestedPluginId: string) {
-  return pageActive && requestVersion === detailLoadVersion && pluginId.value === requestedPluginId
-}
-
-async function runAction(action: 'enable' | 'disable' | 'reload') {
-  operationError.value = null
-  try {
-    await pluginsStore.executeAction(pluginId.value, action)
-    notifySuccess(t('plugins.actionAccepted'))
-  } catch (error) {
-    operationError.value = getDisplayErrorMessage(error)
-  }
-}
-
-function getToggleAction() {
-  return current.value?.state === 'disabled' ? 'enable' : 'disable'
-}
-
-async function uninstallPlugin() {
-  operationError.value = null
-  try {
-    await pluginsStore.uninstallPlugin(pluginId.value, () => { uninstallDialogVisible.value = false })
-    uninstallDialogVisible.value = false
-    notifySuccess(t('plugins.uninstallAccepted'))
-    await router.replace('/plugins')
-  } catch (error) {
-    operationError.value = getDisplayErrorMessage(error)
-  }
-}
 
 function getMetadataText(value?: string | null) {
   return value?.trim() || t('display.empty')
@@ -290,81 +173,14 @@ function getPluginStateColor(status?: string | null) {
 }
 
 function getPluginStateDotColor(status?: string | null) {
-  if (!status) return 'var(--muted)'
-  if (status === 'failed' || status === 'error' || status === 'removed') return 'var(--danger)'
-  if (status === 'starting' || status === 'stopping' || status === 'enabling' || status === 'disabling' || status === 'retrying') return 'var(--warning)'
-  if (status === 'installed' || status === 'enabled' || status === 'running' || status === 'discovered') return 'var(--success)'
-  return 'var(--muted)'
+  const tone = getPluginStateColor(status)
+  return tone === 'neutral' ? 'var(--muted)' : `var(--${tone})`
 }
 
 function returnToPluginList() {
   void navigate({ name: 'plugins' })
 }
 
-async function syncPanelQuery(nextPanel: PluginDetailPanel, managementPage?: string | null) {
-  const target = buildPluginDetailLocation(pluginId.value, {
-    panel: nextPanel,
-    managementPage,
-  })
-
-  if (areLocationQueriesEqual(route.query, target.query ?? {})) {
-    return
-  }
-
-  await router.replace(target)
-}
-
-async function setActivePanelKey(nextKey: string) {
-  if (nextKey === 'overview') {
-    await syncPanelQuery('overview')
-    return
-  }
-
-  if (nextKey.startsWith('management-ui:')) {
-    await syncPanelQuery(
-      'management-ui',
-      nextKey.slice('management-ui:'.length),
-    )
-    return
-  }
-
-  await syncPanelQuery('management-ui')
-}
-
-watch(pluginId, () => {
-  void loadDetail()
-})
-
-watch(
-  [requestedPanel, requestedManagementPage, currentPlugin, activeManagementPage],
-  ([panel, managementPage, plugin, activePage]) => {
-    if (route.name !== 'plugin-detail') {
-      return
-    }
-
-    if (panel === 'management-ui' && plugin && !hasManagementUI.value) {
-      void syncPanelQuery('overview')
-      return
-    }
-
-    if (panel === 'management-ui' && hasManagementUI.value && activePage) {
-      const expectedPage = activePage.id
-      if (managementPage !== expectedPage) {
-        void syncPanelQuery('management-ui', expectedPage)
-      }
-    }
-  },
-  { immediate: true },
-)
-
-onMounted(() => {
-  void loadDetail()
-})
-
-onUnmounted(() => {
-  pageActive = false
-  detailLoadVersion += 1
-})
 </script>
 
 <template>
@@ -401,15 +217,15 @@ onUnmounted(() => {
     <template #extra>
       <div class="table-actions plugin-detail-actions">
         <PluginPowerButton
-          :checked="current?.state !== 'disabled'"
+          :checked="currentPlugin?.state !== 'disabled'"
           :loading="actionPending[pluginId] === 'enable' || actionPending[pluginId] === 'disable'"
-          :disabled="!current"
+          :disabled="!currentPlugin"
           :checked-label="t('plugins.actions.enable')"
           :unchecked-label="t('plugins.actions.disable')"
           @click="runAction(getToggleAction())"
         />
-        <AppButton :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</AppButton>
-        <AppButton :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true" variant="destructive">{{ t('plugins.actions.uninstall') }}</AppButton>
+        <AppButton :disabled="!currentPlugin" :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</AppButton>
+        <AppButton :disabled="!currentPlugin" :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true" variant="destructive">{{ t('plugins.actions.uninstall') }}</AppButton>
       </div>
     </template>
 
@@ -422,7 +238,7 @@ onUnmounted(() => {
     />
 
     <RetryPanel
-      v-if="loadError && !current"
+      v-if="loadError && !currentPlugin"
       :title="t('errors.common.loadFailed')"
       :description="loadError"
       :loading="detailLoading"
@@ -457,9 +273,6 @@ onUnmounted(() => {
 
           <div class="plugin-detail-hero__tools">
             <ManagementContextActions :actions="pluginWorkbenchActions" />
-            <!-- Hidden context action anchors for unit test compat -->
-            <span class="sr-only">{{ t('plugins.actions.openPluginCommands') }}</span>
-            <span class="sr-only">{{ t('plugins.actions.openPluginLogs') }}</span>
           </div>
 
           <div class="plugin-detail-status-chips" :aria-label="t('plugins.sections.statusSummary')">

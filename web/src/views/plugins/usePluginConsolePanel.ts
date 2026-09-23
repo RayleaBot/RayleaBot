@@ -86,10 +86,8 @@ export function usePluginConsolePanel(options: PluginConsolePanelOptions) {
   }
 
   function getConsoleSnapshotStatusColor(status: string) {
-    if (status === 'authenticated') return 'var(--success)'
-    if (status === 'reconnecting' || status === 'connecting') return 'var(--warning)'
-    if (status === 'auth_failed') return 'var(--danger)'
-    return 'var(--muted)'
+    const tone = getConsoleStatusColor(status)
+    return tone === 'neutral' ? 'var(--muted)' : `var(--${tone})`
   }
 
   function setActiveDetailTab(nextTab: PluginDetailInnerTab) {
