@@ -23,12 +23,13 @@ type commandResolution struct {
 
 func (s *Service) resolveCommand(event chatevent.NormalizedEvent) commandResolution {
 	parser := s.CommandParser()
-	if parser == nil || strings.TrimSpace(event.PlainText) == "" {
+	text := chatevent.CommandText(event)
+	if parser == nil || strings.TrimSpace(text) == "" {
 		return commandResolution{}
 	}
 	var matches []plugins.CommandMatch
 	if s.plugins != nil {
-		matches = plugins.ResolveCommandMatches(s.plugins.Commands(), event.PlainText, s.config().CommandPrefixes())
+		matches = plugins.ResolveCommandMatches(s.plugins.Commands(), text, s.config().CommandPrefixes())
 	}
 	if s.menu != nil && !plugins.HasDedicatedMatch(matches) {
 		if builtin := s.menu.Match(event); builtin.Delegate != nil {
@@ -47,7 +48,7 @@ func (s *Service) resolveCommand(event chatevent.NormalizedEvent) commandResolut
 		first := matches[0]
 		return commandResolution{matches: matches, parsed: command.ParseResult{IsCommand: true, Command: first.Command, Args: first.Args, Prefix: first.Prefix}}
 	}
-	return commandResolution{parsed: parser.Parse(event.PlainText)}
+	return commandResolution{parsed: parser.Parse(text)}
 }
 
 // EnrichCommandEvent records the command interpretation on the event. The

@@ -7,6 +7,25 @@ import (
 	"strings"
 )
 
+// CommandText is the text commands are parsed from: the message's text
+// segments only, so a mention or other non-text segment before, between or
+// after the words changes neither the command nor its args. An event without
+// segments falls back to its plain text.
+func CommandText(event NormalizedEvent) string {
+	if len(event.Segments) == 0 {
+		return event.PlainText
+	}
+	var b strings.Builder
+	for _, seg := range event.Segments {
+		if strings.TrimSpace(seg.Type) == "text" {
+			if text, ok := seg.Data["text"].(string); ok {
+				b.WriteString(text)
+			}
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
 // segmentsToPlainText generates a human-readable plain text representation
 // from a slice of message segments.
 func PlainText(segments []MessageSegment) string {

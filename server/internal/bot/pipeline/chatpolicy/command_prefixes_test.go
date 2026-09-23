@@ -62,6 +62,29 @@ func TestDedicatedPrefixSelectsTargetsPermissionAndShadowsBuiltinMenu(t *testing
 			t.Fatal("builtin menu no longer answers the global prefix")
 		}
 	})
+	t.Run("mentions take no part in the command", func(t *testing.T) {
+		mention := func(segments ...chatevent.MessageSegment) chatevent.NormalizedEvent {
+			event := message(chatevent.PlainText(segments))
+			event.Segments = segments
+			return event
+		}
+		at := chatevent.MessageSegment{Type: "at", Data: map[string]any{"user_id": "10001"}}
+		text := func(s string) chatevent.MessageSegment {
+			return chatevent.MessageSegment{Type: "text", Data: map[string]any{"text": s}}
+		}
+		for name, event := range map[string]chatevent.NormalizedEvent{
+			"after the words":  mention(text("*体力"), at),
+			"before the words": mention(at, text(" *体力")),
+		} {
+			targets := service.EnrichCommandEvent(event).CommandTargets
+			if len(targets) != 1 || targets[0].PluginID != "starrail" || targets[0].Command != "体力" || len(targets[0].Args) != 0 {
+				t.Fatalf("%s: targets = %+v", name, targets)
+			}
+		}
+		if !menu.Match(mention(at, text(" /帮助"))).Matched {
+			t.Fatal("a mention before the builtin menu hid it")
+		}
+	})
 	t.Run("a resolved command nobody declares has no targets", func(t *testing.T) {
 		enriched := service.EnrichCommandEvent(message("/unknown"))
 		if !enriched.CommandResolved || len(enriched.CommandTargets) != 0 || enriched.PayloadFields["command"] != "unknown" {

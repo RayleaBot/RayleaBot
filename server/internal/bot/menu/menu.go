@@ -153,17 +153,18 @@ func (s *Service) renderBuiltinMenu(ctx context.Context, payload builtinMenuRend
 }
 
 func (s *Service) Match(event chatevent.NormalizedEvent) Request {
-	if strings.TrimSpace(event.PlainText) == "" {
+	text := chatevent.CommandText(event)
+	if strings.TrimSpace(text) == "" {
 		return Request{}
 	}
 	matcher := s.currentMatcher()
-	parsed := matcher.parser.Parse(event.PlainText)
+	parsed := matcher.parser.Parse(text)
 	if !parsed.IsCommand {
 		return Request{}
 	}
 	// The menu is addressed through global prefixes, so a plugin command reached
 	// through a dedicated prefix shadows it, as it shadows global-tier plugins.
-	if s.plugins != nil && plugins.HasDedicatedMatch(plugins.ResolveCommandMatches(s.plugins.Commands(), event.PlainText, s.config().CommandPrefixes())) {
+	if s.plugins != nil && plugins.HasDedicatedMatch(plugins.ResolveCommandMatches(s.plugins.Commands(), text, s.config().CommandPrefixes())) {
 		return Request{}
 	}
 

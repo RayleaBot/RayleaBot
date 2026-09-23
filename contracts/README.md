@@ -57,7 +57,7 @@
   - `events` 静态声明普通事件订阅；manifest 不声明宿主权限，全部宿主动作对可信插件进程可用
   - 当前已固定内联 `default_config`、metadata、统一 `commands`、真实 `command_groups`、帮助标题/摘要、单入口 `management_ui` 和静态 `webhooks`
   - `services` 静态声明服务名称、精确版本和方法，同名同版本不可重复
-  - `command_prefixes` 声明插件的专属命令前缀、可选的配置键与是否接受通用前缀；前缀是匹配条件而非所有权，宿主按插件分别解析，专属前缀命中的候选遮蔽通用前缀命中的候选
+  - `command_prefixes` 声明插件的专属命令前缀、可选的配置键与是否接受通用前缀；前缀是匹配条件而非所有权，宿主按插件分别解析，专属前缀命中的候选遮蔽通用前缀命中的候选；命令只按消息中的文字段解析，@ 等非文字段不参与匹配，插件从 `message.segments` 读取被 @ 的用户
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - `priority`（默认 0）与 `block`（默认 false）定义消息分层与阻断。正优先级消息订阅者可先于命令声明者接收命令消息；其他事件保留既有投递。成功终态的显式 propagation 覆盖 block，同名命令授权与冷却保持既有语义。
   - command `permission` 省略时使用 `permission.default_level`
