@@ -88,7 +88,7 @@ func normalizeStaticCommandTokens(values []string) []string {
 		if !validStaticCommandToken(token) {
 			continue
 		}
-		key := strings.ToLower(token)
+		key := token
 		if _, ok := seen[key]; ok {
 			continue
 		}

@@ -7,6 +7,21 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
+func TestProjectExactCommandsPreservesCaseDistinctAliases(t *testing.T) {
+	commands := ProjectCommands(plugins.Snapshot{ManifestCommands: []plugins.Command{{
+		ID: "subscribe-bilibili", DisplayName: "订阅b站推送", Permission: "super_admin",
+		TriggerType: "exact", TriggerNames: []string{"订阅b站", "订阅B站", "订阅b站"},
+	}}}, nil)
+	if len(commands) != 1 || !reflect.DeepEqual(commands[0].Aliases, []string{"订阅B站"}) {
+		t.Fatalf("case-distinct aliases were dropped: %#v", commands)
+	}
+	for _, name := range []string{"订阅b站", "订阅B站"} {
+		if !commands[0].Matches(name) || commands[0].ID != "subscribe-bilibili" || commands[0].Permission != "super_admin" {
+			t.Fatalf("alias %q lost its command identity or permission: %#v", name, commands[0])
+		}
+	}
+}
+
 func TestProjectCommandsUsesDefaultDynamicSetting(t *testing.T) {
 	snapshot := plugins.Snapshot{
 		ManifestCommands: []plugins.Command{{
