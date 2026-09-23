@@ -3,7 +3,7 @@ import AppTabs from '@/components/AppTabs.vue'
 import AppTag from '@/components/AppTag.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppButton from '@/components/AppButton.vue'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import {
   CircleCheckIcon,
@@ -21,8 +21,8 @@ import DashboardUpdateCard from '@/components/DashboardUpdateCard.vue'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import { useToastFeedback } from '@/adapter/feedback'
 import { formatDurationSeconds, formatRelativeTime } from '@/lib/format'
+import type { StatusType } from '@/lib/display'
 import { buildDashboardEventActions } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { useDashboardPage } from '@/views/dashboard/useDashboardPage'
@@ -33,9 +33,6 @@ const overviewTabs = computed(() => [
   { value: 'readiness', label: t('dashboard.overviewReadiness') },
   { value: 'diagnostics', label: t('dashboard.overviewDiagnostics') },
 ])
-const uptimeClock = ref(Date.now())
-const uptimeSnapshotAt = ref(Date.now())
-let uptimeTimer: ReturnType<typeof window.setInterval> | null = null
 
 const {
   adapterDetailText,
@@ -55,11 +52,8 @@ const {
   healthStatusType,
   healthValueText,
   issuesExpanded,
+  liveUptimeSeconds,
   loading,
-  adapters,
-  readinessToastLevel,
-  readinessToastMessage,
-  readinessToastTitle,
   readinessDetailText,
   readinessIssues,
   readinessStatusType,
@@ -68,7 +62,6 @@ const {
   refreshState,
   runtimeBootstrapPending,
   system,
-  systemDetailText,
   systemValueText,
   visibleReasonCodes,
 } = useDashboardPage()
@@ -98,7 +91,7 @@ watch(
   { immediate: true },
 )
 
-function getCheckIcon(status: typeof healthStatusType.value) {
+function getCheckIcon(status: StatusType) {
   const map = {
     danger: CircleXIcon,
     muted: CircleMinusIcon,
@@ -108,7 +101,7 @@ function getCheckIcon(status: typeof healthStatusType.value) {
   return map[status]
 }
 
-function getStatusTagColor(status: typeof healthStatusType.value) {
+function getStatusTagColor(status: StatusType) {
   if (status === 'success') return 'success'
   if (status === 'warning') return 'warning'
   if (status === 'danger') return 'danger'
@@ -133,85 +126,6 @@ function getEventSeverityIcon(severity?: string) {
   if (severity === 'success') return CircleCheckIcon
   return undefined
 }
-
-const protocolIssue = computed(() => {
-  const issues = adapters.value.flatMap(adapter => {
-    const snapshot = adapter.onebot11
-    if (!adapter.enabled || !snapshot || !['degraded', 'failed'].includes(snapshot.readiness_status)) return []
-    return snapshot.recent_transport_issues.map(issue => ({ ...issue, summary: `${adapter.display_name}：${issue.summary}` }))
-  })
-  if (issues.length === 0) return null
-  return { code: issues.map(issue => issue.code).join(','), severity: issues.some(issue => issue.severity === 'error') ? 'error' : 'warning', summary: issues.map(issue => issue.summary).join('；') }
-})
-
-const readinessToast = computed(() => {
-  if (!readinessToastLevel.value) {
-    return null
-  }
-  const title = readinessToastTitle.value
-  const detail = readinessToastMessage.value
-  const message = detail ? `${title}：${detail}` : title
-  return {
-    key: `dashboard-readiness:${readinessToastLevel.value}:${title}:${detail}`,
-    level: readinessToastLevel.value,
-    message,
-  }
-})
-
-const dashboardErrorToast = computed(() => (
-  error.value && system.value
-    ? {
-        key: `dashboard-error:${error.value}`,
-        level: 'error' as const,
-        message: error.value,
-      }
-    : null
-))
-
-const protocolIssueToast = computed(() => (
-  protocolIssue.value
-    ? {
-        key: `dashboard-protocol:${protocolIssue.value.code}:${protocolIssue.value.summary}`,
-        level: protocolIssue.value.severity === 'error' ? 'error' as const : 'warning' as const,
-        message: `${t('dashboard.protocolAlertTitle')}：${protocolIssue.value.summary}`,
-      }
-    : null
-))
-const liveUptimeSeconds = computed(() => {
-  const baseUptime = system.value?.uptime_seconds
-  if (baseUptime === undefined) {
-    return undefined
-  }
-
-  const elapsedSeconds = Math.max(0, Math.floor((uptimeClock.value - uptimeSnapshotAt.value) / 1000))
-  return baseUptime + elapsedSeconds
-})
-
-watch(
-  () => system.value?.uptime_seconds,
-  () => {
-    uptimeClock.value = Date.now()
-    uptimeSnapshotAt.value = uptimeClock.value
-  },
-  { immediate: true },
-)
-
-onMounted(() => {
-  uptimeTimer = window.setInterval(() => {
-    uptimeClock.value = Date.now()
-  }, 1000)
-})
-
-onBeforeUnmount(() => {
-  if (uptimeTimer !== null) {
-    window.clearInterval(uptimeTimer)
-    uptimeTimer = null
-  }
-})
-
-useToastFeedback(readinessToast)
-useToastFeedback(dashboardErrorToast)
-useToastFeedback(protocolIssueToast)
 </script>
 
 <template>
@@ -251,7 +165,7 @@ useToastFeedback(protocolIssueToast)
         borderless
         class="dashboard-activity-card"
       >
-        <AppTabs v-model="activeOverviewTab" :items="overviewTabs" label="状态概览" keep-alive>
+        <AppTabs v-model="activeOverviewTab" :items="overviewTabs" :label="t('dashboard.overviewLabel')" keep-alive>
           <template #events>
             <AppEmptyState v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
 
@@ -272,9 +186,9 @@ useToastFeedback(protocolIssueToast)
                       v-if="getEventSeverityIcon(getEventSeverity(event.payload))"
                       class="events-timeline__dot-icon"
                       role="img"
-                      :aria-label="`事件级别：${getEventSeverity(event.payload) ?? 'info'}`"
+                      :aria-label="t('dashboard.eventSeverityLabel', { severity: getEventSeverity(event.payload) ?? 'info' })"
                     />
-                    <span v-else class="events-timeline__dot" role="img" aria-label="事件级别：info" />
+                    <span v-else class="events-timeline__dot" role="img" :aria-label="t('dashboard.eventSeverityLabel', { severity: 'info' })" />
                   </span>
                   <div class="events-timeline__item">
                     <div class="events-timeline__summary">{{ event.summary }}</div>
@@ -364,7 +278,7 @@ useToastFeedback(protocolIssueToast)
                 :class="['diagnostics-subsystem', `diagnostics-subsystem--${item.status}`]"
               >
                 <div class="diagnostics-subsystem__header">
-                  <component :is="getCheckIcon(item.status)" class="diagnostics-subsystem__icon" role="img" :aria-label="`子系统状态：${item.status}`" />
+                  <component :is="getCheckIcon(item.status)" class="diagnostics-subsystem__icon" role="img" :aria-label="t('dashboard.subsystemStatusLabel', { status: item.status })" />
                   <span class="diagnostics-subsystem__label">{{ item.label }}</span>
                 </div>
                 <AppTag :tone="getStatusTagColor(item.status)" class="diagnostics-subsystem__tag">
@@ -421,7 +335,6 @@ useToastFeedback(protocolIssueToast)
           <div class="dashboard-runtime-item">
             <span>{{ t('dashboard.service') }}</span>
             <strong>{{ systemValueText }}</strong>
-            <small v-if="systemDetailText !== systemValueText">{{ systemDetailText }}</small>
           </div>
           <div class="dashboard-runtime-item">
             <span>{{ t('dashboard.adapter') }}</span>

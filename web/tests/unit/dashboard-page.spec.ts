@@ -135,6 +135,9 @@ describe('DashboardPage', () => {
 
     await flushPromises()
 
+    expect(store.refreshAll).toHaveBeenCalledTimes(1)
+    expect(adaptersStore.refresh).toHaveBeenCalledTimes(1)
+
     const backupButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('创建备份'))
     const diagnosticsButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('导出诊断包'))
 

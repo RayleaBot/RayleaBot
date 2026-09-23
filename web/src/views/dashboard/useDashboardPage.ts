@@ -1,12 +1,163 @@
-import { useDashboardState } from '@/views/dashboard/useDashboardState'
-import { useDashboardActions } from '@/views/dashboard/useDashboardActions'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+
+import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import { t } from '@/i18n'
+import { describeAdapterStates } from '@/lib/adapter-status'
+import { getReadinessStatusLabel, getStatusType, getSystemStatusLabel } from '@/lib/display'
+import { getDisplayErrorMessage } from '@/lib/error-text'
+import { useAdaptersStore } from '@/stores/adapters'
+import { useSystemStore } from '@/stores/system'
+import type { RuntimeBootstrapResource } from '@/types/api'
+import {
+  buildDiagnosticsIssueCards,
+  buildDiagnosticsSubsystemItems,
+  buildReadinessCheckItems,
+  dedupeIssues,
+  describeProtocolIssue,
+  describeReadinessAlert,
+  listUnexplainedReasonCodes,
+} from './dashboard-status'
 
 export function useDashboardPage() {
-  const state = useDashboardState()
-  const actions = useDashboardActions(state)
+  const adaptersStore = useAdaptersStore()
+  const systemStore = useSystemStore()
+  const {
+    backupPending,
+    diagnostics,
+    diagnosticsPending,
+    error,
+    health,
+    loading,
+    readiness,
+    recentEvents,
+    runtimeBootstrapPending,
+    system,
+  } = storeToRefs(systemStore)
+  const { adapters } = storeToRefs(adaptersStore)
+
+  const issuesExpanded = ref(false)
+  const eventsExpanded = ref(false)
+
+  const healthStatusType = computed(() => getStatusType(health.value?.status))
+  const healthValueText = computed(() => health.value?.status === 'ok' ? t('dashboard.healthOk') : t('display.empty'))
+  const healthDetailText = computed(() => health.value?.status === 'ok' ? t('dashboard.healthOkDetail') : t('display.empty'))
+  const readinessStatusType = computed(() => getStatusType(readiness.value?.status))
+  const readinessValueText = computed(() => getReadinessStatusLabel(readiness.value?.status))
+  const readinessDetailText = computed(() => readiness.value?.reason || getReadinessStatusLabel(readiness.value?.status))
+  const systemValueText = computed(() => getSystemStatusLabel(system.value?.status))
+  const adapterSummary = computed(() => describeAdapterStates(system.value?.adapters))
+
+  const readinessIssues = computed(() => dedupeIssues(readiness.value?.issues))
+  const checkItems = computed(() => buildReadinessCheckItems(readiness.value?.checks))
+  const visibleReasonCodes = computed(() => listUnexplainedReasonCodes(readiness.value?.reason_codes, readinessIssues.value))
+  const diagnosticsSubsystemItems = computed(() => buildDiagnosticsSubsystemItems(diagnostics.value))
+  const diagnosticsIssueCards = computed(() => buildDiagnosticsIssueCards(diagnostics.value?.issues))
+
+  // Uptime keeps counting between snapshots without refreshing dashboard data.
+  const uptimeClock = ref(Date.now())
+  const uptimeSnapshotAt = ref(Date.now())
+  let uptimeTimer: number | null = null
+  const liveUptimeSeconds = computed(() => {
+    const baseUptime = system.value?.uptime_seconds
+    if (baseUptime === undefined) return undefined
+    return baseUptime + Math.max(0, Math.floor((uptimeClock.value - uptimeSnapshotAt.value) / 1000))
+  })
+  watch(() => system.value?.uptime_seconds, () => {
+    uptimeClock.value = Date.now()
+    uptimeSnapshotAt.value = uptimeClock.value
+  }, { immediate: true })
+
+  useToastFeedback(computed(() => {
+    const alert = describeReadinessAlert(readiness.value, readinessIssues.value)
+    if (!alert) return null
+    return {
+      key: `dashboard-readiness:${alert.level}:${alert.title}:${alert.detail}`,
+      level: alert.level,
+      message: alert.detail ? `${alert.title}：${alert.detail}` : alert.title,
+    }
+  }))
+  useToastFeedback(computed(() => error.value && system.value
+    ? { key: `dashboard-error:${error.value}`, level: 'error' as const, message: error.value }
+    : null))
+  useToastFeedback(computed(() => {
+    const issue = describeProtocolIssue(adapters.value)
+    return issue
+      ? { key: `dashboard-protocol:${issue.code}:${issue.summary}`, level: issue.level, message: `${t('dashboard.protocolAlertTitle')}：${issue.summary}` }
+      : null
+  }))
+
+  async function refreshState() {
+    try {
+      await systemStore.refreshAll()
+      // The protocol snapshot only adds reminders; its failure must not hide the system state.
+      await adaptersStore.refresh().catch(() => undefined)
+    } catch {
+      // The system store error drives the page.
+    }
+  }
+
+  async function runAction(action: () => Promise<unknown>, acceptedKey: string) {
+    try {
+      await action()
+      notifySuccess(t(acceptedKey))
+    } catch (cause) {
+      notifyError(getDisplayErrorMessage(cause))
+    }
+  }
+
+  function createBackup() {
+    return runAction(() => systemStore.createBackup(), 'dashboard.backupAccepted')
+  }
+
+  function exportDiagnostics() {
+    return runAction(() => systemStore.exportDiagnostics(), 'dashboard.diagnosticsAccepted')
+  }
+
+  async function bootstrapRuntimeResources(resources: RuntimeBootstrapResource[]) {
+    if (resources.length === 0) return
+    await runAction(() => systemStore.bootstrapManagedRuntime(resources), 'dashboard.runtimeBootstrapAccepted')
+  }
+
+  onMounted(() => {
+    void refreshState()
+    uptimeTimer = window.setInterval(() => { uptimeClock.value = Date.now() }, 1000)
+  })
+
+  onBeforeUnmount(() => {
+    if (uptimeTimer !== null) window.clearInterval(uptimeTimer)
+    uptimeTimer = null
+  })
 
   return {
-    ...state,
-    ...actions,
+    adapterDetailText: computed(() => adapterSummary.value.detail),
+    adapterStatusType: computed(() => adapterSummary.value.status),
+    adapterValueText: computed(() => adapterSummary.value.value),
+    backupPending,
+    bootstrapRuntimeResources,
+    checkItems,
+    createBackup,
+    diagnosticsIssueCards,
+    diagnosticsPending,
+    diagnosticsSubsystemItems,
+    error,
+    eventsExpanded,
+    exportDiagnostics,
+    healthDetailText,
+    healthStatusType,
+    healthValueText,
+    issuesExpanded,
+    liveUptimeSeconds,
+    loading,
+    readinessDetailText,
+    readinessIssues,
+    readinessStatusType,
+    readinessValueText,
+    recentEvents,
+    refreshState,
+    runtimeBootstrapPending,
+    system,
+    systemValueText,
+    visibleReasonCodes,
   }
 }

@@ -1,6 +1,8 @@
 export const dashboard = {
   title: '系统状态',
   health: '健康检查',
+  healthOk: '正常',
+  healthOkDetail: '管理面可用',
   readiness: '就绪状态',
   service: '服务状态',
   adapter: '适配器状态',
@@ -39,6 +41,9 @@ export const dashboard = {
     },
   },
   statusSummaryLabel: '系统运行摘要',
+  overviewLabel: '状态概览',
+  eventSeverityLabel: '事件级别：{severity}',
+  subsystemStatusLabel: '子系统状态：{status}',
   overviewEvents: '近期变化',
   overviewReadiness: '就绪检查',
   overviewDiagnostics: '运维诊断',
