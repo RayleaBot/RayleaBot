@@ -2,22 +2,6 @@ import type { RouteRecordRaw } from 'vue-router'
 
 import { t } from '@/i18n'
 
-declare module 'vue-router' {
-  interface RouteMeta {
-    activePath?: string
-    affixTab?: boolean
-    entryPath?: string
-    hideInMenu?: boolean
-    hideInTab?: boolean
-    icon?: string
-    keepAlive?: boolean
-    order?: number
-    title?: string
-    titleKey?: string
-    viewKey?: string
-  }
-}
-
 export interface AppMenuItem {
   children?: AppMenuItem[]
   icon?: string
@@ -33,7 +17,7 @@ export interface AppNavigationItem {
   title: string
 }
 
-function joinRoutePath(parentPath: string, childPath: string) {
+export function joinRoutePath(parentPath: string, childPath: string) {
   if (!childPath) {
     return parentPath || '/'
   }

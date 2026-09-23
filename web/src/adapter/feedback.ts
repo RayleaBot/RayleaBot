@@ -1,7 +1,5 @@
-import { publishToast } from '@/components/toast-state'
+import { publishToast, type ToastLevel } from '@/components/toast-state'
 import { watch, type WatchSource } from 'vue'
-
-export type ToastLevel = 'error' | 'info' | 'success' | 'warning'
 
 interface ToastFeedback {
   key?: string | null
@@ -25,23 +23,6 @@ export function notifyWarning(content: string) {
   publishToast('warning', content)
 }
 
-function notifyToast(level: ToastLevel, content: string) {
-  switch (level) {
-    case 'error':
-      notifyError(content)
-      break
-    case 'success':
-      notifySuccess(content)
-      break
-    case 'warning':
-      notifyWarning(content)
-      break
-    case 'info':
-      notifyInfo(content)
-      break
-  }
-}
-
 export function useToastFeedback(source: WatchSource<ToastFeedback | null | undefined>) {
   let lastKey: string | null = null
 
@@ -60,7 +41,7 @@ export function useToastFeedback(source: WatchSource<ToastFeedback | null | unde
       }
 
       lastKey = nextKey
-      notifyToast(feedback.level, content)
+      publishToast(feedback.level, content)
     },
     { immediate: true },
   )

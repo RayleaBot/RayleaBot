@@ -12,10 +12,8 @@ declare module 'vue-router' {
   interface RouteMeta {
     activePath?: string
     affixTab?: boolean
-    affixTabOrder?: number
     entryPath?: string
     exceptionStatus?: '403' | '404' | '500'
-    hideInBreadcrumb?: boolean
     hideInMenu?: boolean
     hideInTab?: boolean
     icon?: string

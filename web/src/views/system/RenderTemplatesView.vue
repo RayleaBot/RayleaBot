@@ -20,9 +20,8 @@ import RetryPanel from '@/components/RetryPanel.vue'
 import { useToastFeedback } from '@/adapter/feedback'
 import TemplatePreviewFrame from '@/components/TemplatePreviewFrame.vue'
 import { formatDateTime } from '@/lib/format'
-import {
-  buildRenderTemplateSchemaNodes,
-} from '@/lib/render-template-editor'
+import { buildRenderTemplateLocation } from '@/lib/management-links'
+import { buildRenderTemplateSchemaNodes } from '@/lib/render-template-editor'
 import { t } from '@/i18n'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
 import { usePluginsStore } from '@/stores/plugins'
@@ -193,7 +192,7 @@ async function syncRouteTemplate() {
     removedTemplateNotice.value = true
   }
   const fallback = items.value.find(item => item.id === 'help.menu')?.id || items.value[0]?.id
-  if (fallback && fallback !== activeTemplateId.value) await router.replace({ name: 'render-templates', params: { templateId: fallback } })
+  if (fallback && fallback !== activeTemplateId.value) await router.replace(buildRenderTemplateLocation(fallback))
 }
 
 watch(search, () => { void renderTemplatesStore.fetchTemplates({ query: search.value }).catch(() => undefined) })
@@ -216,12 +215,7 @@ async function selectTemplate(templateId: string) {
   }
   removedTemplateNotice.value = false
 
-  await router.replace({
-    name: 'render-templates',
-    params: {
-      templateId,
-    },
-  })
+  await router.replace(buildRenderTemplateLocation(templateId))
 }
 
 watch([items, isActiveTemplateRoute, () => route.params.templateId], () => {

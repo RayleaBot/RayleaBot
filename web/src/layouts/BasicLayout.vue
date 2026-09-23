@@ -29,6 +29,7 @@ import { createPluginCenterTab, isPluginCenterRoute, pluginCenterPath, projectPl
 import {
   buildMenuItems,
   collectNavigationItems,
+  joinRoutePath,
   resolveRouteEntryPath,
   resolveRouteTitle,
   type AppMenuItem,
@@ -276,19 +277,6 @@ function resolveRouteViewIdentity(viewRoute: Pick<RouteLocationNormalizedLoaded,
   }
 
   return String(viewRoute.name ?? viewRoute.path)
-}
-
-function joinRoutePath(parentPath: string, childPath: string) {
-  if (!childPath) {
-    return parentPath || '/'
-  }
-
-  if (childPath.startsWith('/')) {
-    return childPath
-  }
-
-  const prefix = parentPath === '/' ? '' : parentPath
-  return `${prefix}/${childPath}` || '/'
 }
 
 function getLeafMatchedRecord(viewRoute: RouteLocationNormalizedLoaded) {

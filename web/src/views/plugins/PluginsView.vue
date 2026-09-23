@@ -176,7 +176,7 @@ onMounted(() => {
 })
 
 function openDetail(id: string) {
-  void navigate({ name: 'plugin-detail', params: { id } })
+  void navigate(buildPluginDetailLocation(id))
 }
 
 function openManagement(id: string) {

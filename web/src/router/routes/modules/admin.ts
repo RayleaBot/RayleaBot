@@ -32,7 +32,6 @@ function exceptionRoute(
   name: string,
   status: '403' | '404' | '500',
   titleKey: string,
-  options: { public?: boolean; hideInTab?: boolean } = {},
 ): RouteRecordRaw {
   return {
     path,
@@ -42,10 +41,8 @@ function exceptionRoute(
     meta: {
       exceptionStatus: status,
       hideInMenu: true,
-      hideInTab: options.hideInTab,
       icon: status,
-      public: options.public,
-      requiresAuth: !options.public,
+      requiresAuth: true,
       titleKey,
       viewKey: name,
     },
