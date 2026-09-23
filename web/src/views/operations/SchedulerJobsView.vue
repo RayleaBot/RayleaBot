@@ -23,27 +23,34 @@ import {
   CheckIcon,
   TriangleAlertIcon,
 } from '@lucide/vue'
-import { computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
 import { t } from '@/i18n'
-import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
-import { usePluginsStore } from '@/stores/plugins'
 import PluginIcon from '@/components/plugins/PluginIcon.vue'
-import type { SchedulerJobRunStats, SchedulerJobSummary } from '@/types/api'
+import type { SchedulerJobSummary } from '@/types/api'
+import {
+  conversationText,
+  displayText,
+  formatCronSchedule,
+  formatDurationMs,
+  getDurationClass,
+  getHealthRingStyle,
+  getSuccessRate,
+  successRateText,
+} from '@/lib/scheduler-job-display'
+import { useSchedulerJobsPage } from './useSchedulerJobsPage'
 import { useSchedulerJobDetail } from './useSchedulerJobDetail'
 
-const schedulerStore = useSchedulerJobsStore()
-const pluginsStore = usePluginsStore()
-const pluginMap = computed(() => new Map(pluginsStore.items.map(plugin => [plugin.id, plugin])))
-function pluginName(job: SchedulerJobSummary) { return pluginsStore.getPluginDisplayName(job.plugin_id, job.plugin_name) }
-const { error, loading, sortedItems, triggeringJobId, total, nextCursor, loadingMore } = storeToRefs(schedulerStore)
+const {
+  schedulerStore, pluginsStore, pluginMap, pluginName,
+  error, loading, sortedItems, triggeringJobId, total, nextCursor, loadingMore,
+  searchQuery, statusFilter, sortBy, loadSchedulerJobs, triggerJob, getNextRunRelativeText,
+} = useSchedulerJobsPage()
 
 const {
   closeJobDetail,
@@ -52,33 +59,6 @@ const {
   finishJobDetailClose,
   showJobDetail,
 } = useSchedulerJobDetail()
-const searchQuery = ref('')
-const statusFilter = ref<'all' | 'success' | 'error'>('all')
-const sortBy = ref<'name' | 'last_run' | 'duration'>('name')
-
-const timeTick = ref(0)
-let timerId: ReturnType<typeof setInterval> | null = null
-
-function activatePage() {
-  if (timerId) return
-  void pluginsStore.ensureList().catch(() => undefined)
-  schedulerStore.setLiveRefreshActive(true)
-  void loadSchedulerJobs()
-  timerId = setInterval(() => {
-    timeTick.value++
-  }, 10000)
-}
-
-function deactivatePage() {
-  schedulerStore.setLiveRefreshActive(false)
-  if (timerId) clearInterval(timerId)
-  timerId = null
-}
-onMounted(activatePage)
-onActivated(activatePage)
-onDeactivated(deactivatePage)
-onUnmounted(deactivatePage)
-
 const tableColumns = computed(() => [
   { label: `${t('scheduler.fields.plugin')} / ${t('scheduler.fields.task')}`, key: 'plugin', width: 300 },
   { label: `${t('scheduler.fields.label')} / ${t('scheduler.fields.conversation')}`, key: 'label', width: 250 },
@@ -88,127 +68,10 @@ const tableColumns = computed(() => [
   { label: t('scheduler.fields.actions'), key: 'actions', width: 180 },
 ])
 
-async function loadSchedulerJobs() {
-  try {
-    await schedulerStore.search({ query: searchQuery.value, status: statusFilter.value === 'all' ? undefined : statusFilter.value, sort: sortBy.value })
-  } catch {
-    // store error state drives the page
-  }
-}
-
-async function triggerJob(job: SchedulerJobSummary) {
-  try {
-    await schedulerStore.trigger(job.job_id)
-    notifySuccess(t('scheduler.triggerAccepted'))
-  } catch (err) {
-    notifyError(getDisplayErrorMessage(err))
-  }
-}
-
-// 格式化耗时胶囊
-function formatDurationMs(value: number) {
-  if (!Number.isFinite(value) || value <= 0) {
-    return t('display.empty')
-  }
-  if (value < 1000) {
-    return `${value} ms`
-  }
-  return `${(value / 1000).toFixed(value < 10_000 ? 1 : 0)} s`
-}
-
-function getDurationClass(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return 'duration-empty'
-  if (value < 1000) return 'duration-fast' // 1s 内绿色
-  if (value < 5000) return 'duration-normal' // 5s 内蓝色
-  return 'duration-slow' // 超过 5s 警示橙黄
-}
-
-function displayText(value?: string | null) {
-  return value?.trim() || t('display.empty')
-}
-
-function conversationText(job: SchedulerJobSummary) {
-  const payload = job.payload_summary
-  if (payload.conversation_id) {
-    return payload.conversation_id
-  }
-  if (payload.target_type && payload.target_id) {
-    return `${payload.target_type}:${payload.target_id}`
-  }
-  return ''
-}
-
 function schedulerRowKey(row: SchedulerJobSummary) {
   return row.job_id
 }
 
-
-// 智能 Cron 中文解析
-function formatCronSchedule(cron?: string): string {
-  if (!cron) return t('scheduler.unconfigured')
-  const parts = cron.trim().split(/\s+/)
-  if (parts.length < 5) return cron
-
-  const [min, hour, day, month, week] = parts
-
-  if (min === '*' && hour === '*' && day === '*' && month === '*' && week === '*') {
-    return t('scheduler.everyMinute')
-  }
-  if (min.startsWith('*/') && hour === '*' && day === '*' && month === '*' && week === '*') {
-    return t('scheduler.everyMinutes', { count: min.substring(2) })
-  }
-  if (min === '0' && hour.startsWith('*/') && day === '*' && month === '*' && week === '*') {
-    return t('scheduler.everyHours', { count: hour.substring(2) })
-  }
-  if (!min.includes('*') && !min.includes('/') && !hour.includes('*') && !hour.includes('/') && day === '*' && month === '*' && week === '*') {
-    return t('scheduler.everyDayAt', { time: `${hour.padStart(2, '0')}:${min.padStart(2, '0')}` })
-  }
-  return cron
-}
-
-// 距离下次执行的动态相对倒计时
-function getNextRunRelativeText(nextRunTime?: string) {
-  if (!nextRunTime) return ''
-  const next = new Date(nextRunTime).getTime()
-  const now = Date.now()
-  const diffMs = next - now
-  if (diffMs <= 0) return t('scheduler.dueSoon')
-  const diffMin = Math.round(diffMs / 60000)
-  if (diffMin < 1) {
-    const diffSec = Math.round(diffMs / 1000)
-    return t('scheduler.inSeconds', { count: diffSec > 0 ? diffSec : 1 })
-  }
-  if (diffMin < 60) {
-    return t('scheduler.inMinutes', { count: diffMin })
-  }
-  const diffHour = Math.floor(diffMin / 60)
-  const remainMin = diffMin % 60
-  if (diffHour < 24) {
-    return t('scheduler.inHoursMinutes', { hours: diffHour, minutes: remainMin })
-  }
-  const diffDay = Math.floor(diffHour / 24)
-  return t('scheduler.inDays', { count: diffDay })
-}
-
-// 健康百分比及 Conic-gradient 环形算法
-function getSuccessRate(stats: SchedulerJobRunStats): number {
-  if (!stats.total) return 0
-  return Math.round((stats.success / stats.total) * 100)
-}
-
-function successRateText(stats: SchedulerJobRunStats): string {
-  if (!stats.total) return t('scheduler.notRun')
-  return t('scheduler.successRate', { rate: getSuccessRate(stats) })
-}
-
-function getHealthRingStyle(stats: SchedulerJobRunStats) {
-  const rate = getSuccessRate(stats)
-  return {
-    background: `conic-gradient(var(--success) 0% ${rate}%, var(--border) ${rate}% 100%)`
-  }
-}
-
-// 复制报错信息到剪切板
 async function copyToClipboard(text?: string) {
   if (!text) return
   try {
@@ -219,8 +82,6 @@ async function copyToClipboard(text?: string) {
   }
 }
 
-const filteredItems = computed(() => { timeTick.value; return sortedItems.value })
-watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
 </script>
 
 <template>
@@ -279,7 +140,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
     </AppCard>
 
     <AppEmptyState
-      v-else-if="filteredItems.length === 0"
+      v-else-if="sortedItems.length === 0"
       icon="box"
       :title="t('scheduler.empty.title')"
       :description="searchQuery ? t('scheduler.noMatches') : t('scheduler.empty.description')"
@@ -290,7 +151,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
       <AppDataTable
         class="scheduler-data-table app-data-table refactored-table"
         :columns="tableColumns"
-        :rows="filteredItems"
+        :rows="sortedItems"
         :row-key="schedulerRowKey"
        :min-width="1450" :label="t('scheduler.title')">
         <template #empty>
@@ -448,7 +309,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
         </template>
       </AppDataTable>
       <div class="scheduler-mobile-list" :aria-label="t('scheduler.listLabel')">
-        <article v-for="job in filteredItems" :key="job.job_id" class="scheduler-mobile-row">
+        <article v-for="job in sortedItems" :key="job.job_id" class="scheduler-mobile-row">
           <div class="scheduler-mobile-row__heading">
             <div>
               <strong>{{ pluginName(job) }}</strong>

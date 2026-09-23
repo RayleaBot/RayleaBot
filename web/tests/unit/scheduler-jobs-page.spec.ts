@@ -1,10 +1,11 @@
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { notifySuccess } from '@/adapter/feedback'
 import SchedulerJobsPage from '@/views/operations/SchedulerJobsView.vue'
 import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
+import { usePluginsStore } from '@/stores/plugins'
 import type { SchedulerJobSummary } from '@/types/api'
 
 vi.mock('@/adapter/feedback', () => ({
@@ -49,6 +50,7 @@ function makeSchedulerJob(overrides: Partial<SchedulerJobSummary> = {}): Schedul
 }
 
 describe('SchedulerJobsPage', () => {
+  afterEach(() => { vi.useRealTimers() })
   beforeEach(() => {
     setActivePinia(createPinia())
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -62,6 +64,24 @@ describe('SchedulerJobsPage', () => {
       dispatchEvent: vi.fn(),
     })) as typeof window.matchMedia
     vi.mocked(notifySuccess).mockReset()
+    vi.spyOn(usePluginsStore(), 'ensureList').mockResolvedValue(undefined)
+  })
+
+  it('updates the countdown while the job collection stays unchanged and stops refresh on unmount', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
+    const store = useSchedulerJobsStore()
+    store.items = [makeSchedulerJob({ next_run: '2026-09-23T12:00:25Z' })]
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    const setActive = vi.spyOn(store, 'setLiveRefreshActive')
+    const wrapper = mount(SchedulerJobsPage, { global: { plugins: [getActivePinia()!] } })
+    await flushPromises()
+
+    expect(wrapper.get('.relative-time-pill').text()).toBe('25 秒后')
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(wrapper.get('.relative-time-pill').text()).toBe('15 秒后')
+    wrapper.unmount()
+    expect(setActive).toHaveBeenLastCalledWith(false)
   })
 
 
