@@ -26,10 +26,12 @@ const (
 	codePluginArtifactInvalid  = errorcodes.PluginArtifactInvalid
 	codePluginPlatformMismatch = errorcodes.PluginPlatformMismatch
 
-	maxRemoteDownloadBytes      = 256 * 1024 * 1024
+	// Packages may ship the upstream images their templates draw, which
+	// for a game plugin run to a few hundred megabytes.
+	maxRemoteDownloadBytes      = 1024 * 1024 * 1024
 	maxPluginArchiveEntries     = 10_000
 	maxPluginArchiveFileBytes   = 64 * 1024 * 1024
-	maxPluginArchiveExpandBytes = 512 * 1024 * 1024
+	maxPluginArchiveExpandBytes = 2 * 1024 * 1024 * 1024
 	maxPluginArchiveRatio       = 100
 	maxPluginDownloadRedirects  = 5
 	installRenameAttempts       = 10
