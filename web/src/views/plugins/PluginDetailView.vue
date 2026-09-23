@@ -8,60 +8,39 @@ import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppCard from '@/components/AppCard.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppAlert from '@/components/AppAlert.vue'
-import {
-  ArrowLeftIcon,
-  EraserIcon,
-  RotateCwIcon,
-} from '@lucide/vue'
-import { computed } from 'vue'
+import { ArrowLeftIcon } from '@lucide/vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 
 import AppPage from '@/components/page/AppPage.vue'
-import ManagementContextActions from '@/components/ManagementContextActions.vue'
-import PluginIcon from '@/components/plugins/PluginIcon.vue'
+import PluginConsolePane from '@/components/plugins/PluginConsolePane.vue'
+import PluginDetailHero from '@/components/plugins/PluginDetailHero.vue'
+import PluginDetailSummary from '@/components/plugins/PluginDetailSummary.vue'
 import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.vue'
 import PluginPowerButton from '@/components/PluginPowerButton.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
-import {
-  formatPluginVersion,
-  getPluginTrustLabel,
-  getConnectionStatusLabel,
-  getPluginRoleLabel,
-  getPluginStateLabel,
-} from '@/lib/display'
 import { getErrorCodeMessage } from '@/lib/error-text'
-import { formatDateTime } from '@/lib/format'
-import { buildPluginWorkbenchActions } from '@/lib/management-links'
-import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
-import { useSocketStore } from '@/stores/sockets'
 import { useUiShellStore } from '@/stores/ui-shell'
-import type { PluginDetail } from '@/types/api'
 import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
-import { usePluginConsolePanel, type PluginDetailInnerTab } from './usePluginConsolePanel'
 import { usePluginDetail } from './usePluginDetail'
 import { usePluginDetailPanels } from './usePluginDetailPanels'
 
-const CONSOLE_ROW_ESTIMATED_HEIGHT = 84
+type DetailTab = 'summary' | 'commands' | 'console'
 
 const route = useRoute()
 const navigate = useMotionNavigation()
 const pluginsStore = usePluginsStore()
 const pluginConsoleStore = usePluginConsoleStore()
-const socketStore = useSocketStore()
-const configStore = useConfigStore()
-const uiShellStore = useUiShellStore()
-
-const { document: configDocument } = storeToRefs(configStore)
-const { siderCollapsed } = storeToRefs(uiShellStore)
+const { document: configDocument } = storeToRefs(useConfigStore())
+const { siderCollapsed } = storeToRefs(useUiShellStore())
 
 const pluginId = computed(() => String(route.params.id))
 const {
@@ -84,103 +63,23 @@ const {
   setActivePanelKey,
 } = usePluginDetailPanels(pluginId, currentPlugin)
 const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
-const {
-  activeDetailTab,
-  clearConsole,
-  consoleFollowBottom,
-  consoleFrameCount,
-  consoleFrames,
-  consoleSnapshot,
-  consoleViewportRef,
-  getConsoleFrameKey,
-  getConsoleLevel,
-  getConsoleLevelColor,
-  getConsoleLevelLabel,
-  getConsoleRequestId,
-  getConsoleSnapshotStatusColor,
-  getConsoleStatusColor,
-  getConsoleStreamColor,
-  getConsoleStreamLabel,
-  onConsoleViewportBottomChange,
-  setActiveDetailTab,
-} = usePluginConsolePanel({
-  pluginConsoleStore,
-  pluginId,
-  readyToRenderHeavyContent,
-  socketStore,
-})
-void consoleViewportRef
 
+const activeDetailTab = ref<DetailTab>('summary')
+const detailTabs = computed<{ value: DetailTab; label: string }[]>(() => [
+  { value: 'summary', label: t('plugins.sections.runtimeSummary') },
+  { value: 'commands', label: t('plugins.sections.commands') },
+  { value: 'console', label: t('plugins.sections.console') },
+])
+const consoleFrameCount = computed(() => pluginConsoleStore.getConsole(pluginId.value).length)
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
-const pluginWorkbenchActions = computed(() => buildPluginWorkbenchActions(pluginId.value))
 const pluginDisplayName = computed(() => (
   currentPlugin.value?.name?.trim() || pluginsStore.getPluginDisplayName(pluginId.value)
 ))
 const pluginPageTitle = computed(() => t('plugins.detailPageTitle', { name: pluginDisplayName.value }))
-const requiresTrustAttention = computed(() => currentPlugin.value?.trust?.level === 'unverified')
-const sourceRefText = computed(() => currentPlugin.value?.source?.package_source_ref ?? currentPlugin.value?.source?.package_source_type ?? '')
-const statusSummaryItems = computed(() => [
-  {
-    key: 'state',
-    label: t('plugins.fields.state'),
-    value: getPluginStateLabel(currentPlugin.value?.state),
-    raw: currentPlugin.value?.state,
-  },
-])
-const heroFacts = computed(() => [
-  { key: 'version', label: t('plugins.fields.version'), value: formatPluginVersion(currentPlugin.value?.version) },
-  { key: 'core', label: t('plugins.fields.minCoreVersion'), value: formatPluginVersion(currentPlugin.value?.min_core_version) },
-  { key: 'source', label: t('plugins.fields.sourceRoot'), value: getMetadataText(currentPlugin.value?.source?.root) },
-])
-const packageInfoRows = computed(() => [
-  { key: 'author', label: t('plugins.fields.author'), value: getMetadataText(currentPlugin.value?.author) },
-  { key: 'license', label: t('plugins.fields.license'), value: getMetadataText(currentPlugin.value?.license) },
-  { key: 'core', label: t('plugins.fields.minCoreVersion'), value: formatPluginVersion(currentPlugin.value?.min_core_version) },
-])
-const sourceInfoRows = computed(() => [
-  { key: 'root', label: t('plugins.fields.sourceRoot'), value: getMetadataText(currentPlugin.value?.source?.root) },
-  { key: 'ref', label: t('plugins.fields.sourceRef'), value: getMetadataText(sourceRefText.value) },
-  { key: 'trust', label: t('plugins.fields.trust'), value: getPluginTrustLabel(currentPlugin.value?.trust?.level) },
-])
-const runtimeInfoRows = computed(() => [
-  { key: 'concurrency', label: t('plugins.fields.concurrency'), value: currentPlugin.value?.concurrency ?? t('display.empty') },
-  { key: 'priority', label: t('plugins.fields.priority'), value: currentPlugin.value?.priority ?? 0 },
-  { key: 'block', label: t('plugins.fields.propagation'), value: t(currentPlugin.value?.block ? 'plugins.propagation.stop' : 'plugins.propagation.continue') },
-])
-
-function getMetadataText(value?: string | null) {
-  return value?.trim() || t('display.empty')
-}
-
-function hasItems(value?: readonly unknown[] | null) {
-  return Array.isArray(value) && value.length > 0
-}
-
-function getJsonPreview(value: unknown) {
-  return safeJsonStringify(value ?? {})
-}
-
-function getScreenshotAlt(screenshot: NonNullable<PluginDetail['screenshots']>[number]) {
-  return screenshot.alt?.trim() || t('display.empty')
-}
-
-function getPluginStateColor(status?: string | null) {
-  if (!status) return 'neutral'
-  if (status === 'failed' || status === 'error' || status === 'removed') return 'danger'
-  if (status === 'starting' || status === 'stopping' || status === 'enabling' || status === 'disabling' || status === 'retrying') return 'warning'
-  if (status === 'installed' || status === 'enabled' || status === 'running' || status === 'discovered') return 'success'
-  return 'neutral'
-}
-
-function getPluginStateDotColor(status?: string | null) {
-  const tone = getPluginStateColor(status)
-  return tone === 'neutral' ? 'var(--muted)' : `var(--${tone})`
-}
 
 function returnToPluginList() {
   void navigate({ name: 'plugins' })
 }
-
 </script>
 
 <template>
@@ -245,57 +144,16 @@ function returnToPluginList() {
       @retry="loadDetail()"
     />
 
-
     <div
       v-if="activePanel === 'overview'"
       class="plugin-detail-overview"
       :class="{ 'is-output-active': activeDetailTab === 'console' }"
     >
       <AppSkeleton v-if="detailLoading && !currentPlugin" :rows="4" />
-      <section v-else class="plugin-detail-hero">
-          <div class="plugin-detail-hero__identity">
-            <PluginIcon :refresh-key="pluginsStore.iconRevision"
-              class="plugin-detail-hero__avatar"
-              data-testid="plugin-detail-icon"
-              :plugin-id="pluginId"
-              :icon="currentPlugin?.icon"
-              :version="currentPlugin?.version"
-            />
-            <div class="plugin-detail-hero__copy">
-              <div class="plugin-detail-hero__eyebrow">
-                <AppTag class="premium-badge role-badge">{{ getPluginRoleLabel(currentPlugin?.role) }}</AppTag>
-                <AppTag class="premium-badge trust-badge" :class="{ 'is-attention': requiresTrustAttention }">{{ getPluginTrustLabel(currentPlugin?.trust?.level) }}</AppTag>
-              </div>
-              <strong class="plugin-title">{{ pluginDisplayName }}</strong>
-              <span class="plugin-id-sub">{{ pluginId }}</span>
-            </div>
-          </div>
-
-          <div class="plugin-detail-hero__tools">
-            <ManagementContextActions :actions="pluginWorkbenchActions" />
-          </div>
-
-          <div class="plugin-detail-status-chips" :aria-label="t('plugins.sections.statusSummary')">
-            <div v-for="item in statusSummaryItems" :key="item.key" class="status-chip">
-              <span class="status-chip__dot" :style="{ backgroundColor: getPluginStateDotColor(item.raw) }"></span>
-              <span class="status-chip__label">{{ item.label }}:</span>
-              <AppTag :tone="getPluginStateColor(item.raw)" class="status-tag">
-                {{ item.value }}
-                <small v-if="item.raw"> · {{ item.raw }}</small>
-              </AppTag>
-            </div>
-          </div>
-
-          <dl class="plugin-detail-hero__facts">
-            <div v-for="item in heroFacts" :key="item.key" class="fact-item">
-              <dt class="fact-label">{{ item.label }}</dt>
-              <dd class="fact-value">{{ item.value }}</dd>
-            </div>
-          </dl>
-      </section>
+      <PluginDetailHero v-else :plugin="currentPlugin" :plugin-id="pluginId" :plugin-name="pluginDisplayName" />
 
       <AppAlert
-        v-if="requiresTrustAttention"
+        v-if="currentPlugin?.trust?.level === 'unverified'"
         class="plugin-trust-attention"
         tone="warning"
         :title="t('plugins.trustAttention.title')"
@@ -309,126 +167,20 @@ function returnToPluginList() {
             class="plugin-detail-tab-card"
             :class="{ 'is-console-tab-active': activeDetailTab === 'console' }"
           >
-            <AppTabs :model-value="activeDetailTab" :items="[{ value: 'summary', label: t('plugins.sections.runtimeSummary') }, { value: 'commands', label: t('plugins.sections.commands') }, { value: 'console', label: t('plugins.sections.console') }]" keep-alive class="premium-detail-tabs" @update:model-value="setActiveDetailTab($event as PluginDetailInnerTab)"><template #tab="{ item }"><template v-if="item.value === 'summary'">
-                  <span class="premium-tab-label">
-                    {{ t('plugins.sections.runtimeSummary') }}
-                  </span>
-                </template><template v-else-if="item.value === 'commands'">
-                  <span class="premium-tab-label">
-                    {{ t('plugins.sections.commands') }}
-                    <AppTag class="tab-badge">{{ currentPlugin?.commands?.length ?? 0 }}</AppTag>
-                  </span>
-                </template><template v-else-if="item.value === 'console'">
-                  <span class="premium-tab-label">
-                    {{ t('plugins.sections.console') }}
-                    <AppTag class="tab-badge">{{ consoleFrameCount }}</AppTag>
-                  </span>
-                </template></template>
-              <template #summary>
-
-
-                <section class="tab-pane-content plugin-detail-summary-panel" :aria-label="t('plugins.sections.runtimeSummary')">
-                  <div class="plugin-detail-summary-stack">
-                    <section class="plugin-detail-summary-section">
-                      <h3>{{ t('plugins.sections.packageInfo') }}</h3>
-                      <dl class="plugin-detail-kv-list">
-                        <div v-for="item in packageInfoRows" :key="item.key">
-                          <dt>{{ item.label }}</dt>
-                          <dd>{{ item.value }}</dd>
-                        </div>
-                      </dl>
-                    </section>
-
-                    <section class="plugin-detail-summary-section">
-                      <h3>{{ t('plugins.sections.sourceInfo') }}</h3>
-                      <dl class="plugin-detail-kv-list">
-                        <div v-for="item in sourceInfoRows" :key="item.key">
-                          <dt>{{ item.label }}</dt>
-                          <dd>{{ item.value }}</dd>
-                        </div>
-                      </dl>
-                    </section>
-
-                    <section class="plugin-detail-summary-section">
-                      <h3>{{ t('plugins.sections.runtimeConfig') }}</h3>
-                      <dl class="plugin-detail-kv-list">
-                        <div v-for="item in runtimeInfoRows" :key="item.key">
-                          <dt>{{ item.label }}</dt>
-                          <dd>{{ item.value }}</dd>
-                        </div>
-                      </dl>
-                      <div class="metadata-section">
-                        <strong>{{ t('plugins.fields.events') }}</strong>
-                        <div v-if="hasItems(currentPlugin?.events)" class="tag-list">
-                          <AppTag v-for="eventName in currentPlugin?.events" :key="eventName">{{ eventName }}</AppTag>
-                        </div>
-                        <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                      </div>
-                    </section>
-
-                    <details class="plugin-detail-disclosure">
-                      <summary>
-                        <span>{{ t('plugins.sections.details') }}</span>
-                        <AppTag class="meta-tag">{{ t('plugins.sections.metadata') }}</AppTag>
-                      </summary>
-
-                      <div class="plugin-detail-detail-stack">
-                        <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.description') }}</strong>
-                          <p class="meta-desc">{{ getMetadataText(currentPlugin?.description) }}</p>
-                        </section>
-
-                        <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.icon') }}</strong>
-                          <p class="meta-icon">{{ getMetadataText(currentPlugin?.icon) }}</p>
-                        </section>
-
-                        <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.repo') }}</strong>
-                          <a v-if="currentPlugin?.repo" :href="currentPlugin.repo" target="_blank" rel="noreferrer" class="meta-link">{{ currentPlugin.repo }}</a>
-                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                        </section>
-
-                        <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.homepage') }}</strong>
-                          <a v-if="currentPlugin?.homepage" :href="currentPlugin.homepage" target="_blank" rel="noreferrer" class="meta-link">{{ currentPlugin.homepage }}</a>
-                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                        </section>
-
-                        <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.keywords') }}</strong>
-                          <div v-if="hasItems(currentPlugin?.keywords)" class="tag-list">
-                            <AppTag v-for="keyword in currentPlugin?.keywords" :key="keyword">{{ keyword }}</AppTag>
-                          </div>
-                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                        </section>
-
-                        <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.webhooks') }}</strong>
-                          <pre v-if="hasItems(currentPlugin?.webhooks)" class="metadata-json">{{ getJsonPreview(currentPlugin?.webhooks) }}</pre>
-                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                        </section>
-
-                        <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.screenshots') }}</strong>
-                          <div v-if="hasItems(currentPlugin?.screenshots)" class="screenshot-list">
-                            <article v-for="screenshot in currentPlugin?.screenshots" :key="screenshot.path" class="screenshot-item">
-                              <span class="ss-path">{{ t('plugins.fields.screenshotPath') }}：{{ screenshot.path }}</span>
-                              <span class="ss-alt">{{ t('plugins.fields.screenshotAlt') }}：{{ getScreenshotAlt(screenshot) }}</span>
-                            </article>
-                          </div>
-                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                        </section>
-                      </div>
-                    </details>
-                  </div>
-                </section>
+            <AppTabs v-model="activeDetailTab" :items="detailTabs" keep-alive class="premium-detail-tabs">
+              <template #tab="{ item }">
+                <span class="premium-tab-label">
+                  {{ item.label }}
+                  <AppTag v-if="item.value === 'commands'" class="tab-badge">{{ currentPlugin?.commands?.length ?? 0 }}</AppTag>
+                  <AppTag v-else-if="item.value === 'console'" class="tab-badge">{{ consoleFrameCount }}</AppTag>
+                </span>
               </template>
 
-              <!-- TAB 2: Commands -->
+              <template #summary>
+                <PluginDetailSummary class="tab-pane-content" :plugin="currentPlugin" />
+              </template>
+
               <template #commands>
-
-
                 <div class="tab-pane-content plugin-console-tab-content">
                   <PluginCommandsPanel
                     :commands="currentPlugin?.commands ?? []"
@@ -438,100 +190,13 @@ function returnToPluginList() {
                 </div>
               </template>
 
-              <!-- TAB 3: Console -->
               <template #console>
-
-
-                <div class="tab-pane-content">
-                  <div class="plugin-console-header">
-                    <div class="plugin-console-title">
-                      <span class="console-status-indicator">
-                        <span class="status-chip__dot" :style="{ backgroundColor: getConsoleSnapshotStatusColor(consoleSnapshot.status) }"></span>
-                        <AppTag :tone="getConsoleStatusColor(consoleSnapshot.status)" class="console-status-tag">{{ getConnectionStatusLabel(consoleSnapshot.status) }}</AppTag>
-                      </span>
-                      <span class="plugin-console-count">{{ t('plugins.console.outputCount', { count: consoleFrameCount }) }}</span>
-                    </div>
-                    <div class="plugin-console-actions">
-                      <AppTooltip :title="t('plugins.actions.reconnectConsole')">
-                        <AppButton
-                          size="sm"
-                          class="plugin-console-icon-button"
-                          :aria-label="t('plugins.actions.reconnectConsole')"
-                          @click="socketStore.reconnectConsole()"
-                        >
-                          <template #icon>
-                            <RotateCwIcon />
-                          </template>
-                          {{ t('plugins.actions.reconnectConsole') }}
-                        </AppButton>
-                      </AppTooltip>
-                      <AppTooltip :title="t('plugins.actions.clearConsole')">
-                        <AppButton
-                          size="sm"
-                          class="plugin-console-icon-button"
-                          :disabled="consoleFrameCount === 0"
-                          :aria-label="t('plugins.actions.clearConsole')"
-                          @click="clearConsole"
-                        >
-                          <template #icon>
-                            <EraserIcon />
-                          </template>
-                        </AppButton>
-                      </AppTooltip>
-                    </div>
-                  </div>
-
-                  <div class="plugin-console-panel" :class="{ 'is-empty': consoleFrameCount === 0 }">
-                    <div v-if="consoleSnapshot.lastError" class="plugin-console-warning" role="status">
-                      <strong>{{ t('plugins.consoleUnavailable') }}</strong>
-                      <span>{{ consoleSnapshot.lastError }}</span>
-                    </div>
-
-                    <div v-if="consoleFrameCount === 0" class="plugin-console-empty">
-                      <span class="plugin-console-empty__prompt">&gt;_</span>
-                      <span>{{ t('plugins.empty.console') }}</span>
-                    </div>
-
-                    <AppSkeleton
-                      v-else-if="!readyToRenderHeavyContent"
-                      class="console-terminal-skeleton"
-                      :rows="6"
-                    />
-
-                    <VirtualDataViewport
-                      v-else
-                      ref="consoleViewportRef"
-                      class="console-terminal"
-                      :aria-label="t('plugins.console.ariaLabel')"
-                      :items="consoleFrames"
-                      :item-height="CONSOLE_ROW_ESTIMATED_HEIGHT"
-                      :dynamic-item-height="true"
-                      :overscan="6"
-                      :follow-bottom="consoleFollowBottom"
-                      :empty-label="t('plugins.empty.console')"
-                      :get-item-key="getConsoleFrameKey"
-                      @at-bottom-change="onConsoleViewportBottomChange"
-                    >
-                      <template #default="{ item: frame }">
-                        <article
-                          class="console-terminal-line"
-                        >
-                          <div class="console-terminal-line__meta">
-                            <time :datetime="frame.timestamp">{{ formatDateTime(frame.timestamp) }}</time>
-                            <div class="console-terminal-line__badges">
-                              <AppTag :tone="getConsoleStreamColor(frame.stream)" class="stream-badge">{{ getConsoleStreamLabel(frame.stream) }}</AppTag>
-                              <AppTag v-if="frame.stream === 'outbound'" :tone="getConsoleLevelColor(getConsoleLevel(frame))" class="level-badge">
-                                {{ getConsoleLevelLabel(getConsoleLevel(frame)) }}
-                              </AppTag>
-                              <span v-if="getConsoleRequestId(frame)" class="console-request-id">{{ getConsoleRequestId(frame) }}</span>
-                            </div>
-                          </div>
-                          <pre class="console-terminal-line__text">{{ escapeUnsafeDisplayText(frame.text) }}</pre>
-                        </article>
-                      </template>
-                    </VirtualDataViewport>
-                  </div>
-                </div>
+                <PluginConsolePane
+                  class="tab-pane-content"
+                  :plugin-id="pluginId"
+                  :active="activeDetailTab === 'console'"
+                  :ready="readyToRenderHeavyContent"
+                />
               </template>
             </AppTabs>
           </AppCard>
@@ -547,11 +212,11 @@ function returnToPluginList() {
     />
 
     <AppCard v-else borderless :loading="detailLoading">
-        <template #title>
-          <div class="card-header">
-            <span>{{ managementPanelTitle }}</span>
-          </div>
-        </template>
+      <template #title>
+        <div class="card-header">
+          <span>{{ managementPanelTitle }}</span>
+        </div>
+      </template>
     </AppCard>
   </AppPage>
 
@@ -712,205 +377,6 @@ function returnToPluginList() {
   }
 }
 
-.plugin-detail-hero {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px 20px;
-  padding: 14px 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: none;
-}
-
-.plugin-detail-hero__identity {
-  grid-area: 1 / 1 / 2 / 2;
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 12px;
-}
-
-.plugin-detail-hero__avatar.plugin-icon {
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-}
-
-.plugin-detail-hero__avatar :deep(.raylea-mark) {
-  width: 34px;
-  height: 34px;
-}
-
-.plugin-detail-hero__copy {
-  display: grid;
-  grid-template-areas:
-    "title eyebrow"
-    "id id";
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  min-width: 0;
-  gap: 2px 8px;
-}
-
-.plugin-title {
-  grid-area: title;
-  overflow: hidden;
-  color: var(--text);
-  font-size: 1.15rem;
-  font-weight: 600;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.plugin-id-sub {
-  grid-area: id;
-  overflow: hidden;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.plugin-detail-hero__eyebrow {
-  grid-area: eyebrow;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.premium-badge {
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 4px;
-  padding-inline: 6px;
-  margin-inline-end: 0 !important;
-}
-
-.role-badge {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  color: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
-}
-
-.trust-badge {
-  background: color-mix(in srgb, var(--success) 8%, transparent);
-  color: var(--success);
-  border: 1px solid color-mix(in srgb, var(--success) 12%, transparent);
-}
-
-.plugin-detail-hero__tools {
-  grid-area: 1 / 2 / 2 / 3;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.plugin-detail-status-chips {
-  grid-area: 2 / 1 / 3 / 2;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  padding: 6px 10px;
-  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-soft) 40%, transparent);
-  align-items: center;
-}
-
-.status-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-}
-
-.status-chip__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: inline-block;
-
-}
-
-.trust-badge.is-attention {
-  color: var(--text-attention);
-  background: var(--surface-attention);
-  border-color: var(--border-attention);
-}
-
-.status-chip__label {
-  color: var(--muted);
-  font-weight: 550;
-}
-
-/* Compact status tags inside the detail header */
-.status-tag.app-tag {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding-inline: 6px;
-  margin-inline-end: 0 !important;
-  border-radius: 4px;
-  font-weight: 600;
-  border: 1px solid transparent;
-  line-height: 1.5;
-  background: transparent;
-  color: inherit;
-
-  small {
-    font-size: 12px;
-    opacity: 0.8;
-  }
-}
-
-.plugin-detail-hero__facts {
-  grid-area: 2 / 2 / 3 / 3;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  margin: 0;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.fact-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  background: color-mix(in srgb, var(--surface-soft) 20%, transparent);
-  padding: 3px 6px;
-  border-radius: var(--radius-sm);
-  border: 1px dashed color-mix(in srgb, var(--border) 40%, transparent);
-}
-
-.fact-label {
-  color: var(--muted);
-  font-weight: 550;
-  text-transform: none;
-  letter-spacing: 0;
-
-  &::after {
-    content: ':';
-  }
-}
-
-.fact-value {
-  min-width: 0;
-  margin: 0;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 600;
-  font-family: var(--font-mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* Workspace Structure */
 .plugin-detail-overview {
   display: grid;
@@ -949,406 +415,9 @@ function returnToPluginList() {
   gap: 16px;
 }
 
-.plugin-detail-main-column,
-.plugin-detail-summary-stack,
-.plugin-detail-detail-stack {
+.plugin-detail-main-column {
   display: grid;
   gap: 14px;
-}
-
-/* Summary tab styling */
-.plugin-detail-summary-panel {
-  min-width: 0;
-}
-
-.plugin-detail-summary-stack {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px 18px;
-}
-
-.plugin-detail-summary-section {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-}
-
-.plugin-detail-summary-section + .plugin-detail-summary-section {
-  padding-top: 0;
-  border-top: none;
-}
-
-.plugin-detail-summary-section h3 {
-  margin: 0;
-  color: var(--text);
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.plugin-detail-kv-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 14px;
-  margin: 0;
-
-  div {
-    display: grid;
-    min-width: 0;
-    gap: 4px;
-  }
-
-  dt {
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 500;
-  }
-
-  dd {
-    min-width: 0;
-    margin: 0;
-    overflow-wrap: anywhere;
-    color: var(--text);
-    font-size: 0.84rem;
-    font-weight: 555;
-    line-height: 1.45;
-  }
-}
-
-.metadata-section {
-  display: grid;
-  gap: 8px;
-
-  strong {
-    font-size: 0.84rem;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  p, a {
-    margin: 0;
-    word-break: break-word;
-    font-size: 0.84rem;
-  }
-}
-
-.metadata-json {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-  color: var(--text);
-  border: 1px solid var(--border);
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.screenshot-list {
-  display: grid;
-  gap: 8px;
-}
-
-.screenshot-item {
-  display: grid;
-  gap: 4px;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  font-size: 13px;
-
-  .ss-path {
-    font-family: var(--font-mono);
-    color: var(--muted);
-  }
-  .ss-alt {
-    color: var(--text);
-    font-weight: 550;
-  }
-}
-
-.plugin-detail-disclosure {
-  grid-column: 1 / -1;
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
-
-  summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    cursor: pointer;
-    color: var(--text);
-    font-weight: 700;
-    font-size: 0.88rem;
-    list-style: none;
-
-    &::-webkit-details-marker {
-      display: none;
-    }
-
-    &::after {
-      content: '+';
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 20px;
-      height: 20px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--muted);
-      font-family: var(--font-mono);
-      font-weight: 500;
-      font-size: 13px;
-    }
-  }
-
-  &[open] summary {
-    margin-bottom: 12px;
-
-    &::after {
-      content: '-';
-    }
-  }
-}
-
-.meta-tag {
-  font-size: 12px;
-}
-
-
-/* Console tab layout styling */
-.plugin-console-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-.plugin-console-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.console-status-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.console-status-tag {
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-
-.plugin-console-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.plugin-console-icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 28px;
-  gap: 6px;
-  font-size: 13px;
-}
-
-/* Console terminal surface */
-.plugin-console-panel {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-soft);
-  box-shadow: none;
-
-  &.is-empty {
-    background: var(--surface-soft);
-  }
-}
-
-[data-theme='dark'] .plugin-console-panel {
-  background: var(--code-surface);
-  box-shadow: none;
-  border-color: var(--border);
-}
-
-.plugin-console-warning {
-  display: grid;
-  gap: 4px;
-  margin: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-
-  strong {
-    color: var(--text);
-    font-size: 0.86rem;
-  }
-  span {
-    color: var(--muted);
-    font-size: 0.82rem;
-    word-break: break-all;
-  }
-}
-
-.plugin-console-empty {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 32px 20px;
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-.plugin-console-empty__prompt {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 26px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-strong);
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: bold;
-}
-
-.console-terminal-skeleton {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 16px;
-}
-
-.console-terminal {
-  flex: 1 1 auto;
-  min-height: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.console-terminal :deep(.data-viewport__scroller) {
-  scrollbar-gutter: stable;
-}
-
-.console-terminal :deep(.data-viewport__empty) {
-  display: none;
-}
-
-.console-terminal-line {
-  display: grid;
-  grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
-  gap: 16px;
-  padding: 10px 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
-  color: var(--text);
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:hover {
-    background: color-mix(in srgb, var(--accent) 5%, transparent);
-  }
-}
-
-.console-terminal-line__meta {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
-
-  time {
-    color: var(--muted);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 1.4;
-  }
-}
-
-.console-terminal-line__badges {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  min-width: 0;
-}
-
-.stream-badge, .level-badge {
-  font-size: 12px;
-  padding-inline: 4px;
-  border-radius: var(--radius-sm);
-  margin-inline-end: 0 !important;
-}
-
-.console-request-id {
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.console-terminal-line__text {
-  min-width: 0;
-  margin: 0;
-  color: var(--text);
-  white-space: pre-wrap;
-  word-break: break-all;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  line-height: 1.58;
-  unicode-bidi: plaintext;
-}
-
-[data-theme='dark'] .console-terminal-line__text {
-  color: var(--code-text);
-}
-
-/* Responsive queries */
-@media (max-width: #{bp.$pluginDetail}) {
-  .plugin-detail-summary-stack {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: #{bp.$pluginSettings}) {
-  .plugin-detail-hero,
-  .plugin-detail-status-chips,
-  .plugin-detail-hero__facts,
-  .plugin-detail-summary-stack,
-  .plugin-detail-kv-list {
-    grid-template-columns: 1fr;
-  }
-
-  .plugin-detail-hero__tools {
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: #{bp.$compactPanel}) {
@@ -1356,11 +425,6 @@ function returnToPluginList() {
     width: 44px;
     min-width: 44px;
     height: 44px;
-  }
-
-  .console-terminal-line {
-    grid-template-columns: 1fr;
-    gap: 8px;
   }
 }
 </style>

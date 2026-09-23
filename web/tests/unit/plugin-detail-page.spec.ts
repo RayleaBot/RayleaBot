@@ -124,13 +124,6 @@ async function openConsoleTab(wrapper: ReturnType<typeof mount>) {
   expect(consoleTab!.attributes('aria-selected')).toBe('true')
 }
 
-async function waitForConsoleBottomSync() {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    await nextTick()
-    await flushPromises()
-  }
-}
-
 describe('PluginDetailPage', () => {
   function createPluginRouter() {
     return createRouter({
@@ -509,8 +502,8 @@ describe('PluginDetailPage', () => {
     await flushPromises()
     const scroller = mockScrollerMetrics(wrapper, 346)
     await openConsoleTab(wrapper)
-    await waitForConsoleBottomSync()
-    expect(getViewportMetrics(wrapper).scrollTop).toBeGreaterThan(0)
+    // Opening the tab re-applies the bottom over animation frames.
+    await vi.waitFor(() => expect(getViewportMetrics(wrapper).scrollTop).toBeGreaterThan(0))
 
     scroller.scrollTop = 0
     await wrapper.get('.plugin-console-panel .data-viewport__scroller').trigger('scroll')

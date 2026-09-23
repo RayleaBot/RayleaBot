@@ -102,6 +102,7 @@ export function usePluginDetail(pluginId: Readonly<Ref<string>>) {
   onBeforeUnmount(() => {
     pageActive = false
     contextVersion += 1
+    socketStore.setConsolePlugin(null)
   })
 
   return {
