@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { breakpoints } from '@/preferences/breakpoints.generated'
 import AppDrawer from '@/components/AppDrawer.vue'
 import { XIcon } from '@lucide/vue'
-import { computed, shallowRef, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, shallowRef, nextTick, ref, watch } from 'vue'
+import { useEventListener } from '@vueuse/core'
 
 import { getLogLevelLabel, getLogProtocolLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
@@ -11,19 +11,7 @@ import type { LogScope } from '@/stores/log-state'
 import type { LogDetailResponse, LogSummary } from '@/types/api'
 
 import ManagementLogDetailContent from './ManagementLogDetailContent.vue'
-import { readLogDetailWindowPosition, writeLogDetailWindowPosition } from './log-detail-window-memory'
-
-const desktopBreakpoint = breakpoints.protocolPanel
-const floatingWindowSafeInset = 12
-const floatingWindowPreferredWidth = 680
-const floatingWindowMaxWidth = 720
-const floatingWindowMaxHeight = 860
-const floatingWindowHorizontalDrift = 72
-
-interface FloatingPosition {
-  left: number
-  top: number
-}
+import { useFloatingLogWindow } from './useFloatingLogWindow'
 
 interface SummaryChip {
   key: string
@@ -46,6 +34,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
+// Keep the last content while the window or drawer plays its exit transition.
 const retained = shallowRef({ summary: props.summary, detail: props.detail, loading: props.loading, error: props.error })
 watch(() => [props.open, props.summary, props.detail, props.loading, props.error], () => {
   if (props.open) retained.value = { summary: props.summary, detail: props.detail, loading: props.loading, error: props.error }
@@ -65,100 +54,43 @@ function finishClose() {
 const panelRef = ref<HTMLElement | null>(null)
 const headerRef = ref<HTMLElement | null>(null)
 const bodyRef = ref<HTMLElement | null>(null)
-const isNarrowScreen = ref(false)
-const hostWidth = ref(0)
-const hostHeight = ref(0)
-const dragging = ref(false)
-const floatingPosition = ref<FloatingPosition>({
-  left: floatingWindowSafeInset,
-  top: floatingWindowSafeInset,
+const {
+  dragging,
+  floating: useFloatingWindow,
+  restorePosition,
+  startDragging,
+  stopDragging,
+  updateHostMetrics,
+  windowStyle: floatingWindowStyle,
+} = useFloatingLogWindow({
+  hostElement: () => props.hostElement,
+  memoryKey: () => props.memoryKey,
+  open: () => props.open,
+  panel: panelRef,
+  handle: headerRef,
 })
 
 const titleId = computed(() => `management-log-detail-${props.memoryKey || 'window'}`)
 const selectedLogKey = computed(() => displaySummary.value?.log_id ?? 'log-detail')
-const floatingWidth = computed(() => {
-  const availableWidth = hostWidth.value - floatingWindowSafeInset * 2
-  if (availableWidth <= 0) {
-    return floatingWindowPreferredWidth
-  }
-
-  return Math.min(floatingWindowPreferredWidth, floatingWindowMaxWidth, availableWidth)
-})
-const floatingHeight = computed(() => {
-  const availableHeight = hostHeight.value - floatingWindowSafeInset * 2
-  if (availableHeight <= 0) {
-    return floatingWindowMaxHeight
-  }
-
-  if (availableHeight < 220) {
-    return availableHeight
-  }
-
-  return Math.min(floatingWindowMaxHeight, availableHeight)
-})
-const floatingDefaultLeft = computed(() => Math.max(
-  floatingWindowSafeInset,
-  hostWidth.value - floatingWidth.value - floatingWindowSafeInset,
-))
-const floatingLeftBounds = computed(() => {
-  const rightEdge = floatingDefaultLeft.value
-  const leftHalfBoundary = Math.max(floatingWindowSafeInset, hostWidth.value / 2)
-  const availableDrift = Math.min(
-    floatingWindowHorizontalDrift,
-    Math.max(0, rightEdge - leftHalfBoundary),
-  )
-
-  return {
-    min: rightEdge - availableDrift,
-    max: rightEdge,
-  }
-})
-const floatingTopBounds = computed(() => ({
-  min: floatingWindowSafeInset,
-  max: Math.max(
-    floatingWindowSafeInset,
-    hostHeight.value - floatingHeight.value - floatingWindowSafeInset,
-  ),
-}))
-const useFloatingWindow = computed(() => (
-  !isNarrowScreen.value
-  && Boolean(props.hostElement)
-  && hostWidth.value > 0
-  && hostHeight.value > 0
-))
-const isOpen = computed(() => props.open)
-const floatingWindowStyle = computed(() => ({
-  left: `${floatingPosition.value.left}px`,
-  top: `${floatingPosition.value.top}px`,
-  width: `${floatingWidth.value}px`,
-  height: `${floatingHeight.value}px`,
-}))
 const summaryChips = computed<SummaryChip[]>(() => {
-  if (!displaySummary.value) {
+  const summary = displaySummary.value
+  if (!summary) {
     return []
   }
 
   const chips: SummaryChip[] = []
-  if (displaySummary.value.level) {
-    const tone = displaySummary.value.level === 'error'
-      ? 'error'
-      : displaySummary.value.level === 'warn'
-        ? 'warn'
-        : displaySummary.value.level === 'info'
-          ? 'info'
-          : 'debug'
-
+  if (summary.level) {
     chips.push({
       key: 'level',
-      label: getLogLevelLabel(displaySummary.value.level),
-      tone,
+      label: getLogLevelLabel(summary.level),
+      tone: summary.level === 'error' || summary.level === 'warn' || summary.level === 'info' ? summary.level : 'debug',
     })
   }
 
-  if (displaySummary.value.protocol) {
+  if (summary.protocol) {
     chips.push({
       key: 'protocol',
-      label: getLogProtocolLabel(displaySummary.value.protocol),
+      label: getLogProtocolLabel(summary.protocol),
       tone: 'neutral',
     })
   }
@@ -166,272 +98,22 @@ const summaryChips = computed<SummaryChip[]>(() => {
   return chips
 })
 
-let hostResizeObserver: ResizeObserver | null = null
-let mediaQueryList: MediaQueryList | null = null
-let activePointerId: number | null = null
-let dragOffsetX = 0
-let dragOffsetY = 0
-let previousBodyCursor = ''
-let previousBodyUserSelect = ''
-
-function clamp(value: number, min: number, max: number) {
-  if (max <= min) {
-    return min
-  }
-
-  return Math.min(Math.max(value, min), max)
-}
-
-function clampFloatingPosition(nextPosition: FloatingPosition) {
-  return {
-    left: clamp(nextPosition.left, floatingLeftBounds.value.min, floatingLeftBounds.value.max),
-    top: clamp(nextPosition.top, floatingTopBounds.value.min, floatingTopBounds.value.max),
-  }
-}
-
-function defaultFloatingPosition() {
-  return clampFloatingPosition({
-    left: floatingLeftBounds.value.max,
-    top: floatingWindowSafeInset,
-  })
-}
-
-function syncScreenMode() {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  if (typeof window.matchMedia === 'function') {
-    if (!mediaQueryList) {
-      mediaQueryList = window.matchMedia(`(max-width: ${desktopBreakpoint}px)`)
-    }
-    isNarrowScreen.value = mediaQueryList.matches
-    return
-  }
-
-  isNarrowScreen.value = window.innerWidth <= desktopBreakpoint
-}
-
-function handleMediaQueryChange(event: MediaQueryListEvent) {
-  isNarrowScreen.value = event.matches
-}
-
-function disconnectMediaQuery() {
-  if (!mediaQueryList) {
-    return
-  }
-
-  if (typeof mediaQueryList.removeEventListener === 'function') {
-    mediaQueryList.removeEventListener('change', handleMediaQueryChange)
-  } else {
-    mediaQueryList.removeListener(handleMediaQueryChange)
-  }
-  mediaQueryList = null
-}
-
-function connectMediaQuery() {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    syncScreenMode()
-    return
-  }
-
-  disconnectMediaQuery()
-  mediaQueryList = window.matchMedia(`(max-width: ${desktopBreakpoint}px)`)
-  isNarrowScreen.value = mediaQueryList.matches
-
-  if (typeof mediaQueryList.addEventListener === 'function') {
-    mediaQueryList.addEventListener('change', handleMediaQueryChange)
-  } else {
-    mediaQueryList.addListener(handleMediaQueryChange)
-  }
-}
-
-function updateHostMetrics() {
-  const host = props.hostElement
-  if (!host) {
-    hostWidth.value = 0
-    hostHeight.value = 0
-    return
-  }
-
-  const rect = host.getBoundingClientRect()
-  hostWidth.value = Math.max(0, Math.round(rect.width || host.clientWidth))
-  hostHeight.value = Math.max(0, Math.round(rect.height || host.clientHeight))
-}
-
-function disconnectHostObserver() {
-  hostResizeObserver?.disconnect()
-  hostResizeObserver = null
-}
-
-function connectHostObserver() {
-  disconnectHostObserver()
+async function focusFloatingWindow() {
   updateHostMetrics()
-
-  const host = props.hostElement
-  if (!host || typeof window === 'undefined' || typeof window.ResizeObserver !== 'function') {
-    return
-  }
-
-  hostResizeObserver = new window.ResizeObserver(() => {
-    updateHostMetrics()
-  })
-  hostResizeObserver.observe(host)
+  restorePosition()
+  await nextTick()
+  panelRef.value?.focus()
 }
 
-function rememberFloatingPosition(nextPosition: FloatingPosition) {
-  const clamped = clampFloatingPosition(nextPosition)
-  floatingPosition.value = clamped
-  writeLogDetailWindowPosition(props.memoryKey, clamped)
-}
-
-function restoreFloatingPosition() {
-  const stored = readLogDetailWindowPosition(props.memoryKey)
-  rememberFloatingPosition(stored ?? defaultFloatingPosition())
-}
-
-function syncFloatingPositionFromPanel() {
-  const panel = panelRef.value
-  const host = props.hostElement
-  if (!panel || !host) {
-    return
-  }
-
-  const hostRect = host.getBoundingClientRect()
-  const panelRect = panel.getBoundingClientRect()
-  rememberFloatingPosition({
-    left: panelRect.left - hostRect.left,
-    top: panelRect.top - hostRect.top,
-  })
-}
-
-function applyDragDocumentState() {
-  previousBodyUserSelect = document.body.style.userSelect
-  previousBodyCursor = document.body.style.cursor
-  document.body.style.userSelect = 'none'
-  document.body.style.cursor = 'grabbing'
-}
-
-function resetDragDocumentState() {
-  document.body.style.userSelect = previousBodyUserSelect
-  document.body.style.cursor = previousBodyCursor
-}
-
-function removeDragListeners() {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.removeEventListener('pointermove', handleWindowPointerMove)
-  window.removeEventListener('pointerup', handleWindowPointerUp)
-  window.removeEventListener('pointercancel', handleWindowPointerUp)
-}
-
-function stopDragging(pointerId?: number) {
-  if (pointerId !== undefined && activePointerId !== pointerId) {
-    return
-  }
-
-  if (activePointerId !== null && headerRef.value?.releasePointerCapture) {
-    headerRef.value.releasePointerCapture(activePointerId)
-  }
-
-  activePointerId = null
-  dragging.value = false
-  removeDragListeners()
-  resetDragDocumentState()
-}
-
-function handleWindowPointerMove(event: PointerEvent) {
-  if (activePointerId === null || event.pointerId !== activePointerId || !props.hostElement) {
-    return
-  }
-
-  const hostRect = props.hostElement.getBoundingClientRect()
-  rememberFloatingPosition({
-    left: event.clientX - hostRect.left - dragOffsetX,
-    top: event.clientY - hostRect.top - dragOffsetY,
-  })
-}
-
-function handleWindowPointerUp(event: PointerEvent) {
-  stopDragging(event.pointerId)
-}
-
-function handleHeaderPointerDown(event: PointerEvent) {
-  if (!props.open || !useFloatingWindow.value || event.button !== 0 || !props.hostElement) {
-    return
-  }
-
-  const target = event.target
-  if (target instanceof HTMLElement && target.closest('button, a, input, textarea, select, [role="button"]')) {
-    return
-  }
-
-  const panel = panelRef.value
-  if (!panel) {
-    return
-  }
-
-  syncFloatingPositionFromPanel()
-
-  const panelRect = panel.getBoundingClientRect()
-  dragOffsetX = event.clientX - panelRect.left
-  dragOffsetY = event.clientY - panelRect.top
-  activePointerId = event.pointerId
-  dragging.value = true
-
-  if (headerRef.value?.setPointerCapture) {
-    headerRef.value.setPointerCapture(event.pointerId)
-  }
-
-  applyDragDocumentState()
-  window.addEventListener('pointermove', handleWindowPointerMove)
-  window.addEventListener('pointerup', handleWindowPointerUp)
-  window.addEventListener('pointercancel', handleWindowPointerUp)
-  event.preventDefault()
-}
-
-function handleWindowKeydown(event: KeyboardEvent) {
+useEventListener(window, 'keydown', (event: KeyboardEvent) => {
   if (event.key === 'Escape' && props.open) {
     emit('close')
   }
-}
-
-watch(
-  () => props.hostElement,
-  () => {
-    connectHostObserver()
-  },
-  { immediate: true },
-)
-
-watch(
-  [hostWidth, hostHeight, floatingWidth, floatingHeight],
-  () => {
-    if (!useFloatingWindow.value) {
-      return
-    }
-
-    const hasStoredPosition = Boolean(readLogDetailWindowPosition(props.memoryKey))
-    if (!props.open && !hasStoredPosition) {
-      return
-    }
-
-    rememberFloatingPosition(hasStoredPosition ? floatingPosition.value : defaultFloatingPosition())
-  },
-)
+})
 
 watch(
   () => props.open,
   async (open) => {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('keydown', handleWindowKeydown)
-      if (open) {
-        window.addEventListener('keydown', handleWindowKeydown)
-      }
-    }
-
     if (!open) {
       stopDragging()
       return
@@ -443,27 +125,16 @@ watch(
     }
 
     floatingTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    restoreFloatingPosition()
-    await nextTick()
-    panelRef.value?.focus()
+    await focusFloatingWindow()
   },
   { immediate: true },
 )
 
-watch(
-  useFloatingWindow,
-  async (floating) => {
-    if (!props.open || !floating) {
-      return
-    }
+watch(useFloatingWindow, (floating) => {
+  if (props.open && floating) void focusFloatingWindow()
+})
 
-    updateHostMetrics()
-    restoreFloatingPosition()
-    await nextTick()
-    panelRef.value?.focus()
-  },
-)
-
+// A newly selected log starts reading from the top.
 watch(
   () => props.summary?.log_id,
   async (nextLogId, previousLogId) => {
@@ -477,20 +148,6 @@ watch(
     }
   },
 )
-
-onMounted(() => {
-  connectMediaQuery()
-  syncScreenMode()
-})
-
-onBeforeUnmount(() => {
-  stopDragging()
-  disconnectHostObserver()
-  disconnectMediaQuery()
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('keydown', handleWindowKeydown)
-  }
-})
 </script>
 
 <template>
@@ -515,7 +172,7 @@ onBeforeUnmount(() => {
 
   <Transition name="log-detail-window" @after-leave="finishClose">
     <section
-      v-if="isOpen && useFloatingWindow"
+      v-if="open && useFloatingWindow"
       ref="panelRef"
       data-testid="management-log-detail-window"
       class="log-detail-window"
@@ -529,7 +186,7 @@ onBeforeUnmount(() => {
       <header
         ref="headerRef"
         class="log-detail-window__header"
-        @pointerdown="handleHeaderPointerDown"
+        @pointerdown="startDragging"
       >
         <div class="log-detail-window__handle" aria-hidden="true">
           <span />
