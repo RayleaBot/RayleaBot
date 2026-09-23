@@ -7,7 +7,9 @@ type Page = { total: number; next_cursor?: string }
 
 export function collectionURL<Path extends StaticApiRoute>(path: Path, query: CollectionQuery, cursor = ''): Path | `${Path}?${string}` {
   const params = new URLSearchParams()
-  for (const [key, value] of Object.entries(query)) if (value?.trim()) params.set(key, value.trim())
+  for (const [key, value] of Object.entries(query)) {
+    if (value?.trim()) params.set(key, value.trim())
+  }
   if (cursor) params.set('cursor', cursor)
   return params.size ? `${path}?${params}` : path
 }
@@ -30,22 +32,40 @@ export function createCollectionPager<Response extends Page>(options: {
   let controller: AbortController | null = null
   let pending: Promise<Response | undefined> | null = null
 
-  function cancel() { generation++; controller?.abort(); controller = null; loading.value = false; loadingMore.value = false }
+  function cancel() {
+    generation++
+    controller?.abort()
+    controller = null
+    pending = null
+    loading.value = false
+    loadingMore.value = false
+  }
   if (getCurrentScope()) onScopeDispose(cancel)
 
   function load(query?: CollectionQuery, signal?: AbortSignal, append = false): Promise<Response | undefined> {
-    if (append && (!nextCursor.value || loading.value || loadingMore.value)) return Promise.resolve(undefined)
+    if (append && (!nextCursor.value || loading.value || loadingMore.value)) {
+      return Promise.resolve(undefined)
+    }
     controller?.abort()
     const active = new AbortController()
     controller = active
     const request = ++generation
     const requestSignal = signal ? AbortSignal.any([signal, active.signal]) : active.signal
-    const pageCount = query === undefined && !append ? pages : 1
-    if (query !== undefined) currentQuery = { ...query }
+    if (query !== undefined) {
+      currentQuery = { ...query }
+      pages = 1
+      nextCursor.value = ''
+      loaded.value = false
+    }
+    const pageCount = append ? 1 : pages
     const selectedQuery = { ...currentQuery }
     const startCursor = append ? nextCursor.value : ''
-    if (append) loadingMore.value = true
-    else { loading.value = true; loadingMore.value = false }
+    if (append) {
+      loadingMore.value = true
+    } else {
+      loading.value = true
+      loadingMore.value = false
+    }
     error.value = null
     const operation = (async () => {
       let cursor = startCursor
@@ -65,19 +85,32 @@ export function createCollectionPager<Response extends Page>(options: {
         }
         return response
       } catch (cause) {
-        if (request === generation && !requestSignal.aborted) error.value = getDisplayErrorMessage(cause, 'errors.common.loadFailed')
+        if (request === generation && !requestSignal.aborted) {
+          error.value = getDisplayErrorMessage(cause, 'errors.common.loadFailed')
+        }
         throw cause
       } finally {
-        if (request === generation) { loading.value = false; loadingMore.value = false; controller = null }
+        if (request === generation) {
+          loading.value = false
+          loadingMore.value = false
+          controller = null
+        }
       }
     })()
     pending = operation
-    void operation.finally(() => { if (pending === operation) pending = null }).catch(() => undefined)
+    void operation.finally(() => {
+      if (pending === operation) pending = null
+    }).catch(() => undefined)
     return operation
   }
 
-  function ensure(signal?: AbortSignal) { return pending ?? (loaded.value ? Promise.resolve(undefined) : load(undefined, signal)) }
-  function loadMore(signal?: AbortSignal) { return load(undefined, signal, true) }
+  function ensure(signal?: AbortSignal) {
+    return pending ?? (loaded.value ? Promise.resolve(undefined) : load(undefined, signal))
+  }
+
+  function loadMore(signal?: AbortSignal) {
+    return load(undefined, signal, true)
+  }
   return { total, nextCursor, loading, loadingMore, error, loaded, load, loadMore, ensure, cancel }
 }
 

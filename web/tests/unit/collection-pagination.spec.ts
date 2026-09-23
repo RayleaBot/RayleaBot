@@ -74,6 +74,51 @@ describe('bounded collection pagination', () => {
     expect(store.whitelist?.entry_count).toBe(250)
   })
 
+  it('retries a failed new query from its first page without reusing the previous cursor or depth', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce({ total: 300, next_cursor: 'old-100' })
+      .mockResolvedValueOnce({ total: 300, next_cursor: 'old-200' })
+      .mockRejectedValueOnce(new Error('unavailable'))
+      .mockResolvedValueOnce({ total: 200, next_cursor: 'new-100' })
+    const pager = createCollectionPager({ request, apply: vi.fn() })
+    await pager.load({ query: 'old' })
+    await pager.loadMore()
+
+    await expect(pager.load({ query: 'new' })).rejects.toThrow('unavailable')
+    expect(pager.nextCursor.value).toBe('')
+    expect(pager.loaded.value).toBe(false)
+    await pager.loadMore()
+    expect(request).toHaveBeenCalledTimes(3)
+
+    await pager.ensure()
+    expect(request).toHaveBeenCalledTimes(4)
+    expect(request.mock.calls[3].slice(0, 2)).toEqual([{ query: 'new' }, ''])
+    expect(pager.nextCursor.value).toBe('new-100')
+    expect(pager.loaded.value).toBe(true)
+    expect(pager.error.value).toBeNull()
+  })
+
+  it('allows a cancelled initial load to restart before the old request settles', async () => {
+    let resolveOld!: (value: { total: number }) => void
+    const request = vi.fn()
+      .mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve }))
+      .mockResolvedValueOnce({ total: 2 })
+    const apply = vi.fn()
+    const pager = createCollectionPager({ request, apply })
+    const stale = pager.ensure().catch(() => undefined)
+    pager.cancel()
+
+    await pager.ensure()
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(pager.total.value).toBe(2)
+    resolveOld({ total: 100 })
+    await stale
+    expect(apply).toHaveBeenCalledTimes(1)
+    expect(pager.total.value).toBe(2)
+    expect(pager.loading.value).toBe(false)
+    expect(pager.error.value).toBeNull()
+  })
+
   it('keeps template details outside a partial or filtered catalog', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => json({ items: [], total: 0 })))
     const store = useRenderTemplatesStore()
