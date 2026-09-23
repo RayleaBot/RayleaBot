@@ -54,6 +54,13 @@ const adaptiveDocumentHeightExpression = `(() => {
   return Math.max(1, Math.ceil(bottom - Math.min(0, top)));
 })()`
 
+// fitDocumentWidthExpression is the right edge of the body, for templates that
+// size the page by their content.
+const fitDocumentWidthExpression = `(() => {
+  const body = document.body;
+  return body ? Math.max(1, Math.ceil(body.getBoundingClientRect().right)) : 1;
+})()`
+
 const waitForLocalAssetsExpression = `(() => {
   const urls = new Set();
   const addURL = (value) => {
@@ -123,6 +130,7 @@ type Document struct {
 	BaseURL           string
 	Width             int
 	Height            int
+	FitWidth          bool
 	AutoHeight        bool
 	DeviceScaleFactor float64
 	HTML              string
@@ -353,7 +361,7 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 	}
 
 	var content []byte
-	var measuredHeight float64
+	var measuredHeight, measuredWidth float64
 	awaitPromise := func(params *cdpruntime.EvaluateParams) *cdpruntime.EvaluateParams {
 		return params.WithAwaitPromise(true)
 	}
@@ -370,6 +378,19 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		actions = append(actions, chromedp.Evaluate(bindResources, nil, awaitPromise))
 	}
 	actions = append(actions, chromedp.Evaluate(waitForLocalAssetsExpression, nil, awaitPromise))
+	if doc.FitWidth {
+		actions = append(actions,
+			chromedp.Evaluate(fitDocumentWidthExpression, &measuredWidth),
+			chromedp.ActionFunc(func(ctx context.Context) error {
+				width := min(max(int(math.Ceil(measuredWidth)), 1), doc.Width)
+				if width == doc.Width {
+					return nil
+				}
+				doc.Width = width
+				return emulation.SetDeviceMetricsOverride(int64(doc.Width), int64(doc.Height), deviceScaleFactor, false).Do(ctx)
+			}),
+		)
+	}
 	if doc.AutoHeight {
 		actions = append(actions,
 			chromedp.Evaluate(adaptiveDocumentHeightExpression, &measuredHeight),

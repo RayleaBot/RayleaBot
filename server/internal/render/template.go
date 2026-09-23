@@ -50,6 +50,9 @@ type Manifest struct {
 	InputSchema *string
 	Width       int
 	Height      int
+	// FitWidth takes the image width from the body, up to Width, for pages
+	// whose width follows their content.
+	FitWidth bool
 }
 
 type SourceBundle struct {

@@ -449,6 +449,34 @@ func TestChromiumRunnerMeasuresPageFromBodyThatHidesOverflow(t *testing.T) {
 	}
 }
 
+func TestChromiumRunnerFitsWidthToBody(t *testing.T) {
+	runner := newTestChromiumRunner(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+
+	for _, test := range []struct {
+		fit   bool
+		width int
+	}{{false, 400}, {true, 250}} {
+		content, err := runner.Render(ctx, Document{
+			Template: "width.check", Output: "png", Width: 400, Height: 60, FitWidth: test.fit, AutoHeight: true,
+			HTML: `<!doctype html><html><head><style>
+      body { margin: 0; width: 250px; height: 100px; background: #0f0; }
+    </style></head><body></body></html>`,
+		})
+		if err != nil {
+			t.Fatalf("Render with fit %v: %v", test.fit, err)
+		}
+		screenshot, err := png.Decode(bytes.NewReader(content))
+		if err != nil {
+			t.Fatalf("decode screenshot: %v", err)
+		}
+		if screenshot.Bounds().Dx() != test.width {
+			t.Errorf("fit %v: width = %d, want %d", test.fit, screenshot.Bounds().Dx(), test.width)
+		}
+	}
+}
+
 func TestChromiumRunnerLoadsPrefetchedRenderResource(t *testing.T) {
 	runner := newTestChromiumRunner(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)

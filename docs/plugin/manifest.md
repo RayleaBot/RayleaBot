@@ -89,7 +89,7 @@ manifest 不声明宿主权限。插件进程是管理员确认安装的完全�
 
 - 渲染模板由宿主自动发现 `templates/*/template.json`，无需 manifest 清单。
 - `template.json` 必须提供非空 `name`（模板名称），可提供 `description`（用途说明）；建议使用便于用户理解的中文。缺少名称的模板无效，不再按 ID 补名称。模板预览页直接展示声明的名称，内部 ID 仍用于路由和渲染调用。
-- 出图宽度取 `template.json` 的 `width`，高度按页面内所有元素的盒子测量，被祖先裁剪的部分同样计入；`body` 的 `overflow` 为 `hidden` 或 `clip` 时，高度取 `body` 自身的盒子，超出部分不显示。
+- 出图宽度取 `template.json` 的 `width`；`fit_width` 为 `true` 时改取 `body` 盒子的右边缘，最大不超过 `width`，供宽度随内容变化的页面使用。高度按页面内所有元素的盒子测量，被祖先裁剪的部分同样计入；`body` 的 `overflow` 为 `hidden` 或 `clip` 时，高度取 `body` 自身的盒子，超出部分不显示。
 - `management_ui.entry` 是所有页面共用的 `ui/*.html` 入口。
 - `management_ui.pages` 只包含稳定 `id` 和展示 `label`；当前页面 ID 通过 iframe 地址的 `page` 参数传递。
 - 插件页面与管理面同源加载，响应 CSP 只允许加载插件 UI 路径下的脚本；密钥只暴露 configured-state，不回显明文。

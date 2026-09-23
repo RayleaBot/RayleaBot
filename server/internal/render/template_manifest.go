@@ -56,6 +56,10 @@ func parseTemplateManifest(expectedTemplateID string, manifestJSON map[string]an
 	if err != nil {
 		return Manifest{}, nil, err
 	}
+	fitWidth, err := readOptionalBool(manifestJSON, "fit_width")
+	if err != nil {
+		return Manifest{}, nil, err
+	}
 
 	if inputSchema != nil && strings.TrimSpace(*inputSchema) == "" {
 		inputSchema = nil
@@ -71,6 +75,7 @@ func parseTemplateManifest(expectedTemplateID string, manifestJSON map[string]an
 		InputSchema: inputSchema,
 		Width:       width,
 		Height:      height,
+		FitWidth:    fitWidth,
 	}
 
 	return manifest, manifestToJSON(manifest), nil
@@ -91,6 +96,9 @@ func manifestToJSON(manifest Manifest) map[string]any {
 	}
 	if manifest.Description != "" {
 		document["description"] = manifest.Description
+	}
+	if manifest.FitWidth {
+		document["fit_width"] = true
 	}
 	return document
 }
@@ -153,6 +161,18 @@ func readOptionalNullableString(document map[string]any, key string) (*string, e
 		return nil, nil
 	}
 	return &text, nil
+}
+
+func readOptionalBool(document map[string]any, key string) (bool, error) {
+	value, ok := document[key]
+	if !ok || value == nil {
+		return false, nil
+	}
+	flag, ok := value.(bool)
+	if !ok {
+		return false, fmt.Errorf("manifest_json.%s must be a boolean", key)
+	}
+	return flag, nil
 }
 
 func readOptionalInt(document map[string]any, key string, fallback int) (int, error) {
