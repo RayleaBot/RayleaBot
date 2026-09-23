@@ -5,8 +5,7 @@ import AppDropdownItem from '@/components/AppDropdownItem.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
-import { computed, nextTick, ref, shallowRef, watch } from 'vue'
-import { storeToRefs } from 'pinia'
+import { computed, nextTick, ref, toRef, watch } from 'vue'
 import { useRoute, type RouteLocationRaw } from 'vue-router'
 
 import { resolveMenuIcon } from '@/access/icons'
@@ -27,29 +26,13 @@ import {
 } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { usePluginsStore } from '@/stores/plugins'
-import { usePluginCollection } from '@/lib/use-plugin-collection'
-import type { PluginDetail, PluginState, PluginSummary } from '@/types/api'
+import {
+  useSidebarPluginNavigation,
+  type OpenPluginTarget,
+  type SidebarPluginNavigationEntry,
+} from './useSidebarPluginNavigation'
 
 type NavigationScope = 'root' | 'plugin-center'
-
-interface OpenPluginTarget {
-  fullPath: string
-  pluginId: string
-}
-
-type SidebarPluginItem = Pick<PluginSummary, 'id' | 'name'> & {
-  icon?: PluginSummary['icon']
-  state?: PluginState
-  version?: PluginSummary['version']
-}
-
-type PluginManagementPage = NonNullable<PluginDetail['management_ui']>['pages'][number]
-
-type SidebarPluginNavigationEntry =
-  | { key: string; kind: 'resource'; plugin: SidebarPluginItem }
-  | { key: string; kind: 'overview'; plugin: SidebarPluginItem }
-  | { key: string; kind: 'management'; page: PluginManagementPage; plugin: SidebarPluginItem }
-  | { key: string; kind: 'retry'; plugin: SidebarPluginItem }
 
 const props = withDefaults(defineProps<{
   collapsed?: boolean
@@ -73,31 +56,40 @@ const emit = defineEmits<{
 
 const route = useRoute()
 const pluginsStore = usePluginsStore()
+const activePluginId = computed(() => route.name === 'plugin-detail'
+  ? String(route.params.id ?? '')
+  : '')
 const {
-  current,
-  detailErrorsByPluginId,
-  detailLoadingByPluginId,
-  detailsByPluginId,
-} = storeToRefs(pluginsStore)
-
-const pluginCollection = usePluginCollection()
-const { items: sortedItems, error, loading, total, nextCursor, loadingMore } = pluginCollection
+  expandPlugin,
+  filteredPlugins,
+  getPluginAriaLabel,
+  getPluginDisclosureLabel,
+  getPluginName,
+  getPluginSummary,
+  isPluginContentVisible,
+  isPluginExpansionPending,
+  navigationPlugins,
+  openPluginTargetById,
+  openPluginTargets,
+  pluginCollection,
+  pluginFilter,
+  pluginNavigationEntries,
+  retryPluginDetail,
+  retryPluginList,
+  showPluginFilter,
+  togglePluginExpansion,
+} = useSidebarPluginNavigation({
+  activePluginId,
+  openPluginTargets: toRef(props, 'openPluginTargets'),
+})
+const { error, loading, nextCursor, loadingMore } = pluginCollection
 const navigation = ref<HTMLElement | null>(null)
-const pluginFilter = ref('')
-const expandedPluginIds = shallowRef(new Set<string>())
-const visitedPluginIds = shallowRef(new Set<string>())
-watch(() => Object.keys(detailsByPluginId.value), ids => {
-  visitedPluginIds.value = new Set([...visitedPluginIds.value, ...ids])
-}, { immediate: true })
 const transitionDirection = ref<'forward' | 'back'>('forward')
 
 const visibleScope = computed<NavigationScope>(() => props.collapsed ? 'root' : props.scope)
 const transitionName = computed(() => transitionDirection.value === 'back'
   ? 'sidebar-navigation-pop'
   : 'sidebar-navigation-push')
-const activePluginId = computed(() => route.name === 'plugin-detail'
-  ? String(route.params.id ?? '')
-  : '')
 const centerSelectedKeys = computed(() => {
   if (isPluginCenterRoute(route.name)) {
     return [`page:${String(route.name)}`]
@@ -110,113 +102,12 @@ const centerSelectedKeys = computed(() => {
   const page = readPluginManagementPage(route.query)
   return page ? [`plugin-page:${activePluginId.value}:management:${page}`] : []
 })
-const activePlugin = computed(() => current.value?.id === activePluginId.value ? current.value : null)
-const activePluginSummary = computed(() => pluginsStore.knownItems.find(plugin => plugin.id === activePluginId.value))
-const activePluginName = computed(() => (
-  activePlugin.value?.name?.trim()
-  || activePluginSummary.value?.name?.trim()
-  || pluginsStore.getPluginDisplayName(activePluginId.value)
-))
-const openPluginTargets = computed(() => {
-  const seen = new Set<string>()
-  return props.openPluginTargets.filter((target) => {
-    if (!target.pluginId || !target.fullPath || seen.has(target.pluginId)) return false
-    seen.add(target.pluginId)
-    return true
-  })
-})
-const openPluginTargetById = computed(() => new Map(
-  openPluginTargets.value.map(target => [target.pluginId, target.fullPath]),
-))
-const navigationPlugins = computed<SidebarPluginItem[]>(() => {
-  const visited = pluginsStore.knownItems.filter(plugin => visitedPluginIds.value.has(plugin.id))
-  const remembered = new Map([...sortedItems.value, ...visited, ...Object.values(detailsByPluginId.value)].map(plugin => [plugin.id, plugin]))
-  const items: SidebarPluginItem[] = [...remembered.values()].map(plugin => ({
-    icon: plugin.icon,
-    id: plugin.id,
-    name: plugin.name,
-    state: plugin.state,
-    version: plugin.version,
-  }))
-
-  for (const target of openPluginTargets.value) {
-    if (!items.some(plugin => plugin.id === target.pluginId)) {
-      const known = pluginsStore.knownItems.find(plugin => plugin.id === target.pluginId)
-      items.push(known ?? { id: target.pluginId, name: pluginsStore.getPluginDisplayName(target.pluginId) })
-    }
-  }
-  if (activePluginId.value && !items.some(plugin => plugin.id === activePluginId.value)) {
-    items.push({
-      icon: activePlugin.value?.icon,
-      id: activePluginId.value,
-      name: activePluginName.value,
-      state: activePlugin.value?.state,
-      version: activePlugin.value?.version,
-    })
-  }
-
-  return items.sort((left, right) => left.id.localeCompare(right.id))
-})
-const showPluginFilter = computed(() => total.value >= 8 || Boolean(pluginFilter.value))
-const filteredPlugins = computed(() => {
-  if (!pluginFilter.value.trim()) return navigationPlugins.value
-  const matchingIds = new Set(sortedItems.value.map(plugin => plugin.id))
-  return navigationPlugins.value.filter(plugin => plugin.id === activePluginId.value || matchingIds.has(plugin.id))
-})
-const pluginNavigationEntries = computed<SidebarPluginNavigationEntry[]>(() => (
-  filteredPlugins.value.flatMap((plugin) => {
-    const entries: SidebarPluginNavigationEntry[] = [{
-      key: `plugin:${plugin.id}`,
-      kind: 'resource',
-      plugin,
-    }]
-    if (!isPluginContentVisible(plugin.id)) {
-      return entries
-    }
-
-    entries.push({
-      key: `plugin-page:${plugin.id}:overview`,
-      kind: 'overview',
-      plugin,
-    })
-    entries.push(...getPluginManagementPages(plugin.id).map(page => ({
-      key: `plugin-page:${plugin.id}:management:${page.id}`,
-      kind: 'management' as const,
-      page,
-      plugin,
-    })))
-    if (isPluginDetailUnavailable(plugin.id)) {
-      entries.push({
-        key: `plugin-page:${plugin.id}:retry`,
-        kind: 'retry',
-        plugin,
-      })
-    }
-    return entries
-  })
-))
 
 watch(
   () => props.scope,
   (scope) => {
     if (scope === 'plugin-center') {
       void pluginCollection.load({ query: pluginFilter.value }).catch(() => undefined)
-    }
-  },
-  { immediate: true },
-)
-
-watch(pluginFilter, (query, _, cleanup) => {
-  pluginCollection.cancel()
-  const timer = setTimeout(() => { void pluginCollection.load({ query }).catch(() => undefined) }, 250)
-  cleanup(() => clearTimeout(timer))
-})
-
-watch(
-  activePluginId,
-  (pluginId) => {
-    if (pluginId) {
-      expandPlugin(pluginId)
     }
   },
   { immediate: true },
@@ -245,69 +136,6 @@ function enterPlugin(pluginId: string) {
   emit('navigate', openPluginTargetById.value.get(pluginId) ?? buildPluginDetailLocation(pluginId))
 }
 
-function openPluginOverview(pluginId: string) {
-  emit('navigate', buildPluginDetailLocation(pluginId))
-}
-
-function openManagementPage(pluginId: string, pageId: string) {
-  emit('navigate', buildPluginDetailLocation(pluginId, {
-    panel: 'management-ui',
-    managementPage: pageId,
-  }))
-}
-
-function isPluginExpanded(pluginId: string) {
-  return expandedPluginIds.value.has(pluginId)
-}
-
-function expandPlugin(pluginId: string) {
-  if (!expandedPluginIds.value.has(pluginId)) {
-    expandedPluginIds.value = new Set([...expandedPluginIds.value, pluginId])
-  }
-  void pluginsStore.ensureDetail(pluginId).catch(() => undefined)
-}
-
-function togglePluginExpansion(pluginId: string) {
-  if (expandedPluginIds.value.has(pluginId)) {
-    const nextExpandedPluginIds = new Set(expandedPluginIds.value)
-    nextExpandedPluginIds.delete(pluginId)
-    expandedPluginIds.value = nextExpandedPluginIds
-    return
-  }
-
-  expandPlugin(pluginId)
-}
-
-function getPluginDetail(pluginId: string) {
-  return detailsByPluginId.value[pluginId] ?? (
-    current.value?.id === pluginId ? current.value : null
-  )
-}
-
-function getPluginManagementPages(pluginId: string) {
-  return getPluginDetail(pluginId)?.management_ui?.pages ?? []
-}
-
-function isPluginDetailPending(pluginId: string) {
-  return Boolean(detailLoadingByPluginId.value[pluginId])
-}
-
-function isPluginExpansionPending(pluginId: string) {
-  return isPluginExpanded(pluginId)
-    && isPluginDetailPending(pluginId)
-    && !getPluginDetail(pluginId)
-}
-
-function isPluginContentVisible(pluginId: string) {
-  return isPluginExpanded(pluginId) && !isPluginExpansionPending(pluginId)
-}
-
-function isPluginDetailUnavailable(pluginId: string) {
-  return Boolean(detailErrorsByPluginId.value[pluginId])
-    && !isPluginDetailPending(pluginId)
-    && !getPluginDetail(pluginId)
-}
-
 function backToRoot() {
   transitionDirection.value = 'back'
   emit('scopeChange', 'root')
@@ -318,21 +146,16 @@ function openWorkspacePlugin(target: OpenPluginTarget) {
   emit('navigate', target.fullPath)
 }
 
-function retryPluginList() {
-  void pluginCollection.load({ query: pluginFilter.value }).catch(() => undefined)
-}
-
-function retryPluginDetail(pluginId: string) {
-  void pluginsStore.ensureDetail(pluginId, { refresh: true }).catch(() => undefined)
-}
-
 function activatePluginNavigationEntry(entry: SidebarPluginNavigationEntry) {
   if (entry.kind === 'resource') {
     enterPlugin(entry.plugin.id)
   } else if (entry.kind === 'overview') {
-    openPluginOverview(entry.plugin.id)
+    emit('navigate', buildPluginDetailLocation(entry.plugin.id))
   } else if (entry.kind === 'management') {
-    openManagementPage(entry.plugin.id, entry.page.id)
+    emit('navigate', buildPluginDetailLocation(entry.plugin.id, {
+      panel: 'management-ui',
+      managementPage: entry.page.id,
+    }))
   } else if (entry.kind === 'retry') {
     retryPluginDetail(entry.plugin.id)
   }
@@ -344,29 +167,6 @@ async function focusAfterScopeChange(selector: string, closesOnMobile = false) {
   navigation.value?.querySelector<HTMLElement>(selector)?.focus()
 }
 
-function getPluginSummary(pluginId: string) {
-  return navigationPlugins.value.find(plugin => plugin.id === pluginId)
-}
-
-function getPluginName(pluginId: string) {
-  return getPluginSummary(pluginId)?.name || pluginsStore.getPluginDisplayName(pluginId)
-}
-
-function getPluginAriaLabel(plugin: SidebarPluginItem) {
-  return plugin.state
-    ? `${plugin.name}，${getPluginStateLabel(plugin.state)}`
-    : plugin.name
-}
-
-function getPluginDisclosureLabel(plugin: SidebarPluginItem) {
-  if (isPluginExpansionPending(plugin.id)) {
-    return t('plugins.navigation.loadingPluginPages', { name: plugin.name })
-  }
-
-  return isPluginExpanded(plugin.id)
-    ? t('plugins.navigation.collapsePluginPages', { name: plugin.name })
-    : t('plugins.navigation.expandPluginPages', { name: plugin.name })
-}
 function toggleRootGroup(key: string) {
   emit('openChange', props.openKeys.includes(key) ? props.openKeys.filter(item => item !== key) : [...props.openKeys, key])
 }
