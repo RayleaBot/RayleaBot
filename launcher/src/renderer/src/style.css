@@ -273,15 +273,6 @@ code,
   justify-content: flex-end;
 }
 
-.section-kicker,
-.brand-eyebrow {
-  margin-bottom: 4px;
-  color: var(--color-text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
 .status-chip,
 .status-label,
 .count-badges > span,
