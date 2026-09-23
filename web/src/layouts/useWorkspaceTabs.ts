@@ -1,8 +1,15 @@
-import { computed, nextTick, onBeforeUnmount, onMounted, watch, type Ref } from 'vue'
-import type { RouteLocationNormalizedLoaded, RouteLocationRaw, Router } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useRoute, useRouter, type RouteLocationNormalizedLoaded, type RouteLocationRaw } from 'vue-router'
 
+import { resolveMenuIcon } from '@/access/icons'
+import { resolveRouteEntryPath, resolveRouteTitle } from '@/access/menu'
+import { createPluginCenterTab, isPluginCenterRoute, pluginCenterPath } from '@/access/plugin-center'
 import { t } from '@/i18n'
+import { adminRoutes } from '@/router/routes/modules/admin'
+import { usePluginsStore } from '@/stores/plugins'
 import { useUiShellStore, type ShellTabItem } from '@/stores/ui-shell'
+import { collectAffixTabs, getLeafRouteMeta, resolveRouteIcon } from './shell-routes'
 
 export type TabActionKey = 'close-current' | 'close-other' | 'close-left' | 'close-right' | 'close-all'
 
@@ -12,24 +19,110 @@ export interface TabActionItem {
   label: string
 }
 
-export interface WorkspaceTabProjection {
+interface WorkspaceTabProjection {
   replaceByName?: string
   tab: ShellTabItem
 }
 
-interface WorkspaceTabsOptions {
-  affixTabs: ShellTabItem[]
-  resolveCurrentTab: (route: RouteLocationNormalizedLoaded) => WorkspaceTabProjection | null
-  resolveTabPath: (route: RouteLocationNormalizedLoaded) => string
-  route: RouteLocationNormalizedLoaded
-  router: Router
-  tabs: Ref<ShellTabItem[]>
-  uiShellStore: ReturnType<typeof useUiShellStore>
-  navigate: (target: RouteLocationRaw) => unknown
-}
+export function useWorkspaceTabs(navigate: (target: RouteLocationRaw) => unknown) {
+  const route = useRoute()
+  const router = useRouter()
+  const uiShellStore = useUiShellStore()
+  const pluginsStore = usePluginsStore()
+  const { tabs } = storeToRefs(uiShellStore)
 
-export function useWorkspaceTabs(options: WorkspaceTabsOptions) {
-  const { affixTabs, navigate, resolveCurrentTab, resolveTabPath, route, tabs, uiShellStore } = options
+  const affixTabs = collectAffixTabs(adminRoutes)
+  uiShellStore.syncTabs(affixTabs)
+
+  function resolveTabPath(viewRoute: RouteLocationNormalizedLoaded) {
+    if (isPluginCenterRoute(viewRoute.name)) return pluginCenterPath
+    return resolveRouteEntryPath(getLeafRouteMeta(viewRoute), viewRoute.path)
+  }
+
+  function resolveTabTitle(viewRoute: RouteLocationNormalizedLoaded) {
+    const pluginId = viewRoute.params.id
+    if (viewRoute.name === 'plugin-detail' && typeof pluginId === 'string' && pluginId) {
+      return t('plugins.detailPageTitle', { name: pluginsStore.getPluginDisplayName(pluginId) })
+    }
+    return resolveRouteTitle(getLeafRouteMeta(viewRoute))
+  }
+
+  function resolveCurrentTab(viewRoute: RouteLocationNormalizedLoaded): WorkspaceTabProjection | null {
+    const leafMeta = getLeafRouteMeta(viewRoute)
+    if (!viewRoute.matched.length || leafMeta?.hideInTab || !viewRoute.name) return null
+    if (isPluginCenterRoute(viewRoute.name)) return { tab: createPluginCenterTab(viewRoute.fullPath) }
+
+    const title = resolveTabTitle(viewRoute)
+    if (!title) return null
+
+    return {
+      // Query-driven workspaces keep a single tab per page.
+      replaceByName: typeof leafMeta?.viewKey === 'string' && leafMeta.viewKey ? String(viewRoute.name) : undefined,
+      tab: {
+        affix: Boolean(leafMeta?.affixTab),
+        fullPath: viewRoute.fullPath,
+        icon: resolveRouteIcon(router, viewRoute),
+        keepAlive: Boolean(leafMeta?.keepAlive),
+        name: String(viewRoute.name),
+        path: resolveTabPath(viewRoute),
+        title,
+      },
+    }
+  }
+
+  function resolveTabPluginId(item: ShellTabItem) {
+    if (item.name !== 'plugin-detail') return null
+    try {
+      const pluginId = router.resolve(item.fullPath).params.id
+      return typeof pluginId === 'string' && pluginId ? pluginId : null
+    } catch {
+      return null
+    }
+  }
+
+  function resolveTabPlugin(item: ShellTabItem) {
+    const pluginId = resolveTabPluginId(item)
+    if (!pluginId) return null
+    const plugin = pluginsStore.detailsByPluginId[pluginId] ?? pluginsStore.knownItems.find(candidate => candidate.id === pluginId)
+    return { id: pluginId, icon: plugin?.icon, version: plugin?.version }
+  }
+
+  // Current route metadata wins over the icon stored with a restored tab.
+  function resolveTabIconName(item: ShellTabItem) {
+    try {
+      return resolveRouteIcon(router, router.resolve(item.path)) || item.icon
+    } catch {
+      return item.icon
+    }
+  }
+
+  const tabViews = computed(() => tabs.value.map((tab) => {
+    const plugin = resolveTabPlugin(tab)
+    const iconName = resolveTabIconName(tab)
+    return {
+      tab,
+      plugin,
+      iconName,
+      icon: resolveMenuIcon(iconName),
+      iconData: plugin ? `plugin:${plugin.id}` : iconName || undefined,
+    }
+  }))
+
+  const openPluginTargets = computed(() => {
+    const seen = new Set<string>()
+    return tabs.value.flatMap((tab) => {
+      const pluginId = resolveTabPluginId(tab)
+      if (!pluginId || seen.has(pluginId)) return []
+      seen.add(pluginId)
+      return [{ fullPath: tab.fullPath, pluginId }]
+    })
+  })
+
+  // Open plugin tabs need the plugin list for their names and icons.
+  watch(() => openPluginTargets.value.length, (count) => {
+    if (count > 0) void pluginsStore.ensureList().catch(() => undefined)
+  }, { immediate: true })
+
   const currentTabPath = computed(() => resolveTabPath(route))
   const currentTab = computed(() => tabs.value.find((item) => item.path === currentTabPath.value) ?? null)
 
@@ -51,6 +144,16 @@ export function useWorkspaceTabs(options: WorkspaceTabsOptions) {
       })
     },
     { immediate: true },
+  )
+
+  // Plugin detail tabs are titled by the plugin name, which may arrive after navigation.
+  watch(
+    () => route.name === 'plugin-detail' ? resolveTabTitle(route) : null,
+    () => {
+      if (route.name !== 'plugin-detail') return
+      const projection = resolveCurrentTab(route)
+      if (projection) uiShellStore.upsertTab(projection.tab)
+    },
   )
 
   function onTabChange(targetKey: string) {
@@ -240,6 +343,8 @@ export function useWorkspaceTabs(options: WorkspaceTabsOptions) {
     handleTabAction,
     onTabChange,
     onTabEdit,
+    openPluginTargets,
     tabActionItems,
+    tabViews,
   }
 }

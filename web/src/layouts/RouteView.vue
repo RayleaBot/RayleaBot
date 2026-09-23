@@ -1,18 +1,12 @@
 <script setup lang="ts">
-import type { RouteLocationNormalizedLoaded } from 'vue-router'
-
 defineOptions({
   name: 'RouteView',
 })
-
-defineProps<{
-  displayRoute?: RouteLocationNormalizedLoaded
-}>()
 </script>
 
 <template>
   <div class="route-view-shell">
-    <RouterView :route="displayRoute" v-slot="{ Component }">
+    <RouterView v-slot="{ Component }">
       <component :is="Component" v-if="Component" />
     </RouterView>
   </div>
