@@ -122,6 +122,8 @@ describe('CommandsPage', () => {
     const wrapper = mount(CommandsPage, { global: { plugins: [getActivePinia()!, router] } })
     await flushPromises()
     expect(wrapper.text()).toContain('first-command description')
+    // first-command has no policy entry, so its own declaration is shown translated.
+    expect(wrapper.text()).toContain('声明权限：所有成员')
     expect(wrapper.text()).not.toContain('later-command')
     expect(wrapper.getComponent(AppCollectionPagination).props('nextCursor')).toBe('1')
     expect(vi.mocked(apiRequest).mock.calls.some(call => call[0].includes('cursor='))).toBe(false)

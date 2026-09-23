@@ -24,7 +24,13 @@ import {
   readCommandsPluginIds,
 } from '@/lib/management-links'
 import { t } from '@/i18n'
-import { mergeCommandCenterRows, type PluginCommandAvailability, type UnifiedCommandRow } from '@/lib/plugin-commands'
+import {
+  getCommandPermissionLabel,
+  getCommandTriggerTone,
+  mergeCommandCenterRows,
+  type PluginCommandAvailability,
+  type UnifiedCommandRow,
+} from '@/lib/plugin-commands'
 import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
@@ -129,22 +135,13 @@ function getAliasesText(command: PluginCommandSummary) {
   return aliases.length ? aliases.join(', ') : t('display.empty')
 }
 
-function getPermissionText(command: PluginCommandSummary) {
-  return command.permission?.trim() || t('plugins.commandPermissionDefault')
-}
-
 function getEffectivePermissionText(policy: { effective_permission?: CommandPermissionLevel } | null) {
-  if (!policy?.effective_permission) {
-    return t('display.empty')
-  }
-  return getCommandPermissionLabel(policy.effective_permission)
+  return policy?.effective_permission ? getCommandPermissionLabel(policy.effective_permission) : t('display.empty')
 }
 
+// Without a loaded policy entry the command's own declaration is the best available answer.
 function getDeclaredPermissionText(command: PluginCommandSummary, policy: { declared_permission?: CommandPermissionLevel | null } | null) {
-  if (policy) {
-    return getCommandPermissionLabel(policy.declared_permission)
-  }
-  return getPermissionText(command)
+  return getCommandPermissionLabel(policy ? policy.declared_permission : command.permission)
 }
 
 function getUsageText(command: PluginCommandSummary) {
@@ -170,19 +167,6 @@ function getStatusColor(status: PluginCommandAvailability) {
   }
 }
 
-function getCommandPermissionLabel(level: CommandPermissionLevel | null | undefined) {
-  switch (level) {
-    case 'everyone':
-      return t('commands.permissions.everyone')
-    case 'group_admin':
-      return t('commands.permissions.groupAdmin')
-    case 'super_admin':
-      return t('commands.permissions.superAdmin')
-    default:
-      return t('commands.permissionDefault')
-  }
-}
-
 function getPermissionSourceLabel(source: CommandPermissionSource) {
   return t(`commands.permissionSource.${source}`)
 }
@@ -191,12 +175,6 @@ function getCommandSourceLabel(source: PluginCommandSummary['trigger']['type']) 
   return t(`commands.commandSource.${source}`)
 }
 
-function getCommandSourceColor(source: PluginCommandSummary['trigger']['type']) {
-  if (source === 'pattern') {
-    return 'info'
-  }
-  return source === 'setting' ? 'info' : 'neutral'
-}
 
 watch(
   () => route.query,
@@ -312,7 +290,7 @@ onMounted(() => {
             </template>
 
             <template v-else-if="column.key === 'source'">
-              <AppTag :tone="getCommandSourceColor(record.command.trigger.type)">
+              <AppTag :tone="getCommandTriggerTone(record.command.trigger.type)">
                 {{ getCommandSourceLabel(record.command.trigger.type) }}
               </AppTag>
             </template>

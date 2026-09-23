@@ -1,8 +1,28 @@
+import { t } from '@/i18n'
+import type { StatusTone } from '@/lib/status-tone'
 import type {
   GovernanceCommandPolicyEntry,
   PluginCommandSummary,
   PluginSummary,
 } from '@/types/api'
+
+const permissionLabelKeys: Record<string, string> = {
+  everyone: 'commands.permissions.everyone',
+  group_admin: 'commands.permissions.groupAdmin',
+  super_admin: 'commands.permissions.superAdmin',
+}
+
+// An empty permission follows the configured default level; an unknown level is shown as declared.
+export function getCommandPermissionLabel(permission?: string | null) {
+  const value = permission?.trim()
+  if (!value) return t('commands.permissionDefault')
+  const key = permissionLabelKeys[value]
+  return key ? t(key) : value
+}
+
+export function getCommandTriggerTone(type: PluginCommandSummary['trigger']['type']): StatusTone {
+  return type === 'pattern' || type === 'setting' ? 'info' : 'neutral'
+}
 
 export type PluginCommandAvailability = 'available' | 'starting' | 'switching' | 'not_ready' | 'disabled'
 

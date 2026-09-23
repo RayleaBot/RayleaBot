@@ -3,8 +3,8 @@ import AppTag from '@/components/AppTag.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import { formatCommandUsage } from '@/lib/command-usage'
 import { t } from '@/i18n'
-import { isPluginCommandConflicted } from '@/lib/plugin-commands'
-import type { CommandPermissionLevel, PluginCommandSummary } from '@/types/api'
+import { getCommandPermissionLabel, getCommandTriggerTone, isPluginCommandConflicted } from '@/lib/plugin-commands'
+import type { PluginCommandSummary } from '@/types/api'
 
 const MAX_VISIBLE_ALIASES = 12
 
@@ -38,36 +38,12 @@ function getVisibleCommandAliases(command: PluginCommandSummary) {
   return command.effective_names.slice(1)
 }
 
-function getPermissionText(command: PluginCommandSummary) {
-  const permission = command.permission?.trim() as CommandPermissionLevel | ''
-  if (!permission) {
-    return t('plugins.commandPermissionDefault')
-  }
-  switch (permission) {
-    case 'everyone':
-      return t('commands.permissions.everyone')
-    case 'group_admin':
-      return t('commands.permissions.groupAdmin')
-    case 'super_admin':
-      return t('commands.permissions.superAdmin')
-    default:
-      return permission
-  }
-}
-
 function getUsageText(command: PluginCommandSummary) {
   return formatCommandUsage(command, props.commandPrefix) || t('display.empty')
 }
 
 function getTriggerText(command: PluginCommandSummary) {
   return t(`plugins.commandTriggerLabel.${command.trigger.type}`)
-}
-
-function getTriggerColor(command: PluginCommandSummary) {
-  if (command.trigger.type === 'pattern') {
-    return 'info'
-  }
-  return command.trigger.type === 'setting' ? 'info' : 'neutral'
 }
 
 function isConflicted(command: PluginCommandSummary) {
@@ -94,7 +70,7 @@ function isConflicted(command: PluginCommandSummary) {
           <AppTag v-if="isConflicted(command)" tone="warning">
             {{ t('plugins.commandConflictBadge') }}
           </AppTag>
-      <AppTag :tone="getTriggerColor(command)">
+      <AppTag :tone="getCommandTriggerTone(command.trigger.type)">
       {{ getTriggerText(command) }}
           </AppTag>
         </div>
@@ -131,7 +107,7 @@ function isConflicted(command: PluginCommandSummary) {
         <div class="plugin-command-card__footer">
           <span class="permission-pill">
             <span class="pill-dot"></span>
-            {{ getPermissionText(command) }}
+            {{ getCommandPermissionLabel(command.permission) }}
           </span>
         </div>
       </div>

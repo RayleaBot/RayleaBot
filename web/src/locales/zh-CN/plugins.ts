@@ -207,7 +207,6 @@ export const plugins = {
   },
   commandAliases: '别名',
   commandUsage: '用法',
-  commandPermissionDefault: '跟随默认权限',
   commandConflictBadge: '命令冲突',
   commandTriggerLabel: {
     exact: '固定指令',
