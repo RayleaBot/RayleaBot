@@ -15,25 +15,40 @@ func (s *Service) syncTemplatesFromFiles(ctx context.Context) error {
 		return err
 	}
 	ids := SortedIDs(seeds)
+	updated := 0
 	for _, id := range ids {
-		if err := s.syncTemplateSeed(ctx, id, seeds[id], TemplateSourceInfo{Type: "system"}, filepath.Join(s.templatesRoot, id), s.templatesRoot); err != nil {
+		changed, err := s.syncTemplateSeed(ctx, id, seeds[id], TemplateSourceInfo{Type: "system"}, filepath.Join(s.templatesRoot, id), s.templatesRoot)
+		if err != nil {
 			return fmt.Errorf("sync render template %s: %w", id, err)
 		}
+		if changed {
+			updated++
+		}
 	}
-	return s.templateRepo.RemoveSystemTemplatesExcept(ctx, ids)
+	if err := s.templateRepo.RemoveSystemTemplatesExcept(ctx, ids); err != nil {
+		return err
+	}
+	s.logTemplateSync(updated, "system")
+	return nil
 }
 
-func (s *Service) syncTemplateSeed(ctx context.Context, id string, seed Seed, owner TemplateSourceInfo, templateDir, resourceRoot string) error {
+func (s *Service) syncTemplateSeed(ctx context.Context, id string, seed Seed, owner TemplateSourceInfo, templateDir, resourceRoot string) (bool, error) {
 	changed, err := s.templateRepo.SyncTemplate(ctx, currentTemplate{
 		ID: id, SourceDigest: seed.Compiled.Bundle.Digest, UpdatedAt: time.Now().UTC().Format(time.RFC3339Nano),
 		Source: seed.Compiled.Bundle.Source, Owner: owner,
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 	s.rememberTemplateRoot(id, templateDir, resourceRoot)
 	if changed && s.logger != nil {
-		s.logger.Info("图片模板已更新", "component", "render", "template_id", id, "source_digest", seed.Compiled.Bundle.Digest)
+		s.logger.Debug("图片模板已更新", "component", "render", "template_id", id, "source_digest", seed.Compiled.Bundle.Digest)
 	}
-	return nil
+	return changed, nil
+}
+
+func (s *Service) logTemplateSync(updated int, sourceType string) {
+	if updated > 0 && s.logger != nil {
+		s.logger.Info(fmt.Sprintf("图片模板已更新，共 %d 个", updated), "component", "render", "updated_count", updated, "source_type", sourceType)
+	}
 }

@@ -93,7 +93,7 @@ func Discover(options DiscoverOptions) ([]plugins.Snapshot, DiscoverSummary, err
 		if summary.SkippedCount > 0 {
 			message += fmt.Sprintf("，%d 个目录已跳过", summary.SkippedCount)
 		}
-		options.Logger.Info(
+		options.Logger.Debug(
 			message,
 			"component", "plugins",
 			"valid_count", summary.ValidCount,

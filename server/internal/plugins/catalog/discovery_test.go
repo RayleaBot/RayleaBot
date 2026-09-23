@@ -44,9 +44,7 @@ func TestDiscoverSkipsInternalRuntimeDirectoriesWithoutWarnings(t *testing.T) {
 		t.Fatalf("unexpected skipped count: %#v", summary)
 	}
 	for _, item := range stream.Snapshot() {
-		if item.Level == "warn" || item.Level == "error" {
-			t.Fatalf("internal runtime directory should not warn about missing manifest: %#v", item)
-		}
+		t.Fatalf("unchanged internal directories should not produce default-level scan logs: %#v", item)
 	}
 }
 

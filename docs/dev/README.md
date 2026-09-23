@@ -55,6 +55,7 @@
 - Web 开发服务器输出位于 `logs/dev/web/YYYY-MM-DD.log`。
 - Launcher 输出位于 `logs/dev/launcher/YYYY-MM-DD.log`。
 - 构建输出位于 `logs/dev/build/YYYY-MM-DD.log`；启动日志记录编排和子日志位置，不重复保存子进程全文。
+- 终端显示阶段耗时、插件进度与运行摘要；构建资源清单保存在构建日志中，失败时显示诊断与日志位置。重定向输出自动使用静态行，`NO_COLOR` 可关闭交互终端配色。详见[日志说明](./logging.md)。
 
 ## 增量构建与环境复用
 

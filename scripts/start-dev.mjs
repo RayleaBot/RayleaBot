@@ -7,7 +7,8 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { createBuildCache, createGoInputRegistry, fingerprint, treeInputs, writeIfChanged, goInputTemplate, parseGoInputs } from "./dev-build-cache.mjs";
 import { developmentRequest, synchronizeDevelopmentPlugin } from "./development-client.mjs";
-import { createRedactedOutput, redactLogLine } from "./log-redaction.mjs";
+import { redactLogLine } from "./log-redaction.mjs";
+import { createDevChildOutput, createDevConsole } from "./dev-console.mjs";
 import {
   BUILD_PROFILE,
   LAUNCHER_CONTROL_TOKEN_ENV,
@@ -92,21 +93,26 @@ const launcherDir = path.join(rootDir, "launcher");
 const developmentLogs = Object.fromEntries(["web", "launcher", "server", "start", "build"].map((type) => [
   type, createDatedLogWriter({ rootDir, scope: "dev", type }),
 ]));
+const terminal = createDevConsole({ record: (message, level) => writeStartLog(`[${level.toUpperCase()}] ${message}\n`) });
+const startupStarted = Date.now();
+let startupReported = false;
 const longRunningChildren = new Set();
 const childOutputTails = new WeakMap();
-const childOutputTailLimit = 64 * 1024;
+const childHiddenOutputTails = new WeakMap();
 const cleanupCallbacks = new Set();
 let shuttingDown = false;
+let cleanupPromise;
 let activeServerDevLeaseId = "";
 let startupIdentity = "";
 let reusedRuntime = false;
 const cacheDir = path.join(rootDir, ".tmp", "dev-cache");
-const buildCache = createBuildCache(cacheDir, log);
+const buildCache = createBuildCache(cacheDir, (message) => log(message, "debug"));
 const goInputRegistry = createGoInputRegistry();
 const activeGoInputs = goInputRegistry.files;
 let onGoInputsChanged = () => {};
 let toolIdentity;
 const scriptInputs = ["start-dev.mjs", "dev-build-cache.mjs", "plugin-dev-workspace.mjs", "start-dev-support.mjs", "development-client.mjs", "file-content-tracker.mjs", "log-redaction.mjs"].map((name) => path.join(scriptDir, name));
+const startupInputs = [...scriptInputs, path.join(scriptDir, "dev-console.mjs")];
 
 await fsp.mkdir(childGoCacheDir, { recursive: true });
 
@@ -126,10 +132,12 @@ try {
   await main();
   await cleanup();
 } catch (error) {
-  log(`启动失败：${error?.message ?? error}`, "error");
-  log(`启动日志：${relativePath(developmentLogs.start.path)}`, "error");
+  if (!shuttingDown) {
+    log(`${startupReported ? "开发流程" : "启动"}失败：${error?.message ?? error}`, "error");
+    log(`启动日志：${relativePath(developmentLogs.start.path)}`, "error");
+    process.exitCode = 1;
+  }
   await cleanup();
-  process.exitCode = 1;
 } finally {
   await closeLogs();
 }
@@ -143,14 +151,16 @@ async function main() {
     throw new Error("RAYLEA_PLUGIN_DEV=watch requires RAYLEA_SERVER_RELOAD=watch.");
   }
   const pluginDev = { mode: pluginDevMode, workspacePath: pluginWorkspacePath };
+  log(`RayleaBot · ${profile} · Node ${process.version}`);
+  log(`日志：logs/dev/（start 编排 · build 构建 · server / web / launcher 运行）`);
   await fsp.mkdir(cacheDir, { recursive: true });
   toolIdentity = {
     node: process.version, nodePath: process.execPath, platform: process.platform, arch: process.arch,
     go: JSON.parse(await captureCommand("go", ["env", "-json", "GOVERSION", "GOOS", "GOARCH", "CGO_ENABLED", "GOFLAGS", "GOAMD64", "GOARM64", "GOROOT", "GOMODCACHE"])),
   };
-  startupIdentity = await fingerprint(scriptInputs, { profile, serverReloadMode, pluginDevMode, pluginWorkspacePath, toolIdentity });
+  startupIdentity = await fingerprint(startupInputs, { profile, serverReloadMode, pluginDevMode, pluginWorkspacePath, toolIdentity });
 
-  log(`启动配置：profile=${profile} install=${installMode} server_reload=${serverReloadMode || "off"} plugin_dev=${pluginDevMode}`);
+  log(`启动配置：profile=${profile} install=${installMode} server_reload=${serverReloadMode || "off"} plugin_dev=${pluginDevMode}`, "debug");
 
   if (profile === BUILD_PROFILE) {
     await runBuildProfile({ installMode, pluginDev });
@@ -169,9 +179,9 @@ async function main() {
   log(`后端地址：${backendBaseUrl}`);
   if (serverReloadMode === SERVER_RELOAD_WATCH && await reuseDevelopmentRuntime(backendBaseUrl)) {
     if (pluginDev.mode === "sync") await synchronizeOnlinePlugins(await buildDevelopmentPlugins(pluginDev), backendBaseUrl);
-    await ensureDependencies("Launcher", launcherDir, installMode);
-    await buildLauncherApp();
+    await prepareLauncher(installMode);
     if (!shouldSkipLaunch()) await launchCachedLauncher(devEnvironment);
+    else reportStartup();
     return;
   }
 
@@ -188,43 +198,49 @@ async function main() {
 }
 
 async function runBuildProfile({ installMode, pluginDev }) {
-  await ensureDependencies("Web", webDir, installMode);
-  await buildCache.run("web-static", {
-    inputs: async () => [...await treeInputs(webDir), ...scriptInputs], identity: toolIdentity,
-    outputs: [path.join(webDir, "dist"), path.join(webDir, "dist", "index.html")],
-    build: () => runCommand("构建 Web 静态资源", "pnpm", ["run", "build"], { cwd: webDir }),
+  await terminal.phase("Web 静态资源", async () => {
+    await ensureDependencies("Web", webDir, installMode);
+    await buildCache.run("web-static", {
+      inputs: async () => [...await treeInputs(webDir), ...scriptInputs], identity: toolIdentity,
+      outputs: [path.join(webDir, "dist"), path.join(webDir, "dist", "index.html")],
+      build: () => runCommand("构建 Web 静态资源", "pnpm", ["run", "build"], { cwd: webDir }),
+    });
   });
-  await buildServer();
-  await syncDevelopmentPlugins(pluginDev, path.join(serverDistDir, serverBinaryName));
-  await ensureDependencies("Launcher", launcherDir, installMode);
-  await buildLauncherApp();
+  await terminal.phase("Server 与开发插件", async () => {
+    await buildServer();
+    await syncDevelopmentPlugins(pluginDev, path.join(serverDistDir, serverBinaryName));
+  });
+  await prepareLauncher(installMode);
   if (shouldSkipLaunch()) {
-    log("已跳过 Launcher 启动。");
+    reportStartup();
     return;
   }
   await launchCachedLauncher({ RAYLEA_WEB_UI_BASE_URL: "" });
 }
 
 async function runWebDevProfile({ installMode, devEnvironment, serverDevEnvironment, serverReloadMode, backendBaseUrl, pluginDev }) {
-  await ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev, serverDevEnvironment });
-  await ensureDependencies("Web", webDir, installMode);
-  await ensureWebDevServer(devEnvironment);
-  await ensureDependencies("Launcher", launcherDir, installMode);
-  await buildLauncherApp();
+  await terminal.phase("Server 与开发插件", () => ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev, serverDevEnvironment }));
+  await terminal.phase("Web 开发服务", async () => {
+    await ensureDependencies("Web", webDir, installMode);
+    await ensureWebDevServer(devEnvironment);
+  });
+  await prepareLauncher(installMode);
   if (shouldSkipLaunch()) {
-    log("已跳过 Launcher 启动。");
+    reportStartup();
     return;
   }
   await launchCachedLauncher(devEnvironment);
 }
 
 async function runLauncherDevProfile({ installMode, devEnvironment, serverDevEnvironment, serverReloadMode, backendBaseUrl, pluginDev }) {
-  await ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev, serverDevEnvironment });
-  await ensureDependencies("Web", webDir, installMode);
-  await ensureWebDevServer(devEnvironment);
-  await ensureDependencies("Launcher", launcherDir, installMode);
+  await terminal.phase("Server 与开发插件", () => ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev, serverDevEnvironment }));
+  await terminal.phase("Web 开发服务", async () => {
+    await ensureDependencies("Web", webDir, installMode);
+    await ensureWebDevServer(devEnvironment);
+  });
+  await terminal.phase("Launcher 依赖", () => ensureDependencies("Launcher", launcherDir, installMode));
   if (shouldSkipLaunch()) {
-    log("已跳过 Launcher 启动。");
+    reportStartup();
     return;
   }
   await markRuntimeReady();
@@ -249,6 +265,10 @@ function nativeExecutableSuffix(platform) {
 }
 
 async function buildDevelopmentPlugins(pluginDev, pluginIDs) {
+  return terminal.phase("准备开发插件", (progress) => prepareDevelopmentPlugins(pluginDev, pluginIDs, progress));
+}
+
+async function prepareDevelopmentPlugins(pluginDev, pluginIDs, progress) {
   const workspace = pluginDev?.mode !== PLUGIN_DEV_OFF
     ? await loadPluginWorkspace(pluginDev.workspacePath) : { workspaceVersion: "2", plugins: [] };
   const platform = currentPluginPlatform();
@@ -260,6 +280,8 @@ async function buildDevelopmentPlugins(pluginDev, pluginIDs) {
   const helper = path.join(cacheDir, "raylea-plugin" + nativeExecutableSuffix(platform));
   await cachedGoBuild("plugin-builder", { cwd: path.join(rootDir, "sdk", "go"), main: "./cmd/raylea-plugin", output: helper });
   const plugins = pluginIDs === undefined ? workspace.plugins : workspace.plugins.filter((plugin) => pluginIDs.includes(plugin.id));
+  let completed = 0;
+  progress.progress(0, plugins.length);
   for (const plugin of plugins) {
     const environment = {
       GOWORK: pluginDevGoWorkPath, CGO_ENABLED: "0", RAYLEA_PLUGIN_BUILD_USE_WORKSPACE: "1",
@@ -317,15 +339,23 @@ async function buildDevelopmentPlugins(pluginDev, pluginIDs) {
         "--target", platform, "--out", pluginDevArtifactRoot, "--expanded=true", "--archive=false",
       ], { cwd: rootDir, env: environment }),
     });
+    progress.progress(++completed, plugins.length);
   }
   return { workspace, platform, plugins };
 }
 
 async function installDevelopmentPlugins(preparedPlugins, serverBinaryPath) {
+  if (!preparedPlugins.plugins.length) return;
+  return terminal.phase("同步开发插件", (progress) => installPreparedPlugins(preparedPlugins, serverBinaryPath, progress));
+}
+
+async function installPreparedPlugins(preparedPlugins, serverBinaryPath, progress) {
   const configPath = path.join(rootDir, "config", "user.yaml");
   if (preparedPlugins.plugins.length && !fs.existsSync(configPath)) {
     await runCommand("初始化配置", serverBinaryPath, ["-config", configPath, "config", "init"], { cwd: rootDir });
   }
+  let completed = 0;
+  progress.progress(0, preparedPlugins.plugins.length);
   for (const plugin of preparedPlugins.plugins) {
     const expandedArtifact = path.join(pluginDevArtifactRoot, preparedPlugins.platform, plugin.id);
     await runCommand(`同步开发插件 ${plugin.id}`, serverBinaryPath, [
@@ -338,7 +368,9 @@ async function installDevelopmentPlugins(preparedPlugins, serverBinaryPath) {
       "--source",
       plugin.path,
     ], { cwd: rootDir });
+    progress.progress(++completed, preparedPlugins.plugins.length);
   }
+  log(`开发插件：${completed} 个已同步`);
 }
 
 async function syncDevelopmentPlugins(pluginDev, serverBinaryPath, pluginIDs) {
@@ -348,13 +380,23 @@ async function syncDevelopmentPlugins(pluginDev, serverBinaryPath, pluginIDs) {
 }
 
 async function synchronizeOnlinePlugins(prepared, backendBaseUrl) {
-  for (const plugin of prepared.plugins) {
-    const changed = await synchronizeDevelopmentPlugin({
-      baseURL: backendBaseUrl, token: developmentControlToken,
-      artifact: path.join(pluginDevArtifactRoot, prepared.platform, plugin.id), source: plugin.path,
-    });
-    log(`${plugin.id}: ${changed ? "已在线同步" : "安装内容未变化"}`);
-  }
+  if (!prepared.plugins.length) return 0;
+  return terminal.phase("在线同步开发插件", async (progress) => {
+    let updated = 0, completed = 0;
+    progress.progress(0, prepared.plugins.length);
+    for (const plugin of prepared.plugins) {
+      assertDevelopmentRunning();
+      const changed = await synchronizeDevelopmentPlugin({
+        baseURL: backendBaseUrl, token: developmentControlToken,
+        artifact: path.join(pluginDevArtifactRoot, prepared.platform, plugin.id), source: plugin.path,
+      });
+      if (changed) updated++;
+      log(`${plugin.id}: ${changed ? "已在线同步" : "安装内容未变化"}`, "debug");
+      progress.progress(++completed, prepared.plugins.length);
+    }
+    if (updated) log(`开发插件：${updated} 个已更新，${completed - updated} 个内容未变化`);
+    return updated;
+  });
 }
 
 async function ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev, serverDevEnvironment }) {
@@ -377,7 +419,11 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
   let stopPluginWatching = async () => {};
   const queue = createDevelopmentReloadQueue();
   const expectedExits = new Set();
-  const reportError = (error) => log(error.message, "error");
+  const reportError = (error) => {
+    if (shuttingDown) return;
+    if (error.code === "DEV_INPUT_CHANGED") log("构建期间检测到新改动，将合并后重试。", "debug");
+    else log(error.message, "error");
+  };
   const schedule = () => {
     clearTimeout(timer);
     if (!shuttingDown) timer = setTimeout(() => { reloadPromise = reconcile(); }, serverReloadDebounceMs);
@@ -523,8 +569,8 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
         stopped = false;
         await fsp.rm(serverDevPreviousBinaryPath, { force: true });
       }
-      if (prepared && !serverChanged) await synchronize(prepared);
-      log(`开发同步完成：Server ${serverChanged ? "已重启" : "保持运行"}，耗时 ${Date.now() - started} ms。`);
+      const pluginsChanged = prepared && !serverChanged ? await synchronize(prepared) : 0;
+      log(`开发同步完成：Server ${serverChanged ? "已重启" : "保持运行"}，耗时 ${Date.now() - started} ms。`, serverChanged || pluginsChanged ? "info" : "debug");
     } catch (error) {
       reportError(error);
       if (error.code === "DEV_INPUT_CHANGED") {
@@ -579,7 +625,7 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
       await startAndVerify();
       log("Server 候选启动失败，已恢复上一个健康版本。", "error");
     }
-    log("Server 与开发插件已就绪。");
+    log("Server 与开发插件已就绪。", "debug");
   } finally {
     rebuilding = false;
     if (queue.hasChanges()) schedule();
@@ -830,9 +876,19 @@ async function buildLauncherApp() {
   });
 }
 
+async function prepareLauncher(installMode) {
+  await terminal.phase("Launcher 构建", async () => {
+    await ensureDependencies("Launcher", launcherDir, installMode);
+    await buildLauncherApp();
+    if (!shouldSkipLaunch()) {
+      const output = path.join(cacheDir, "raylea-launcher" + (process.platform === "win32" ? ".exe" : ""));
+      await cachedGoBuild("launcher", { cwd: launcherDir, main: ".", output, env: { GOWORK: "off" }, flags: process.platform === "linux" ? ["-tags", "gtk3"] : [] });
+    }
+  });
+}
+
 async function launchCachedLauncher(environment) {
   const output = path.join(cacheDir, "raylea-launcher" + (process.platform === "win32" ? ".exe" : ""));
-  await cachedGoBuild("launcher", { cwd: launcherDir, main: ".", output, env: { GOWORK: "off" }, flags: process.platform === "linux" ? ["-tags", "gtk3"] : [] });
   await markRuntimeReady();
   const executable = path.join(cacheDir, `launcher-run-${process.pid}` + (process.platform === "win32" ? ".exe" : ""));
   await fsp.copyFile(output, executable);
@@ -846,6 +902,7 @@ async function launchCachedLauncher(environment) {
 }
 
 async function captureCommand(command, args, { cwd = rootDir, env = {} } = {}) {
+  assertDevelopmentRunning();
   const spec = createSpawnSpec(command, args);
   const child = spawn(spec.command, spec.args, { cwd, env: createChildEnvironment(env), windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   longRunningChildren.add(child);
@@ -854,6 +911,7 @@ async function captureCommand(command, args, { cwd = rootDir, env = {} } = {}) {
   child.stderr.on("data", (chunk) => { errors += chunk; });
   try {
     const exit = await waitForChild(child);
+    assertDevelopmentRunning();
     if (exit.code !== 0) throw new Error(`${command} failed: ${errors.trim()}`);
     return output.trim();
   } finally { longRunningChildren.delete(child); }
@@ -914,7 +972,7 @@ async function ensureWebDevServer(devEnvironment) {
     throw new Error(`端口 ${WEB_DEV_PORT} 已被其他程序占用。请关闭占用程序，或使用 RAYLEA_START_PROFILE=build。`);
   }
 
-  log(`启动 Web 开发服务器：${WEB_DEV_BASE_URL}`);
+  log(`启动 Web 开发服务器：${WEB_DEV_BASE_URL}`, "debug");
   const child = spawnManaged("pnpm", ["dev"], {
     cwd: webDir,
     env: devEnvironment,
@@ -932,7 +990,7 @@ async function waitForWebDevServer(child, backendBaseUrl) {
     }
     const state = await classifyWebDevServer({ backendBaseUrl, projectDir: webDir, timeoutMs: 800 });
     if (state === "rayleabot") {
-      log(`Web 开发服务器已就绪：${WEB_DEV_BASE_URL}`);
+      log(`Web 开发服务器已就绪：${WEB_DEV_BASE_URL}`, "debug");
       return;
     }
     await delay(500);
@@ -941,22 +999,40 @@ async function waitForWebDevServer(child, backendBaseUrl) {
 }
 
 async function runCommand(label, command, args, { cwd, env = {}, logType, windowsHide = true } = {}) {
-  log(`${label}...`);
-  const child = spawnManaged(command, args, { cwd, env, logType, windowsHide });
-  const exit = await waitForChild(child);
-  if (exit.code !== 0) {
-    const output = childOutputTails.get(child)?.() ?? "";
-    const hints = describeCommandFailure(output, { cwd: cwd ?? rootDir });
-    const detail = hints.map((hint) => `提示：${hint}`).join("\n");
-    throw new Error(`${label}失败，退出码 ${exit.code}。${detail ? `\n${detail}` : ""}`);
+  assertDevelopmentRunning();
+  const task = terminal.start(label);
+  let child;
+  try {
+    child = spawnManaged(command, args, { cwd, env, logType, windowsHide });
+    if (logType === "launcher") child.once("spawn", () => {
+      if (shuttingDown) return;
+      task.finish("进程已启动");
+      reportStartup();
+    });
+    const exit = await waitForChild(child);
+    assertDevelopmentRunning();
+    if (exit.code !== 0) {
+      const output = childOutputTails.get(child)?.() ?? "";
+      const hints = describeCommandFailure(output, { cwd: cwd ?? rootDir });
+      const detail = hints.map((hint) => `提示：${hint}`).join("\n");
+      const hidden = childHiddenOutputTails.get(child)?.().trim().split("\n").slice(-12).join("\n");
+      if (hidden) terminal.write(hidden, { scope: logType || "build", level: "error", persist: false });
+      throw new Error(`${label}失败，退出码 ${exit.code}。日志：${relativePath(developmentLogs[logType || "build"].path)}${detail ? `\n${detail}` : ""}`);
+    }
+    task.finish();
+  } catch (error) {
+    if (shuttingDown) task.finish("已取消");
+    else task.fail();
+    throw error;
   }
 }
 
 function spawnManaged(command, args, { cwd, env = {}, logType = "build", windowsHide = true } = {}) {
+  assertDevelopmentRunning();
   const commandText = [command, ...args].join(" ");
-  writeStartLog(`$ ${commandText}\n`);
   const childLog = developmentLogs[logType];
-  writeStartLog(`子进程日志：${relativePath(childLog.path)}\n`);
+  writeStartLog(`$ ${commandText} → ${relativePath(childLog.path)}\n`);
+  childLog.write(`\n[${formatUTCLogTimestamp()}] $ ${redactLogLine(commandText)}\n`);
   const spawnSpec = createSpawnSpec(command, args);
   const childOverrides = command === "pnpm"
     ? createDependencyInstallEnvironment(env)
@@ -968,26 +1044,16 @@ function spawnManaged(command, args, { cwd, env = {}, logType = "build", windows
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  let outputTail = "";
-  const appendOutputTail = (chunk) => {
-    outputTail = (outputTail + chunk.toString("utf8")).slice(-childOutputTailLimit);
-  };
-  childOutputTails.set(child, () => outputTail);
-  const stdout = createRedactedOutput((chunk) => {
-    appendOutputTail(chunk);
-    writeChildOutput(chunk, process.stdout, childLog);
-  });
-  const stderr = createRedactedOutput((chunk) => {
-    appendOutputTail(chunk);
-    writeChildOutput(chunk, process.stderr, childLog);
-  });
-  child.stdout.on("data", (chunk) => stdout.write(chunk));
-  child.stderr.on("data", (chunk) => stderr.write(chunk));
+  const output = createDevChildOutput({ terminal, scope: logType, writeLog: (text) => childLog.write(text) });
+  childOutputTails.set(child, output.tail);
+  childHiddenOutputTails.set(child, output.hiddenTail);
+  child.stdout.on("data", (chunk) => output.stdout.write(chunk));
+  child.stderr.on("data", (chunk) => output.stderr.write(chunk));
   longRunningChildren.add(child);
   child.once("close", () => {
-    stdout.end();
-    stderr.end();
+    output.end();
     longRunningChildren.delete(child);
+    childLog.write(`[${formatUTCLogTimestamp()}] 进程结束：exit=${child.exitCode} signal=${child.signalCode || "none"}\n`);
   });
   return child;
 }
@@ -1035,7 +1101,16 @@ function normalizeExitCode(code, signal) {
   return signal ? 1 : 0;
 }
 
-async function cleanup() {
+function assertDevelopmentRunning() {
+  if (shuttingDown) throw Object.assign(new Error("开发流程正在关闭"), { code: "DEV_SHUTDOWN" });
+}
+
+function cleanup() {
+  cleanupPromise ??= cleanupDevelopmentProcesses();
+  return cleanupPromise;
+}
+
+async function cleanupDevelopmentProcesses() {
   shuttingDown = true;
   const callbacks = [...cleanupCallbacks];
   cleanupCallbacks.clear();
@@ -1109,20 +1184,15 @@ async function removeFileWithRetry(targetPath, attempts = 10, retryDelayMs = 100
   }
 }
 
-function writeChildOutput(chunk, output, childLog) {
-  output.write(chunk);
-  childLog?.write(chunk);
+function log(message, level = "info") {
+  terminal.write(message, { level });
 }
 
-function log(message, level = "info") {
-  const prefix = level === "error" ? "[RayleaBot] " : "[RayleaBot] ";
-  const line = `${prefix}${message}`;
-  if (level === "error") {
-    console.error(line);
-  } else {
-    console.log(line);
-  }
-  writeStartLog(`${line}\n`);
+function reportStartup() {
+  if (startupReported) return;
+  startupReported = true;
+  log(`启动准备完成 · ${((Date.now() - startupStarted) / 1000).toFixed(1)}s${shouldSkipLaunch() ? " · 检查结束，未打开 Launcher" : " · 关闭 Launcher 或按 Ctrl+C 结束"}`);
+  if (!shouldSkipLaunch() && resolveStartProfile(process.env) !== BUILD_PROFILE) log(`管理面：${WEB_DEV_BASE_URL}`);
 }
 
 function writeStartLog(chunk) {
@@ -1130,6 +1200,7 @@ function writeStartLog(chunk) {
 }
 
 async function closeLogs() {
+  terminal.close();
   await Promise.all(Object.values(developmentLogs).map((writer) => writer.end()));
 }
 

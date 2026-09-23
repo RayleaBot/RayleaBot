@@ -47,9 +47,14 @@ func (s *Service) SyncPluginTemplates(ctx context.Context, sources []Source) err
 	if err != nil {
 		return err
 	}
+	updated := 0
 	for _, item := range prepared.Templates {
-		if err := s.syncTemplateSeed(ctx, item.TemplateID, item.Seed, item.SourceInfo, item.Dir, item.ResourceRoot); err != nil {
+		changed, err := s.syncTemplateSeed(ctx, item.TemplateID, item.Seed, item.SourceInfo, item.Dir, item.ResourceRoot)
+		if err != nil {
 			return fmt.Errorf("sync plugin render template %s/%s: %w", item.PluginID, item.LocalID, err)
+		}
+		if changed {
+			updated++
 		}
 	}
 
@@ -61,6 +66,7 @@ func (s *Service) SyncPluginTemplates(ctx context.Context, sources []Source) err
 	if err := s.templateRepo.RemovePluginTemplatesNotIn(ctx, prepared.ActivePluginIDs); err != nil {
 		return err
 	}
+	s.logTemplateSync(updated, "plugin")
 	return nil
 }
 
