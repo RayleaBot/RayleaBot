@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherAdvancedOverrides, LauncherSettings } from "@shared/launcher-models";
 
 import { AppShellView } from "./AppShellView";
 import { describeLauncherError } from "./AppState.shared";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
-import { ActionConfirmDialog, type ConfirmedLauncherAction } from "./ActionConfirmDialog";
+import { ActionConfirmDialog } from "./ActionConfirmDialog";
+import { useLauncherConfirmations } from "./useLauncherConfirmations";
 import { useLauncherInitialization } from "./useLauncherInitialization";
 import { useLauncherSectionState } from "./useLauncherSectionState";
 import { useLauncherSettingsState } from "./useLauncherSettingsState";
@@ -13,9 +14,6 @@ import { useLauncherSettingsState } from "./useLauncherSettingsState";
 export function App() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [editingSettings, setEditingSettings] = useState(false);
-  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
-  const [confirmedAction, setConfirmedAction] = useState<ConfirmedLauncherAction | null>(null);
-  const externalStopConfirmPending = useRef(false);
   const {
     activeSection,
     setActiveSection,
@@ -63,6 +61,16 @@ export function App() {
     },
     [setSnapshot],
   );
+
+  const {
+    confirmedAction,
+    exitConfirmOpen,
+    handleConfirmedAction,
+    handleConfirmedActionCancel,
+    handleExitConfirm,
+    handleExitConfirmClose,
+    setConfirmedAction,
+  } = useLauncherConfirmations(setSnapshot, runAction);
 
   const handleUpdateSettings = useCallback(
     (update: (current: LauncherSettings) => LauncherSettings) => {
@@ -121,121 +129,6 @@ export function App() {
       setEditingDraft(null);
     });
   }, [editingDraft, runAction, setEditingDraft]);
-
-  const respondToExitConfirm = useCallback(
-    async (action: "hide" | "exit" | "cancel", setAsDefault: boolean) => {
-      setExitConfirmOpen(false);
-      try {
-        await window.rayleaLauncher.closeConfirmResponse({ action, setAsDefault });
-      } catch (error) {
-        setExitConfirmOpen(true);
-        setSnapshot((prev) => ({
-          ...prev,
-          launcher: {
-            ...prev.launcher,
-            statusHint: "无法提交关闭确认。",
-            lastLocalError: describeLauncherError(error, "关闭确认提交失败。"),
-          },
-        }));
-      }
-    },
-    [setSnapshot],
-  );
-
-  const handleExitConfirm = useCallback(
-    (action: "hide" | "exit", setAsDefault: boolean) => {
-      void respondToExitConfirm(action, setAsDefault);
-    },
-    [respondToExitConfirm],
-  );
-
-  const handleExitConfirmClose = useCallback(() => {
-    void respondToExitConfirm("cancel", false);
-  }, [respondToExitConfirm]);
-
-  const respondToExternalStopConfirm = useCallback((confirmed: boolean) => {
-    if (!externalStopConfirmPending.current) {
-      return;
-    }
-    externalStopConfirmPending.current = false;
-    void window.rayleaLauncher.externalStopConfirmResponse(confirmed).catch((error) => {
-      setSnapshot((prev) => ({
-        ...prev,
-        launcher: {
-          ...prev.launcher,
-          statusHint: "无法提交现有服务的停止确认。",
-          lastLocalError: describeLauncherError(error, "停止确认提交失败。"),
-        },
-      }));
-    });
-  }, [setSnapshot]);
-
-  const handleConfirmedAction = useCallback((action: ConfirmedLauncherAction) => {
-    setConfirmedAction(null);
-    if (action === "stop-external") {
-      respondToExternalStopConfirm(true);
-      return;
-    }
-    if (action === "apply-update") {
-      void runAction(action, () => window.rayleaLauncher.applyUpdate());
-      return;
-    }
-    void runAction(action, () => window.rayleaLauncher.resetAdmin());
-  }, [respondToExternalStopConfirm, runAction]);
-
-  const handleConfirmedActionCancel = useCallback(() => {
-    if (confirmedAction === "stop-external") {
-      respondToExternalStopConfirm(false);
-    }
-    setConfirmedAction(null);
-  }, [confirmedAction, respondToExternalStopConfirm]);
-
-  useEffect(() => {
-    const showExitConfirm = () => {
-      setExitConfirmOpen(true);
-    };
-    const unsubscribe = window.rayleaLauncher.onShowExitConfirm(showExitConfirm);
-    void window.rayleaLauncher.hasPendingCloseConfirm()
-      .then((pending) => {
-        if (pending) {
-          showExitConfirm();
-        }
-      })
-      .catch((error) => {
-        setSnapshot((prev) => ({
-          ...prev,
-          launcher: {
-            ...prev.launcher,
-            lastLocalError: describeLauncherError(error, "无法读取关闭确认状态。"),
-          },
-        }));
-      });
-    return unsubscribe;
-  }, [setSnapshot]);
-
-  useEffect(() => {
-    const showExternalStopConfirm = () => {
-      externalStopConfirmPending.current = true;
-      setConfirmedAction("stop-external");
-    };
-    const unsubscribe = window.rayleaLauncher.onShowExternalStopConfirm(showExternalStopConfirm);
-    void window.rayleaLauncher.hasPendingExternalStopConfirm()
-      .then((pending) => {
-        if (pending) {
-          showExternalStopConfirm();
-        }
-      })
-      .catch((error) => {
-        setSnapshot((prev) => ({
-          ...prev,
-          launcher: {
-            ...prev.launcher,
-            lastLocalError: describeLauncherError(error, "无法读取现有服务停止确认状态。"),
-          },
-        }));
-      });
-    return unsubscribe;
-  }, [setSnapshot]);
 
   const handleBeginEdit = useCallback(() => {
     setEditingDraft({
