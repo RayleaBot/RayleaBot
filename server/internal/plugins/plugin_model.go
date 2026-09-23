@@ -31,10 +31,13 @@ type Command struct {
 	TriggerType  string
 	TriggerNames []string
 	MatchPattern string
-	SettingsKey  string
-	Description  string
-	Usage        string
-	Permission   string
+	// Fallback marks a pattern command that matches only when no ordinary
+	// command and no builtin menu command does.
+	Fallback    bool
+	SettingsKey string
+	Description string
+	Usage       string
+	Permission  string
 }
 
 type CommandGroup struct {

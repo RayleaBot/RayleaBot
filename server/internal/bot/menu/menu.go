@@ -230,7 +230,7 @@ func (s *Service) hasExactPluginCommand(commandName string) bool {
 	}
 	for _, entry := range s.plugins.Commands() {
 		for _, commandItem := range entry.Commands {
-			if commandItem.Matches(commandName) {
+			if !commandItem.Fallback && commandItem.Matches(commandName) {
 				return true
 			}
 		}

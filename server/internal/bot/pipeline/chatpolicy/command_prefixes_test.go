@@ -92,3 +92,39 @@ func TestDedicatedPrefixSelectsTargetsPermissionAndShadowsBuiltinMenu(t *testing
 		}
 	})
 }
+
+func TestFallbackCommandsYieldToOrdinaryCommandsAndTheBuiltinMenu(t *testing.T) {
+	card := plugins.Command{ID: "card", TriggerType: "pattern", MatchPattern: `^.+$`, Fallback: true}
+	catalog := protocolPolicyCatalog{
+		plugins.Snapshot{PluginID: "genshin", Valid: true, RegistrationState: "installed", DesiredState: "enabled", Commands: []plugins.Command{{Name: "体力"}, card}},
+		plugins.Snapshot{PluginID: "echo", Valid: true, RegistrationState: "installed", DesiredState: "enabled", Commands: []plugins.Command{{Name: "echo"}}},
+		plugins.Snapshot{PluginID: "starrail", Valid: true, RegistrationState: "installed", DesiredState: "enabled", Commands: []plugins.Command{{Name: "体力"}}},
+	}
+	current := func() config.Config {
+		return config.Config{Command: &config.CommandConfig{Prefixes: []string{"/"}}}
+	}
+	menu := menuext.New(menuext.Deps{CurrentConfig: current, Plugins: catalog})
+	service := New(Deps{CurrentConfig: current, Plugins: catalog, Menu: menu})
+	message := func(text string) chatevent.NormalizedEvent {
+		return chatevent.NormalizedEvent{Kind: chatevent.EventKindMessage, SourceProtocol: "onebot11", SourceAdapter: "onebot11", EventType: "message.group", SenderID: "u", ActorRole: "member", ConversationType: "group", ConversationID: "g", PlainText: text}
+	}
+	targets := func(text string) []string {
+		ids := []string{}
+		for _, target := range service.EnrichCommandEvent(message(text)).CommandTargets {
+			ids = append(ids, target.PluginID+":"+target.Command)
+		}
+		return ids
+	}
+	if got := targets("/echo"); !reflect.DeepEqual(got, []string{"echo:echo"}) {
+		t.Fatalf("an ordinary command of another plugin = %v", got)
+	}
+	if got := targets("/体力"); !reflect.DeepEqual(got, []string{"genshin:体力", "starrail:体力"}) {
+		t.Fatalf("ordinary commands = %v", got)
+	}
+	if got := targets("/雷神"); !reflect.DeepEqual(got, []string{"genshin:雷神"}) {
+		t.Fatalf("fallback = %v", got)
+	}
+	if !menu.Match(message("/崩坏：星穹铁道帮助")).Matched || len(targets("/帮助")) != 0 {
+		t.Fatal("a fallback command took a builtin menu word")
+	}
+}

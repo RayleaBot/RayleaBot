@@ -125,7 +125,11 @@
       "type": "object", "additionalProperties": false, "required": ["type", "pattern"],
       "properties": {
         "type": { "const": "pattern" },
-        "pattern": { "type": "string", "minLength": 1 }
+        "pattern": { "type": "string", "minLength": 1 },
+        "fallback": {
+          "type": "boolean",
+          "description": "A fallback command is considered only when no ordinary command of any plugin and no builtin menu command matches the message, so a broad pattern such as a bare character name never shadows other commands."
+        }
       }
     },
     "setting_trigger": {

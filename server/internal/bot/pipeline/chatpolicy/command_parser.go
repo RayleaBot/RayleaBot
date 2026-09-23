@@ -16,6 +16,7 @@ func newCommandParser(cfg config.Config) *command.Parser {
 // commandResolution is how one message addresses commands. A builtin menu match
 // and plugin matches are exclusive: the menu sits in the global tier, so it
 // replaces global-tier plugin matches and is shadowed by dedicated ones.
+// Fallback commands apply only when neither matched.
 type commandResolution struct {
 	parsed  command.ParseResult
 	matches []plugins.CommandMatch
@@ -43,6 +44,9 @@ func (s *Service) resolveCommand(event chatevent.NormalizedEvent) commandResolut
 				Prefix:    builtin.Prefix,
 			}}
 		}
+	}
+	if len(matches) == 0 && s.plugins != nil {
+		matches = plugins.ResolveFallbackMatches(s.plugins.Commands(), text, s.config().CommandPrefixes())
 	}
 	if len(matches) > 0 {
 		first := matches[0]

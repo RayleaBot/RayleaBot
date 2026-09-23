@@ -63,6 +63,7 @@ type manifestCommandTrigger struct {
 	Type        string   `json:"type"`
 	Names       []string `json:"names"`
 	Pattern     string   `json:"pattern"`
+	Fallback    bool     `json:"fallback"`
 	SettingsKey string   `json:"settings_key"`
 }
 
@@ -121,6 +122,7 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 			TriggerType:  command.Trigger.Type,
 			TriggerNames: append([]string(nil), command.Trigger.Names...),
 			MatchPattern: command.Trigger.Pattern,
+			Fallback:     command.Trigger.Type == "pattern" && command.Trigger.Fallback,
 			SettingsKey:  command.Trigger.SettingsKey,
 			Description:  command.Description,
 			Usage:        command.Usage,

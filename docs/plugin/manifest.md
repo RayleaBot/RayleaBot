@@ -44,7 +44,7 @@ manifest 不声明宿主权限。插件进程是管理员确认安装的完全�
 每条 `commands` 声明必须有稳定 `id`、展示 `name`、说明、用法和一个触发器：
 
 - `exact`：静态 `names`，首项是主触发词，其余项是别名。
-- `pattern`：Go regexp 规则。
+- `pattern`：Go regexp 规则。`fallback: true` 表示兜底命令：只有所有插件的普通命令和内置帮助菜单都没有命中时才参与匹配，前缀与层级规则不变，适合“#角色名”这类宽泛写法。
 - `setting`：从 `default_config` 与保存配置的 `settings_key` 推导实际触发词。
 
 `command_groups[].commands` 只能引用存在的命令 ID。帮助菜单从命令和分组生成；`help` 只提供标题与摘要，不能声明没有对应命令的任意项目。插件自己画帮助时，`help.command` 指向该命令（须为 `exact` 触发），内置菜单对这个插件的页面（如“/插件名帮助”）改为以该命令的主触发词投递给插件，总菜单仍由宿主生成。

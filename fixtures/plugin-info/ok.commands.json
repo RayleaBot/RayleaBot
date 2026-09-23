@@ -46,6 +46,18 @@
           "type": "setting",
           "settings_key": "resolver_help_commands"
         }
+      },
+      {
+        "id": "subscription-lookup",
+        "name": "订阅查询",
+        "description": "以订阅名直接查询，其他命令都不匹配时才生效",
+        "usage": "/订阅名",
+        "permission": "everyone",
+        "trigger": {
+          "type": "pattern",
+          "pattern": "^(?P<name>.+)$",
+          "fallback": true
+        }
       }
     ],
     "command_groups": [
@@ -57,7 +69,7 @@
       {
         "id": "subscription",
         "title": "订阅管理",
-        "commands": ["subscription-status"]
+        "commands": ["subscription-status", "subscription-lookup"]
       }
     ],
     "help": {

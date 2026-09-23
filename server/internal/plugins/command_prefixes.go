@@ -61,8 +61,19 @@ type CommandMatch struct {
 // ResolveCommandMatches parses text once per plugin with that plugin's effective
 // prefixes. A prefix is a match condition, not ownership, so several plugins may
 // share one. Matches through a dedicated prefix shadow matches through a global
-// prefix; the survivors keep catalog order.
+// prefix; the survivors keep catalog order. Fallback commands take no part.
 func ResolveCommandMatches(entries []CommandEntry, text string, global []string) []CommandMatch {
+	return resolveCommandMatches(entries, text, global, false)
+}
+
+// ResolveFallbackMatches parses text against the fallback commands alone, with
+// the same prefixes and tiers. Callers consult it only when no ordinary command
+// and no builtin menu command matched.
+func ResolveFallbackMatches(entries []CommandEntry, text string, global []string) []CommandMatch {
+	return resolveCommandMatches(entries, text, global, true)
+}
+
+func resolveCommandMatches(entries []CommandEntry, text string, global []string, fallback bool) []CommandMatch {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil
@@ -71,7 +82,7 @@ func ResolveCommandMatches(entries []CommandEntry, text string, global []string)
 	var matches []CommandMatch
 	dedicated := false
 	for _, entry := range entries {
-		match, ok := matchPluginCommand(entry, text, globalPrefix, afterGlobal)
+		match, ok := matchPluginCommand(entry, text, globalPrefix, afterGlobal, fallback)
 		if !ok {
 			continue
 		}
@@ -96,16 +107,16 @@ func HasDedicatedMatch(matches []CommandMatch) bool {
 	return len(matches) > 0 && matches[0].Tier == CommandTierDedicated
 }
 
-func matchPluginCommand(entry CommandEntry, text, globalPrefix, afterGlobal string) (CommandMatch, bool) {
+func matchPluginCommand(entry CommandEntry, text, globalPrefix, afterGlobal string, fallback bool) (CommandMatch, bool) {
 	// A dedicated prefix may stand alone or follow the global prefix. Longer
 	// prefixes are tried first so a shorter one never hides them; the declared
 	// order is kept for display.
 	for _, prefix := range SortCommandPrefixes(entry.Prefixes.Dedicated) {
-		if match, ok := matchAfterPrefix(entry, text, prefix); ok {
+		if match, ok := matchAfterPrefix(entry, text, prefix, fallback); ok {
 			match.Tier, match.Prefix = CommandTierDedicated, prefix
 			return match, true
 		}
-		if match, ok := matchAfterPrefix(entry, afterGlobal, prefix); ok {
+		if match, ok := matchAfterPrefix(entry, afterGlobal, prefix, fallback); ok {
 			match.Tier, match.Prefix = CommandTierDedicated, globalPrefix+prefix
 			return match, true
 		}
@@ -113,27 +124,27 @@ func matchPluginCommand(entry CommandEntry, text, globalPrefix, afterGlobal stri
 	if entry.Prefixes.IgnoreGlobal || globalPrefix == "" {
 		return CommandMatch{}, false
 	}
-	match, ok := matchDeclared(entry, afterGlobal)
+	match, ok := matchDeclared(entry, afterGlobal, fallback)
 	if ok {
 		match.Tier, match.Prefix = CommandTierGlobal, globalPrefix
 	}
 	return match, ok
 }
 
-func matchAfterPrefix(entry CommandEntry, text, prefix string) (CommandMatch, bool) {
+func matchAfterPrefix(entry CommandEntry, text, prefix string, fallback bool) (CommandMatch, bool) {
 	if prefix == "" || !strings.HasPrefix(text, prefix) {
 		return CommandMatch{}, false
 	}
-	return matchDeclared(entry, strings.TrimSpace(text[len(prefix):]))
+	return matchDeclared(entry, strings.TrimSpace(text[len(prefix):]), fallback)
 }
 
-func matchDeclared(entry CommandEntry, rest string) (CommandMatch, bool) {
+func matchDeclared(entry CommandEntry, rest string, fallback bool) (CommandMatch, bool) {
 	fields := strings.Fields(rest)
 	if len(fields) == 0 {
 		return CommandMatch{}, false
 	}
 	for _, command := range entry.Commands {
-		if command.Matches(fields[0]) {
+		if command.Fallback == fallback && command.Matches(fields[0]) {
 			return CommandMatch{PluginID: entry.PluginID, Command: fields[0], Args: fields[1:], Declaration: command}, true
 		}
 	}

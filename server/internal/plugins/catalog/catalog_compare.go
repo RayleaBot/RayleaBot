@@ -41,6 +41,7 @@ func commandsEqual(left []plugins.Command, right []plugins.Command) bool {
 			left[index].Permission != right[index].Permission ||
 			left[index].TriggerType != right[index].TriggerType ||
 			left[index].MatchPattern != right[index].MatchPattern ||
+			left[index].Fallback != right[index].Fallback ||
 			left[index].SettingsKey != right[index].SettingsKey ||
 			!stringSlicesEqual(left[index].TriggerNames, right[index].TriggerNames) ||
 			!stringSlicesEqual(left[index].Aliases, right[index].Aliases) {
