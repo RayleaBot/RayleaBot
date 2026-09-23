@@ -180,17 +180,24 @@ func (s *Service) Match(event chatevent.NormalizedEvent) Request {
 		}
 		if strings.HasSuffix(commandName, name) {
 			target := strings.TrimSpace(strings.TrimSuffix(commandName, name))
-			if target != "" {
-				if s.hasExactPluginCommand(commandName) {
-					continue
-				}
-				return s.withHelpDelegate(Request{
-					Matched: true,
-					Target:  target,
-					Prefix:  parsed.Prefix,
-					Command: commandName,
-				})
+			if target == "" {
+				continue
 			}
+			// "<plugin>帮助" is the menu page of that plugin even when a plugin's
+			// pattern also takes the word, as a 米游社… search pattern takes
+			// 米游社账号帮助; only a plugin declaring the exact word keeps it.
+			// Other words ending in a menu word stay with any plugin command
+			// that takes them.
+			_, names := findBuiltinMenuItem(s.visibleBuiltinMenuItems(event), target)
+			if s.hasPluginCommand(commandName, !names) {
+				continue
+			}
+			return s.withHelpDelegate(Request{
+				Matched: true,
+				Target:  target,
+				Prefix:  parsed.Prefix,
+				Command: commandName,
+			})
 		}
 	}
 	return Request{}
@@ -223,14 +230,16 @@ func (s *Service) withHelpDelegate(request Request) Request {
 	return request
 }
 
-func (s *Service) hasExactPluginCommand(commandName string) bool {
+// hasPluginCommand reports whether an enabled plugin's ordinary command takes
+// the word: by an exact name, or also by a pattern when patterns is true.
+func (s *Service) hasPluginCommand(commandName string, patterns bool) bool {
 	commandName = strings.TrimSpace(commandName)
 	if commandName == "" || s == nil || s.plugins == nil {
 		return false
 	}
 	for _, entry := range s.plugins.Commands() {
 		for _, commandItem := range entry.Commands {
-			if !commandItem.Fallback && commandItem.Matches(commandName) {
+			if !commandItem.Fallback && (patterns || strings.TrimSpace(commandItem.MatchPattern) == "") && commandItem.Matches(commandName) {
 				return true
 			}
 		}

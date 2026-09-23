@@ -165,6 +165,7 @@
     },
     "help": {
       "type": "object", "additionalProperties": false,
+      "description": "The plugin's page in the builtin menu. A builtin menu command written after the plugin's name or ID (such as 原神帮助) opens this page even when another plugin's pattern trigger matches the word; only an exact trigger of the same word takes precedence. Other words ending in a menu command stay with any ordinary plugin command that matches them.",
       "properties": {
         "title": { "type": "string", "minLength": 1 },
         "summary": { "type": "string", "minLength": 1 },
