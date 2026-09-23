@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
@@ -31,8 +31,6 @@ export const useSystemStore = defineStore('system', () => {
 
   let snapshotRequestID = 0
   let interactiveLoads = 0
-
-  const isHealthy = computed(() => health.value?.status === 'ok')
 
   async function requestReadinessStatus(signal?: AbortSignal) {
     return await apiRequest<ReadinessStatusResponse>('/readyz', {
@@ -162,7 +160,6 @@ export const useSystemStore = defineStore('system', () => {
     diagnosticsPending,
     error,
     health,
-    isHealthy,
     loading,
     readiness,
     recentEvents,
@@ -173,7 +170,6 @@ export const useSystemStore = defineStore('system', () => {
     applyEvent,
     createBackup,
     exportDiagnostics,
-    refresh: refreshAll,
     refreshAll,
     refreshStatus,
     requestShutdown,

@@ -696,13 +696,6 @@ describe('PluginDetailPage', () => {
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(detail)
     vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
-    vi.spyOn(pluginsStore, 'fetchSettings').mockResolvedValue({
-      plugin_id: 'example-config-panel',
-      values: {
-        default_city: '上海',
-        unit: 'fahrenheit',
-      },
-    })
 
     const wrapper = mount(PluginDetailPage, {
       global: {

@@ -13,9 +13,6 @@ import type {
   PluginInstallRequest,
   PluginListResponse,
   PluginState,
-  PluginSettingsResponse,
-  PluginSettingsUpdateRequest,
-  PluginSettingsUpdateResponse,
   PluginSummary,
   TaskAcceptedResponse,
 } from '@/types/api'
@@ -35,11 +32,8 @@ export const usePluginsStore = defineStore('plugins', () => {
   const detailErrorsByPluginId = ref<Record<string, string | null>>({})
   const detailLoadingByPluginId = ref<Record<string, boolean>>({})
   const pluginNameCache = ref<Record<string, string>>({})
-  const settingsByPluginId = ref<Record<string, Record<string, unknown>>>({})
   const detailLoading = ref(false)
   const actionPending = ref<Record<string, string | null>>({})
-  const settingsLoading = ref<Record<string, boolean>>({})
-  const settingsSaving = ref<Record<string, boolean>>({})
   const installPending = ref(false)
   const iconRevision = ref(0)
   const detailGenerations = new Map<string, number>()
@@ -267,8 +261,8 @@ export const usePluginsStore = defineStore('plugins', () => {
       source: plugin.source ?? previous?.source,
       trust: plugin.trust ?? previous?.trust,
       commands: plugin.commands ?? previous?.commands ?? [],
-    command_groups: plugin.command_groups ?? previous?.command_groups ?? [],
-    help: plugin.help ?? previous?.help ?? {},
+      command_groups: plugin.command_groups ?? previous?.command_groups ?? [],
+      help: plugin.help ?? previous?.help ?? {},
       command_conflicts: plugin.command_conflicts ?? previous?.command_conflicts ?? [],
     }
 
@@ -352,20 +346,6 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  function setSettingsLoading(pluginId: string, loadingValue: boolean) {
-    settingsLoading.value = {
-      ...settingsLoading.value,
-      [pluginId]: loadingValue,
-    }
-  }
-
-  function setSettingsSaving(pluginId: string, loadingValue: boolean) {
-    settingsSaving.value = {
-      ...settingsSaving.value,
-      [pluginId]: loadingValue,
-    }
-  }
-
   async function executeAction(pluginId: string, action: 'enable' | 'disable' | 'reload') {
     setPending(pluginId, action)
     try {
@@ -411,43 +391,6 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  async function fetchSettings(pluginId: string) {
-    setSettingsLoading(pluginId, true)
-    try {
-      const response = await apiRequest<PluginSettingsResponse>(apiPath('/api/plugins/{plugin_id}/settings', { plugin_id: pluginId }))
-      settingsByPluginId.value = {
-        ...settingsByPluginId.value,
-        [pluginId]: response.values,
-      }
-      return response
-    } finally {
-      setSettingsLoading(pluginId, false)
-    }
-  }
-
-  async function updateSettings(pluginId: string, values: PluginSettingsUpdateRequest['values']) {
-    setSettingsSaving(pluginId, true)
-    try {
-      const response = await apiRequest<PluginSettingsUpdateResponse>(apiPath('/api/plugins/{plugin_id}/settings', { plugin_id: pluginId }), {
-        method: 'PUT',
-        body: {
-          values,
-        } satisfies PluginSettingsUpdateRequest,
-      })
-      settingsByPluginId.value = {
-        ...settingsByPluginId.value,
-        [pluginId]: response.values,
-      }
-      return response
-    } finally {
-      setSettingsSaving(pluginId, false)
-    }
-  }
-
-  function getSettings(pluginId: string) {
-    return settingsByPluginId.value[pluginId] ?? {}
-  }
-
   return {
     actionPending,
     total, nextCursor, loadingMore, loadMore, knownItems, rememberSummaries, cancelDataSourceRefresh,
@@ -462,23 +405,17 @@ export const usePluginsStore = defineStore('plugins', () => {
     listLoaded,
     iconRevision,
     loading,
-    settingsByPluginId,
-    settingsLoading,
-    settingsSaving,
     sortedItems,
     executeAction,
     fetchDetail,
-    fetchSettings,
     fetchList,
     refreshList,
     ensureDetail,
     ensureList,
-    getSettings,
     getPluginDisplayName,
     getPluginLabel,
     installPlugin,
     uninstallPlugin,
-    updateSettings,
     upsert,
   }
 })

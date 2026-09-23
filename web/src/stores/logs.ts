@@ -52,10 +52,6 @@ export const useLogsStore = defineStore('logs', () => {
     return fetchLatest({ replaceItems: true })
   }
 
-  async function refreshLatest() {
-    return fetchLatest({ replaceItems: false })
-  }
-
   async function loadOlder() {
     if (!olderCursor.value || loadingOlder.value) {
       return items.value
@@ -212,7 +208,6 @@ export const useLogsStore = defineStore('logs', () => {
     applyFilters,
     ensureLoaded,
     loadOlder,
-    refreshLatest,
     setViewportActive,
     setViewportAtBottom,
   }

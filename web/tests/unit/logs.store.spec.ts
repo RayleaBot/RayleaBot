@@ -214,7 +214,7 @@ describe('logs store', () => {
     expect(store.pendingNewCount).toBe(0)
   })
 
-  it('keeps already seen live rows when refreshing latest data', async () => {
+  it('keeps live rows that arrive while the first page is loading', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       items: [
         {
@@ -234,15 +234,7 @@ describe('logs store', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const store = useLogsStore()
-    store.items = [
-      {
-        log_id: 'log_persisted_0001',
-        timestamp: '2026-04-05T08:00:00Z',
-        level: 'info',
-        source: 'runtime',
-        message: 'persisted row',
-      },
-    ]
+    const loading = store.ensureLoaded()
     store.append({
       log_id: 'log_live_0001',
       timestamp: '2026-04-05T08:00:01Z',
@@ -251,7 +243,7 @@ describe('logs store', () => {
       message: 'live row',
     })
 
-    await store.refreshLatest()
+    await loading
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/logs?scope=current_session&limit=100',

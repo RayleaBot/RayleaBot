@@ -211,7 +211,6 @@ export const usePluginStore = defineStore('plugin-store', () => {
     fetchDetail,
     fetchEntries,
     loadMore,
-    refreshEntries,
     fetchSources,
     install,
     refreshSource,

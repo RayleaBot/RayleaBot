@@ -84,10 +84,10 @@ describe('ui-shell store', () => {
     const store = useUiShellStore()
     expect(store.tabs.map(item => item.path)).toEqual(['/logs', '/plugins', '/plugins/weather'])
     expect(store.tabs[1]).toMatchObject({ name: 'plugin-center', fullPath: '/plugins' })
-    expect(store.effectiveCachedViewNames).toEqual(expect.arrayContaining(['logs', 'plugins', 'plugin-settings', 'commands', 'menu-center', 'plugin-store']))
+    expect(store.cachedViewNames).toEqual(expect.arrayContaining(['logs', 'plugins', 'plugin-settings', 'commands', 'menu-center', 'plugin-store']))
     store.removeTab('/plugins')
     expect(store.tabs.map(item => item.path)).toEqual(['/logs', '/plugins/weather'])
-    expect(store.effectiveCachedViewNames).not.toContain('plugin-settings')
+    expect(store.cachedViewNames).not.toContain('plugin-settings')
   })
 
   it('restores the merged full URL and rejects unrelated destinations', () => {

@@ -156,7 +156,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
 
     return Array.from(new Set(names))
   })
-  const effectiveCachedViewNames = computed(() => cachedViewNames.value)
 
   let systemThemeMediaQuery: MediaQueryList | null = null
   const handleSystemThemeChange = (event: MediaQueryListEvent) => {
@@ -200,10 +199,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
 
   function setThemeMode(nextValue: ThemeMode) {
     patchPreferences({ themeMode: nextValue })
-  }
-
-  function toggleThemeMode() {
-    setThemeMode(resolvedThemeMode.value === 'dark' ? 'light' : 'dark')
   }
 
   function syncTabs(affixTabs: ShellTabItem[]) {
@@ -317,7 +312,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
 
   return {
     cachedViewNames,
-    effectiveCachedViewNames,
     closeAllTabs,
     closeOtherTabs,
     closeTabsToLeft,
@@ -342,7 +336,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     setThemeMode,
     syncTabs,
     toggleSider,
-    toggleThemeMode,
     upsertTab,
     openSearch,
     openSettings,

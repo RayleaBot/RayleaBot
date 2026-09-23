@@ -620,7 +620,7 @@ describe('BasicLayout', () => {
     await clickContextMenuItem('关闭当前标签')
     expect(router.currentRoute.value.fullPath).toBe('/plugins/weather?panel=overview')
     expect(uiShellStore.tabs.map(tab => tab.path)).toEqual(['/', '/plugins/weather'])
-    expect(uiShellStore.effectiveCachedViewNames).not.toContain('plugin-settings')
+    expect(uiShellStore.cachedViewNames).not.toContain('plugin-settings')
   })
 
   it('renders plugin settings under the plugin center group', async () => {

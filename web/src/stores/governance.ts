@@ -1,5 +1,5 @@
 import { apiPath } from '@/lib/api-path'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
@@ -26,8 +26,6 @@ export const useGovernanceStore = defineStore('governance', () => {
 
   let commandPolicyRequestID = 0
   let refreshRequestID = 0
-
-  const hasData = computed(() => Boolean(blacklist.value || whitelist.value || commandPolicy.value))
 
   const blacklistPager = createCollectionPager<GovernanceBlacklistResponse>({
     request: (query, cursor, signal) => apiRequest(collectionURL('/api/governance/blacklist', query, cursor), { signal }),
@@ -197,7 +195,6 @@ export const useGovernanceStore = defineStore('governance', () => {
     blacklistError,
     whitelistError,
     commandPolicyError,
-    hasData,
     fetchBlacklist,
     fetchWhitelist,
     fetchCommandPolicy,

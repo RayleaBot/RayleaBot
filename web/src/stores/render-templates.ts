@@ -1,5 +1,5 @@
 import { apiPath } from '@/lib/api-path'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
@@ -25,8 +25,6 @@ export const useRenderTemplatesStore = defineStore('render-templates', () => {
   let catalogVersion = 0
   let workspaceRequest = 0
   const pendingWorkspaces = new Map<string, number>()
-
-  const templateMap = computed(() => Object.fromEntries(items.value.map((item) => [item.id, item])))
 
   function upsertTemplateSummary(summary: RenderTemplateSummary) {
     items.value = items.value.map(item => item.id === summary.id ? summary : item)
@@ -111,7 +109,6 @@ export const useRenderTemplatesStore = defineStore('render-templates', () => {
     items,
     loading,
     previewTemplateHTML,
-    templateMap,
     workspaceLoading,
   }
 })

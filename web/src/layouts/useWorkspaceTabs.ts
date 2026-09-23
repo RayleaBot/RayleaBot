@@ -235,7 +235,6 @@ export function useWorkspaceTabs(options: WorkspaceTabsOptions) {
   })
 
   return {
-    currentTab,
     currentTabPath,
     getTabCloseActionItems,
     handleTabAction,

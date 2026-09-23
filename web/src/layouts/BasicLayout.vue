@@ -74,7 +74,7 @@ const configStore = useConfigStore()
 const uiShellStore = useUiShellStore()
 
 const {
-  effectiveCachedViewNames,
+  cachedViewNames,
   mobileMenuOpen,
   preferences,
   routeLoading,
@@ -953,7 +953,7 @@ onBeforeUnmount(() => {
             @enter-cancelled="handlePageTransitionCancelled"
             @leave-cancelled="handlePageTransitionCancelled"
           >
-            <KeepAlive :include="effectiveCachedViewNames">
+            <KeepAlive :include="cachedViewNames">
               <component
                 :is="getRouteStageComponent(currentViewRoute)"
                 v-if="resolveLeafRouteComponent(currentViewRoute)"

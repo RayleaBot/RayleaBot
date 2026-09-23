@@ -60,7 +60,7 @@ describe('system store', () => {
     }))
 
     const store = useSystemStore()
-    await store.refresh()
+    await store.refreshAll()
 
     expect(store.health?.status).toBe('ok')
     expect(store.readiness?.status).toBe('failed')

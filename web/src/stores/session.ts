@@ -154,7 +154,6 @@ export const useSessionStore = defineStore('session', () => {
 
   return {
     bootstrapError,
-    bootstrapPending,
     csrfToken,
     isAuthenticated,
     isBootstrapped,
