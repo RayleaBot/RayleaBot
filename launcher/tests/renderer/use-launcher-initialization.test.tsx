@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { LauncherDesktopApi } from "@shared/desktop-api";
 import type { LauncherSnapshot } from "@shared/launcher-models";
@@ -21,6 +21,58 @@ afterEach(() => {
 });
 
 describe("useLauncherInitialization", () => {
+  test("keeps live snapshot and window updates when initial reads resolve late", async () => {
+    let snapshotListener!: (snapshot: LauncherSnapshot) => void;
+    let maximizedListener!: (value: boolean) => void;
+    let resolveSnapshot!: (snapshot: LauncherSnapshot) => void;
+    let resolveMaximized!: (value: boolean) => void;
+    const snapshotRequest = new Promise<LauncherSnapshot>((resolve) => { resolveSnapshot = resolve; });
+    const maximizedRequest = new Promise<boolean>((resolve) => { resolveMaximized = resolve; });
+    const getSnapshot = vi.fn(() => snapshotRequest);
+    const liveSnapshot = createLauncherSnapshot({ launcher: { processLifecycle: "running" } });
+    installDesktopApi({
+      initialize: vi.fn(async () => undefined),
+      getSnapshot,
+      getPlatform: vi.fn(async () => "win32-x64"),
+      isMaximized: vi.fn(() => maximizedRequest),
+      onSnapshot: vi.fn((listener) => { snapshotListener = listener; return () => undefined; }),
+      onMaximizedChange: vi.fn((listener) => { maximizedListener = listener; return () => undefined; }),
+    } as unknown as LauncherDesktopApi);
+    const { result } = renderHook(() => useLauncherInitialization());
+    await waitFor(() => expect(getSnapshot).toHaveBeenCalledOnce());
+    await act(async () => {
+      snapshotListener(liveSnapshot);
+      maximizedListener(true);
+      resolveSnapshot(blankSnapshot);
+      resolveMaximized(false);
+    });
+    expect(result.current.snapshot.launcher.processLifecycle).toBe("running");
+    expect(result.current.isMaximized).toBe(true);
+    expect(result.current.initializing).toBe(false);
+  });
+
+  test("unsubscribes and avoids reading a snapshot after initialization outlives the component", async () => {
+    let finishInitialize!: () => void;
+    const initializing = new Promise<void>((resolve) => { finishInitialize = resolve; });
+    const unsubscribeSnapshot = vi.fn();
+    const unsubscribeMaximized = vi.fn();
+    const getSnapshot = vi.fn(async () => blankSnapshot);
+    installDesktopApi({
+      initialize: vi.fn(() => initializing),
+      getSnapshot,
+      getPlatform: vi.fn(async () => "win32-x64"),
+      isMaximized: vi.fn(async () => false),
+      onSnapshot: vi.fn(() => unsubscribeSnapshot),
+      onMaximizedChange: vi.fn(() => unsubscribeMaximized),
+    } as unknown as LauncherDesktopApi);
+    const { unmount } = renderHook(() => useLauncherInitialization());
+    unmount();
+    await act(async () => { finishInitialize(); });
+    expect(unsubscribeSnapshot).toHaveBeenCalledOnce();
+    expect(unsubscribeMaximized).toHaveBeenCalledOnce();
+    expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
   test("subscribes before initialize and retains snapshots emitted during initialization", async () => {
     let snapshotListener: ((snapshot: LauncherSnapshot) => void) | undefined;
     const initializedSnapshot = createLauncherSnapshot({

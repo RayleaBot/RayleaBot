@@ -9,16 +9,23 @@ export function useLauncherInitialization() {
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    let snapshotVersion = 0;
     const unsub = window.rayleaLauncher.onSnapshot((next) => {
+      if (!active) return;
+      snapshotVersion += 1;
       setSnapshot(next);
     });
     window.rayleaLauncher
       .initialize()
       .then(async () => {
+        if (!active) return;
+        const version = snapshotVersion;
         const snap = await window.rayleaLauncher.getSnapshot();
-        setSnapshot(snap);
+        if (active && version === snapshotVersion) setSnapshot(snap);
       })
       .catch((error: unknown) => {
+        if (!active) return;
         setSnapshot((prev) => ({
           ...prev,
           launcher: {
@@ -29,27 +36,35 @@ export function useLauncherInitialization() {
         }));
       })
       .finally(() => {
-        setInitializing(false);
+        if (active) setInitializing(false);
       });
 
-    return unsub;
+    return () => {
+      active = false;
+      unsub();
+    };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
+    let receivedChange = false;
+    const unsub = window.rayleaLauncher.onMaximizedChange((value) => {
+      if (cancelled) return;
+      receivedChange = true;
+      setIsMaximized(value);
+    });
     window.rayleaLauncher
       .isMaximized()
       .then((value) => {
-        if (!cancelled) {
+        if (!cancelled && !receivedChange) {
           setIsMaximized(value);
         }
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!cancelled && !receivedChange) {
           setIsMaximized(false);
         }
       });
-    const unsub = window.rayleaLauncher.onMaximizedChange(setIsMaximized);
     return () => {
       cancelled = true;
       unsub();
