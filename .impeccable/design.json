@@ -1339,7 +1339,7 @@
       },
       {
         "name": "The Template Preview Scale Rule",
-        "body": "[`TemplatePreviewFrame`](web/src/components/TemplatePreviewFrame.vue) 保留实际固定宽度的预览文档，外层按缩放后的宽度居中，内层 iframe 从左上角缩放。调整宿主或视口尺寸只更新预览布局，保留同一 iframe 文档，避免缩小后偏移裁切；模板内容、数据与资源仍由既有预览流程更新。",
+        "body": "[`TemplatePreviewFrame`](web/src/components/templates/TemplatePreviewFrame.vue) 保留实际固定宽度的预览文档，外层按缩放后的宽度居中，内层 iframe 从左上角缩放。调整宿主或视口尺寸只更新预览布局，保留同一 iframe 文档，避免缩小后偏移裁切；模板内容、数据与资源仍由既有预览流程更新。",
         "section": "components"
       }
     ],

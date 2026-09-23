@@ -27,13 +27,13 @@ import {
 
 import AppCard from '@/components/AppCard.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
-import PluginPowerButton from '@/components/PluginPowerButton.vue'
+import PluginPowerButton from '@/components/plugins/PluginPowerButton.vue'
 import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import AppTableToolbar from '@/components/AppTableToolbar.vue'
 import AppStatusTag from '@/components/AppStatusTag.vue'
 import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
-import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
+import PluginCommandsPanel from '@/components/plugins/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
   formatPluginVersion,

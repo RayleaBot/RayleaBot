@@ -5,7 +5,7 @@ import AppSwitch from '@/components/AppSwitch.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import AppNumberInput from '@/components/AppNumberInput.vue'
 import AppInput from '@/components/AppInput.vue'
-import TimezoneSelect from '@/components/TimezoneSelect.vue'
+import TimezoneSelect from '@/components/config/TimezoneSelect.vue'
 import { computed } from 'vue'
 
 import { composeFieldTooltip, type ConfigFieldDefinition } from '@/lib/config-form'

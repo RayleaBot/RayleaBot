@@ -11,7 +11,7 @@ import { storeToRefs } from 'pinia'
 import { SaveIcon } from '@lucide/vue'
 
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
-import NativeTemplatePreviewFrame from '@/components/NativeTemplatePreviewFrame.vue'
+import NativeTemplatePreviewFrame from '@/components/templates/NativeTemplatePreviewFrame.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'

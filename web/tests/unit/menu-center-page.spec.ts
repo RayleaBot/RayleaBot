@@ -2,7 +2,7 @@ import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import NativeTemplatePreviewFrame, { calculateNativePreviewLayout } from '@/components/NativeTemplatePreviewFrame.vue'
+import NativeTemplatePreviewFrame, { calculateNativePreviewLayout } from '@/components/templates/NativeTemplatePreviewFrame.vue'
 import MenuCenterView from '@/views/builtin/MenuCenterView.vue'
 import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import PluginPicker from '@/components/plugins/PluginPicker.vue'

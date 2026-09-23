@@ -5,7 +5,7 @@ export {
   nativePreviewMinHeight,
   nativePreviewTemplateWidth,
   nativePreviewViewportPadding,
-} from '@/components/template-preview-frame'
+} from '@/components/templates/template-preview-frame'
 
 export function stripHelpMenuPreviewFontImports(styles: string) {
   return styles
@@ -24,9 +24,9 @@ export function rewriteHelpMenuPreviewFontSources(styles: string) {
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import TemplatePreviewFrame from '@/components/TemplatePreviewFrame.vue'
-import helpMenuFontFaces from '../../../templates/help.menu/assets/fonts/noto-sans-sc/result.css?raw'
-import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
+import TemplatePreviewFrame from '@/components/templates/TemplatePreviewFrame.vue'
+import helpMenuFontFaces from '../../../../templates/help.menu/assets/fonts/noto-sans-sc/result.css?raw'
+import helpMenuStyles from '../../../../templates/help.menu/styles.css?raw'
 
 type PreviewData = Record<string, unknown>
 type PreviewRecord = Record<string, unknown>

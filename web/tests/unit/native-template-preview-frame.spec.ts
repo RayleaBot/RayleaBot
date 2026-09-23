@@ -5,7 +5,7 @@ import NativeTemplatePreviewFrame, {
   nativePreviewTemplateWidth,
   rewriteHelpMenuPreviewFontSources,
   stripHelpMenuPreviewFontImports,
-} from '@/components/NativeTemplatePreviewFrame.vue'
+} from '@/components/templates/NativeTemplatePreviewFrame.vue'
 import helpMenuFontFaces from '../../../templates/help.menu/assets/fonts/noto-sans-sc/result.css?raw'
 import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
 

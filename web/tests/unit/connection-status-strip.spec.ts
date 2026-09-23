@@ -2,7 +2,7 @@ import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import ConnectionStatusStrip from '@/components/ConnectionStatusStrip.vue'
+import ConnectionStatusStrip from '@/components/dashboard/ConnectionStatusStrip.vue'
 import { useSocketStore } from '@/stores/sockets'
 
 describe('ConnectionStatusStrip', () => {

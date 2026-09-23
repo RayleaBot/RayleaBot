@@ -7,7 +7,7 @@ import {
   nativePreviewMinHeight,
   nativePreviewTemplateWidth,
   normalizeNativePreviewFrameWidth,
-} from '@/components/template-preview-frame'
+} from '@/components/templates/template-preview-frame'
 
 const props = withDefaults(defineProps<{
   frameTitle: string
