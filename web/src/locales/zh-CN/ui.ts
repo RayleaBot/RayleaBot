@@ -17,5 +17,14 @@ export const ui = {
   "clearSelection": "清除选择",
   "removeValue": "删除 {value}",
   "closeToast": "关闭提示",
-  "notifications": "通知 ({hotkey})"
+  "notifications": "通知 ({hotkey})",
+  timezone: {
+    unsupported: "暂不支持",
+    searchPlaceholder: "搜索城市、地区或 UTC 偏移",
+    searchLabel: "搜索时区",
+    resultCount: "地区时区 · {count}",
+    offsetHint: "偏移按当前日期显示",
+    current: "当前配置",
+    empty: "没有匹配的时区，试试城市名或 UTC 偏移。",
+  },
 } as const

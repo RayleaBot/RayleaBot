@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { getAdapterStateLabel, type StatusType } from '@/lib/display'
 import type { SystemStatusResponse } from '@/types/api'
 
@@ -9,7 +10,12 @@ export function describeAdapterStates(adapters: SystemStatusResponse['adapters']
       : connected.length === enabled.length ? 'success' : 'warning'
   return {
     status,
-    value: adapters.length === 0 ? '未添加连接' : enabled.length === 0 ? '未启用连接' : `${connected.length} / ${enabled.length} 已连接`,
-    detail: adapters.length === 0 ? '添加聊天连接后可接收和发送消息' : adapters.map(adapter => `${adapter.id}：${adapter.enabled ? getAdapterStateLabel(adapter.state) : '已停用'}`).join('；'),
+    value: adapters.length === 0 ? t('protocols.summary.none')
+      : enabled.length === 0 ? t('protocols.summary.noneEnabled')
+        : t('protocols.summary.connected', { connected: connected.length, enabled: enabled.length }),
+    detail: adapters.length === 0 ? t('protocols.summary.noneDetail') : adapters.map(adapter => t('protocols.summary.entry', {
+      id: adapter.id,
+      state: adapter.enabled ? getAdapterStateLabel(adapter.state) : t('protocols.summary.stopped'),
+    })).join('；'),
   }
 }

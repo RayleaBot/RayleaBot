@@ -28,6 +28,10 @@ export const commands = {
   sections: {
     commandList: '指令列表',
   },
+  aria: {
+    command: '指令：{name}',
+    availability: '可用性：{status}',
+  },
   status: {
     available: '当前可用',
     starting: '启动中',

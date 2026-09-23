@@ -2,6 +2,7 @@ import { apiPath } from '@/lib/api-path'
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
+import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import { collectionURL, createCollectionPager, mergeCollectionItems, type CollectionQuery } from '@/lib/collection-pager'
@@ -88,7 +89,7 @@ export const useGovernanceStore = defineStore('governance', () => {
       error.value = blacklistError.value
         ?? whitelistError.value
         ?? commandPolicyError.value
-        ?? '读取未完成，请稍后重试。'
+        ?? t('errors.common.loadFailed')
       throw blacklistResult.reason ?? whitelistResult.reason ?? commandPolicyResult.reason
     }
 

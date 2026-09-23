@@ -83,7 +83,7 @@ export const useSessionStore = defineStore('session', () => {
 
   function acceptBrowserSession(response: BrowserSessionResponse) {
     if (response.transport !== 'cookie' || !response.csrf_token?.trim()) {
-      throw new Error('服务端未建立浏览器会话。')
+      throw new Error('server did not establish a browser session')
     }
     csrfToken.value = response.csrf_token
     authenticated.value = true

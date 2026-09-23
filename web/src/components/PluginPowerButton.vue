@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { LoaderCircleIcon, CirclePlayIcon, BanIcon } from '@lucide/vue'
+import { t } from '@/i18n'
 
 const props = withDefaults(defineProps<{
   checked: boolean
@@ -9,15 +10,13 @@ const props = withDefaults(defineProps<{
   compact?: boolean
   iconOnly?: boolean
   dataTestid?: string
-  checkedLabel?: string
-  uncheckedLabel?: string
+  checkedLabel: string
+  uncheckedLabel: string
 }>(), {
   loading: false,
   disabled: false,
   compact: false,
   iconOnly: false,
-  checkedLabel: '启动',
-  uncheckedLabel: '停用',
 })
 
 const emit = defineEmits<{
@@ -28,10 +27,10 @@ const currentLabel = computed(() => (props.checked ? props.checkedLabel : props.
 const actionLabel = computed(() => (props.checked ? props.uncheckedLabel : props.checkedLabel))
 const ariaLabel = computed(() => {
   if (props.loading) {
-    return `${currentLabel.value}处理中`
+    return t('plugins.power.pending', { state: currentLabel.value })
   }
 
-  return `当前${currentLabel.value}，点击切换为${actionLabel.value}`
+  return t('plugins.power.toggle', { current: currentLabel.value, action: actionLabel.value })
 })
 
 function handleClick(event: MouseEvent) {

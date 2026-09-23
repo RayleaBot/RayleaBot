@@ -8,6 +8,7 @@ import {
 import type { RouteLocationRaw } from 'vue-router'
 
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
+import { t } from '@/i18n'
 import type { StatusType } from '@/lib/display'
 
 const iconMap = {
@@ -38,7 +39,7 @@ defineProps<{
 </script>
 
 <template>
-  <section class="dashboard-status-grid" data-testid="dashboard-overview-grid" aria-label="系统运行摘要">
+  <section class="dashboard-status-grid" data-testid="dashboard-overview-grid" :aria-label="t('dashboard.statusSummaryLabel')">
     <div class="dashboard-status-item" :data-tone="healthStatusType">
       <div class="dashboard-status-item__icon">
         <component :is="iconMap.health" class="dashboard-status-item__glyph" />

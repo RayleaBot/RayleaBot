@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { cloneConfig } from '@/lib/config-form'
 import { findAdapterInstance, oneBotTransports, type AdapterInstanceDocument } from '@/lib/adapters'
 import type { ConfigDocument } from '@/types/api'
@@ -5,26 +6,27 @@ import type { ConfigDocument } from '@/types/api'
 export function validateAdapterDraft(draft: AdapterInstanceDocument) {
   const errors: Record<string, string> = {}
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(draft.id)) {
-    errors.id = '使用 1–64 位小写字母、数字或连字符，以字母或数字开头。'
+    errors.id = t('protocols.connectionDialog.validation.instanceId')
   }
   if (draft.type === 'qqofficial' && draft.qqofficial) {
     const settings = draft.qqofficial
     if ((draft.enabled && !settings.app_id) || (settings.app_id && !/^\d+$/.test(settings.app_id))) {
-      errors.app_id = '请输入由数字组成的 AppID。'
+      errors.app_id = t('protocols.connectionDialog.validation.appId')
     }
     if (draft.enabled && !settings.app_secret.trim()) {
-      errors.app_secret = '请输入 AppSecret。'
+      errors.app_secret = t('protocols.connectionDialog.validation.appSecret')
     }
   }
   if (draft.type === 'onebot11' && draft.onebot11) {
     const settings = draft.onebot11
     if (draft.enabled && !oneBotTransports.some((key) => settings[key].enabled)) {
-      errors.transports = '请至少启用一种连接方式，或关闭此连接。'
+      errors.transports = t('protocols.connectionDialog.validation.transports')
     }
     for (const key of oneBotTransports) {
       const entry = settings[key]
       const url = String(entry.url ?? '').trim()
-      const protocols = key.endsWith('_ws') ? ['ws:', 'wss:'] : ['http:', 'https:']
+      const websocket = key.endsWith('_ws')
+      const protocols = websocket ? ['ws:', 'wss:'] : ['http:', 'https:']
       let valid = !url && !(draft.enabled && entry.enabled)
       if (url) {
         try {
@@ -32,7 +34,7 @@ export function validateAdapterDraft(draft: AdapterInstanceDocument) {
           valid = protocols.includes(parsed.protocol) && Boolean(parsed.hostname)
         } catch { valid = false }
       }
-      if (!valid) errors[`${key}.url`] = `请输入有效的 ${protocols.map((item) => `${item}//`).join(' 或 ')} 地址。`
+      if (!valid) errors[`${key}.url`] = t(websocket ? 'protocols.connectionDialog.validation.wsUrl' : 'protocols.connectionDialog.validation.httpUrl')
     }
   }
   return errors
@@ -47,10 +49,10 @@ export function mergeAdapterDraft(
 ) {
   const current = findAdapterInstance(latest, baseline?.id ?? draft.id)
   if (baseline && JSON.stringify(current) !== JSON.stringify(baseline)) {
-    throw new Error('此连接已在其他位置更改或删除。请保留所需内容，关闭弹窗后重新打开。')
+    throw new Error(t('protocols.connectionDialog.connectionChanged'))
   }
   if (!baseline && current) {
-    throw new Error('连接标识已被使用，请在高级设置中更换标识。')
+    throw new Error(t('protocols.connectionDialog.instanceTaken'))
   }
   const result = cloneConfig(latest)
   const value = JSON.parse(JSON.stringify(draft)) as AdapterInstanceDocument

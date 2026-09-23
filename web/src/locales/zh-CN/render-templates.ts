@@ -36,6 +36,7 @@ export const renderTemplates = {
     source: '来源',
     localId: '短 ID',
     size: '渲染参数',
+    sizeValue: '宽度 {width}px · 高度自适应（初始 {height}px）',
     version: '模板版本',
     updatedAt: '更新时间',
     required: '必填',

@@ -38,6 +38,7 @@ export const dashboard = {
       unknown: '状态未知',
     },
   },
+  statusSummaryLabel: '系统运行摘要',
   overviewEvents: '近期变化',
   overviewReadiness: '就绪检查',
   overviewDiagnostics: '运维诊断',

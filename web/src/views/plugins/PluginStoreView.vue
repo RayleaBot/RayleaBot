@@ -272,7 +272,7 @@ onMounted(() => {
       <div class="store-toolbar">
         <AppSearchInput v-model="query" :placeholder="t('plugins.store.searchPlaceholder')" class="store-search" @search="loadEntries" />
         <AppSelect v-model="sourceId" :options="sourceOptions" :aria-label="t('plugins.fields.source')" wrapper-class="store-source" @update:model-value="changeSource" />
-        <AppSelect v-model="sort" :options="sortOptions" aria-label="排序方式" wrapper-class="store-sort" @update:model-value="loadEntries" />
+        <AppSelect v-model="sort" :options="sortOptions" :aria-label="t('plugins.store.sortLabel')" wrapper-class="store-sort" @update:model-value="loadEntries" />
         <div class="store-actions">
           <AppTag v-if="selectedSource" :tone="selectedSource.official ? 'info' : 'neutral'">
             {{ selectedSource.official ? t('plugins.store.sources.official') : t('plugins.store.sources.custom') }}
@@ -393,7 +393,7 @@ onMounted(() => {
           {{ t('plugins.store.sources.add') }}
         </AppButton>
       </div>
-      <AppInput v-model="sourceQuery" :maxlength="200" aria-label="搜索插件来源" placeholder="搜索来源名称、标识或网址" allow-clear />
+      <AppInput v-model="sourceQuery" :maxlength="200" :aria-label="t('plugins.store.sources.searchLabel')" :placeholder="t('plugins.store.sources.searchPlaceholder')" allow-clear />
       <p v-if="sourcesError" role="alert">{{ sourcesError }}</p>
       <div class="source-list">
         <div v-for="item in sources" :key="item.id" class="source-row">
@@ -409,7 +409,7 @@ onMounted(() => {
             <code>{{ item.url }}</code>
           </div>
           <div class="source-row-actions">
-            <AppButton @click="sourceId = item.id; sourceManagerOpen = false; changeSource()">选择来源</AppButton>
+            <AppButton @click="sourceId = item.id; sourceManagerOpen = false; changeSource()">{{ t('plugins.store.sources.select') }}</AppButton>
             <template v-if="!item.official">
             <AppButton variant="ghost" @click="openSourceEditor(item.id)">
               <template #icon><PencilIcon /></template>

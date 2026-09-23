@@ -302,7 +302,7 @@ onMounted(() => {
 
           <template #cell="{ column, row: record }">
             <template v-if="column.key === 'command'">
-              <AppTag :tone="record.conflicted ? 'warning' : 'info'" :aria-label="`指令：${record.command.name}`">
+              <AppTag :tone="record.conflicted ? 'warning' : 'info'" :aria-label="t('commands.aria.command', { name: record.command.name })">
                 {{ record.command.name }}
               </AppTag>
             </template>
@@ -347,14 +347,14 @@ onMounted(() => {
             </template>
 
             <template v-else-if="column.key === 'status'">
-              <AppTag :tone="getStatusColor(record.availability)" :aria-label="`可用性：${getStatusLabel(record.availability)}`">
+              <AppTag :tone="getStatusColor(record.availability)" :aria-label="t('commands.aria.availability', { status: getStatusLabel(record.availability) })">
                 {{ getStatusLabel(record.availability) }}
               </AppTag>
             </template>
           </template>
         </AppDataTable>
 
-        <div class="commands-mobile-list" aria-label="指令列表">
+        <div class="commands-mobile-list" :aria-label="t('commands.sections.commandList')">
           <article v-for="record in commandRows" :key="record.key" class="commands-mobile-row">
             <div class="commands-mobile-row__heading">
               <strong>{{ record.command.name }}</strong>

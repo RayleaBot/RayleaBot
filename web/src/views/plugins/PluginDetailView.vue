@@ -298,8 +298,8 @@ function returnToPluginList() {
         v-if="requiresTrustAttention"
         class="plugin-trust-attention"
         tone="warning"
-        title="插件来源尚未验证"
-        description="执行启停、重载或管理操作前，请确认插件来源、目标平台、artifact 摘要和能力声明符合预期。"
+        :title="t('plugins.trustAttention.title')"
+        :description="t('plugins.trustAttention.description')"
       />
 
       <div class="plugin-detail-workspace">

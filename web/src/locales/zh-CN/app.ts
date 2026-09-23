@@ -36,6 +36,7 @@ export const routes = {
 } as const
 
 export const shell = {
+  workspaceTabs: '工作区页签',
   account: '账号',
   developmentVersion: '开发版本',
   credentials: {

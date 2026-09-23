@@ -879,7 +879,7 @@ onBeforeUnmount(() => {
         <div v-if="showWorkspaceTabs" class="admin-layout__tabbar">
           <div class="admin-layout__tabbar-main">
             <TabsRoot class="workspace-tabs" :model-value="currentTabPath" activation-mode="manual" @update:model-value="onTabChange(String($event))">
-              <TabsList class="workspace-tabs__list" aria-label="工作区页签">
+              <TabsList class="workspace-tabs__list" :aria-label="t('shell.workspaceTabs')">
                 <AppDropdown v-for="item in tabs" :key="item.path" context align="start" data-testid="tab-context-menu">
                   <div class="workspace-tabs__item" :data-active="currentTabPath === item.path">
                     <TabsTrigger :value="item.path" class="workspace-tabs__trigger" aria-controls="app-main">

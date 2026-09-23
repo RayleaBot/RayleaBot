@@ -33,7 +33,11 @@ export const plugins = {
       saved: '插件源已保存',
       removed: '插件源已删除',
       removeConfirm: '删除该插件源及其目录缓存？已安装插件不会被删除。',
+      searchLabel: '搜索插件来源',
+      searchPlaceholder: '搜索来源名称、标识或网址',
+      select: '选择来源',
     },
+    sortLabel: '排序方式',
     sort: {
       recommended: '推荐优先',
       name: '按名称',
@@ -257,6 +261,14 @@ export const plugins = {
     runtimeIssue: '运行异常',
     invalidManifest: '清单异常',
     aria: '健康状态：{label}',
+  },
+  power: {
+    pending: '{state}处理中',
+    toggle: '当前{current}，点击切换为{action}',
+  },
+  trustAttention: {
+    title: '插件来源尚未验证',
+    description: '执行启停、重载或管理操作前，请确认插件来源、目标平台、artifact 摘要和能力声明符合预期。',
   },
   installTrust: {
     title: '第三方插件是完全可信的本地代码',

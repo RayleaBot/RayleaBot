@@ -1,6 +1,7 @@
 <script setup lang="ts" generic="T">
 import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useVirtualizer, type Rect, type VirtualItem, type Virtualizer } from '@tanstack/vue-virtual'
+import { t } from '@/i18n'
 
 interface Props<TItem> {
   items: TItem[]
@@ -22,7 +23,6 @@ const props = withDefaults(defineProps<Props<T>>(), {
   topThreshold: 16,
   bottomThreshold: 24,
   overscan: 3,
-  emptyLabel: '暂无数据',
   getItemKey: undefined,
 })
 
@@ -655,7 +655,7 @@ defineExpose({
     </div>
 
     <div v-if="items.length === 0" class="data-viewport__empty">
-      {{ emptyLabel }}
+      {{ emptyLabel ?? t('ui.empty') }}
     </div>
 
     <div

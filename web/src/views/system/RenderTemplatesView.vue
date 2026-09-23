@@ -127,7 +127,7 @@ function formatTemplateSize(width?: number, height?: number) {
     return t('display.empty')
   }
 
-  return `宽度 ${width}px · 高度自适应（初始 ${height}px）`
+  return t('renderTemplates.fields.sizeValue', { width, height })
 }
 
 function getTemplateSourceLabel(template: RenderTemplateSummary) {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, ref, watch } from 'vue'
+import { t } from '@/i18n'
 import { CheckIcon, ChevronDownIcon, SearchIcon } from '@lucide/vue'
 import { motion } from 'motion-v'
 import {
@@ -27,7 +28,7 @@ const options = computed(() => getTimeZonePickerChoices(selectedID.value).map(zo
   const supported = isSupportedTimeZone(zone.id)
   return {
     ...zone, supported,
-    offset: supported ? formatTimeZoneOffset(zone.id, at.value) : '暂不支持',
+    offset: supported ? formatTimeZoneOffset(zone.id, at.value) : t('ui.timezone.unsupported'),
     minutes: supported ? timeZoneOffsetMinutes(zone.id, at.value) : Infinity,
     keywords: [zone.id, zone.city, zone.region, 'canonical' in zone ? zone.canonical : '', zone.id === 'Asia/Shanghai' ? '北京 中国 China Beijing UTC+8' : ''].join(' ').toLowerCase(),
   }
@@ -77,19 +78,19 @@ function select(value: unknown) {
     <ComboboxPortal>
       <ComboboxContent v-if="active" force-mount as-child position="popper" align="end" :side-offset="6" :collision-padding="12" @escape-key-down="restoreTriggerFocus">
         <motion.div class="timezone-select__content" :style="{ zIndex: layer + 5 }" :inert="!open" :initial="overlayMotion.initial" :animate="open ? overlayMotion.animate : overlayMotion.exit" :transition="overlayMotion.transition" @animation-complete="motionComplete">
-          <div class="timezone-select__search"><SearchIcon :size="17" aria-hidden="true" /><ComboboxInput ref="searchRef" v-model="search" :display-value="() => search" placeholder="搜索城市、地区或 UTC 偏移" aria-label="搜索时区" /></div>
-          <div class="timezone-select__summary"><span>地区时区 · {{ results.length }}</span><span>偏移按当前日期显示</span></div>
+          <div class="timezone-select__search"><SearchIcon :size="17" aria-hidden="true" /><ComboboxInput ref="searchRef" v-model="search" :display-value="() => search" :placeholder="t('ui.timezone.searchPlaceholder')" :aria-label="t('ui.timezone.searchLabel')" /></div>
+          <div class="timezone-select__summary"><span>{{ t('ui.timezone.resultCount', { count: results.length }) }}</span><span>{{ t('ui.timezone.offsetHint') }}</span></div>
           <ComboboxViewport as-child>
             <motion.div class="timezone-select__viewport" :initial="false" :animate="{ height: listHeight }" :transition="overlayMotion.transition">
               <!-- Reka recycles by index and memoizes item attributes; a new query must also refresh IANA titles. -->
               <ComboboxVirtualizer :key="search" v-slot="{ option }" :options="results" :estimate-size="44" :text-content="zone => zone.keywords">
                 <ComboboxItem :key="option.id" :value="option" :title="option.id" :disabled="!option.supported" class="timezone-select__option">
-                  <span class="timezone-select__place">{{ option.city }}<small v-if="option.region && option.region !== option.city"> · {{ option.region }}</small><small v-if="option.retained" class="timezone-select__retained">当前配置</small></span>
+                  <span class="timezone-select__place">{{ option.city }}<small v-if="option.region && option.region !== option.city"> · {{ option.region }}</small><small v-if="option.retained" class="timezone-select__retained">{{ t('ui.timezone.current') }}</small></span>
                   <span class="timezone-select__offset">{{ option.offset }}</span>
                   <ComboboxItemIndicator class="timezone-select__check"><CheckIcon :size="16" /></ComboboxItemIndicator>
                 </ComboboxItem>
               </ComboboxVirtualizer>
-              <p v-if="!results.length" class="timezone-select__empty">没有匹配的时区，试试城市名或 UTC 偏移。</p>
+              <p v-if="!results.length" class="timezone-select__empty">{{ t('ui.timezone.empty') }}</p>
             </motion.div>
           </ComboboxViewport>
         </motion.div>
