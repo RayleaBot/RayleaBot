@@ -66,7 +66,7 @@ Miao-Yunzai 的 `NoteUser` 关联一个聊天用户的多个 `MysUser`，`MysUse
 | 插件是完全可信原生代码，没有 OS 沙箱 | [架构说明](../../architecture/README.md) | 沿用现有可信插件模型，按私有命名空间组织数据 |
 | secret 动作使用运行时真实 PluginID，读取结果只返回该插件 | [default_registry.go](../../../server/internal/plugins/actions/default_registry.go)、[SDK actions](../../../sdk/go/actions.go) | CK 插件拥有自己的密文命名空间 |
 | secret store 是 raw byte blob；旧同库密钥加密已在迁移中移除 | [store.go](../../../server/internal/platform/secrets/sqlite/store.go)、[migration_000003.go](../../../server/internal/storage/migration_000003.go) | 插件侧先加密，主程序只存不透明信封 |
-| `plugin.call`、`plugin.request` 和 `services` 已实现，使用者声明 Core 0.7.1 | [协议](../../../contracts/plugin-protocol.schema.json) | 账号业务通过通用 SDK 接入，仍由独立插件维护 |
+| `plugin.call`、`plugin.request` 和 `services` 随 Core 0.7.0 提供 | [协议](../../../contracts/plugin-protocol.schema.json) | 账号业务通过通用 SDK 接入，仍由独立插件维护 |
 | 插件 UI 与管理面同源且被视为可信代码 | [管理页文档](../../plugin/management-ui.md) | 沿用现有加载方式；各插件独立页面展示业务数据，CK 只展示摘要 |
 
 主仓库现有文档个别位置仍有旧版本文案；本方案以 JSON schema 和当前实现为准。本计划不把未发布的服务能力写成当前用法。
