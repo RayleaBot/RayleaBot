@@ -88,6 +88,9 @@ func (c *Controller) startRuntime(ctx context.Context, pluginID string) error {
 	if manager.Snapshot().State == pluginruntime.StateRunning {
 		return c.registerRuntimeIfNeeded(pluginID, manager)
 	}
+	// Explicit enable/install starts a new recovery cycle. Automatic retries call
+	// startRuntimeLocked directly and retain their consecutive crash count.
+	manager.ResetCrashCount()
 	return c.startRuntimeLocked(ctx, pluginID, manager)
 }
 
@@ -115,7 +118,6 @@ func (c *Controller) startRuntimeLocked(ctx context.Context, pluginID string, ma
 		return err
 	}
 
-	manager.ResetCrashCount()
 	if err := c.settings.Activate(ctx, pluginID, payload.Config, func() error {
 		latest, _ := c.plugins.Get(pluginID)
 		return c.registerRuntime(pluginID, latest, manager)

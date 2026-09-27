@@ -322,7 +322,7 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	return cloned
 }
 
-// ResetCrashCount resets the crash counter after a successful start.
+// ResetCrashCount starts a new recovery cycle for an explicit lifecycle action.
 func (m *Manager) ResetCrashCount() {
 	m.mu.Lock()
 	defer m.mu.Unlock()

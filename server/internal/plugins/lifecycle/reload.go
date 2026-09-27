@@ -87,6 +87,7 @@ func (c *Controller) reloadPluginAsync(pluginID, taskID string) {
 
 	switch current.Snapshot().State {
 	case pluginruntime.StateStopped:
+		current.ResetCrashCount()
 		c.startRuntimeForReload(ctx, taskID, pluginID, current, "启动插件运行时", "start stopped plugin runtime during reload")
 		return
 	case pluginruntime.StateBackoff, pluginruntime.StateCrashed, pluginruntime.StateDeadLetter:
@@ -139,7 +140,6 @@ func (c *Controller) reloadPluginAsync(pluginID, taskID string) {
 		c.failReloadTaskForError(taskID, pluginID, activationErr, "插件重载失败")
 		return
 	}
-	newManager.ResetCrashCount()
 	c.publishRuntimeState(pluginID, string(pluginruntime.StateRunning))
 	c.clearBotIdentity(pluginID)
 	c.afterRuntimeRegistered(ctx, pluginID, payload.Bots)
