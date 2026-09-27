@@ -268,6 +268,19 @@ export function getConfigSections(): ConfigSectionDefinition[] {
           description: t('config.descriptions.runtimeMaxConcurrentTasksPerPlugin'),
         },
         {
+          path: 'runtime.plugin_detached_event_timeout_seconds',
+          label: t('config.fields.runtimePluginDetachedEventTimeoutSeconds'),
+          type: 'number',
+          unit: t('config.units.second'),
+          description: t('config.descriptions.runtimePluginDetachedEventTimeoutSeconds'),
+        },
+        {
+          path: 'runtime.max_detached_events_per_plugin',
+          label: t('config.fields.runtimeMaxDetachedEventsPerPlugin'),
+          type: 'number',
+          description: t('config.descriptions.runtimeMaxDetachedEventsPerPlugin'),
+        },
+        {
           path: 'runtime.crash_backoff_initial_seconds',
           restartRequired: true,
           label: t('config.fields.runtimeCrashBackoffInitialSeconds'),
