@@ -135,7 +135,12 @@ func schedulerPluginDisplayName(snapshot plugins.Snapshot, pluginID string) stri
 }
 
 func schedulerPayloadFields(job scheduler.Job) map[string]any {
-	fields := make(map[string]any, 2)
+	fields := make(map[string]any, 3)
+	// The task ID becomes origin.task_id of the service calls the trigger
+	// makes; the protocol projection does not hand it to the plugin.
+	if taskID := strings.TrimSpace(job.JobID); taskID != "" {
+		fields["task_id"] = taskID
+	}
 	if len(job.Payload) == 0 || string(job.Payload) == "null" {
 		return fields
 	}

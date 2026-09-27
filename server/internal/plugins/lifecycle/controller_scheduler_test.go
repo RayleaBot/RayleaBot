@@ -29,3 +29,16 @@ func TestSchedulerPayloadFieldsPreservesJobPayloadForProtocolProjection(t *testi
 		t.Fatalf("scheduler payload leaked non-contract job_id: %#v", fields)
 	}
 }
+
+// Service calls made by a trigger carry the task as origin.task_id, which
+// providers match delegations against, also for a task without payload.
+func TestSchedulerPayloadFieldsCarryTheTaskIDForServiceOrigins(t *testing.T) {
+	t.Parallel()
+
+	for _, payload := range []json.RawMessage{json.RawMessage(`{"kind":"panel_refresh"}`), nil} {
+		fields := schedulerPayloadFields(scheduler.Job{JobID: "game.panel.zzz.1", Payload: payload})
+		if got := fields["task_id"]; got != "game.panel.zzz.1" {
+			t.Fatalf("payload %s: task_id = %#v", payload, got)
+		}
+	}
+}
