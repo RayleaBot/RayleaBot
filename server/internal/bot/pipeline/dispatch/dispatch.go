@@ -148,6 +148,8 @@ type Dispatcher struct {
 	// detachedRuns records scheduler runs whose events moved to the
 	// background; the runtime ends each of them by deadline or stop.
 	detachedRuns sync.WaitGroup
+	closing      chan struct{}
+	closeOnce    sync.Once
 	slots        map[string]*pluginSlot
 	retired      map[*pluginSlot]struct{}
 	closed       bool
@@ -187,6 +189,7 @@ func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.Re
 		slots:            make(map[string]*pluginSlot),
 		retired:          make(map[*pluginSlot]struct{}),
 		dropsByReason:    make(map[string]map[string]uint64),
+		closing:          make(chan struct{}),
 	}
 }
 func (d *Dispatcher) SetOutboundPolicy(policy OutboundPolicy) {

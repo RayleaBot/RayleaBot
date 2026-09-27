@@ -178,6 +178,18 @@ func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey 
 		// scheduler run is recorded when the background event really ends.
 		detached := delivery.Detached
 		d.detachedRuns.Go(func() {
+			select {
+			case <-detached.Done():
+			case <-d.closing:
+				// Shutdown stops runtimes before closing the dispatcher, so a run
+				// still in the background here belongs to a runtime that failed
+				// to stop; Close does not wait for its deadline.
+				select {
+				case <-detached.Done():
+				default:
+					return
+				}
+			}
 			d.recordEventEnd(context.WithoutCancel(item.ctx), pluginID, laneKey, item, plugins.Delivery{RequestID: delivery.RequestID}, detached.Err())
 		})
 		return

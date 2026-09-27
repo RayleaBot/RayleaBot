@@ -145,3 +145,23 @@ func TestSchedulerRunDurationIncludesQueueWait(t *testing.T) {
 		t.Fatalf("queued run duration = %#v", got)
 	}
 }
+
+func TestCloseDoesNotWaitForARunItsRuntimeNeverEnds(t *testing.T) {
+	t.Parallel()
+	d := New(nil, nil, nil, 8)
+	rt := newDetachingDeliverer("")
+	d.Register("weather", rt, []string{"scheduler.trigger"}, nil, 1)
+	recorder := &recordingSchedulerRunRecorder{}
+	waitCompletion(t, d.DispatchScheduledEvent(t.Context(), "weather", schedulerTestEvent("stuck"), scheduler.RunContext{JobID: "daily", TaskName: "daily", StartedAt: time.Now(), Recorder: recorder}))
+	waitForStartedEvent(t, rt.started)
+	closed := make(chan struct{})
+	go func() { d.Close(); close(closed) }()
+	select {
+	case <-closed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Close waited for a background run whose runtime failed to stop")
+	}
+	if recorder.count() != 0 {
+		t.Fatal("an unfinished background run was recorded")
+	}
+}

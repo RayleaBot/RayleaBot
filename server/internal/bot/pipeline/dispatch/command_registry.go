@@ -141,6 +141,7 @@ func (d *Dispatcher) Close() {
 	d.admissionMu.Lock()
 	d.mu.Lock()
 	d.closed = true
+	d.closeOnce.Do(func() { close(d.closing) })
 	slots := make(map[*pluginSlot]struct{}, len(d.slots)+len(d.retired))
 	for _, slot := range d.slots {
 		slots[slot] = struct{}{}
