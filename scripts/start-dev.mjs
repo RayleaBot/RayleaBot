@@ -133,6 +133,7 @@ try {
   await cleanup();
 } catch (error) {
   if (!shuttingDown) {
+    terminal.abortStartup();
     log(`${startupReported ? "开发流程" : "启动"}失败：${error?.message ?? error}`, "error");
     log(`启动日志：${relativePath(developmentLogs.start.path)}`, "error");
     process.exitCode = 1;
@@ -151,8 +152,7 @@ async function main() {
     throw new Error("RAYLEA_PLUGIN_DEV=watch requires RAYLEA_SERVER_RELOAD=watch.");
   }
   const pluginDev = { mode: pluginDevMode, workspacePath: pluginWorkspacePath };
-  log(`RayleaBot · ${profile} · Node ${process.version}`);
-  log(`日志：logs/dev/（start 编排 · build 构建 · server / web / launcher 运行）`);
+  terminal.intro({ profile, nodeVersion: process.version, serverReload: serverReloadMode, pluginDev: pluginDevMode });
   await fsp.mkdir(cacheDir, { recursive: true });
   toolIdentity = {
     node: process.version, nodePath: process.execPath, platform: process.platform, arch: process.arch,
@@ -965,7 +965,7 @@ async function ensureDependencies(label, projectDir, installMode, extraInputs = 
 async function ensureWebDevServer(devEnvironment) {
   const state = await classifyWebDevServer({ backendBaseUrl: devEnvironment.VITE_BACKEND_TARGET, projectDir: webDir });
   if (state === "rayleabot") {
-    log(`复用 Web 开发服务器：${WEB_DEV_BASE_URL}`);
+    log("已复用现有 Web 开发服务");
     return;
   }
   if (state === "occupied") {
@@ -1021,7 +1021,7 @@ async function runCommand(label, command, args, { cwd, env = {}, logType, window
     }
     task.finish();
   } catch (error) {
-    if (shuttingDown) task.finish("已取消");
+    if (shuttingDown) task.cancel();
     else task.fail();
     throw error;
   }
@@ -1191,8 +1191,11 @@ function log(message, level = "info") {
 function reportStartup() {
   if (startupReported) return;
   startupReported = true;
-  log(`启动准备完成 · ${((Date.now() - startupStarted) / 1000).toFixed(1)}s${shouldSkipLaunch() ? " · 检查结束，未打开 Launcher" : " · 关闭 Launcher 或按 Ctrl+C 结束"}`);
-  if (!shouldSkipLaunch() && resolveStartProfile(process.env) !== BUILD_PROFILE) log(`管理面：${WEB_DEV_BASE_URL}`);
+  terminal.summary({
+    elapsedMs: Date.now() - startupStarted,
+    webURL: !shouldSkipLaunch() && resolveStartProfile(process.env) !== BUILD_PROFILE ? WEB_DEV_BASE_URL : undefined,
+    skipLaunch: shouldSkipLaunch(),
+  });
 }
 
 function writeStartLog(chunk) {
