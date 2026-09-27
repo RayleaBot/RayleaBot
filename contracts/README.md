@@ -76,6 +76,9 @@
   - 只有 init 携带协议版本和插件身份；后续帧使用最小 envelope
   - `plugin.call` 定向调用已运行插件的静态服务，提供者接收 `plugin.request` 并使用自己的事件上下文；没有取消帧，调用方放弃后提供者处理到 `deadline_at_ms`，迟到终态被忽略；首版禁止自调用和嵌套服务调用
   - `message.send` 统一发送与回复；非终态动作通过独立 `request_id` 和当前事件 `parent_request_id` 关联
+  - 每个 `event` 帧携带 `deadline_at_ms`，即该事件在宿主处的处理期限：投递时刻加 `runtime.plugin_event_timeout_seconds`，`plugin.request` 等于服务请求的期限
+  - `event.detach` 把 `message.private`、`message.group`、`scheduler.trigger` 或 `management.action` 事件转入后台：宿主以给定结果完成投递并释放会话队列与并发槽，事件保留原 `request_id` 与来源，在返回的 `deadline_at_ms` 前继续接受动作，直到插件发送终态、到期（`plugin.event_timeout`）或插件停止、重载（`plugin.event_canceled`）。转入规则、拒绝条件与收尾语义由 `x-detached-events` 定义
+  - `scheduler.trigger` 的 `payload.task_id` 必填，等于 `scheduler.create` 时的任务 ID，其他事件不携带该字段
   - `init.bots` 提供按适配器实例区分的身份列表；`bot.identities.changed` 通过 `payload.bots` 替换整个列表
   - 未知或已停用实例不出现在身份列表中；空列表清除旧身份。身份包含 `source_adapter`、`source_protocol`、`id`，不跨实例合并。连接可用性仍由 adapter 动作的正式结果表达
   - `logger.write`、`storage.kv` 和 `config.write` 是按插件命名空间隔离的私有动作；插件数据目录经环境变量 `RAYLEABOT_PLUGIN_DATA_DIR` 传入，由插件直接读写；插件包目录经 `RAYLEABOT_PLUGIN_PACKAGE_DIR` 传入，只读

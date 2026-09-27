@@ -1,0 +1,10 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+description: event.detach names its event through parent_request_id.
+frames:
+- type: action
+  request_id: action-1
+  action: event.detach
+  data: {}
+expect:
+  valid: false

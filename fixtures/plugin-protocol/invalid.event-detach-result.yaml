@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+description: The event.detach result reports only the background deadline.
+frames:
+- type: action
+  request_id: action-1
+  parent_request_id: event-1
+  action: event.detach
+  data: {}
+- type: result
+  request_id: action-1
+  status: success
+  data:
+    detached: true
+expect:
+  valid: false

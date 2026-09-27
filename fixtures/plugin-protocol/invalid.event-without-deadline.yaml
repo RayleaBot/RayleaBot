@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+description: Every event frame announces its host handling deadline.
+frames:
+- type: event
+  request_id: event-1
+  event:
+    event_id: plugin-started-1
+    source_protocol: platform
+    source_adapter: plugins.internal
+    event_type: plugin.started
+    timestamp: 1789300000
+expect:
+  valid: false

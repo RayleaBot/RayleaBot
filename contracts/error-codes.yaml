@@ -12,6 +12,7 @@ x-fixtures:
   - fixtures/errors/invalid.plugin-operation-state.yaml
   - fixtures/errors/ok.plugin-settings-apply-failed.yaml
   - fixtures/errors/ok.sdk-shutdown.yaml
+  - fixtures/errors/ok.detached-event-errors.yaml
 
 domains:
   - platform
@@ -133,10 +134,12 @@ codes:
     code: platform.invalid_request
     domain: platform
     message: 请求参数不合法
-    description: Request parameters or body shape did not satisfy the formal contract.
+    description: >
+      Request parameters or body shape did not satisfy the formal contract, or a plugin
+      local action is not allowed for its parent event, such as a repeated event.detach.
     http_status: 400
     retryable: false
-    applies_to: [http, websocket, task]
+    applies_to: [http, websocket, task, plugin_protocol]
 
   platform.invalid_config:
     code: platform.invalid_config

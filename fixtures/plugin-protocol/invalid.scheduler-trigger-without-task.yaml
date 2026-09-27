@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+description: A scheduler trigger always names its task.
+frames:
+- type: event
+  request_id: event-1
+  deadline_at_ms: 1789300060000
+  event:
+    event_id: scheduler-daily-refresh-1
+    source_protocol: scheduler
+    source_adapter: scheduler.internal
+    event_type: scheduler.trigger
+    timestamp: 1789300000
+    payload:
+      payload:
+        scope: all
+expect:
+  valid: false

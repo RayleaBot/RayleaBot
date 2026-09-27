@@ -36,9 +36,10 @@ type InitAckFrame struct {
 }
 
 type EventFrame struct {
-	Type      string             `json:"type"`
-	RequestID string             `json:"request_id"`
-	Event     ProtocolEventFrame `json:"event"`
+	Type         string             `json:"type"`
+	RequestID    string             `json:"request_id"`
+	DeadlineAtMs int64              `json:"deadline_at_ms"`
+	Event        ProtocolEventFrame `json:"event"`
 }
 
 type ProtocolEventFrame struct {
@@ -82,6 +83,7 @@ type ProtocolPayloadFrame struct {
 	Args           []string                        `json:"args,omitempty"`
 	Action         string                          `json:"action,omitempty"`
 	Payload        map[string]any                  `json:"payload,omitempty"`
+	TaskID         string                          `json:"task_id,omitempty"`
 	MessageID      string                          `json:"message_id,omitempty"`
 	SubType        string                          `json:"sub_type,omitempty"`
 	OperatorID     string                          `json:"operator_id,omitempty"`
@@ -119,6 +121,15 @@ type ProtocolSessionWaitResultFrame struct {
 
 type ProtocolSessionFinishResultFrame struct {
 	Finished bool `json:"finished"`
+}
+
+type ProtocolActionEventDetachFrame struct {
+	Result      map[string]any `json:"result,omitempty"`
+	Propagation string         `json:"propagation,omitempty"`
+}
+
+type ProtocolEventDetachResultFrame struct {
+	DeadlineAtMs int64 `json:"deadline_at_ms"`
 }
 
 type ProtocolKVSetResultFrame struct {
@@ -384,6 +395,7 @@ type Frame struct {
 	Summary         string          `json:"summary,omitempty"`
 	Status          string          `json:"status,omitempty"`
 	ErrorMessage    string          `json:"error_message,omitempty"`
+	DeadlineAtMs    int64           `json:"deadline_at_ms,omitempty"`
 	Event           json.RawMessage `json:"event,omitempty"`
 	ParentRequestID string          `json:"parent_request_id,omitempty"`
 	Action          string          `json:"action,omitempty"`
@@ -522,6 +534,13 @@ func (frame Frame) MarshalJSON() ([]byte, error) {
 			object["type"] = value
 		}
 	case "event":
+		if _, present := object["deadline_at_ms"]; !present {
+			value, err := json.Marshal(frame.DeadlineAtMs)
+			if err != nil {
+				return nil, err
+			}
+			object["deadline_at_ms"] = value
+		}
 		if _, present := object["event"]; !present {
 			value, err := json.Marshal(frame.Event)
 			if err != nil {

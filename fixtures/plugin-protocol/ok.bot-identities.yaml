@@ -3,6 +3,7 @@ case: ok
 frames:
 - type: event
   request_id: identities-1
+  deadline_at_ms: 1789300060000
   event:
     event_id: identities-1
     source_protocol: platform
@@ -19,6 +20,7 @@ frames:
         id: same-id
 - type: event
   request_id: identities-2
+  deadline_at_ms: 1789300060000
   event:
     event_id: identities-2
     source_protocol: platform

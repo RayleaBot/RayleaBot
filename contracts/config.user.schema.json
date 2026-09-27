@@ -340,6 +340,8 @@
         "max_pending_control_events_per_plugin",
         "stderr_rate_limit_bytes_per_second",
         "max_concurrent_tasks_per_plugin",
+        "plugin_detached_event_timeout_seconds",
+        "max_detached_events_per_plugin",
         "crash_backoff_initial_seconds",
         "crash_backoff_max_seconds",
         "shutdown_grace_seconds",
@@ -357,7 +359,7 @@
           "type": "integer",
           "minimum": 1,
           "default": 60,
-          "description": "Maximum time a plugin may take to process one event; expired events are dropped. Default: 60.",
+          "description": "Maximum time a plugin may take to process one event in the foreground, announced to the plugin as the event frame deadline_at_ms; expired events are dropped. Default: 60.",
           "x-apply-policy": "restart_required"
         },
         "max_pending_events_per_plugin": {
@@ -387,6 +389,22 @@
           "default": 4,
           "description": "Upper bound for one plugin's concurrent event sessions. The runtime applies min(manifest.concurrency, runtime.max_concurrent_tasks_per_plugin) with a floor of 1.",
           "x-apply-policy": "restart_required"
+        },
+        "plugin_detached_event_timeout_seconds": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 3600,
+          "default": 900,
+          "description": "Deadline of an event a plugin moved to the background with event.detach, counted from the detach. A saved change applies to later detaches; detached events keep their deadline. Default: 900.",
+          "x-apply-policy": "hot_reload"
+        },
+        "max_detached_events_per_plugin": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64,
+          "default": 8,
+          "description": "Maximum background events one plugin process holds at once. Further event.detach calls return platform.rate_limited and the event stays in the foreground. A saved change applies to later detaches. Default: 8.",
+          "x-apply-policy": "hot_reload"
         },
         "crash_backoff_initial_seconds": {
           "type": "integer",
@@ -882,7 +900,8 @@
     "fixtures/config/ok.with-command-and-cooldown.json",
     "fixtures/config/ok.qq-official-adapter.json",
     "fixtures/config/invalid.qq-official-intent.json",
-    "fixtures/config/invalid.scheduler-timezone-empty.json"
+    "fixtures/config/invalid.scheduler-timezone-empty.json",
+    "fixtures/config/invalid.runtime-detached-limits.json"
   ],
   "x-runtime-constraints": [
     "admin.session_absolute_ttl_days must be greater than or equal to admin.session_ttl_days"

@@ -1,0 +1,22 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+description: payload.task_id belongs only to scheduler triggers.
+frames:
+- type: event
+  request_id: event-1
+  deadline_at_ms: 1789300060000
+  event:
+    event_id: message-1
+    source_protocol: onebot11
+    source_adapter: onebot11
+    event_type: message.private
+    timestamp: 1789300000
+    actor:
+      id: '10001'
+    target:
+      type: private
+      id: '10001'
+    payload:
+      task_id: daily-refresh
+expect:
+  valid: false

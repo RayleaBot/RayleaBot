@@ -3,6 +3,7 @@ case: edge
 frames:
   - type: event
     request_id: event-meta-1
+    deadline_at_ms: 1789300060000
     event:
       event_id: meta-1
       source_protocol: onebot11

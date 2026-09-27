@@ -131,16 +131,18 @@ type StorageConfig struct {
 }
 
 type RuntimeConfig struct {
-	PluginInitTimeoutSeconds    int `json:"plugin_init_timeout_seconds" yaml:"plugin_init_timeout_seconds"`
-	PluginEventTimeoutSeconds   int `json:"plugin_event_timeout_seconds" yaml:"plugin_event_timeout_seconds"`
-	MaxPendingEventsPerPlugin   int `json:"max_pending_events_per_plugin" yaml:"max_pending_events_per_plugin"`
-	MaxPendingControlEvents     int `json:"max_pending_control_events_per_plugin" yaml:"max_pending_control_events_per_plugin"`
-	StderrRateLimitBytesPerSec  int `json:"stderr_rate_limit_bytes_per_second" yaml:"stderr_rate_limit_bytes_per_second"`
-	MaxConcurrentTasksPerPlugin int `json:"max_concurrent_tasks_per_plugin" yaml:"max_concurrent_tasks_per_plugin"`
-	CrashBackoffInitialSeconds  int `json:"crash_backoff_initial_seconds" yaml:"crash_backoff_initial_seconds"`
-	CrashBackoffMaxSeconds      int `json:"crash_backoff_max_seconds" yaml:"crash_backoff_max_seconds"`
-	ShutdownGraceSeconds        int `json:"shutdown_grace_seconds" yaml:"shutdown_grace_seconds"`
-	IPCMessageMaxBytes          int `json:"ipc_message_max_bytes" yaml:"ipc_message_max_bytes"`
+	PluginInitTimeoutSeconds          int `json:"plugin_init_timeout_seconds" yaml:"plugin_init_timeout_seconds"`
+	PluginEventTimeoutSeconds         int `json:"plugin_event_timeout_seconds" yaml:"plugin_event_timeout_seconds"`
+	MaxPendingEventsPerPlugin         int `json:"max_pending_events_per_plugin" yaml:"max_pending_events_per_plugin"`
+	MaxPendingControlEvents           int `json:"max_pending_control_events_per_plugin" yaml:"max_pending_control_events_per_plugin"`
+	StderrRateLimitBytesPerSec        int `json:"stderr_rate_limit_bytes_per_second" yaml:"stderr_rate_limit_bytes_per_second"`
+	MaxConcurrentTasksPerPlugin       int `json:"max_concurrent_tasks_per_plugin" yaml:"max_concurrent_tasks_per_plugin"`
+	PluginDetachedEventTimeoutSeconds int `json:"plugin_detached_event_timeout_seconds" yaml:"plugin_detached_event_timeout_seconds"`
+	MaxDetachedEventsPerPlugin        int `json:"max_detached_events_per_plugin" yaml:"max_detached_events_per_plugin"`
+	CrashBackoffInitialSeconds        int `json:"crash_backoff_initial_seconds" yaml:"crash_backoff_initial_seconds"`
+	CrashBackoffMaxSeconds            int `json:"crash_backoff_max_seconds" yaml:"crash_backoff_max_seconds"`
+	ShutdownGraceSeconds              int `json:"shutdown_grace_seconds" yaml:"shutdown_grace_seconds"`
+	IPCMessageMaxBytes                int `json:"ipc_message_max_bytes" yaml:"ipc_message_max_bytes"`
 }
 
 type RenderConfig struct {

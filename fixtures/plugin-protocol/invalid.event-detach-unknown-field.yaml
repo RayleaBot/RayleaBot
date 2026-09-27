@@ -1,0 +1,12 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+description: The background deadline comes from host configuration; a plugin cannot request its own timeout.
+frames:
+- type: action
+  request_id: action-1
+  parent_request_id: event-1
+  action: event.detach
+  data:
+    timeout_seconds: 7200
+expect:
+  valid: false

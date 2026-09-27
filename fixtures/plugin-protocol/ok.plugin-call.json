@@ -20,6 +20,7 @@
     {
       "type": "event",
       "request_id": "provider-event-1",
+      "deadline_at_ms": 1789730030000,
       "event": {
         "event_id": "service-event-1",
         "source_protocol": "platform",

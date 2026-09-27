@@ -2250,7 +2250,7 @@ export interface components {
                  */
                 plugin_init_timeout_seconds: number;
                 /**
-                 * @description Maximum time a plugin may take to process one event; expired events are dropped. Default: 60.
+                 * @description Maximum time a plugin may take to process one event in the foreground, announced to the plugin as the event frame deadline_at_ms; expired events are dropped. Default: 60.
                  * @default 60
                  */
                 plugin_event_timeout_seconds: number;
@@ -2274,6 +2274,16 @@ export interface components {
                  * @default 4
                  */
                 max_concurrent_tasks_per_plugin: number;
+                /**
+                 * @description Deadline of an event a plugin moved to the background with event.detach, counted from the detach. A saved change applies to later detaches; detached events keep their deadline. Default: 900.
+                 * @default 900
+                 */
+                plugin_detached_event_timeout_seconds: number;
+                /**
+                 * @description Maximum background events one plugin process holds at once. Further event.detach calls return platform.rate_limited and the event stays in the foreground. A saved change applies to later detaches. Default: 8.
+                 * @default 8
+                 */
+                max_detached_events_per_plugin: number;
                 /**
                  * @description Initial backoff before the first restart after a plugin crash; subsequent waits grow exponentially. Default: 2.
                  * @default 2

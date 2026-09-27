@@ -234,6 +234,8 @@ func configRuntimeDocument(cfg Config) map[string]any {
 		"max_pending_control_events_per_plugin": cfg.Runtime.MaxPendingControlEvents,
 		"stderr_rate_limit_bytes_per_second":    cfg.Runtime.StderrRateLimitBytesPerSec,
 		"max_concurrent_tasks_per_plugin":       cfg.Runtime.MaxConcurrentTasksPerPlugin,
+		"plugin_detached_event_timeout_seconds": cfg.Runtime.PluginDetachedEventTimeoutSeconds,
+		"max_detached_events_per_plugin":        cfg.Runtime.MaxDetachedEventsPerPlugin,
 		"crash_backoff_initial_seconds":         cfg.Runtime.CrashBackoffInitialSeconds,
 		"crash_backoff_max_seconds":             cfg.Runtime.CrashBackoffMaxSeconds,
 		"shutdown_grace_seconds":                cfg.Runtime.ShutdownGraceSeconds,

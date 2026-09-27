@@ -1,0 +1,19 @@
+contract: contracts/error-codes.yaml
+case: ok
+description: Local action and terminal errors of event.detach and detached events on the plugin protocol surface.
+input:
+  errors:
+  - code: platform.invalid_request
+    message: 当前事件不能转入后台
+    applies_to: plugin_protocol
+  - code: platform.rate_limited
+    message: 后台事件数量已达上限
+    applies_to: plugin_protocol
+  - code: plugin.event_timeout
+    message: 后台事件超过期限
+    applies_to: plugin_protocol
+  - code: plugin.event_canceled
+    message: 插件停止，后台事件已取消
+    applies_to: plugin_protocol
+expect:
+  valid: true

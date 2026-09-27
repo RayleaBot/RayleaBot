@@ -6,6 +6,7 @@
       {
         "type": "event",
         "request_id": "event-config-empty-1",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "config-empty-1",
           "source_protocol": "system",
@@ -35,6 +36,7 @@
       {
         "type": "event",
         "request_id": "event-meta-1",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "meta-1",
           "source_protocol": "onebot11",
@@ -163,6 +165,7 @@
       {
         "type": "event",
         "request_id": "missing",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "missing",
           "source_protocol": "platform",
@@ -181,6 +184,7 @@
       {
         "type": "event",
         "request_id": "event-config-noop",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "config-noop",
           "source_protocol": "system",
@@ -191,6 +195,71 @@
             "config": {},
             "changed_keys": []
           }
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.event-detach-no-parent.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "action": "event.detach",
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "invalid.event-detach-result.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "event.detach",
+        "data": {}
+      },
+      {
+        "type": "result",
+        "request_id": "action-1",
+        "status": "success",
+        "data": {
+          "detached": true
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.event-detach-unknown-field.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "event.detach",
+        "data": {
+          "timeout_seconds": 7200
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.event-without-deadline.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-1",
+        "event": {
+          "event_id": "plugin-started-1",
+          "source_protocol": "platform",
+          "source_adapter": "plugins.internal",
+          "event_type": "plugin.started",
+          "timestamp": 1789300000
         }
       }
     ]
@@ -534,12 +603,36 @@
     ]
   },
   {
+    "name": "invalid.scheduler-trigger-without-task.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-1",
+        "deadline_at_ms": 1789300060000,
+        "event": {
+          "event_id": "scheduler-daily-refresh-1",
+          "source_protocol": "scheduler",
+          "source_adapter": "scheduler.internal",
+          "event_type": "scheduler.trigger",
+          "timestamp": 1789300000,
+          "payload": {
+            "payload": {
+              "scope": "all"
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
     "name": "invalid.session-closed.yaml",
     "valid": false,
     "frames": [
       {
         "type": "event",
         "request_id": "reply",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "fixture-reply",
           "source_protocol": "onebot11",
@@ -689,12 +782,41 @@
     ]
   },
   {
+    "name": "invalid.task-id-on-message.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-1",
+        "deadline_at_ms": 1789300060000,
+        "event": {
+          "event_id": "message-1",
+          "source_protocol": "onebot11",
+          "source_adapter": "onebot11",
+          "event_type": "message.private",
+          "timestamp": 1789300000,
+          "actor": {
+            "id": "10001"
+          },
+          "target": {
+            "type": "private",
+            "id": "10001"
+          },
+          "payload": {
+            "task_id": "daily-refresh"
+          }
+        }
+      }
+    ]
+  },
+  {
     "name": "ok.bot-identities.yaml",
     "valid": true,
     "frames": [
       {
         "type": "event",
         "request_id": "identities-1",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "identities-1",
           "source_protocol": "platform",
@@ -720,6 +842,7 @@
       {
         "type": "event",
         "request_id": "identities-2",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "identities-2",
           "source_protocol": "platform",
@@ -786,6 +909,7 @@
       {
         "type": "event",
         "request_id": "event-config-1",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "config-1",
           "source_protocol": "system",
@@ -805,6 +929,131 @@
       {
         "type": "result",
         "request_id": "event-config-1",
+        "status": "success",
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "ok.event-detach-propagation.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-1",
+        "deadline_at_ms": 1789300060000,
+        "event": {
+          "event_id": "message-1",
+          "source_protocol": "onebot11",
+          "source_adapter": "onebot11",
+          "event_type": "message.group",
+          "timestamp": 1789300000,
+          "actor": {
+            "id": "10001"
+          },
+          "target": {
+            "type": "group",
+            "id": "20001"
+          },
+          "message": {
+            "plain_text": "更新面板"
+          }
+        }
+      },
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "event.detach",
+        "data": {
+          "propagation": "stop",
+          "result": {
+            "accepted": true
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-1",
+        "status": "success",
+        "data": {
+          "deadline_at_ms": 1789300900000
+        }
+      },
+      {
+        "type": "error",
+        "request_id": "event-1",
+        "code": "plugin.internal_error",
+        "message": "面板读取失败"
+      }
+    ]
+  },
+  {
+    "name": "ok.event-detach.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-1",
+        "deadline_at_ms": 1789300060000,
+        "event": {
+          "event_id": "scheduler-daily-refresh-1",
+          "source_protocol": "scheduler",
+          "source_adapter": "scheduler.internal",
+          "event_type": "scheduler.trigger",
+          "timestamp": 1789300000,
+          "payload": {
+            "task_id": "daily-refresh",
+            "payload": {
+              "scope": "all"
+            }
+          }
+        }
+      },
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "event.detach",
+        "data": {}
+      },
+      {
+        "type": "result",
+        "request_id": "action-1",
+        "status": "success",
+        "data": {
+          "deadline_at_ms": 1789300900000
+        }
+      },
+      {
+        "type": "action",
+        "request_id": "action-2",
+        "parent_request_id": "event-1",
+        "action": "message.send",
+        "data": {
+          "target_type": "group",
+          "target_id": "20001",
+          "message": {
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "刷新完成"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-2",
+        "status": "success",
+        "data": {}
+      },
+      {
+        "type": "result",
+        "request_id": "event-1",
         "status": "success",
         "data": {}
       }
@@ -1089,6 +1338,7 @@
       {
         "type": "event",
         "request_id": "event-qq-bot-added-1",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "GROUP_ADD_ROBOT:fixture",
           "source_protocol": "qqofficial",
@@ -1126,6 +1376,7 @@
       {
         "type": "event",
         "request_id": "event-qq-group-1",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "GROUP_AT_MESSAGE_CREATE:fixture",
           "source_protocol": "qqofficial",
@@ -1286,6 +1537,37 @@
     ]
   },
   {
+    "name": "ok.scheduler-trigger.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-1",
+        "deadline_at_ms": 1789300060000,
+        "event": {
+          "event_id": "scheduler-daily-refresh-1",
+          "source_protocol": "scheduler",
+          "source_adapter": "scheduler.internal",
+          "event_type": "scheduler.trigger",
+          "timestamp": 1789300000,
+          "payload": {
+            "task_id": "daily-refresh",
+            "action": "refresh",
+            "payload": {
+              "action": "refresh"
+            }
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "event-1",
+        "status": "success",
+        "data": {}
+      }
+    ]
+  },
+  {
     "name": "ok.secret-delete.yaml",
     "valid": true,
     "frames": [
@@ -1344,6 +1626,7 @@
       {
         "type": "event",
         "request_id": "reply",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "fixture-reply",
           "source_protocol": "onebot11",
@@ -1398,6 +1681,7 @@
       {
         "type": "event",
         "request_id": "reply",
+        "deadline_at_ms": 1789300060000,
         "event": {
           "event_id": "fixture-reply",
           "source_protocol": "onebot11",

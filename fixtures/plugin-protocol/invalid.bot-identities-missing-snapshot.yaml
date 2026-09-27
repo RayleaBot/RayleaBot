@@ -3,6 +3,7 @@ case: invalid
 frames:
 - type: event
   request_id: missing
+  deadline_at_ms: 1789300060000
   event:
     event_id: missing
     source_protocol: platform

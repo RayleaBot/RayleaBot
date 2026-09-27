@@ -1,0 +1,39 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+description: A message event decides propagation and returns its delivery result when it moves to the background.
+frames:
+- type: event
+  request_id: event-1
+  deadline_at_ms: 1789300060000
+  event:
+    event_id: message-1
+    source_protocol: onebot11
+    source_adapter: onebot11
+    event_type: message.group
+    timestamp: 1789300000
+    actor:
+      id: '10001'
+    target:
+      type: group
+      id: '20001'
+    message:
+      plain_text: 更新面板
+- type: action
+  request_id: action-1
+  parent_request_id: event-1
+  action: event.detach
+  data:
+    propagation: stop
+    result:
+      accepted: true
+- type: result
+  request_id: action-1
+  status: success
+  data:
+    deadline_at_ms: 1789300900000
+- type: error
+  request_id: event-1
+  code: plugin.internal_error
+  message: 面板读取失败
+expect:
+  valid: true

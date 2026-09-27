@@ -69,8 +69,8 @@ func TestWireBoundaries(t *testing.T) {
 	}{
 		{"empty arrays", `{"type":"init","request_id":"i","protocol_version":"4","plugin_id":"p","timezone":"UTC","config":{},"super_admins":[],"command_prefixes":["/"],"concurrency":1,"bots":[]}`, true},
 		{"missing result status", `{"type":"result","request_id":"r","data":{}}`, false},
-		{"zero timestamp", `{"type":"event","request_id":"e","event":{"event_id":"e","source_protocol":"system","source_adapter":"scheduler","event_type":"scheduler.trigger","timestamp":0}}`, true},
-		{"decimal timestamp", `{"type":"event","request_id":"e","event":{"event_id":"e","source_protocol":"system","source_adapter":"scheduler","event_type":"scheduler.trigger","timestamp":0.5}}`, false},
+		{"zero timestamp", `{"type":"event","request_id":"e","deadline_at_ms":1,"event":{"event_id":"e","source_protocol":"system","source_adapter":"scheduler","event_type":"scheduler.trigger","timestamp":0,"payload":{"task_id":"t"}}}`, true},
+		{"decimal timestamp", `{"type":"event","request_id":"e","deadline_at_ms":1,"event":{"event_id":"e","source_protocol":"system","source_adapter":"scheduler","event_type":"scheduler.trigger","timestamp":0.5,"payload":{"task_id":"t"}}}`, false},
 		{"explicit null value", `{"type":"action","request_id":"a","action":"storage.kv","data":{"operation":"set","key":"k","value":null}}`, true},
 		{"absent value", `{"type":"action","request_id":"a","action":"storage.kv","data":{"operation":"set","key":"k"}}`, false},
 		{"nested unknown", `{"type":"action","request_id":"a","action":"logger.write","data":{"level":"info","message":"x","extra":true}}`, false},

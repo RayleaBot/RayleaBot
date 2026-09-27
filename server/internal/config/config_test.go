@@ -576,6 +576,8 @@ func newPlanningConfigDocument() map[string]any {
 			"max_pending_control_events_per_plugin": 4,
 			"stderr_rate_limit_bytes_per_second":    262144,
 			"max_concurrent_tasks_per_plugin":       4,
+			"plugin_detached_event_timeout_seconds": 900,
+			"max_detached_events_per_plugin":        8,
 			"crash_backoff_initial_seconds":         2,
 			"crash_backoff_max_seconds":             60,
 			"shutdown_grace_seconds":                10,

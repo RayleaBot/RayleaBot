@@ -269,11 +269,17 @@
           "type": "object",
           "required": [
             "type",
-            "event"
+            "event",
+            "deadline_at_ms"
           ],
           "properties": {
             "type": {
               "const": "event"
+            },
+            "deadline_at_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Host handling deadline in Unix milliseconds: the delivery time plus runtime.plugin_event_timeout_seconds, or the service_request deadline for plugin.request. The host ends the event with plugin.event_timeout at now >= deadline_at_ms. After event.detach the deadline in its result replaces this one."
             },
             "event": {
               "type": "object",
@@ -413,6 +419,11 @@
                     "payload": {
                       "type": "object",
                       "additionalProperties": true
+                    },
+                    "task_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Task ID given to scheduler.create. Present on every scheduler.trigger and only there. Plugins dispatch triggers by it and should delete a task whose ID they no longer recognize."
                     },
                     "message_id": {
                       "type": "string",
@@ -666,6 +677,41 @@
                 }
               },
               "allOf": [
+                {
+                  "if": {
+                    "required": [
+                      "event_type"
+                    ],
+                    "properties": {
+                      "event_type": {
+                        "const": "scheduler.trigger"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "payload"
+                    ],
+                    "properties": {
+                      "payload": {
+                        "required": [
+                          "task_id"
+                        ]
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "payload": {
+                        "not": {
+                          "required": [
+                            "task_id"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
                 {
                   "if": {
                     "required": [
@@ -1256,6 +1302,9 @@
         },
         {
           "$ref": "#/$defs/action_plugin_call"
+        },
+        {
+          "$ref": "#/$defs/action_event_detach"
         }
       ]
     },
@@ -2960,6 +3009,73 @@
       "unevaluatedProperties": false,
       "description": "Implicit plugin-private, parent-event-bound conversation action. Success result: #/$defs/session_finish_result. Requires min_core_version >= 0.6.0."
     },
+    "action_event_detach_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "result": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Completes the delivery like the data of a successful terminal result: management.action returns it to the caller, other event types ignore it. Omitted means an empty object."
+        },
+        "propagation": {
+          "type": "string",
+          "enum": [
+            "stop",
+            "continue"
+          ],
+          "description": "Message events only. Controls later priority layers exactly like the propagation of a successful terminal; explicit continue overrides manifest block. Other event types reject it with platform.invalid_request."
+        }
+      }
+    },
+    "event_detach_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deadline_at_ms"
+      ],
+      "properties": {
+        "deadline_at_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Background deadline in Unix milliseconds: the detach time plus runtime.plugin_detached_event_timeout_seconds effective at that moment. It replaces the event frame deadline and is never renewed."
+        }
+      }
+    },
+    "action_event_detach": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data",
+            "parent_request_id"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "const": "event.detach",
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/action_event_detach_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false,
+      "description": "Moves the parent event to the background; see x-detached-events. Success result: #/$defs/event_detach_result."
+    },
     "storage_kv_set_result": {
       "type": "object",
       "additionalProperties": false,
@@ -3251,6 +3367,7 @@
       "required_fields": [
         "type",
         "request_id",
+        "deadline_at_ms",
         "event"
       ],
       "example_ref": "fixtures/plugin-protocol/ok.config-changed.yaml"
@@ -3387,10 +3504,20 @@
     "fixtures/plugin-protocol/invalid.propagation-local-action.yaml",
     "fixtures/plugin-protocol/invalid.propagation-error.yaml",
     "fixtures/plugin-protocol/invalid.propagation-value.yaml",
-    "fixtures/plugin-protocol/invalid.propagation-local-result.yaml"
+    "fixtures/plugin-protocol/invalid.propagation-local-result.yaml",
+    "fixtures/plugin-protocol/ok.event-detach.yaml",
+    "fixtures/plugin-protocol/ok.event-detach-propagation.yaml",
+    "fixtures/plugin-protocol/ok.scheduler-trigger.yaml",
+    "fixtures/plugin-protocol/invalid.event-detach-no-parent.yaml",
+    "fixtures/plugin-protocol/invalid.event-detach-unknown-field.yaml",
+    "fixtures/plugin-protocol/invalid.event-detach-result.yaml",
+    "fixtures/plugin-protocol/invalid.event-without-deadline.yaml",
+    "fixtures/plugin-protocol/invalid.scheduler-trigger-without-task.yaml",
+    "fixtures/plugin-protocol/invalid.task-id-on-message.yaml"
   ],
   "$comment": "Protocol v4 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and exposes host actions to every trusted plugin process without manifest permissions.",
   "x-action-result-schemas": {
+    "event.detach": "#/$defs/event_detach_result",
     "session.wait": "#/$defs/session_wait_result",
     "session.finish": "#/$defs/session_finish_result",
     "storage.kv.get": "#/$defs/storage_kv_get_result",
@@ -3409,5 +3536,19 @@
     "caller": "Host derives caller_plugin_id and origin from the owning runtime/event. Provider owns business authorization.",
     "business_errors": "A provider error is forwarded as an error frame with its original code/message/details; normal plugin protocol code syntax applies. Host does not interpret business-specific data.",
     "logging": "Routing logs exclude params, result bodies and provider error details."
+  },
+  "x-detached-events": {
+    "event_types": [
+      "message.private",
+      "message.group",
+      "scheduler.trigger",
+      "management.action"
+    ],
+    "detach": "event.detach completes the delivery of its parent event as a successful terminal with data.result would: message layering follows its propagation, management.action returns result to the caller and scheduler.trigger counts as delivered. The event releases its conversation lane and concurrency slot but keeps its request_id and origin, so later actions still use it as parent_request_id and plugin.call keeps the original origin.",
+    "rejections": "Other event types, a second event.detach for the same event and propagation on a non-message event return platform.invalid_request. More than runtime.max_detached_events_per_plugin detached events in one plugin process return retryable platform.rate_limited with details.limit. A rejected event stays in the foreground under its frame deadline.",
+    "deadline": "The deadline is fixed at detach time from the then effective runtime.plugin_detached_event_timeout_seconds; later configuration changes do not move it and there is no renewal.",
+    "actions": "Every action of a detached event carries parent_request_id. session.wait returns platform.invalid_request; conversations are registered only by message events that complete in the foreground.",
+    "terminal": "A result or error frame ends a detached event for accounting only; it cannot carry propagation and is not returned to the management caller. A terminal action frame, whose request_id equals the event request_id, is a protocol violation.",
+    "end": "At the deadline the host ends the event with plugin.event_timeout, stops executing its later actions, ignores its late terminal and fails its pending plugin.call. Stopping or reloading the plugin ends it with plugin.event_canceled. The host never replays or extends a detached event."
   }
 }

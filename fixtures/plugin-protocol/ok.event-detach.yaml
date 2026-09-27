@@ -1,0 +1,49 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+description: A scheduler trigger moves to the background, keeps acting under its request ID and ends with an ordinary terminal.
+frames:
+- type: event
+  request_id: event-1
+  deadline_at_ms: 1789300060000
+  event:
+    event_id: scheduler-daily-refresh-1
+    source_protocol: scheduler
+    source_adapter: scheduler.internal
+    event_type: scheduler.trigger
+    timestamp: 1789300000
+    payload:
+      task_id: daily-refresh
+      payload:
+        scope: all
+- type: action
+  request_id: action-1
+  parent_request_id: event-1
+  action: event.detach
+  data: {}
+- type: result
+  request_id: action-1
+  status: success
+  data:
+    deadline_at_ms: 1789300900000
+- type: action
+  request_id: action-2
+  parent_request_id: event-1
+  action: message.send
+  data:
+    target_type: group
+    target_id: '20001'
+    message:
+      segments:
+      - type: text
+        data:
+          text: 刷新完成
+- type: result
+  request_id: action-2
+  status: success
+  data: {}
+- type: result
+  request_id: event-1
+  status: success
+  data: {}
+expect:
+  valid: true

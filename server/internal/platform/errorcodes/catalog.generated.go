@@ -137,7 +137,7 @@ var catalog = map[string]Definition{
 	PermissionUnavailable:                     {Code: PermissionUnavailable, HTTPStatus: 0, Message: "暂时无法确认权限，本次操作未执行", Retryable: true, Surfaces: "logs"},
 	PlatformInternalError:                     {Code: PlatformInternalError, HTTPStatus: 500, Message: "内部错误", Retryable: true, Surfaces: "http,websocket,plugin_protocol,task,readiness"},
 	PlatformInvalidConfig:                     {Code: PlatformInvalidConfig, HTTPStatus: 400, Message: "配置校验失败", Retryable: false, Surfaces: "http,websocket,readiness"},
-	PlatformInvalidRequest:                    {Code: PlatformInvalidRequest, HTTPStatus: 400, Message: "请求参数不合法", Retryable: false, Surfaces: "http,websocket,task"},
+	PlatformInvalidRequest:                    {Code: PlatformInvalidRequest, HTTPStatus: 400, Message: "请求参数不合法", Retryable: false, Surfaces: "http,websocket,task,plugin_protocol"},
 	PlatformRateLimited:                       {Code: PlatformRateLimited, HTTPStatus: 429, Message: "触发平台级限流", Retryable: true, Surfaces: "http,websocket,plugin_protocol"},
 	PlatformRenderInputTooLarge:               {Code: PlatformRenderInputTooLarge, HTTPStatus: 413, Message: "渲染输入超过大小限制", Retryable: false, Surfaces: "http,websocket,plugin_protocol,task"},
 	PlatformRenderQueueFull:                   {Code: PlatformRenderQueueFull, HTTPStatus: 429, Message: "渲染队列已满", Retryable: true, Surfaces: "http,websocket,plugin_protocol"},

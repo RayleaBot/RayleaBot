@@ -3,6 +3,7 @@ case: ok
 frames:
   - type: event
     request_id: event-config-1
+    deadline_at_ms: 1789300060000
     event:
       event_id: config-1
       source_protocol: system

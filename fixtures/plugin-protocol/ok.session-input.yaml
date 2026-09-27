@@ -3,6 +3,7 @@ case: ok
 frames:
 - type: event
   request_id: reply
+  deadline_at_ms: 1789300060000
   event:
     event_id: fixture-reply
     source_protocol: onebot11

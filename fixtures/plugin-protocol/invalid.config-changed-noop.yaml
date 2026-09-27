@@ -4,6 +4,7 @@ description: Ordinary no-op writes do not emit empty config.changed notification
 frames:
   - type: event
     request_id: event-config-noop
+    deadline_at_ms: 1789300060000
     event:
       event_id: config-noop
       source_protocol: system

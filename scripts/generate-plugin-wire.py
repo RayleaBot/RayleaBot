@@ -33,6 +33,8 @@ MODELS = {
     "ProtocolActionSessionFinishFrame": "/$defs/action_session_finish_data",
     "ProtocolSessionWaitResultFrame": "/$defs/session_wait_result",
     "ProtocolSessionFinishResultFrame": "/$defs/session_finish_result",
+    "ProtocolActionEventDetachFrame": "/$defs/action_event_detach_data",
+    "ProtocolEventDetachResultFrame": "/$defs/event_detach_result",
     "ProtocolKVSetResultFrame": "/$defs/storage_kv_set_result",
     "ProtocolKVGetResultFrame": "/$defs/storage_kv_get_result",
     "ProtocolOneBotPayloadFrame": PAYLOAD + "/properties/onebot",

@@ -1,0 +1,24 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+description: A scheduler trigger carries the task ID given to scheduler.create next to the stored payload and action.
+frames:
+- type: event
+  request_id: event-1
+  deadline_at_ms: 1789300060000
+  event:
+    event_id: scheduler-daily-refresh-1
+    source_protocol: scheduler
+    source_adapter: scheduler.internal
+    event_type: scheduler.trigger
+    timestamp: 1789300000
+    payload:
+      task_id: daily-refresh
+      action: refresh
+      payload:
+        action: refresh
+- type: result
+  request_id: event-1
+  status: success
+  data: {}
+expect:
+  valid: true

@@ -3,6 +3,7 @@ case: ok
 frames:
   - type: event
     request_id: event-qq-bot-added-1
+    deadline_at_ms: 1789300060000
     event:
       event_id: GROUP_ADD_ROBOT:fixture
       source_protocol: qqofficial
