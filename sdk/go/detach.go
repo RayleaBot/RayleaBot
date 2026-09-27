@@ -104,6 +104,11 @@ func (event *EventContext) sendDetached(request MessageSendRequest) error {
 	if event.lifetime != nil {
 		ctx = event.lifetime
 	}
+	// A terminal reply goes back through the event's own adapter; an ordinary
+	// message action names it, or the host could only pick a sole adapter.
+	if request.SourceAdapter == "" && request.ReplyToEventID == "" {
+		request.SourceProtocol, request.SourceAdapter = event.Event.SourceProtocol, event.Event.SourceAdapter
+	}
 	if _, err := event.Actions().MessageSend(ctx, request); err != nil {
 		return err
 	}

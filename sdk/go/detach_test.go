@@ -77,6 +77,13 @@ func TestDetachExtendsTheHandlerContextAndRepliesWithActionAndResult(t *testing.
 	if send.Type != "action" || send.Action != "message.send" || send.ParentRequestID != "long" || send.RequestID == "long" {
 		t.Fatalf("background reply was not an ordinary action: %#v", send)
 	}
+	// An ordinary message action names the event's adapter, which a terminal
+	// reply would have used implicitly.
+	var sent map[string]any
+	_ = json.Unmarshal(send.Data, &sent)
+	if sent["source_protocol"] != "onebot11" || sent["source_adapter"] != "adapter" || sent["target_type"] != "group" || sent["target_id"] != "group" {
+		t.Fatalf("background reply data = %s", send.Data)
+	}
 	peer.reply(t, send.RequestID, map[string]any{"message_id": "sent"})
 	if terminal := peer.read(t); terminal.Type != "result" || terminal.RequestID != "long" || terminal.Propagation != "" {
 		t.Fatalf("background terminal = %#v", terminal)
