@@ -9,6 +9,7 @@ import { createBuildCache, createGoInputRegistry, fingerprint, treeInputs, write
 import { developmentRequest, synchronizeDevelopmentPlugin } from "./development-client.mjs";
 import { redactLogLine } from "./log-redaction.mjs";
 import { createDevChildOutput, createDevConsole } from "./dev-console.mjs";
+import { currentDevelopmentPlugins, prepareStableDevelopmentPlugins, runDevelopmentPluginBatch, startPreparedDevelopmentRuntime } from "./development-pipeline.mjs";
 import {
   BUILD_PROFILE,
   LAUNCHER_CONTROL_TOKEN_ENV,
@@ -40,15 +41,13 @@ import {
   waitForChildProcessExit,
 } from "./start-dev-support.mjs";
 import {
-  collectLocalModuleReplacements,
-  collectWorkspaceSDKVersions,
   createDevelopmentReloadQueue,
   currentPluginPlatform,
   loadPluginWorkspace,
   mirrorVueSDK,
   PLUGIN_DEV_OFF,
   PLUGIN_DEV_WATCH,
-  renderDevelopmentGoWork,
+  preparePluginGoWorkspace,
   resolvePluginDevMode,
   watchPluginWorkspace,
 } from "./plugin-dev-workspace.mjs";
@@ -79,7 +78,6 @@ const serverReloadDebounceMs = 500;
 const childGoCacheDir = path.join(rootDir, ".tmp", "gocache");
 const pluginWorkspacePath = path.resolve(rootDir, process.env.RAYLEA_PLUGIN_WORKSPACE || "plugin-workspace.local.json");
 const pluginDevRoot = path.join(rootDir, ".tmp", "plugin-dev");
-const pluginDevGoWorkPath = path.join(pluginDevRoot, "go.work");
 const pluginDevArtifactRoot = path.join(pluginDevRoot, "artifacts");
 const baseChildEnvironment = {
   GOCACHE: childGoCacheDir,
@@ -111,7 +109,8 @@ const goInputRegistry = createGoInputRegistry();
 const activeGoInputs = goInputRegistry.files;
 let onGoInputsChanged = () => {};
 let toolIdentity;
-const scriptInputs = ["start-dev.mjs", "dev-build-cache.mjs", "plugin-dev-workspace.mjs", "start-dev-support.mjs", "development-client.mjs", "file-content-tracker.mjs", "log-redaction.mjs"].map((name) => path.join(scriptDir, name));
+const scriptInputs = ["start-dev.mjs", "dev-build-cache.mjs", "plugin-dev-workspace.mjs", "development-pipeline.mjs", "start-dev-support.mjs", "development-client.mjs", "file-content-tracker.mjs", "log-redaction.mjs"].map((name) => path.join(scriptDir, name));
+const reportedPluginErrors = new Map();
 const startupInputs = [...scriptInputs, path.join(scriptDir, "dev-console.mjs")];
 
 await fsp.mkdir(childGoCacheDir, { recursive: true });
@@ -268,23 +267,35 @@ async function buildDevelopmentPlugins(pluginDev, pluginIDs) {
   return terminal.phase("准备开发插件", (progress) => prepareDevelopmentPlugins(pluginDev, pluginIDs, progress));
 }
 
+async function readDevelopmentWorkspace(pluginDev) {
+  if (pluginDev?.mode === PLUGIN_DEV_OFF) return { workspaceVersion: "2", plugins: [], invalidPlugins: [] };
+  const workspace = await loadPluginWorkspace(pluginDev.workspacePath, { onPluginError: ({ path: source, error }) => {
+    if (reportedPluginErrors.get(source) !== error.message) log(`跳过损坏的开发插件 ${source}：${error.message}`, "warn");
+    reportedPluginErrors.set(source, error.message);
+  } });
+  const invalid = new Set(workspace.invalidPlugins?.map((plugin) => plugin.path));
+  for (const source of reportedPluginErrors.keys()) if (!invalid.has(source)) reportedPluginErrors.delete(source);
+  return workspace;
+}
+
+function reportDevelopmentPluginFailure(plugin, error) {
+  log(`开发插件 ${plugin.id} 未更新：${error.message}；等待相关源码变化后重试。`, error.code === "DEV_INPUT_CHANGED" ? "debug" : "warn");
+}
+
 async function prepareDevelopmentPlugins(pluginDev, pluginIDs, progress) {
-  const workspace = pluginDev?.mode !== PLUGIN_DEV_OFF
-    ? await loadPluginWorkspace(pluginDev.workspacePath) : { workspaceVersion: "2", plugins: [] };
+  const workspace = await readDevelopmentWorkspace(pluginDev);
   const platform = currentPluginPlatform();
-  if (!workspace.plugins.length) return { workspace, platform, plugins: [] };
-  await writeIfChanged(pluginDevGoWorkPath, renderDevelopmentGoWork({
-    sdkGoPath: path.join(rootDir, "sdk", "go"),
-    sdkGoVersions: await collectWorkspaceSDKVersions(workspace.plugins), moduleReplacements: await collectLocalModuleReplacements(workspace.plugins), plugins: workspace.plugins,
-  }));
   const helper = path.join(cacheDir, "raylea-plugin" + nativeExecutableSuffix(platform));
-  await cachedGoBuild("plugin-builder", { cwd: path.join(rootDir, "sdk", "go"), main: "./cmd/raylea-plugin", output: helper });
   const plugins = pluginIDs === undefined ? workspace.plugins : workspace.plugins.filter((plugin) => pluginIDs.includes(plugin.id));
-  let completed = 0;
-  progress.progress(0, plugins.length);
-  for (const plugin of plugins) {
+  let helperReady;
+  const result = await runDevelopmentPluginBatch(plugins, async (plugin) => {
+    assertDevelopmentRunning();
+    helperReady ??= cachedGoBuild("plugin-builder", { cwd: path.join(rootDir, "sdk", "go"), main: "./cmd/raylea-plugin", output: helper });
+    await helperReady;
+    // Unrelated plugin modules must not participate in this plugin's Go graph.
+    const goWorkPath = await preparePluginGoWorkspace({ directory: path.join(pluginDevRoot, "workspaces"), sdkGoPath: path.join(rootDir, "sdk", "go"), plugin });
     const environment = {
-      GOWORK: pluginDevGoWorkPath, CGO_ENABLED: "0", RAYLEA_PLUGIN_BUILD_USE_WORKSPACE: "1",
+      GOWORK: goWorkPath, CGO_ENABLED: "0", RAYLEA_PLUGIN_BUILD_USE_WORKSPACE: "1",
       RAYLEA_PLUGIN_BUILD_NODE: process.execPath, RAYLEA_PLUGIN_BUILD_COREPACK_CLI: corepackCliPath,
     };
     const uiDir = path.join(plugin.path, "ui");
@@ -339,13 +350,12 @@ async function prepareDevelopmentPlugins(pluginDev, pluginIDs, progress) {
         "--target", platform, "--out", pluginDevArtifactRoot, "--expanded=true", "--archive=false",
       ], { cwd: rootDir, env: environment }),
     });
-    progress.progress(++completed, plugins.length);
-  }
-  return { workspace, platform, plugins };
+  }, { onFailure: reportDevelopmentPluginFailure, onProgress: (completed, total) => progress.progress(completed, total) });
+  return { workspace, platform, plugins: result.completed.map(({ plugin }) => plugin), failed: result.failed };
 }
 
 async function installDevelopmentPlugins(preparedPlugins, serverBinaryPath) {
-  if (!preparedPlugins.plugins.length) return;
+  if (!preparedPlugins.plugins.length) return { completed: [], failed: [] };
   return terminal.phase("同步开发插件", (progress) => installPreparedPlugins(preparedPlugins, serverBinaryPath, progress));
 }
 
@@ -354,9 +364,8 @@ async function installPreparedPlugins(preparedPlugins, serverBinaryPath, progres
   if (preparedPlugins.plugins.length && !fs.existsSync(configPath)) {
     await runCommand("初始化配置", serverBinaryPath, ["-config", configPath, "config", "init"], { cwd: rootDir });
   }
-  let completed = 0;
-  progress.progress(0, preparedPlugins.plugins.length);
-  for (const plugin of preparedPlugins.plugins) {
+  const result = await runDevelopmentPluginBatch(preparedPlugins.plugins, async (plugin) => {
+    assertDevelopmentRunning();
     const expandedArtifact = path.join(pluginDevArtifactRoot, preparedPlugins.platform, plugin.id);
     await runCommand(`同步开发插件 ${plugin.id}`, serverBinaryPath, [
       "-config",
@@ -368,9 +377,9 @@ async function installPreparedPlugins(preparedPlugins, serverBinaryPath, progres
       "--source",
       plugin.path,
     ], { cwd: rootDir });
-    progress.progress(++completed, preparedPlugins.plugins.length);
-  }
-  log(`开发插件：${completed} 个已同步`);
+  }, { onFailure: reportDevelopmentPluginFailure, onProgress: (completed, total) => progress.progress(completed, total) });
+  log(`开发插件：${result.completed.length} 个已同步${result.failed.length ? `，${result.failed.length} 个失败` : ""}`);
+  return result;
 }
 
 async function syncDevelopmentPlugins(pluginDev, serverBinaryPath, pluginIDs) {
@@ -380,22 +389,20 @@ async function syncDevelopmentPlugins(pluginDev, serverBinaryPath, pluginIDs) {
 }
 
 async function synchronizeOnlinePlugins(prepared, backendBaseUrl) {
-  if (!prepared.plugins.length) return 0;
+  if (!prepared.plugins.length) return { completed: [], failed: [] };
   return terminal.phase("在线同步开发插件", async (progress) => {
-    let updated = 0, completed = 0;
-    progress.progress(0, prepared.plugins.length);
-    for (const plugin of prepared.plugins) {
+    const result = await runDevelopmentPluginBatch(prepared.plugins, async (plugin) => {
       assertDevelopmentRunning();
       const changed = await synchronizeDevelopmentPlugin({
         baseURL: backendBaseUrl, token: developmentControlToken,
         artifact: path.join(pluginDevArtifactRoot, prepared.platform, plugin.id), source: plugin.path,
       });
-      if (changed) updated++;
       log(`${plugin.id}: ${changed ? "已在线同步" : "安装内容未变化"}`, "debug");
-      progress.progress(++completed, prepared.plugins.length);
-    }
-    if (updated) log(`开发插件：${updated} 个已更新，${completed - updated} 个内容未变化`);
-    return updated;
+      return changed;
+    }, { onFailure: reportDevelopmentPluginFailure, onProgress: (completed, total) => progress.progress(completed, total) });
+    const updated = result.completed.filter(({ value }) => value).length;
+    if (updated) log(`开发插件：${updated} 个已更新，${result.completed.length - updated} 个内容未变化`);
+    return result;
   });
 }
 
@@ -409,13 +416,12 @@ async function ensureServerRuntime({ serverReloadMode, backendBaseUrl, pluginDev
 }
 
 async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment) {
-  const lease = await acquireDevelopmentServerLease(backendBaseUrl);
-  activeServerDevLeaseId = lease.lease_id;
+  let lease;
   let child;
   let timer;
   let rebuilding = true;
   let reloadPromise;
-  let pluginWorkspace = pluginDev.mode === PLUGIN_DEV_OFF ? { plugins: [] } : await loadPluginWorkspace(pluginDev.workspacePath);
+  let pluginWorkspace = await readDevelopmentWorkspace(pluginDev);
   let stopPluginWatching = async () => {};
   const queue = createDevelopmentReloadQueue();
   const expectedExits = new Set();
@@ -434,6 +440,17 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
   const queueAllPlugins = (file, predicate = () => true) => {
     if (pluginDev.mode === PLUGIN_DEV_WATCH) for (const plugin of pluginWorkspace.plugins.filter(predicate)) queuePlugin(plugin, file);
   };
+  const rememberFailures = (failed, batch) => {
+    for (const { plugin, error } of failed) {
+      const source = batch?.pluginChanges.find((entry) => entry.plugin.id === plugin.id)?.sourcePath || plugin.path;
+      if (error.code === "DEV_INPUT_CHANGED") queuePlugin(plugin, source);
+      else queue.deferPlugin(plugin, source);
+    }
+  };
+  const acceptPluginResults = (result, batch) => {
+    for (const { plugin } of result.completed) queue.completePlugin(plugin.id);
+    rememberFailures(result.failed, batch);
+  };
   const graphWatchers = new Map();
   onGoInputsChanged = () => {
     const excluded = [toolIdentity.go.GOROOT, toolIdentity.go.GOMODCACHE, launcherDir, serverDir, path.join(rootDir, "sdk"), ...pluginWorkspace.plugins.flatMap((plugin) => [plugin.path, ...(plugin.goModules ?? [])])].filter(Boolean);
@@ -451,9 +468,11 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
       const watcher = fs.watch(directory, (event, filename) => {
         if (!filename) return;
         const changed = path.join(directory, filename.toString());
-        if (event === "rename" || activeGoInputs.has(changed) || (changed.endsWith(".go") && !changed.endsWith("_test.go"))) {
-          queueServer(changed);
-          queueAllPlugins(changed, (plugin) => plugin.hasGoModule);
+        const owners = new Set(goInputRegistry.ownersForWatchEvent(changed, event));
+        if (owners.has(serverDir)) queueServer(changed);
+        if (owners.has(path.join(rootDir, "sdk", "go"))) queueAllPlugins(changed, (plugin) => plugin.hasGoModule);
+        else if (pluginDev.mode === PLUGIN_DEV_WATCH) for (const plugin of pluginWorkspace.plugins) {
+          if (owners.has(plugin.path)) queuePlugin(plugin, changed);
         }
       });
       watcher.on("error", reportError);
@@ -461,17 +480,21 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
     }
   };
   const refreshWorkspaceWatch = async () => {
-    const workspace = pluginDev.mode === PLUGIN_DEV_OFF ? { plugins: [] } : await loadPluginWorkspace(pluginDev.workspacePath);
+    const workspace = await readDevelopmentWorkspace(pluginDev);
     const sharedModules = [...new Set(workspace.plugins.flatMap((plugin) => plugin.goModules ?? []))]
       .filter((modulePath) => modulePath !== path.join(rootDir, "sdk", "go"))
       .map((modulePath) => ({ id: "module:" + modulePath, path: modulePath, hasGoModule: true }));
     const queueModuleUsers = (module, file) => {
       for (const plugin of workspace.plugins.filter((item) => item.goModules?.includes(module.path))) queuePlugin(plugin, file);
     };
-    const newStop = pluginDev.mode === PLUGIN_DEV_WATCH ? await watchPluginWorkspace(workspace.plugins, queuePlugin, reportError, (file) => activeGoInputs.has(file)) : async () => {};
-    const stopModules = pluginDev.mode === PLUGIN_DEV_WATCH ? await watchPluginWorkspace(sharedModules, queueModuleUsers, reportError, (file) => activeGoInputs.has(file)) : async () => {};
+    const newStop = pluginDev.mode === PLUGIN_DEV_WATCH ? await watchPluginWorkspace(workspace.plugins, queuePlugin, reportError, (file) => activeGoInputs.has(file), { isolateErrors: true }) : async () => {};
+    const stopModules = pluginDev.mode === PLUGIN_DEV_WATCH ? await watchPluginWorkspace(sharedModules, queueModuleUsers, reportError, (file) => activeGoInputs.has(file), { isolateErrors: true }) : async () => {};
+    const stopInvalid = pluginDev.mode === PLUGIN_DEV_WATCH ? await watchPluginWorkspace(
+      (workspace.invalidPlugins || []).map(({ path: source }) => ({ id: source, path: source, hasGoModule: fs.existsSync(path.join(source, "go.mod")) })),
+      (_plugin, file) => queueWorkspace(file), reportError, () => false, { isolateErrors: true },
+    ) : async () => {};
     await stopPluginWatching();
-    stopPluginWatching = async () => { await newStop(); await stopModules(); };
+    stopPluginWatching = async () => { await newStop(); await stopModules(); await stopInvalid(); };
     pluginWorkspace = workspace;
     goInputRegistry.retainRoots([serverDir, launcherDir, path.join(rootDir, "sdk", "go"), ...workspace.plugins.filter((plugin) => plugin.hasGoModule).flatMap((plugin) => [plugin.path, ...(plugin.goModules ?? [])])]);
     onGoInputsChanged();
@@ -541,6 +564,7 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
     if (rebuilding || !queue.hasChanges() || shuttingDown) return;
     rebuilding = true;
     const batch = queue.take();
+    log(`开发变更：${JSON.stringify({ server: batch.serverSourcePath, workspace: batch.workspaceSourcePath, plugins: batch.pluginChanges.map(({ plugin, sourcePath }) => ({ id: plugin.id, path: sourcePath })) })}`, "debug");
     let stopped = false;
     let replaced = false;
     let refresh = false;
@@ -548,28 +572,46 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
     try {
       refresh = Boolean(batch.workspaceSourcePath);
       if (refresh) await refreshWorkspaceWatch();
-      const serverChanged = batch.serverSourcePath ? await buildServerDevBinaryAt(serverDevCandidateBinaryPath) : false;
+      let serverChanged = false;
+      if (batch.serverSourcePath) {
+        try { serverChanged = await buildServerDevBinaryAt(serverDevCandidateBinaryPath); }
+        catch (error) {
+          if (error.code === "DEV_SHUTDOWN") throw error;
+          reportError(error);
+          if (error.code === "DEV_INPUT_CHANGED") queueServer(batch.serverSourcePath);
+          else queue.deferServer(batch.serverSourcePath);
+        }
+      }
       const prepared = batch.pluginChanges.length || refresh
         ? await buildDevelopmentPlugins(pluginDev, refresh ? undefined : batch.pluginChanges.map(({ plugin }) => plugin.id)) : null;
       if (shuttingDown) return;
-      // Edits received during a build are reconciled before any runtime is replaced.
-      if (queue.hasChanges()) {
+      if (prepared) rememberFailures(prepared.failed, batch);
+      // A newer edit supersedes only its owner. One busy or broken plugin must
+      // not prevent already-built peers from reaching the running Server.
+      if (queue.hasWorkspaceChanges()) {
         if (batch.serverSourcePath) queue.addServer(batch.serverSourcePath);
         for (const entry of batch.pluginChanges) queue.addPlugin(entry.plugin, entry.sourcePath);
-        if (refresh) queue.addWorkspace(batch.workspaceSourcePath);
         return;
       }
+      if (queue.hasServerChanges()) serverChanged = false;
+      if (prepared) prepared.plugins = currentDevelopmentPlugins(prepared.plugins, queue);
       if (serverChanged) {
         await stopServer(child);
         stopped = true;
-        if (prepared) await installDevelopmentPlugins(prepared, serverDevCandidateBinaryPath);
+        if (prepared) acceptPluginResults(await installDevelopmentPlugins(prepared, serverDevCandidateBinaryPath), batch);
         await replaceServerDevBinary(serverDevCandidateBinaryPath);
         replaced = true;
         await startAndVerify();
         stopped = false;
         await fsp.rm(serverDevPreviousBinaryPath, { force: true });
+        queue.retryDeferredPlugins();
       }
-      const pluginsChanged = prepared && !serverChanged ? await synchronize(prepared) : 0;
+      let pluginsChanged = 0;
+      if (prepared && !serverChanged) {
+        const result = await synchronize(prepared);
+        acceptPluginResults(result, batch);
+        pluginsChanged = result.completed.filter(({ value }) => value).length;
+      }
       log(`开发同步完成：Server ${serverChanged ? "已重启" : "保持运行"}，耗时 ${Date.now() - started} ms。`, serverChanged || pluginsChanged ? "info" : "debug");
     } catch (error) {
       reportError(error);
@@ -577,7 +619,7 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
         if (refresh) queue.addWorkspace(batch.workspaceSourcePath);
         if (batch.serverSourcePath) queue.addServer(batch.serverSourcePath);
         for (const entry of batch.pluginChanges) queue.addPlugin(entry.plugin, entry.sourcePath);
-      }
+      } else if (error.code !== "DEV_SHUTDOWN") queue.deferBatch(batch);
       if (stopped && !shuttingDown) {
         try {
           await stopServer(child);
@@ -600,6 +642,7 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
       try { await buildServerDevBinary(); break; }
       catch (error) {
         if (error.code === "DEV_INPUT_CHANGED" && !shuttingDown) continue;
+        if (await isServerHealthy(backendBaseUrl)) throw error;
         const previous = path.join(cacheDir, "server-last-good" + nativeExecutableSuffix(currentPluginPlatform()));
         if (!fs.existsSync(previous) || shuttingDown) throw error;
         await fsp.copyFile(previous, serverDevBinaryPath);
@@ -608,23 +651,36 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
         break;
       }
     }
-    // Install before loading plugins. The offline command holds the same lifecycle
-    // lock as Server; online synchronization is reserved for a running Server.
-    for (;;) {
-      try {
-        await installDevelopmentPlugins(await buildDevelopmentPlugins(pluginDev), serverDevBinaryPath);
-        break;
-      } catch (error) { if (error.code !== "DEV_INPUT_CHANGED" || shuttingDown) throw error; }
-    }
-    try { await startAndVerify(); }
-    catch (error) {
-      const previous = path.join(cacheDir, "server-last-good" + nativeExecutableSuffix(currentPluginPlatform()));
-      if (!fs.existsSync(previous) || shuttingDown) throw error;
-      await stopServer(child);
-      await fsp.copyFile(previous, serverDevBinaryPath);
-      await startAndVerify();
-      log("Server 候选启动失败，已恢复上一个健康版本。", "error");
-    }
+    await startPreparedDevelopmentRuntime({
+      prepare: async () => {
+        const prepared = await prepareStableDevelopmentPlugins((ids) => buildDevelopmentPlugins(pluginDev, ids));
+        rememberFailures(prepared.failed);
+        return prepared;
+      },
+      existingIsHealthy: () => isServerHealthy(backendBaseUrl),
+      acquire: async () => {
+        assertDevelopmentRunning();
+        lease = await acquireDevelopmentServerLease(backendBaseUrl);
+        activeServerDevLeaseId = lease.lease_id;
+      },
+      // Offline installation owns the database only after the old Server exits.
+      install: async (prepared) => {
+        const result = await installDevelopmentPlugins(prepared, serverDevBinaryPath);
+        acceptPluginResults(result);
+        return result;
+      },
+      start: async () => {
+        try { await startAndVerify(); }
+        catch (error) {
+          const previous = path.join(cacheDir, "server-last-good" + nativeExecutableSuffix(currentPluginPlatform()));
+          if (!fs.existsSync(previous) || shuttingDown) throw error;
+          await stopServer(child);
+          await fsp.copyFile(previous, serverDevBinaryPath);
+          await startAndVerify();
+          log("Server 候选启动失败，已恢复上一个健康版本。", "error");
+        }
+      },
+    });
     log("Server 与开发插件已就绪。", "debug");
   } finally {
     rebuilding = false;

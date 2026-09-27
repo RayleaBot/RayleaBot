@@ -33,7 +33,7 @@ export function resolvePluginDevMode(env, workspaceExists) {
   return raw
 }
 
-export async function loadPluginWorkspace(workspacePath) {
+export async function loadPluginWorkspace(workspacePath, { onPluginError } = {}) {
   let raw
   try {
     raw = await fsp.readFile(workspacePath, 'utf8')
@@ -53,8 +53,15 @@ export async function loadPluginWorkspace(workspacePath) {
     throw new Error(`${workspacePath} contains an unsupported top-level field.`)
   }
   const workspaceDir = path.dirname(workspacePath)
-  const seen = new Set()
+  const seen = new Map()
   const plugins = []
+  const invalidPlugins = []
+  const rejectPlugin = (pluginPath, error) => {
+    if (!onPluginError) throw error
+    const invalid = { path: pluginPath, error }
+    invalidPlugins.push(invalid)
+    onPluginError(invalid)
+  }
   for (const [index, entry] of document.plugins.entries()) {
     const allowedKeys = new Set(['path', 'enabled'])
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)
@@ -69,26 +76,35 @@ export async function loadPluginWorkspace(workspacePath) {
     try {
       manifest = JSON.parse(await fsp.readFile(path.join(pluginPath, 'info.json'), 'utf8'))
     } catch (error) {
-      throw new Error(`${workspacePath} cannot read plugins[${index}] info.json: ${error.message}`)
+      rejectPlugin(pluginPath, new Error(`${workspacePath} cannot read plugins[${index}] info.json: ${error.message}`))
+      continue
     }
     const pluginID = manifest?.id
     if (typeof pluginID !== 'string' || !/^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/.test(pluginID)) {
-      throw new Error(`${workspacePath} plugins[${index}] info.json has an invalid id.`)
+      rejectPlugin(pluginPath, new Error(`${workspacePath} plugins[${index}] info.json has an invalid id.`))
+      continue
     }
     if (seen.has(pluginID)) {
-      throw new Error(`${workspacePath} resolves duplicate plugin id ${pluginID}.`)
+      const error = new Error(`${workspacePath} resolves duplicate plugin id ${pluginID}.`)
+      const previous = plugins.findIndex((plugin) => plugin.id === pluginID)
+      if (previous >= 0) { rejectPlugin(plugins[previous].path, error); plugins.splice(previous, 1) }
+      rejectPlugin(pluginPath, error)
+      continue
     }
-    seen.add(pluginID)
+    seen.set(pluginID, pluginPath)
     const hasGoModule = fs.existsSync(path.join(pluginPath, 'go.mod'))
+    let goModules
+    try { goModules = hasGoModule ? await readLocalGoModules(pluginPath) : [] }
+    catch (error) { rejectPlugin(pluginPath, error); continue }
     plugins.push({
       id: pluginID,
       path: pluginPath,
       enabled: true,
       hasGoModule,
-      goModules: hasGoModule ? await readLocalGoModules(pluginPath) : [],
+      goModules,
     })
   }
-  return { workspaceVersion: '2', plugins }
+  return { workspaceVersion: '2', plugins, ...(onPluginError ? { invalidPlugins } : {}) }
 }
 
 // readLocalGoModules lists the other local modules a plugin's own go.work
@@ -139,19 +155,43 @@ export function createDevelopmentReloadQueue() {
   let serverSourcePath = ''
   let workspaceSourcePath = ''
   const pluginChanges = new Map()
+  let deferredServer = ''
+  const deferredPlugins = new Map()
   return {
     addServer(sourcePath) {
       serverSourcePath = sourcePath
+      deferredServer = ''
     },
     addWorkspace(sourcePath) {
       workspaceSourcePath = sourcePath
+      if (!serverSourcePath) serverSourcePath = deferredServer
+      deferredServer = ''
+      this.retryDeferredPlugins()
+    },
+    retryDeferredPlugins() {
+      for (const [id, change] of deferredPlugins) if (!pluginChanges.has(id)) pluginChanges.set(id, change)
+      deferredPlugins.clear()
     },
     addPlugin(plugin, sourcePath) {
       if (['info.json', 'go.mod'].includes(path.relative(plugin.path, sourcePath))) {
-        workspaceSourcePath = sourcePath
+        this.addWorkspace(sourcePath)
       }
       pluginChanges.set(plugin.id, { plugin, sourcePath })
+      deferredPlugins.delete(plugin.id)
     },
+    hasServerChanges() { return serverSourcePath !== '' },
+    hasWorkspaceChanges() { return workspaceSourcePath !== '' },
+    hasPluginChanges(pluginID) { return pluginChanges.has(pluginID) },
+    deferServer(sourcePath) { if (!serverSourcePath) deferredServer = sourcePath },
+    deferPlugin(plugin, sourcePath) {
+      if (!pluginChanges.has(plugin.id)) deferredPlugins.set(plugin.id, { plugin, sourcePath })
+    },
+    deferBatch(batch) {
+      if (batch.serverSourcePath) this.deferServer(batch.serverSourcePath)
+      for (const { plugin, sourcePath } of batch.pluginChanges) this.deferPlugin(plugin, sourcePath)
+    },
+    completePlugin(pluginID) { deferredPlugins.delete(pluginID) },
+    deferred() { return { serverSourcePath: deferredServer, pluginChanges: [...deferredPlugins.values()] } },
     hasChanges() {
       return serverSourcePath !== '' || workspaceSourcePath !== '' || pluginChanges.size > 0
     },
@@ -208,6 +248,16 @@ export function renderDevelopmentGoWork({ sdkGoPath, sdkGoVersions = [], moduleR
   return `go ${goVersion}\n\nuse (\n${uses}\n)\n${replacements ? `\n${replacements}\n` : ''}`
 }
 
+export async function preparePluginGoWorkspace({ directory, sdkGoPath, plugin }) {
+  const file = path.join(directory, plugin.id, 'go.work')
+  await writeIfChanged(file, renderDevelopmentGoWork({
+    sdkGoPath, plugins: [plugin],
+    sdkGoVersions: await collectWorkspaceSDKVersions([plugin]),
+    moduleReplacements: await collectLocalModuleReplacements([plugin]),
+  }))
+  return file
+}
+
 export async function mirrorVueSDK({ sdkVuePath, pluginPath }) {
   const uiPackage = path.join(pluginPath, 'ui', 'package.json')
   if (!fs.existsSync(uiPackage)) {
@@ -230,12 +280,21 @@ export async function mirrorVueSDK({ sdkVuePath, pluginPath }) {
   await sync(sdkVuePath, target)
 }
 
-export async function watchPluginWorkspace(plugins, onChange, onError = (error) => console.error(error), includesInput = () => false) {
+export async function watchPluginWorkspace(plugins, onChange, onError = (error) => console.error(error), includesInput = () => false, { isolateErrors = false } = {}) {
   const watchers = []
   const watchedDirectories = new Map()
   const contentTracker = createFileContentTracker()
   for (const plugin of plugins) {
-    await watchDirectory(plugin.path, { ...plugin, includesInput }, onChange, watchers, watchedDirectories, contentTracker, onError)
+    const offset = watchers.length
+    try { await watchDirectory(plugin.path, { ...plugin, includesInput }, onChange, watchers, watchedDirectories, contentTracker, onError) }
+    catch (error) {
+      for (const watcher of watchers.splice(isolateErrors ? offset : 0)) watcher.close()
+      for (const directory of watchedDirectories.keys()) {
+        if (!isolateErrors || directory === path.resolve(plugin.path) || directory.startsWith(path.resolve(plugin.path) + path.sep)) watchedDirectories.delete(directory)
+      }
+      if (!isolateErrors) throw error
+      onError(error)
+    }
   }
   return async () => {
     for (const watcher of watchers) {
@@ -277,7 +336,7 @@ async function watchDirectory(directory, plugin, onChange, watchers, watchedDire
   watchers.push(watcher)
   watchedDirectories.set(directoryKey, watcher)
   watcher.on('error', onError)
-  await Promise.all(entries
+  const children = await Promise.allSettled(entries
     .filter((entry) => entry.isDirectory() && !isIgnoredPath(plugin.path, path.join(directory, entry.name), plugin))
     .map((entry) => watchDirectory(
       path.join(directory, entry.name),
@@ -288,6 +347,8 @@ async function watchDirectory(directory, plugin, onChange, watchers, watchedDire
       contentTracker,
       onError,
     )))
+  const failed = children.find((result) => result.status === 'rejected')
+  if (failed) throw failed.reason
 }
 
 async function handlePluginWatchEvent({

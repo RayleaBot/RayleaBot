@@ -136,7 +136,7 @@ Web 路由 `/plugins/store` 提供来源切换和管理、手动刷新、搜索�
 | `sync` | 启动时构建并同步一次 |
 | `watch` | 首次同步后监听插件变更；同时要求 `RAYLEA_SERVER_RELOAD=watch` |
 
-本地联调通过临时 `go.work` 连接主仓库 Go SDK，通过 `.rayleabot/sdk/vue` 镜像 Vue SDK，不改写插件仓库的 `go.mod` 或 lockfile。插件自身 `go.work` 使用的其他本地模块（如相邻检出的共享库）一并加入临时 `go.work`，并把插件要求的版本替换为该目录。插件提供 `scripts/prepare-ui.mjs` 时，构建管理页前以主仓库 Vue SDK 目录为参数运行它，由插件准备 SDK 以外的本地链接。开发产物不附带发布构建用 `--include` 加入的文件。Server watcher 通过 `POST /api/development/plugins/sync` 在线同步，并查询对应安装任务。该接口要求启动时显式设置 `RAYLEA_DEV_ARTIFACT_ROOT`、直接 loopback 请求和 Launcher control token，拒绝 Origin 与转发头，artifact 路径须在指定目录内。
+本地联调为每个插件生成独立的临时 `go.work` 连接主仓库 Go SDK，通过 `.rayleabot/sdk/vue` 镜像 Vue SDK，不改写插件仓库的 `go.mod` 或 lockfile。插件自身 `go.work` 使用的其他本地模块（如相邻检出的共享库）一并加入该插件的临时 `go.work`，并把插件要求的版本替换为该目录；无关插件不加入同一 Go 工作区。插件提供 `scripts/prepare-ui.mjs` 时，构建管理页前以主仓库 Vue SDK 目录为参数运行它，由插件准备 SDK 以外的本地链接。开发产物不附带发布构建用 `--include` 加入的文件。Server watcher 通过 `POST /api/development/plugins/sync` 在线同步，并查询对应安装任务。该接口要求启动时显式设置 `RAYLEA_DEV_ARTIFACT_ROOT`、直接 loopback 请求和 Launcher control token，拒绝 Origin 与转发头，artifact 路径须在指定目录内。
 
 停服环境也可以使用：
 

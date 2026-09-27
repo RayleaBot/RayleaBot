@@ -91,12 +91,38 @@ export const goInputTemplate = '{{.Dir}}{{range .GoFiles}}\nF\t{{.}}{{end}}{{ran
 
 export function createGoInputRegistry() {
   const graphs = new Map(), files = new Set()
+  const sourceDirectories = new Set()
+  const fileOwners = new Map(), directoryOwners = new Map()
   const refresh = () => {
     files.clear()
-    for (const inputs of graphs.values()) for (const file of inputs) files.add(file)
+    sourceDirectories.clear()
+    fileOwners.clear()
+    directoryOwners.clear()
+    for (const [root, inputs] of graphs) for (const file of inputs) {
+      files.add(file)
+      if (!fileOwners.has(file)) fileOwners.set(file, new Set())
+      fileOwners.get(file).add(root)
+      if (!/^go\.(?:mod|sum|work(?:\.sum)?)$/.test(path.basename(file))) {
+        const directory = path.dirname(file)
+        sourceDirectories.add(directory)
+        if (!directoryOwners.has(directory)) directoryOwners.set(directory, new Set())
+        directoryOwners.get(directory).add(root)
+      }
+    }
   }
   return {
     files,
+    isWatchEventRelevant(file, event) {
+      if (files.has(file)) return true
+      // Workspace/module metadata can live beside runtime files. Its directory
+      // does not become a source tree merely because go list references it.
+      if (!sourceDirectories.has(path.dirname(file))) return false
+      return event === 'rename' || (file.endsWith('.go') && !file.endsWith('_test.go'))
+    },
+    ownersForWatchEvent(file, event) {
+      if (!this.isWatchEventRelevant(file, event)) return []
+      return [...(fileOwners.get(file) || directoryOwners.get(path.dirname(file)) || [])]
+    },
     update(root, inputs) {
       graphs.set(path.resolve(root), inputs)
       refresh()
