@@ -115,6 +115,7 @@ sequenceDiagram
 ```
 
 - 同一 `event.target` lane 保持 FIFO，不同目标在插件并发度内并行；队列满时丢弃该次投递并计入观测摘要。
+- 插件以 `event.detach` 把消息、计划任务触发或管理动作事件转入后台时，Runtime 以转入结果完成投递，Dispatcher 随即释放 lane 与并发槽；事件 session 留在 Runtime Manager，直到终态、后台期限或进程停止，计划任务的结果在事件真正结束时记录。
 - 命令声明优先选择目标插件，其余事件按订阅匹配。消息候选按 manifest `priority` 分层，同层并发；成功终态的 `propagation` 覆盖静态 `block`，未处理、失败和队列拒绝继续后续层。
 - Ingress 先匹配会话等待；命中后只执行名单准入，并把回复定向交给登记进程。
 - 本地动作使用独立 `request_id` 并以 `parent_request_id` 关联事件，返回正式 result 或 error；插件私有日志、配置、KV 与会话动作按插件 ID 隔离。
@@ -141,7 +142,7 @@ Scheduler 以插件 ID、任务 ID 和 revision 维护单一 mutation path，只
 | 服务生命周期与运行状态 | App / domain services | SQLite、配置快照、受保护内存状态 | API、CLI、Launcher |
 | 聊天适配器连接与事件 | Adapter / Event Pipeline | 按实例隔离的 adapter snapshot 与统一事件 | Dispatcher、协议管理面 |
 | 插件声明、启用意图与管理投影 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源与用户意图 | Lifecycle、管理面 |
-| 插件进程与事件 session | Runtime Manager / Registry | 当前、待发布及退出中的 runtime snapshot；未完成的服务调用登记在调用方与提供者各自的事件 session 上 | Lifecycle；Dispatcher 只读取投递就绪状态 |
+| 插件进程与事件 session | Runtime Manager / Registry | 当前、待发布及退出中的 runtime snapshot；未完成的服务调用登记在调用方与提供者各自的事件 session 上；后台事件的期限与结束 | Lifecycle；Dispatcher 读取投递就绪状态与后台事件的结束 |
 | 投递许可、队列与排空 | Dispatcher | 接收事件时确定的目标实例与 lane | Runtime Manager、观测摘要 |
 | 对话路由与期限 | `bot/conversation` | 完整聊天身份、等待登记、父事件与具体进程 | Ingress、Runtime Manager |
 | 插件商店目录 | Plugin Store Service | HTTPS 来源的已校验目录、来源元数据与刷新状态 | 安装流程、管理面 |

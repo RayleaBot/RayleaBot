@@ -25,7 +25,7 @@
 - discovery 只读取已安装且通过 artifact 校验的 manifest。
 - 插件启用时由 per-plugin runtime manager 启动子进程并完成 `init -> init_ack` 握手；通过 `init.bots` 提供按适配器实例区分的身份列表，后续 `bot.identities.changed` 替换该列表。
 - 运行中通过 `ping/pong` 保活。
-- 停止时先停止接收新事件，等待活跃会话排空，再发送 `shutdown`。
+- 停止时先停止接收新事件，以 `plugin.event_canceled` 结束转入后台的事件，等待其余活跃会话排空，再发送 `shutdown`。重载停止旧进程时同样处理。
 - 异常退出、退避重试与需人工恢复对应下文的插件状态。进入需人工恢复状态后，平台同步移除该插件已注册的 webhook 路由。
 - `POST /api/plugins/{plugin_id}/recover` 触发受控冷启动尝试：服务端重置 crash 计数并重新拉起 runtime。
 - 自动退避重试保留崩溃计数，握手成功不会清零；同一恢复周期内第 5 次崩溃后停止自动重试，进入 `recovery_required`。显式启停、重载、安装或人工恢复开启新的计数周期，其他插件不受影响。

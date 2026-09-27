@@ -39,7 +39,7 @@
 | 策略 | 典型内容 | 保存后的效果 |
 | --- | --- | --- |
 | `read_only` | `schema_version` | 只用于标识当前配置格式，不作为运行期可变设置 |
-| `hot_reload` | 命令前缀、内置菜单、权限、渲染输出与队列参数、存储配额、日志、消息、用户和 HTTP 参数 | 保存后直接应用，列入 `apply_effects.applied_now` |
+| `hot_reload` | 命令前缀、内置菜单、权限、渲染输出与队列参数、存储配额、日志、消息、用户、HTTP 参数，以及插件后台事件的期限与数量上限 | 保存后直接应用，列入 `apply_effects.applied_now` |
 | `adapter_reload` | OneBot11 连接地址、兼容开关、QQ 官方机器人的 AppID / 订阅事件 / 沙箱开关，以及 adapter 连接和重连参数 | 保存后受控重载对应实例，列入 `apply_effects.reloaded_now` |
 | `restart_required` | Server 与数据库、管理会话、渲染浏览器与 worker、调度时区、插件运行限制、Web | 配置已保存，但服务重启后才生效，列入 `apply_effects.restart_required_fields` |
 
@@ -53,6 +53,7 @@ OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数
 
 - `scheduler.timezone` 默认上海（`Asia/Shanghai`，UTC+08:00），缺省时使用 schema 默认值，不接受空值。配置页参考 Windows 提供地区时区与常用城市，覆盖 UTC−12 至 UTC+14，以及半小时、四十五分钟偏移，支持按城市、地区、IANA 标识或 UTC 偏移搜索。历史别名与重复技术条目不默认展示，已有配置使用其他有效时区时仍原样保留。显示的偏移按当前日期计算，地区时区遵循夏令时规则。
 - 时区影响定时任务、管理面时间展示和历史日志筛选。保存后重启服务生效，重启前前后端继续使用当前时区；日志记录、后台存储、日志 API 时间戳和日志文件分日统一使用 UTC，不随此设置变化。历史日志日期输入遇到夏令时跳过的时间会提示修正，回拨时段的范围起止覆盖两次出现的时间。
+- `runtime.plugin_event_timeout_seconds` 是插件处理单个事件的期限，需要重启生效。插件把事件转入后台后改用 `runtime.plugin_detached_event_timeout_seconds`（默认 900 秒，60～3600），每个插件同时处于后台的事件不超过 `runtime.max_detached_events_per_plugin`（默认 8，1～64）。这两项保存后对之后转入的事件生效，已在后台的事件保留转入时的期限。
 - 自定义浏览器场景可使用 `render.browser_path` 指向 Chrome、Chromium 或 Edge 可执行文件路径；该路径同时用于图片渲染与插件浏览器会话。
 - 插件浏览器的持久 profile 位于运行根目录下的 `data/plugin-browser/<plugin_id>/<profile>`。关闭会话保留这些文件供下次使用；卸载插件会先关闭其会话，再删除所属 profile。关闭或文件清理失败时，卸载任务返回失败，可再次卸载以重试清理。
 - `render.default_output` 控制图片生成默认格式，支持 `png` 与 `jpeg`。

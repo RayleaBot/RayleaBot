@@ -1,6 +1,6 @@
 # 插件后台事件实施计划
 
-更新日期：2026-09-27。状态：待实施。
+更新日期：2026-09-27。状态：协议、宿主、Web 配置页与 Go SDK 已实施（第 2～4 节及第 6 节的宿主与 SDK 验收）；插件一次性迁移（第 5 节）与真实账号验收待进行。
 
 ## 1. 目标
 
@@ -17,10 +17,10 @@
 新增本地动作 `event.detach`，由当前事件的 handler 调用：
 
 ```json
-{ "result": { } }
+{ "result": { }, "propagation": "stop" }
 ```
 
-- `result` 可选，形状与该事件类型的终态 `result` 数据相同（消息事件可含 `propagation`；`management.action` 为返回给管理页的结果对象）。宿主立即以它完成该事件的投递：消息事件按其传播决定继续分层，管理动作把它返回给调用方，调度触发记为已投递。省略时等同空结果。
+- `result` 可选，形状与该事件类型终态 `result` 的 `data` 相同（`management.action` 为返回给管理页的结果对象），省略时等同空结果。`propagation` 可选，只用于消息事件，与成功终态帧上的 `propagation` 同义；它与 `result` 并列，不放进 `result`，使管理动作的结果对象保持原样。宿主立即以它们完成该事件的投递：消息事件按传播决定继续分层，管理动作把 `result` 返回给调用方，调度触发记为已投递。非消息事件携带 `propagation` 返回 `platform.invalid_request`。
 - 可转入后台的事件类型：`message.private`、`message.group`、`scheduler.trigger`、`management.action`。其他事件（含 `plugin.request`、`webhook.received`、生命周期与控制事件）调用时返回 `platform.invalid_request`。
 - 每个事件最多转入一次；重复调用返回 `platform.invalid_request`。
 - 动作结果为 `{ "deadline_at_ms": <int> }`，即后台期限：转入时刻加 `runtime.plugin_detached_event_timeout_seconds`。
@@ -31,7 +31,7 @@
 - 该事件不再占用会话 FIFO 与插件并发槽；后续消息正常投递给插件。
 - 事件保留原 `request_id` 与来源（bot、actor、target、调度任务 ID），插件继续以它为 `parent_request_id` 调用宿主动作；`plugin.call` 的 `origin` 仍是原事件来源。
 - 禁止 `session.wait`（返回 `platform.invalid_request`），多轮对话只由在前台完成的消息事件登记。
-- 插件以终态 `result` 或 `error` 结束后台事件；终态只用于结束与统计，不再参与传播或返回管理页。后台事件不接受“终态动作”（以发送消息兼作终态的写法），收到时按协议违规处理；SDK 负责把回复写成普通动作加终态。
+- 插件以终态 `result` 或 `error` 结束后台事件；终态只用于结束与统计，不再参与传播或返回管理页。后台事件不接受“终态动作”（以发送消息兼作终态的写法）或携带 `propagation` 的终态，收到时按协议违规处理；SDK 负责把回复写成普通动作加终态。
 - 到期未结束时宿主按 `plugin.event_timeout` 结束事件、拒绝其后续动作，并取消其未完成的 `plugin.call`；插件停止、重载时后台事件按 `plugin.event_canceled` 结束。宿主不重放、不续期。
 
 ### 2.2 事件期限
@@ -64,7 +64,7 @@
 
 ## 4. Go SDK
 
-- `EventContext.Detach(ctx, result any) (time.Time, error)`：发送 `event.detach`，返回后台期限。
+- `EventContext.Detach(ctx, result any) (time.Time, error)`：发送 `event.detach`，返回后台期限；消息事件用 `DetachWithPropagation(ctx, result, propagation)` 同时决定传播。
 - handler 的 context 在事件期限到达时取消；转入后台后改按后台期限。`EventContext.Deadline()` 返回当前期限。
 - 转入后台后，`SendText`、`Send`、`Reply` 以普通消息动作发送，再以终态 `result` 结束；`Result`、`Fail` 照常作为终态。
 - `Event.TaskID()` 读取调度触发的任务 ID。

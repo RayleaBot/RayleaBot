@@ -25,10 +25,13 @@ err := rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(
 - 隔离的完整配置快照。
 - 超级管理员和命令前缀。
 - 宿主当前生效的 `Location`；显示时间使用 `timestamp.In(event.Location)`，动作边界可通过 `event.Actions().TimeLocation()` 取得同一个时区。
+- 当前期限 `event.Deadline()`。handler 的 context 在事件帧的 `deadline_at_ms` 结束，转入后台后改按后台期限；handler 应在 context 结束后尽快返回，到期的事件不再发送默认终态。
 
 每个事件只能发送一次 `Result`、`Fail`、`Send`、`SendText` 或 `Reply` 终态。`Reply` 仍使用 protocol v4 的统一 `message.send` action。
 
 消息处理可用 `event.ResultWithPropagation(nil, rayleabot.PropagationStop)` 停止后续优先级，或用 `PropagationContinue` 覆盖 manifest 的 block。同层已经执行的动作不会撤销；非消息事件不能指定传播结果。
+
+计划任务触发用 `event.Event.TaskID()` 读取 `scheduler.create` 的任务 ID 并按它分派；遇到不认识的任务 ID 时调用 `event.Actions().SchedulerDelete` 删除该任务。
 
 `event.Actions()` 提供 request-bound typed helpers：
 
@@ -60,6 +63,27 @@ artifact、manifest 与运行时协议分别从对应契约生成版本常量，
 - `RAYLEABOT_FFPROBE_PATH`
 
 插件应直接执行绝对路径，在变量缺失时报告媒体能力不可用，不重复打包 FFmpeg。
+
+### 后台事件
+
+分钟级流程在同一个 handler 中按顺序完成，不需要切片续跑：
+
+```go
+if _, err := event.Detach(ctx, nil); err != nil {
+    return err // 宿主拒绝时事件仍在前台
+}
+// ctx 改在后台期限结束，event.Actions() 继续可用。
+if err := refreshAll(ctx, event.Actions()); err != nil {
+    return err
+}
+return event.SendText("更新完成")
+```
+
+- `Detach(ctx, result)` 发送 `event.detach` 并返回后台期限。宿主以 `result` 完成投递：管理动作把它返回管理页，消息继续分层，计划任务记为已投递；`result` 必须编码为 JSON 对象，nil 表示空结果。消息事件用 `DetachWithPropagation(ctx, result, rayleabot.PropagationStop)` 同时决定后续优先级。
+- 可转入的事件为私聊与群消息、计划任务触发和管理动作，每个事件一次。宿主拒绝时返回 `*ActionError`：不可转入或重复转入为 `platform.invalid_request`，后台事件达到插件上限为可重试的 `platform.rate_limited`。
+- 转入后事件交还并发许可，同一进程的其他事件不再等待它；`event.Deadline()` 返回后台期限，`event.Detached()` 报告已转入。转入前从 handler context 派生、时限长于事件期限的子 context 会随转入一并延长，需要独立时限时在转入后派生。
+- 转入后 `SendText`、`Send`、`Reply` 先发送普通消息动作，再以 `Result` 结束事件；`Result` 与 `Fail` 照常结束事件；`ResultWithPropagation` 返回错误，因为传播已在转入时决定。`Ask` 与 `SessionWait` 在后台事件中不可用。
+- 后台期限到达时 context 结束，宿主按 `plugin.event_timeout` 结束事件；插件停止或重载时后台事件被取消。已开始的外部副作用由插件自行保证幂等，宿主不重放。
 
 ### 回调式会话
 

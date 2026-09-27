@@ -6,7 +6,7 @@ RayleaBot 与插件进程使用 JSONL 通信。正式消息结构以 `contracts/
 
 - `stdout` 只输出一行一个 JSON 协议帧。
 - `stderr` 用于插件调试输出，由宿主接入插件 console。
-- 单帧大小、待处理 action 数、action 突发率、事件超时和关闭宽限由宿主配置限制。
+- 单帧大小、待处理 action 数、事件期限、后台事件的期限与数量和关闭宽限由宿主配置限制。
 - 插件后端只需要是当前平台原生可执行文件，协议不依赖实现语言。
 
 ## 生命周期
@@ -41,6 +41,8 @@ manifest 的 `events` 是唯一普通事件订阅来源。省略或空数组表�
 
 `event` 帧携带统一事件。宿主在进程会话中生成唯一 `request_id`；正常完成的事件用该 ID 返回一个终态 `result` 或 `error`。事件过期、运行时关闭或动作无法在收尾时限内结算时，插件停止发送该事件的后续帧，由宿主结束事件。
 
+每个 `event` 帧携带 `deadline_at_ms`（Unix 毫秒），即宿主处理该事件的期限：投递时刻加 `runtime.plugin_event_timeout_seconds`，`plugin.request` 等于服务请求的期限。到期仍未收到终态时，宿主按 `plugin.event_timeout` 结束事件并忽略迟到的帧。事件转入后台后改用 `event.detach` 返回的期限，见[后台事件](#后台事件)。
+
 重要平台事件：
 
 - `plugin.started`
@@ -54,6 +56,10 @@ manifest 的 `events` 是唯一普通事件订阅来源。省略或空数组表�
 OneBot 消息、notice、request 与 meta 事件继续使用正式 `event_type` 枚举。消息文本位于 `event.message.plain_text`，结构化段位于 `event.message.segments`。
 
 平台原生字段位于 `event.payload.onebot`，它是形状闭合的归一化投影而非原始上报帧透传，只在 `event.source_protocol` 为 `onebot11` 时出现；读取前先判断 `source_protocol`。`event.actor.id` 与 `event.target.id` 属于该协议的身份命名空间，并限定于接收事件的 bot 身份，不能当作跨协议的全局标识。
+
+### 计划任务触发
+
+`scheduler.trigger` 的 `payload.task_id` 是 `scheduler.create` 时的任务 ID，与创建时保存的 `payload` 及其中的 `action` 并列，其他事件不携带该字段。插件按任务 ID 分派触发；收到无法识别的任务 ID 时应调用 `scheduler.delete` 删除该任务。
 
 ### 配置变更
 
@@ -85,6 +91,20 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 ### 消息传播
 
 消息按插件的 `priority` 降序分层，同层并发；成功终态的 `propagation: stop|continue` 覆盖静态 `block`。正优先级消息订阅者先于命令声明者接收匹配的命令消息，零优先级普通订阅者仍不接收已定向的命令。同名命令权限、名单、菜单与冷却保持现有规则。低层在上层完成前已占据原 FIFO 位置，发送失败不改写终态传播决定。
+
+### 后台事件
+
+扫码登录、逐个读取角色面板这类分钟级流程可以在同一个事件里按顺序完成：handler 调用 `event.detach` 把当前事件转入后台，宿主立即以动作中的结果完成投递，事件本身继续执行。
+
+- 可转入的事件为 `message.private`、`message.group`、`scheduler.trigger` 与 `management.action`，每个事件只能转入一次。`data.result` 是投递结果，形状同成功终态的 `data`：管理动作把它返回管理页，其他事件不使用；消息事件可同时提供 `data.propagation`，与成功终态的传播语义相同，决定后续优先级层。其他事件类型、重复转入和非消息事件携带 `propagation` 返回 `platform.invalid_request`。
+- 动作结果为 `{"deadline_at_ms": ...}`：转入时刻加 `runtime.plugin_detached_event_timeout_seconds`（默认 900 秒）。期限在转入时确定，之后修改配置不影响它，也不能续期。
+- 每个插件进程同时处于后台的事件最多 `runtime.max_detached_events_per_plugin` 个（默认 8），超出返回可重试的 `platform.rate_limited`，`details.limit` 为当前上限。被拒绝的事件仍按普通事件在原期限内处理。
+- 转入后事件不再占用会话队列与插件并发槽，后续消息照常投递。事件保留原 `request_id` 与来源，后续动作继续以它为 `parent_request_id`，`plugin.call` 的 origin 仍是原事件；后台事件的动作必须携带 `parent_request_id`。
+- 后台事件调用 `session.wait` 返回 `platform.invalid_request`。多轮对话只由在前台完成的消息事件登记，转入前登记的等待在转入时生效。
+- 插件以终态 `result` 或 `error` 结束后台事件。终态只用于结束与统计，不能携带 `propagation`，也不返回管理页；以发送消息兼作终态的 `action` 帧按协议违规处理，回复需先发普通 `message.send` 动作再发终态。
+- 到期仍未结束时，宿主按 `plugin.event_timeout` 结束事件，不再执行其后续动作，忽略迟到的终态，并以同一错误结束未完成的 `plugin.call`。插件停止或重载时，后台事件按 `plugin.event_canceled` 结束，宿主不等待它们。宿主不重放、不续期后台事件。
+- 调度触发转入后台即算投递成功，任务的执行结果与耗时在后台事件真正结束时记录。耗时从触发时刻计算，包含排队与后台处理时间。
+- 宿主为转入、结束和超时各记一条日志，超时为告警；日志只包含插件、事件类型与来源、期限和耗时，不记录消息正文。
 
 ### 插件服务调用
 
@@ -206,7 +226,7 @@ Webhook 路由由 manifest 静态声明。协议没有运行时暴露 webhook �
 
 `error` 固定包含 `code` 和 `message`，可选 `details`。插件 handler panic、重复终态、未知 action、移除字段或错误 envelope 都会被转换为正式插件错误并记录脱敏诊断。
 
-Go SDK 提供 `event.SendText`、`event.Send`、`event.Reply`、`event.Result` 和 `event.Fail` 终态 helper，以及 `event.Actions()` 非终态 action helper。每个事件只能成功发送一次终态。
+Go SDK 提供 `event.SendText`、`event.Send`、`event.Reply`、`event.Result` 和 `event.Fail` 终态 helper，以及 `event.Actions()` 非终态 action helper。每个事件只能成功发送一次终态。事件转入后台后，`SendText`、`Send` 与 `Reply` 改为先发普通消息动作、再以终态 `result` 结束。
 
 ## 并发与顺序
 
@@ -214,6 +234,7 @@ Go SDK 提供 `event.SendText`、`event.Send`、`event.Reply`、`event.Result` �
 - 同插件、同 `event.target.type + ":" + event.target.id` 保持顺序。
 - 不同会话可以并发。
 - 无稳定 target 的事件进入独立 fallback lane。
+- 转入后台的事件离开所在 lane 并释放并发槽，同一会话的后续事件不再等待它。
 
 ## 相关文档
 
