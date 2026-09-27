@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/console"
 )
 
@@ -37,6 +38,7 @@ func NewManaged(
 	redactText func(string) string,
 	stderrRateLimitBytesPerSec int,
 	executeLocalAction LocalActionExecutor,
+	runtimeConfig func() config.RuntimeConfig,
 	events ...EventHooks,
 ) *Registry {
 	var hooks EventHooks
@@ -49,6 +51,7 @@ func NewManaged(
 		StderrRateLimitBytesPerSec: stderrRateLimitBytesPerSec,
 		ExecuteLocalAction:         executeLocalAction,
 		Events:                     hooks,
+		RuntimeConfig:              runtimeConfig,
 	})
 }
 

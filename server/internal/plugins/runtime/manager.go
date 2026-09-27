@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
@@ -71,6 +72,10 @@ func newManager(logger *slog.Logger, deps managerDeps, options Options) *Manager
 			return text
 		}
 	}
+	if options.RuntimeConfig == nil {
+		// Without a configuration source the schema defaults apply.
+		options.RuntimeConfig = func() config.RuntimeConfig { return config.RuntimeConfig{} }
+	}
 
 	return &Manager{
 		logger:        logger,
@@ -113,18 +118,14 @@ func (m *Manager) abortPendingLocked(runtimeErr *plugins.Error) {
 			delete(m.pendingEvents, requestID)
 			continue
 		}
-		session.completed = true
-		session.err = runtimeErr
+		var err error = runtimeErr
 		if session.event.EventType == "plugin.request" {
 			// The caller must see a lost provider as an unavailable service. It
 			// cannot infer that from the runtime state, which is updated only
 			// after the exiting process has been reaped.
-			session.err = errorf(codePluginServiceUnavailable, "service provider stopped or changed runtime", runtimeErr)
+			err = errorf(codePluginServiceUnavailable, "service provider stopped or changed runtime", runtimeErr)
 		}
-		m.releaseSessionActionsLocked(session)
-		session.cancel()
-		close(session.done)
-		delete(m.pendingEvents, requestID)
+		m.closeSessionLocked(session, plugins.Delivery{}, err)
 	}
 
 	for requestID, ping := range m.pendingPings {

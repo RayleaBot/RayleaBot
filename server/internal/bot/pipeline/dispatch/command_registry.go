@@ -161,6 +161,7 @@ func (d *Dispatcher) Close() {
 		<-slot.done
 	}
 	d.layersDone.Wait()
+	d.detachedRuns.Wait()
 }
 
 func (d *Dispatcher) newPluginSlot(rt runtimeDeliverer, subs []string, cmds []plugins.Command, concurrency int, policy ...MessagePolicy) *pluginSlot {

@@ -3,8 +3,10 @@ package runtime
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 func TestBuildEventFramePreservesEmptyIdentitySnapshot(t *testing.T) {
@@ -13,7 +15,7 @@ func TestBuildEventFramePreservesEmptyIdentitySnapshot(t *testing.T) {
 		EventID: "identities-empty", SourceProtocol: "platform", SourceAdapter: "adapters.internal",
 		EventType: "bot.identities.changed", Timestamp: 1700000000,
 		PayloadFields: map[string]any{"bots": []chatevent.BotIdentity{}},
-	}, "req-identities")
+	}, "req-identities", time.Now())
 	encoded, err := json.Marshal(frame)
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +56,7 @@ func TestBuildEventFrameProjectsOneBotPayload(t *testing.T) {
 				"user_id":      "10001",
 			},
 		},
-	}, "req-1")
+	}, "req-1", time.Now())
 
 	if frame.Type != "event" || frame.RequestID != "req-1" {
 		t.Fatalf("unexpected frame identity: %#v", frame)
@@ -70,6 +72,7 @@ func TestBuildEventFrameProjectsOneBotPayload(t *testing.T) {
 func TestBuildEventFrameProjectsSchedulerPayload(t *testing.T) {
 	t.Parallel()
 
+	deadline := time.UnixMilli(1_700_000_060_000)
 	frame := BuildEventFrame(chatevent.Event{
 		EventID:        "scheduler-subscription-hub-check-1",
 		SourceProtocol: "scheduler",
@@ -77,15 +80,26 @@ func TestBuildEventFrameProjectsSchedulerPayload(t *testing.T) {
 		EventType:      "scheduler.trigger",
 		Timestamp:      1700000000,
 		PayloadFields: map[string]any{
-			"action": "check_subscriptions",
+			"task_id": "subscription-hub-check",
+			"action":  "check_subscriptions",
 			"payload": map[string]any{
 				"action": "check_subscriptions",
 			},
 		},
-	}, "req-scheduler-1")
+	}, "req-scheduler-1", deadline)
 
 	if frame.Event.Payload == nil {
 		t.Fatal("scheduler event payload is missing")
+	}
+	if frame.DeadlineAtMs != deadline.UnixMilli() || frame.Event.Payload.TaskID != "subscription-hub-check" {
+		t.Fatalf("scheduler frame deadline=%d task_id=%q", frame.DeadlineAtMs, frame.Event.Payload.TaskID)
+	}
+	encoded, err := json.Marshal(frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pluginwire.Validate(encoded, 0); err != nil {
+		t.Fatalf("scheduler frame violates the protocol: %v", err)
 	}
 	if frame.Event.Payload.Action != "check_subscriptions" {
 		t.Fatalf("scheduler action = %q, want check_subscriptions", frame.Event.Payload.Action)
@@ -108,7 +122,7 @@ func TestBuildEventFramePreservesEmptyConfigSnapshot(t *testing.T) {
 			"config":       map[string]any{},
 			"changed_keys": []string{"removed_key"},
 		},
-	}, "req-config-empty-1")
+	}, "req-config-empty-1", time.Now())
 
 	if frame.Event.Payload == nil || frame.Event.Payload.Config == nil || len(*frame.Event.Payload.Config) != 0 {
 		t.Fatalf("empty config snapshot was not preserved: %#v", frame.Event.Payload)
@@ -142,7 +156,7 @@ func TestBuildEventFrameProjectsWebhookMetadataAtEventRoot(t *testing.T) {
 			Route:      "github",
 			ReceivedAt: 1700000001,
 		},
-	}, "request-1")
+	}, "request-1", time.Now())
 
 	encoded, err := json.Marshal(frame)
 	if err != nil {

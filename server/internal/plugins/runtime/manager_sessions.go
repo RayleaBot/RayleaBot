@@ -12,10 +12,13 @@ import (
 const expiredEventRetention = 5 * time.Minute
 
 type eventSession struct {
-	requestID          string
-	event              chatevent.Event
+	requestID string
+	event     chatevent.Event
+	// ctx does not follow the delivery context: DeliverEvent ends a foreground
+	// event when its context ends, while a detached event outlives its delivery.
 	ctx                context.Context
 	cancel             context.CancelFunc
+	startedAt          time.Time
 	deadline           time.Time
 	done               chan struct{}
 	delivery           plugins.Delivery
@@ -26,6 +29,10 @@ type eventSession struct {
 	serviceCancels     map[string]context.CancelFunc
 	pendingLocalAction int
 	completed          bool
+	// detachedCh is closed when event.detach completes the delivery; detached
+	// holds the background state from then on.
+	detachedCh chan struct{}
+	detached   *detachedSession
 }
 
 type pingRequest struct {
@@ -35,12 +42,16 @@ type pingRequest struct {
 }
 
 func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requestID string, event chatevent.Event) (*eventSession, *plugins.Error) {
-	sessionCtx, cancel := context.WithCancel(ctx)
-	// Delivery enforces the event timeout with its own timer. The deadline is
-	// recorded so an outgoing service call cannot outlive its caller event.
-	var deadline time.Time
+	sessionCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	// The deadline is sent in the event frame, bounds the delivery timer and
+	// keeps an outgoing service call from outliving its caller event.
+	startedAt := time.Now()
+	deadline := startedAt
 	if handle != nil && handle.Spec.EventTimeout > 0 {
-		deadline = time.Now().Add(handle.Spec.EventTimeout)
+		deadline = startedAt.Add(handle.Spec.EventTimeout)
+	}
+	if limit, ok := ctx.Deadline(); ok && limit.Before(deadline) {
+		deadline = limit
 	}
 
 	m.mu.Lock()
@@ -80,8 +91,10 @@ func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requ
 		event:            event,
 		ctx:              sessionCtx,
 		cancel:           cancel,
+		startedAt:        startedAt,
 		deadline:         deadline,
 		done:             make(chan struct{}),
+		detachedCh:       make(chan struct{}),
 		localActionIDs:   make(map[string]struct{}),
 		pendingActionIDs: make(map[string]struct{}),
 	}
@@ -93,6 +106,12 @@ func (m *Manager) completeEventLocked(session *eventSession, delivery plugins.De
 	if session == nil || session.completed || m.pendingEvents[session.requestID] != session {
 		return
 	}
+	m.closeSessionLocked(session, delivery, err)
+}
+
+// closeSessionLocked is the single exit of an event session; a detached event
+// also reports its end to the dispatcher that released it.
+func (m *Manager) closeSessionLocked(session *eventSession, delivery plugins.Delivery, err error) {
 	session.completed = true
 	session.delivery = delivery
 	session.err = err
@@ -100,6 +119,21 @@ func (m *Manager) completeEventLocked(session *eventSession, delivery plugins.De
 	delete(m.pendingEvents, session.requestID)
 	session.cancel()
 	close(session.done)
+	if session.detached != nil {
+		m.endDetachedLocked(session, err)
+	}
+}
+
+// settledDelivery reads the delivery result once the session was detached or
+// completed. After event.detach the caller receives the detach result even
+// when the terminal has already arrived.
+func (m *Manager) settledDelivery(session *eventSession) (plugins.Delivery, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if session.detached != nil {
+		return session.detached.delivery, nil
+	}
+	return session.delivery, session.err
 }
 
 func (m *Manager) releaseSessionActionsLocked(session *eventSession) {
@@ -247,6 +281,10 @@ func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, mess
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if session.detached != nil {
+		// event.detach won the race against the foreground deadline.
+		return session.detached.delivery, nil
+	}
 	if session.completed {
 		if session.err == nil {
 			return session.delivery, nil
@@ -277,10 +315,5 @@ func (m *Manager) removeEventSession(handle *Handle, requestID string) {
 	if session == nil || session.completed {
 		return
 	}
-	session.completed = true
-	session.err = errorf(codePluginInternalError, "plugin runtime stopped before delivery completed", io.EOF)
-	m.releaseSessionActionsLocked(session)
-	session.cancel()
-	close(session.done)
-	delete(m.pendingEvents, requestID)
+	m.closeSessionLocked(session, plugins.Delivery{}, errorf(codePluginInternalError, "plugin runtime stopped before delivery completed", io.EOF))
 }

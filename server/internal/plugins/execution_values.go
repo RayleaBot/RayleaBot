@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
@@ -46,4 +47,35 @@ type Delivery struct {
 	ErrorCode    string
 	ErrorMessage string
 	ErrorDetails map[string]any
+	// Detached is set when the plugin moved the event to the background with
+	// event.detach. Result and Propagation then hold the detach result, and the
+	// event itself ends later.
+	Detached *DetachedEvent
+}
+
+// DetachedEvent reports how a background event ends after its delivery has
+// already completed with the detach result.
+type DetachedEvent struct {
+	once sync.Once
+	done chan struct{}
+	err  error
+}
+
+func NewDetachedEvent() *DetachedEvent { return &DetachedEvent{done: make(chan struct{})} }
+
+// Done is closed when the event ends by its terminal, deadline or runtime stop.
+func (e *DetachedEvent) Done() <-chan struct{} { return e.done }
+
+// Err waits for the end and returns nil for a successful terminal.
+func (e *DetachedEvent) Err() error {
+	<-e.done
+	return e.err
+}
+
+// Finish records the end; the owning runtime calls it once per event.
+func (e *DetachedEvent) Finish(err error) {
+	e.once.Do(func() {
+		e.err = err
+		close(e.done)
+	})
 }

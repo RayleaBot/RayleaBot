@@ -47,6 +47,8 @@ func ParseLocalAction(kind string, raw json.RawMessage) (*plugins.Action, error)
 			return nil, err
 		}
 		return &plugins.Action{Kind: kind, SessionID: frame.SessionID}, nil
+	case "event.detach":
+		return parseEventDetachAction(raw)
 	case "plugin.list":
 		return parsePluginListAction(raw)
 	case "plugin.call":
@@ -95,6 +97,7 @@ func isLocalActionKind(kind string) bool {
 	switch kind {
 	case "logger.write",
 		"session.wait", "session.finish",
+		"event.detach",
 		"storage.kv",
 		"plugin.list", "plugin.call",
 		"secret.read",
@@ -152,4 +155,23 @@ func parseOneBotFamilyAction(actionKind string, raw json.RawMessage) (*plugins.A
 		SourceAdapter:  sourceAdapter,
 		SourceProtocol: sourceProtocol,
 	}, nil
+}
+
+func parseEventDetachAction(raw json.RawMessage) (*plugins.Action, error) {
+	fields, err := decodeAllowedActionKeys(raw, "event.detach", "result", "propagation")
+	if err != nil {
+		return nil, err
+	}
+	action := &plugins.Action{Kind: "event.detach"}
+	if value, ok := fields["result"]; ok {
+		if err := json.Unmarshal(value, &action.DetachResult); err != nil || action.DetachResult == nil {
+			return nil, errorf(codePluginProtocolViolation, "event.detach result must be an object", err)
+		}
+	}
+	if value, ok := fields["propagation"]; ok {
+		if err := json.Unmarshal(value, &action.DetachPropagation); err != nil || action.DetachPropagation != "stop" && action.DetachPropagation != "continue" {
+			return nil, errorf(codePluginProtocolViolation, "event.detach propagation must be stop or continue", err)
+		}
+	}
+	return action, nil
 }

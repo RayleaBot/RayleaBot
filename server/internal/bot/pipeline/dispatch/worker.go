@@ -127,7 +127,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 
 // deliverLaneItem delivers one dequeued item to the plugin runtime and records
 // the scheduler and failure outcome. The worker keeps the item's lane reserved
-// until it returns.
+// until it returns; an event the plugin moves to the background returns early.
 func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey string, item dispatchItem) {
 	completion := CompletionResult{ErrorCode: errorcodes.PluginEventCanceled}
 	defer func() {
@@ -169,11 +169,30 @@ func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey 
 	delivery, err := slot.runtime.DeliverEvent(item.ctx, item.event)
 	completion = CompletionResult{RequestID: delivery.RequestID, Success: err == nil, Propagation: delivery.Propagation, ErrorCode: delivery.ErrorCode}
 	if err != nil {
+		_, completion.ErrorCode, _ = schedulerFailureFields(err, delivery)
+	} else if delivery.Action != nil {
+		d.executeAction(item.ctx, pluginID, delivery.RequestID, item.event, *delivery.Action)
+	}
+	if err == nil && delivery.Detached != nil && item.run != nil {
+		// The detach result completed this delivery and releases the lane; the
+		// scheduler run is recorded when the background event really ends.
+		detached := delivery.Detached
+		d.detachedRuns.Go(func() {
+			d.recordEventEnd(context.WithoutCancel(item.ctx), pluginID, laneKey, item, plugins.Delivery{RequestID: delivery.RequestID}, detached.Err())
+		})
+		return
+	}
+	d.recordEventEnd(item.ctx, pluginID, laneKey, item, delivery, err)
+}
+
+// recordEventEnd records the scheduler run and failure tracking of an event
+// when it ends, in the foreground or after event.detach.
+func (d *Dispatcher) recordEventEnd(ctx context.Context, pluginID, laneKey string, item dispatchItem, delivery plugins.Delivery, err error) {
+	if err != nil {
 		duration := schedulerElapsed(item.run)
 		outcome, code, message := schedulerFailureFields(err, delivery)
-		completion.ErrorCode = code
 		if code == errorcodes.PluginNotHandled {
-			d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeOther, duration, code, message)
+			d.recordSchedulerCompletion(ctx, item.run, scheduler.RunOutcomeOther, duration, code, message)
 			return
 		}
 		var runtimeErr *plugins.Error
@@ -192,7 +211,7 @@ func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey 
 				)
 			}
 		}
-		d.recordSchedulerCompletion(item.ctx, item.run, outcome, duration, code, message)
+		d.recordSchedulerCompletion(ctx, item.run, outcome, duration, code, message)
 		if !reported {
 			d.logSchedulerFailure(pluginID, item.run, duration, map[string]any{
 				"error":      err.Error(),
@@ -202,10 +221,7 @@ func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey 
 		return
 	}
 
-	if delivery.Action != nil {
-		d.executeAction(item.ctx, pluginID, delivery.RequestID, item.event, *delivery.Action)
-	}
-	d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeSuccess, schedulerElapsed(item.run), "", "")
+	d.recordSchedulerCompletion(ctx, item.run, scheduler.RunOutcomeSuccess, schedulerElapsed(item.run), "", "")
 	d.recoverScheduler(pluginID, item.run)
 	if item.run == nil {
 		if count := d.failures.Recover(pluginID + ":" + item.event.EventType); count > 0 {

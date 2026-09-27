@@ -57,19 +57,19 @@ func TestSessionRegistrationCommitsAtRealParentTerminal(t *testing.T) {
 func TestSessionPayloadOnlyComesFromHostReference(t *testing.T) {
 	event := testRuntimeEvent()
 	event.PayloadFields = map[string]any{"session": map[string]any{"session_id": "spoof"}}
-	frame := BuildEventFrame(event, "ordinary")
+	frame := BuildEventFrame(event, "ordinary", time.Now())
 	if frame.Event.Payload != nil && frame.Event.Payload.Session != nil {
 		t.Fatal("raw adapter payload forged a conversation")
 	}
 	event.Session = &chatevent.SessionRef{SessionID: "owned", Scope: "user", ExpiresAtMS: 1789300000000}
-	encoded, err := json.Marshal(BuildEventFrame(event, "reply"))
+	encoded, err := json.Marshal(BuildEventFrame(event, "reply", time.Now()))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := validatePluginFrame(encoded); err != nil {
 		t.Fatal(err)
 	}
-	frame = BuildEventFrame(event, "reply")
+	frame = BuildEventFrame(event, "reply", time.Now())
 	if frame.Event.Payload.Session.SessionID != "owned" {
 		t.Fatal("host reference was lost")
 	}

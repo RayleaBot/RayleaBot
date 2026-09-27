@@ -56,6 +56,8 @@ type Action struct {
 	RenderFallbackText        string
 	RenderData                map[string]any
 	RenderResources           []RenderImageResource
+	DetachResult              map[string]any
+	DetachPropagation         string
 }
 
 func (a Action) MessageCommand() chatevent.MessageCommand {

@@ -290,7 +290,7 @@ func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
 				},
 			},
 		},
-	}, "req_evt_onebot")
+	}, "req_evt_onebot", time.Now())
 
 	if frame.Event.Payload == nil || frame.Event.Payload.OneBot == nil {
 		t.Fatalf("expected onebot payload, got %#v", frame.Event.Payload)
@@ -340,7 +340,7 @@ func TestBuildEventFrameIncludesMetaOneBotPayload(t *testing.T) {
 				},
 			},
 		},
-	}, "req_evt_onebot_meta")
+	}, "req_evt_onebot_meta", time.Now())
 
 	if frame.Event.Payload == nil || frame.Event.Payload.OneBot == nil {
 		t.Fatalf("expected onebot payload, got %#v", frame.Event.Payload)

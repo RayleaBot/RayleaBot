@@ -19,15 +19,18 @@ const (
 	maxPendingLocalActions = 256
 )
 
-type localActionRejection struct {
+// localActionReply answers an action in the frame reader: a rejection at
+// admission when code is set, otherwise a result the runtime produced itself.
+type localActionReply struct {
 	parentRequestID string
 	requestID       string
 	code            string
 	message         string
 	details         map[string]any
+	result          map[string]any
 }
 
-func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.Frame) (*localActionRejection, *plugins.Error) {
+func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.Frame) (*localActionReply, *plugins.Error) {
 	if frame.Propagation != "" {
 		return nil, errorf(codePluginProtocolViolation, "nonterminal action cannot control propagation", nil)
 	}
@@ -52,11 +55,21 @@ func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.F
 	if _, exists := session.localActionIDs[frame.RequestID]; exists {
 		return nil, errorf(codePluginProtocolViolation, "plugin reused a local action request_id within one event delivery", nil)
 	}
+	if action.Kind == "event.detach" {
+		// The reader answers before it reads the next frame, so a terminal that
+		// follows the detach response always finds the event in the background.
+		rememberLocalActionID(session, frame.RequestID, maxLocalActionHistory)
+		reply := m.detachEventLocked(handle, session, frame.RequestID, *action)
+		return &reply, nil
+	}
+	if action.Kind == "session.wait" && session.detached != nil {
+		return &localActionReply{parentRequestID: parentRequestID, requestID: frame.RequestID, code: codePlatformInvalidRequest, message: "background events cannot register a conversation wait"}, nil
+	}
 	if action.Kind == "plugin.call" && m.snap.State == StateStopping {
-		return &localActionRejection{parentRequestID: parentRequestID, requestID: frame.RequestID, code: codePluginServiceUnavailable, message: "service calls are unavailable while the caller is stopping"}, nil
+		return &localActionReply{parentRequestID: parentRequestID, requestID: frame.RequestID, code: codePluginServiceUnavailable, message: "service calls are unavailable while the caller is stopping"}, nil
 	}
 	if m.pendingLocalActions >= maxPendingLocalActions {
-		return &localActionRejection{
+		return &localActionReply{
 			parentRequestID: parentRequestID,
 			requestID:       frame.RequestID,
 			code:            codePlatformRateLimited,
@@ -231,18 +244,22 @@ func (m *Manager) writeLocalResponse(handle *Handle, parentRequestID string, req
 	return nil
 }
 
-// writeLocalRejectionLocked answers an action refused at admission; the caller
-// holds protocolMu so the rejection precedes later terminal processing.
-func (m *Manager) writeLocalRejectionLocked(handle *Handle, rejection localActionRejection) *plugins.Error {
+// writeLocalReplyLocked answers an action in the frame reader; the caller holds
+// protocolMu so the answer precedes later terminal processing.
+func (m *Manager) writeLocalReplyLocked(handle *Handle, reply localActionReply) *plugins.Error {
 	m.mu.RLock()
-	session := m.pendingEvents[rejection.parentRequestID]
+	session := m.pendingEvents[reply.parentRequestID]
 	active := m.proc == handle && session != nil && !session.completed
 	m.mu.RUnlock()
 	if !active {
 		return nil
 	}
-	if err := handle.WriteJSONLine(localErrorFrame(rejection.requestID, rejection.code, rejection.message, rejection.details)); err != nil {
-		return errorf(codePluginInternalError, "write local action rejection frame", err)
+	var frame any = pluginwire.ResultFrame{Type: "result", RequestID: reply.requestID, Status: "success", Data: reply.result}
+	if reply.code != "" {
+		frame = localErrorFrame(reply.requestID, reply.code, reply.message, reply.details)
+	}
+	if err := handle.WriteJSONLine(frame); err != nil {
+		return errorf(codePluginInternalError, "write local action reply frame", err)
 	}
 	return nil
 }

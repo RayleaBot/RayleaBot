@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -108,6 +109,9 @@ type Options struct {
 	OnCrash                    CrashCallback
 	ExecuteLocalAction         LocalActionExecutor
 	Events                     EventHooks
+	// RuntimeConfig is read at each event.detach, so saved background event
+	// limits apply to later detaches without a restart.
+	RuntimeConfig func() config.RuntimeConfig
 }
 
 type EventHooks struct {

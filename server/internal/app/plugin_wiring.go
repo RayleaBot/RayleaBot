@@ -10,6 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/governance"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/bot/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
@@ -78,6 +79,7 @@ func buildPluginRuntime(deps pluginRuntimeDeps) (pluginRuntime, error) {
 		deps.ManagementRedact,
 		deps.Runtime.CurrentConfig().Runtime.StderrRateLimitBytesPerSec,
 		localActions.Execute,
+		func() config.RuntimeConfig { return deps.Runtime.CurrentConfig().Runtime },
 		hooks,
 	)
 	return pluginRuntime{

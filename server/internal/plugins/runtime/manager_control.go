@@ -62,6 +62,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 	}
 	m.snap.State = StateStopping
 	m.retireServiceCallsLocked()
+	m.cancelDetachedLocked()
 	m.mu.Unlock()
 
 	for {

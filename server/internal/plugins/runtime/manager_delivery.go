@@ -52,7 +52,10 @@ func (m *Manager) DeliverEvent(ctx context.Context, event chatevent.Event) (deli
 		}
 	}()
 
-	frame := BuildEventFrame(event, requestID)
+	// event.detach moves session.deadline under the manager lock once the
+	// frame is out; the delivery keeps the deadline it announced.
+	deadline := session.deadline
+	frame := BuildEventFrame(event, requestID, deadline)
 	if event.EventType == "plugin.request" {
 		encoded, err := json.Marshal(frame)
 		if err != nil || len(encoded) > positiveInt(handle.Spec.IPCMessageMaxBytes, 8*1024*1024) {
@@ -69,21 +72,16 @@ func (m *Manager) DeliverEvent(ctx context.Context, event chatevent.Event) (deli
 		return plugins.Delivery{}, m.failRuntime(handle, codePluginInternalError, "write event frame", err)
 	}
 
-	timeout := handle.Spec.EventTimeout
-	if deadline, ok := ctx.Deadline(); ok {
-		if remaining := time.Until(deadline); remaining > 0 && remaining < timeout {
-			timeout = remaining
-		}
-	}
-	timer := time.NewTimer(timeout)
+	timer := time.NewTimer(time.Until(deadline))
 	defer timer.Stop()
 
+	// event.detach completes the delivery early; the session then continues in
+	// the background and no longer follows ctx or this timer.
 	select {
+	case <-session.detachedCh:
+		return m.settledDelivery(session)
 	case <-session.done:
-		if session.err != nil {
-			return session.delivery, session.err
-		}
-		return session.delivery, nil
+		return m.settledDelivery(session)
 	case <-timer.C:
 		return m.timeoutEvent(handle, session, codePluginEventTimeout, "plugin event response timed out", nil)
 	case <-ctx.Done():
@@ -99,10 +97,13 @@ func eventContextError(err error) *plugins.Error {
 	return errorf(codePluginEventTimeout, "插件事件处理超过允许时限", err)
 }
 
-func BuildEventFrame(event chatevent.Event, requestID string) pluginwire.EventFrame {
+// BuildEventFrame projects an event for one delivery; deadline is the host
+// handling deadline announced as deadline_at_ms.
+func BuildEventFrame(event chatevent.Event, requestID string, deadline time.Time) pluginwire.EventFrame {
 	frame := pluginwire.EventFrame{
-		Type:      "event",
-		RequestID: requestID,
+		Type:         "event",
+		RequestID:    requestID,
+		DeadlineAtMs: deadline.UnixMilli(),
 		Event: pluginwire.ProtocolEventFrame{
 			EventID:        event.EventID,
 			SourceProtocol: event.SourceProtocol,
@@ -185,6 +186,10 @@ func buildEventPayload(event chatevent.Event) (*pluginwire.ProtocolPayloadFrame,
 		}
 		if v, ok := payloadMap(event.PayloadFields, "payload"); ok {
 			payload.Payload = v
+			hasPayload = true
+		}
+		if v, ok := payloadString(event.PayloadFields, "task_id"); ok && event.EventType == "scheduler.trigger" {
+			payload.TaskID = v
 			hasPayload = true
 		}
 		if v, ok := payloadMapAllowEmpty(event.PayloadFields, "config"); ok {

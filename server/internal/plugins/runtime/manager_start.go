@@ -239,9 +239,9 @@ func (m *Manager) readRuntimeFrames(handle *Handle) {
 		}
 
 		m.protocolMu.Lock()
-		rejection, runtimeErr := m.routeRuntimeFrame(handle, line)
-		if runtimeErr == nil && rejection != nil {
-			runtimeErr = m.writeLocalRejectionLocked(handle, *rejection)
+		reply, runtimeErr := m.routeRuntimeFrame(handle, line)
+		if runtimeErr == nil && reply != nil {
+			runtimeErr = m.writeLocalReplyLocked(handle, *reply)
 		}
 		m.protocolMu.Unlock()
 		if runtimeErr != nil {
@@ -262,7 +262,7 @@ func errorsAreExitLike(handle *Handle, err error) bool {
 	return exited
 }
 
-func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRejection, *plugins.Error) {
+func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionReply, *plugins.Error) {
 	frame, err := parseRuntimeFrame(line, handle.Spec.ValidateFrames)
 	if err != nil {
 		return nil, normalizeRuntimeError(err, "parse runtime frame envelope")
@@ -298,8 +298,18 @@ func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRe
 }
 
 func (m *Manager) routeTerminalFrameLocked(session *eventSession, frame pluginwire.Frame) *plugins.Error {
-	if frame.Propagation != "" && session.event.EventType != "message.private" && session.event.EventType != "message.group" {
+	if frame.Propagation != "" && !isMessageEvent(session.event.EventType) {
 		return errorf(codePluginProtocolViolation, "only message event terminals can control propagation", nil)
+	}
+	if session.detached != nil {
+		// The delivery already completed at detach; the terminal only ends the
+		// background event and cannot act as a message or decide propagation.
+		if frame.Type == "action" {
+			return errorf(codePluginProtocolViolation, "a detached event cannot end with a terminal action", nil)
+		}
+		if frame.Propagation != "" {
+			return errorf(codePluginProtocolViolation, "a detached event terminal cannot control propagation", nil)
+		}
 	}
 	if session.pendingLocalAction > 0 {
 		return errorf(codePluginProtocolViolation, "plugin returned a terminal frame before all local actions completed", nil)

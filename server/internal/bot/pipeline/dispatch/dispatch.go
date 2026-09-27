@@ -145,9 +145,12 @@ type Dispatcher struct {
 	mu               sync.RWMutex
 	admissionMu      sync.Mutex
 	layersDone       sync.WaitGroup
-	slots            map[string]*pluginSlot
-	retired          map[*pluginSlot]struct{}
-	closed           bool
+	// detachedRuns records scheduler runs whose events moved to the
+	// background; the runtime ends each of them by deadline or stop.
+	detachedRuns sync.WaitGroup
+	slots        map[string]*pluginSlot
+	retired      map[*pluginSlot]struct{}
+	closed       bool
 
 	statsMu       sync.Mutex
 	delivered     uint64

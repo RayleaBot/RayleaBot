@@ -11,6 +11,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
+// schedulerElapsed counts from the trigger, so a run includes its queue wait
+// and, after event.detach, its background time.
 func schedulerElapsed(run *scheduler.RunContext) time.Duration {
 	if run == nil {
 		return 0

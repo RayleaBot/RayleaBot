@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/qqofficial"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
@@ -14,7 +15,7 @@ func TestQQNativePayloadReachesPluginFrame(t *testing.T) {
 	if !ok {
 		t.Fatal("invalid fixture")
 	}
-	frame := BuildEventFrame(chatevent.FromAdapter(event), "request-fixture")
+	frame := BuildEventFrame(chatevent.FromAdapter(event), "request-fixture", time.Now())
 	encoded, err := json.Marshal(frame)
 	if err != nil {
 		t.Fatal(err)
