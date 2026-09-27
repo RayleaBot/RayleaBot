@@ -111,6 +111,8 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 
 	if s.logger != nil && strings.TrimSpace(attempt.ActionKind) != "" {
 		outbound.LogSendOutcome(s.logger, outbound.SendLogContext{
+			BotID:       event.BotID,
+			BotNickname: event.BotNickname,
 			TargetLabel: buildCooldownTargetLabel(ctx, event, s.outboundSender),
 		}, attempt, result, err)
 	}

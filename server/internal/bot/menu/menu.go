@@ -773,9 +773,10 @@ func (s *Service) logBuiltinMenuTrigger(_ context.Context, event chatevent.Norma
 	if s.logger == nil {
 		return
 	}
-	summary, ok := logging.OneBotInboundMessageSummary(logging.OneBotInboundMessageSummaryInput{
+	summary, ok := logging.InboundMessageSummary(logging.InboundMessageSummaryInput{
 		SourceProtocol:   event.SourceProtocol,
 		BotID:            event.BotID,
+		BotNickname:      event.BotNickname,
 		EventType:        event.EventType,
 		ConversationType: event.ConversationType,
 		ConversationID:   event.ConversationID,
@@ -868,6 +869,8 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event chatevent.N
 			return
 		}
 		outbound.LogSendOutcome(s.logger, outbound.SendLogContext{
+			BotID:       event.BotID,
+			BotNickname: event.BotNickname,
 			TargetLabel: label,
 			CommandName: commandName,
 		}, attempt, result, err)

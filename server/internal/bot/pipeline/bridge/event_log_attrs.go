@@ -1,6 +1,8 @@
 package bridge
 
 import (
+	"strings"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/redact"
 )
@@ -17,6 +19,9 @@ func bridgeEventLogAttrs(event chatevent.NormalizedEvent) []any {
 	}
 	if event.BotID != "" {
 		attrs = append(attrs, "self_id", event.BotID)
+	}
+	if nickname := strings.TrimSpace(redact.SanitizeString(event.BotNickname)); nickname != "" {
+		attrs = append(attrs, "self_nickname", nickname)
 	}
 	if event.TargetType != "" {
 		attrs = append(attrs, "target_type", event.TargetType)

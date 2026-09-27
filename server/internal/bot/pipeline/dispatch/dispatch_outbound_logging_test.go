@@ -16,7 +16,9 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendResult: chatevent.SendMessageResult{MessageID: "send-100", SourceAdapter: "bot-one", SourceProtocol: "onebot11"},
+		sendResult:  chatevent.SendMessageResult{MessageID: "send-100", SourceAdapter: "bot-one", SourceProtocol: "onebot11"},
+		botID:       "10001",
+		botNickname: "测试机器人",
 	}
 	d := New(logger, sender, nil, 16)
 	defer d.Close()
@@ -51,6 +53,12 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 	}
 	if summary.Details["outcome"] != "delivered" || summary.Details["target_label"] != "[测试群(200)]" {
 		t.Fatalf("unexpected log message: got %q", summary.Message)
+	}
+	if summary.Message != "消息已发送：测试机器人(10001) -> [测试群(200)]: hello dispatch" {
+		t.Fatalf("unexpected log message: got %q", summary.Message)
+	}
+	if summary.Details["self_id"] != "10001" || summary.Details["self_nickname"] != "测试机器人" {
+		t.Fatalf("unexpected bot details: %#v", summary.Details)
 	}
 	if summary.PluginID != "action-plugin" {
 		t.Fatalf("unexpected plugin_id: got %q want action-plugin", summary.PluginID)
@@ -108,6 +116,11 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 		t.Fatalf("unexpected log level: got %q want warn", summary.Level)
 	}
 	if summary.Details["outcome"] != "failed" || summary.Details["target_label"] != "[测试群(200)]" {
+		t.Fatalf("unexpected log message: got %q", summary.Message)
+	}
+	// The sender reports no login, and the test event carries no bot id, so
+	// the body names only the conversation.
+	if summary.Message != "消息发送失败：[测试群(200)]: hello dispatch" {
 		t.Fatalf("unexpected log message: got %q", summary.Message)
 	}
 	if summary.Details["command_name"] != "echo" {

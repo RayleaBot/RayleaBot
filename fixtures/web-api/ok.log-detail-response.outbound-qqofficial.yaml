@@ -12,12 +12,14 @@ response:
     level: info
     source: adapter.qqofficial
     protocol: qqofficial
-    message: "消息已发送"
+    message: "消息已发送：官方机器人(bot-1) -> [测试群(2001)]: hello world"
     plugin_id: weather
     request_id: req_runtime_delivery_0001
     details:
       source_adapter: qq-bot
       source_protocol: qqofficial
+      self_id: bot-1
+      self_nickname: 官方机器人
       target_label: "[测试群(2001)]"
       outcome: delivered
       direction: outbound

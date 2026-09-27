@@ -66,10 +66,13 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 			TargetType:   limitTargetType,
 			TargetID:     limitTargetID,
 		}
+		botID, botNickname := buildOutboundBotIdentity(attempt.SourceAdapter, event, d.sender)
 		outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 			PluginID:    pluginID,
 			RequestID:   requestID,
 			CommandName: commandName,
+			BotID:       botID,
+			BotNickname: botNickname,
 			TargetLabel: targetLabel,
 		}, attempt, result, err)
 		return result, err
@@ -79,10 +82,17 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		action.SourceProtocol = admission.Scope.SourceProtocol
 	}
 	result, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
+	deliveredBy := strings.TrimSpace(result.SourceAdapter)
+	if deliveredBy == "" {
+		deliveredBy = attempt.SourceAdapter
+	}
+	botID, botNickname := buildOutboundBotIdentity(deliveredBy, event, d.sender)
 	outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 		PluginID:    pluginID,
 		RequestID:   requestID,
 		CommandName: commandName,
+		BotID:       botID,
+		BotNickname: botNickname,
 		TargetLabel: targetLabel,
 	}, attempt, result, err)
 	return result, err
@@ -118,6 +128,22 @@ func commandNameForEvent(event chatevent.Event) string {
 	}
 
 	return strings.TrimSpace(commandName)
+}
+
+// buildOutboundBotIdentity names the account the message goes out as. The
+// event's bot id only stands in when the message leaves through the adapter
+// that produced the event; another adapter is signed in as someone else.
+func buildOutboundBotIdentity(adapterID string, event chatevent.Event, sender outbound.ActionSender) (string, string) {
+	var resolver outbound.BotDisplayResolver
+	if candidate, ok := any(sender).(outbound.BotDisplayResolver); ok {
+		resolver = candidate
+	}
+
+	eventBotID := ""
+	if adapterID = strings.TrimSpace(adapterID); adapterID == "" || adapterID == strings.TrimSpace(event.SourceAdapter) {
+		eventBotID = event.BotID
+	}
+	return outbound.ResolveBotIdentity(adapterID, eventBotID, "", resolver)
 }
 
 func buildOutboundTargetLabel(ctx context.Context, event chatevent.Event, targetType, targetID string, sender outbound.ActionSender) string {

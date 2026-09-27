@@ -480,6 +480,114 @@ func TestBridgeEventSummaryFormatsPrivateMessageContext(t *testing.T) {
 	}
 }
 
+func TestBridgeEventSummaryNamesBotAccountByNickname(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		event chatevent.NormalizedEvent
+		want  string
+	}{
+		{
+			name: "onebot11 group message",
+			event: chatevent.NormalizedEvent{
+				BotID:            "10001",
+				BotNickname:      "测试机器人",
+				SourceProtocol:   "onebot11",
+				EventType:        "message.group",
+				ConversationType: "group",
+				ConversationID:   "20001",
+				SenderID:         "30001",
+				TargetName:       "测试群组",
+				PlainText:        "你好",
+				PayloadFields: map[string]any{
+					"onebot": map[string]any{
+						"sender": map[string]any{"nickname": "测试用户"},
+					},
+				},
+			},
+			want: "测试机器人(10001): [测试群组(20001)]测试用户(30001): 你好",
+		},
+		{
+			name: "onebot11 private message",
+			event: chatevent.NormalizedEvent{
+				BotID:          "10001",
+				BotNickname:    "测试机器人",
+				SourceProtocol: "onebot11",
+				EventType:      "message.private",
+				SenderID:       "30002",
+				ActorNickname:  "测试私聊用户",
+				PlainText:      "你好",
+			},
+			want: "测试机器人(10001): 测试私聊用户(30002): 你好",
+		},
+		{
+			name: "qqofficial group message without member names",
+			event: chatevent.NormalizedEvent{
+				BotID:            "bot-1",
+				BotNickname:      "官方机器人",
+				SourceProtocol:   "qqofficial",
+				EventType:        "message.group",
+				ConversationType: "group",
+				ConversationID:   "GROUP_OPENID",
+				SenderID:         "MEMBER_OPENID",
+				PlainText:        "你好",
+			},
+			want: "官方机器人(bot-1): [GROUP_OPENID]MEMBER_OPENID(MEMBER_OPENID): 你好",
+		},
+		{
+			name: "qqofficial private message with username",
+			event: chatevent.NormalizedEvent{
+				BotID:            "bot-1",
+				BotNickname:      "官方机器人",
+				SourceProtocol:   "qqofficial",
+				EventType:        "message.private",
+				ConversationType: "private",
+				ConversationID:   "USER_OPENID",
+				SenderID:         "USER_OPENID",
+				ActorNickname:    "测试用户",
+				PlainText:        "你好",
+			},
+			want: "官方机器人(bot-1): 测试用户(USER_OPENID): 你好",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := bridgeEventSummary("queued for dispatcher", tc.event); got != tc.want {
+				t.Fatalf("unexpected summary: got %q want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBridgeEventLogAttrsIncludeBotNickname(t *testing.T) {
+	t.Parallel()
+
+	attrs := bridgeEventLogAttrs(chatevent.NormalizedEvent{
+		BotID:            "10001",
+		BotNickname:      "测试机器人\u202e",
+		SourceProtocol:   "onebot11",
+		EventType:        "message.group",
+		ConversationType: "group",
+		ConversationID:   "20001",
+		SenderID:         "30001",
+		PlainText:        "hello bridge",
+	})
+
+	attrMap := make(map[string]any, len(attrs)/2)
+	for index := 0; index+1 < len(attrs); index += 2 {
+		key, _ := attrs[index].(string)
+		attrMap[key] = attrs[index+1]
+	}
+
+	if attrMap["self_id"] != "10001" || attrMap["self_nickname"] != "测试机器人" {
+		t.Fatalf("unexpected bot attrs: self_id=%#v self_nickname=%#v", attrMap["self_id"], attrMap["self_nickname"])
+	}
+}
+
 func TestBridgeEventSummaryFormatsFallbackVariants(t *testing.T) {
 	t.Parallel()
 
@@ -535,7 +643,7 @@ func TestBridgeEventSummaryFormatsFallbackVariants(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, ok := logging.OneBotInboundMessageSummary(logging.OneBotInboundMessageSummaryInput{
+			got, ok := logging.InboundMessageSummary(logging.InboundMessageSummaryInput{
 				SourceProtocol: tc.event.SourceProtocol,
 				BotID:          tc.event.BotID,
 				EventType:      tc.event.EventType,

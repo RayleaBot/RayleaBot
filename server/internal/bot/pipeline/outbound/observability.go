@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"log/slog"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/redact"
 )
 
@@ -21,10 +22,15 @@ type SendAttempt struct {
 	Segments       []chatevent.MessageSegment
 }
 
+// SendLogContext is what the caller knows about a send beyond the attempt
+// itself. BotID and BotNickname name the account the message goes out as;
+// TargetLabel is the conversation as BuildTargetLabel renders it.
 type SendLogContext struct {
 	PluginID    string
 	RequestID   string
 	CommandName string
+	BotID       string
+	BotNickname string
 	TargetLabel string
 }
 
@@ -56,6 +62,18 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 	pluginID := strings.TrimSpace(context.PluginID)
 	requestID := strings.TrimSpace(context.RequestID)
 	commandName := strings.TrimSpace(context.CommandName)
+	botID := strings.TrimSpace(context.BotID)
+	botNickname := strings.TrimSpace(redact.SanitizeString(context.BotNickname))
+	targetLabel := strings.TrimSpace(context.TargetLabel)
+	if targetLabel == "" {
+		targetLabel = formatTargetLabel(targetType, targetID, "")
+	}
+	summary := logging.OutboundMessageSummary(logging.OutboundMessageSummaryInput{
+		BotID:       botID,
+		BotNickname: botNickname,
+		TargetLabel: targetLabel,
+		PlainText:   plainText,
+	})
 
 	protocol := result.SourceProtocol
 	if protocol == "" {
@@ -69,7 +87,7 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 		"component", "adapter." + chatevent.ProtocolLabel(protocol),
 		"source_protocol", protocol,
 		"source_adapter", adapter,
-		"target_label", strings.TrimSpace(context.TargetLabel),
+		"target_label", targetLabel,
 		"outcome", chatevent.SendOutcome(err),
 		"direction", "outbound",
 		"action_kind", strings.TrimSpace(attempt.ActionKind),
@@ -78,6 +96,12 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 		"target_id", targetID,
 		"plain_text", plainText,
 		"segments", cloneOutboundSegments(attempt.Segments),
+	}
+	if botID != "" {
+		fields = append(fields, "self_id", botID)
+	}
+	if botNickname != "" {
+		fields = append(fields, "self_nickname", botNickname)
 	}
 	if pluginID != "" {
 		fields = append(fields, "plugin_id", pluginID)
@@ -93,7 +117,7 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 		if messageID := strings.TrimSpace(result.MessageID); messageID != "" {
 			fields = append(fields, "message_id", messageID)
 		}
-		logger.Info("消息已发送", fields...)
+		logger.Info("消息已发送："+summary, fields...)
 		return
 	}
 
@@ -103,10 +127,10 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 	}
 	fields = append(fields, "reason", reason)
 	if errorCode == errorcodes.AdapterSendUnconfirmed {
-		logger.Warn("消息发送状态未确认，不自动重发", fields...)
+		logger.Warn("消息发送状态未确认，不自动重发："+summary, fields...)
 		return
 	}
-	logger.Warn("消息发送失败", fields...)
+	logger.Warn("消息发送失败："+summary, fields...)
 }
 
 func errorDetails(err error) (string, string) {
@@ -135,6 +159,26 @@ func errorDetails(err error) (string, string) {
 // unrelated conversation that happens to share an id.
 type TargetDisplayResolver interface {
 	ResolveTargetName(ctx context.Context, adapterID, targetType, targetID string) string
+}
+
+// BotDisplayResolver names the account an adapter instance is signed in as.
+// As with TargetDisplayResolver the adapter id is part of the question: each
+// instance only knows its own login.
+type BotDisplayResolver interface {
+	ResolveBotDisplay(adapterID string) (botID string, nickname string)
+}
+
+// ResolveBotIdentity picks the account an outbound log line names: the
+// adapter's own login when it can answer, otherwise the identity the
+// triggering event carried.
+func ResolveBotIdentity(adapterID, eventBotID, eventBotNickname string, resolver BotDisplayResolver) (string, string) {
+	adapterID = strings.TrimSpace(adapterID)
+	if resolver != nil && adapterID != "" {
+		if botID, nickname := resolver.ResolveBotDisplay(adapterID); strings.TrimSpace(botID) != "" {
+			return strings.TrimSpace(botID), strings.TrimSpace(nickname)
+		}
+	}
+	return strings.TrimSpace(eventBotID), strings.TrimSpace(eventBotNickname)
 }
 
 func BuildTargetLabel(

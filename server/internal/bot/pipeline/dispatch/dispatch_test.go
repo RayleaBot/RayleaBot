@@ -96,6 +96,14 @@ type fakeSender struct {
 	replyResult chatevent.SendMessageResult
 	sendErr     error
 	replyErr    error
+	botID       string
+	botNickname string
+}
+
+// ResolveBotDisplay answers for every adapter id, as a single-adapter sender
+// would; tests that leave botID empty exercise the event fallback instead.
+func (f *fakeSender) ResolveBotDisplay(string) (string, string) {
+	return f.botID, f.botNickname
 }
 
 func (f *fakeSender) SendMessage(_ context.Context, msg chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {

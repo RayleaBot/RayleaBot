@@ -22,9 +22,12 @@ func ScopedEventID(adapterID, eventID string) string {
 // SourceProtocol and SourceAdapter name the adapter that produced it, so
 // consumers never infer origin from the other fields.
 type NormalizedEvent struct {
-	Kind             string
-	EventID          string
-	BotID            string
+	Kind    string
+	EventID string
+	BotID   string
+	// BotNickname is the display name the adapter learned for BotID. It only
+	// labels log lines; plugins keep receiving the bot identity list instead.
+	BotNickname      string
 	SourceProtocol   string
 	SourceAdapter    string
 	EventType        string

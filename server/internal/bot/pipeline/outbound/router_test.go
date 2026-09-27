@@ -123,6 +123,45 @@ func (s namingSender) ResolveTargetName(_ context.Context, adapterID, targetType
 	return s.names[adapterID+"/"+targetType+":"+targetID]
 }
 
+type loginSender struct {
+	recordingSender
+	botID    string
+	nickname string
+}
+
+func (s loginSender) ResolveBotDisplay(string) (string, string) {
+	return s.botID, s.nickname
+}
+
+// Outbound log lines also name the account the message goes out as, which
+// only the delivering adapter knows.
+func TestAdapterRouterResolvesBotDisplayThroughTheOwningAdapter(t *testing.T) {
+	t.Parallel()
+
+	var sent []string
+	router := NewRouter(map[string]ActionSender{
+		"bot-one": loginSender{recordingSender{name: "bot-one", sent: &sent}, "10001", "测试机器人"},
+		"bot-two": recordingSender{name: "bot-two", sent: &sent},
+	}, map[string]string{"bot-one": "onebot11", "bot-two": "onebot11"}, nil)
+
+	resolver, ok := any(router).(BotDisplayResolver)
+	if !ok {
+		t.Fatal("the router does not answer bot-display questions, so log lines lose the account name")
+	}
+
+	if id, nickname := resolver.ResolveBotDisplay("bot-one"); id != "10001" || nickname != "测试机器人" {
+		t.Fatalf("ResolveBotDisplay = %q/%q, want the login of the owning adapter", id, nickname)
+	}
+	// A sender without login info, or one that is not connected, answers
+	// nothing rather than borrowing the account of another adapter.
+	if id, nickname := resolver.ResolveBotDisplay("bot-two"); id != "" || nickname != "" {
+		t.Fatalf("ResolveBotDisplay = %q/%q, want no answer from a sender without login info", id, nickname)
+	}
+	if id, nickname := resolver.ResolveBotDisplay("no-such-bot"); id != "" || nickname != "" {
+		t.Fatalf("ResolveBotDisplay = %q/%q, want no answer for an unknown adapter", id, nickname)
+	}
+}
+
 // Outbound log lines name the conversation, and the router is what the pipeline
 // holds. Without this the label falls back to a bare id for every adapter.
 func TestAdapterRouterResolvesTargetNamesThroughTheOwningAdapter(t *testing.T) {

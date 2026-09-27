@@ -183,6 +183,11 @@ func (s *Shell) dispatchEvents(ctx context.Context) {
 				event.SourceAdapter = s.adapterID
 				event.EventID = chatevent.ScopedEventID(s.adapterID, event.EventID)
 			}
+			// The frame names the account only by id; the nickname comes
+			// from this connection's login info.
+			if event.BotNickname == "" {
+				event.BotNickname = s.Snapshot().loginNickname(event.BotID)
+			}
 			handler(ctx, event)
 		}
 	}

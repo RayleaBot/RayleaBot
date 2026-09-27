@@ -158,6 +158,16 @@ func (c *Client) eventHandler() EventHandler {
 // Both values are empty until the first READY.
 func (c *Client) BotIdentity() (string, string) { return c.session.bot() }
 
+// ResolveBotDisplay names the account this instance is signed in as, for the
+// outbound log line. Another instance's question is not answered: its login
+// is a different account.
+func (c *Client) ResolveBotDisplay(adapterID string) (string, string) {
+	if adapterID != "" && c.adapterID != "" && adapterID != c.adapterID {
+		return "", ""
+	}
+	return c.session.bot()
+}
+
 func (c *Client) dialWebsocket(ctx context.Context, url string) (wsConn, error) {
 	conn, _, err := websocket.Dial(ctx, url, nil)
 	if err != nil {
@@ -437,8 +447,9 @@ func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame, profile
 	if !ok {
 		return
 	}
-	if botID, _ := c.session.bot(); botID != "" {
+	if botID, botName := c.session.bot(); botID != "" {
 		event.BotID = botID
+		event.BotNickname = botName
 	}
 	// NormalizeDispatch does not know which connection it ran for, so the
 	// client stamps its own instance id on the way out.

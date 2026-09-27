@@ -11,9 +11,10 @@ import (
 
 func bridgeEventSummary(action string, event chatevent.NormalizedEvent) string {
 	action = strings.TrimSpace(action)
-	if summary, ok := logging.OneBotInboundMessageSummary(logging.OneBotInboundMessageSummaryInput{
+	if summary, ok := logging.InboundMessageSummary(logging.InboundMessageSummaryInput{
 		SourceProtocol:   event.SourceProtocol,
 		BotID:            event.BotID,
+		BotNickname:      event.BotNickname,
 		EventType:        event.EventType,
 		ConversationType: event.ConversationType,
 		ConversationID:   event.ConversationID,

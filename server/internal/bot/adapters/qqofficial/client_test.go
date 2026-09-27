@@ -147,9 +147,13 @@ func TestHeartbeatIntervalPrefersTheServerAssignedValue(t *testing.T) {
 func TestHandleDispatchStampsBotIdentityAndSkipsLifecycle(t *testing.T) {
 	t.Parallel()
 
-	client := &Client{logger: discardLogger()}
+	client := &Client{adapterID: "qq-one", logger: discardLogger()}
 	var delivered int
-	client.SetEventHandler(func(context.Context, chatevent.NormalizedEvent) { delivered++ })
+	var last chatevent.NormalizedEvent
+	client.SetEventHandler(func(_ context.Context, event chatevent.NormalizedEvent) {
+		delivered++
+		last = event
+	})
 
 	client.handleDispatch(context.Background(), gatewayFrame{
 		Op: opDispatch, T: dispatchReady,
@@ -168,6 +172,16 @@ func TestHandleDispatchStampsBotIdentityAndSkipsLifecycle(t *testing.T) {
 	}, botProfile{})
 	if delivered != 1 {
 		t.Fatalf("delivered %d message events, want 1", delivered)
+	}
+	// The log line names the account by nickname, which only READY reports.
+	if last.BotID != "bot-1" || last.BotNickname != "bot" {
+		t.Fatalf("event bot identity = %q/%q, want bot-1/bot from READY", last.BotID, last.BotNickname)
+	}
+	if id, nickname := client.ResolveBotDisplay("qq-one"); id != "bot-1" || nickname != "bot" {
+		t.Fatalf("ResolveBotDisplay = %q/%q, want this instance's login", id, nickname)
+	}
+	if id, nickname := client.ResolveBotDisplay("other-instance"); id != "" || nickname != "" {
+		t.Fatalf("ResolveBotDisplay = %q/%q, want no answer about another instance", id, nickname)
 	}
 }
 

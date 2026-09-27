@@ -142,6 +142,54 @@ func DetectProvider(appName string) string {
 	}
 }
 
+// shellTransports lists every transport in the order their login info is
+// consulted when the account behind an event needs a name.
+var shellTransports = []TransportKey{TransportForwardWS, TransportReverseWS, TransportHTTPAPI, TransportWebhook}
+
+// loginNickname reports the nickname get_login_info returned for botID. Login
+// info is recorded per transport, so a transport signed in as another account
+// is not consulted; one that reported no account id cannot contradict botID
+// and is trusted.
+func (snapshot Snapshot) loginNickname(botID string) string {
+	botID = strings.TrimSpace(botID)
+	for _, transport := range shellTransports {
+		info := snapshot.transportRuntimeInfo(transport)
+		nickname := strings.TrimSpace(info.Nickname)
+		if nickname == "" {
+			continue
+		}
+		if userID := strings.TrimSpace(info.UserID); userID == "" || userID == botID {
+			return nickname
+		}
+	}
+	return ""
+}
+
+// loginUserID reports the first account id any transport's login info named.
+func (snapshot Snapshot) loginUserID() string {
+	for _, transport := range shellTransports {
+		if userID := strings.TrimSpace(snapshot.transportRuntimeInfo(transport).UserID); userID != "" {
+			return userID
+		}
+	}
+	return ""
+}
+
+// ResolveBotDisplay names the account this instance is signed in as, for the
+// outbound log line. Another instance's question is not answered: its login
+// is a different account.
+func (s *Shell) ResolveBotDisplay(adapterID string) (string, string) {
+	if adapterID != "" && s.adapterID != "" && adapterID != s.adapterID {
+		return "", ""
+	}
+	snapshot := s.Snapshot()
+	botID := strings.TrimSpace(snapshot.BotID)
+	if botID == "" {
+		botID = snapshot.loginUserID()
+	}
+	return botID, snapshot.loginNickname(botID)
+}
+
 func (s *Shell) CurrentBotID() string {
 	snapshot := s.Snapshot()
 	if snapshot.State != StateConnected {

@@ -112,6 +112,20 @@ func (r *Router) ResolveTargetName(ctx context.Context, adapterID, targetType, t
 	return resolver.ResolveTargetName(ctx, adapterID, targetType, targetID)
 }
 
+// ResolveBotDisplay forwards the question to the named adapter for the same
+// reason as ResolveTargetName: the router itself is signed in as nobody.
+func (r *Router) ResolveBotDisplay(adapterID string) (string, string) {
+	sender, ok := r.activeSenders()[strings.TrimSpace(adapterID)]
+	if !ok {
+		return "", ""
+	}
+	resolver, ok := sender.(BotDisplayResolver)
+	if !ok {
+		return "", ""
+	}
+	return resolver.ResolveBotDisplay(adapterID)
+}
+
 func (r *Router) adaptersOfProtocol(protocol string, senders map[string]ActionSender) []string {
 	matched := make([]string, 0, len(senders))
 	for id := range senders {

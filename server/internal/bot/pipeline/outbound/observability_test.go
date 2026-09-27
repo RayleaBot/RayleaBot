@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 )
 
@@ -74,6 +75,11 @@ func TestLogSendOutcomeUsesPlatformSummaryWithoutPluginContext(t *testing.T) {
 	if summary.Details["outcome"] != "delivered" || summary.Details["plain_text"] != "cooldown reply" || summary.Details["target_id"] != "200" {
 		t.Fatalf("unexpected summary message: got %q", summary.Message)
 	}
+	// Without a caller-built label the body still names the conversation
+	// from the attempt, so the line never reads as a bare "sent".
+	if summary.Message != "消息已发送：[200]: cooldown reply" {
+		t.Fatalf("unexpected summary message: got %q", summary.Message)
+	}
 	if summary.PluginID != "" {
 		t.Fatalf("unexpected plugin_id: %#v", summary.PluginID)
 	}
@@ -110,6 +116,107 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 	}
 	if summary.Details["error_code"] != "adapter.send_failed" {
 		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
+	}
+	if summary.Message != "消息发送失败：私聊(300): cooldown reply" {
+		t.Fatalf("unexpected summary message: got %q", summary.Message)
+	}
+}
+
+func TestLogSendOutcomeNamesBotAccountAndTarget(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newObservabilityTestLogger()
+
+	LogSendOutcome(logger, SendLogContext{
+		PluginID:    "weather",
+		BotID:       "10001",
+		BotNickname: "测试机器人\u202e",
+		TargetLabel: "[测试群(200)]",
+	}, SendAttempt{
+		ActionKind: "message.send",
+		TargetType: "group",
+		TargetID:   "200",
+		Segments: []chatevent.MessageSegment{{
+			Type: "text",
+			Data: map[string]any{"text": "  hello world  "},
+		}},
+	}, SendResult{
+		MessageID:    "msg-1",
+		DeliveryKind: "message.send",
+		TargetType:   "group",
+		TargetID:     "200",
+	}, nil)
+
+	summary := waitForOutboundSummary(t, stream)
+	if summary.Message != "消息已发送：测试机器人(10001) -> [测试群(200)]: hello world" {
+		t.Fatalf("unexpected summary message: got %q", summary.Message)
+	}
+	if summary.Details["self_id"] != "10001" || summary.Details["self_nickname"] != "测试机器人" {
+		t.Fatalf("unexpected bot details: self_id=%#v self_nickname=%#v", summary.Details["self_id"], summary.Details["self_nickname"])
+	}
+	if summary.Details["target_label"] != "[测试群(200)]" {
+		t.Fatalf("unexpected target_label detail: %#v", summary.Details["target_label"])
+	}
+}
+
+func TestLogSendOutcomeMarksUnconfirmedDeliveryWithTheSameBody(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newObservabilityTestLogger()
+
+	LogSendOutcome(logger, SendLogContext{
+		BotID:       "10001",
+		TargetLabel: "测试用户A(300)",
+	}, SendAttempt{
+		ActionKind: "message.send",
+		TargetType: "private",
+		TargetID:   "300",
+		Segments: []chatevent.MessageSegment{{
+			Type: "image",
+			Data: map[string]any{"file": "https://example.com/a.png"},
+		}},
+	}, SendResult{
+		DeliveryKind: "message.send",
+		TargetType:   "private",
+		TargetID:     "300",
+	}, &chatevent.SendError{
+		Code:    errorcodes.AdapterSendUnconfirmed,
+		Message: "no receipt before the deadline",
+	})
+
+	summary := waitForOutboundSummary(t, stream)
+	if summary.Level != "warn" {
+		t.Fatalf("unexpected level: got %q want warn", summary.Level)
+	}
+	if summary.Message != "消息发送状态未确认，不自动重发：10001 -> 测试用户A(300): [图片]" {
+		t.Fatalf("unexpected summary message: got %q", summary.Message)
+	}
+	if summary.Details["outcome"] != "unconfirmed" || summary.Details["error_code"] != errorcodes.AdapterSendUnconfirmed {
+		t.Fatalf("unexpected unconfirmed details: %#v", summary.Details)
+	}
+}
+
+type stubBotDisplayResolver map[string][2]string
+
+func (s stubBotDisplayResolver) ResolveBotDisplay(adapterID string) (string, string) {
+	identity := s[adapterID]
+	return identity[0], identity[1]
+}
+
+func TestResolveBotIdentityPrefersTheAdapterLoginOverTheEvent(t *testing.T) {
+	t.Parallel()
+
+	resolver := stubBotDisplayResolver{"bot-one": {"10001", "测试机器人"}}
+
+	if id, nickname := ResolveBotIdentity("bot-one", "99999", "", resolver); id != "10001" || nickname != "测试机器人" {
+		t.Fatalf("unexpected identity from the adapter: got %q/%q", id, nickname)
+	}
+	// An adapter that cannot answer leaves the identity of the event in place.
+	if id, nickname := ResolveBotIdentity("bot-two", "99999", "事件机器人", resolver); id != "99999" || nickname != "事件机器人" {
+		t.Fatalf("unexpected fallback identity: got %q/%q", id, nickname)
+	}
+	if id, nickname := ResolveBotIdentity("", "99999", "", nil); id != "99999" || nickname != "" {
+		t.Fatalf("unexpected identity without a resolver: got %q/%q", id, nickname)
 	}
 }
 
