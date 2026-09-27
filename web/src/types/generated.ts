@@ -2499,6 +2499,8 @@ export interface components {
             /** @constant */
             type: "pattern";
             pattern: string;
+            /** @description A fallback command is considered only when no ordinary command of any plugin and no builtin menu command matches the message, so a broad pattern such as a bare character name never shadows other commands. */
+            fallback?: boolean;
         };
         setting_trigger: {
             /** @constant */
@@ -2521,9 +2523,12 @@ export interface components {
             title: string;
             commands: components["schemas"]["stable_id"][];
         };
+        /** @description The plugin's page in the builtin menu. A builtin menu command written after the plugin's name or ID (such as 原神帮助) opens this page even when another plugin's pattern trigger matches the word; only an exact trigger of the same word takes precedence. Other words ending in a menu command stay with any ordinary plugin command that matches them. */
         help: {
             title?: string;
             summary?: string;
+            /** @description ID of the plugin's own help command, which must have an exact trigger. The builtin menu hands its page for this plugin to that command, sent as the command's first name. */
+            command?: string;
         };
         package_relative_path: string & unknown & unknown;
         screenshot: {
