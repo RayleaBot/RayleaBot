@@ -18,5 +18,8 @@ func (event *EventContext) ResultWithPropagation(data any, propagation Propagati
 	if event.Event.EventType != "message.private" && event.Event.EventType != "message.group" {
 		return errors.New("rayleabot: propagation requires a message event")
 	}
+	if event.detached.Load() {
+		return errors.New("rayleabot: a detached event decided propagation when it moved to the background")
+	}
 	return event.result(data, string(propagation))
 }

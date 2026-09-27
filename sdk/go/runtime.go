@@ -60,6 +60,11 @@ type EventContext struct {
 	terminal atomic.Bool
 	actionMu sync.Mutex
 	actions  map[string]chan struct{}
+	// lifetime is the handler context; release returns the concurrency
+	// permit, which Detach gives up before the handler returns.
+	lifetime *eventLifetime
+	release  func()
+	detached atomic.Bool
 }
 
 func Run(ctx context.Context, options Options, handler Handler) error {
@@ -176,7 +181,7 @@ func (state *runtimeState) run(ctx context.Context, in io.Reader) error {
 				}
 				continue
 			}
-			state.startEvent(ctx, frame.RequestID, event)
+			state.startEvent(ctx, frame.RequestID, time.UnixMilli(frame.DeadlineAtMs), event)
 		case "ping":
 			if err := state.client.writer.write(protocolFrame{
 				Type:      "pong",
@@ -223,6 +228,9 @@ func (state *runtimeState) captureInit(frame protocolFrame) {
 }
 
 func (state *runtimeState) decodeEvent(frame protocolFrame) (Event, error) {
+	if frame.DeadlineAtMs <= 0 {
+		return Event{}, protocolError("event deadline_at_ms is required")
+	}
 	var wire pluginwire.ProtocolEventFrame
 	if err := json.Unmarshal(frame.Event, &wire); err != nil {
 		return Event{}, protocolError("invalid event payload")
@@ -285,14 +293,13 @@ func (state *runtimeState) applyControlEvent(event Event) error {
 	return nil
 }
 
-func (state *runtimeState) startEvent(ctx context.Context, requestID string, event Event) {
+// startEvent runs the handler under a context that ends at the host deadline
+// of the event, or at the background deadline after Detach. The host sends no
+// cancellation, so a handler should return as soon as its context ends.
+func (state *runtimeState) startEvent(ctx context.Context, requestID string, deadline time.Time, event Event) {
 	handler := state.handler.Handle
 	serviceEvent := event.EventType == "plugin.request" && event.ServiceRequest != nil
-	// A service request runs until its host-assigned deadline. The host sends no
-	// cancellation, so a handler should return as soon as its context ends.
-	stopService := func() {}
 	if serviceEvent {
-		ctx, stopService = context.WithDeadline(ctx, time.UnixMilli(event.ServiceRequest.DeadlineAtMs))
 		handler = state.handleService
 	}
 	if event.Session != nil {
@@ -307,22 +314,28 @@ func (state *runtimeState) startEvent(ctx context.Context, requestID string, eve
 			}
 		}
 	}
+	lifetime := newEventLifetime(ctx, deadline)
 	state.handlers.Add(1)
 	go func() {
 		defer state.handlers.Done()
-		defer stopService()
+		defer lifetime.finish(context.Canceled)
 		select {
 		case state.semaphore <- struct{}{}:
-			defer func() { <-state.semaphore }()
-		case <-ctx.Done():
+		case <-lifetime.Done():
 			return
 		}
-		if ctx.Err() != nil {
+		release := sync.OnceFunc(func() { <-state.semaphore })
+		defer release()
+		if lifetime.Err() != nil {
 			return
 		}
+		ctx := context.Context(lifetime)
 		eventContext := state.newEventContext(requestID, event)
+		eventContext.lifetime = lifetime
+		eventContext.release = release
 		defer func() {
-			if serviceEvent && ctx.Err() != nil {
+			// The host ignores an expired event, so its unanswered actions end here.
+			if lifetime.Err() != nil {
 				state.client.retireEvent(eventContext)
 			}
 		}()
@@ -339,11 +352,11 @@ func (state *runtimeState) startEvent(ctx context.Context, requestID string, eve
 			}
 		}()
 		err := handler(ctx, eventContext)
+		if ctx.Err() != nil {
+			state.logger.Debug("plugin event ended at its deadline or shutdown", "request_id", requestID)
+			return
+		}
 		if err != nil {
-			if ctx.Err() != nil {
-				state.logger.Debug("plugin event canceled during shutdown", "request_id", requestID)
-				return
-			}
 			state.logger.Error("plugin event handler failed", "request_id", requestID, "err", redact(err.Error()))
 			if !eventContext.terminal.Load() {
 				_ = eventContext.Fail("plugin.internal_error", err.Error())
@@ -473,7 +486,12 @@ func (event *EventContext) Fail(code, message string) error {
 	})
 }
 
+// Send ends the event with a message. After Detach it sends an ordinary
+// message action and then a terminal Result.
 func (event *EventContext) Send(targetType, targetID string, segments ...Segment) error {
+	if event.detached.Load() {
+		return event.sendDetached(MessageSendRequest{TargetType: targetType, TargetID: targetID, Message: MessageOut{Segments: segments}})
+	}
 	data, err := json.Marshal(map[string]any{
 		"target_type": targetType,
 		"target_id":   targetID,
@@ -490,6 +508,8 @@ func (event *EventContext) Send(targetType, targetID string, segments ...Segment
 	})
 }
 
+// SendText ends the event with a text message to its conversation, falling
+// back to a group target; after Detach it behaves like Send.
 func (event *EventContext) SendText(text string) error {
 	targetType := event.Event.Target.Type
 	if targetType == "" {
@@ -498,7 +518,12 @@ func (event *EventContext) SendText(text string) error {
 	return event.Send(targetType, event.Event.Target.ID, Text(text))
 }
 
+// Reply ends the event with a reply to replyToEventID. After Detach it sends an
+// ordinary reply action and then a terminal Result.
 func (event *EventContext) Reply(replyToEventID string, fallback bool, segments ...Segment) error {
+	if event.detached.Load() {
+		return event.sendDetached(MessageSendRequest{TargetType: event.Event.Target.Type, TargetID: event.Event.Target.ID, ReplyToEventID: replyToEventID, FallbackToSendIfMissing: fallback, Message: MessageOut{Segments: segments}})
+	}
 	payload := map[string]any{
 		"target_type":       event.Event.Target.Type,
 		"target_id":         event.Event.Target.ID,

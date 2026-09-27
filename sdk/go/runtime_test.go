@@ -427,6 +427,9 @@ func writeFrame(t *testing.T, encoder *json.Encoder, frame protocolFrame) {
 	if frame.Type == "result" && frame.Status == "" {
 		frame.Status = "success"
 	}
+	if frame.Type == "event" && frame.DeadlineAtMs == 0 {
+		frame.DeadlineAtMs = time.Now().Add(time.Minute).UnixMilli()
+	}
 	if err := encoder.Encode(frame); err != nil {
 		t.Fatalf("encode frame: %v", err)
 	}

@@ -97,11 +97,9 @@ func (event *EventContext) Ask(ctx context.Context, prompt string, options Sessi
 		_, finishErr := event.Actions().SessionFinish(cleanupCtx, ref.SessionID)
 		return SessionRef{}, errors.Join(cause, finishErr)
 	}
-	deadline := time.UnixMilli(ref.ExpiresAtMS)
-	if callerDeadline, ok := ctx.Deadline(); ok && callerDeadline.Before(deadline) {
-		deadline = callerDeadline
-	}
-	if err := event.client.callbacks.install(ref, sessionRoute(event, ref.Scope), deadline, next); err != nil {
+	// The continuation lives until the conversation expires; the handler
+	// context ends with the current event and does not bound it.
+	if err := event.client.callbacks.install(ref, sessionRoute(event, ref.Scope), time.UnixMilli(ref.ExpiresAtMS), next); err != nil {
 		return cleanup(err)
 	}
 	_, err = event.Actions().MessageSend(ctx, MessageSendRequest{SourceAdapter: event.Event.SourceAdapter, SourceProtocol: event.Event.SourceProtocol, TargetType: event.Event.Target.Type, TargetID: event.Event.Target.ID, ReplyToEventID: event.Event.EventID, FallbackToSendIfMissing: true, Message: MessageOut{Segments: []Segment{Text(prompt)}}})

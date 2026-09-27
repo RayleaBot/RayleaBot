@@ -65,6 +65,14 @@ func (event Event) Command() string {
 	return value
 }
 
+// TaskID is the scheduler.create task ID a scheduler.trigger event carries.
+// A plugin dispatches triggers by it and should delete a task it no longer
+// recognizes.
+func (event Event) TaskID() string {
+	value, _ := event.Payload["task_id"].(string)
+	return value
+}
+
 func (event Event) Args() []string {
 	values, ok := event.Payload["args"].([]any)
 	if !ok {
