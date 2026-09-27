@@ -1,10 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 26">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <style>
     :root { color: #476C5E; }
     @media (prefers-color-scheme: dark) { :root { color: #BBD0C1; } }
   </style>
-  <path d="M3 10 15 3v11L3 21Z" fill="currentColor" opacity="0.5"/>
-  <path d="m3 10 9 5v8l-9-5Z" fill="currentColor" opacity="0.85"/>
-  <path d="m12 15 10-6v9l-10 5Z" fill="currentColor" opacity="1"/>
-  <path d="M15 3v11l7-5V4Z" fill="currentColor" opacity="0.28"/>
+  <path d="M1.17 22.71 C10.72 24.88 23.09 14.68 22.87 1.01 L1.17 22.71 Z" fill="currentColor" opacity="0.5"/>
+  <path d="M1.17 22.71 C0.31 12.73 11.16 0.58 22.87 1.01 L1.17 22.71 Z" fill="currentColor" opacity="1"/>
+  <path d="M1.17 22.71 C9.69 17.12 18.59 8.66 22.87 1.01 L1.17 22.71 Z" fill="currentColor" opacity="0.45"/>
 </svg>

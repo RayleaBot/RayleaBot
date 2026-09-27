@@ -128,9 +128,9 @@ Launcher 参考 Apple 的 [Liquid Glass](https://developer.apple.com/design/) �
 
 ## 原生图标与打包
 
-- [`design/mark.json`](../../design/mark.json) 是折叶几何母版；[`scripts/generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 生成 [`launcher/assets/`](../../launcher/assets/) 中的 SVG 来源、应用 PNG、托盘 PNG 与 Windows ICO。
-- 应用 PNG 为 `1024×1024`，托盘 PNG 为 `32×32`；PNG 内嵌确定性来源元数据。资产由已有几何生成，不属于 AI 生成图像。
-- Windows ICO 包含 `16/24/32/48/64/128/256px` 七种尺寸。Go 宿主消费应用与托盘 PNG，Windows EXE 通过图标资源消费 ICO，使应用、窗口、任务栏与托盘使用同一品牌母版。
+- [`design/mark.json`](../../design/mark.json) 是折叶几何母版；[`scripts/generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 读取母版与 [`design/tokens.json`](../../design/tokens.json) 的品牌角色，用 Launcher 工作区安装的 Skia 后端 Canvas 2D 包 `@napi-rs/canvas` 光栅渲染 [`launcher/assets/`](../../launcher/assets/) 中的应用 PNG、托盘 PNG 与 Windows ICO，不依赖 SVG 来源文件、浏览器或 Wails CLI。
+- 应用 PNG 为 `1024×1024`，托盘 PNG 为 `32×32`；PNG 内嵌确定性来源元数据。应用图标是青瓷釉面方砖上的反白折叶，托盘图标是折叶剪影；母版路径经 `Path2D` 直接绘制，渐变、内缘高光与模糊投影由 Skia 生成，产物字节只取决于输入与 `@napi-rs/canvas` 版本。资产由已有几何生成，不属于 AI 生成图像。
+- Windows ICO 包含 `16/24/32/48/64/128/256px` 七种尺寸，每种尺寸按目标像素独立渲染。Go 宿主消费应用与托盘 PNG，Windows EXE 通过图标资源消费 ICO，使应用、窗口、任务栏与托盘使用同一品牌母版。
 - Windows 打包使用冻结的 Wails `v3.0.0-beta.9`，在原生 Go build 前由 `build-package.mjs` 生成对应架构的 `rsrc_windows_<arch>.syso`；Windows manifest 使用 `asInvoker` 普通用户权限。
 - 在仓库根目录运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要。在 Windows 上运行 `python launcher/scripts/verify-windows-icon-resources.py`，验证默认打包 EXE 中的七尺寸图像负载与源 ICO 逐字节一致；其他产物通过 `--exe <path>` 指定。资源校验与实际窗口、任务栏、托盘显示检查分别承担不同验证职责。
 

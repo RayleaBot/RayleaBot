@@ -2,33 +2,31 @@
   "inputs": {
     "geometry": {
       "path": "design/mark.json",
-      "sha256": "d5aa879d85ac6e4aadd048b5c90a4b2bb3a1e9a33a4ac1f98f2cec142cee4315"
+      "sha256": "ecc11bbf837501ce17f6228163ff7cfb0f71c2ac3dc9f6fb2fb2d1d7aed8f04c"
     },
     "palette": {
       "path": "design/tokens.json",
       "roles": {
-        "semantic.light.color.brandFill": "#476C5E",
-        "semantic.light.color.surfaceSoft": "#F4F4F4",
-        "base.color.celadon.600": "#638673"
+        "base.color.celadon.600": "#638673",
+        "base.color.celadon.800": "#365749",
+        "semantic.light.color.onBrand": "#FFFFFF",
+        "base.color.celadon.100": "#E1E9E3"
       },
-      "sha256": "af434d8de65e4c42c2265e62fd6df0e87e7ef10ac31bbd2784e4340cc466197c"
+      "sha256": "b029bd7d1ffe09f75d47541ddb77684763efa0feedba03856f2b6d2325863a8b"
     },
     "generator": {
       "path": "scripts/generate-launcher-icons.mjs",
-      "sha256": "eca1ecc8f4b265bf02594345c73763a211ee7a0afc277aa3f9d2fc7375b4e342"
+      "sha256": "1a67f46a1b3b425d8ce86b8e1664be54824ae7856b96bbaf641e4d95138cee5e"
     },
     "metadataWriter": {
       "path": "scripts/png-provenance.mjs",
       "sha256": "8519810e246f731c572e01ee6072ec4d0f2c10b9728b9a27c85942874dba1ef7"
     },
-    "icoEncoder": {
-      "module": "github.com/wailsapp/wails/v3",
-      "version": "v3.0.0-beta.9"
+    "rasterizer": {
+      "module": "@napi-rs/canvas",
+      "version": "1.0.9",
+      "engine": "Skia"
     }
-  },
-  "rasterizer": {
-    "playwright": "1.62.1",
-    "chromium": "151.0.7922.34"
   },
   "outputs": {
     "appicon.png": {
@@ -36,14 +34,14 @@
       "height": 1024,
       "alpha": true,
       "role": "application",
-      "treatment": "original facets on a neutral tile with transparent padding"
+      "treatment": "glazed fold-leaf mark in on-brand tones over a celadon tile with transparent padding"
     },
     "tray.png": {
       "width": 32,
       "height": 32,
       "alpha": true,
       "role": "system tray",
-      "treatment": "original geometry as an opaque silhouette"
+      "treatment": "fold-leaf geometry as an opaque silhouette"
     },
     "icon.ico": {
       "sizes": [
@@ -55,14 +53,13 @@
         128,
         256
       ],
-      "role": "Windows executable resource"
+      "role": "Windows executable resource",
+      "treatment": "application composition rendered natively at every frame size"
     }
   },
   "sha256": {
-    "appicon.png": "f858ebac56d9683b229e5205ecc4cac067db881a981f9c7e2421a11be0de4154",
-    "tray.png": "727c4866ff9f5c900e00e0e1c19a5d4f1d17525bf1ec80cdb9e99fdb196662e4",
-    "icon.ico": "d55ffff8852550b1bd1e83e71829e608882d6d2317f3e0583a2afcdb02b1d45a",
-    "sources/appicon.svg": "844bae3fbeac2c6dede02e0a02c173c183211cf64a65c42b5840a0eb3b1f7d51",
-    "sources/tray.svg": "64f70396dfcb25095e067643cd803ee98382d528b149819042b455f5dce6e4ea"
+    "appicon.png": "1825f48bb62304fad2696c882821d0c0dd5fddfecd14025df9d39d89832e63ab",
+    "tray.png": "9a8d118c5a6f0161f8872584aba6517ca355c76605bf48236b9e1dee160545a2",
+    "icon.ico": "679c6fcebe5e7a0630cee228ea407764ec89a2de5915dcbe42ff9219ae379085"
   }
 }

@@ -1156,8 +1156,9 @@
     "nativeAssets": {
       "master": "design/mark.json",
       "generator": "scripts/generate-launcher-icons.mjs",
+      "rasterizer": "@napi-rs/canvas (Skia Canvas 2D)",
       "directory": "launcher/assets/",
-      "provenance": "由既有折叶几何确定性生成；PNG 内嵌来源元数据，不属于 AI 生成图像。",
+      "provenance": "由既有折叶几何经 Skia Canvas 2D 确定性光栅渲染，不经过 SVG 或浏览器；PNG 内嵌来源元数据，不属于 AI 生成图像。",
       "applicationPng": "1024x1024",
       "trayPng": "32x32",
       "windowsIcoSizes": [

@@ -243,9 +243,9 @@ Launcher 按 Apple 的分层把玻璃留给导航层与悬浮控件：侧栏、�
 
 Web 产品按钮、输入框与选择器使用现有 lg 圆角，居中产品弹窗采用略大的局部圆角。配置、搜索与确认弹窗共享该形状，内部字段通过间距与分隔线分组。左右抽屉贴齐视口边缘、使用直角；底部抽屉只有上方两个角为圆角。菜单与 Toast 使用 lg 圆角，Tooltip 使用现有 md 圆角，Web 状态与分类标签使用紧凑的 sm 圆角。
 
-品牌标识为四个色面组成的几何折叶，形状以 [design/mark.json](design/mark.json) 为唯一母版。Web、Launcher 与 favicon 共享该几何；色面随品牌角色或单色环境映射。Launcher 功能图标使用 Fluent Regular，品牌标识不承担操作或状态含义。
+品牌标识为三个色面组成的几何折叶：一片沿叶脉对折的贝塞尔叶形，前后两片叶面以不同透明度表达折面，叶脉处的重叠带表达折痕；形状以 [design/mark.json](design/mark.json) 为唯一母版。Web、Launcher 与 favicon 共享该几何；色面随品牌角色或单色环境映射。Launcher 功能图标使用 Fluent Regular，品牌标识不承担操作或状态含义。
 
-原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、托盘 PNG 和 Windows ICO 由母版确定性生成，PNG 内嵌来源元数据，不属于 AI 生成图像。ICO 包含 16、24、32、48、64、128、256px 图像。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的验证入口见 Launcher 界面规范。
+原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、托盘 PNG 和 Windows ICO 由 [图标生成脚本](scripts/generate-launcher-icons.mjs) 通过 Skia 后端的 Canvas 2D（`@napi-rs/canvas`）直接从母版光栅渲染，不经过 SVG 或浏览器：应用图标是青瓷釉面圆角方砖上的品牌反白折叶，带有左上光泽、顶部内缘高光、底部暗部和折叶的柔和投影；托盘图标是折叶的不透明剪影。PNG 内嵌来源元数据，不属于 AI 生成图像。ICO 包含 16、24、32、48、64、128、256px 图像，每个尺寸独立渲染而非缩放。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的验证入口见 Launcher 界面规范。
 
 ## Components
 

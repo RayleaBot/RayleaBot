@@ -5,7 +5,7 @@
 | 资源 | 来源与生成职责 | 消费入口 |
 | --- | --- | --- |
 | 青瓷认证壁纸 | [`celadon-glass.png`](../../web/src/assets/auth/celadon-glass.png) 的 `impeccable:prompt` PNG 文本块保存生成提示词；无损 WebP 是运行产物 | Web `AuthLayout.vue` 加载 [`celadon-glass.webp`](../../web/src/assets/auth/celadon-glass.webp)；PNG 保留为原始素材 |
-| Launcher 图标 | [`design/mark.json`](../../design/mark.json) 与 [`design/tokens.json`](../../design/tokens.json) 经 [`generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 生成；[`assets/manifest.json`](../../launcher/assets/manifest.json) 记录输入、生成器与产物摘要 | Launcher 嵌入应用与托盘 PNG，Windows 可执行文件使用 ICO |
+| Launcher 图标 | [`design/mark.json`](../../design/mark.json) 与 [`design/tokens.json`](../../design/tokens.json) 经 [`generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 以 Skia Canvas 2D 光栅渲染；[`assets/manifest.json`](../../launcher/assets/manifest.json) 记录输入、生成器与产物摘要 | Launcher 嵌入应用与托盘 PNG，Windows 可执行文件使用 ICO |
 | Noto Sans SC | [`result.css`](../../templates/help.menu/assets/fonts/noto-sans-sc/result.css) 记录 Google Fonts v40 来源、字重及 Unicode 分段；同目录 [`OFL.txt`](../../templates/help.menu/assets/fonts/noto-sans-sc/OFL.txt) 保留 SIL OFL 1.1 授权 | Web、Launcher 通过 [`typography.generated.css`](../../design/typography.generated.css) 导入，三个内置聊天模板直接导入相同字体 CSS |
 
 `scripts/generate-design-tokens.mjs` 将字体授权复制到 Web 与 Launcher 的 public 目录。字体子集是共用源文件，不按单个页面显示的少量字符删减；插件名、用户输入和中文状态文本都可能需要额外字形。
