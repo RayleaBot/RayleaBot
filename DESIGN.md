@@ -140,9 +140,9 @@ components:
 
 **Creative North Star: "雾白·青瓷"**
 
-RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。
+RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，黑白人物标识提供品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。
 
-界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 使用基于 Reka UI 的产品组件，Launcher 使用 Fluent UI。
+界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌链接、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 使用基于 Reka UI 的产品组件，Launcher 使用 Fluent UI。
 
 Web 正式路由统一使用 Vue 3、Reka UI、自有 shadcn-vue 组件源码、Tailwind CSS 与 Motion for Vue，覆盖应用壳、认证、协议、插件、账号、治理、配置和诊断工作区。主题、字体与密度通过共享 CSS 变量和产品组件提供，页面复用统一的交互与反馈机制。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。
 
@@ -151,12 +151,12 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 **Key Characteristics:**
 
 - 灰白与炭灰画布、中性导航和连续工作区。
-- 少量青瓷主操作、选中标记和几何折叶标识。
+- 少量青瓷主操作与选中标记，以及按亮暗主题切换原版与反色版的黑白人物标识。
 - 自托管 Noto Sans SC 用于 Web 普通文字，Launcher 正文使用系统字体；字号、字重与间距形成克制层级。
 - 亮暗主题、键盘操作和窄屏呈现保持等价操作能力。
 - Web 管理工作区的状态、表单、列表与日志采用不透明表面，玻璃用于浮层；认证入口与 Launcher 采用 Liquid Glass 适配。
 
-本文件的 token 前置数据由 [design/tokens.json](design/tokens.json) 生成。它是机器值的唯一来源，采用 base → semantic light/dark → component 结构；[生成脚本](scripts/generate-design-tokens.mjs) 同时维护 Web、Launcher、favicon、共享字体 CSS 与 [.impeccable/design.json](.impeccable/design.json)。运行 `node scripts/generate-design-tokens.mjs` 更新生成物，运行 `node scripts/generate-design-tokens.mjs --check` 校验生成物漂移与指定对比度。原生图标由独立的 [图标生成脚本](scripts/generate-launcher-icons.mjs) 维护。
+本文件的 token 前置数据由 [design/tokens.json](design/tokens.json) 生成。它是共享主题 token 的唯一机器值来源，采用 base → semantic light/dark → component 结构；[生成脚本](scripts/generate-design-tokens.mjs) 同时维护 Web、Launcher、favicon、共享字体 CSS 与 [.impeccable/design.json](.impeccable/design.json)。运行 `node scripts/generate-design-tokens.mjs` 更新生成物，运行 `node scripts/generate-design-tokens.mjs --check` 校验生成物漂移与指定对比度。原生图标由独立的 [图标生成脚本](scripts/generate-launcher-icons.mjs) 维护。
 
 前置数据、共享字体 CSS 与 sidecar 均由生成器维护，不直接编辑；sidecar 的 narrative 提取概述、关键特征、命名规则及 Do/Don't 列表。sidecar 的通用组件预览表达共享基础，Web 产品组件的尺寸以组件源码为准，焦点与浮层生命周期以本文对应规则为准。应用局部映射在正文与界面规范中说明，不改变共享基础 token 的含义。
 
@@ -167,7 +167,7 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 ### Primary
 
 - **青瓷主操作**：浅色使用 light-primary，暗色使用 dark-primary；悬停与按下分别消费对应组件映射。
-- **青瓷品牌前景**：折叶标识、品牌链接和少数勾选标记消费品牌角色，不扩散到普通正文和容器边界。
+- **青瓷品牌前景**：品牌链接和少数勾选标记消费品牌角色，不扩散到普通正文和容器边界；人物标识使用原版或反色版的黑白配色。
 
 ### Neutral
 
@@ -180,7 +180,7 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 
 **The Semantic Token Rule.** 运行代码只消费语义和组件 token；基础色阶仅用于建立映射。
 
-**The Neutral Ground Rule.** 普通表面、静态边框、文字、搜索框和选中背景保持中性；青瓷用于品牌、主操作和少数选中标记，Web 产品控件的键盘焦点遵循局部焦点规则。
+**The Neutral Ground Rule.** 普通表面、静态边框、文字、搜索框和选中背景保持中性；青瓷用于品牌链接、主操作和少数选中标记，Web 产品控件的键盘焦点遵循局部焦点规则。
 
 **The Semantic Independence Rule.** 人工关注、成功、警告和危险保持独立，状态同时提供文字、图标或结构化标签。
 
@@ -243,9 +243,9 @@ Launcher 按 Apple 的分层把玻璃留给导航层与悬浮控件：侧栏、�
 
 Web 产品按钮、输入框与选择器使用现有 lg 圆角，居中产品弹窗采用略大的局部圆角。配置、搜索与确认弹窗共享该形状，内部字段通过间距与分隔线分组。左右抽屉贴齐视口边缘、使用直角；底部抽屉只有上方两个角为圆角。菜单与 Toast 使用 lg 圆角，Tooltip 使用现有 md 圆角，Web 状态与分类标签使用紧凑的 sm 圆角。
 
-品牌标识为三个色面组成的几何折叶：一片沿叶脉对折的贝塞尔叶形，前后两片叶面以不同透明度表达折面，叶脉处的重叠带表达折痕；形状以 [design/mark.json](design/mark.json) 为唯一母版。Web、Launcher 与 favicon 共享该几何；色面随品牌角色或单色环境映射。Launcher 功能图标使用 Fluent Regular，品牌标识不承担操作或状态含义。
+品牌标识为黑白人物，保留帽子、蝴蝶结、手势与完整曲线轮廓，以 [design/mark.json](design/mark.json) 为唯一母版。母版保留原始 `0 0 1254 1254` viewBox 与两个使用 `evenodd` 填充的贝塞尔复合路径；黑白区域均不透明，人物之外保留透明背景。原版为白发，母版的 `outline` 沿第一个路径绘制白色细轮廓，位于黑白填充后方。Web、Launcher 的界面标识与 Web favicon 在浅色主题使用原版，在暗色主题使用用户确认的整体反色版：填充与描边同步黑白互换，曲线、手势和透明背景保持一致。Launcher 功能图标使用 Fluent Regular，品牌标识不承担操作或状态含义。
 
-原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、托盘 PNG 和 Windows ICO 由 [图标生成脚本](scripts/generate-launcher-icons.mjs) 通过 Skia 后端的 Canvas 2D（`@napi-rs/canvas`）直接从母版光栅渲染，不经过 SVG 或浏览器：应用图标是青瓷釉面圆角方砖上的品牌反白折叶，带有左上光泽、顶部内缘高光、底部暗部和折叶的柔和投影；托盘图标是折叶的不透明剪影。PNG 内嵌来源元数据，不属于 AI 生成图像。ICO 包含 16、24、32、48、64、128、256px 图像，每个尺寸独立渲染而非缩放。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的验证入口见 Launcher 界面规范。
+原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、亮暗托盘 PNG 和 Windows ICO 由 [图标生成脚本](scripts/generate-launcher-icons.mjs) 通过 Skia 后端的 Canvas 2D（`@napi-rs/canvas`）与 `Path2D` 直接从母版确定性光栅渲染，保留同一人物曲线与透明背景。应用 PNG 与 Windows ICO 固定使用原版；托盘按系统主题使用原版或整体反色版。标识源自经用户确认的 AI 辅助人物概念图，再转为贝塞尔矢量；PNG 内嵌对应来源元数据。ICO 包含 16、24、32、48、64、128、256px 图像，每个尺寸独立渲染而非缩放。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的生成与验证入口见 Launcher 界面规范。
 
 ## Components
 
@@ -357,7 +357,7 @@ Web 产品组件基于 Vue 3、Reka UI 2.10.4、仓库持有的 shadcn-vue / rek
 
 ### Authentication
 
-登录、首次初始化与凭据恢复指引共享居中单栏面板，保留折叶品牌与 Noto Sans SC，凭据表单使用 AppField、AppInput、AppButton 和 AppAlert。静态青瓷玻璃壁纸与面板不随指针移动，鼠标仅改变边缘高光位置，空闲时没有持续绘制循环。
+登录、首次初始化与凭据恢复指引共享居中单栏面板，保留共享黑白人物标识与 Noto Sans SC，凭据表单使用 AppField、AppInput、AppButton 和 AppAlert。静态青瓷玻璃壁纸与面板不随指针移动，鼠标仅改变边缘高光位置，空闲时没有持续绘制循环。
 
 壁纸资源、法线图生成、入场动画、低高度视口、reduced-motion 与 forced-colors 行为见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。认证区域文字选区使用现有品牌填充与对应前景。
 
@@ -381,7 +381,7 @@ Launcher 动效由 Motion 驱动：工作区从下方 8px 沉降进入且不改�
 
 **The Single Motion Owner Rule.** 同一元素只接受一种动效机制，连续操作取消旧动画并以最新状态为准。
 
-**The Fold Mark Rule.** 折叶由同一几何母版生成，品牌不代替状态图标或导航文字。
+**The Brand Mark Rule.** 界面与托盘标识随所属主题使用原版或整体反色版，保留同一母版的曲线、手势和透明背景；静态应用文件图标使用原版。品牌不代替状态图标或导航文字。
 
 插件页面、聊天卡片与渲染模板拥有独立内容和样式边界，视觉体系由各插件仓库自行维护；其管理面 Host 使用本体系。独立 iframe 不继承宿主 CSS、字体或组件运行时，内部页面保留自身组件库；页面与宿主同源加载，Vue SDK 可选地把宿主主题变量提供给页面，详见 [插件管理面](docs/design/plugin-management-surface.md)。
 
@@ -396,7 +396,7 @@ Launcher 动效由 Motion 驱动：工作区从下方 8px 沉降进入且不改�
 ### Do:
 
 - Do 用中性导航、连续工作区和精确分隔线建立稳定方位。
-- Do 将青瓷留给品牌、主操作和少数选中标记，保持普通表面与文字中性。
+- Do 将青瓷留给品牌链接、主操作和少数选中标记，保持普通表面与文字中性。
 - Do 保持亮暗主题的信息层级、状态含义与操作能力等价。
 - Do 使用项目 token、共享标题字体与所属应用的标准产品组件，遵守 Web、Launcher 和独立插件内容的边界。
 - Do 保持可见焦点、键盘操作、触控目标、reduced-motion 与 forced-colors 支持。

@@ -1158,7 +1158,7 @@
       "generator": "scripts/generate-launcher-icons.mjs",
       "rasterizer": "@napi-rs/canvas (Skia Canvas 2D)",
       "directory": "launcher/assets/",
-      "provenance": "由既有折叶几何经 Skia Canvas 2D 确定性光栅渲染，不经过 SVG 或浏览器；PNG 内嵌来源元数据，不属于 AI 生成图像。",
+      "provenance": "人物母版源自用户确认的 AI 辅助概念图与贝塞尔矢量转换；浅色使用原版，暗色使用完整反色版，均保留同一曲线、手势和透明背景；Skia Canvas 2D 确定性渲染原生资源，PNG 内嵌来源元数据。",
       "applicationPng": "1024x1024",
       "trayPng": "32x32",
       "windowsIcoSizes": [
@@ -1170,7 +1170,8 @@
         128,
         256
       ],
-      "windowsResourceVerification": "python launcher/scripts/verify-windows-icon-resources.py"
+      "windowsResourceVerification": "python launcher/scripts/verify-windows-icon-resources.py",
+      "trayDarkPng": "32x32"
     },
     "layers": {
       "sticky": 100,
@@ -1249,10 +1250,10 @@
   ],
   "narrative": {
     "northStar": "雾白·青瓷",
-    "overview": "RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 使用基于 Reka UI 的产品组件，Launcher 使用 Fluent UI。\n\nWeb 正式路由统一使用 Vue 3、Reka UI、自有 shadcn-vue 组件源码、Tailwind CSS 与 Motion for Vue，覆盖应用壳、认证、协议、插件、账号、治理、配置和诊断工作区。主题、字体与密度通过共享 CSS 变量和产品组件提供，页面复用统一的交互与反馈机制。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。\n\nWeb 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部的组件库由各插件维护，Launcher 使用自己的原生组件体系。",
+    "overview": "RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，黑白人物标识提供品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌链接、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 使用基于 Reka UI 的产品组件，Launcher 使用 Fluent UI。\n\nWeb 正式路由统一使用 Vue 3、Reka UI、自有 shadcn-vue 组件源码、Tailwind CSS 与 Motion for Vue，覆盖应用壳、认证、协议、插件、账号、治理、配置和诊断工作区。主题、字体与密度通过共享 CSS 变量和产品组件提供，页面复用统一的交互与反馈机制。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。\n\nWeb 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部的组件库由各插件维护，Launcher 使用自己的原生组件体系。",
     "keyCharacteristics": [
       "灰白与炭灰画布、中性导航和连续工作区。",
-      "少量青瓷主操作、选中标记和几何折叶标识。",
+      "少量青瓷主操作与选中标记，以及按亮暗主题切换原版与反色版的黑白人物标识。",
       "自托管 Noto Sans SC 用于 Web 普通文字，Launcher 正文使用系统字体；字号、字重与间距形成克制层级。",
       "亮暗主题、键盘操作和窄屏呈现保持等价操作能力。",
       "Web 管理工作区的状态、表单、列表与日志采用不透明表面，玻璃用于浮层；认证入口与 Launcher 采用 Liquid Glass 适配。"
@@ -1265,7 +1266,7 @@
       },
       {
         "name": "The Neutral Ground Rule",
-        "body": "普通表面、静态边框、文字、搜索框和选中背景保持中性；青瓷用于品牌、主操作和少数选中标记，Web 产品控件的键盘焦点遵循局部焦点规则。",
+        "body": "普通表面、静态边框、文字、搜索框和选中背景保持中性；青瓷用于品牌链接、主操作和少数选中标记，Web 产品控件的键盘焦点遵循局部焦点规则。",
         "section": "colors"
       },
       {
@@ -1329,8 +1330,8 @@
         "section": "components"
       },
       {
-        "name": "The Fold Mark Rule",
-        "body": "折叶由同一几何母版生成，品牌不代替状态图标或导航文字。",
+        "name": "The Brand Mark Rule",
+        "body": "界面与托盘标识随所属主题使用原版或整体反色版，保留同一母版的曲线、手势和透明背景；静态应用文件图标使用原版。品牌不代替状态图标或导航文字。",
         "section": "components"
       },
       {
@@ -1346,7 +1347,7 @@
     ],
     "dos": [
       "Do 用中性导航、连续工作区和精确分隔线建立稳定方位。",
-      "Do 将青瓷留给品牌、主操作和少数选中标记，保持普通表面与文字中性。",
+      "Do 将青瓷留给品牌链接、主操作和少数选中标记，保持普通表面与文字中性。",
       "Do 保持亮暗主题的信息层级、状态含义与操作能力等价。",
       "Do 使用项目 token、共享标题字体与所属应用的标准产品组件，遵守 Web、Launcher 和独立插件内容的边界。",
       "Do 保持可见焦点、键盘操作、触控目标、reduced-motion 与 forced-colors 支持。",

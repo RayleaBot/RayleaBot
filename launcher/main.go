@@ -18,7 +18,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/launcher/internal/frontend"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
-	"github.com/wailsapp/wails/v3/pkg/icons"
 )
 
 //go:embed assets/appicon.png
@@ -26,6 +25,9 @@ var appIcon []byte
 
 //go:embed assets/tray.png
 var trayIcon []byte
+
+//go:embed assets/tray-dark.png
+var trayDarkIcon []byte
 
 var singleInstanceKey = [32]byte{
 	0x52, 0x61, 0x79, 0x6c, 0x65, 0x61, 0x42, 0x6f,
@@ -176,11 +178,7 @@ func main() {
 		showWindow()
 	})
 
-	if runtime.GOOS == "darwin" {
-		tray.SetTemplateIcon(icons.SystrayMacTemplate)
-	} else {
-		tray.SetIcon(trayIcon)
-	}
+	tray.SetIcon(trayIcon).SetDarkModeIcon(trayDarkIcon)
 	tray.SetTooltip("RayleaBot 启动器")
 	tray.OnClick(host.toggleWindow)
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {

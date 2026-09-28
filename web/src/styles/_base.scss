@@ -64,6 +64,10 @@ a {
   font-size: var(--app-font-size);
 }
 
+html[data-theme='dark'] .raylea-mark {
+  filter: invert(1);
+}
+
 .skip-link,
 .sr-only {
   position: absolute;

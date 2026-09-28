@@ -16,7 +16,8 @@ withDefaults(defineProps<{
     focusable="false"
     :viewBox="rayleaMark.viewBox"
   >
-    <path v-for="part in rayleaMark.paths" :key="part.d" :d="part.d" :opacity="part.opacity" />
+    <path :d="rayleaMark.paths[rayleaMark.outline.pathIndex].d" fill="none" :stroke="rayleaMark.outline.color" :stroke-width="rayleaMark.outline.width" stroke-linejoin="round" />
+    <path v-for="part in rayleaMark.paths" :key="part.fill" :d="part.d" :fill="part.fill" :fill-rule="part.fillRule" :opacity="part.opacity" />
   </svg>
 </template>
 
@@ -26,19 +27,6 @@ withDefaults(defineProps<{
   width: 24px;
   height: 24px;
   flex: none;
-  color: currentColor;
   overflow: visible;
-}
-
-.raylea-mark path {
-  fill: currentColor;
-}
-
-.raylea-mark--neutral {
-  color: var(--brand-foreground);
-}
-
-.raylea-mark--chrome {
-  color: var(--brand-foreground);
 }
 </style>

@@ -14,6 +14,7 @@ func TestEmbeddedLauncherIconsMatchNativeRoles(t *testing.T) {
 	}{
 		"application": {data: appIcon, want: 1024},
 		"tray":        {data: trayIcon, want: 32},
+		"tray-dark":   {data: trayDarkIcon, want: 32},
 	} {
 		t.Run(name, func(t *testing.T) {
 			image, err := png.Decode(bytes.NewReader(testCase.data))

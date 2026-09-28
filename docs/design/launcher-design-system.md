@@ -11,7 +11,7 @@
 
 ## 主题与 token 映射
 
-Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显式选择可持久化，不提供按时钟自动切换配置。`FluentProvider` 与自定义 CSS variables 必须使用同一有效主题，窗口背景、原生控件和自定义表面保持一致。普通画布、文字、边框和选中背景使用灰白或炭灰中性色，青瓷用于品牌、主操作和少数选中标记。`design/tokens.json` 是唯一机器值源，`launcher/src/shared/launcher-theme-tokens.generated.ts` 提供生成值，`launcher-theme.ts` 保留既有消费接口。
+Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显式选择可持久化，不提供按时钟自动切换配置。`FluentProvider` 与自定义 CSS variables 必须使用同一有效主题，窗口背景、原生控件和自定义表面保持一致。普通画布、文字、边框和选中背景使用灰白或炭灰中性色，青瓷用于品牌链接、主操作和少数选中标记。`design/tokens.json` 是主题 token 的唯一机器值源，`launcher/src/shared/launcher-theme-tokens.generated.ts` 提供生成值，`launcher-theme.ts` 保留既有消费接口。
 
 主题入口使用显式菜单，按“跟随系统、浅色、深色”排列并显示当前单选项。菜单由 Motion 在 `220ms` 内淡入并上移 `5px`，关闭时在 `160ms` 内淡出；选中反馈在退出期间保持可见，弹层消失后，新主题从主题按钮中心以 `420ms` 圆形展开到整个窗口，并把焦点还给触发按钮；跟随系统自动切换时新主题以 `280ms` 淡入。`prefers-reduced-motion` 下立即完成开合与主题切换。
 
@@ -24,7 +24,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 | 次文本 | `colorNeutralForeground2` | `light-text-muted` | `dark-text-muted` |
 | 边界 | `colorNeutralStroke1` | `light-border` | `dark-border` |
 | 主操作填充 | `colorBrandBackground`、主按钮 | `light-primary` | `dark-primary` |
-| 品牌前景 | 品牌链接、标识和少量选中标记 | `light-brand-foreground` | `dark-brand-foreground` |
+| 品牌前景 | 品牌链接和少量选中标记 | `light-brand-foreground` | `dark-brand-foreground` |
 | 焦点 | `colorStrokeFocus2` 与全局焦点轮廓 | `light-focus` | `dark-focus` |
 | 玻璃材质 | 雾白画布、内容分组填充、主操作着色与玻璃的不透明降级 | 由 `light-canvas`、`light-surface`、`light-primary`、`light-text` 局部派生 | 由 `dark-canvas`、`dark-surface-raised`、`dark-primary`、`dark-text` 局部派生 |
 | 品牌填充内容 | `colorNeutralForegroundOnBrand` | `on-brand` | `on-brand` |
@@ -47,7 +47,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 ## 桌面壳结构
 
 - 默认窗口为 `1280×720` 逻辑像素，最小窗口为 `960×560`；创建窗口时根据屏幕工作区与最小尺寸约束调整大小。
-- 顶部拖动区高度为 `44px` 且透明，露出雾白画布；顶部放置折叶标识、窗口标题与窗口控制，不放置页面主操作。
+- 顶部拖动区高度为 `44px` 且透明，露出雾白画布；顶部放置共享黑白人物标识、窗口标题与窗口控制，不放置页面主操作。
 - 窗口使用 `184px` 导航列与单一主内容区，宽度不超过 `1100px` 时导航列为 `156px`。导航栏是列内的玻璃面板，导航项由 Fluent Regular 功能图标、可见文字、可访问名称和完整中性选中色面组成。
 - 运行状态、环境检查、日志诊断、偏好设置和关于应用保持稳定分区，切换时保留当前任务上下文。
 - 主内容区优先使用单列任务流；只有状态与操作真实并行时才使用双列。
@@ -76,7 +76,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 
 自定义 CSS 只补充窗口布局、日志表面、玻璃材质和 Fluent token 无法表达的最小业务差异。页面不得重新实现 Fluent 已提供的按钮、输入、单选、Badge 或 Dialog；玻璃按钮是 Fluent `Button` 上的样式层。
 
-功能图标统一使用 Fluent Regular；状态透镜内的状态符号使用 Fluent Filled。折叶用于应用身份，功能图标用于导航、状态与操作，两者不互相替代。
+功能图标统一使用 Fluent Regular；状态透镜内的状态符号使用 Fluent Filled。界面人物标识用于应用身份，浅色主题使用原版，暗色主题将填充与描边整体反色，保留母版曲线、手势与透明背景；功能图标用于导航、状态与操作，两者不互相替代。
 
 ## 密度与层次
 
@@ -128,10 +128,11 @@ Launcher 参考 Apple 的 [Liquid Glass](https://developer.apple.com/design/) �
 
 ## 原生图标与打包
 
-- [`design/mark.json`](../../design/mark.json) 是折叶几何母版；[`scripts/generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 读取母版与 [`design/tokens.json`](../../design/tokens.json) 的品牌角色，用 Launcher 工作区安装的 Skia 后端 Canvas 2D 包 `@napi-rs/canvas` 光栅渲染 [`launcher/assets/`](../../launcher/assets/) 中的应用 PNG、托盘 PNG 与 Windows ICO，不依赖 SVG 来源文件、浏览器或 Wails CLI。
-- 应用 PNG 为 `1024×1024`，托盘 PNG 为 `32×32`；PNG 内嵌确定性来源元数据。应用图标是青瓷釉面方砖上的反白折叶，托盘图标是折叶剪影；母版路径经 `Path2D` 直接绘制，渐变、内缘高光与模糊投影由 Skia 生成，产物字节只取决于输入与 `@napi-rs/canvas` 版本。资产由已有几何生成，不属于 AI 生成图像。
-- Windows ICO 包含 `16/24/32/48/64/128/256px` 七种尺寸，每种尺寸按目标像素独立渲染。Go 宿主消费应用与托盘 PNG，Windows EXE 通过图标资源消费 ICO，使应用、窗口、任务栏与托盘使用同一品牌母版。
-- Windows 打包使用冻结的 Wails `v3.0.0-beta.9`，在原生 Go build 前由 `build-package.mjs` 生成对应架构的 `rsrc_windows_<arch>.syso`；Windows manifest 使用 `asInvoker` 普通用户权限。
+- [`design/mark.json`](../../design/mark.json) 是黑白人物标识的矢量母版；[`scripts/generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 读取原版路径、黑白填充与白色细轮廓，用 Launcher 工作区安装的 Skia 后端 Canvas 2D 包 `@napi-rs/canvas` 光栅渲染 [`launcher/assets/`](../../launcher/assets/) 中的应用 PNG、亮暗托盘 PNG 与 Windows ICO。暗色托盘版同步反转填充与描边，几何与透明背景保持不变；生成不依赖主题 token、SVG 来源文件、浏览器或 Wails CLI。
+- 应用 PNG 为 `1024×1024`，固定使用白发原版；`tray.png` 与 `tray-dark.png` 均为 `32×32`，分别使用原版与用户确认的整体反色版。母版路径经 `Path2D` 直接绘制，产物字节只取决于输入与 `@napi-rs/canvas` 版本。标识来自经用户确认的 AI 辅助人物概念图，再转为贝塞尔矢量；PNG 内嵌对应来源及确定性渲染元数据。
+- Windows ICO 包含 `16/24/32/48/64/128/256px` 七种尺寸，每种尺寸按目标像素独立渲染，Windows EXE 与应用文件图标固定使用原版。Go 宿主通过 Wails 的 `SetIcon` 与 `SetDarkModeIcon` 提供两种托盘 PNG，由系统托盘主题选择；Launcher 界面标识则跟随应用的有效主题。
+- Windows 资源由 [`generate-windows-resources.mjs`](../../launcher/scripts/generate-windows-resources.mjs) 使用冻结的 Wails `v3.0.0-beta.9` 生成对应架构的 `rsrc_windows_<arch>.syso`；根目录开发启动、Launcher 独立开发与打包均在 Go 编译前调用。缓存核对 ICO、Windows manifest、Go 模块、生成器输入及产物，资源缺失或漂移时重新生成；Windows manifest 使用 `asInvoker` 普通用户权限。
+- 更新原生图标后需重新构建并启动 Launcher，由新进程载入窗口、托盘和 EXE 图标资源。
 - 在仓库根目录运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要。在 Windows 上运行 `python launcher/scripts/verify-windows-icon-resources.py`，验证默认打包 EXE 中的七尺寸图像负载与源 ICO 逐字节一致；其他产物通过 `--exe <path>` 指定。资源校验与实际窗口、任务栏、托盘显示检查分别承担不同验证职责。
 
 ## 小窗口策略

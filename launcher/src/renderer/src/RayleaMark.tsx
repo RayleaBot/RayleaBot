@@ -13,7 +13,8 @@ export function RayleaMark({ className = "", tone, variant = "monochrome" }: Ray
       focusable="false"
       viewBox={rayleaMark.viewBox}
     >
-      {rayleaMark.paths.map((part) => <path key={part.d} d={part.d} opacity={part.opacity} />)}
+      <path d={rayleaMark.paths[rayleaMark.outline.pathIndex].d} fill="none" stroke={rayleaMark.outline.color} strokeWidth={rayleaMark.outline.width} strokeLinejoin="round" />
+      {rayleaMark.paths.map((part) => <path key={part.fill} d={part.d} fill={part.fill} fillRule={part.fillRule} opacity={part.opacity} />)}
     </svg>
   );
 }

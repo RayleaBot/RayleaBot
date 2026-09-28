@@ -2,21 +2,11 @@
   "inputs": {
     "geometry": {
       "path": "design/mark.json",
-      "sha256": "ecc11bbf837501ce17f6228163ff7cfb0f71c2ac3dc9f6fb2fb2d1d7aed8f04c"
-    },
-    "palette": {
-      "path": "design/tokens.json",
-      "roles": {
-        "base.color.celadon.600": "#638673",
-        "base.color.celadon.800": "#365749",
-        "semantic.light.color.onBrand": "#FFFFFF",
-        "base.color.celadon.100": "#E1E9E3"
-      },
-      "sha256": "b029bd7d1ffe09f75d47541ddb77684763efa0feedba03856f2b6d2325863a8b"
+      "sha256": "65f7112434a71f6a1df3ac3a46b196d99ba5ec14e5aad5da768d0092e9859a75"
     },
     "generator": {
       "path": "scripts/generate-launcher-icons.mjs",
-      "sha256": "1a67f46a1b3b425d8ce86b8e1664be54824ae7856b96bbaf641e4d95138cee5e"
+      "sha256": "7c865f43a65ae94e6523985843f8f91b4a88fff7fdca9a3869b7e46e7472eb45"
     },
     "metadataWriter": {
       "path": "scripts/png-provenance.mjs",
@@ -34,14 +24,21 @@
       "height": 1024,
       "alpha": true,
       "role": "application",
-      "treatment": "glazed fold-leaf mark in on-brand tones over a celadon tile with transparent padding"
+      "treatment": "approved black-and-white character logo with opaque white hair, a light contrast outline and transparent padding"
     },
     "tray.png": {
       "width": 32,
       "height": 32,
       "alpha": true,
-      "role": "system tray",
-      "treatment": "fold-leaf geometry as an opaque silhouette"
+      "role": "light system tray",
+      "treatment": "the original black-and-white logo with a light outline and transparent background"
+    },
+    "tray-dark.png": {
+      "width": 32,
+      "height": 32,
+      "alpha": true,
+      "role": "dark system tray",
+      "treatment": "the approved inverted logo with a dark outline and transparent background"
     },
     "icon.ico": {
       "sizes": [
@@ -58,8 +55,9 @@
     }
   },
   "sha256": {
-    "appicon.png": "1825f48bb62304fad2696c882821d0c0dd5fddfecd14025df9d39d89832e63ab",
-    "tray.png": "9a8d118c5a6f0161f8872584aba6517ca355c76605bf48236b9e1dee160545a2",
-    "icon.ico": "679c6fcebe5e7a0630cee228ea407764ec89a2de5915dcbe42ff9219ae379085"
+    "appicon.png": "ac27a66b2a5e6ee8ea78cf06daba997de78d2d69b93701011886b785ab85db5d",
+    "tray.png": "e00067f9faa89688576509d1023e7395917e480f68d44dcd139910c57fe33ef2",
+    "tray-dark.png": "bb54bf9e70a51cff756c967a93fad3a788dc82fb0e81c7a3cb3275d6f650bcad",
+    "icon.ico": "2f52553430621bbf0b09f603db8deeabeda5e48034a87c0833a9f62265c81b52"
   }
 }

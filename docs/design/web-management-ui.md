@@ -14,7 +14,9 @@
 
 ## 主题映射
 
-主题偏好包含 `system`、`light` 和 `dark`。首次显示使用 `system`，显式选择保存在本地偏好中；亮暗主题提供相同的内容、状态和操作能力，不提供按时钟自动切换配置。普通画布、表面、文字、搜索框、边框和选中背景使用中性灰白或炭灰，青瓷只用于品牌、主操作和少数选中标记。
+主题偏好包含 `system`、`light` 和 `dark`。首次显示使用 `system`，显式选择保存在本地偏好中；亮暗主题提供相同的内容、状态和操作能力，不提供按时钟自动切换配置。普通画布、表面、文字、搜索框、边框和选中背景使用中性灰白或炭灰，青瓷只用于品牌链接、主操作和少数选中标记。
+
+favicon 由现有 `resolvedThemeMode` 同步：浅色引用 [`favicon.svg`](../../web/public/favicon.svg)，暗色引用同一母版生成的 [`favicon-dark.svg`](../../web/public/favicon-dark.svg)，与界面标识使用同一有效主题。
 
 | 产品语义 | Web 角色 | 浅色 token | 暗色 token |
 | --- | --- | --- | --- |
@@ -26,7 +28,7 @@
 | 结构边界 | 内容分隔 | `light-border` | `dark-border` |
 | 控件边界 | 输入轮廓 | `light-control-border` | `dark-control-border` |
 | 主操作填充 | 主按钮 | `light-primary` | `dark-primary` |
-| 品牌前景 | 链接、品牌标识、少量勾选标记 | `light-brand-foreground` | `dark-brand-foreground` |
+| 品牌前景 | 链接、少量勾选标记 | `light-brand-foreground` | `dark-brand-foreground` |
 | 焦点 | 全局焦点轮廓 | `light-focus` | `dark-focus` |
 | 品牌壳层 | 桌面侧栏、移动抽屉 | `light-chrome` | `dark-chrome` |
 | 普通选中项 | Menu、Dropdown 背景与文字 | `light-nav-selected`、`light-nav-selected-text` | `dark-nav-selected`、`dark-nav-selected-text` |
@@ -38,7 +40,7 @@
 
 ## 应用壳
 
-- 桌面侧栏使用中性表面；当前页面项同时使用中性完整背景、主题色文字和中性功能图标，不使用彩色侧边条。品牌入口使用共享折叶标识。
+- 桌面侧栏使用中性表面；当前页面项同时使用中性完整背景、主题色文字和中性功能图标，不使用彩色侧边条。品牌入口使用共享黑白人物标识，浅色主题显示原版，暗色主题将填充与描边整体反色，保留母版曲线、手势与透明背景。
 - 侧栏顶级入口包含“系统状态”“插件中心”和“协议中心”，其余页面归入“治理”“运行与诊断”“系统”。“插件中心”是使用插件图标的顶级入口；展开桌面侧栏和移动抽屉进入持久插件中心层，从其他业务页面进入时默认打开 `/plugins`。收起侧栏通过弹出菜单提供五个固定入口和已打开插件，不展开全部插件列表。其余分类保留展开与收起能力。
 - 展开侧栏的分类标题使用原生按钮，仅显示文字与展开箭头；使用中性辅助色的小号文字。分类标题保持透明背景，不套用普通导航项的底色；展开或包含当前页面时不单独增加装饰。
 - 分类标题使用可点击光标，保留整行展开/收起、键盘导航与中性 `focus-visible` 轮廓。移动抽屉使用相同层级并提供触控尺寸的点击目标；普通页面项保留悬停反馈和当前页标记。收起侧栏通过键盘可达的弹出菜单提供子项。
@@ -107,7 +109,7 @@
 ## 认证入口
 
 - 登录、首次初始化与凭据恢复指引共用居中单栏面板；窄屏时缩小圆角并收紧内边距，低高度视口允许页面自然滚动。
-- 认证表面沿用折叶品牌、自托管 Noto Sans SC 和 Web 局部语义 token。玻璃颜色由现有认证主题 token 通过 CSS `color-mix()` 派生，浅色与暗色使用不同的表面与高光比例；浅色辅文与底部链接局部加深以保持对比度。亮暗主题保留相同的信息、验证和提交能力，共享品牌 token 表达统一的颜色和字体语义。
+- 认证表面沿用共享黑白人物标识、自托管 Noto Sans SC 和 Web 局部语义 token。玻璃颜色由现有认证主题 token 通过 CSS `color-mix()` 派生，浅色与暗色使用不同的表面与高光比例；浅色辅文与底部链接局部加深以保持对比度。亮暗主题保留相同的信息、验证和提交能力，共享品牌 token 表达统一的颜色和字体语义。
 - 页面只保留产品身份、任务标题、必要说明和凭据表单，不使用 hero 或功能宣传。
 - 认证背景使用静态青瓷玻璃壁纸，运行时加载无损压缩的 [`celadon-glass.webp`](../../web/src/assets/auth/celadon-glass.webp)；原始 [`PNG`](../../web/src/assets/auth/celadon-glass.png) 保留内嵌生成提示词。壁纸覆盖视口并底部对齐；窄屏调整裁切位置，暗色主题降低亮度与饱和度。背景不跟随指针，不参与表单交互。
 - 材质参考 Apple 的 [Liquid Glass 介绍](https://www.apple.com.cn/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/)与 [WWDC25 设计说明](https://developer.apple.com/videos/play/wwdc2025/219/)，在浏览器中实现通透面板、圆角边缘折射和反射高光，具体效果按浏览器能力适配。支持 SVG backdrop 的 Chromium 路径使用 `feDisplacementMap`，只使用轻微前置模糊；WebKit 与 Gecko 使用轻度模糊与饱和度的透明材质降级。

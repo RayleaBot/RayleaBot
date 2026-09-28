@@ -5,7 +5,8 @@
 | 资源 | 来源与生成职责 | 消费入口 |
 | --- | --- | --- |
 | 青瓷认证壁纸 | [`celadon-glass.png`](../../web/src/assets/auth/celadon-glass.png) 的 `impeccable:prompt` PNG 文本块保存生成提示词；无损 WebP 是运行产物 | Web `AuthLayout.vue` 加载 [`celadon-glass.webp`](../../web/src/assets/auth/celadon-glass.webp)；PNG 保留为原始素材 |
-| Launcher 图标 | [`design/mark.json`](../../design/mark.json) 与 [`design/tokens.json`](../../design/tokens.json) 经 [`generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 以 Skia Canvas 2D 光栅渲染；[`assets/manifest.json`](../../launcher/assets/manifest.json) 记录输入、生成器与产物摘要 | Launcher 嵌入应用与托盘 PNG，Windows 可执行文件使用 ICO |
+| 品牌标识 | 经用户确认的 AI 辅助人物概念图转为贝塞尔矢量，以 [`design/mark.json`](../../design/mark.json) 保存原版曲线、黑白填充、白色细轮廓与透明背景；暗色版整体反转填充与描边，保持几何不变 | Web、Launcher 的 `RayleaMark` 按应用主题使用原版或反色版；Web 的 [`favicon.svg`](../../web/public/favicon.svg) 与 [`favicon-dark.svg`](../../web/public/favicon-dark.svg) 使用同一母版，并跟随 Web 有效主题 |
+| Launcher 图标 | [`design/mark.json`](../../design/mark.json) 经 [`generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 以 Skia Canvas 2D 的 `Path2D` 确定性光栅渲染，PNG 内嵌来源元数据；[`assets/manifest.json`](../../launcher/assets/manifest.json) 记录输入、生成器与产物摘要 | 应用 PNG 与 ICO 固定使用原版；[`tray.png`](../../launcher/assets/tray.png) 与 [`tray-dark.png`](../../launcher/assets/tray-dark.png) 按系统托盘主题使用原版或反色版，均保留透明背景；[`Windows 资源生成器`](../../launcher/scripts/generate-windows-resources.mjs) 将逐尺寸独立渲染的 ICO 写入供 Go 编译链接的资源文件 |
 | Noto Sans SC | [`result.css`](../../templates/help.menu/assets/fonts/noto-sans-sc/result.css) 记录 Google Fonts v40 来源、字重及 Unicode 分段；同目录 [`OFL.txt`](../../templates/help.menu/assets/fonts/noto-sans-sc/OFL.txt) 保留 SIL OFL 1.1 授权 | Web、Launcher 通过 [`typography.generated.css`](../../design/typography.generated.css) 导入，三个内置聊天模板直接导入相同字体 CSS |
 
 `scripts/generate-design-tokens.mjs` 将字体授权复制到 Web 与 Launcher 的 public 目录。字体子集是共用源文件，不按单个页面显示的少量字符删减；插件名、用户输入和中文状态文本都可能需要额外字形。
