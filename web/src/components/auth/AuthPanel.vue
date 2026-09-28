@@ -34,16 +34,16 @@ defineExpose({ focus: () => heading.value?.focus() })
 .auth-panel__mark {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
+  width: 112px;
+  height: 112px;
   margin: 0 auto 24px;
   color: var(--auth-brand-foreground);
   border: 1px solid var(--auth-glass-edge);
   backdrop-filter: blur(3px);
-  border-radius: 20px;
+  border-radius: 28px;
   background: linear-gradient(145deg, var(--auth-glass-highlight), transparent);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--auth-brand-fill) 12%, transparent), inset 0 1px 0 var(--auth-glass-edge);
-  :deep(.raylea-mark) { width: 36px; height: 38px; }
+  :deep(.raylea-mark) { width: 96px; height: 96px; }
 }
 .auth-panel__title {
   margin: 0;
@@ -99,6 +99,14 @@ defineExpose({ focus: () => heading.value?.focus() })
   .auth-panel { padding: 44px 24px 24px; }
   .auth-panel__mark { margin-bottom: 20px; }
   .auth-panel__title { font-size: 26px; }
+}
+@media (max-width: #{bp.$compactAuth}), (max-height: #{bp.$shortViewport}) {
+  .auth-panel__mark {
+    width: 96px;
+    height: 96px;
+    border-radius: 24px;
+    :deep(.raylea-mark) { width: 80px; height: 80px; }
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .auth-panel :deep(.auth-panel__text-action) { transition: none; }
