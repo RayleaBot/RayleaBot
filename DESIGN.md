@@ -383,7 +383,7 @@ Launcher 动效由 Motion 驱动：工作区从下方 8px 沉降进入且不改�
 
 **The Fold Mark Rule.** 折叶由同一几何母版生成，品牌不代替状态图标或导航文字。
 
-插件页面、聊天卡片与渲染模板拥有独立内容和样式边界；其管理面 Host 使用本体系。独立 iframe 不继承宿主 CSS、字体或组件运行时，内部页面保留自身组件库；页面与宿主同源加载，主题由 Vue SDK 读取宿主主题变量同步，详见 [插件管理面](docs/design/plugin-management-surface.md)。
+插件页面、聊天卡片与渲染模板拥有独立内容和样式边界，视觉体系由各插件仓库自行维护；其管理面 Host 使用本体系。独立 iframe 不继承宿主 CSS、字体或组件运行时，内部页面保留自身组件库；页面与宿主同源加载，Vue SDK 可选地把宿主主题变量提供给页面，详见 [插件管理面](docs/design/plugin-management-surface.md)。
 
 **The Embedded Content Rule.** 需要连续工作的预览和控制台通过 AppTabs 的 keepAlive 保留隐藏节点；插件管理面 Host 使用 AppLoadingPanel 表达忙碌并暂时阻止内容交互，不因加载提示重建 iframe。Host 管理错误恢复和显式重载，独立插件页面管理自己的内部组件。
 
