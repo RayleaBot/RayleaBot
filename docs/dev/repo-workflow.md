@@ -38,6 +38,10 @@ dist/
 
 主仓库开发启动脚本（`node scripts/start-dev.mjs`，Windows 下为 `start.bat`）负责编排本机独立插件仓库，不依赖 GitHub 构建；日常修改插件或与本地主仓库 SDK 联调不需要创建 tag、提交远端或等待 GitHub Actions。工作区文件、同步入口与监听规则见[插件商店与独立开发](../plugin/store-and-development.md)，增量构建与环境复用见[开发者文档](./README.md)，插件目录约定与统一构建工具见[插件 SDK](../plugin/sdk/README.md)。
 
+## Windows Launcher 资源
+
+根目录开发启动、Launcher 独立开发与打包均在 Go 编译前调用 [`generate-windows-resources.mjs`](../../launcher/scripts/generate-windows-resources.mjs)，按图标与 manifest 等输入及资源产物检查缓存，并在需要时生成对应架构的 `rsrc_windows_<arch>.syso`。更新原生图标后重新构建并启动 Launcher，新进程才会载入窗口、托盘与 EXE 图标资源；生成与验证规则见 [Launcher 原生图标与打包](../design/launcher-design-system.md#原生图标与打包)。
+
 ## 显式开发工具路径
 
 POSIX 启动入口允许 `RAYLEA_NODE_EXECUTABLE=/absolute/path/to/node ./start.sh`；路径必须是可执行的绝对文件路径，仍检查 `.tool-versions` 中的固定版本。含空格路径在赋值时加引号。无效显式路径会报错，不改用 PATH 中的其他版本。

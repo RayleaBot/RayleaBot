@@ -935,6 +935,11 @@ async function buildLauncherApp() {
 async function prepareLauncher(installMode) {
   await terminal.phase("Launcher 构建", async () => {
     await ensureDependencies("Launcher", launcherDir, installMode);
+    if (process.platform === "win32") {
+      await runCommand("生成 Launcher Windows 图标资源", process.execPath, ["scripts/generate-windows-resources.mjs"], {
+        cwd: launcherDir, env: createLauncherToolEnvironment(),
+      });
+    }
     await buildLauncherApp();
     if (!shouldSkipLaunch()) {
       const output = path.join(cacheDir, "raylea-launcher" + (process.platform === "win32" ? ".exe" : ""));

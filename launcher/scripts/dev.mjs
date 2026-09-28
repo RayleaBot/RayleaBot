@@ -5,6 +5,7 @@ import { createLauncherGoArgs } from "../../scripts/start-dev-support.mjs";
 import { normalizeChildExitCode, terminateDevProcessTree } from "./dev-support.mjs";
 import { createProcessInvocation } from "../../scripts/process-invocation.mjs";
 import { runWails, WAILS_GENERATE_BINDINGS_ARGS } from "./run-go.mjs";
+import { ensureWindowsResources } from "./generate-windows-resources.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const viteCli = path.join(root, "node_modules", "vite", "bin", "vite.js");
@@ -68,6 +69,7 @@ function shutdown(code = 0) {
 process.on("SIGINT", () => void shutdown(0));
 process.on("SIGTERM", () => void shutdown(0));
 
+await ensureWindowsResources();
 const generateExitCode = await runWails(WAILS_GENERATE_BINDINGS_ARGS);
 if (generateExitCode !== 0) {
   throw new Error(`Wails binding generation exited with code ${generateExitCode}`);

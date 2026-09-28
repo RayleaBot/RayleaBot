@@ -1,10 +1,10 @@
-import { spawn, execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { createProcessInvocation } from "../../scripts/process-invocation.mjs";
 import { resolveMacBundleVersion } from "./package-metadata.mjs";
-import { runWails } from "./run-go.mjs";
+import { ensureWindowsResources } from "./generate-windows-resources.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const packageRoot = path.join(root, "dist", "package");
@@ -27,13 +27,8 @@ async function run(command, args) {
 }
 
 await run(process.execPath, ["../scripts/generate-launcher-icons.mjs", "--check"]);
+await ensureWindowsResources();
 await run(process.execPath, ["scripts/build-app.mjs"]);
-if (process.platform === "win32") {
-  const arch = execFileSync("go", ["env", "GOARCH"], { cwd: root, env: { ...process.env, GOWORK: "off" }, encoding: "utf8" }).trim();
-  if (!["amd64", "arm64", "386"].includes(arch)) throw new Error(`Unsupported Windows architecture: ${arch}`);
-  const code = await runWails(["generate", "syso", "-manifest", "assets/windows.manifest", "-icon", "assets/icon.ico", "-arch", arch, "-out", `rsrc_windows_${arch}.syso`]);
-  if (code !== 0) throw new Error(`Wails resource generation exited with code ${code}`);
-}
 
 let output;
 if (process.platform === "win32") {
