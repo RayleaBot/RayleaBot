@@ -2,6 +2,7 @@
 import { EraserIcon, RotateCwIcon, TerminalIcon } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
+import AppBadge from '@/components/AppBadge.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppTag from '@/components/AppTag.vue'
@@ -11,7 +12,8 @@ import { t } from '@/i18n'
 import { getConnectionStatusLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import { escapeUnsafeDisplayText } from '@/lib/text-safety'
-import { usePluginConsoleStore } from '@/stores/plugin-console'
+import { correlatedRequestId } from '@/stores/log-state'
+import { type ConsoleFrame, usePluginConsoleStore } from '@/stores/plugin-console'
 import { useSocketStore } from '@/stores/sockets'
 import {
   getConsoleConnectionTone,
@@ -24,7 +26,7 @@ import {
   getConsoleStreamTone,
 } from './plugin-console-display'
 
-const CONSOLE_ROW_ESTIMATED_HEIGHT = 84
+const CONSOLE_ROW_ESTIMATED_HEIGHT = 44
 
 // active: the console tab is shown; ready: the page transition allows rendering heavy content.
 // pluginState: a stopped plugin produces no output, which the empty state says instead of "waiting".
@@ -36,11 +38,15 @@ const socketStore = useSocketStore()
 const frames = computed(() => pluginConsoleStore.getConsole(props.pluginId))
 const snapshot = computed(() => socketStore.snapshots.pluginConsole)
 const connectionTone = computed(() => getConsoleConnectionTone(snapshot.value.status))
-const connectionDotColor = computed(() => connectionTone.value === 'neutral' ? 'var(--muted)' : `var(--${connectionTone.value})`)
 const emptyText = computed(() => (props.pluginState === 'disabled' ? t('plugins.empty.consoleDisabled') : t('plugins.empty.console')))
 const viewportRef = ref<{ scrollToBottom: () => void } | null>(null)
 const followBottom = ref(true)
 let bottomSyncToken = 0
+
+// As in the log rows, the reserved request ID of output written outside a request is not shown.
+function rowRequestId(frame: ConsoleFrame) {
+  return correlatedRequestId(getConsoleRequestId(frame))
+}
 
 function onViewportBottomChange(atBottom: boolean) {
   followBottom.value = atBottom
@@ -96,10 +102,7 @@ onBeforeUnmount(() => {
   <div class="plugin-console-pane">
     <div class="plugin-console-header">
       <div class="plugin-console-title">
-        <span class="console-status-indicator">
-          <span class="console-status-dot" :style="{ backgroundColor: connectionDotColor }"></span>
-          <AppTag :tone="connectionTone" class="console-status-tag">{{ t('plugins.console.streamStatus', { status: getConnectionStatusLabel(snapshot.status) }) }}</AppTag>
-        </span>
+        <AppBadge :tone="connectionTone">{{ t('plugins.console.streamStatus', { status: getConnectionStatusLabel(snapshot.status) }) }}</AppBadge>
         <span class="plugin-console-count">{{ t('plugins.console.outputCount', { count: frames.length }) }}</span>
       </div>
       <div class="plugin-console-actions">
@@ -163,19 +166,18 @@ onBeforeUnmount(() => {
         :get-item-key="getConsoleFrameKey"
         @at-bottom-change="onViewportBottomChange"
       >
+        <!-- Rows follow the log rows: time, stream and level, then the text on one line when it fits; a real request ID ends the row. -->
         <template #default="{ item: frame }">
-          <article class="console-terminal-line">
-            <div class="console-terminal-line__meta">
-              <time :datetime="frame.timestamp">{{ formatDateTime(frame.timestamp) }}</time>
-              <div class="console-terminal-line__badges">
-                <AppTag :tone="getConsoleStreamTone(frame.stream)" class="stream-badge">{{ getConsoleStreamLabel(frame.stream) }}</AppTag>
-                <AppTag v-if="frame.stream === 'outbound'" :tone="getConsoleLevelTone(getConsoleLevel(frame))" class="level-badge">
-                  {{ getConsoleLevelLabel(getConsoleLevel(frame)) }}
-                </AppTag>
-                <span v-if="getConsoleRequestId(frame)" class="console-request-id">{{ getConsoleRequestId(frame) }}</span>
-              </div>
-            </div>
+          <article class="console-terminal-line" :data-stream="frame.stream">
+            <time class="console-terminal-line__time" :datetime="frame.timestamp">{{ formatDateTime(frame.timestamp) }}</time>
+            <span class="console-terminal-line__badges">
+              <AppTag size="small" :tone="getConsoleStreamTone(frame.stream)">{{ getConsoleStreamLabel(frame.stream) }}</AppTag>
+              <AppTag v-if="frame.stream === 'outbound'" size="small" :tone="getConsoleLevelTone(getConsoleLevel(frame))">
+                {{ getConsoleLevelLabel(getConsoleLevel(frame)) }}
+              </AppTag>
+            </span>
             <pre class="console-terminal-line__text">{{ escapeUnsafeDisplayText(frame.text) }}</pre>
+            <span v-if="rowRequestId(frame)" class="console-request-id" :title="`${t('logs.filters.requestId')} ${rowRequestId(frame)}`">{{ rowRequestId(frame) }}</span>
           </article>
         </template>
       </VirtualDataViewport>
@@ -198,25 +200,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.console-status-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.console-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: inline-block;
-}
-
-.console-status-tag {
-  font-family: var(--font-mono);
-  font-size: 12px;
 }
 
 .plugin-console-actions {
@@ -305,10 +288,11 @@ onBeforeUnmount(() => {
 
 .console-terminal-line {
   display: grid;
-  grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 156px 112px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
   padding: 10px 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  border-bottom: 1px solid var(--border);
   color: var(--text);
 
   &:last-child {
@@ -316,64 +300,58 @@ onBeforeUnmount(() => {
   }
 
   &:hover {
-    background: color-mix(in srgb, var(--accent) 5%, transparent);
+    background: var(--nav-hover);
   }
 }
 
-.console-terminal-line__meta {
-  display: grid;
-  align-content: start;
-  gap: 6px;
+.console-terminal-line__time,
+.console-terminal-line__badges,
+.console-request-id {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
   min-width: 0;
+}
 
-  time {
-    color: var(--muted);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 1.4;
-  }
+.console-terminal-line__time,
+.console-request-id {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .console-terminal-line__badges {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
   gap: 4px;
-  min-width: 0;
 }
 
-.stream-badge, .level-badge {
-  font-size: 12px;
-  padding-inline: 4px;
-  border-radius: var(--radius-sm);
-  margin-inline-end: 0 !important;
+.console-terminal-line__badges :deep(.app-tag) {
+  margin-inline-end: 0;
 }
 
 .console-request-id {
-  max-width: 100%;
+  max-width: 18ch;
   overflow: hidden;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+// Messages the plugin sent read like log messages in the interface font; raw process output stays monospace.
 .console-terminal-line__text {
   min-width: 0;
   margin: 0;
   color: var(--text);
   white-space: pre-wrap;
-  word-break: break-all;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  line-height: 1.58;
+  overflow-wrap: anywhere;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 22px;
   unicode-bidi: plaintext;
 }
 
-[data-theme='dark'] .console-terminal-line__text {
-  color: var(--code-text);
+.console-terminal-line:not([data-stream=outbound]) .console-terminal-line__text {
+  font-family: var(--font-mono);
+  font-size: 13px;
 }
 @media (forced-colors: active) {
   .plugin-console-panel { border: 1px solid CanvasText; }

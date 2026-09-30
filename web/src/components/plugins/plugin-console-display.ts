@@ -21,10 +21,10 @@ export function getConsoleStreamLabel(stream: ConsoleFrame['stream']) {
   return t(`plugins.console.streams.${stream}`)
 }
 
+// Only the streams that signal trouble carry a status tone; output and sent messages are plain categories.
 export function getConsoleStreamTone(stream: ConsoleFrame['stream']): StatusTone {
   if (stream === 'stderr') return 'danger'
   if (stream === 'system') return 'warning'
-  if (stream === 'outbound') return 'info'
   return 'neutral'
 }
 
@@ -43,8 +43,9 @@ export function getConsoleLevelTone(level: string): StatusTone {
   return 'neutral'
 }
 
+// The socket turns authenticated only on its first frame; an open stream that is still quiet is just as healthy.
 export function getConsoleConnectionTone(status: string): StatusTone {
-  if (status === 'authenticated') return 'success'
+  if (status === 'authenticated' || status === 'connected') return 'success'
   if (status === 'reconnecting' || status === 'connecting') return 'warning'
   if (status === 'auth_failed') return 'danger'
   return 'neutral'

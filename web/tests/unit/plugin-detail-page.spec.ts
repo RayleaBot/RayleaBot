@@ -482,7 +482,8 @@ describe('PluginDetailPage', () => {
       text: 'worker ready',
       timestamp: '2026-03-22T10:00:00Z',
     })
-    for (let index = 1; index <= 12; index += 1) {
+    // Enough rows at the estimated row height to stay well taller than the viewport.
+    for (let index = 1; index <= 24; index += 1) {
       pluginConsoleStore.appendConsole({
         plugin_id: 'weather',
         stream: index % 2 === 0 ? 'stderr' : 'system',
