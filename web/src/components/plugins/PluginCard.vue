@@ -31,10 +31,11 @@ const sourceTypeLabel = computed(() => {
   }
 })
 const lifecycleSwitching = computed(() => props.plugin.state === 'starting' || props.plugin.state === 'stopping')
-// Running plugins are lit devices; a lit card is a light-theme island so its tags and buttons read as
-// they do in the light theme. Stopped plugins are text-bearing glass; problems get an outline.
-const lit = computed(() => props.plugin.state === 'running')
-const attention = computed(() => ['danger', 'warning'].includes(resolveStatusTone(props.plugin.state)))
+// Every plugin is a light gray box; stopped plugins dim their icon and problems get a ring in their tone.
+const attentionTone = computed(() => {
+  const tone = resolveStatusTone(props.plugin.state)
+  return tone === 'danger' || tone === 'warning' ? tone : undefined
+})
 const toggleLoading = computed(() => props.pendingAction === 'enable' || props.pendingAction === 'disable' || lifecycleSwitching.value)
 const reloadDisabled = computed(() => props.plugin.state === 'disabled' || lifecycleSwitching.value || props.plugin.state === 'invalid')
 
@@ -60,12 +61,7 @@ const healthNotices = computed(() => {
 </script>
 
 <template>
-  <article
-    :class="['plugin-grid-card', lit ? 'plugin-grid-card--lit' : 'liquid-glass liquid-glass--strong']"
-    :data-glass="lit ? undefined : 'clear'"
-    :data-theme="lit ? 'light' : undefined"
-    :data-attention="attention || undefined"
-  >
+  <article class="plugin-grid-card app-box" :data-state="plugin.state" :data-attention="attentionTone">
     <header class="plugin-card__header">
       <PluginIcon :refresh-key="pluginsStore.iconRevision" :plugin-id="plugin.id" :icon="plugin.icon" :version="plugin.version" />
       <div class="plugin-card__identity">
@@ -150,33 +146,13 @@ const healthNotices = computed(() => {
   overflow: hidden;
   flex-direction: column;
   min-height: 224px;
-  border: 0;
-  border-radius: var(--app-tile-radius);
   color: var(--text);
-  transition: translate 160ms var(--motion-easing), box-shadow 160ms var(--motion-easing);
+  transition: translate 160ms var(--motion-easing);
 }
 
-// The grid hands down its theme's lit surface, so a light island keeps the dimmer dark-theme lit tone.
-.plugin-grid-card--lit {
-  background: var(--tile-lit-surface, var(--surface-lit));
-  box-shadow:
-    inset 0 1.5px 0 var(--glass-rim),
-    inset 0 0 0 1px color-mix(in srgb, var(--glass-rim) 50%, transparent),
-    0 1px 2px rgb(0 0 0 / 6%),
-    0 12px 28px -12px rgb(0 0 0 / 22%);
-}
-
-:global(html[data-theme='dark']) .plugin-grid-card--lit {
-  box-shadow:
-    inset 0 1.5px 0 rgb(255 255 255 / 80%),
-    0 12px 30px -12px rgb(0 0 0 / 60%);
-}
-
-.plugin-grid-card[data-attention] {
-  box-shadow:
-    inset 0 0 0 2px var(--warning),
-    var(--shadow-floating);
-}
+.plugin-grid-card[data-attention=warning] { box-shadow: inset 0 0 0 2px var(--warning), var(--shadow-card); }
+.plugin-grid-card[data-attention=danger] { box-shadow: inset 0 0 0 2px var(--danger), var(--shadow-card); }
+.plugin-grid-card[data-state=disabled] :deep(.plugin-icon) { filter: grayscale(1); opacity: .7; }
 
 .plugin-grid-card:hover {
   translate: 0 -1px;
@@ -210,7 +186,7 @@ const healthNotices = computed(() => {
   cursor: pointer;
   font: inherit;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -218,11 +194,11 @@ const healthNotices = computed(() => {
 
 .plugin-card__name:hover,
 .plugin-card__name:focus-visible {
-  color: var(--text-accent);
+  color: var(--brand-foreground);
 }
 
 .plugin-card__name:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: var(--focus-outline-offset);
   border-radius: 4px;
 }
@@ -295,7 +271,7 @@ const healthNotices = computed(() => {
   justify-content: space-between;
   margin-top: auto;
   padding: 10px 12px;
-  border-top: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+  border-top: 1px solid var(--border);
   background: transparent;
 }
 
@@ -309,14 +285,14 @@ const healthNotices = computed(() => {
   justify-content: center;
   min-height: 36px;
   padding-inline: 14px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 7%, transparent);
+  background: var(--control-fill);
   color: var(--text);
   font-size: 14px;
-  box-shadow: none;
+  box-shadow: var(--shadow-xs);
 }
-.plugin-card__manage-action.app-button:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 12%, transparent); color: var(--text); }
+.plugin-card__manage-action.app-button:hover:not(:disabled) { background: var(--control-fill-hover); color: var(--text); }
 .plugin-card__manage-action.app-button:active:not(:disabled) { transform: scale(.97); }
 .plugin-card__icon-action.app-button {
   display: inline-flex;
@@ -326,15 +302,15 @@ const healthNotices = computed(() => {
   height: 36px;
   padding: 0;
   color: var(--text);
-  background: color-mix(in srgb, var(--text) 7%, transparent);
-  border: 0;
+  background: var(--control-fill);
+  border: 1px solid transparent;
   font-size: 18px;
   border-radius: 999px;
-  box-shadow: none;
+  box-shadow: var(--shadow-xs);
 }
-.plugin-card__icon-action.app-button:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 12%, transparent); color: var(--text); }
+.plugin-card__icon-action.app-button:hover:not(:disabled) { background: var(--control-fill-hover); color: var(--text); }
 .plugin-card__icon-action.app-button:active:not(:disabled) { transform: scale(.94); }
-.plugin-card__icon-action.app-button:disabled { color: var(--muted); opacity: .45; }
+.plugin-card__icon-action.app-button:disabled { color: var(--muted); opacity: .45; box-shadow: none; }
 @media (min-width: #{bp.$fiveColumns}) {
   .plugin-grid-card { min-height: 240px; }
 }
@@ -343,7 +319,6 @@ const healthNotices = computed(() => {
   .plugin-grid-card:hover { translate: none; }
 }
 @media (forced-colors: active) {
-  .plugin-grid-card { border: 1px solid CanvasText; }
   .plugin-grid-card[data-attention] { outline: 2px solid Highlight; outline-offset: -4px; }
 }
 @media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {

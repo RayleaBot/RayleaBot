@@ -105,18 +105,18 @@ async function handleSubmit() {
 @use '@/styles/breakpoints.generated' as bp;
 .auth-form { display: grid; gap: 22px; margin-top: 32px; --floating-label-color: var(--auth-text-muted); --floating-label-active-color: var(--auth-brand-foreground); --floating-label-error-color: var(--auth-danger); }
 .auth-form :deep(.app-field) { margin: 0; gap: 6px; }
-.auth-form :deep(.auth-form__control) { height: 56px; min-height: 56px; padding: 24px 48px 8px 12px; color: var(--auth-text); font-size: 16px; border: 1px solid var(--auth-border-control); border-radius: 16px; background: var(--auth-glass-control, var(--auth-control)); box-shadow: none; transition: color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast), box-shadow var(--motion-fast); }
-.auth-form :deep(.auth-form__control:hover), .auth-form :deep(.auth-form__control:focus) { border-color: var(--auth-brand-stroke, var(--auth-brand-foreground)); background: var(--auth-glass-control-hover, var(--auth-control-hover)); }
-.auth-form :deep(.auth-form__control:focus) { outline: none; box-shadow: inset 0 0 0 1px var(--auth-brand-stroke, var(--auth-brand-foreground)); }
+.auth-form :deep(.auth-form__control) { height: 56px; min-height: 56px; padding: 24px 48px 8px 12px; color: var(--auth-text); font-size: 16px; border: 1px solid var(--auth-border-control); border-radius: 16px; background: var(--auth-control); box-shadow: none; transition: color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast), box-shadow var(--motion-fast); }
+.auth-form :deep(.auth-form__control:hover), .auth-form :deep(.auth-form__control:focus) { border-color: var(--auth-brand-foreground); }
+.auth-form :deep(.auth-form__control:focus) { outline: none; box-shadow: inset 0 0 0 1px var(--auth-brand-foreground); }
 .auth-form :deep(.auth-form__control[aria-invalid=true]:focus) { box-shadow: inset 0 0 0 1px var(--auth-danger); }
 .auth-form :deep(.auth-form__control[aria-invalid=true]) { border-color: var(--auth-danger); }
-.auth-form :deep(.auth-form__control:disabled) { color: var(--auth-text-muted); border-color: var(--auth-border); background: color-mix(in srgb, var(--auth-control) 72%, var(--auth-canvas)); }
+.auth-form :deep(.auth-form__control:disabled) { color: var(--auth-text-muted); border-color: var(--auth-border); background: color-mix(in srgb, var(--auth-control) 60%, var(--auth-surface)); }
 .auth-form :deep(input:-webkit-autofill) { box-shadow: 0 0 0 1000px var(--auth-control) inset; -webkit-text-fill-color: var(--auth-text); caret-color: var(--auth-text); }
 .auth-form :deep(.app-input-reveal) { top: 6px; right: 3px; width: 44px; height: 44px; color: var(--auth-text-muted); border-radius: 12px; }
 .auth-form :deep(.app-input-reveal:hover), .auth-form :deep(.app-input-reveal:focus-visible) { color: var(--auth-brand-foreground); background: var(--auth-brand-soft); }
 .auth-form :deep(.app-field__description) { color: var(--auth-danger); }
 .auth-form__feedback { color: var(--auth-text); }
-.auth-form__submit { height: 50px; min-height: 50px; margin-top: 6px; color: var(--auth-on-brand); border-color: var(--auth-brand-fill); border-radius: 999px; background: var(--auth-brand-fill); box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--auth-brand-fill) 50%, transparent), inset 0 1px 0 color-mix(in srgb, var(--auth-glass-edge) 35%, transparent); font-weight: 600; }
+.auth-form__submit { height: 50px; min-height: 50px; margin-top: 6px; color: var(--auth-on-brand); border-color: var(--auth-brand-fill); border-radius: 999px; background: var(--auth-brand-fill); box-shadow: var(--shadow-xs); font-weight: 700; }
 .auth-form__submit:not(:disabled):hover { background: var(--auth-brand-fill-hover); }
 .auth-form__submit:not(:disabled):active { background: var(--auth-brand-fill-pressed); box-shadow: none; }
 .auth-form__submit:not(:disabled):focus-visible { outline: 2px solid var(--auth-on-brand); outline-offset: var(--focus-outline-offset); }

@@ -13,19 +13,19 @@ describe('auth theme', () => {
     expect(variables['--auth-border']).toBe(tokens.border)
     expect(variables['--auth-brand-fill']).toBe(tokens.brandFill)
     expect(variables['--auth-brand-foreground']).toBe(tokens.brandForeground)
-    expect(variables['--auth-canvas-focus']).toBe(tokens.authCanvasFocus)
-    expect(variables['--auth-panel-shadow']).toBe(tokens.shadowFloating)
+    expect(variables['--auth-canvas']).toBe(tokens.canvas)
+    expect(variables['--auth-surface']).toBe(tokens.surface)
+    expect(variables['--auth-control']).toBe(tokens.surfaceRaised)
   })
 
-  it('uses the accessible brand action and dark action text in dark mode', () => {
+  it('maps the dark authentication surface to the project semantic colors', () => {
     const tokens = webThemes.dark
     const variables = resolveAuthCssVariables('dark')
 
     expect(variables['--auth-on-brand']).toBe(tokens.onBrand)
     expect(variables['--auth-focus']).toBe(tokens.focus)
     expect(variables['--auth-text-muted']).toBe(tokens.textMuted)
-    expect(variables['--auth-control']).toBe(tokens.authControl)
-    expect(variables['--auth-panel-highlight']).toBe(tokens.surfaceRaised)
-    expect(variables['--auth-panel-shadow']).toBe(tokens.shadowFloating)
+    expect(variables['--auth-surface']).toBe(tokens.surface)
+    expect(variables['--auth-control']).toBe(tokens.surfaceRaised)
   })
 })

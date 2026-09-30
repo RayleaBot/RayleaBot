@@ -26,17 +26,31 @@
   min-height: 0;
 }
 
+// One row per page: optional leading mark, title and description, then page search and page actions.
 .app-page__header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--app-page-header-gap);
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+}
+
+.app-page__leading {
+  display: flex;
+  flex: none;
 }
 
 .app-page__heading {
   display: grid;
-  gap: 6px;
+  gap: 2px;
   min-width: 0;
+  margin-right: auto;
+}
+
+.app-page__tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
 }
 
 .app-page__title-row {
@@ -52,9 +66,9 @@
   margin: 0;
   color: var(--text);
   font-size: var(--font-size-display);
-  font-weight: 600;
-  line-height: 1.25;
-  letter-spacing: -0.015em;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .app-page__title-slot-wrapper {
@@ -70,12 +84,13 @@
   gap: 6px;
 }
 
-.app-page__heading p {
+.app-page__description {
   max-width: 72ch;
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
 }
 
 .app-page__extra,
@@ -83,7 +98,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -115,10 +130,10 @@
 .app-data-table,
 .commands-data-table {
   width: 100%;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--app-card-radius) !important;
   background: var(--surface-strong);
-  box-shadow: none;
+  box-shadow: var(--shadow-card);
 }
 
 .app-data-table {
@@ -232,9 +247,10 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  border: 1px solid transparent;
+  border-radius: var(--app-card-radius);
   background: var(--surface-strong);
+  box-shadow: var(--shadow-card);
 }
 
 .data-viewport__header {
@@ -285,6 +301,21 @@
 }
 
 .tools-panel { background: var(--surface-strong); }
+
+// Lists and viewports nested in a box sit directly on it instead of stacking a second box.
+:is(.app-card, .app-box) :is(.app-view-card, .app-data-table, .commands-data-table, .data-viewport) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+// Select lists float above everything as a flat box; their options highlight like menu items.
+.app-select-content {
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-floating);
+}
 
 html::view-transition,
 html::view-transition-group(root),

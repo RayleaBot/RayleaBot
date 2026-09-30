@@ -41,24 +41,22 @@ defineProps<{
 </template>
 
 <style scoped lang="scss">
-// Solid section surface: it sits on the light field, so a soft lift separates it from the colour behind.
+// A light gray box on the white page, separated only by its shadow; controls inside it turn white.
 .app-card {
   gap: 0;
   padding: 0;
   border-radius: var(--app-card-radius);
   background: var(--surface-strong);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   box-shadow: var(--shadow-card);
-  transition: border-color var(--motion-fast) var(--motion-easing), background-color var(--motion-fast) var(--motion-easing);
+  transition: background-color var(--motion-fast) var(--motion-easing);
 }
-.app-card[data-borderless] { border-color: transparent; }
 .app-card__head { padding: 16px 20px; border-bottom: 1px solid var(--border); }
 .app-card__body { padding: 20px; min-width: 0; }
 .app-card[data-size=sm] .app-card__head { padding: 12px 16px; }
 .app-card[data-size=sm] .app-card__body { padding: 16px; }
 
 .app-card--highlight {
-  border-color: color-mix(in srgb, var(--attention) 28%, var(--border));
   background: var(--surface-attention);
 }
 

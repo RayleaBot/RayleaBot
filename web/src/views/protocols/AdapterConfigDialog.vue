@@ -297,8 +297,8 @@ function openLogs() {
 .dialog-error { margin-bottom: 20px; }
 .protocol-picker { display: grid; gap: 12px; padding: 4px 0 16px; }
 .protocol-picker .dialog-description { margin-bottom: 8px; }
-.protocol-choice { display: flex; align-items: center; justify-content: space-between; gap: 20px; width: 100%; padding: 20px; background: var(--surface-strong); border: 1px solid var(--border); border-radius: var(--app-card-radius); color: var(--text); text-align: left; cursor: pointer; font: inherit; }
-.protocol-choice:hover { background: var(--surface-soft); border-color: var(--app-primary); }
+.protocol-choice { display: flex; align-items: center; justify-content: space-between; gap: 20px; width: 100%; padding: 20px; background: var(--control-fill); border: 1px solid transparent; border-radius: var(--app-card-radius); box-shadow: var(--shadow-xs); color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.protocol-choice:hover { background: var(--control-fill-hover); border-color: var(--brand-foreground); }
 .protocol-choice:focus-visible { outline: 2px solid var(--app-primary); outline-offset: var(--focus-outline-offset); }
 .protocol-choice strong { display: block; margin-bottom: 6px; font-size: 15px; }
 .protocol-choice small, .field-hint { color: var(--muted); font-size: 13px; line-height: 1.6; }

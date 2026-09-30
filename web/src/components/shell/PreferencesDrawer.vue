@@ -19,6 +19,7 @@ import { useUiShellStore } from '@/stores/ui-shell'
 
 type SettingsTabKey = 'appearance' | 'workspace' | 'shortcuts'
 
+withDefaults(defineProps<{ fallbackFocus?: string }>(), { fallbackFocus: '[data-testid=sidebar-account]' })
 const uiShellStore = useUiShellStore()
 const { preferences, settingsOpen } = storeToRefs(uiShellStore)
 const activeTab = ref<SettingsTabKey>('appearance')
@@ -70,7 +71,7 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
     :width="380"
     class="preferences-drawer"
     data-testid="preferences-drawer"
-    fallback-focus="[data-testid=header-more]"
+    :fallback-focus="fallbackFocus"
     @close="uiShellStore.closeSettings()"
   >
     <AppTabs v-model="activeTab" :items="[{ value: 'appearance', label: t('shell.preferences.appearance') }, { value: 'workspace', label: t('shell.preferences.workspace') }, { value: 'shortcuts', label: t('shell.preferences.shortcuts') }]" :label="t('shell.preferences.title')" class="preferences-drawer__tabs">

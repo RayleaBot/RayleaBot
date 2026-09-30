@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import AppPage from '@/components/page/AppPage.vue'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import RouteView from '@/layouts/RouteView.vue'
 import { usePluginsStore } from '@/stores/plugins'
@@ -26,7 +27,7 @@ describe('BasicLayout', () => {
             {
               path: '',
               name: 'status',
-              component: { template: '<div>系统状态页</div>' },
+              component: { components: { AppPage }, template: '<AppPage title="系统状态"><div>系统状态页</div></AppPage>' },
               meta: { icon: 'dashboard', title: '系统状态' },
             },
             {
@@ -242,20 +243,6 @@ describe('BasicLayout', () => {
     })
   })
 
-  it('renders full breadcrumbs with a clickable parent group', async () => {
-    const { wrapper } = await mountShell('/permission-policy')
-
-    const breadcrumb = wrapper.get('[data-testid="header-breadcrumb"]')
-    const parentItem = breadcrumb.get('.admin-layout__breadcrumb-item')
-    const parentLink = parentItem.get('.admin-layout__breadcrumb-link')
-    const currentItem = breadcrumb.get('.admin-layout__breadcrumb-item--current')
-    const current = breadcrumb.get('.admin-layout__breadcrumb-current')
-
-    expect(parentLink.text()).toBe('运维')
-    expect(parentLink.attributes('href')).toBe('/permission-policy')
-    expect(current.text()).toBe('权限策略')
-  })
-
   it('drills into the plugin center and switches all five workspace routes', async () => {
     const { wrapper, router, uiShellStore } = await mountShell('/plugins')
     uiShellStore.patchPreferences({ pageTransition: 'none' })
@@ -387,9 +374,9 @@ describe('BasicLayout', () => {
   })
 
   it('keeps the plugin-center flyout entry in the root menu when the desktop sidebar is collapsed', async () => {
-    const { wrapper, uiShellStore } = await mountShell('/plugins/weather?panel=overview')
+    const { wrapper } = await mountShell('/plugins/weather?panel=overview')
 
-    uiShellStore.toggleSider()
+    await wrapper.get('[data-testid="sidebar-collapse"]').trigger('click')
     await flushPromises()
 
     const sidebar = wrapper.get('.admin-layout__sider')
@@ -527,28 +514,6 @@ describe('BasicLayout', () => {
     expect(uiShellStore.settingsOpen).toBe(true)
   })
 
-  it('renders plugin settings under the plugin center group', async () => {
-    const { wrapper } = await mountShell('/plugins/settings')
-
-    const breadcrumb = wrapper.get('[data-testid="header-breadcrumb"]')
-    const parentLink = breadcrumb.get('.admin-layout__breadcrumb-link')
-
-    expect(parentLink.text()).toBe('插件中心')
-    expect(parentLink.attributes('href')).toBe('/plugins')
-    expect(breadcrumb.get('.admin-layout__breadcrumb-current').text()).toBe('全局插件设置')
-  })
-
-  it('renders menu center inside the shared plugin center', async () => {
-    const { wrapper } = await mountShell('/menu-center')
-
-    const breadcrumb = wrapper.get('[data-testid="header-breadcrumb"]')
-    const parentLink = breadcrumb.get('.admin-layout__breadcrumb-link')
-
-    expect(parentLink.text()).toBe('插件中心')
-    expect(parentLink.attributes('href')).toBe('/plugins')
-    expect(breadcrumb.get('.admin-layout__breadcrumb-current').text()).toBe('菜单中心')
-  })
-
   it('keeps the same plugin detail page instance when only the panel query changes', async () => {
     const { router, wrapper } = await mountShell('/plugins/weather?panel=overview')
 
@@ -560,16 +525,14 @@ describe('BasicLayout', () => {
     expect(wrapper.get('[data-testid="plugin-detail-page"]').element).toBe(initialNode)
   })
 
-  it('opens the preference drawer and applies shell settings', async () => {
+  it('opens the preference drawer from the sidebar account menu and applies shell settings', async () => {
     const { wrapper, uiShellStore } = await mountShell('/')
 
-    await wrapper.get('[data-testid="header-more"]').trigger('keydown', { key: 'ArrowDown' })
+    await wrapper.get('[data-testid="sidebar-account"]').trigger('keydown', { key: 'ArrowDown' })
     await flushPromises()
-    const settingsItem = Array.from(document.body.querySelectorAll<HTMLElement>('.app-menu-item')).find(
-      (node) => node.textContent?.includes('设置'),
-    )
-    settingsItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    document.body.querySelector<HTMLElement>('[data-testid="shell-settings"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await flushPromises()
+    expect(uiShellStore.settingsOpen).toBe(true)
 
     const darkOption = Array.from(document.body.querySelectorAll('[role=radio]')).find(
       (node) => node.textContent?.includes('暗色'),
@@ -619,7 +582,7 @@ describe('BasicLayout', () => {
 
     expect(router.currentRoute.value.fullPath).toBe('/render/templates')
 
-    await wrapper.get('[data-testid="header-search"]').trigger('click')
+    document.dispatchEvent(new KeyboardEvent('keydown', { ctrlKey: true, key: 'k' }))
     await flushPromises()
 
     const input = document.body.querySelector<HTMLInputElement>('.route-search-panel input')

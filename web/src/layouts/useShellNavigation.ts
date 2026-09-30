@@ -1,8 +1,8 @@
 import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRoute, useRouter, type RouteLocationNormalizedLoaded, type RouteLocationRaw } from 'vue-router'
+import { useRoute, type RouteLocationRaw } from 'vue-router'
 
-import { buildMenuItems, collectNavigationItems, resolveRouteTitle, type AppMenuItem, type AppNavigationItem } from '@/access/menu'
+import { buildMenuItems, collectNavigationItems, type AppMenuItem, type AppNavigationItem } from '@/access/menu'
 import { isPluginCenterRoute, pluginCenterPath, projectPluginCenterMenu } from '@/access/plugin-center'
 import { t } from '@/i18n'
 import { adminRoutes } from '@/router/routes/modules/admin'
@@ -53,7 +53,6 @@ export function useShellNavigation(options: {
   navigate: (target: RouteLocationRaw) => unknown
 }) {
   const route = useRoute()
-  const router = useRouter()
   const uiShellStore = useUiShellStore()
   const { siderCollapsed } = storeToRefs(uiShellStore)
   // Read at setup: the admin route module imports the layout that uses this composable.
@@ -83,7 +82,7 @@ export function useShellNavigation(options: {
     const routeKeys = lineage.slice(0, -1).map((item) => item.key)
     openMenuKeys.value = Array.from(new Set([...openMenuKeys.value, ...routeKeys]))
   }, { immediate: true })
-  // In-page links, breadcrumbs and history navigation close the mobile drawer too.
+  // In-page links and history navigation close the mobile drawer too.
   watch(() => route.fullPath, () => uiShellStore.setMobileMenuOpen(false))
 
   const pluginNavigationScope = ref<PluginNavigationScope>('root')
@@ -103,37 +102,6 @@ export function useShellNavigation(options: {
       .map(item => [item.path, item]),
   ).values())
 
-  function resolveBreadcrumbPath(record: RouteLocationNormalizedLoaded['matched'][number]) {
-    if (!record.redirect || typeof record.redirect === 'function') return record.path
-    try {
-      return router.resolve(record.redirect).path
-    } catch {
-      return record.path
-    }
-  }
-
-  const breadcrumbItems = computed(() => {
-    const seen = new Set<string>()
-    const items = route.matched
-      .map((record) => {
-        const isPluginGroup = record.meta.titleKey === 'routes.features'
-        const title = isPluginGroup ? t('routes.pluginCenter') : resolveRouteTitle(record.meta)
-        return {
-          key: String(record.name ?? `${record.path}:${title}`),
-          path: isPluginGroup ? pluginCenterPath : resolveBreadcrumbPath(record),
-          title,
-        }
-      })
-      .filter((item) => {
-        const key = `${item.path}:${item.title}`
-        if (!item.title || seen.has(key)) return false
-        seen.add(key)
-        return true
-      })
-
-    return items.map((item, index) => ({ ...item, current: index === items.length - 1 }))
-  })
-
   function navigateTo(target: RouteLocationRaw) {
     uiShellStore.setMobileMenuOpen(false)
     collapsedOpenMenuKeys.value = []
@@ -150,7 +118,6 @@ export function useShellNavigation(options: {
   }
 
   return {
-    breadcrumbItems,
     collapsedOpenMenuKeys,
     handleOpenChange,
     menuItems,

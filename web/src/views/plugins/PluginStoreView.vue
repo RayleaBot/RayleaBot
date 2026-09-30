@@ -267,7 +267,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppPage :title="t('plugins.store.title')" :show-header="false">
+  <AppPage :title="t('plugins.store.title')">
     <template #toolbar>
       <div class="store-toolbar">
         <AppSearchInput v-model="query" :placeholder="t('plugins.store.searchPlaceholder')" class="store-search" @search="loadEntries" />

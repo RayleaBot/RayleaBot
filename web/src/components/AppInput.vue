@@ -39,7 +39,7 @@ defineExpose({ focus: () => wrapper.value?.querySelector('input')?.focus() })
 <style scoped lang="scss">
 @use '@/styles/breakpoints.generated' as bp;
 .app-input-wrap { position: relative; min-width: 0; width: 100%; }
-.app-input { height: 40px; background: var(--surface-strong); color: var(--text); }
+.app-input { height: 40px; background: var(--surface-raised); color: var(--text); }
 .app-input--floating { height: 56px; min-height: 56px; padding-top: 24px; padding-bottom: 8px; line-height: 22px; }
 .app-input-wrap--floating .app-input-prefix, .app-input-wrap--floating .app-input-reveal { height: 56px; }
 .app-input-prefix { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 40px; height: 40px; color: var(--muted); pointer-events: none; }

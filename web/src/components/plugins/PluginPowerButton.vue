@@ -86,8 +86,8 @@ function handleClick(event: MouseEvent) {
   --off-track-border: color-mix(in srgb, var(--text) 16%, var(--surface-soft));
   --off-text: color-mix(in srgb, var(--text) 65%, transparent);
   --thumb-bg: var(--surface-raised);
-  --on-track: var(--text);
-  --on-text: var(--surface-strong);
+  --on-track: var(--brand-fill);
+  --on-text: var(--on-brand);
   position: relative;
   display: inline-flex;
   width: var(--button-width);
@@ -185,7 +185,7 @@ function handleClick(event: MouseEvent) {
   top: 50%;
   transform: translateY(-50%);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1;
   white-space: nowrap;
   letter-spacing: 0.04em;
@@ -208,7 +208,7 @@ function handleClick(event: MouseEvent) {
 .plugin-holo-button.is-checked .plugin-holo-button__track {
   background: var(--on-track);
   border-color: transparent;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--on-track) 25%, transparent);
+  box-shadow: var(--shadow-xs);
 }
 
 .plugin-holo-button.is-checked .plugin-holo-button__thumb {
@@ -237,16 +237,17 @@ function handleClick(event: MouseEvent) {
   --button-height: 36px;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  border-radius: 999px;
   color: var(--text);
-  background: var(--surface);
+  background: var(--control-fill);
+  box-shadow: var(--shadow-xs);
   font-size: 18px;
   transition: color 140ms ease, background-color 140ms ease, transform 140ms ease;
 }
 
 .plugin-holo-button--icon:not(.is-checked) { color: var(--brand-foreground); }
-.plugin-holo-button--icon:hover:not(:disabled) { background: var(--surface-accent); color: var(--text); }
+.plugin-holo-button--icon:hover:not(:disabled) { background: var(--control-fill-hover); color: var(--text); }
 .plugin-holo-button--icon.is-checked:hover:not(:disabled) { color: var(--text-danger); }
 .plugin-holo-button--icon:active:not(:disabled) { transform: scale(.94); }
 .plugin-holo-button--icon.is-loading :deep(.lucide) { animation: spinner 800ms linear infinite; }

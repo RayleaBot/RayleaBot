@@ -58,7 +58,7 @@ function clearSelection() {
 </template>
 <style scoped lang="scss">
 @use '@/styles/breakpoints.generated' as bp;
-.app-select { min-height: 40px; height: auto; width: 100%; padding: 9px 12px; background: var(--surface-strong); }
+.app-select { min-height: 40px; height: auto; width: 100%; padding: 9px 12px; background: var(--surface-raised); }
 .app-select--floating { min-height: 56px; padding-top: 24px; padding-bottom: 8px; padding-right: 40px; }
 .app-select--floating :deep(svg:last-child) { position: absolute; right: 12px; top: 50%; translate: 0 -50%; }
 .app-select-wrap { position: relative; min-width: 0; width: 100%; }

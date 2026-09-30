@@ -1,42 +1,56 @@
 @use './breakpoints.generated' as bp;
+
+// The shell is a white page with a floating light-gray sidebar and one scrolling workspace. It draws no
+// header of its own: each page's first row (AppPage) carries the title, the page search and the actions.
 .admin-layout {
-  height: 100vh;
-  background: transparent;
+  display: flex;
+  height: 100dvh;
   overflow: hidden;
+  background: var(--bg);
 }
 
-.admin-layout__workspace {
-  min-width: 0;
-  min-height: 0;
-}
-
-// The sidebar floats as a liquid-glass pane over the light field (see _glass.scss).
 .admin-layout__sider {
   display: flex;
+  flex-shrink: 0;
   flex-direction: column;
+  width: 244px;
   height: calc(100dvh - 24px);
   margin: 12px 0 12px 12px;
+  border: 1px solid transparent;
   border-radius: 28px;
+  background: var(--chrome);
+  color: var(--chrome-text);
+  box-shadow: var(--shadow-card);
+}
+
+.admin-layout__sider[data-collapsed=true] {
+  width: 68px;
 }
 
 .admin-layout__brand {
-  width: calc(100% - 16px);
-  margin: 8px 8px 0;
-  border: 0;
-  background: transparent;
-  color: var(--sider-brand-text);
-  border-radius: 20px;
-  min-height: 52px;
-  padding: 0 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
+  gap: 10px;
+  width: calc(100% - 16px);
+  min-height: 52px;
+  margin: 8px 8px 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  color: var(--chrome-text);
   text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--motion-easing);
 }
 
 .admin-layout__brand:hover {
-  background: var(--nav-hover) !important;
+  background: var(--nav-hover);
+}
+
+.admin-layout__sider[data-collapsed=true] .admin-layout__brand {
+  justify-content: center;
+  padding-inline: 0;
 }
 
 .admin-layout__brand .admin-layout__brand-mark {
@@ -47,16 +61,23 @@
 .admin-layout__brand-copy {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 
-.admin-layout__build-version { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 400; color: var(--chrome-muted); }
-
 .admin-layout__brand-copy strong {
-  font-size: 18px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.admin-layout__build-version {
+  overflow: hidden;
+  color: var(--chrome-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-layout__sider-scroll {
@@ -66,32 +87,41 @@
   padding: 8px 10px 12px;
 }
 
-.admin-layout__menu-label { display: inline-flex; align-items: center; gap: 10px; width: 100%; min-width: 0; }
+.admin-layout__sider[data-collapsed=true] .admin-layout__sider-scroll {
+  padding-inline: 12px;
+}
+
+.admin-layout__menu-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
 .admin-layout__menu-icon {
-  font-size: 0.95rem;
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
 }
 
-// The header has no bar of its own: breadcrumb text and glass controls sit on the light field.
-.admin-layout__header {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
-  height: auto !important;
-  padding: 0 !important;
-  background: transparent !important;
-  border-bottom: 0;
-  box-shadow: none;
-}
-
-.admin-layout__header.is-static {
+.admin-layout__workspace {
   position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 
+// Route loading shows as a thin bar along the top edge of the workspace.
 .admin-layout__progress-track {
   position: absolute;
   inset: 0 0 auto;
+  z-index: var(--z-sticky);
   height: 2px;
   overflow: hidden;
+  pointer-events: none;
 }
 
 .admin-layout__progress-bar {
@@ -108,204 +138,13 @@
   transform: translateX(0);
 }
 
-.admin-layout__header-main {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  min-height: 68px;
-  padding: 12px var(--app-shell-padding-inline) 4px 12px;
-}
-
-.admin-layout__header-left,
-.admin-layout__header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.admin-layout__header-left {
-  flex: 1 1 auto;
-  min-width: 0;
-  flex-wrap: nowrap;
-}
-
-.admin-layout__header-right {
-  flex: 0 0 auto;
-  min-width: 0;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
-}
-
-.admin-layout__header-tools {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  margin-right: 0;
-  padding-right: 0;
-}
-
-.admin-layout__icon-button {
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 0 !important;
-  border-radius: 999px;
-  color: var(--text);
-}
-
-.admin-layout__icon-button:hover {
-  color: var(--text) !important;
-  background-color: var(--nav-hover) !important;
-}
-
-.admin-layout__nav-trigger {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0 !important;
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  padding-inline: 0 !important;
-  margin-inline-start: 0;
-  border-radius: 999px;
-}
-
-.admin-layout__nav-trigger > span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.admin-layout__header-breadcrumb {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  min-height: 32px;
-  padding-inline-start: 6px;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 13.5px;
-  line-height: 1;
-  font-kerning: normal;
-}
-
-.admin-layout__breadcrumb-nav {
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.admin-layout__breadcrumb-list {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  flex-wrap: nowrap;
-  min-width: 0;
-  overflow: hidden;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.admin-layout__breadcrumb-item {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  flex: 0 1 auto;
-}
-
-.admin-layout__breadcrumb-link,
-.admin-layout__breadcrumb-current {
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: flex-start;
-  box-sizing: border-box;
-  min-height: 30px;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  letter-spacing: 0.01em;
-}
-
-.admin-layout__breadcrumb-link {
-  max-width: min(9.5rem, 20vw);
-  padding-inline: 10px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  background: transparent;
-  cursor: pointer;
-  color: var(--muted);
-  font-weight: 530;
-  transition: color 0.2s ease, background-color 0.2s ease;
-}
-
-.admin-layout__breadcrumb-link:hover {
-  background: var(--nav-hover);
-  color: var(--text);
-}
-
-.admin-layout__breadcrumb-current {
-  max-width: min(13rem, 26vw);
-  padding-inline: 10px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text);
-  font-weight: 650;
-}
-
-.admin-layout__breadcrumb-link-text,
-.admin-layout__breadcrumb-current-text {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.admin-layout__header-breadcrumb--single .admin-layout__breadcrumb-current {
-  justify-content: center;
-}
-
-.admin-layout__header-breadcrumb--single .admin-layout__breadcrumb-current {
-  max-width: min(11rem, 18vw);
-}
-
-.admin-layout__header-breadcrumb--single .admin-layout__breadcrumb-link,
-.admin-layout__header-breadcrumb--single .admin-layout__breadcrumb-current,
-.admin-layout__header-breadcrumb--multi .admin-layout__breadcrumb-current {
-  padding-inline: 8px;
-}
-
-.admin-layout__header-breadcrumb--multi .admin-layout__breadcrumb-current {
-  max-width: min(13.5rem, 26vw);
-}
-
-.admin-layout__breadcrumb-separator {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  justify-content: center;
-  width: 16px;
-  margin-inline: 1px;
-  color: var(--muted);
-  font-size: 0.58rem;
-  line-height: 1;
-  transform: translateY(0.5px);
-}
-
 .admin-layout__content {
-  flex: 1 1 auto;
-  padding: var(--app-shell-padding-block) var(--app-shell-padding-inline) 24px;
-  min-height: 0;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--app-layout-gap);
+  min-height: 0;
+  padding: var(--app-shell-padding-block) var(--app-shell-padding-inline) 24px 16px;
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -317,65 +156,38 @@
   min-height: 0;
 }
 
-.admin-layout__mobile-drawer .app-dialog__body {
-  padding: 12px;
+.admin-layout__mobile-drawer {
   background: var(--sider-bg);
+  color: var(--sider-menu-text);
 }
+
+.admin-layout__mobile-drawer .app-dialog__header { padding: 16px; }
+.admin-layout__mobile-drawer .app-dialog__header .app-button { color: var(--sider-menu-text); }
+.admin-layout__mobile-drawer .app-dialog__body { padding: 0 12px 16px; background: var(--sider-bg); }
+.admin-layout__mobile-drawer .app-dialog__footer { padding: 0; border-top: 0; }
 
 .admin-layout__mobile-brand {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 16px;
   padding: 8px 10px 4px;
   color: var(--sider-brand-text);
 }
 
-.admin-layout__search-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  width: clamp(200px, 22vw, 320px);
-  height: 40px;
-  margin-inline-end: 0;
-  padding-inline: 14px !important;
-  border: 0;
-  font-size: 13.5px;
-  text-align: left;
+.admin-layout__mobile-brand > .raylea-mark {
+  width: 24px;
+  height: 26px;
 }
 
-.admin-layout__search-copy { flex: 1; color: var(--muted); }
-
-@media (min-width: #{bp.$sidebar}) {
-  .admin-layout__header-left,
-  .admin-layout__header-right {
-    flex: 1 1 0;
-  }
+@media (max-width: #{bp.$desktop - 1px}) {
+  .admin-layout__sider { display: none; }
 }
 
-@media (max-width: #{bp.$sidebar - 1px}) {
-  .admin-layout__search-button { width: 40px; margin-inline-end: 0; padding-inline: 0 !important; justify-content: center; }
-  .admin-layout__search-copy { display: none; }
+@media (min-width: #{bp.$desktop}) {
+  .admin-layout .app-button.mobile-only { display: none !important; }
 }
 
-
-
-.admin-layout { display: flex; height: 100dvh; }
-.admin-layout__workspace { display: flex; flex: 1; flex-direction: column; }
-.admin-layout__sider { display: flex; flex-shrink: 0; flex-direction: column; width: 244px; }
-.admin-layout__sider[data-collapsed=true] { width: 68px; }
-.admin-layout__sider[data-collapsed=true] .admin-layout__brand { justify-content: center; padding-inline: 0; }
-.admin-layout__sider[data-collapsed=true] .admin-layout__sider-scroll { padding-inline: 12px; }
-.admin-layout__menu-icon { width: 17px; height: 17px; flex-shrink: 0; }
-.admin-layout__mobile-drawer { background: var(--sider-bg); color: var(--sider-menu-text); }
-.admin-layout__mobile-drawer .app-dialog__header { padding: 16px; }
-.admin-layout__mobile-drawer .app-dialog__header .app-button { color: var(--sider-menu-text); }
-.admin-layout__mobile-drawer .app-dialog__footer { padding: 0; border-top: 0; }
-.admin-layout__mobile-drawer .app-dialog__body { padding: 0 12px 16px; }
-.admin-layout__mobile-brand { margin-bottom: 16px; }
-.admin-layout__mobile-brand > .raylea-mark { width: 24px; height: 26px; }
-// Hover and selection inside the glass sidebar change instantly: every frame of a colour transition
-// would re-run the whole pane's refraction.
-.admin-layout__sider .app-button { transition: none; }
-@media (max-width: #{bp.$desktop - 1px}) { .admin-layout__sider { display: none; } }
-
-@media (min-width: #{bp.$desktop}) { .admin-layout .app-button.mobile-only { display: none !important; } }
+@media (forced-colors: active) {
+  .admin-layout__sider { border-color: CanvasText; box-shadow: none; }
+}

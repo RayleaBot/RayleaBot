@@ -116,13 +116,13 @@ function restoreFocus(event: Event) {
 </template>
 <style scoped lang="scss">
 @use '@/styles/breakpoints.generated' as bp;
-.app-dialog-overlay { position: fixed; inset: 0; z-index: 1200; background: color-mix(in srgb, var(--text) 32%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-:global([data-theme=dark]) .app-dialog-overlay { background: color-mix(in srgb, var(--bg) 42%, transparent); }
-.app-dialog { position: fixed; z-index: 1201; top: 50%; left: 50%; translate: -50% -50%; transform-origin: 50% 50%; display: flex; flex-direction: column; max-width: calc(100vw - 32px); max-height: calc(100dvh - 48px); overflow: hidden; background: var(--surface-strong); color: var(--text); border-radius: var(--radius-2xl); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--glass-rim) 60%, transparent), var(--shadow-floating); outline: none; }
+.app-dialog-overlay { position: fixed; inset: 0; z-index: 1200; background: rgb(0 0 0 / 28%); }
+:global([data-theme=dark]) .app-dialog-overlay { background: rgb(0 0 0 / 50%); }
+.app-dialog { position: fixed; z-index: 1201; top: 50%; left: 50%; translate: -50% -50%; transform-origin: 50% 50%; display: flex; flex-direction: column; max-width: calc(100vw - 32px); max-height: calc(100dvh - 48px); overflow: hidden; background: var(--surface-strong); color: var(--text); border-radius: var(--radius-2xl); box-shadow: var(--shadow-floating); outline: none; }
 .app-dialog__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 24px 20px; }
 .app-dialog__header > div { min-width: 0; }
 .app-dialog__header { flex-shrink: 0; }
-.app-dialog__title { margin: 3px 0 0; font-size: 19px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.app-dialog__title { margin: 3px 0 0; font-size: var(--font-size-xl); font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
 .app-dialog__description { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .app-dialog__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 0 24px 24px; }
 .app-dialog__body-content { display: flow-root; }
@@ -139,7 +139,5 @@ function restoreFocus(event: Event) {
   .app-dialog__body { padding: 0 16px 20px; }
   .app-dialog__footer { padding: 16px; }
 }
-@media (prefers-reduced-transparency: reduce) { .app-dialog-overlay { -webkit-backdrop-filter: none; backdrop-filter: none; } }
-:global(html[data-glass-lite]) .app-dialog-overlay { -webkit-backdrop-filter: none; backdrop-filter: none; }
 @media (forced-colors: active) { .app-dialog { border: 1px solid CanvasText; } }
 </style>

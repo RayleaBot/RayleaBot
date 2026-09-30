@@ -101,7 +101,7 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
           <AppButton variant="ghost" :loading="loading" :disabled="Boolean(removingId) || configStore.saving" :aria-label="t('protocols.refreshConnections')" @click="refresh"><RefreshCwIcon /></AppButton>
         </header>
         <div v-if="loading && !configStore.document" class="connections-loading"><Skeleton class="h-36 w-full" /></div>
-        <div v-else-if="!pageError && !rows.length" class="connections-empty liquid-glass liquid-glass--strong" data-glass="clear">
+        <div v-else-if="!pageError && !rows.length" class="connections-empty app-box">
           <h3>{{ t('protocols.connectionsEmpty') }}</h3>
           <p>{{ t('protocols.connectionsEmptyDescription') }}</p>
         </div>
@@ -124,11 +124,11 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
 .connections-surface { display: grid; gap: 16px; }
 .connections-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 36px; }
 .connections-toolbar > div { display: flex; align-items: baseline; gap: 12px; }
-.connections-toolbar h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.connections-toolbar h2 { margin: 0; font-size: 14px; font-weight: 700; }
 .connections-toolbar span { color: var(--muted); font-size: 12px; }
 .connections-loading { padding: 24px; }
-.connections-grid { --tile-lit-surface: var(--surface-lit); display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
-.connections-empty { padding: 56px 24px; border-radius: var(--app-tile-radius); text-align: center; }
+.connections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
+.connections-empty { padding: 56px 24px; text-align: center; }
 .connections-empty p { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
 @media (max-width: #{bp.$phone - 1px}) {
   .connections-grid { gap: 16px; }

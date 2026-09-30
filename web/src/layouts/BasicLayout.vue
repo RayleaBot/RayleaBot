@@ -3,29 +3,12 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useFullscreen } from '@vueuse/core'
-import {
-  MinimizeIcon,
-  MaximizeIcon,
-  PanelLeftCloseIcon,
-  MenuIcon,
-  PanelLeftOpenIcon,
-  EllipsisIcon,
-  PowerIcon,
-  ChevronRightIcon,
-  SearchIcon,
-  SettingsIcon,
-} from '@lucide/vue'
-import AppButton from '@/components/AppButton.vue'
-import AppTooltip from '@/components/AppTooltip.vue'
-import AppDropdown from '@/components/AppDropdown.vue'
-import AppDropdownItem from '@/components/AppDropdownItem.vue'
 import AppDrawer from '@/components/AppDrawer.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 
 import { notifyError, notifyInfo, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import RayleaMark from '@/components/brand/RayleaMark.vue'
 import AppSidebarNavigation from '@/components/shell/AppSidebarNavigation.vue'
-import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import PreferencesDrawer from '@/components/shell/PreferencesDrawer.vue'
 import RouteSearchPanel from '@/components/shell/RouteSearchPanel.vue'
 import SidebarAccountMenu from '@/components/shell/SidebarAccountMenu.vue'
@@ -62,6 +45,7 @@ const { shutdownPending, shutdownRequested } = storeToRefs(systemStore)
 
 const shutdownDialogVisible = ref(false)
 const accountDialogVisible = ref(false)
+// Dialogs opened from the account menu return focus to the menu trigger they came from.
 const accountFallbackFocus = ref('[data-testid=sidebar-account]')
 
 useToastFeedback(() => (
@@ -84,7 +68,6 @@ const getRouteStageComponent = createRouteStageRegistry()
 const cachedViewNames = collectKeepAliveViewNames(router)
 useShellShortcuts()
 const {
-  breadcrumbItems,
   collapsedOpenMenuKeys,
   handleOpenChange,
   menuItems,
@@ -115,9 +98,18 @@ function setThemeModeWithMotion(mode: ThemeMode, origin: ThemeMotionOrigin) {
   if (mode !== uiShellStore.themeMode) applyThemeWithMotion(() => uiShellStore.setThemeMode(mode), origin)
 }
 
-function openAccountDialog(mobile = false) {
+function rememberAccountTrigger(mobile: boolean) {
   accountFallbackFocus.value = mobile ? '[data-testid=mobile-account]' : '[data-testid=sidebar-account]'
+}
+
+function openAccountDialog(mobile = false) {
+  rememberAccountTrigger(mobile)
   accountDialogVisible.value = true
+}
+
+function openShutdownDialog(mobile = false) {
+  rememberAccountTrigger(mobile)
+  shutdownDialogVisible.value = true
 }
 
 async function handleLogout() {
@@ -155,7 +147,7 @@ onBeforeUnmount(() => stopRoutePrefetch?.())
   <a class="skip-link" href="#app-main">{{ t('app.skipToMain') }}</a>
 
   <div class="admin-layout" :class="[`admin-layout--${preferences.density}`]">
-    <aside class="admin-layout__sider liquid-glass" data-glass="clear" :data-collapsed="siderCollapsed" data-testid="app-sider">
+    <aside class="admin-layout__sider" :data-collapsed="siderCollapsed" data-testid="app-sider">
       <button
         type="button"
         class="admin-layout__brand"
@@ -187,7 +179,19 @@ onBeforeUnmount(() => stopRoutePrefetch?.())
           @scope-change="setPluginNavigationScope"
         />
       </nav>
-      <SidebarAccountMenu :collapsed="siderCollapsed" :mode="uiShellStore.themeMode" :resolved-mode="uiShellStore.resolvedThemeMode" @manage="openAccountDialog()" @logout="handleLogout" @theme="setThemeModeWithMotion" />
+      <SidebarAccountMenu
+        :collapsed="siderCollapsed"
+        :fullscreen="isFullscreen"
+        :mode="uiShellStore.themeMode"
+        :resolved-mode="uiShellStore.resolvedThemeMode"
+        @collapse="uiShellStore.toggleSider()"
+        @fullscreen="toggleFullscreen"
+        @logout="handleLogout"
+        @manage="openAccountDialog()"
+        @settings="rememberAccountTrigger(false); uiShellStore.openSettings()"
+        @shutdown="openShutdownDialog()"
+        @theme="setThemeModeWithMotion"
+      />
     </aside>
 
     <AppDrawer
@@ -222,138 +226,23 @@ onBeforeUnmount(() => stopRoutePrefetch?.())
         />
       </nav>
       <template #footer>
-        <SidebarAccountMenu mobile :mode="uiShellStore.themeMode" :resolved-mode="uiShellStore.resolvedThemeMode" @manage="openAccountDialog(true)" @logout="handleLogout" @theme="setThemeModeWithMotion" />
+        <SidebarAccountMenu
+          mobile
+          :mode="uiShellStore.themeMode"
+          :resolved-mode="uiShellStore.resolvedThemeMode"
+          @logout="handleLogout"
+          @manage="openAccountDialog(true)"
+          @settings="rememberAccountTrigger(true); uiShellStore.openSettings()"
+          @shutdown="openShutdownDialog(true)"
+          @theme="setThemeModeWithMotion"
+        />
       </template>
     </AppDrawer>
 
     <div class="admin-layout__workspace">
-      <header class="admin-layout__header" data-testid="app-header">
-        <div class="admin-layout__progress-track">
-          <div :class="['admin-layout__progress-bar', { 'is-active': routeLoading }]" />
-        </div>
-
-        <div class="admin-layout__header-main">
-          <div class="admin-layout__header-left">
-            <AppButton
-              class="admin-layout__icon-button admin-layout__nav-trigger desktop-only liquid-glass liquid-glass--strong"
-              data-glass="clear"
-              variant="ghost"
-              :aria-label="t('shell.toggleSidebar')"
-              @click="uiShellStore.toggleSider()"
-            >
-              <template #icon>
-                <PanelLeftOpenIcon v-if="siderCollapsed" />
-                <PanelLeftCloseIcon v-else />
-              </template>
-            </AppButton>
-            <AppButton
-              class="admin-layout__icon-button admin-layout__nav-trigger mobile-only liquid-glass liquid-glass--strong"
-              data-glass="clear"
-              variant="ghost"
-              :aria-label="t('shell.openMenu')"
-              @click="uiShellStore.setMobileMenuOpen(true)"
-            >
-              <template #icon>
-                <MenuIcon />
-              </template>
-            </AppButton>
-
-            <div
-              v-if="breadcrumbItems.length"
-              :class="[
-                'admin-layout__header-breadcrumb',
-                breadcrumbItems.length > 1
-                  ? 'admin-layout__header-breadcrumb--multi'
-                  : 'admin-layout__header-breadcrumb--single',
-              ]"
-              data-testid="header-breadcrumb"
-            >
-              <nav class="admin-layout__breadcrumb-nav" :aria-label="t('shell.breadcrumbNav')">
-                <ol class="admin-layout__breadcrumb-list">
-                  <li
-                  v-for="item in breadcrumbItems"
-                  :key="item.key"
-                  :class="[
-                    'admin-layout__breadcrumb-item',
-                    {
-                      'admin-layout__breadcrumb-item--ancestor': !item.current,
-                      'admin-layout__breadcrumb-item--current': item.current,
-                    },
-                  ]"
-                  >
-                    <MotionRouterLink
-                      v-if="!item.current"
-                      :to="item.path"
-                      class="admin-layout__breadcrumb-link"
-                    >
-                      <span class="admin-layout__breadcrumb-link-text">{{ item.title }}</span>
-                    </MotionRouterLink>
-                    <span v-else class="admin-layout__breadcrumb-current">
-                      <span class="admin-layout__breadcrumb-current-text">{{ item.title }}</span>
-                    </span>
-
-                    <span v-if="!item.current" class="admin-layout__breadcrumb-separator" aria-hidden="true">
-                      <ChevronRightIcon />
-                    </span>
-                  </li>
-                </ol>
-              </nav>
-            </div>
-          </div>
-
-          <div class="admin-layout__header-tools">
-              <AppTooltip :title="t('shell.search')">
-                <AppButton
-                  class="admin-layout__icon-button admin-layout__search-button liquid-glass liquid-glass--strong"
-                  data-glass="clear"
-                  variant="ghost"
-                  :aria-label="t('shell.search')"
-                  data-testid="header-search"
-                  @click="uiShellStore.openSearch()"
-                >
-                  <template #icon>
-                    <SearchIcon />
-                  </template>
-                  <span class="admin-layout__search-copy" aria-hidden="true">{{ t('shell.searchPlaceholder') }}</span>
-                </AppButton>
-              </AppTooltip>
-          </div>
-
-          <div class="admin-layout__header-right">
-            <AppDropdown>
-              <AppButton
-                class="admin-layout__icon-button liquid-glass liquid-glass--strong"
-                data-glass="clear"
-                variant="ghost"
-                :aria-label="t('shell.moreActions')"
-                data-testid="header-more"
-              >
-                <template #icon><EllipsisIcon /></template>
-              </AppButton>
-
-              <template #content>
-                <div>
-                  <AppDropdownItem key="settings" data-testid="header-settings" @select="uiShellStore.openSettings()">
-                    <SettingsIcon />
-                    {{ t('shell.settings') }}
-                  </AppDropdownItem>
-                  <AppDropdownItem key="fullscreen" data-testid="header-fullscreen" @select="toggleFullscreen">
-                    <MinimizeIcon v-if="isFullscreen" />
-                    <MaximizeIcon v-else />
-                    {{ isFullscreen ? t('shell.exitFullscreen') : t('shell.enterFullscreen') }}
-                  </AppDropdownItem>
-                  <div class="app-menu-separator" role="separator" />
-                  <AppDropdownItem key="shutdown" danger @select="shutdownDialogVisible = true">
-                    <PowerIcon />
-                    {{ t('shell.shutdown') }}
-                  </AppDropdownItem>
-                </div>
-              </template>
-            </AppDropdown>
-          </div>
-        </div>
-
-      </header>
+      <div class="admin-layout__progress-track" aria-hidden="true">
+        <div :class="['admin-layout__progress-bar', { 'is-active': routeLoading }]" />
+      </div>
 
       <main id="app-main" class="admin-layout__content" tabindex="-1">
         <RouterView v-slot="{ route: currentViewRoute }">
@@ -387,27 +276,20 @@ onBeforeUnmount(() => stopRoutePrefetch?.())
     @navigate="navigateTo"
     @update:open="onSearchOpenUpdate"
   />
-  <PreferencesDrawer />
+  <PreferencesDrawer :fallback-focus="accountFallbackFocus" />
   <AccountCredentialsDialog :open="accountDialogVisible" :fallback-focus="accountFallbackFocus" @close="accountDialogVisible = false" />
 
-  <AppConfirmDialog :open="shutdownDialogVisible" :title="t('shell.shutdownConfirmTitle')" :description="t('shell.shutdownConfirmBody')" :busy="shutdownPending" danger :confirm-text="t('shell.shutdownConfirmAction')" :cancel-text="t('shell.cancel')" fallback-focus="[data-testid=header-more]" @confirm="confirmShutdown" @cancel="shutdownDialogVisible = false" />
+  <AppConfirmDialog :open="shutdownDialogVisible" :title="t('shell.shutdownConfirmTitle')" :description="t('shell.shutdownConfirmBody')" :busy="shutdownPending" danger :confirm-text="t('shell.shutdownConfirmAction')" :cancel-text="t('shell.cancel')" :fallback-focus="accountFallbackFocus" @confirm="confirmShutdown" @cancel="shutdownDialogVisible = false" />
 </template>
 
 <style scoped lang="scss">
-.admin-layout__brand:focus-visible,
-.admin-layout__icon-button:focus-visible {
+.admin-layout__brand:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: var(--focus-outline-offset);
 }
 
-.admin-layout__brand:focus-visible {
-  outline-color: var(--chrome-muted);
-  outline-offset: var(--focus-outline-offset);
-}
-
 @media (forced-colors: active) {
-  .admin-layout__brand:focus-visible,
-  .admin-layout__icon-button:focus-visible {
+  .admin-layout__brand:focus-visible {
     outline-color: Highlight;
   }
 }

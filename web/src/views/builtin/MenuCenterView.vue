@@ -164,7 +164,7 @@ async function save() {
 </script>
 
 <template>
-  <AppPage :title="t('builtinFeatures.menuCenter.title')" :show-header="false" full-height>
+  <AppPage :title="t('builtinFeatures.menuCenter.title')" full-height>
     <RetryPanel
       v-if="pageError && !configDocument"
       :title="t('errors.common.loadFailed')"
@@ -300,19 +300,21 @@ async function save() {
   min-height: 0;
   flex: 1 1 auto;
   padding: var(--space-lg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+  border-radius: var(--app-card-radius);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-card);
+  --control-fill: var(--surface-raised);
+  --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text));
 }
 
+// The command fields and the preview sit directly on the menu center box.
 .menu-center-float-panel {
   width: 100%;
   align-self: start;
-  padding: var(--space-md);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--surface-strong);
+  padding: 0;
+  border: 0;
+  background: transparent;
   box-shadow: none;
 }
 
@@ -410,10 +412,9 @@ async function save() {
   width: min(100%, var(--menu-center-preview-max-width));
   min-width: 0;
   margin-inline: auto;
-  padding: var(--space-md);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-strong);
+  padding: 0;
+  border: 0;
+  background: transparent;
   box-shadow: none;
 }
 

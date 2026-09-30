@@ -289,10 +289,12 @@ function getSectionIcon(key: string) {
 .rate-limits-board {
   display: grid;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--app-card-radius);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-card);
+  --control-fill: var(--surface-raised);
+  --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text));
 }
 
 .rate-limits-board__header {

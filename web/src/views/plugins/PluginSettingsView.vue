@@ -122,7 +122,7 @@ function getSectionIcon(key: string) {
 </script>
 
 <template>
-  <AppPage :title="t('plugins.settings.title')" :show-header="false" width="form">
+  <AppPage :title="t('plugins.settings.title')" width="form">
     <RetryPanel
       v-if="error && !draft"
       :title="t('plugins.settings.title')"
@@ -308,10 +308,12 @@ function getSectionIcon(key: string) {
 .plugin-settings-board {
   display: grid;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--app-card-radius) var(--app-card-radius) 0 0;
   background: var(--surface-strong);
   box-shadow: none;
+  --control-fill: var(--surface-raised);
+  --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text));
 }
 
 .plugin-settings-status-row {

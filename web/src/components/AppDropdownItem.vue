@@ -9,7 +9,7 @@ defineEmits<{ select: [event: Event] }>()
 <style>
 .app-menu-item { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 8px 10px; border-radius: 10px; font-size: 14px; cursor: default; outline: none; user-select: none; }
 .app-menu-item > svg { flex-shrink: 0; width: 17px; height: 17px; }
-.app-menu-item[data-highlighted] { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
+.app-menu-item[data-highlighted] { background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-xs); }
 .app-menu-item[data-disabled] { opacity: .5; pointer-events: none; }
 .app-menu-item[data-danger] { color: var(--text-danger); }
 .app-menu-item[data-danger][data-highlighted] { background: var(--surface-danger); }

@@ -28,10 +28,6 @@
     display: inline-flex !important;
   }
 
-  .admin-layout__header {
-    padding: 0;
-  }
-
   .admin-layout__content {
     padding: 16px;
   }
@@ -60,46 +56,10 @@
     justify-content: flex-start;
   }
 
-  .admin-layout__header-main {
-    gap: 6px;
-  }
-
-  .admin-layout__header-left {
-    gap: 2px;
-  }
-
-  .admin-layout__header-right {
-    gap: 2px;
-  }
-
-  .admin-layout__nav-trigger.app-button {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
-    margin-inline-start: 6px;
-  }
-
-  .admin-layout__header-breadcrumb {
-    display: none;
-  }
-
-  .admin-layout__header-tools {
-    margin-right: 0;
-    padding-right: 0;
-    border-right: 0;
-  }
-
   .admin-layout__content {
     padding: 12px;
   }
 
-  .admin-layout__icon-button.app-button {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
-  }
   .app-page__extra .app-button,
   .app-table-toolbar .app-button {
     min-height: 44px;
@@ -133,9 +93,6 @@
   }
 }
 
-@media (max-width: #{bp.$sidebar - 1px}) {
- .admin-layout__search-button .admin-layout__search-copy { display: none !important; }
-}
 @media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
  .admin-layout .app-button,
  .auth-layout .app-button { min-height: 44px; }

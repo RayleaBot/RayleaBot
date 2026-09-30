@@ -26,18 +26,12 @@ const name = computed(() => identity.value?.name || (identity.value?.id ? t('pro
 const avatarFailed = ref(false)
 watch(() => [identity.value?.id, identity.value?.avatar_url], () => { avatarFailed.value = false })
 const showSummary = computed(() => !identity.value?.id || props.runtime?.state !== 'connected')
-// A connected bot is a lit device (a light-theme island); everything else is text-bearing glass.
-const lit = computed(() => props.runtime?.state === 'connected')
-const attention = computed(() => props.statusTone === 'danger' || props.statusTone === 'warning')
+// Every connection is a light gray box; problems get a ring in their tone.
+const attentionTone = computed(() => props.statusTone === 'danger' || props.statusTone === 'warning' ? props.statusTone : undefined)
 </script>
 
 <template>
-  <li
-    :class="['connection-card', lit ? 'connection-card--lit' : 'liquid-glass liquid-glass--strong']"
-    :data-glass="lit ? undefined : 'clear'"
-    :data-theme="lit ? 'light' : undefined"
-    :data-attention="attention || undefined"
-  >
+  <li class="connection-card app-box" :data-attention="attentionTone">
     <header class="connection-heading">
       <span class="connection-protocol">{{ protocolName }}</span>
       <AppBadge :tone="statusTone">{{ statusLabel }}</AppBadge>
@@ -66,25 +60,23 @@ const attention = computed(() => props.statusTone === 'danger' || props.statusTo
 
 <style scoped lang="scss">
 @use '@/styles/breakpoints.generated' as bp;
-.connection-card { display: flex; flex-direction: column; min-width: 0; min-height: 240px; padding: 20px; border: 0; border-radius: var(--app-tile-radius); color: var(--text); }
-// The list hands down its theme's lit surface, so a light island keeps the dimmer dark-theme lit tone.
-.connection-card--lit { background: var(--tile-lit-surface, var(--surface-lit)); box-shadow: inset 0 1.5px 0 var(--glass-rim), inset 0 0 0 1px color-mix(in srgb, var(--glass-rim) 50%, transparent), 0 1px 2px rgb(0 0 0 / 6%), 0 12px 28px -12px rgb(0 0 0 / 22%); }
-:global(html[data-theme='dark']) .connection-card--lit { box-shadow: inset 0 1.5px 0 rgb(255 255 255 / 80%), 0 12px 30px -12px rgb(0 0 0 / 60%); }
-.connection-card[data-attention] { box-shadow: inset 0 0 0 2px var(--warning), var(--shadow-floating); }
+.connection-card { display: flex; flex-direction: column; min-width: 0; min-height: 240px; padding: 20px; color: var(--text); }
+.connection-card[data-attention=warning] { box-shadow: inset 0 0 0 2px var(--warning), var(--shadow-card); }
+.connection-card[data-attention=danger] { box-shadow: inset 0 0 0 2px var(--danger), var(--shadow-card); }
 .connection-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .connection-protocol { color: var(--muted); font-size: 12px; font-weight: 500; }
 .connection-account { display: flex; align-items: center; gap: 14px; margin: 24px 0; }
 .connection-avatar { box-shadow: 0 0 0 1px var(--border); }
 .connection-avatar :deep(svg) { width: 24px; height: 24px; }
 .connection-identity { flex: 1; min-width: 0; }
-.connection-identity h3 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.connection-identity h3 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
 .connection-identity .connection-name-pending { color: var(--muted); font-size: 16px; font-weight: 500; }
 .connection-number { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 5px 0 0; font-size: 12px; line-height: 1.6; }
 .connection-number > :first-child { color: var(--muted); }
 .connection-number > :last-child { min-width: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .connection-pending { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .connection-summary { margin: -8px 0 20px; color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
-.connection-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 16px; border-top: 1px solid color-mix(in srgb, var(--text) 9%, transparent); }
+.connection-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
 .connection-instance { display: grid; gap: 4px; min-width: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .connection-instance code { font-size: 12px; overflow-wrap: anywhere; }
 .connection-actions { display: flex; flex: none; align-items: center; gap: 4px; }
@@ -94,7 +86,6 @@ const attention = computed(() => props.statusTone === 'danger' || props.statusTo
   .connection-actions :deep(button) { min-width: 44px; min-height: 44px; }
 }
 @media (forced-colors: active) {
-  .connection-card { border: 1px solid CanvasText; }
   .connection-card[data-attention] { outline: 2px solid Highlight; outline-offset: -4px; }
 }
 </style>

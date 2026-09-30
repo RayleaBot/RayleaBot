@@ -40,7 +40,7 @@ provide(fieldContextKey, context)
 .app-field__floating-control:has(.app-input-prefix) { --floating-label-start: 40px; }
 .app-field__floating-control:has(.app-input-reveal), .app-field__floating-control:has([data-slot=select-trigger]) { --floating-label-end: 48px; }
 .app-field--floating .app-field__label { position: absolute; z-index: 2; top: 18px; left: var(--floating-label-start); max-width: calc(100% - var(--floating-label-start) - var(--floating-label-end)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; color: var(--floating-label-color, var(--muted)); font-size: 15px; line-height: 20px; font-weight: 400; transform-origin: left top; transition: transform 160ms cubic-bezier(.16, 1, .3, 1), color 160ms ease; }
-.app-field__floating-control:has([data-slot=textarea])::before { content: ''; position: absolute; z-index: 1; top: 2px; left: 2px; right: 2px; height: 26px; border-radius: 10px 10px 0 0; background: var(--surface-strong); pointer-events: none; }
+.app-field__floating-control:has([data-slot=textarea])::before { content: ''; position: absolute; z-index: 1; top: 2px; left: 2px; right: 2px; height: 26px; border-radius: 10px 10px 0 0; background: var(--surface-raised); pointer-events: none; }
 .app-field__floating-control:focus-within > .app-field__label,
 .app-field__floating-control:has([data-slot=input]:not(:placeholder-shown), [data-slot=textarea]:not(:placeholder-shown), input:autofill, [data-slot=select-trigger]:not([data-placeholder]), [data-slot=select-trigger][data-state=open]) > .app-field__label { transform: translateY(-11px) scale(.8); }
 .app-field__floating-control:focus-within > .app-field__label { color: var(--floating-label-active-color, var(--brand-foreground)); }

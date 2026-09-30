@@ -55,7 +55,7 @@ defineExpose({ focus: () => panel.value?.focus() })
   margin: 0 0 8px;
   color: var(--auth-text);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.5;
   svg { color: var(--auth-brand-foreground); width: 16px; height: 16px; }
 }
@@ -64,9 +64,10 @@ defineExpose({ focus: () => panel.value?.focus() })
   margin-top: 12px;
   padding: 12px 14px;
   color: var(--auth-text);
-  border: 1px solid var(--auth-glass-divider);
+  border: 1px solid transparent;
   border-radius: 12px;
-  background: var(--auth-glass-control);
+  background: var(--auth-control);
+  box-shadow: var(--shadow-xs);
 }
 .auth-recovery__platform { display: block; margin-bottom: 4px; color: var(--auth-text-muted); font-size: 12px; }
 .auth-recovery__command + .auth-recovery__platform { margin-top: 12px; }

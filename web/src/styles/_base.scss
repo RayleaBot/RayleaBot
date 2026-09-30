@@ -4,6 +4,38 @@
 
 :root {
   --focus-outline-offset: -2px;
+  // Controls take the opposite lightness of the surface they sit on: light gray on the white page,
+  // white inside the gray boxes below. Both are lifted by a soft shadow instead of a border.
+  --control-fill: var(--surface);
+  --control-fill-hover: var(--surface-soft);
+}
+
+// Boxes: light gray on the white page, separated only by their shadow.
+.app-box {
+  border: 1px solid transparent;
+  border-radius: var(--app-card-radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.app-box,
+.admin-layout__sider,
+.admin-layout__mobile-drawer,
+.app-card,
+.app-dialog,
+.app-menu-popup,
+.app-popover,
+.app-select-content,
+.app-toast,
+.app-data-table,
+.app-view-card,
+.data-viewport {
+  --control-fill: var(--surface-raised);
+  --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text));
+}
+
+@media (forced-colors: active) {
+  .app-box { border-color: CanvasText; box-shadow: none; }
 }
 
 html,
@@ -65,11 +97,6 @@ a {
 
 html[data-theme='dark'] .raylea-mark {
   filter: invert(1);
-}
-
-// Lit surfaces are light-theme islands inside the dark theme, so the mark keeps its original colours.
-html[data-theme='dark'] [data-theme='light'] .raylea-mark {
-  filter: none;
 }
 
 .skip-link,

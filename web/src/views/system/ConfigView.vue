@@ -282,7 +282,7 @@ onBeforeUnmount(() => {
 .config-category__status { flex: none; color: var(--brand-foreground); font-size: 11px; font-weight: 500; }
 .config-category-select { display: none; }
 .config-search-status { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.config-editor { display: flex; flex-direction: column; min-width: 0; min-height: 520px; border-radius: 12px; background: var(--surface-strong); container-type: inline-size; container-name: config-editor; }
+.config-editor { --control-fill: var(--surface-raised); --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text)); display: flex; flex-direction: column; min-width: 0; min-height: 520px; border: 1px solid transparent; border-radius: var(--app-card-radius); background: var(--surface-strong); box-shadow: var(--shadow-card); container-type: inline-size; container-name: config-editor; }
 .config-editor__body { flex: 1; padding: 24px 28px; min-width: 0; animation: config-section-enter 160ms ease-out; }
 .config-editor__header { margin-bottom: 26px; }
 .config-editor__header h2 { margin: 0; color: var(--text); font-size: 20px; font-weight: 600; line-height: 1.4; }

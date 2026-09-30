@@ -217,7 +217,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppPage :title="t('commands.title')" :show-header="false" width="detail">
+  <AppPage :title="t('commands.title')" width="detail">
     <template #toolbar>
       <div class="app-view-card commands-filter-toolbar">
         <div class="commands-filter-form">

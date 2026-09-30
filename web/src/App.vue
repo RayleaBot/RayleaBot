@@ -1,22 +1,15 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, watchEffect } from 'vue'
+import { watchEffect } from 'vue'
 
 import AppSpinner from '@/components/AppSpinner.vue'
 import AppToastHost from '@/components/AppToastHost.vue'
 import { t } from '@/i18n'
-import { startGlassSurfaces } from '@/lib/liquid-glass'
 import { resolvePreferenceCssVariables } from '@/preferences/app'
 import { useAppAvailabilityStore } from '@/stores/app-availability'
 import { useUiShellStore } from '@/stores/ui-shell'
 
 const uiShellStore = useUiShellStore()
 const availabilityStore = useAppAvailabilityStore()
-
-let stopGlassSurfaces: (() => void) | undefined
-onMounted(() => {
-  stopGlassSurfaces = startGlassSurfaces(document.body)
-})
-onBeforeUnmount(() => stopGlassSurfaces?.())
 
 watchEffect(() => {
   if (typeof document === 'undefined') {

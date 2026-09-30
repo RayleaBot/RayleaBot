@@ -105,7 +105,7 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
     />
 
     <div v-else class="plugins-page-content">
-      <AppTableToolbar class="plugins-toolbar liquid-glass liquid-glass--strong" data-glass="clear">
+      <AppTableToolbar class="plugins-toolbar">
         <template #left>
           <div class="toolbar-filters plugins-filter-desktop">
             <AppInput
@@ -196,11 +196,10 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
   min-height: 0;
 }
 
-// Filters float on the light field as a glass bar; the plugin devices sit on the field below it.
+// Filters sit directly on the page above the grid of plugin boxes.
 .plugins-toolbar {
-  padding: 8px 8px 8px 10px;
+  padding: 0;
   border-bottom: 0;
-  border-radius: 28px;
 }
 
 .toolbar-filters {
@@ -212,11 +211,7 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
 
 .filter-search {
   width: 260px;
-  border-radius: 6px;
 
-  :deep(.app-input) {
-    border-radius: 6px;
-  }
   .search-icon {
     width: 16px;
     height: 16px;
@@ -228,9 +223,6 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
 
 .filter-select {
   width: 140px;
-  :deep(.app-select) {
-    border-radius: 6px !important;
-  }
 }
 
 .plugins-filter-mobile-trigger {
@@ -266,7 +258,6 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
 }
 
 .plugins-grid {
-  --tile-lit-surface: var(--surface-lit);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-lg);

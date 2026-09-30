@@ -37,18 +37,18 @@ defineExpose({ focus: () => heading.value?.focus() })
   width: 112px;
   height: 112px;
   margin: 0 auto 24px;
-  color: var(--auth-brand-foreground);
-  border: 1px solid var(--auth-glass-edge);
+  color: var(--auth-text);
+  border: 1px solid transparent;
   border-radius: 28px;
-  background: linear-gradient(145deg, var(--auth-glass-highlight), transparent);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--auth-brand-fill) 12%, transparent), inset 0 1px 0 var(--auth-glass-edge);
+  background: var(--auth-control);
+  box-shadow: var(--shadow-xs);
   :deep(.raylea-mark) { width: 96px; height: 96px; }
 }
 .auth-panel__title {
   margin: 0;
   color: var(--auth-text);
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.3;
   letter-spacing: -.025em;
   text-wrap: balance;
@@ -68,7 +68,7 @@ defineExpose({ focus: () => heading.value?.focus() })
   justify-items: center;
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid var(--auth-glass-divider);
+  border-top: 1px solid var(--auth-border);
   color: var(--auth-text-muted);
   font-size: 13px;
   line-height: 1.7;
@@ -82,7 +82,7 @@ defineExpose({ focus: () => heading.value?.focus() })
   gap: 8px;
   min-height: 44px;
   padding: 8px 14px;
-  color: var(--auth-glass-link);
+  color: var(--auth-brand-foreground);
   border: 0;
   border-radius: 12px;
   background: transparent;
@@ -90,7 +90,7 @@ defineExpose({ focus: () => heading.value?.focus() })
   font-size: 13px;
   cursor: pointer;
   transition: background-color 160ms var(--motion-easing), color 160ms var(--motion-easing);
-  &:hover { background: var(--auth-glass-control); }
+  &:hover { background: var(--auth-control); }
   &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: var(--focus-outline-offset); }
   &:disabled { opacity: .55; cursor: wait; }
 }

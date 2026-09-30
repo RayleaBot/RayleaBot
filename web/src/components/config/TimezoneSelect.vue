@@ -102,7 +102,7 @@ function select(value: unknown) {
 <style lang="scss">
 @use '@/styles/breakpoints.generated' as bp;
 .timezone-select { width: 100%; min-width: 0; }
-.timezone-select__trigger { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface-strong); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.timezone-select__trigger { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .timezone-select__trigger:focus-visible { outline: 1px solid var(--focus); outline-offset: -2px; }
 .timezone-select__trigger:disabled { cursor: not-allowed; opacity: .5; }
 .timezone-select__selection { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex-wrap: wrap; }

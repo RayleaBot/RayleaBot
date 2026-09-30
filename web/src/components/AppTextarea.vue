@@ -23,6 +23,6 @@ const field = useFieldContext()
   />
 </template>
 <style scoped>
-.app-textarea { resize: vertical; line-height: 1.6; background: var(--surface-strong); color: var(--text); }
+.app-textarea { resize: vertical; line-height: 1.6; background: var(--surface-raised); color: var(--text); }
 .app-textarea--floating { padding-top: 26px; }
 </style>

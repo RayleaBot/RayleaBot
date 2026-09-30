@@ -341,18 +341,12 @@ async function save() {
 .permission-policy-settings-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0;
+  gap: var(--space-lg);
   align-items: stretch;
 }
 
 .permission-policy-config-card {
   overflow: hidden;
-  border: 0;
-  border-top: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  box-shadow: var(--shadow-xs);
 }
 
 .permission-policy-config-card :deep(.app-card__body) {
