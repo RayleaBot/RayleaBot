@@ -42,11 +42,11 @@ const delimiter = computed(() => props.separators?.length
 </template>
 <style scoped lang="scss">
 @use '@/styles/breakpoints.generated' as bp;
-.app-tags-input { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 40px; padding: 6px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-strong); color: var(--text); }
+.app-tags-input { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 40px; padding: 6px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface-strong); color: var(--text); }
 .app-tags-input:focus-within { border-color: var(--brand-foreground); box-shadow: inset 0 0 0 1px var(--brand-foreground); }
-.app-tags-input__item { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; background: var(--surface-soft); font-size: 13px; }
+.app-tags-input__item { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: 999px; background: var(--surface-soft); font-size: 13px; }
 .app-tags-input__item[data-state=active] { outline: 2px solid var(--focus); outline-offset: var(--focus-outline-offset); }
-.app-tags-input__delete { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 4px; }
+.app-tags-input__delete { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; }
 .app-tags-input__delete:hover { background: var(--surface-accent); }
 .app-tags-input__entry { flex: 1; width: 8ch; min-width: 8ch; border: 0; outline: none; background: transparent; font-size: 14px; }
 .app-tags-input[data-disabled] { opacity: .5; }

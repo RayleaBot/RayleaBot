@@ -3,6 +3,26 @@
 // `data-glass="clear"` lets src/lib/liquid-glass.ts refract the backdrop in Chromium; every other
 // engine keeps a lightly blurred material, and reduced transparency or forced colors go opaque.
 
+// Overlays (menus, select lists, popovers, toasts) use the regular glass variant: a denser fill and a
+// stronger blur keep their text legible over any content, with the same rims as the navigation glass.
+:root {
+  --overlay-glass-fill: color-mix(in srgb, var(--surface-strong) 80%, transparent);
+  --overlay-glass-filter: blur(24px) saturate(1.6);
+  --overlay-glass-shadow:
+    inset 1px 1px 0.5px -0.5px var(--glass-rim),
+    inset 0 0 0 1px color-mix(in srgb, var(--glass-rim-soft) 45%, transparent),
+    var(--shadow-floating);
+}
+
+.app-select-content {
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  background: var(--overlay-glass-fill);
+  box-shadow: var(--overlay-glass-shadow);
+  -webkit-backdrop-filter: var(--overlay-glass-filter);
+  backdrop-filter: var(--overlay-glass-filter);
+}
+
 // The light field is the app root's own background. Glass panes refract it through backdrop-filter,
 // and it adds no stacking context, so toasts inside the root still stack over body-level dialogs.
 .app-root {
@@ -60,6 +80,10 @@ html[data-glass-refraction] .liquid-glass[data-glass-ready] {
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --overlay-glass-fill: var(--surface-strong);
+  }
+
   .liquid-glass,
   .liquid-glass--strong {
     background: var(--chrome);
@@ -67,6 +91,11 @@ html[data-glass-refraction] .liquid-glass[data-glass-ready] {
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  :root {
+    --overlay-glass-fill: var(--surface-strong);
+    --overlay-glass-filter: none;
+  }
+
   .liquid-glass,
   .liquid-glass--strong {
     background: var(--chrome);

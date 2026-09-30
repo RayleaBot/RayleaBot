@@ -96,7 +96,7 @@ function restoreFocus(event: Event) {
           @open-auto-focus="focusOnOpen" @close-auto-focus="restoreFocus"
         >
           <motion.section
-            v-bind="$attrs" data-slot="app-dialog" class="app-dialog" :data-placement="placement" :style="{ width: placement === 'bottom' ? '100vw' : `${width}px`, ...(placement === 'left' || placement === 'right' ? { height: '100dvh' } : {}), zIndex: layer + 1 }"
+            v-bind="$attrs" data-slot="app-dialog" class="app-dialog" :data-placement="placement" :style="{ width: placement === 'bottom' ? '100vw' : `${width}px`, ...(placement === 'left' || placement === 'right' ? { height: 'calc(100dvh - 24px)' } : {}), zIndex: layer + 1 }"
             :initial="motionState.initial" :animate="open ? motionState.animate : motionState.exit" :transition="overlayMotion.transition"
             @animation-complete="motionComplete"
           >
@@ -116,9 +116,9 @@ function restoreFocus(event: Event) {
 </template>
 <style scoped lang="scss">
 @use '@/styles/breakpoints.generated' as bp;
-.app-dialog-overlay { position: fixed; inset: 0; z-index: 1200; background: color-mix(in srgb, var(--text) 42%, transparent); }
+.app-dialog-overlay { position: fixed; inset: 0; z-index: 1200; background: color-mix(in srgb, var(--text) 32%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 :global([data-theme=dark]) .app-dialog-overlay { background: color-mix(in srgb, var(--bg) 42%, transparent); }
-.app-dialog { position: fixed; z-index: 1201; top: 50%; left: 50%; translate: -50% -50%; transform-origin: 50% 50%; display: flex; flex-direction: column; max-width: calc(100vw - 32px); max-height: calc(100dvh - 48px); overflow: hidden; background: var(--surface-strong); color: var(--text); border-radius: 16px; box-shadow: var(--shadow-floating); outline: none; }
+.app-dialog { position: fixed; z-index: 1201; top: 50%; left: 50%; translate: -50% -50%; transform-origin: 50% 50%; display: flex; flex-direction: column; max-width: calc(100vw - 32px); max-height: calc(100dvh - 48px); overflow: hidden; background: var(--surface-strong); color: var(--text); border-radius: var(--radius-2xl); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--glass-rim) 60%, transparent), var(--shadow-floating); outline: none; }
 .app-dialog__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 24px 20px; }
 .app-dialog__header > div { min-width: 0; }
 .app-dialog__header { flex-shrink: 0; }
@@ -127,16 +127,18 @@ function restoreFocus(event: Event) {
 .app-dialog__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 0 24px 24px; }
 .app-dialog__body-content { display: flow-root; }
 .app-dialog__footer { flex-shrink: 0; padding: 16px 24px 20px; border-top: 1px solid var(--border); }
-.app-dialog[data-placement=right], .app-dialog[data-placement=left] { top: 0; translate: none; max-height: 100dvh; max-width: calc(100vw - 24px); border-radius: 0; }
-.app-dialog[data-placement=right] { left: auto; right: 0; }
-.app-dialog[data-placement=left] { left: 0; }
-.app-dialog[data-placement=bottom] { top: auto; bottom: 0; left: 0; translate: none; max-width: 100vw; max-height: calc(100dvh - 24px); border-radius: 16px 16px 0 0; }
+// Side sheets float inside the viewport like the sidebar instead of running edge to edge.
+.app-dialog[data-placement=right], .app-dialog[data-placement=left] { top: 12px; translate: none; max-height: calc(100dvh - 24px); max-width: calc(100vw - 24px); border-radius: var(--radius-2xl); }
+.app-dialog[data-placement=right] { left: auto; right: 12px; }
+.app-dialog[data-placement=left] { left: 12px; }
+.app-dialog[data-placement=bottom] { top: auto; bottom: 0; left: 0; translate: none; max-width: 100vw; max-height: calc(100dvh - 24px); border-radius: var(--radius-2xl) var(--radius-2xl) 0 0; }
 .app-dialog:not([data-placement=center]) .app-dialog__body { flex: 1; }
 @media (max-width: #{bp.$phone - 1px}) {
-  .app-dialog { max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: 14px; }
+  .app-dialog { max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: var(--radius-xl); }
   .app-dialog__header { padding: 20px 16px 16px; }
   .app-dialog__body { padding: 0 16px 20px; }
   .app-dialog__footer { padding: 16px; }
 }
+@media (prefers-reduced-transparency: reduce) { .app-dialog-overlay { -webkit-backdrop-filter: none; backdrop-filter: none; } }
 @media (forced-colors: active) { .app-dialog { border: 1px solid CanvasText; } }
 </style>

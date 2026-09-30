@@ -20,7 +20,7 @@ const parts = computed(() => props.context
   </component>
 </template>
 <style>
-.app-menu-popup { min-width: 180px; max-width: min(360px, calc(100vw - 16px)); max-height: var(--reka-popper-available-height); overflow-y: auto; padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-strong); color: var(--text); box-shadow: var(--shadow-floating); outline: none; transform-origin: var(--reka-dropdown-menu-content-transform-origin, var(--reka-context-menu-content-transform-origin)); }
+.app-menu-popup { min-width: 180px; max-width: min(360px, calc(100vw - 16px)); max-height: var(--reka-popper-available-height); overflow-y: auto; padding: 6px; border: 0; border-radius: var(--radius-lg); background: var(--overlay-glass-fill); color: var(--text); box-shadow: var(--overlay-glass-shadow); -webkit-backdrop-filter: var(--overlay-glass-filter); backdrop-filter: var(--overlay-glass-filter); outline: none; transform-origin: var(--reka-dropdown-menu-content-transform-origin, var(--reka-context-menu-content-transform-origin)); }
 .app-menu-popup[data-state=open] { animation: app-popup-enter var(--motion-fast, 160ms) cubic-bezier(.16,1,.3,1); }
 .app-menu-popup[data-state=closed] { animation: app-popup-exit var(--motion-fast, 160ms) ease; }
 .app-menu-separator { height: 1px; margin: 5px 2px; background: var(--border); }

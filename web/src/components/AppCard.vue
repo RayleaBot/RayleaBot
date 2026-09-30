@@ -41,12 +41,14 @@ defineProps<{
 </template>
 
 <style scoped lang="scss">
+// Solid section surface: it sits on the light field, so a soft lift separates it from the colour behind.
 .app-card {
   gap: 0;
   padding: 0;
+  border-radius: var(--app-card-radius);
   background: var(--surface-strong);
   border: 1px solid var(--border);
-  box-shadow: none;
+  box-shadow: var(--shadow-card);
   transition: border-color var(--motion-fast) var(--motion-easing), background-color var(--motion-fast) var(--motion-easing);
 }
 .app-card[data-borderless] { border-color: transparent; }

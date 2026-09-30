@@ -26,7 +26,7 @@ onBeforeUnmount(() => exitTimers.forEach(clearTimeout))
 <style lang="scss">
 @use '@/styles/breakpoints.generated' as bp;
 .app-toast-viewport { position: fixed; z-index: 1600; right: max(20px, env(safe-area-inset-right)); top: max(20px, env(safe-area-inset-top)); display: grid; gap: 10px; width: min(380px, calc(100vw - 32px)); margin: 0; padding: 0; list-style: none; outline: none; }
-.app-toast { display: flex; align-items: start; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-strong); color: var(--text); box-shadow: var(--shadow-floating); }
+.app-toast { display: flex; align-items: start; gap: 10px; padding: 14px 16px; border: 0; border-radius: var(--radius-lg); background: var(--overlay-glass-fill); color: var(--text); box-shadow: var(--overlay-glass-shadow); -webkit-backdrop-filter: var(--overlay-glass-filter); backdrop-filter: var(--overlay-glass-filter); }
 .app-toast__description { flex: 1; min-width: 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .app-toast__icon { width: 20px; height: 20px; margin-top: 2px; flex-shrink: 0; color: var(--text-accent); }
 .app-toast[data-level=success] .app-toast__icon { color: var(--text-success); }
