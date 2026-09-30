@@ -156,7 +156,6 @@ describe("Launcher workspace presentation", () => {
 
     expect(screen.getByText("界面字体")).toBeInTheDocument();
     expect(screen.getByText("HarmonyOS Sans SC")).toBeInTheDocument();
-    expect(screen.getByText(/HarmonyOS Sans 字体许可协议/)).toBeInTheDocument();
   });
 
   test("explains unavailable updates without rendering a broken action", () => {

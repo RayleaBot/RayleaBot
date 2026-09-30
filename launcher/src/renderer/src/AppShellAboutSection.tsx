@@ -114,12 +114,7 @@ export function AppShellAboutSection({
         </DetailRow>
         <DetailRow icon={<Certificate20Regular />} label="许可证" value="AGPL-3.0" mono={false} />
         {/* HarmonyOS Sans requires a notice in the software that the fonts are used. */}
-        <DetailRow icon={<TextFont20Regular />} label="界面字体">
-          <span className="font-notice">
-            <span>HarmonyOS Sans SC</span>
-            <span>按 HarmonyOS Sans 字体许可协议随附未经修改的字体文件，协议全文见安装目录中的 THIRD_PARTY_NOTICES.md。Copyright 2021 Huawei Device Co., Ltd.</span>
-          </span>
-        </DetailRow>
+        <DetailRow icon={<TextFont20Regular />} label="界面字体" value="HarmonyOS Sans SC" mono={false} />
       </dl>
 
       {showUpdateError ? (
