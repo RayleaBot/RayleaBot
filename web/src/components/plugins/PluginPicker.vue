@@ -12,7 +12,8 @@ import { usePluginsStore } from '@/stores/plugins'
 import { t } from '@/i18n'
 import type { PluginSummary } from '@/types/api'
 
-const props = defineProps<{ multiple?: boolean; placeholder?: string; runningOnly?: boolean; label?: string }>()
+// align: which edge of the trigger the list lines up with; a picker at the end of a row opens toward the start.
+const props = withDefaults(defineProps<{ multiple?: boolean; placeholder?: string; runningOnly?: boolean; label?: string; align?: 'start' | 'center' | 'end' }>(), { align: 'start' })
 const selection = defineModel<string | string[]>({ required: true })
 const field = useFieldContext()
 const plugins = usePluginsStore()
@@ -50,9 +51,9 @@ function optionLabel(plugin: PluginSummary) { return plugins.getPluginLabel(plug
 
 <template>
   <div class="plugin-picker">
-  <AppPopover v-model:open="open" :label="label || t('plugins.picker.title')" :width="420">
+  <AppPopover v-model:open="open" :label="label || t('plugins.picker.title')" :width="420" :align="align">
     <AppButton :id="field?.id" class="plugin-picker__trigger" :aria-expanded="open" :aria-label="label">
-      <span>{{ labels || placeholder || t('plugins.picker.title') }}</span><ChevronDownIcon :size="16" />
+      <span :title="labels || undefined">{{ labels || placeholder || t('plugins.picker.title') }}</span><ChevronDownIcon :size="16" />
     </AppButton>
     <template #content>
       <AppInput v-model="query" allow-clear :aria-label="t('plugins.picker.search')" :placeholder="t('plugins.picker.search')" />
@@ -75,9 +76,10 @@ function optionLabel(plugin: PluginSummary) { return plugins.getPluginLabel(plug
 </template>
 
 <style scoped>
-.plugin-picker__trigger.app-button { justify-content: space-between; width: 100%; min-height: 40px; height: auto; padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: none; color: var(--text); font-weight: 400; text-align: start; white-space: normal; }
+/* The trigger stays one line high like the other toolbar controls; long selections end in an ellipsis and the full list is in the tooltip. */
+.plugin-picker__trigger.app-button { justify-content: space-between; width: 100%; max-width: 100%; min-height: 40px; height: auto; padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: none; color: var(--text); font-weight: 400; text-align: start; white-space: nowrap; }
 .plugin-picker__trigger.app-button:hover, .plugin-picker__trigger.app-button[aria-expanded=true] { background: var(--surface-raised); border-color: var(--text); }
-.plugin-picker__trigger span { overflow-wrap: anywhere; }
+.plugin-picker__trigger span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .plugin-picker__options { display: grid; gap: 4px; max-height: 300px; overflow-y: auto; }
 .plugin-picker__option { justify-content: flex-start; white-space: normal; text-align: start; }
 </style>

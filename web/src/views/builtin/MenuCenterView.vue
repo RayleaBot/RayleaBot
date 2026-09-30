@@ -227,6 +227,7 @@ async function save() {
               v-show="activeTab === 'plugin'"
               v-model="selectedPluginId"
               running-only
+              align="end"
               :label="t('builtinFeatures.menuCenter.preview.selectedPlugin')"
               :placeholder="t('builtinFeatures.menuCenter.preview.allPlugins')"
               class="menu-center-plugin-select"
@@ -395,9 +396,11 @@ async function save() {
   }
 }
 
-// Wide enough for a plugin name with its ID on one line, so both tabs start the stage at the same height.
+// Sized to the chosen plugin's name and ID on one line and anchored at the right end of the tab row,
+// so both tabs start the stage at the same height; only a very long name ends in an ellipsis.
 .menu-center-plugin-select {
-  width: 320px;
+  width: auto;
+  max-width: 480px;
 }
 
 .menu-preview-card {
