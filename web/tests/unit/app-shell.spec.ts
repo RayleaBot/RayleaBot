@@ -1,11 +1,10 @@
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import RouteView from '@/layouts/RouteView.vue'
-import AppSidebarNavigation from '@/components/shell/AppSidebarNavigation.vue'
 import { usePluginsStore } from '@/stores/plugins'
 import { apiRequest } from '@/lib/http'
 import { useSocketStore } from '@/stores/sockets'
@@ -28,13 +27,13 @@ describe('BasicLayout', () => {
               path: '',
               name: 'status',
               component: { template: '<div>系统状态页</div>' },
-              meta: { affixTab: true, icon: 'dashboard', title: '系统状态' },
+              meta: { icon: 'dashboard', title: '系统状态' },
             },
             {
               path: '',
               component: RouteView,
               redirect: { name: 'menu-center' },
-              meta: { hideInTab: true, icon: 'features', order: 2, titleKey: 'routes.features' },
+              meta: { icon: 'features', order: 2, titleKey: 'routes.features' },
               children: [
                 {
                   path: '/menu-center',
@@ -48,7 +47,7 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'plugins' },
-              meta: { hideInTab: true, icon: 'plugin-store', order: 3, title: '插件中心' },
+              meta: { icon: 'plugin-store', order: 3, title: '插件中心' },
               children: [
                 {
                   path: '/plugins',
@@ -86,7 +85,7 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'permission-policy' },
-              meta: { hideInTab: true, order: 4, title: '运维' },
+              meta: { order: 4, title: '运维' },
               children: [
                 {
                   path: '/permission-policy',
@@ -112,7 +111,7 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'logs' },
-              meta: { hideInTab: true, order: 5, title: '日志中心' },
+              meta: { order: 5, title: '日志中心' },
               children: [
                 {
                   path: '/logs',
@@ -132,7 +131,7 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'protocols' },
-              meta: { hideInTab: true, order: 6, title: '协议' },
+              meta: { order: 6, title: '协议' },
               children: [
                 {
                   path: '/protocols',
@@ -146,7 +145,7 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'config' },
-              meta: { hideInTab: true, order: 7, title: '系统' },
+              meta: { order: 7, title: '系统' },
               children: [
                 {
                   path: '/config',
@@ -223,71 +222,6 @@ describe('BasicLayout', () => {
     }
   }
 
-  function getTabLabels() {
-    const labels = Array.from(document.body.querySelectorAll('.admin-layout__tabbar [role=tab]'))
-      .map((node) => node.textContent?.trim() ?? '')
-      .filter(Boolean)
-
-    return Array.from(new Set(labels))
-  }
-
-  function getActiveTabLabel() {
-    return document.body.querySelector('.admin-layout__tabbar [role=tab][data-state=active]')
-      ?.textContent
-      ?.trim() ?? ''
-  }
-
-  function getTabIconKeys() {
-    return Array.from(document.body.querySelectorAll<HTMLElement>('.admin-layout__tabbar .admin-layout__tab-label'))
-      .map((node) => node.dataset.icon ?? '')
-      .filter(Boolean)
-  }
-
-  async function openStandardTabs(router: Router) {
-    for (const path of ['/permission-policy', '/commands', '/logs']) {
-      await router.push(path)
-      await flushPromises()
-    }
-  }
-
-  async function openTabContextMenu(tabTitle: string) {
-    const target = Array.from(document.body.querySelectorAll<HTMLElement>('.admin-layout__tabbar .admin-layout__tab-label'))
-      .find((node) => node.textContent?.includes(tabTitle))
-    if (!target) {
-      throw new Error(`tab not found: ${tabTitle}`)
-    }
-
-    target.dispatchEvent(new MouseEvent('contextmenu', {
-      bubbles: true,
-      button: 2,
-      cancelable: true,
-    }))
-    await flushPromises()
-  }
-
-  function getContextMenuItem(label: string) {
-    const item = Array.from(document.body.querySelectorAll<HTMLElement>('.app-menu-item'))
-      .filter((node) => node.textContent?.trim() === label)
-      .at(-1)
-    if (!item) {
-      throw new Error(`context menu item not found: ${label}`)
-    }
-
-    return item
-  }
-
-  async function clickContextMenuItem(label: string) {
-    getContextMenuItem(label).dispatchEvent(new MouseEvent('click', {
-      bubbles: true,
-      cancelable: true,
-    }))
-    await flushPromises()
-  }
-
-  function isMenuItemDisabled(item: HTMLElement) {
-    return item.getAttribute('aria-disabled') === 'true'
-  }
-
   beforeEach(() => {
     vi.restoreAllMocks()
     window.localStorage.clear()
@@ -306,26 +240,6 @@ describe('BasicLayout', () => {
       const items = all.filter(plugin => `${plugin.id} ${plugin.name}`.toLowerCase().includes(query))
       return { items, total: items.length } as never
     })
-  })
-
-  it('combines the five plugin pages without merging other workspace tabs', async () => {
-    const { router, uiShellStore } = await mountShell('/')
-    await router.push('/permission-policy')
-    await flushPromises()
-    for (const path of ['/commands', '/menu-center', '/plugins/store', '/plugins/settings', '/plugins']) {
-      await router.push(path)
-      await flushPromises()
-      expect(uiShellStore.tabs.map(item => item.path)).toEqual(['/', '/permission-policy', '/plugins'])
-      expect(uiShellStore.tabs.at(-1)).toMatchObject({ name: 'plugin-center', fullPath: path, icon: 'plugins' })
-      expect(getActiveTabLabel()).toBe('插件中心')
-    }
-    for (const path of ['/logs', '/logs/history', '/render/templates/help.menu', '/render/templates/status.panel']) {
-      await router.push(path)
-      await flushPromises()
-    }
-    expect(uiShellStore.tabs.map(item => item.path)).toEqual(['/', '/permission-policy', '/plugins', '/logs', '/logs/history', '/render/templates'])
-    expect(uiShellStore.tabs.at(-1)?.fullPath).toBe('/render/templates/status.panel')
-    expect(getActiveTabLabel()).toBe('模板预览')
   })
 
   it('renders full breadcrumbs with a clickable parent group', async () => {
@@ -360,7 +274,6 @@ describe('BasicLayout', () => {
       await flushPromises()
       expect(router.currentRoute.value.path).toBe(path)
       expect(sidebar.get(`[data-sidebar-page="${name}"]`).attributes('aria-current')).toBe('page')
-      expect(uiShellStore.tabs.map(tab => tab.path)).toEqual(['/', '/plugins'])
     }
 
     await sidebar.get('[data-sidebar-scope-back="plugin-center"]').trigger('click')
@@ -373,7 +286,7 @@ describe('BasicLayout', () => {
     expect(sidebar.get('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(true)
   })
 
-  it('keeps plugin pages inline, restores open workspaces, and returns to root in one step', async () => {
+  it('keeps plugin pages inline and returns to root in one step', async () => {
     const { wrapper, router, uiShellStore } = await mountShell('/plugins')
     uiShellStore.patchPreferences({ pageTransition: 'none' })
     const pluginsStore = usePluginsStore()
@@ -470,13 +383,6 @@ describe('BasicLayout', () => {
     expect(sidebar.get('[data-sidebar-plugin-id="weather"]').attributes('aria-expanded')).toBe('true')
     await sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel?panel=management-ui&management_page=config')
-
-    uiShellStore.removeTab('/plugins/example-config-panel')
-    await sidebar.get('[data-sidebar-plugin-id="weather"]').trigger('click')
-    await flushPromises()
-    await sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').trigger('click')
-    await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel')
   })
 
@@ -490,9 +396,6 @@ describe('BasicLayout', () => {
     expect(sidebar.find('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(false)
     const pluginCenterTrigger = sidebar.get('[data-sidebar-entry="plugin-center"]')
     expect(pluginCenterTrigger.attributes('aria-label')).toBe('插件中心')
-    expect(wrapper.findAllComponents(AppSidebarNavigation)[0]?.props('openPluginTargets')).toEqual([
-      { fullPath: '/plugins/weather?panel=overview', pluginId: 'weather' },
-    ])
   })
 
   it('keeps the mobile drawer open when navigating back through sidebar levels', async () => {
@@ -590,7 +493,7 @@ describe('BasicLayout', () => {
     expect(ensureDetailSpy).toHaveBeenCalledWith('missing-plugin', { refresh: true })
   })
 
-  it('preserves a settings draft and returns to the last full URL through the merged tab', async () => {
+  it('keeps a cached page draft while switching to other pages and back', async () => {
     const { wrapper, router, uiShellStore } = await mountShell('/plugins/settings')
     uiShellStore.patchPreferences({ pageTransition: 'none' })
     await wrapper.get('[data-testid="settings-draft"]').setValue('fixture draft')
@@ -599,28 +502,29 @@ describe('BasicLayout', () => {
     await wrapper.get('[data-sidebar-page="plugin-settings"]').trigger('click')
     await flushPromises()
     expect((wrapper.get('[data-testid="settings-draft"]').element as HTMLInputElement).value).toBe('fixture draft')
-    await router.push('/plugins/settings?section=runtime#limits')
-    await flushPromises()
     await router.push('/logs')
     await flushPromises()
-    expect(wrapper.find('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(false)
-    await wrapper.get('[data-tab-path="/plugins"]').trigger('keydown', { key: 'Enter' })
+    expect(wrapper.find('[data-testid="settings-draft"]').exists()).toBe(false)
+    await router.push('/plugins/settings')
     await flushPromises()
-    expect(router.currentRoute.value.fullPath).toBe('/plugins/settings?section=runtime#limits')
     expect((wrapper.get('[data-testid="settings-draft"]').element as HTMLInputElement).value).toBe('fixture draft')
   })
 
-  it('closing the center keeps an active plugin detail separate', async () => {
-    const { wrapper, router, uiShellStore } = await mountShell('/plugins')
-    await router.push('/plugins/weather?panel=overview')
+  it('closes the mobile drawer after any navigation', async () => {
+    const { router, uiShellStore } = await mountShell('/plugins')
+    uiShellStore.setMobileMenuOpen(true)
+    await router.push('/logs')
     await flushPromises()
-    expect(wrapper.get('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(true)
-    expect(wrapper.get('[data-sidebar-plugin-overview]').attributes('aria-current')).toBe('page')
-    await openTabContextMenu('插件中心')
-    await clickContextMenuItem('关闭当前标签')
-    expect(router.currentRoute.value.fullPath).toBe('/plugins/weather?panel=overview')
-    expect(uiShellStore.tabs.map(tab => tab.path)).toEqual(['/', '/plugins/weather'])
-    expect(uiShellStore.cachedViewNames).not.toContain('plugin-settings')
+    expect(uiShellStore.mobileMenuOpen).toBe(false)
+  })
+
+  it('opens the page search with Ctrl+K and the preferences with Alt+Shift+S, also from inside fields', async () => {
+    const { wrapper, uiShellStore } = await mountShell('/plugins/settings')
+    const field = wrapper.get('[data-testid="settings-draft"]').element
+    field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ctrlKey: true, key: 'k' }))
+    expect(uiShellStore.searchOpen).toBe(true)
+    field.dispatchEvent(new KeyboardEvent('keydown', { altKey: true, bubbles: true, key: 'S', shiftKey: true }))
+    expect(uiShellStore.settingsOpen).toBe(true)
   })
 
   it('renders plugin settings under the plugin center group', async () => {
@@ -632,24 +536,6 @@ describe('BasicLayout', () => {
     expect(parentLink.text()).toBe('插件中心')
     expect(parentLink.attributes('href')).toBe('/plugins')
     expect(breadcrumb.get('.admin-layout__breadcrumb-current').text()).toBe('全局插件设置')
-    expect(getTabLabels()).toEqual(['系统状态', '插件中心'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'plugins'])
-    expect(getActiveTabLabel()).toBe('插件中心')
-  })
-
-  it('uses current route metadata instead of a stale persisted tab icon', async () => {
-    const { uiShellStore } = await mountShell('/plugins/settings')
-    const settingsTab = uiShellStore.tabs.find((item) => item.path === '/plugins')
-
-    expect(settingsTab).toBeDefined()
-    uiShellStore.upsertTab({
-      ...settingsTab!,
-      icon: 'setting',
-    })
-    await flushPromises()
-
-    expect(uiShellStore.tabs.find((item) => item.path === '/plugins')?.icon).toBe('setting')
-    expect(getTabIconKeys()).toEqual(['dashboard', 'plugins'])
   })
 
   it('renders menu center inside the shared plugin center', async () => {
@@ -661,161 +547,16 @@ describe('BasicLayout', () => {
     expect(parentLink.text()).toBe('插件中心')
     expect(parentLink.attributes('href')).toBe('/plugins')
     expect(breadcrumb.get('.admin-layout__breadcrumb-current').text()).toBe('菜单中心')
-    expect(getTabLabels()).toEqual(['系统状态', '插件中心'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'plugins'])
-    expect(getActiveTabLabel()).toBe('插件中心')
-  })
-
-  it('keeps a single workspace tab when only query state changes', async () => {
-    const { router, uiShellStore } = await mountShell('/permission-policy')
-
-    await router.push('/permission-policy')
-    await flushPromises()
-    await router.push('/permission-policy')
-    await flushPromises()
-    expect(uiShellStore.tabs.filter((item) => item.name === 'permission-policy')).toHaveLength(1)
-    expect(getActiveTabLabel()).toBe('权限策略')
-
-    await router.push('/commands?plugin_id=weather')
-    await flushPromises()
-    await router.push('/commands?plugin_id=raylea.echo')
-    await flushPromises()
-    expect(uiShellStore.tabs.filter((item) => item.name === 'plugin-center')).toHaveLength(1)
-    expect(getActiveTabLabel()).toBe('插件中心')
-
-    await router.push('/logs?protocol=onebot11')
-    await flushPromises()
-    await router.push('/logs?protocol=onebot11&request_id=req_1&log_id=log_1')
-    await flushPromises()
-    expect(uiShellStore.tabs.filter((item) => item.name === 'logs')).toHaveLength(1)
-    expect(getActiveTabLabel()).toBe('实时日志')
-
-    await router.push('/logs/history?source=tasks')
-    await flushPromises()
-    await router.push('/logs/history?source=tasks&request_id=req_1')
-    await flushPromises()
-    expect(uiShellStore.tabs.filter((item) => item.name === 'logs-history')).toHaveLength(1)
-    expect(getActiveTabLabel()).toBe('历史日志')
-  })
-
-  it('closes the right-clicked tab without changing the active page when it remains open', async () => {
-    const { router } = await mountShell('/')
-    await openStandardTabs(router)
-
-    await openTabContextMenu('插件中心')
-    await clickContextMenuItem('关闭当前标签')
-
-    expect(router.currentRoute.value.path).toBe('/logs')
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '实时日志'])
-    expect(getActiveTabLabel()).toBe('实时日志')
-  })
-
-  it('closes other tabs from the right-clicked tab and activates that tab when needed', async () => {
-    const { router } = await mountShell('/')
-    await openStandardTabs(router)
-
-    await openTabContextMenu('插件中心')
-    await clickContextMenuItem('关闭其他标签')
-
-    expect(router.currentRoute.value.path).toBe('/commands')
-    expect(getTabLabels()).toEqual(['系统状态', '插件中心'])
-    expect(getActiveTabLabel()).toBe('插件中心')
-  })
-
-  it('closes tabs to the left of the right-clicked tab', async () => {
-    const { router } = await mountShell('/')
-    await openStandardTabs(router)
-
-    await openTabContextMenu('实时日志')
-    await clickContextMenuItem('关闭左侧标签')
-
-    expect(router.currentRoute.value.path).toBe('/logs')
-    expect(getTabLabels()).toEqual(['系统状态', '实时日志'])
-    expect(getActiveTabLabel()).toBe('实时日志')
-  })
-
-  it('closes tabs to the right of the right-clicked tab and falls back to it', async () => {
-    const { router } = await mountShell('/')
-    await openStandardTabs(router)
-
-    await openTabContextMenu('插件中心')
-    await clickContextMenuItem('关闭右侧标签')
-
-    expect(router.currentRoute.value.path).toBe('/commands')
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '插件中心'])
-    expect(getActiveTabLabel()).toBe('插件中心')
-  })
-
-  it('closes all non-affix tabs from the right-click menu', async () => {
-    const { router, wrapper } = await mountShell('/')
-    await openStandardTabs(router)
-
-    await openTabContextMenu('插件中心')
-    await clickContextMenuItem('关闭所有标签')
-
-    expect(router.currentRoute.value.path).toBe('/')
-    expect(getTabLabels()).toEqual(['系统状态'])
-    expect(wrapper.find('.admin-layout__tabbar').exists()).toBe(true)
-  })
-
-  it('keeps the affix tab protected in the right-click menu', async () => {
-    const { router } = await mountShell('/')
-    await router.push('/commands')
-    await flushPromises()
-
-    await openTabContextMenu('系统状态')
-
-    expect(isMenuItemDisabled(getContextMenuItem('关闭当前标签'))).toBe(true)
-  })
-
-  it('creates a closable detail tab for plugin pages', async () => {
-    const { uiShellStore, wrapper } = await mountShell('/plugins/weather')
-
-    expect(uiShellStore.tabs).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        affix: false,
-        icon: 'plugins',
-        path: '/plugins/weather',
-        title: '插件：weather',
-      }),
-    ]))
-    expect(getTabLabels()).toEqual(['系统状态', '插件：weather'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'plugin:weather'])
-    expect(getActiveTabLabel()).toBe('插件：weather')
-
-    const tabIcon = wrapper.get('.admin-layout__tab-label[data-tab-path="/plugins/weather"] .plugin-icon')
-    expect(tabIcon.find('img').exists()).toBe(false)
-    expect(tabIcon.find('.raylea-mark').exists()).toBe(true)
-
-    const pluginsStore = usePluginsStore()
-    pluginsStore.upsert({
-      icon: 'assets/weather.svg',
-      id: 'weather',
-      name: 'Weather',
-      state: 'running',
-      version: '1.4.2',
-    })
-    await flushPromises()
-
-    expect(uiShellStore.tabs.find((item) => item.path === '/plugins/weather')?.title).toBe('插件：Weather')
-    expect(getActiveTabLabel()).toBe('插件：Weather')
-    expect(tabIcon.get('img').attributes('src')).toBe('/api/plugins/weather/icon')
-
-    await tabIcon.get('img').trigger('error')
-    expect(tabIcon.find('img').exists()).toBe(false)
-    expect(tabIcon.find('.raylea-mark').exists()).toBe(true)
   })
 
   it('keeps the same plugin detail page instance when only the panel query changes', async () => {
-    const { router, uiShellStore, wrapper } = await mountShell('/plugins/weather?panel=overview')
+    const { router, wrapper } = await mountShell('/plugins/weather?panel=overview')
 
     const initialNode = wrapper.get('[data-testid="plugin-detail-page"]').element
 
     await router.push('/plugins/weather?panel=management-ui')
     await flushPromises()
 
-    expect(uiShellStore.tabs.filter((item) => item.name === 'plugin-detail')).toHaveLength(1)
-    expect(getActiveTabLabel()).toBe('插件：weather')
     expect(wrapper.get('[data-testid="plugin-detail-page"]').element).toBe(initialNode)
   })
 

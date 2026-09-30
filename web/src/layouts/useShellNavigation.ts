@@ -1,4 +1,4 @@
-import { computed, ref, watch, type Ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter, type RouteLocationNormalizedLoaded, type RouteLocationRaw } from 'vue-router'
 
@@ -51,7 +51,6 @@ export function handleNavigationKeydown(event: KeyboardEvent) {
 
 export function useShellNavigation(options: {
   navigate: (target: RouteLocationRaw) => unknown
-  tabItems: Ref<AppNavigationItem[]>
 }) {
   const route = useRoute()
   const router = useRouter()
@@ -84,6 +83,8 @@ export function useShellNavigation(options: {
     const routeKeys = lineage.slice(0, -1).map((item) => item.key)
     openMenuKeys.value = Array.from(new Set([...openMenuKeys.value, ...routeKeys]))
   }, { immediate: true })
+  // In-page links, breadcrumbs and history navigation close the mobile drawer too.
+  watch(() => route.fullPath, () => uiShellStore.setMobileMenuOpen(false))
 
   const pluginNavigationScope = ref<PluginNavigationScope>('root')
   watch(
@@ -95,14 +96,12 @@ export function useShellNavigation(options: {
     { immediate: true },
   )
 
-  const staticNavigationItems = collectNavigationItems(adminPageRoutes, '')
-    .filter(item => !(item.path === '/' && item.title === t('routes.features')))
-  // Search lists open tabs and static pages once per path; static pages take precedence.
-  const navigationItems = computed(() => {
-    const byPath = new Map<string, AppNavigationItem>()
-    for (const item of [...options.tabItems.value, ...staticNavigationItems]) byPath.set(item.path, item)
-    return Array.from(byPath.values())
-  })
+  // Search lists every static page once per path.
+  const navigationItems = Array.from(new Map<string, AppNavigationItem>(
+    collectNavigationItems(adminPageRoutes, '')
+      .filter(item => !(item.path === '/' && item.title === t('routes.features')))
+      .map(item => [item.path, item]),
+  ).values())
 
   function resolveBreadcrumbPath(record: RouteLocationNormalizedLoaded['matched'][number]) {
     if (!record.redirect || typeof record.redirect === 'function') return record.path

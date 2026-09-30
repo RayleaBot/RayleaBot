@@ -1,6 +1,5 @@
 import { computed, onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { pluginCenterPages, pluginCenterTabName, restorePluginCenterTabs } from '@/access/plugin-center'
 
 import {
   defaultLayoutPreferences,
@@ -10,20 +9,9 @@ import {
   normalizeLayoutPreferences,
 } from '@/preferences/app'
 
-export interface ShellTabItem {
-  affix?: boolean
-  fullPath: string
-  icon?: string
-  keepAlive?: boolean
-  name: string
-  path: string
-  title: string
-}
-
 interface PersistedShellState {
   preferences?: Partial<LayoutPreferences>
   siderCollapsed?: boolean
-  tabs?: ShellTabItem[]
   version: 3
 }
 
@@ -81,52 +69,7 @@ function normalizePersistedState(value: unknown): PersistedShellState {
     version: 3,
     preferences: normalizeLayoutPreferences(nextValue.preferences),
     siderCollapsed: Boolean(nextValue.siderCollapsed),
-    tabs: restorePluginCenterTabs(normalizeTabs(nextValue.tabs)),
   }
-}
-
-function normalizeTabs(value: unknown): ShellTabItem[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  const nextTabs: ShellTabItem[] = []
-
-  for (const item of value) {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) {
-      continue
-    }
-
-    const tab = item as Partial<ShellTabItem>
-    if (
-      typeof tab.fullPath !== 'string'
-      || typeof tab.name !== 'string'
-      || typeof tab.path !== 'string'
-      || typeof tab.title !== 'string'
-    ) {
-      continue
-    }
-
-    nextTabs.push({
-      affix: Boolean(tab.affix),
-      fullPath: tab.fullPath,
-      icon: typeof tab.icon === 'string' && tab.icon ? tab.icon : undefined,
-      keepAlive: Boolean(tab.keepAlive),
-      name: tab.name,
-      path: tab.path,
-      title: tab.title,
-    })
-  }
-
-  return dedupeTabs(nextTabs)
-}
-
-function dedupeTabs(items: ShellTabItem[]) {
-  const nextItems = new Map<string, ShellTabItem>()
-  for (const item of items) {
-    nextItems.set(item.path, item)
-  }
-  return Array.from(nextItems.values())
 }
 
 export const useUiShellStore = defineStore('ui-shell', () => {
@@ -140,22 +83,10 @@ export const useUiShellStore = defineStore('ui-shell', () => {
   const settingsOpen = ref(false)
   const routeLoading = ref(false)
   const systemTheme = ref<ResolvedThemeMode>(readSystemTheme())
-  const tabs = ref<ShellTabItem[]>(
-    normalizeTabs(preferences.value.rememberTabs ? persistedState.tabs : []),
-  )
   const themeMode = computed(() => preferences.value.themeMode)
   const resolvedThemeMode = computed<ResolvedThemeMode>(() => (
     themeMode.value === 'system' ? systemTheme.value : themeMode.value
   ))
-  const cachedViewNames = computed(() => {
-    const names = tabs.value
-      .filter((item) => item.keepAlive)
-      .flatMap((item) => item.name === pluginCenterTabName
-        ? pluginCenterPages.map(page => page.name)
-        : [item.name])
-
-    return Array.from(new Set(names))
-  })
 
   let systemThemeMediaQuery: MediaQueryList | null = null
   const handleSystemThemeChange = (event: MediaQueryListEvent) => {
@@ -176,7 +107,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
       version: 3,
       preferences: preferences.value,
       siderCollapsed: siderCollapsed.value,
-      tabs: preferences.value.rememberTabs ? tabs.value : undefined,
     })
   }
 
@@ -199,90 +129,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
 
   function setThemeMode(nextValue: ThemeMode) {
     patchPreferences({ themeMode: nextValue })
-  }
-
-  function syncTabs(affixTabs: ShellTabItem[]) {
-    const currentTabs = tabs.value.filter((item) => !item.affix)
-    const nextTabs: ShellTabItem[] = normalizeTabs(affixTabs).map((item) => ({
-      ...item,
-      affix: true,
-    }))
-
-    for (const item of currentTabs) {
-      if (!nextTabs.some((candidate) => candidate.path === item.path)) {
-        nextTabs.push(item)
-      }
-    }
-
-    tabs.value = dedupeTabs(nextTabs)
-    persist()
-  }
-
-  function upsertTab(tab: ShellTabItem) {
-    const normalizedTab = normalizeTabs([tab])[0]
-    if (!normalizedTab) {
-      return
-    }
-
-    const existingIndex = tabs.value.findIndex((item) => item.path === tab.path)
-    if (existingIndex >= 0) {
-      tabs.value.splice(existingIndex, 1, { ...tabs.value[existingIndex], ...normalizedTab })
-      persist()
-      return
-    }
-
-    tabs.value.push(normalizedTab)
-    persist()
-  }
-
-  function removeTab(path: string) {
-    tabs.value = tabs.value.filter((item) => item.path !== path || item.affix)
-    persist()
-  }
-
-  function removeTabsByName(name: string, options: { exceptPath?: string } = {}) {
-    tabs.value = tabs.value.filter((item) => {
-      if (item.affix) {
-        return true
-      }
-
-      if (item.name !== name) {
-        return true
-      }
-
-      return item.path === options.exceptPath
-    })
-    persist()
-  }
-
-  function closeOtherTabs(path: string) {
-    tabs.value = tabs.value.filter((item) => item.affix || item.path === path)
-    persist()
-  }
-
-  function closeTabsToLeft(path: string) {
-    const targetIndex = tabs.value.findIndex((item) => item.path === path)
-    if (targetIndex < 0) {
-      return
-    }
-
-    tabs.value = tabs.value.filter((item, index) => item.affix || index >= targetIndex)
-    persist()
-  }
-
-  function closeTabsToRight(path: string) {
-    const targetIndex = tabs.value.findIndex((item) => item.path === path)
-    if (targetIndex < 0) {
-      return
-    }
-
-    tabs.value = tabs.value.filter((item, index) => item.affix || index <= targetIndex)
-    persist()
-  }
-
-  function closeAllTabs() {
-    tabs.value = tabs.value.filter((item) => item.affix)
-    persist()
   }
 
   function openSearch() {
@@ -311,11 +157,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
   }
 
   return {
-    cachedViewNames,
-    closeAllTabs,
-    closeOtherTabs,
-    closeTabsToLeft,
-    closeTabsToRight,
     mobileMenuOpen,
     preferences,
     resolvedThemeMode,
@@ -325,18 +166,13 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     searchOpen,
     siderCollapsed,
     settingsOpen,
-    tabs,
     themeMode,
     closeSearch,
     closeSettings,
-    removeTab,
-    removeTabsByName,
     setMobileMenuOpen,
     setRouteLoading,
     setThemeMode,
-    syncTabs,
     toggleSider,
-    upsertTab,
     openSearch,
     openSettings,
   }

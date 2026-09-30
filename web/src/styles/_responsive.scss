@@ -40,10 +40,6 @@
     display: none;
   }
 
-  .admin-layout__tabbar {
-    display: none;
-  }
-
   .auth-layout__toolbar {
     top: 18px;
     right: 20px;
@@ -111,14 +107,6 @@
 
   .logs-filter-grid {
     grid-template-columns: 1fr;
-  }
-
-  .admin-layout__tabbar-main {
-    align-items: stretch;
-  }
-
-  .admin-layout__tabbar-actions {
-    justify-content: flex-end;
   }
 }
 

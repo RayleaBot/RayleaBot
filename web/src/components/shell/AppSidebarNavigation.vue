@@ -5,7 +5,7 @@ import AppDropdownItem from '@/components/AppDropdownItem.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
-import { computed, nextTick, ref, toRef, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, type RouteLocationRaw } from 'vue-router'
 
 import { resolveMenuIcon } from '@/access/icons'
@@ -15,7 +15,7 @@ import {
   isPluginWorkspaceRoute,
   pluginCenterPageGroups,
   pluginCenterPages,
-  pluginCenterTabName,
+  pluginCenterMenuKey,
 } from '@/access/plugin-center'
 import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import { getPluginStateLabel } from '@/lib/display'
@@ -28,7 +28,6 @@ import { t } from '@/i18n'
 import { usePluginsStore } from '@/stores/plugins'
 import {
   useSidebarPluginNavigation,
-  type OpenPluginTarget,
   type SidebarPluginNavigationEntry,
 } from './useSidebarPluginNavigation'
 
@@ -39,13 +38,11 @@ const props = withDefaults(defineProps<{
   menuItems: AppMenuItem[]
   mobile?: boolean
   openKeys: string[]
-  openPluginTargets?: OpenPluginTarget[]
   scope: NavigationScope
   selectedKeys: string[]
 }>(), {
   collapsed: false,
   mobile: false,
-  openPluginTargets: () => [],
 })
 
 const emit = defineEmits<{
@@ -64,13 +61,9 @@ const {
   filteredPlugins,
   getPluginAriaLabel,
   getPluginDisclosureLabel,
-  getPluginName,
-  getPluginSummary,
   isPluginContentVisible,
   isPluginExpansionPending,
   navigationPlugins,
-  openPluginTargetById,
-  openPluginTargets,
   pluginCollection,
   pluginFilter,
   pluginNavigationEntries,
@@ -78,10 +71,7 @@ const {
   retryPluginList,
   showPluginFilter,
   togglePluginExpansion,
-} = useSidebarPluginNavigation({
-  activePluginId,
-  openPluginTargets: toRef(props, 'openPluginTargets'),
-})
+} = useSidebarPluginNavigation({ activePluginId })
 const { error, loading, nextCursor, loadingMore } = pluginCollection
 const navigation = ref<HTMLElement | null>(null)
 const transitionDirection = ref<'forward' | 'back'>('forward')
@@ -133,17 +123,13 @@ function enterPluginCenter() {
 function enterPlugin(pluginId: string) {
   expandPlugin(pluginId)
   if (pluginId === activePluginId.value) return
-  emit('navigate', openPluginTargetById.value.get(pluginId) ?? buildPluginDetailLocation(pluginId))
+  emit('navigate', buildPluginDetailLocation(pluginId))
 }
 
 function backToRoot() {
   transitionDirection.value = 'back'
   emit('scopeChange', 'root')
   void focusAfterScopeChange('[data-sidebar-entry="plugin-center"]')
-}
-
-function openWorkspacePlugin(target: OpenPluginTarget) {
-  emit('navigate', target.fullPath)
 }
 
 function activatePluginNavigationEntry(entry: SidebarPluginNavigationEntry) {
@@ -178,17 +164,13 @@ function toggleRootGroup(key: string) {
       <div :key="visibleScope" class="sidebar-navigation__stage">
         <div v-if="visibleScope === 'root'" class="sidebar-navigation__root">
           <template v-for="item in menuItems" :key="item.key">
-            <AppDropdown v-if="collapsed && (item.children?.length || item.key === pluginCenterTabName)" side="right" align="start">
-              <button type="button" class="sidebar-navigation__item sidebar-navigation__collapsed-item" data-nav-item :aria-label="item.title" :title="item.title" :data-sidebar-entry="item.key === pluginCenterTabName ? 'plugin-center' : undefined">
+            <AppDropdown v-if="collapsed && (item.children?.length || item.key === pluginCenterMenuKey)" side="right" align="start">
+              <button type="button" class="sidebar-navigation__item sidebar-navigation__collapsed-item" data-nav-item :aria-label="item.title" :title="item.title" :data-sidebar-entry="item.key === pluginCenterMenuKey ? 'plugin-center' : undefined">
                 <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
               </button>
               <template #content>
-                <template v-if="item.key === pluginCenterTabName">
+                <template v-if="item.key === pluginCenterMenuKey">
                   <AppDropdownItem v-for="page in pluginCenterPages" :key="page.name" :data-sidebar-page="page.name" @select="navigateStaticPage(page)"><component :is="resolveMenuIcon(page.icon)" />{{ t(page.titleKey) }}</AppDropdownItem>
-                  <div v-if="openPluginTargets.length" class="app-menu-label">{{ t('plugins.navigation.groups.openPlugins') }}</div>
-                  <AppDropdownItem v-for="target in openPluginTargets" :key="target.pluginId" :data-sidebar-open-plugin-id="target.pluginId" @select="openWorkspacePlugin(target)">
-                    <PluginIcon :refresh-key="pluginsStore.iconRevision" class="sidebar-navigation__plugin-icon" :plugin-id="target.pluginId" :icon="getPluginSummary(target.pluginId)?.icon" :version="getPluginSummary(target.pluginId)?.version" />{{ getPluginName(target.pluginId) }}
-                  </AppDropdownItem>
                 </template>
                 <AppDropdownItem v-for="child in item.children" v-else :key="child.key" @select="emit('navigate', child.path)"><component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" />{{ child.title }}</AppDropdownItem>
               </template>
@@ -201,8 +183,8 @@ function toggleRootGroup(key: string) {
                 </button>
               </div>
             </section>
-            <button v-else type="button" class="sidebar-navigation__item" :class="{ 'sidebar-navigation__collapsed-item': collapsed }" data-nav-item :aria-label="item.title" :title="collapsed ? item.title : undefined" :aria-current="selectedKeys.includes(item.key) ? 'page' : undefined" :data-sidebar-entry="item.key === pluginCenterTabName ? 'plugin-center' : undefined" @click="item.key === pluginCenterTabName ? enterPluginCenter() : emit('navigate', item.path)">
-              <span class="admin-layout__menu-label sidebar-navigation__root-label"><component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" /><span v-if="!collapsed">{{ item.title }}</span><ChevronRightIcon v-if="item.key === pluginCenterTabName && !collapsed" class="sidebar-navigation__chevron" aria-hidden="true" /></span>
+            <button v-else type="button" class="sidebar-navigation__item" :class="{ 'sidebar-navigation__collapsed-item': collapsed }" data-nav-item :aria-label="item.title" :title="collapsed ? item.title : undefined" :aria-current="selectedKeys.includes(item.key) ? 'page' : undefined" :data-sidebar-entry="item.key === pluginCenterMenuKey ? 'plugin-center' : undefined" @click="item.key === pluginCenterMenuKey ? enterPluginCenter() : emit('navigate', item.path)">
+              <span class="admin-layout__menu-label sidebar-navigation__root-label"><component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" /><span v-if="!collapsed">{{ item.title }}</span><ChevronRightIcon v-if="item.key === pluginCenterMenuKey && !collapsed" class="sidebar-navigation__chevron" aria-hidden="true" /></span>
             </button>
           </template>
         </div>

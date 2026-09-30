@@ -5,22 +5,18 @@ export type ContentWidth = 'fixed' | 'wide'
 export type PageTransition = 'fade' | 'fade-slide' | 'none'
 
 export interface LayoutPreferences {
-  chromeTabbar: boolean
   contentWidth: ContentWidth
   density: DensityMode
   layoutMode: 'sidebar-nav'
   pageTransition: PageTransition
-  rememberTabs: boolean
   themeMode: ThemeMode
 }
 
 export const defaultLayoutPreferences: LayoutPreferences = {
-  chromeTabbar: true,
   contentWidth: 'wide',
   density: 'default',
   layoutMode: 'sidebar-nav',
   pageTransition: 'fade-slide',
-  rememberTabs: true,
   themeMode: 'system',
 }
 
@@ -42,12 +38,10 @@ export function normalizeLayoutPreferences(
     : defaultLayoutPreferences.pageTransition
 
   return {
-    chromeTabbar: nextValue.chromeTabbar !== false,
     contentWidth,
     density,
     layoutMode: 'sidebar-nav',
     pageTransition,
-    rememberTabs: nextValue.rememberTabs !== false,
     themeMode,
   }
 }

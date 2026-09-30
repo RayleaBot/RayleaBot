@@ -4,7 +4,6 @@ import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useFullscreen } from '@vueuse/core'
 import {
-  XIcon,
   MinimizeIcon,
   MaximizeIcon,
   PanelLeftCloseIcon,
@@ -16,7 +15,6 @@ import {
   SearchIcon,
   SettingsIcon,
 } from '@lucide/vue'
-import { TabsRoot, TabsList, TabsTrigger } from 'reka-ui'
 import AppButton from '@/components/AppButton.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
 import AppDropdown from '@/components/AppDropdown.vue'
@@ -26,7 +24,6 @@ import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 
 import { notifyError, notifyInfo, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import RayleaMark from '@/components/brand/RayleaMark.vue'
-import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import AppSidebarNavigation from '@/components/shell/AppSidebarNavigation.vue'
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import PreferencesDrawer from '@/components/shell/PreferencesDrawer.vue'
@@ -36,34 +33,30 @@ import AccountCredentialsDialog from '@/components/shell/AccountCredentialsDialo
 import { buildVersionLabel } from '@/lib/build-info'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
-import { usePluginsStore } from '@/stores/plugins'
 import { useSessionStore } from '@/stores/session'
 import { useSystemStore } from '@/stores/system'
 import { useConfigStore } from '@/stores/config'
 import { useUiShellStore } from '@/stores/ui-shell'
 import type { ThemeMode } from '@/preferences/app'
-import { createRouteStageRegistry, resolveLeafRouteComponent, resolveRouteViewKey } from '@/layouts/shell-routes'
+import { collectKeepAliveViewNames, createRouteStageRegistry, resolveLeafRouteComponent, resolveRouteViewKey } from '@/layouts/shell-routes'
 import { providePageTransitionStage } from '@/layouts/usePageTransitionStage'
 import { handleNavigationKeydown, useShellNavigation } from '@/layouts/useShellNavigation'
-import { useWorkspaceTabs } from '@/layouts/useWorkspaceTabs'
+import { useShellShortcuts } from '@/layouts/useShellShortcuts'
 import { applyThemeWithMotion, navigateWithMotion, type ThemeMotionOrigin } from '@/motion/runtime'
 import { prefetchRouteComponents } from '@/router/prefetch'
 
 const router = useRouter()
-const pluginsStore = usePluginsStore()
 const sessionStore = useSessionStore()
 const systemStore = useSystemStore()
 const configStore = useConfigStore()
 const uiShellStore = useUiShellStore()
 
 const {
-  cachedViewNames,
   mobileMenuOpen,
   preferences,
   routeLoading,
   searchOpen,
   siderCollapsed,
-  tabs,
 } = storeToRefs(uiShellStore)
 const { shutdownPending, shutdownRequested } = storeToRefs(systemStore)
 
@@ -88,16 +81,8 @@ function navigate(target: RouteLocationRaw) {
 
 const pageTransition = providePageTransitionStage(pageMotionProfile)
 const getRouteStageComponent = createRouteStageRegistry()
-const {
-  currentTabPath,
-  getTabCloseActionItems,
-  handleTabAction,
-  onTabChange,
-  onTabEdit,
-  openPluginTargets,
-  tabActionItems,
-  tabViews,
-} = useWorkspaceTabs(navigate)
+const cachedViewNames = collectKeepAliveViewNames(router)
+useShellShortcuts()
 const {
   breadcrumbItems,
   collapsedOpenMenuKeys,
@@ -109,16 +94,7 @@ const {
   pluginNavigationScope,
   selectedMenuKeys,
   setPluginNavigationScope,
-} = useShellNavigation({
-  navigate,
-  tabItems: computed(() => tabViews.value.map(({ tab, iconName }) => ({
-    icon: iconName,
-    key: `tab:${tab.path}`,
-    path: tab.path,
-    title: tab.title,
-  }))),
-})
-const showWorkspaceTabs = computed(() => preferences.value.chromeTabbar && tabs.value.length > 0)
+} = useShellNavigation({ navigate })
 
 const { isFullscreen, isSupported: fullscreenSupported, toggle: toggleDocumentFullscreen } = useFullscreen()
 
@@ -204,7 +180,6 @@ onBeforeUnmount(() => stopRoutePrefetch?.())
           :collapsed="siderCollapsed"
           :menu-items="menuItems"
           :open-keys="siderCollapsed ? collapsedOpenMenuKeys : openMenuKeys"
-          :open-plugin-targets="openPluginTargets"
           :scope="pluginNavigationScope"
           :selected-keys="selectedMenuKeys"
           @navigate="navigateTo"
@@ -239,7 +214,6 @@ onBeforeUnmount(() => stopRoutePrefetch?.())
           mobile
           :menu-items="menuItems"
           :open-keys="openMenuKeys"
-          :open-plugin-targets="openPluginTargets"
           :scope="pluginNavigationScope"
           :selected-keys="selectedMenuKeys"
           @navigate="navigateTo"
@@ -379,57 +353,6 @@ onBeforeUnmount(() => stopRoutePrefetch?.())
           </div>
         </div>
 
-        <div v-if="showWorkspaceTabs" class="admin-layout__tabbar">
-          <div class="admin-layout__tabbar-main liquid-glass liquid-glass--strong" data-glass="clear">
-            <TabsRoot class="workspace-tabs" :model-value="currentTabPath" activation-mode="manual" @update:model-value="onTabChange(String($event))">
-              <TabsList class="workspace-tabs__list" :aria-label="t('shell.workspaceTabs')">
-                <AppDropdown v-for="{ tab: item, plugin, icon, iconData } in tabViews" :key="item.path" context align="start" data-testid="tab-context-menu">
-                  <div class="workspace-tabs__item" :data-active="currentTabPath === item.path">
-                    <TabsTrigger :value="item.path" class="workspace-tabs__trigger" aria-controls="app-main">
-                      <span class="admin-layout__tab-label" :data-icon="iconData" :data-tab-path="item.path">
-                        <PluginIcon v-if="plugin" :refresh-key="pluginsStore.iconRevision" class="admin-layout__tab-plugin-icon" :data-plugin-id="plugin.id" :plugin-id="plugin.id" :icon="plugin.icon" :version="plugin.version" />
-                        <component :is="icon" v-else-if="icon" class="admin-layout__tab-icon" />
-                        <span>{{ item.title }}</span>
-                      </span>
-                    </TabsTrigger>
-                    <button v-if="!item.affix" type="button" class="workspace-tabs__close" :aria-label="t('shell.tabActions.closeCurrent') + ' ' + item.title" @click.stop="onTabEdit(item.path, 'remove')"><XIcon :size="14" /></button>
-                  </div>
-                  <template #content>
-                    <AppDropdownItem v-for="action in getTabCloseActionItems(item)" :key="action.key" :disabled="action.disabled" :data-testid="`tab-context-${action.key}`" @select="handleTabAction(action.key, item)">{{ action.label }}</AppDropdownItem>
-                  </template>
-                </AppDropdown>
-              </TabsList>
-            </TabsRoot>
-
-            <div class="admin-layout__tabbar-actions">
-              <AppDropdown>
-                <AppButton
-                  class="admin-layout__icon-button"
-                  variant="ghost"
-                  :aria-label="t('shell.tabActions.menu')"
-                  data-testid="tabbar-actions"
-                >
-                  <template #icon>
-                    <EllipsisIcon />
-                  </template>
-                </AppButton>
-
-                <template #content>
-                  <div>
-                    <AppDropdownItem
-                      v-for="item in tabActionItems"
-                      :key="item.key"
-                      :disabled="item.disabled"
-                      @select="handleTabAction(item.key)"
-                    >
-                      {{ item.label }}
-                    </AppDropdownItem>
-                  </div>
-                </template>
-              </AppDropdown>
-            </div>
-          </div>
-        </div>
       </header>
 
       <main id="app-main" class="admin-layout__content" tabindex="-1">

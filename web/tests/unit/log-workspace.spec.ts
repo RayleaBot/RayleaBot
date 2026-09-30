@@ -8,13 +8,12 @@ import ManagementLogWorkspace from '@/components/logs/ManagementLogWorkspace.vue
 import { useLogHistoryStore } from '@/stores/log-history'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
-import { useUiShellStore } from '@/stores/ui-shell'
 import LogsView from '@/views/operations/LogsView.vue'
 import LogsHistoryView from '@/views/operations/LogsHistoryView.vue'
 
 afterEach(() => { vi.unstubAllGlobals() })
 
-it('deactivates the live workspace without rewriting the destination history tab', async () => {
+it('deactivates the live workspace when moving to the history workspace', async () => {
   const pinia = createPinia()
   const router = createRouter({ history: createMemoryHistory(), routes: [
     { path: '/logs', name: 'logs', component: LogsView },
@@ -30,10 +29,7 @@ it('deactivates the live workspace without rewriting the destination history tab
   vi.spyOn(historyStore, 'applyFilters').mockResolvedValue([])
   vi.spyOn(usePluginsStore(pinia), 'fetchList').mockResolvedValue(undefined)
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 0 })
-  const shell = useUiShellStore(pinia)
   const destination = '/logs/history?source=plugin&log_id=history&start_at=2026-04-01T00:00:00Z&end_at=2026-04-02T00:00:00Z'
-  shell.upsertTab({ name: 'logs', title: 'Live', path: '/logs', fullPath: '/logs?level=info&log_id=live', keepAlive: true })
-  shell.upsertTab({ name: 'logs-history', title: 'History', path: '/logs/history', fullPath: destination, keepAlive: true })
   await router.push('/logs?level=info&log_id=live')
   const wrapper = mount({ template: '<RouterView v-slot="{ Component }"><KeepAlive><component :is="Component" /></KeepAlive></RouterView>' }, {
     global: { plugins: [pinia, router] },
@@ -42,8 +38,6 @@ it('deactivates the live workspace without rewriting the destination history tab
     await flushPromises()
     await router.push(destination)
     await flushPromises()
-    expect(shell.tabs.find(tab => tab.name === 'logs')?.fullPath).toBe('/logs?level=info')
-    expect(shell.tabs.find(tab => tab.name === 'logs-history')?.fullPath).toBe(destination)
     expect(liveStore.active).toBe(false)
     expect(liveStore.filters).toEqual({ levels: ['info'] })
     expect(historyStore.filters).toEqual({ source: 'plugin' })

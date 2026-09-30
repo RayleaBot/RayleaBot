@@ -1,9 +1,8 @@
 import type { AppMenuItem } from './menu'
-import type { ShellTabItem } from '@/stores/ui-shell'
 import { t } from '@/i18n'
 
 export const pluginCenterPath = '/plugins'
-export const pluginCenterTabName = 'plugin-center'
+export const pluginCenterMenuKey = 'plugin-center'
 export const pluginCenterPages = [
   { name: 'plugins', path: '/plugins', titleKey: 'routes.pluginList', icon: 'plugins', group: 'management' },
   { name: 'plugin-store', path: '/plugins/store', titleKey: 'routes.pluginStore', icon: 'plugin-store', group: 'management' },
@@ -25,39 +24,8 @@ export function isPluginWorkspaceRoute(name: unknown) {
   return isPluginCenterRoute(name) || name === 'plugin-detail'
 }
 
-function isPluginCenterLocation(location: string) {
-  const path = location.split(/[?#]/, 1)[0]
-  return pluginCenterPages.some(page => page.path === path)
-}
-
-export function createPluginCenterTab(fullPath = pluginCenterPath): ShellTabItem {
-  return {
-    name: pluginCenterTabName,
-    path: pluginCenterPath,
-    fullPath: isPluginCenterLocation(fullPath) ? fullPath : pluginCenterPath,
-    title: t('routes.pluginCenter'),
-    icon: 'plugins',
-    keepAlive: true,
-    affix: false,
-  }
-}
-
 export function projectPluginCenterMenu(items: AppMenuItem[]): AppMenuItem[] {
   return items.map(item => pluginCenterPages.every(page => item.children?.some(child => child.key === page.name))
-    ? { key: pluginCenterTabName, path: pluginCenterPath, title: t('routes.pluginCenter'), icon: 'plugins' }
+    ? { key: pluginCenterMenuKey, path: pluginCenterPath, title: t('routes.pluginCenter'), icon: 'plugins' }
     : item)
-}
-
-export function restorePluginCenterTabs(items: ShellTabItem[]): ShellTabItem[] {
-  const belongsToCenter = (item: ShellTabItem) => item.name === pluginCenterTabName
-    || (isPluginCenterRoute(item.name) && isPluginCenterLocation(item.path))
-  const savedCenter = items.find(item => item.name === pluginCenterTabName)
-  const merged = createPluginCenterTab(savedCenter?.fullPath)
-  let inserted = false
-  return items.flatMap(item => {
-    if (!belongsToCenter(item)) return [item]
-    if (inserted) return []
-    inserted = true
-    return [merged]
-  })
 }

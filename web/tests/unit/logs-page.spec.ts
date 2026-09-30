@@ -7,7 +7,6 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
-import { useUiShellStore } from '@/stores/ui-shell'
 import LogsPage from '@/views/operations/LogsView.vue'
 
 function jsonResponse(body: unknown, status = 200) {
@@ -220,15 +219,6 @@ describe('LogsPage', () => {
     ]
     vi.spyOn(store, 'ensureLoaded').mockResolvedValue(store.items)
 
-    const uiShellStore = useUiShellStore()
-    uiShellStore.upsertTab({
-      fullPath: '/logs?log_id=log_info_0001',
-      keepAlive: true,
-      name: 'logs',
-      path: '/logs',
-      title: '实时日志',
-    })
-
     const wrapper = mountRoutedView(router)
 
     await flushPromises()
@@ -249,7 +239,6 @@ describe('LogsPage', () => {
     expect(store.active).toBe(false)
     expect(store.atBottom).toBe(true)
     expect(store.pendingNewCount).toBe(0)
-    expect(uiShellStore.tabs.find((item) => item.path === '/logs')?.fullPath).toBe('/logs')
   })
 
   it('does not open a stale detail after realtime log loading finishes on another page', async () => {

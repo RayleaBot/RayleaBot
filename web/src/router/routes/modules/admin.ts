@@ -17,7 +17,6 @@ function groupRoute(
     component: RouteView,
     redirect: { name: redirectName },
     meta: {
-      hideInTab: true,
       icon,
       order,
       requiresAuth: true,
@@ -60,7 +59,6 @@ export const adminRoutes: RouteRecordRaw[] = [
         name: 'status',
         component: () => import('@/views/dashboard/DashboardView.vue'),
         meta: {
-          affixTab: true,
           icon: 'dashboard',
           order: 1,
           requiresAuth: true,

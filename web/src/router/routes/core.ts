@@ -17,7 +17,6 @@ export const publicRoutes: RouteRecordRaw[] = [
           titleKey: 'routes.login',
           icon: 'login',
           hideInMenu: true,
-          hideInTab: true,
         },
       },
       {
@@ -29,7 +28,6 @@ export const publicRoutes: RouteRecordRaw[] = [
           titleKey: 'routes.setup',
           icon: 'login',
           hideInMenu: true,
-          hideInTab: true,
         },
       },
     ],

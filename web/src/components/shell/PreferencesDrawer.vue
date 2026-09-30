@@ -5,7 +5,6 @@ import { storeToRefs } from 'pinia'
 import AppDrawer from '@/components/AppDrawer.vue'
 import AppTabs from '@/components/AppTabs.vue'
 import AppSegmented from '@/components/AppSegmented.vue'
-import AppSwitch from '@/components/AppSwitch.vue'
 import AppButton from '@/components/AppButton.vue'
 import { t } from '@/i18n'
 import { applyThemeWithMotion } from '@/motion/runtime'
@@ -51,8 +50,6 @@ const fontLicenseUrl = `${import.meta.env.BASE_URL}fonts/HarmonyOS-Sans-LICENSE.
 
 const shortcutItems = computed(() => [
   { combo: 'Ctrl / Cmd + K', description: t('shell.preferences.shortcutSearch') },
-  { combo: 'Ctrl / Cmd + W', description: t('shell.preferences.shortcutCloseCurrent') },
-  { combo: 'Ctrl / Cmd + Shift + W', description: t('shell.preferences.shortcutCloseOther') },
   { combo: 'Alt + Shift + S', description: t('shell.preferences.shortcutSettings') },
 ])
 
@@ -135,24 +132,6 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
             @update:model-value="patchPreference('contentWidth', $event as ContentWidth)"
           />
         </div>
-
-        <div class="preferences-switches">
-          <div class="preferences-switch">
-            <div>
-              <strong>{{ t('shell.preferences.chromeTabbar') }}</strong>
-              <span>{{ t('shell.preferences.chromeTabbarHelp') }}</span>
-            </div>
-            <AppSwitch :model-value="preferences.chromeTabbar" :aria-label="t('shell.preferences.chromeTabbar')" @update:model-value="patchPreference('chromeTabbar', $event)" />
-          </div>
-
-          <div class="preferences-switch">
-            <div>
-              <strong>{{ t('shell.preferences.rememberTabs') }}</strong>
-              <span>{{ t('shell.preferences.rememberTabsHelp') }}</span>
-            </div>
-            <AppSwitch :model-value="preferences.rememberTabs" :aria-label="t('shell.preferences.rememberTabs')" @update:model-value="patchPreference('rememberTabs', $event)" />
-          </div>
-        </div>
       </template>
 
       <template #shortcuts>
@@ -179,7 +158,6 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
 }
 
 .preferences-group,
-.preferences-switches,
 .shortcut-list {
   display: grid;
   gap: 12px;
@@ -194,15 +172,13 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
   gap: 4px;
 }
 
-.preferences-group__heading strong,
-.preferences-switch strong {
+.preferences-group__heading strong {
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
 }
 
 .preferences-group__heading span,
-.preferences-switch span,
 .shortcut-item span {
   color: var(--muted);
   font-size: 13px;
@@ -222,20 +198,6 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
 .preferences-font-license:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
-}
-
-.preferences-switch {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.preferences-switch > div {
-  display: grid;
-  gap: 4px;
 }
 
 .shortcut-item {

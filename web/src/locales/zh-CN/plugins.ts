@@ -174,7 +174,6 @@ export const plugins = {
       management: '管理',
       tools: '工具',
       installed: '已安装插件',
-      openPlugins: '已打开插件',
     },
     filterLabel: '筛选已安装插件',
     filterPlaceholder: '筛选插件名称或 ID',

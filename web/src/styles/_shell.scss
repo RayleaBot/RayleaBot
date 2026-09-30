@@ -299,55 +299,6 @@
   transform: translateY(0.5px);
 }
 
-// Open workspaces share one glass track; the current tab is a lit capsule.
-.admin-layout__tabbar {
-  padding: 4px var(--app-shell-padding-inline) 4px 12px;
-  background: transparent;
-}
-
-.admin-layout__tabbar-main {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 46px;
-  min-width: 0;
-  padding: 4px;
-  border-radius: 999px;
-}
-
-.admin-layout__tab-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.admin-layout__tab-icon {
-  flex: 0 0 auto;
-  font-size: 0.92rem;
-}
-
-.admin-layout__tabbar .admin-layout__tab-plugin-icon.plugin-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.admin-layout__tabbar .admin-layout__tab-plugin-icon.plugin-icon .raylea-mark {
-  width: 15px;
-  height: 15px;
-}
-
-.admin-layout__tabbar-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.admin-layout__tabbar-actions .admin-layout__icon-button {
-  width: 36px;
-  height: 36px;
-}
-
 .admin-layout__content {
   flex: 1 1 auto;
   padding: var(--app-shell-padding-block) var(--app-shell-padding-inline) 24px;
@@ -414,7 +365,7 @@
 .admin-layout__sider[data-collapsed=true] { width: 68px; }
 .admin-layout__sider[data-collapsed=true] .admin-layout__brand { justify-content: center; padding-inline: 0; }
 .admin-layout__sider[data-collapsed=true] .admin-layout__sider-scroll { padding-inline: 12px; }
-.admin-layout__menu-icon, .admin-layout__tab-icon { width: 17px; height: 17px; flex-shrink: 0; }
+.admin-layout__menu-icon { width: 17px; height: 17px; flex-shrink: 0; }
 .admin-layout__mobile-drawer { background: var(--sider-bg); color: var(--sider-menu-text); }
 .admin-layout__mobile-drawer .app-dialog__header { padding: 16px; }
 .admin-layout__mobile-drawer .app-dialog__header .app-button { color: var(--sider-menu-text); }
@@ -422,22 +373,9 @@
 .admin-layout__mobile-drawer .app-dialog__body { padding: 0 12px 16px; }
 .admin-layout__mobile-brand { margin-bottom: 16px; }
 .admin-layout__mobile-brand > .raylea-mark { width: 24px; height: 26px; }
-.workspace-tabs { flex: 1; min-width: 0; }
-.workspace-tabs__list { display: flex; align-items: center; gap: 4px; min-height: 38px; overflow-x: auto; scrollbar-width: none; }
-// Hover and selection inside the glass sidebar and tab track change instantly: every frame of a colour
-// transition would re-run the whole pane's refraction.
-.workspace-tabs__item { display: flex; flex-shrink: 0; align-items: center; position: relative; min-height: 38px; padding-inline: 2px; border-radius: 999px; }
-.admin-layout__sider .app-button, .admin-layout__tabbar-main .app-button { transition: none; }
-.workspace-tabs__item:hover { background: var(--nav-hover); }
-.workspace-tabs__item[data-active=true] { background: var(--surface-lit); box-shadow: inset 0 1px 0 var(--glass-rim), 0 4px 12px -6px color-mix(in srgb, var(--text) 30%, transparent); }
-.workspace-tabs__trigger { padding: 7px 12px; color: var(--muted); white-space: nowrap; cursor: pointer; }
-.workspace-tabs__trigger[data-state=active] { color: var(--on-lit); font-weight: 650; }
-.workspace-tabs__trigger:focus-visible, .workspace-tabs__close:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 999px; }
-.workspace-tabs__item[data-active=true] .workspace-tabs__trigger:focus-visible, .workspace-tabs__item[data-active=true] .workspace-tabs__close:focus-visible { outline-color: var(--on-lit); }
-.workspace-tabs__close { display: grid; place-items: center; width: 26px; height: 26px; margin-right: 4px; border-radius: 999px; color: var(--muted); }
-.workspace-tabs__item[data-active=true] .workspace-tabs__close { color: var(--on-lit-muted); }
-.workspace-tabs__close:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
-.workspace-tabs__item[data-active=true] .workspace-tabs__close:hover { background: color-mix(in srgb, var(--on-lit) 10%, transparent); color: var(--on-lit); }
+// Hover and selection inside the glass sidebar change instantly: every frame of a colour transition
+// would re-run the whole pane's refraction.
+.admin-layout__sider .app-button { transition: none; }
 @media (max-width: #{bp.$desktop - 1px}) { .admin-layout__sider { display: none; } }
 
 @media (min-width: #{bp.$desktop}) { .admin-layout .app-button.mobile-only { display: none !important; } }

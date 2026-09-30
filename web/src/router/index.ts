@@ -11,11 +11,9 @@ import { useUiShellStore } from '@/stores/ui-shell'
 declare module 'vue-router' {
   interface RouteMeta {
     activePath?: string
-    affixTab?: boolean
     entryPath?: string
     exceptionStatus?: '403' | '404' | '500'
     hideInMenu?: boolean
-    hideInTab?: boolean
     icon?: string
     keepAlive?: boolean
     order?: number
@@ -31,7 +29,7 @@ const developmentRoutes: RouteRecordRaw[] = import.meta.env.DEV ? [{
   path: '/__dev/components',
   name: 'dev-components',
   component: () => import('@/views/dev/ComponentsView.vue'),
-  meta: { requiresAuth: true, hideInMenu: true, hideInTab: true, title: '组件预览' },
+  meta: { requiresAuth: true, hideInMenu: true, title: '组件预览' },
 }] : []
 
 export const routes: RouteRecordRaw[] = [...publicRoutes, ...developmentRoutes, ...adminRoutes]

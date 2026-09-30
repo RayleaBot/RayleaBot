@@ -7,11 +7,6 @@ import { usePluginCollection } from '@/lib/use-plugin-collection'
 import { usePluginsStore } from '@/stores/plugins'
 import type { PluginDetail, PluginState, PluginSummary } from '@/types/api'
 
-export interface OpenPluginTarget {
-  fullPath: string
-  pluginId: string
-}
-
 type SidebarPluginItem = Pick<PluginSummary, 'id' | 'name'> & {
   icon?: PluginSummary['icon']
   state?: PluginState
@@ -27,10 +22,9 @@ export type SidebarPluginNavigationEntry =
   | { key: string; kind: 'retry'; plugin: SidebarPluginItem }
 
 // The plugin center's installed-plugin list: the current page of plugins plus every plugin that
-// was opened or visited, each expandable into its overview and declared management pages.
+// was visited, each expandable into its overview and declared management pages.
 export function useSidebarPluginNavigation(options: {
   activePluginId: Ref<string>
-  openPluginTargets: Ref<OpenPluginTarget[]>
 }) {
   const { activePluginId } = options
   const pluginsStore = usePluginsStore()
@@ -57,17 +51,6 @@ export function useSidebarPluginNavigation(options: {
     || activePluginSummary.value?.name?.trim()
     || pluginsStore.getPluginDisplayName(activePluginId.value)
   ))
-  const openPluginTargets = computed(() => {
-    const seen = new Set<string>()
-    return options.openPluginTargets.value.filter((target) => {
-      if (!target.pluginId || !target.fullPath || seen.has(target.pluginId)) return false
-      seen.add(target.pluginId)
-      return true
-    })
-  })
-  const openPluginTargetById = computed(() => new Map(
-    openPluginTargets.value.map(target => [target.pluginId, target.fullPath]),
-  ))
   const navigationPlugins = computed<SidebarPluginItem[]>(() => {
     const visited = pluginsStore.knownItems.filter(plugin => visitedPluginIds.value.has(plugin.id))
     const remembered = new Map([...sortedItems.value, ...visited, ...Object.values(detailsByPluginId.value)].map(plugin => [plugin.id, plugin]))
@@ -79,12 +62,6 @@ export function useSidebarPluginNavigation(options: {
       version: plugin.version,
     }))
 
-    for (const target of openPluginTargets.value) {
-      if (!items.some(plugin => plugin.id === target.pluginId)) {
-        const known = pluginsStore.knownItems.find(plugin => plugin.id === target.pluginId)
-        items.push(known ?? { id: target.pluginId, name: pluginsStore.getPluginDisplayName(target.pluginId) })
-      }
-    }
     if (activePluginId.value && !items.some(plugin => plugin.id === activePluginId.value)) {
       items.push({
         icon: activePlugin.value?.icon,
@@ -212,14 +189,6 @@ export function useSidebarPluginNavigation(options: {
     void pluginsStore.ensureDetail(pluginId, { refresh: true }).catch(() => undefined)
   }
 
-  function getPluginSummary(pluginId: string) {
-    return navigationPlugins.value.find(plugin => plugin.id === pluginId)
-  }
-
-  function getPluginName(pluginId: string) {
-    return getPluginSummary(pluginId)?.name || pluginsStore.getPluginDisplayName(pluginId)
-  }
-
   function getPluginAriaLabel(plugin: SidebarPluginItem) {
     return plugin.state
       ? `${plugin.name}，${getPluginStateLabel(plugin.state)}`
@@ -241,13 +210,9 @@ export function useSidebarPluginNavigation(options: {
     filteredPlugins,
     getPluginAriaLabel,
     getPluginDisclosureLabel,
-    getPluginName,
-    getPluginSummary,
     isPluginContentVisible,
     isPluginExpansionPending,
     navigationPlugins,
-    openPluginTargetById,
-    openPluginTargets,
     pluginCollection,
     pluginFilter,
     pluginNavigationEntries,

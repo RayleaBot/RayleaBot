@@ -36,7 +36,6 @@ export const routes = {
 } as const
 
 export const shell = {
-  workspaceTabs: '工作区页签',
   account: '账号',
   developmentVersion: '开发版本',
   credentials: {
@@ -78,19 +77,9 @@ export const shell = {
   shutdownAccepted: '停机请求已发送',
   shutdownRequestedTitle: '服务正在停止',
   shutdownRequestedDescription: '服务正在停止，管理界面连接断开属于预期行为。',
-  tabActions: {
-    closeAll: '关闭所有标签',
-    closeCurrent: '关闭当前标签',
-    closeLeft: '关闭左侧标签',
-    menu: '标签页操作',
-    closeOther: '关闭其他标签',
-    closeRight: '关闭右侧标签',
-  },
   toggleSidebar: '折叠侧栏',
   preferences: {
     appearance: '外观',
-    chromeTabbar: '多标签页',
-    chromeTabbarHelp: '在头部下方显示后台标签导航。',
     contentWidth: '内容宽度',
     contentWidthHelp: '自适应使用全部可用空间，固定模式按页面类型保持可读宽度。',
     contentWidthFixed: '固定',
@@ -101,11 +90,7 @@ export const shell = {
     densityHelp: '紧凑模式减少页面留白，正文和关键操作保持相同尺寸。',
     pageTransition: '页面切换动画',
     pageTransitionHelp: '动效只用于表达工作区切换，可随系统减少动态效果。',
-    rememberTabs: '记住标签页',
-    rememberTabsHelp: '重新打开管理界面后恢复已打开的标签。',
     reset: '恢复默认设置',
-    shortcutCloseCurrent: '关闭当前标签页',
-    shortcutCloseOther: '关闭其他标签页',
     shortcuts: '快捷键',
     shortcutSearch: '打开页面搜索',
     shortcutSettings: '打开偏好设置',

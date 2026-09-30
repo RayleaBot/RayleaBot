@@ -8,7 +8,6 @@ import { areLocationQueriesEqual, buildLogsLocation, readLogWorkspaceState } fro
 import { sameLogFilters } from '@/stores/log-state'
 import { toLocalDateTimeInput, useLogHistoryStore } from '@/stores/log-history'
 import { useLogsStore } from '@/stores/logs'
-import { useUiShellStore } from '@/stores/ui-shell'
 import type { LogSummary } from '@/types/api'
 import { useLogDetailController } from './useLogDetailController'
 
@@ -25,7 +24,6 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   const routeName = history ? 'logs-history' : 'logs'
   const route = useRoute()
   const router = useRouter()
-  const uiShellStore = useUiShellStore()
   const historyStore = history ? useLogHistoryStore() : null
   const liveStore = history ? null : useLogsStore()
   const store = historyStore ?? liveStore!
@@ -233,7 +231,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
     if (!restoringLatest.value || value) liveStore?.setViewportAtBottom(value)
   }
 
-  function deactivate(syncTab: boolean) {
+  function deactivate() {
     routeVersion += 1
     cancelViewportSync()
     if (!liveStore) return
@@ -241,11 +239,6 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
     liveStore.setViewportAtBottom(true)
     liveStore.acknowledgePendingNew()
     detail.closeDetail()
-    if (syncTab) {
-      const target = router.resolve(buildLogsLocation({ filters: filters.value, logId: null }))
-      const tab = uiShellStore.tabs.find(item => item.path === target.path)
-      if (tab && tab.fullPath !== target.fullPath) uiShellStore.upsertTab({ ...tab, fullPath: target.fullPath })
-    }
   }
 
   watch(() => route.query, () => {
@@ -253,9 +246,9 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   })
   onMounted(() => { void activatePage() })
   onActivated(() => { void activatePage() })
-  if (!history) onBeforeRouteLeave(() => { deactivate(true) })
-  onDeactivated(() => { deactivate(true) })
-  onUnmounted(() => { deactivate(false) })
+  if (!history) onBeforeRouteLeave(() => { deactivate() })
+  onDeactivated(() => { deactivate() })
+  onUnmounted(() => { deactivate() })
 
   return { historyStore, filters, initialized, items, loading, error, detail,
     readyToRenderHeavyContent, atBottom, followBottom, pendingNewCount, showJumpToLatest,
