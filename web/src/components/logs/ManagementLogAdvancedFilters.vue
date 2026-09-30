@@ -83,7 +83,7 @@ onBeforeUnmount(close)
 }
 
 .log-advanced-filters__trigger:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: var(--focus-outline-offset);
 }
 
