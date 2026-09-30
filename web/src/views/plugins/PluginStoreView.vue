@@ -18,6 +18,7 @@ import { storeToRefs } from 'pinia'
 import {
   Trash2Icon,
   PencilIcon,
+  ArrowUpRightIcon,
   ExternalLinkIcon,
   PlusIcon,
   RotateCwIcon,
@@ -34,6 +35,8 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { t } from '@/i18n'
 import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import { formatPluginVersion } from '@/lib/display'
+import { buildPluginDetailLocation } from '@/lib/management-links'
+import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import { usePluginsStore } from '@/stores/plugins'
 import { usePluginStore, type PluginStoreSort } from '@/stores/plugin-store'
 import type {
@@ -43,6 +46,7 @@ import type {
 
 const store = usePluginStore()
 const pluginsStore = usePluginsStore()
+const navigate = useMotionNavigation()
 const { error, installing, items, loading, loadingMore, nextCursor, refreshing, source, sourceSaving, sources, total, sourcesTotal, sourcesNextCursor, sourcesLoadingMore, sourcesLoading, sourcesError } = storeToRefs(store)
 
 const query = ref('')
@@ -353,6 +357,21 @@ onMounted(() => {
             </span>
             <span v-else />
             <AppButton
+              v-if="plugin.install_state === 'installed'"
+              :data-testid="`plugin-store-open-${plugin.id}`"
+              @click="navigate(buildPluginDetailLocation(plugin.id))"
+            >
+              <template #icon><ArrowUpRightIcon /></template>
+              {{ t('plugins.store.actions.viewInstalled') }}
+            </AppButton>
+            <AppTag
+              v-else-if="plugin.install_state === 'unpublished' || plugin.install_state === 'incompatible'"
+              :tone="plugin.install_state === 'incompatible' ? 'warning' : 'neutral'"
+            >
+              {{ installActionLabel(plugin) }}
+            </AppTag>
+            <AppButton
+              v-else
               variant="default"
               :disabled="!canInstall(plugin)"
               :loading="installing[plugin.id]"
@@ -523,7 +542,8 @@ onMounted(() => {
 .plugin-title-line h2 {
   margin: 0;
   color: var(--text);
-  font-size: 17px;
+  font-size: 15px;
+  font-weight: 700;
   line-height: 1.35;
 }
 

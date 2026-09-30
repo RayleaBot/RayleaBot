@@ -14,7 +14,7 @@ export const plugins = {
     recommended: '推荐',
     repository: '打开源码仓库',
     installedVersion: '已安装 {version}',
-    latestVersion: '最新 {version}',
+    latestVersion: '商店版本 {version}',
     publisher: '发布者：{name}',
     loadMore: '加载更多插件',
     sources: {
@@ -50,6 +50,7 @@ export const plugins = {
       installing: '正在安装',
       update: '更新',
       installed: '已安装',
+      viewInstalled: '查看插件',
       unpublished: '等待发布',
       incompatible: '当前版本不兼容',
     },
@@ -86,7 +87,7 @@ export const plugins = {
   },
   filter: {
     title: '筛选插件',
-    searchPlaceholder: '搜索插件名称、ID或描述...',
+    searchPlaceholder: '搜索插件名称、ID 或描述',
     stateAll: '全部状态',
     sourceAll: '全部来源',
     sourceOfficial: '官方',
