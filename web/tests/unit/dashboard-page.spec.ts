@@ -116,6 +116,32 @@ describe('DashboardPage', () => {
     wrapper.unmount()
   })
 
+  it('shows a failed connection read as a failure with retry, not as "no connections"', async () => {
+    const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
+    store.readiness = { status: 'ready' }
+    store.system = { status: 'running', adapters: [], active_plugins: 0, running_plugins: 0, failed_plugins: 0, db_schema_version: '000001', uptime_seconds: 5 }
+    vi.mocked(adaptersStore.refresh).mockImplementation(async () => {
+      adaptersStore.error = '读取连接失败'
+      throw new Error('offline')
+    })
+
+    const { wrapper } = await mountDashboard()
+    const connections = wrapper.get('[data-testid="dashboard-connections"]')
+    expect(connections.get('[data-testid="dashboard-connections-error"]').text()).toContain('读取连接失败')
+    expect(connections.text()).not.toContain('接入 OneBot 或 QQ 官方机器人')
+
+    vi.mocked(adaptersStore.refresh).mockImplementation(async () => {
+      adaptersStore.error = null
+      adaptersStore.loaded = true
+      return { adapters: [], available_protocols: [] }
+    })
+    await connections.findAll('button').find(button => button.text() === '重试')!.trigger('click')
+    await flushPromises()
+    expect(connections.find('[data-testid="dashboard-connections-error"]').exists()).toBe(false)
+    expect(connections.text()).toContain('接入 OneBot 或 QQ 官方机器人')
+    wrapper.unmount()
+  })
+
   it('shows the header actions, the connections and the runtime facts without any plugin content', async () => {
     const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }

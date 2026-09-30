@@ -23,6 +23,7 @@ export const dashboard = {
   readinessCheckStates: { ok: '通过', passed: '通过', ready: '通过', error: '异常', failed: '失败', unavailable: '不可用', resource_missing: '缺少运行资源', not_configured: '未配置', skipped: '未执行' },
   issueSeverity: { error: '错误', warning: '警告', info: '提示' },
   recentEventsEmpty: '暂无近期变化',
+  readinessEmpty: '暂无就绪检查结果',
   createBackup: '创建备份',
   exportDiagnostics: '导出诊断包',
   hub: {
@@ -32,6 +33,7 @@ export const dashboard = {
     openProtocols: '协议中心',
     addConnection: '添加机器人连接',
     addConnectionDetail: '接入 OneBot 或 QQ 官方机器人',
+    connectionsLoadFailed: '连接列表读取失败',
   },
   update: {
     check: '检查更新',
@@ -39,7 +41,7 @@ export const dashboard = {
     checkUnavailable: '当前构建不提供更新检查，请前往项目发布页查看版本。',
     states: {
       disabled: '自动检查不可用',
-      idle: '等待检查',
+      idle: '尚未检查',
       checking: '正在检查',
       up_to_date: '已是最新',
       update_available: '有可用更新',

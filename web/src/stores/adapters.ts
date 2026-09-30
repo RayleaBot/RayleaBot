@@ -13,6 +13,8 @@ export const useAdaptersStore = defineStore('adapters', () => {
   const availableProtocols = ref<AdapterProtocolDescriptor[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+  // Whether a connection list has been read at all; an empty list before that is unknown, not "no connections".
+  const loaded = ref(false)
 
   async function refresh() {
     loading.value = true
@@ -21,6 +23,7 @@ export const useAdaptersStore = defineStore('adapters', () => {
       const response = await apiRequest<AdaptersResponse>('/api/adapters')
       adapters.value = response.adapters ?? []
       availableProtocols.value = response.available_protocols ?? []
+      loaded.value = true
       return response
     } catch (err) {
       error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
@@ -35,7 +38,8 @@ export const useAdaptersStore = defineStore('adapters', () => {
   // are replaced.
   function applySnapshot(next: AdapterDescriptor[]) {
     adapters.value = next ?? []
+    loaded.value = true
   }
 
-  return { adapters, availableProtocols, error, loading, refresh, applySnapshot }
+  return { adapters, availableProtocols, error, loaded, loading, refresh, applySnapshot }
 })

@@ -26,8 +26,10 @@ import {
   TriangleAlertIcon,
 } from '@lucide/vue'
 
+import AppAlert from '@/components/AppAlert.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppSegmented from '@/components/AppSegmented.vue'
 import StatusRow from '@/components/dashboard/StatusRow.vue'
 import StatusSection from '@/components/dashboard/StatusSection.vue'
@@ -72,7 +74,12 @@ const {
   visibleReasonCodes,
 } = useDashboardPage()
 const { diagnostics, readiness } = storeToRefs(useSystemStore())
-const { adapters } = storeToRefs(useAdaptersStore())
+const adaptersStore = useAdaptersStore()
+const { adapters, error: adaptersError, loaded: adaptersLoaded, loading: adaptersLoading } = storeToRefs(adaptersStore)
+const systemUnread = computed(() => Boolean(error.value && !system.value))
+function retryAdapters() {
+  void adaptersStore.refresh().catch(() => undefined)
+}
 const socketStore = useSocketStore()
 const { snapshots } = storeToRefs(socketStore)
 const update = useUpdateStatus()
@@ -242,14 +249,14 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
     </template>
 
     <RetryPanel
-      v-if="error && !system"
+      v-if="systemUnread"
       :title="t('routes.status')"
-      :description="error"
+      :description="error ?? ''"
       :loading="loading"
       @retry="refreshState()"
     />
 
-    <section v-if="attention" class="status-attention app-box" :data-tone="attention.tone" data-testid="dashboard-attention" aria-labelledby="dashboard-attention-title">
+    <section v-if="attention && !systemUnread" class="status-attention app-box" :data-tone="attention.tone" data-testid="dashboard-attention" aria-labelledby="dashboard-attention-title">
       <span class="status-attention__icon" aria-hidden="true"><TriangleAlertIcon /></span>
       <div class="status-attention__copy">
         <h2 id="dashboard-attention-title">{{ attention.title }}</h2>
@@ -270,11 +277,17 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
       </div>
     </section>
 
-    <div class="status-grid">
+    <!-- Without a system snapshot there is nothing to show below the retry panel. -->
+    <div v-if="!systemUnread" class="status-grid">
       <StatusSection :title="t('dashboard.hub.connections')" :meta="connectionsMeta" data-testid="dashboard-connections">
         <template #actions>
           <MotionRouterLink :to="{ name: 'protocols' }" class="status-link">{{ t('dashboard.hub.openProtocols') }}<ChevronRightIcon aria-hidden="true" /></MotionRouterLink>
         </template>
+        <!-- An unread list is loading or failed, never "no connections"; the add prompt explains itself only when the list is known to be empty. -->
+        <AppAlert v-if="adaptersError && !connectionRows.length" tone="danger" :title="t('dashboard.hub.connectionsLoadFailed')" :description="adaptersError" data-testid="dashboard-connections-error">
+          <template #action><AppButton size="sm" :loading="adaptersLoading" @click="retryAdapters">{{ t('ui.retry') }}</AppButton></template>
+        </AppAlert>
+        <AppSkeleton v-else-if="!adaptersLoaded && !connectionRows.length" :rows="2" />
         <StatusRow
           v-for="row in connectionRows"
           :key="row.id"
@@ -290,7 +303,7 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
           <span class="status-add__icon" aria-hidden="true"><PlusIcon /></span>
           <span class="status-add__copy">
             <span>{{ t('dashboard.hub.addConnection') }}</span>
-            <small v-if="!connectionRows.length">{{ t('dashboard.hub.addConnectionDetail') }}</small>
+            <small v-if="adaptersLoaded && !connectionRows.length">{{ t('dashboard.hub.addConnectionDetail') }}</small>
           </span>
         </MotionRouterLink>
       </StatusSection>
@@ -319,7 +332,7 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
           <div class="status-facts__row">
             <dt>{{ t('dashboard.facts.streams') }}</dt>
             <dd>
-              <span class="status-facts__state" :data-tone="managementStreams.tone">{{ managementStreams.label }}</span>
+              <span class="status-facts__state" :data-tone="managementStreams.tone"><component :is="eventIcons[managementStreams.tone]" aria-hidden="true" />{{ managementStreams.label }}</span>
               <AppButton v-if="managementStreams.reconnect" size="sm" variant="ghost" @click="socketStore.reconnectAll()">{{ t('dashboard.reconnect') }}</AppButton>
             </dd>
           </div>
@@ -354,7 +367,7 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
           >
             <template #icon><component :is="item.icon" /></template>
           </StatusRow>
-          <AppEmptyState v-if="!readinessRows.length && !readinessIssues.length" :description="t('display.empty')" />
+          <AppEmptyState v-if="!readinessRows.length && !readinessIssues.length" :description="t('dashboard.readinessEmpty')" />
           <details v-if="visibleReasonCodes.length || readinessIssues.length" class="status-technical">
             <summary>{{ t('dashboard.readinessTechnicalDetails') }}</summary>
             <p v-if="visibleReasonCodes.length"><code>{{ visibleReasonCodes.join(', ') }}</code></p>
@@ -367,7 +380,7 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
             v-for="issue in diagnosticsIssueCards"
             :key="issue.key"
             :title="issue.problem"
-            :detail="`${issue.code} · ${issue.remediation}`"
+            :detail="issue.remediation"
             :status="t(`dashboard.issueSeverity.${issue.severity === 'error' ? 'error' : 'warning'}`)"
             :tone="issue.status === 'danger' ? 'danger' : 'warning'"
             class="status-issue"
@@ -385,6 +398,11 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
             <template #icon><component :is="item.icon" /></template>
           </StatusRow>
           <AppEmptyState v-if="!diagnosticsRows.length" :description="t('dashboard.diagnosticsEmpty')" />
+          <!-- Issue codes belong to the technical details, as on the readiness view. -->
+          <details v-if="diagnosticsIssueCards.length" class="status-technical">
+            <summary>{{ t('dashboard.readinessTechnicalDetails') }}</summary>
+            <ul><li v-for="issue in diagnosticsIssueCards" :key="issue.key"><code>{{ issue.code }}</code> · {{ issue.problem }}</li></ul>
+          </details>
         </template>
       </StatusSection>
 
@@ -453,7 +471,10 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
 .status-facts__row + .status-facts__row { border-top: 1px solid var(--border); }
 .status-facts dt { color: var(--muted); font-size: var(--font-size-sm); }
 .status-facts dd { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0 0 0 auto; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
-.status-facts dd :deep(.app-button) { height: 30px; padding-inline: 10px; color: var(--brand-foreground); }
+// Text buttons give back their inner padding so their words end on the same edge as the values above.
+.status-facts dd :deep(.app-button) { height: 30px; margin-inline-end: -10px; padding-inline: 10px; color: var(--brand-foreground); }
+.status-facts__state { display: inline-flex; align-items: center; gap: 6px; }
+.status-facts__state svg { width: 15px; height: 15px; }
 .status-facts__state[data-tone=success] { color: var(--success); }
 .status-facts__state[data-tone=warning] { color: var(--warning); }
 .status-facts__state[data-tone=danger] { color: var(--danger); }
