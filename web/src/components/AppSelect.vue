@@ -6,9 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useFieldContext } from './form-context'
 import { overlayLayerKey } from './overlay-layer'
 
+// singleLine: keep the chosen labels on one line and cut them with an ellipsis, as filter toolbars need;
+// forms leave it off so every choice stays readable. allLabel: shown instead of the list when every option is chosen.
 const props = defineProps<{
   options: readonly { value: T; label: string; disabled?: boolean }[]
   multiple?: M & boolean; placeholder?: string; disabled?: boolean; id?: string; clearable?: boolean; wrapperClass?: HTMLAttributes['class']
+  singleLine?: boolean; allLabel?: string
 }>()
 const model = defineModel<M extends true ? T[] : T>({ required: true })
 defineEmits<{ open: [value: boolean] }>()
@@ -32,6 +35,9 @@ const selection = computed(() => Array.isArray(model.value)
 const selectedLabels = computed(() => Array.isArray(model.value)
   ? selectOptions.value.filter((option) => (model.value as T[]).includes(option.value)).map((option) => option.label).join('、')
   : selectOptions.value.find(option => option.value === model.value)?.label)
+const allSelected = computed(() => Boolean(props.allLabel) && Array.isArray(model.value) && props.options.length > 0
+  && props.options.every(option => (model.value as T[]).includes(option.value)))
+const displayedLabels = computed(() => allSelected.value ? props.allLabel : selectedLabels.value)
 function update(value: unknown) {
   const decode = (key: unknown) => selectOptions.value.find(option => encode(option.value) === key)
   if (Array.isArray(value)) model.value = value.flatMap(key => { const option = decode(key); return option ? [option.value] : [] }) as M extends true ? T[] : T
@@ -46,7 +52,7 @@ function clearSelection() {
   <div ref="control" class="app-select-wrap" :class="wrapperClass">
     <Select :model-value="selection" :multiple="multiple" :disabled="disabled" :required="field?.required" @update:model-value="update" @update:open="$emit('open', $event)">
       <SelectTrigger :id="id || field?.id" :aria-invalid="Boolean(field?.error) || undefined" :aria-describedby="field?.error || field?.hint ? field.descriptionId : undefined" :aria-required="field?.required || undefined" v-bind="$attrs" class="app-select" :class="{ 'app-select--clearable': multiple && clearable && selectedLabels, 'app-select--floating': field?.floating }">
-        <span v-if="selectedLabels" class="app-select__value">{{ selectedLabels }}</span>
+        <span v-if="selectedLabels" class="app-select__value" :class="{ 'app-select__value--single-line': singleLine }" :title="singleLine ? selectedLabels : undefined">{{ displayedLabels }}</span>
         <SelectValue v-else :placeholder="placeholder || t('ui.select')" />
       </SelectTrigger>
       <button v-if="multiple && clearable && selectedLabels" type="button" class="app-select-clear" :aria-label="t('ui.clearSelection')" :disabled="disabled" @click="clearSelection"><XIcon :size="15" /></button>
@@ -66,5 +72,6 @@ function clearSelection() {
 .app-select-clear { position: absolute; right: 32px; top: 50%; translate: 0 -50%; display: grid; place-items: center; width: 32px; height: 36px; border-radius: 6px; color: var(--muted); }
 .app-select-clear:hover { color: var(--text); background: var(--surface-soft); }
 .app-select__value { text-align: left; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
+.app-select__value--single-line { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (pointer: coarse) { .app-select { min-height: 44px; } .app-select--clearable { padding-right: 82px; } .app-select-clear { width: 44px; height: 44px; } .app-select-content :deep([role=option]) { min-height: 44px; } }
 </style>

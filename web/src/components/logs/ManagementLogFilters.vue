@@ -18,7 +18,7 @@ const { selectedLevels, levelOptions } = useLogFilterControls(filters)
 <template>
   <div class="logs-filter-grid" :class="{ 'logs-filter-grid--history': history }">
     <AppField :label="t('logs.filters.level')">
-      <AppSelect v-model="selectedLevels" multiple clearable :options="levelOptions" :placeholder="t('logs.filters.all')" />
+      <AppSelect v-model="selectedLevels" multiple clearable single-line :all-label="t('logs.filters.all')" :options="levelOptions" :placeholder="t('logs.filters.all')" />
     </AppField>
     <AppField :label="t('logs.filters.source')">
       <AppInput v-model="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
