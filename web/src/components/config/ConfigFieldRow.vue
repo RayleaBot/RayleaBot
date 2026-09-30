@@ -177,7 +177,8 @@ function handleTextareaUpdate(value: unknown) {
         :aria-describedby="descriptionId"
         @update:model-value="handleTextareaUpdate"
       />
-      <span v-if="layout === 'row' && field.unit" class="config-field__unit-end" aria-hidden="true">{{ field.unit }}</span>
+      <!-- Every row keeps the unit column, so controls with and without a unit end at the same edge. -->
+      <span v-if="layout === 'row'" class="config-field__unit-end" aria-hidden="true">{{ field.unit }}</span>
     </div>
 
     <RateLimitPreview :text="rateLimitPreview" class="config-field__preview" />
@@ -241,10 +242,10 @@ function handleTextareaUpdate(value: unknown) {
 .config-field--row { grid-template-columns: minmax(0, 1fr) minmax(200px, 264px); gap: 8px 28px; padding: 18px 0; margin: 0; border-radius: 0; border-bottom: 1px solid var(--border); scroll-margin-block: 20px 120px; }
 .config-field--row:last-child { border-bottom: 0; }
 .config-field--row .config-field__label { font-size: 14px; font-weight: 500; }
-.config-field--row .config-field__control { display: flex; align-items: center; align-self: center; gap: 8px; min-width: 0; }
-.config-field--row .config-field__control > :first-child { flex: 1; width: 100%; min-width: 0; }
+.config-field--row .config-field__control { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; align-self: center; gap: 8px; min-width: 0; }
+.config-field--row .config-field__control > :first-child { width: 100%; min-width: 0; }
 .config-field--row :deep(.rate-limit-input__grid) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 76px; gap: 8px; }
-.config-field__unit-end { flex: none; color: var(--muted); font-size: 13px; }
+.config-field__unit-end { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .config-field--row .config-field__preview { grid-column: 2; }
 :global([data-density=compact]) .config-field--row { padding-block: 12px; }
 </style>

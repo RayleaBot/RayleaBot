@@ -194,8 +194,9 @@ onBeforeUnmount(() => {
         </aside>
 
         <div class="config-editor">
-          <div v-if="saveError || conflictMessage || loadError" class="config-editor__feedback">
+          <div v-if="saveError || conflictMessage || loadError || restartRequired" class="config-editor__feedback">
             <AppAlert v-if="saveError" tone="danger" :title="saveError" />
+            <AppAlert v-if="restartRequired && !isDirty" data-testid="config-restart-notice" :title="t('config.restartNotice')" />
             <AppAlert v-if="conflictMessage" tone="warning" :title="conflictMessage" />
             <AppAlert v-if="loadError && !saveError" tone="warning" :title="loadError">
               <template #action><AppButton size="sm" :loading="loading" @click="loadConfig">{{ t('config.workbench.reload') }}</AppButton></template>
@@ -271,11 +272,13 @@ onBeforeUnmount(() => {
 .config-navigation { position: sticky; top: 12px; display: grid; gap: 18px; min-width: 0; }
 .config-categories { display: grid; gap: 4px; }
 .config-category { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 40px; padding: 10px 12px; border-radius: 8px; color: var(--muted); font-size: 14px; line-height: 1.5; text-align: left; cursor: pointer; }
-.config-category:hover { color: var(--text); background: var(--surface-soft); }
-.config-category[data-state=active] { color: var(--brand-foreground); background: var(--surface-soft); font-weight: 600; }
+.config-category:hover { color: var(--text); background: var(--nav-hover); }
+// Like the selected sidebar item: a lifted pill in the control fill of the page, dark text, only the icon in blue.
+.config-category[data-state=active] { color: var(--text); background: var(--surface); box-shadow: var(--shadow-xs); font-weight: 600; }
+.config-category[data-state=active] .config-category__icon { color: var(--brand-foreground); }
 .config-category__label { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .config-category__icon { flex: none; stroke-width: 1.75; }
-.config-category__status { flex: none; color: var(--brand-foreground); font-size: 11px; font-weight: 500; }
+.config-category__status { flex: none; color: var(--text-attention); font-size: 12px; font-weight: 500; }
 .config-search-status { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .config-editor { --control-fill: var(--surface-raised); --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text)); display: flex; flex-direction: column; min-width: 0; min-height: 520px; border: 1px solid transparent; border-radius: var(--app-card-radius); background: var(--surface-strong); box-shadow: var(--shadow-card); }
 .config-editor__body { flex: 1; padding: 24px 28px; min-width: 0; animation: config-section-enter 160ms ease-out; }
@@ -296,7 +299,9 @@ onBeforeUnmount(() => {
 .config-advanced__content { padding-bottom: 4px; }
 .config-advanced > h3 { margin-top: 20px; }
 .config-editor__empty { display: grid; flex: 1; place-content: center; justify-items: center; gap: 16px; padding: 32px 24px; }
-.config-save-anchor { position: sticky; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 10; display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: auto; padding: 20px 4px 4px; pointer-events: none; }
+// The floating buttons sit in the right gutter beside the 1120px form column (at least 240px wide from the
+// 1920px desktop minimum), so they never cover the fields; the offset fits the discard and save buttons.
+.config-save-anchor { position: sticky; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 10; display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: auto; margin-inline-end: -144px; padding: 20px 4px 4px; pointer-events: none; }
 .config-discard-fab { width: 48px; height: 48px; border: 0; border-radius: 16px; background: var(--surface-strong); color: var(--muted); box-shadow: var(--shadow-sm); pointer-events: auto; }
 .config-discard-fab:hover { background: var(--surface-soft); color: var(--text); }
 .config-discard-fab :deep(svg) { width: 20px; height: 20px; }

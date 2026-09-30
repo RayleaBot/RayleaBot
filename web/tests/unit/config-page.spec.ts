@@ -39,15 +39,18 @@ describe('ConfigPage', () => {
     store.redactedFields = []
 
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-    const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
-      config: store.document,
-      redacted_fields: store.redactedFields,
-      restart_required: true,
-      apply_effects: {
-        applied_now: ['log.level'],
-        reloaded_now: [],
-        restart_required_fields: ['server.port'],
-      },
+    const saveSpy = vi.spyOn(store, 'saveConfig').mockImplementation(async () => {
+      store.restartRequired = true
+      return {
+        config: store.document!,
+        redacted_fields: store.redactedFields,
+        restart_required: true,
+        apply_effects: {
+          applied_now: ['log.level'],
+          reloaded_now: [],
+          restart_required_fields: ['server.port'],
+        },
+      }
     })
 
     const wrapper = mount(ConfigPage, {
@@ -70,6 +73,9 @@ describe('ConfigPage', () => {
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(saveSpy.mock.calls[0][0].server.host).toBe('0.0.0.0')
+    await flushPromises()
+    // A restart still owed after the save stays on the page, not only in the button's tooltip.
+    expect(wrapper.get('[data-testid=config-restart-notice]').text()).toContain('需要重启服务')
   })
 
   it('keeps protocol fields out of the general config page', async () => {

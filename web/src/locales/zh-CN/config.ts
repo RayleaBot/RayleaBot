@@ -40,6 +40,7 @@ export const config = {
   saveIdle: '无需保存',
   restartHint: '修改后需重启服务才能生效。',
   restartNeeded: '保存完成，仍需重启服务',
+  restartNotice: '配置已保存，部分变更需要重启服务后生效。',
   hotApplied: '保存完成，已生效',
   redactedTitle: '脱敏字段',
   saveSuccess: '配置已保存并已生效',
