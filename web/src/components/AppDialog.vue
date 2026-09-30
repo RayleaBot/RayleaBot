@@ -140,5 +140,6 @@ function restoreFocus(event: Event) {
   .app-dialog__footer { padding: 16px; }
 }
 @media (prefers-reduced-transparency: reduce) { .app-dialog-overlay { -webkit-backdrop-filter: none; backdrop-filter: none; } }
+:global(html[data-glass-lite]) .app-dialog-overlay { -webkit-backdrop-filter: none; backdrop-filter: none; }
 @media (forced-colors: active) { .app-dialog { border: 1px solid CanvasText; } }
 </style>

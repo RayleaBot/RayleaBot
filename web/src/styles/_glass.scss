@@ -79,6 +79,34 @@ html[data-glass-refraction] .liquid-glass[data-glass-ready] {
   backdrop-filter: var(--glass-filter) blur(var(--glass-blur)) saturate(var(--glass-saturate));
 }
 
+// Lenses that move with their content skip refraction while it moves: inside a scrolling container and
+// inside a workspace or theme view transition. Every frame would otherwise re-run the displacement filter
+// for each moving lens, which halved the frame rate; the refraction returns once the content settles.
+html[data-glass-refraction] [data-glass-motion] .liquid-glass[data-glass-ready],
+html[data-glass-refraction] .liquid-glass[data-glass-ready]:has([data-glass-motion]),
+html[data-glass-refraction] [data-view-transition-kind] .liquid-glass[data-glass-ready],
+html[data-glass-refraction][data-view-transition-kind] .liquid-glass[data-glass-ready] {
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+// Without GPU compositing every backdrop filter is rendered on the CPU, so the glass keeps its opaque form
+// (src/lib/liquid-glass.ts sets data-glass-lite after probing WebGL).
+html[data-glass-lite] {
+  --overlay-glass-fill: var(--surface-strong);
+  --overlay-glass-filter: none;
+}
+
+html[data-glass-lite] .liquid-glass,
+html[data-glass-lite] .liquid-glass--strong {
+  background: var(--chrome);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-glass-lite] .liquid-glass-inset {
+  background: var(--surface-soft);
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root {
     --overlay-glass-fill: var(--surface-strong);

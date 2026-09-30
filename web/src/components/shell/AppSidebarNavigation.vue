@@ -519,7 +519,7 @@ function toggleRootGroup(key: string) {
 .sidebar-navigation__group-title, .sidebar-navigation__group-heading { margin: 0; padding: 12px 12px 6px; color: var(--chrome-muted); font-size: 12px; font-weight: 500; line-height: 1.4; }
 .sidebar-navigation__group-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 36px; cursor: pointer; }
 .sidebar-navigation__group-heading .is-collapsed { rotate: -90deg; }
-.sidebar-navigation__item { display: flex; align-items: center; width: calc(100% - 8px); min-height: 40px; margin: 2px 4px; padding: 8px 12px; border-radius: 999px; color: var(--sider-menu-text); font-size: 14px; line-height: 1.4; text-align: left; cursor: pointer; transition: background-color var(--motion-fast) var(--motion-easing); }
+.sidebar-navigation__item { display: flex; align-items: center; width: calc(100% - 8px); min-height: 40px; margin: 2px 4px; padding: 8px 12px; border-radius: 999px; color: var(--sider-menu-text); font-size: 14px; line-height: 1.4; text-align: left; cursor: pointer; }
 .sidebar-navigation__item:hover { background: var(--sider-menu-hover-bg); color: var(--sider-menu-text); }
 .sidebar-navigation__item[aria-current=page] { background: var(--sider-menu-active-bg); color: var(--sider-menu-active); font-weight: 650; box-shadow: inset 0 1px 0 var(--glass-rim), 0 4px 12px -6px color-mix(in srgb, var(--text) 30%, transparent); }
 .sidebar-navigation__item:focus-visible, .sidebar-navigation__group-heading:focus-visible { outline: 2px solid var(--chrome-muted); outline-offset: -2px; }

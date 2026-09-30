@@ -30,6 +30,12 @@ const FILTER_RELEASE_MS = 4000
 // A lens whose size keeps changing (window drags, collapsing panes) drops its filter and waits for the
 // size to settle, instead of rendering a full displacement map for every intermediate size.
 const RESIZE_SETTLE_MS = 150
+// Lenses inside a scrolling container skip refraction until it has been still this long (see _glass.scss).
+const MOTION_SETTLE_MS = 160
+// The map is smooth, so it is rendered at most this many pixels on its long edge and stretched by feImage.
+const MAP_MAX_EDGE = 512
+// Below this short edge the colour split is invisible, so a lens uses one displacement instead of three.
+const DISPERSION_MIN_SIZE = 160
 // Green and blue bend slightly less than red; the offset only shows along the rim.
 const CHANNEL_SPREAD = [1, 0.94, 0.88] as const
 
@@ -85,33 +91,49 @@ export function lensGeometry(spec: LensSpec): LensGeometry {
 }
 
 // R and G push each backdrop sample toward the center; 128 means no shift.
-function displacementMap(spec: LensSpec, geometry: LensGeometry) {
+export function displacementPixels(spec: LensSpec, geometry: LensGeometry) {
   const profile = new Float32Array(PROFILE_STEPS + 1)
   for (let index = 0; index <= PROFILE_STEPS; index += 1) {
     profile[index] = Math.min(rimShift(index / PROFILE_STEPS, geometry), geometry.maxShift) / geometry.maxShift
   }
   const { width, height, radius } = spec
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  const context = canvas.getContext('2d')
-  if (!context) return null
-  const image = context.createImageData(width, height)
+  const ratio = Math.min(1, MAP_MAX_EDGE / Math.max(width, height))
+  const mapWidth = Math.max(1, Math.round(width * ratio))
+  const mapHeight = Math.max(1, Math.round(height * ratio))
+  const pixels = new Uint8ClampedArray(mapWidth * mapHeight * 4)
   const halfWidth = width / 2
   const halfHeight = height / 2
   const edge: Edge = { depth: 0, nx: 0, ny: 0 }
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      measureEdge(edge, x + 0.5 - halfWidth, y + 0.5 - halfHeight, halfWidth, halfHeight, radius)
+  for (let y = 0; y < mapHeight; y += 1) {
+    for (let x = 0; x < mapWidth; x += 1) {
+      measureEdge(edge, ((x + 0.5) / mapWidth) * width - halfWidth, ((y + 0.5) / mapHeight) * height - halfHeight, halfWidth, halfHeight, radius)
       const step = Math.min(PROFILE_STEPS, Math.round((edge.depth / geometry.bevel) * PROFILE_STEPS))
       const magnitude = edge.depth > 0 && edge.depth < geometry.bevel ? profile[step] ?? 0 : 0
-      const offset = (y * width + x) * 4
-      image.data[offset] = Math.round(127.5 - edge.nx * magnitude * 127.5)
-      image.data[offset + 1] = Math.round(127.5 - edge.ny * magnitude * 127.5)
-      image.data[offset + 2] = 128
-      image.data[offset + 3] = 255
+      const offset = (y * mapWidth + x) * 4
+      pixels[offset] = Math.round(127.5 - edge.nx * magnitude * 127.5)
+      pixels[offset + 1] = Math.round(127.5 - edge.ny * magnitude * 127.5)
+      pixels[offset + 2] = 128
+      pixels[offset + 3] = 255
     }
   }
+  return { width: mapWidth, height: mapHeight, pixels }
+}
+
+// PNG encoding runs off the main thread where OffscreenCanvas exists; blob URLs are revoked with the filter.
+async function encodeMap(map: ReturnType<typeof displacementPixels>) {
+  const image = new ImageData(map.pixels, map.width, map.height)
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const canvas = new OffscreenCanvas(map.width, map.height)
+    const context = canvas.getContext('2d')
+    if (!context) return null
+    context.putImageData(image, 0, 0)
+    return URL.createObjectURL(await canvas.convertToBlob({ type: 'image/png' }))
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = map.width
+  canvas.height = map.height
+  const context = canvas.getContext('2d')
+  if (!context) return null
   context.putImageData(image, 0, 0)
   return canvas.toDataURL()
 }
@@ -141,30 +163,49 @@ function createLensFilter(spec: LensSpec, id: string, host: Element) {
     'color-interpolation-filters': 'sRGB',
   })
   host.append(filter)
-  const map = displacementMap(spec, geometry)
-  if (!map) return { resource: filter, ready: Promise.resolve(false) }
-
-  const add = (tag: string, attributes: Record<string, string | number>) => filter.append(svgElement(tag, attributes))
-  add('feImage', { href: map, x: 0, y: 0, width: spec.width, height: spec.height, preserveAspectRatio: 'none', result: 'map' })
-  CHANNEL_SPREAD.forEach((factor, channel) => {
+  const add = (tag: string, attributes: Record<string, string | number>) => {
+    const node = svgElement(tag, attributes)
+    filter.append(node)
+    return node
+  }
+  const mapImage = add('feImage', { x: 0, y: 0, width: spec.width, height: spec.height, preserveAspectRatio: 'none', result: 'map' })
+  if (Math.min(spec.width, spec.height) >= DISPERSION_MIN_SIZE) {
+    CHANNEL_SPREAD.forEach((factor, channel) => {
+      add('feDisplacementMap', {
+        in: 'SourceGraphic',
+        in2: 'map',
+        scale: (2 * geometry.maxShift * factor).toFixed(2),
+        xChannelSelector: 'R',
+        yChannelSelector: 'G',
+        result: `shift${channel}`,
+      })
+      add('feColorMatrix', { in: `shift${channel}`, type: 'matrix', values: CHANNEL_MATRICES[channel], result: `channel${channel}` })
+    })
+    add('feComposite', { in: 'channel0', in2: 'channel1', operator: 'arithmetic', k1: 0, k2: 1, k3: 1, k4: 0, result: 'redGreen' })
+    add('feComposite', { in: 'redGreen', in2: 'channel2', operator: 'arithmetic', k1: 0, k2: 1, k3: 1, k4: 0, result: 'lens' })
+  } else {
     add('feDisplacementMap', {
       in: 'SourceGraphic',
       in2: 'map',
-      scale: (2 * geometry.maxShift * factor).toFixed(2),
+      scale: (2 * geometry.maxShift).toFixed(2),
       xChannelSelector: 'R',
       yChannelSelector: 'G',
-      result: `shift${channel}`,
+      result: 'lens',
     })
-    add('feColorMatrix', { in: `shift${channel}`, type: 'matrix', values: CHANNEL_MATRICES[channel], result: `channel${channel}` })
-  })
-  add('feComposite', { in: 'channel0', in2: 'channel1', operator: 'arithmetic', k1: 0, k2: 1, k3: 1, k4: 0, result: 'redGreen' })
-  add('feComposite', { in: 'redGreen', in2: 'channel2', operator: 'arithmetic', k1: 0, k2: 1, k3: 1, k4: 0, result: 'lens' })
+  }
   // The displacement samples whole pixels, which steps where the rim compresses the backdrop.
   add('feGaussianBlur', { in: 'lens', stdDeviation: 0.4, edgeMode: 'duplicate' })
 
-  const image = new Image()
-  image.src = map
-  return { resource: filter, ready: image.decode().then(() => true, () => false) }
+  const ready = encodeMap(displacementPixels(spec, geometry)).then(async (url) => {
+    if (!url) return false
+    mapImage.setAttribute('href', url)
+    filter.setAttribute('data-map-url', url)
+    const probe = new Image()
+    probe.src = url
+    await probe.decode()
+    return true
+  }).catch(() => false)
+  return { resource: filter, ready }
 }
 
 /** Shares one lens filter per geometry and removes filters a while after the last lens lets go. */
@@ -217,6 +258,30 @@ export class GlassFilterRegistry<T> {
   }
 }
 
+const SOFTWARE_RENDERERS = /swiftshader|llvmpipe|softpipe|software|basic render/i
+
+/**
+ * True when the page renders without GPU acceleration: blocklisted drivers, sessions without a GPU or hardware
+ * acceleration turned off. Backdrop filters are then rendered on the CPU, so the glass goes lite (opaque).
+ * Chromium may still hand out a SwiftShader context despite failIfMajorPerformanceCaveat, so the renderer
+ * name is checked as well.
+ */
+export function rendersInSoftware(): boolean {
+  if (typeof document === 'undefined') return false
+  try {
+    const canvas = document.createElement('canvas')
+    const options: WebGLContextAttributes = { failIfMajorPerformanceCaveat: true }
+    const context = canvas.getContext('webgl2', options) ?? canvas.getContext('webgl', options)
+    if (!context) return true
+    const info = context.getExtension('WEBGL_debug_renderer_info')
+    const renderer = String(context.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : context.RENDERER) ?? '')
+    context.getExtension('WEBGL_lose_context')?.loseContext()
+    return SOFTWARE_RENDERERS.test(renderer)
+  } catch {
+    return false
+  }
+}
+
 /** WebKit and Gecko do not take an SVG filter in backdrop-filter. */
 export function supportsGlassRefraction(): boolean {
   if (typeof window === 'undefined' || typeof CSS === 'undefined' || typeof CSS.supports !== 'function') return false
@@ -255,9 +320,14 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
   }
   const registry = new GlassFilterRegistry<Element>(
     (id, key) => createLensFilter(JSON.parse(key) as LensSpec, id, filterHost()),
-    (filter) => filter.remove(),
+    (filter) => {
+      const url = filter.getAttribute('data-map-url')
+      if (url?.startsWith('blob:')) URL.revokeObjectURL(url)
+      filter.remove()
+    },
   )
   const lenses = new Map<HTMLElement, LensState>()
+  let lite = false
   let refracts = supportsGlassRefraction()
   document.documentElement.toggleAttribute('data-glass-refraction', refracts)
 
@@ -295,15 +365,26 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
     })
   }
 
-  const settleTimers = new Map<HTMLElement, ReturnType<typeof setTimeout>>()
+  // Lenses whose size changed wait in one batch until sizes settle, and until any running view transition
+  // has finished, so map generation and style reads never land inside a page or theme animation.
+  const pendingLenses = new Set<HTMLElement>()
+  let settleTimer: ReturnType<typeof setTimeout> | undefined
+  const flushPending = () => {
+    settleTimer = undefined
+    if (document.querySelector('[data-view-transition-kind]')) {
+      settleTimer = setTimeout(flushPending, RESIZE_SETTLE_MS)
+      return
+    }
+    const batch = [...pendingLenses]
+    pendingLenses.clear()
+    batch.forEach(refresh)
+  }
   const scheduleRefresh = (element: HTMLElement) => {
     const state = lenses.get(element)
     if (state?.key) clearLens(element, state)
-    clearTimeout(settleTimers.get(element))
-    settleTimers.set(element, setTimeout(() => {
-      settleTimers.delete(element)
-      refresh(element)
-    }, RESIZE_SETTLE_MS))
+    pendingLenses.add(element)
+    clearTimeout(settleTimer)
+    settleTimer = setTimeout(flushPending, RESIZE_SETTLE_MS)
   }
 
   const resizeObserver = new ResizeObserver((entries) => {
@@ -320,8 +401,7 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
     const state = lenses.get(element)
     if (!state) return
     clearLens(element, state)
-    clearTimeout(settleTimers.get(element))
-    settleTimers.delete(element)
+    pendingLenses.delete(element)
     lenses.delete(element)
     resizeObserver.unobserve(element)
   }
@@ -347,24 +427,61 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
   })
   mutationObserver.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-glass'] })
 
+  // A scrolling container moves its lenses over the field; while it moves, the lenses inside skip the
+  // displacement filter (see _glass.scss) instead of re-rendering it for every frame.
+  const motionTimers = new Map<Element, ReturnType<typeof setTimeout>>()
+  const onScroll = (event: Event) => {
+    if (!refracts) return
+    const scroller = event.target instanceof Element ? event.target : document.documentElement
+    if (!scroller.hasAttribute('data-glass-motion')) scroller.setAttribute('data-glass-motion', '')
+    clearTimeout(motionTimers.get(scroller))
+    motionTimers.set(scroller, setTimeout(() => {
+      motionTimers.delete(scroller)
+      scroller.removeAttribute('data-glass-motion')
+    }, MOTION_SETTLE_MS))
+  }
+  document.addEventListener('scroll', onScroll, { capture: true, passive: true })
+
   const preferenceQueries = ['(prefers-reduced-transparency: reduce)', '(forced-colors: active)']
     .map((query) => window.matchMedia?.(query))
     .filter((query): query is MediaQueryList => Boolean(query))
   const onPreferenceChange = () => {
-    refracts = supportsGlassRefraction()
+    refracts = supportsGlassRefraction() && !lite
     document.documentElement.toggleAttribute('data-glass-refraction', refracts)
     for (const element of lenses.keys()) refresh(element)
   }
   preferenceQueries.forEach((query) => query.addEventListener('change', onPreferenceChange))
+
+  // Probing WebGL costs a context creation, so it waits for an idle moment after start.
+  const idle = typeof window.requestIdleCallback === 'function'
+    ? (callback: () => void) => window.requestIdleCallback(callback, { timeout: 3000 })
+    : (callback: () => void) => window.setTimeout(callback, 1000)
+  const cancelIdle = typeof window.cancelIdleCallback === 'function'
+    ? (handle: number) => window.cancelIdleCallback(handle)
+    : (handle: number) => window.clearTimeout(handle)
+  const liteProbe = idle(() => {
+    if (!rendersInSoftware()) return
+    lite = true
+    document.documentElement.setAttribute('data-glass-lite', '')
+    onPreferenceChange()
+  })
 
   root.querySelectorAll<HTMLElement>(LENS_SELECTOR).forEach(attach)
 
   return () => {
     mutationObserver.disconnect()
     resizeObserver.disconnect()
-    settleTimers.forEach(timer => clearTimeout(timer))
-    settleTimers.clear()
+    clearTimeout(settleTimer)
+    pendingLenses.clear()
+    document.removeEventListener('scroll', onScroll, { capture: true })
+    motionTimers.forEach((timer, scroller) => {
+      clearTimeout(timer)
+      scroller.removeAttribute('data-glass-motion')
+    })
+    motionTimers.clear()
     preferenceQueries.forEach((query) => query.removeEventListener('change', onPreferenceChange))
+    cancelIdle(liteProbe)
+    document.documentElement.removeAttribute('data-glass-lite')
     for (const [element, state] of lenses) clearLens(element, state)
     lenses.clear()
     registry.clear()

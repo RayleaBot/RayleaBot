@@ -424,7 +424,10 @@
 .admin-layout__mobile-brand > .raylea-mark { width: 24px; height: 26px; }
 .workspace-tabs { flex: 1; min-width: 0; }
 .workspace-tabs__list { display: flex; align-items: center; gap: 4px; min-height: 38px; overflow-x: auto; scrollbar-width: none; }
-.workspace-tabs__item { display: flex; flex-shrink: 0; align-items: center; position: relative; min-height: 38px; padding-inline: 2px; border-radius: 999px; transition: background-color var(--motion-fast) var(--motion-easing); }
+// Hover and selection inside the glass sidebar and tab track change instantly: every frame of a colour
+// transition would re-run the whole pane's refraction.
+.workspace-tabs__item { display: flex; flex-shrink: 0; align-items: center; position: relative; min-height: 38px; padding-inline: 2px; border-radius: 999px; }
+.admin-layout__sider .app-button, .admin-layout__tabbar-main .app-button { transition: none; }
 .workspace-tabs__item:hover { background: var(--nav-hover); }
 .workspace-tabs__item[data-active=true] { background: var(--surface-lit); box-shadow: inset 0 1px 0 var(--glass-rim), 0 4px 12px -6px color-mix(in srgb, var(--text) 30%, transparent); }
 .workspace-tabs__trigger { padding: 7px 12px; color: var(--muted); white-space: nowrap; cursor: pointer; }
@@ -436,6 +439,5 @@
 .workspace-tabs__close:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
 .workspace-tabs__item[data-active=true] .workspace-tabs__close:hover { background: color-mix(in srgb, var(--on-lit) 10%, transparent); color: var(--on-lit); }
 @media (max-width: #{bp.$desktop - 1px}) { .admin-layout__sider { display: none; } }
-@media (prefers-reduced-motion: reduce), (forced-colors: active) { .workspace-tabs__item { transition: none; } }
 
 @media (min-width: #{bp.$desktop}) { .admin-layout .app-button.mobile-only { display: none !important; } }

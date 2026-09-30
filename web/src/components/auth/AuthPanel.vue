@@ -39,7 +39,6 @@ defineExpose({ focus: () => heading.value?.focus() })
   margin: 0 auto 24px;
   color: var(--auth-brand-foreground);
   border: 1px solid var(--auth-glass-edge);
-  backdrop-filter: blur(3px);
   border-radius: 28px;
   background: linear-gradient(145deg, var(--auth-glass-highlight), transparent);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--auth-brand-fill) 12%, transparent), inset 0 1px 0 var(--auth-glass-edge);

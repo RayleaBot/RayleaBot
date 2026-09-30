@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useFullscreen } from '@vueuse/core'
@@ -47,6 +47,7 @@ import { providePageTransitionStage } from '@/layouts/usePageTransitionStage'
 import { handleNavigationKeydown, useShellNavigation } from '@/layouts/useShellNavigation'
 import { useWorkspaceTabs } from '@/layouts/useWorkspaceTabs'
 import { applyThemeWithMotion, navigateWithMotion, type ThemeMotionOrigin } from '@/motion/runtime'
+import { prefetchRouteComponents } from '@/router/prefetch'
 
 const router = useRouter()
 const pluginsStore = usePluginsStore()
@@ -166,9 +167,12 @@ function onSearchOpenUpdate(open: boolean) {
   }
 }
 
+let stopRoutePrefetch: (() => void) | undefined
 onMounted(() => {
   void configStore.refreshEffectiveTimezone().catch(() => undefined)
+  stopRoutePrefetch = prefetchRouteComponents(router)
 })
+onBeforeUnmount(() => stopRoutePrefetch?.())
 </script>
 
 <template>
