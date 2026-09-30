@@ -26,7 +26,7 @@ function getText(value?: string) {
 
 function getAliasesText(command: PluginCommandSummary) {
   const aliases = getVisibleCommandAliases(command)
-  return aliases.length ? aliases.join(', ') : t('display.empty')
+  return aliases.length ? aliases.join('、') : t('display.empty')
 }
 
 function getVisibleAliases(command: PluginCommandSummary) {
@@ -76,12 +76,12 @@ function isConflicted(command: PluginCommandSummary) {
             {{ getTriggerText(command) }}
           </AppTag>
         </div>
-        <span class="plugin-command-row__permission">{{ getCommandPermissionLabel(command.permission) }}</span>
+        <span class="plugin-command-row__permission">{{ t('plugins.commandPermission', { permission: getCommandPermissionLabel(command.permission) }) }}</span>
       </div>
 
       <div class="plugin-command-row__copy">
         <p class="plugin-command-row__desc">{{ getText(command.description) }}</p>
-        <div class="plugin-command-row__aliases">
+        <div v-if="getVisibleCommandAliases(command).length" class="plugin-command-row__aliases">
           <span class="section-label">{{ t('plugins.commandAliases') }}</span>
           <template v-if="getVisibleCommandAliases(command).length">
             <AppTag v-for="alias in getVisibleAliases(command)" :key="alias" size="small">
@@ -115,7 +115,7 @@ function isConflicted(command: PluginCommandSummary) {
 
 .plugin-command-row {
   display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(240px, 360px);
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1.2fr) minmax(280px, 1fr);
   gap: 8px 24px;
   align-items: start;
   padding-block: 14px;

@@ -210,6 +210,7 @@ export const plugins = {
     clearFilters: '清除筛选',
   },
   commandAliases: '别名',
+  commandPermission: '权限：{permission}',
   commandUsage: '用法',
   commandConflictBadge: '命令冲突',
   commandTriggerLabel: {
