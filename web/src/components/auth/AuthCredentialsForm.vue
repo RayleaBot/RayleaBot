@@ -91,7 +91,7 @@ async function handleSubmit() {
         <AppInput ref="identifierField" v-model="credentials.identifier" class="auth-form__control" autocomplete="username" :disabled="pending" name="identifier" />
       </AppField>
       <AppField floating for="auth-secret" :label="t('auth.secret')" :error="errors.secret || undefined" required>
-        <AppInput ref="secretField" v-model="credentials.secret" class="auth-form__control" type="password" :autocomplete="secretAutocomplete" :disabled="pending" :show-secret-label="t('auth.showSecret')" :hide-secret-label="t('auth.hideSecret')" :placeholder="t(secretAutocomplete === 'new-password' ? 'auth.newSecretPlaceholder' : 'auth.secretPlaceholder')" name="secret" />
+        <AppInput ref="secretField" v-model="credentials.secret" class="auth-form__control" type="password" :autocomplete="secretAutocomplete" :disabled="pending" :placeholder="t(secretAutocomplete === 'new-password' ? 'auth.newSecretPlaceholder' : 'auth.secretPlaceholder')" name="secret" />
       </AppField>
       <AppAlert v-if="feedback" class="auth-form__feedback" :title="feedback.message" :tone="feedback.level === 'error' ? 'danger' : 'warning'" />
       <AppButton class="auth-form__submit" type="submit" variant="default" :loading="pending">

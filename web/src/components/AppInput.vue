@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { useFieldContext } from './form-context'
 
 defineOptions({ inheritAttrs: false })
-const props = withDefaults(defineProps<{ type?: string; allowClear?: boolean; showSecretLabel?: string; hideSecretLabel?: string; wrapperClass?: HTMLAttributes['class'] }>(), { type: 'text' })
+const props = withDefaults(defineProps<{ type?: string; allowClear?: boolean; wrapperClass?: HTMLAttributes['class'] }>(), { type: 'text' })
 const model = defineModel<string>({ default: '' })
 const attrs = useAttrs()
 const field = useFieldContext()
@@ -29,7 +29,7 @@ defineExpose({ focus: () => wrapper.value?.querySelector('input')?.focus() })
       @update:model-value="model = String($event)"
     />
     <span v-if="$slots.prefix" class="app-input-prefix" aria-hidden="true"><slot name="prefix" /></span>
-    <button v-if="type === 'password'" type="button" class="app-input-reveal" :aria-label="revealed ? (hideSecretLabel ?? t('ui.hidePassword')) : (showSecretLabel ?? t('ui.showPassword'))" :aria-pressed="revealed" :disabled="Boolean(attrs.disabled)" @click="revealed = !revealed">
+    <button v-if="type === 'password'" type="button" class="app-input-reveal" :aria-label="revealed ? t('ui.hidePassword') : t('ui.showPassword')" :aria-pressed="revealed" :disabled="Boolean(attrs.disabled)" @click="revealed = !revealed">
       <EyeOffIcon v-if="revealed" :size="17" /><EyeIcon v-else :size="17" />
     </button>
     <button v-else-if="allowClear && model && !attrs.disabled" type="button" class="app-input-reveal" :aria-label="t('ui.clearInput')" @click="model = ''; wrapper?.querySelector('input')?.focus()"><XIcon :size="16" /></button>

@@ -1,19 +1,17 @@
 export const auth = {
   loginTitle: '登录',
-  loginBody: '使用管理员账号和密钥进入管理界面。',
+  loginBody: '使用管理员账号和密码进入管理界面。',
   setupTitle: '创建管理员账号',
   setupBody: '首次使用时创建管理员账号并进入管理界面。',
-  setupHint: '请妥善保存管理员密钥，后续登录时需要使用。',
-  secretPlaceholder: '输入管理员密钥',
-  newSecretPlaceholder: '设置管理员密钥',
+  setupHint: '请妥善保存管理员密码，后续登录时需要使用。',
+  secretPlaceholder: '输入管理员密码',
+  newSecretPlaceholder: '设置管理员密码',
   identifier: '管理员账号',
-  secret: '管理员密钥',
-  showSecret: '显示密钥',
-  hideSecret: '隐藏密钥',
+  secret: '管理员密码',
   loginSubmit: '登录',
   setupSubmit: '创建并进入管理界面',
   recovery: {
-    open: '忘记密钥？',
+    open: '忘记密码？',
     title: '重置管理员凭据',
     body: '在运行 RayleaBot 的设备上完成重置，然后重新创建管理员账号。',
     launcherTitle: '使用启动器',
@@ -30,7 +28,7 @@ export const auth = {
   feedback: {
     loginSuccess: '已登录',
     setupSuccess: '管理员账号已创建',
-    loginDenied: '登录未完成，请检查管理员账号和密钥。',
+    loginDenied: '登录未完成，请检查管理员账号和密码。',
     loginInvalid: '登录请求未完成，请检查输入后重试。',
     loginFailed: '登录未完成，请稍后重试。',
     serviceUnreachable: '暂时无法连接管理界面，请确认服务已经启动。',
@@ -42,6 +40,6 @@ export const auth = {
   },
   validation: {
     identifierRequired: '请输入管理员账号',
-    secretRequired: '请输入管理员密钥',
+    secretRequired: '请输入管理员密码',
   },
 } as const

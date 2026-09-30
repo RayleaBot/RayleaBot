@@ -11,7 +11,7 @@ function mountForm(options?: { pending?: boolean, feedback?: { level: 'error' | 
       pending: options?.pending ?? false,
       secretAutocomplete: 'current-password' as const,
       submitLabel: '登录',
-      subtitle: '使用管理员账号和密钥进入管理界面。',
+      subtitle: '使用管理员账号和密码进入管理界面。',
       title: '登录',
     },
   })
@@ -52,14 +52,14 @@ describe('AuthCredentialsForm', () => {
   it('provides a keyboard-operable password visibility control', async () => {
     const wrapper = mountForm()
     const input = wrapper.get('input[name="secret"]')
-    const toggle = wrapper.get('button[aria-label="显示密钥"]')
+    const toggle = wrapper.get('button[aria-label="显示密码"]')
     expect(input.attributes('type')).toBe('password')
     expect(toggle.attributes('aria-pressed')).toBe('false')
 
     await toggle.trigger('click')
 
     expect(input.attributes('type')).toBe('text')
-    expect(wrapper.get('button[aria-label="隐藏密钥"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('button[aria-label="隐藏密码"]').attributes('aria-pressed')).toBe('true')
   })
 
   it('shows form feedback and disables all controls while pending', () => {

@@ -6,7 +6,7 @@ test.use({ configPanel: true })
 async function openPluginPage(page: Page) {
   await page.goto('/login')
   await page.getByLabel('管理员账号', { exact: true }).fill('admin')
-  await page.getByLabel('管理员密钥', { exact: true }).fill('fixture-only-secret')
+  await page.getByLabel('管理员密码', { exact: true }).fill('fixture-only-secret')
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await expect(page).toHaveURL(/\/$/)
   await page.goto('/plugins/example-config-panel?panel=management-ui&management_page=config')

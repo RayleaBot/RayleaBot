@@ -13,7 +13,7 @@ function apiError(code: string) {
 
 describe('authentication feedback', () => {
   it.each([
-    ['denied credentials', apiError('permission.denied'), '管理员账号和密钥'],
+    ['denied credentials', apiError('permission.denied'), '管理员账号和密码'],
     ['invalid request', apiError('platform.invalid_request'), '检查输入'],
     ['unknown API error', apiError('platform.unknown'), '稍后重试'],
     ['network error', new TypeError('Failed to fetch'), '服务已经启动'],

@@ -29,7 +29,7 @@ test('real Server serves the built UI, authenticates and persists a configuratio
 
   await page.goto('/login')
   await page.getByLabel('管理员账号', { exact: true }).fill('admin')
-  await page.getByLabel('管理员密钥', { exact: true }).fill('fixture-only-secret')
+  await page.getByLabel('管理员密码', { exact: true }).fill('fixture-only-secret')
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 

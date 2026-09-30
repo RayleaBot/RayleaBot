@@ -9,7 +9,7 @@ test('timezone picker covers Windows offsets, supports the keyboard, and preserv
   })
   expect(setup.status()).toBe(200)
   await page.goto('/login')
-  await page.getByLabel('管理员密钥').fill('fixture-only-secret')
+  await page.getByLabel('管理员密码').fill('fixture-only-secret')
   await page.getByRole('button', { name: /登\s*录/ }).click()
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
   await page.clock.setFixedTime(new Date('2026-07-15T12:00:00Z'))
