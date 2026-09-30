@@ -182,6 +182,8 @@ export function buildDiagnosticsSubsystemItems(snapshot: SystemDiagnosticsRespon
   const dependencyBlockingCount = snapshot.dependencies.filter(
     dependency => ['metadata_incomplete', 'unavailable'].includes(dependency.status),
   ).length
+  // The dependency row takes the severity the server gave its issues instead of assuming a blocking failure.
+  const dependencyTone: StatusType = snapshot.issues.some(issue => issue.code.startsWith('dependency.') && issue.severity === 'error') ? 'danger' : 'warning'
   const filesystemIssueCount = snapshot.filesystem.filter(path => path.status !== 'ok').length
   const adapters = describeAdapterStates(snapshot.adapters)
   const failureStatus = (failed: number, tone: StatusType = 'danger'): StatusType => failed > 0 ? tone : 'success'
@@ -239,7 +241,7 @@ export function buildDiagnosticsSubsystemItems(snapshot: SystemDiagnosticsRespon
     {
       key: 'dependencies',
       label: t('dashboard.diagnosticsSubsystems.dependencies'),
-      status: failureStatus(dependencyBlockingCount),
+      status: failureStatus(dependencyBlockingCount, dependencyTone),
       value: t('dashboard.diagnosticsDependencyValue', {
         ready: snapshot.dependencies.length - dependencyBlockingCount,
         total: snapshot.dependencies.length,

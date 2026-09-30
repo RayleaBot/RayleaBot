@@ -7,7 +7,7 @@ import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import { t } from '@/i18n'
 import { formatPluginVersion, getPluginRoleLabel, getPluginStateLabel, getPluginTrustLabel } from '@/lib/display'
 import { buildPluginWorkbenchActions } from '@/lib/management-links'
-import type { StatusTone } from '@/lib/status-tone'
+import { resolveStatusTone } from '@/lib/status-tone'
 import { usePluginsStore } from '@/stores/plugins'
 import type { PluginDetail } from '@/types/api'
 
@@ -16,20 +16,12 @@ const props = defineProps<{ plugin: PluginDetail | null; pluginId: string; plugi
 const pluginsStore = usePluginsStore()
 const workbenchActions = computed(() => buildPluginWorkbenchActions(props.pluginId))
 const requiresTrustAttention = computed(() => props.plugin?.trust?.level === 'unverified')
-const stateTone = computed(() => getPluginStateTone(props.plugin?.state))
+const stateTone = computed(() => resolveStatusTone(props.plugin?.state))
 const facts = computed(() => [
   { key: 'version', label: t('plugins.fields.version'), value: formatPluginVersion(props.plugin?.version) },
   { key: 'core', label: t('plugins.fields.minCoreVersion'), value: formatPluginVersion(props.plugin?.min_core_version) },
   { key: 'source', label: t('plugins.fields.sourceRoot'), value: props.plugin?.source?.root?.trim() || t('display.empty') },
 ])
-
-function getPluginStateTone(status?: string | null): StatusTone {
-  if (!status) return 'neutral'
-  if (status === 'failed' || status === 'error' || status === 'removed') return 'danger'
-  if (status === 'starting' || status === 'stopping' || status === 'enabling' || status === 'disabling' || status === 'retrying') return 'warning'
-  if (status === 'installed' || status === 'enabled' || status === 'running' || status === 'discovered') return 'success'
-  return 'neutral'
-}
 </script>
 
 <template>
