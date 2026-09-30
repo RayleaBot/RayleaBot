@@ -11,7 +11,7 @@
 
 ## 主题与 token 映射
 
-Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显式选择可持久化，不提供按时钟自动切换配置。`FluentProvider` 与自定义 CSS variables 必须使用同一有效主题，窗口背景、原生控件和自定义表面保持一致。普通画布、文字、边框和选中背景使用灰白或炭灰中性色，青瓷用于品牌链接、主操作和少数选中标记。`design/tokens.json` 是主题 token 的唯一机器值源，`launcher/src/shared/launcher-theme-tokens.generated.ts` 提供生成值，`launcher-theme.ts` 保留既有消费接口。
+Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显式选择可持久化，不提供按时钟自动切换配置。`FluentProvider` 与自定义 CSS variables 必须使用同一有效主题，窗口背景、原生控件和自定义表面保持一致。画布是与 Web 管理壳相同的暖石灰光场，文字、边框和选中背景使用暖中性色；橙色用于主操作与品牌强调，品牌链接和勾选标记使用加深的品牌前景色。`design/tokens.json` 是主题 token 的唯一机器值源，`launcher/src/shared/launcher-theme-tokens.generated.ts` 提供生成值，`launcher-theme.ts` 保留既有消费接口。
 
 主题入口使用显式菜单，按“跟随系统、浅色、深色”排列并显示当前单选项。菜单由 Motion 在 `220ms` 内淡入并上移 `5px`，关闭时在 `160ms` 内淡出；选中反馈在退出期间保持可见，弹层消失后，新主题从主题按钮中心以 `420ms` 圆形展开到整个窗口，并把焦点还给触发按钮；跟随系统自动切换时新主题以 `280ms` 淡入。`prefers-reduced-motion` 下立即完成开合与主题切换。
 
@@ -26,7 +26,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 | 主操作填充 | `colorBrandBackground`、主按钮 | `light-primary` | `dark-primary` |
 | 品牌前景 | 品牌链接和少量选中标记 | `light-brand-foreground` | `dark-brand-foreground` |
 | 焦点 | `colorStrokeFocus2` 与全局焦点轮廓 | `light-focus` | `dark-focus` |
-| 玻璃材质 | 雾白画布、内容分组填充、主操作着色与玻璃的不透明降级 | 由 `light-canvas`、`light-surface`、`light-primary`、`light-text` 局部派生 | 由 `dark-canvas`、`dark-surface-raised`、`dark-primary`、`dark-text` 局部派生 |
+| 玻璃材质 | 光场画布、内容分组填充、主操作着色与玻璃的不透明降级 | 由 `light-canvas`、`light-surface`、`light-primary`、`light-text` 局部派生 | 由 `dark-canvas`、`dark-surface-raised`、`dark-primary`、`dark-text` 局部派生 |
 | 品牌填充内容 | `colorNeutralForegroundOnBrand` | `on-brand` | `on-brand` |
 | 人工关注 | 本地 attention token | `light-attention` | `dark-attention` |
 | 状态 | Fluent semantic colors | 浅色语义 tokens | 暗色语义 tokens |
@@ -47,7 +47,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 ## 桌面壳结构
 
 - 默认窗口为 `1280×720` 逻辑像素，最小窗口为 `960×560`；创建窗口时根据屏幕工作区与最小尺寸约束调整大小。
-- 顶部拖动区高度为 `44px` 且透明，露出雾白画布；顶部放置共享黑白人物标识、窗口标题与窗口控制，不放置页面主操作。
+- 顶部拖动区高度为 `44px` 且透明，露出光场画布；顶部放置共享黑白人物标识、窗口标题与窗口控制，不放置页面主操作。
 - 窗口使用 `184px` 导航列与单一主内容区，宽度不超过 `1100px` 时导航列为 `156px`。导航栏是列内的玻璃面板，导航项由 Fluent Regular 功能图标、可见文字、可访问名称和完整中性选中色面组成。
 - 运行状态、环境检查、日志诊断、偏好设置和关于应用保持稳定分区，切换时保留当前任务上下文。
 - 主内容区优先使用单列任务流；只有状态与操作真实并行时才使用双列。
@@ -64,7 +64,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 
 | 场景 | 组件 | 规则 |
 | --- | --- | --- |
-| 主操作 | `Button appearance="primary"` | 当前工作流保持唯一，使用青瓷主操作语义；工作区使用青瓷着色的玻璃胶囊 |
+| 主操作 | `Button appearance="primary"` | 当前工作流保持唯一，使用橙色主操作语义与深色文字；工作区使用橙色着色的玻璃胶囊 |
 | 人工确认 | `Button` + attention token | 只用于需要明确判断的动作，不与警告色混用 |
 | 危险操作 | `Button` + danger token | 停止、重置和完全退出，必须有明确结果文案；工作区使用危险色文字的中性玻璃胶囊 |
 | 次级操作 | `Button` | 使用中性边界和表面，不与主操作竞争；工作区使用中性玻璃胶囊 |
@@ -108,7 +108,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 Launcher 参考 Apple 的 [Liquid Glass](https://developer.apple.com/design/) 与 Human Interface Guidelines 的分层：玻璃只属于浮在内容之上的导航层与控件，内容分组留在内容层。材质由 [`liquid-glass.css`](../../launcher/src/renderer/src/liquid-glass.css) 与 [`glassSurfaces.ts`](../../launcher/src/renderer/src/glassSurfaces.ts) 实现，元素通过 `data-glass` 声明 `clear`、`regular` 或 `prominent` 变体。玻璃的填充、边缘与投影转写自 [Apple Design Resources](https://developer.apple.com/design/resources/) 中 macOS 27 UI Kit 的 Liquid Glass 图层样式，作为 `liquid-glass.css` 的局部变量；画布与内容分组从主题 token 以 `color-mix` 局部派生。两者都不新增共享 token，仓库也不包含套件文件、SF 字体或 SF Symbols。
 
 - 画布与 Web 管理壳共用暖石灰光场：五层柔和径向光晕叠在中性画布上，暗色主题使用炭色画布与更暗的光晕；Go 宿主窗口先绘制同色画布，切换主题时不闪烁。画布不使用图片。
-- `regular` 用于侧栏与次级按钮，按尺寸取不同配方：按钮使用套件的 `Regular - Small`，浅色是半透明浅灰胶囊，暗色是略亮于画布的炭灰胶囊，几乎没有外侧投影；侧栏使用 `Regular - Large`，填充更白并带纵向外侧投影。`prominent` 用于主操作：套件把着色玻璃画成平涂色面，Launcher 在青瓷填充上叠加顶部受光的渐变高光、上下亮边、细深色描边和同色投影，使着色部分读作玻璃。
+- `regular` 用于侧栏与次级按钮，按尺寸取不同配方：按钮使用套件的 `Regular - Small`，浅色是半透明浅灰胶囊，暗色是略亮于画布的炭灰胶囊，几乎没有外侧投影；侧栏使用 `Regular - Large`，填充更白并带纵向外侧投影。`prominent` 用于主操作：套件把着色玻璃画成平涂色面，Launcher 在橙色填充上叠加顶部受光的渐变高光、上下亮边、细深色描边和同色投影，使着色部分读作玻璃。
 - 边缘由多层内阴影组成：两侧与四周有深色细线，上下边缘有亮线和向内衰减的亮边，两侧向内渐暗。Sketch 样式中的 Lighten、Darken、Luminosity、Plus darker 与 Plus lighter 混合改写为半透明填充和黑白内阴影，按 Launcher 画布算出与原混合一致的明度。
 - 侧栏、按钮与主操作只由背景色、渐变与阴影构成，不运行脚本，也不读取背景。
 - `clear` 状态透镜完全通透，沿用 `Regular - Medium` 的边缘亮线并带一层淡投影；`Regular - Small` 的两侧暗角会让通透边缘发灰，因此不用于透镜。透镜边缘是圆角斜面：视线在斜面处折射，把背后更靠内的状态色压缩成紧贴边缘的细带，中心不放大，透镜边缘因此形成同色光环。WebView2 中该折射由 `glassSurfaces.ts` 生成的 SVG backdrop filter 完成，同一尺寸的透镜共用一个滤镜；WebKit 与 Gecko 的透镜保持通透、不折射。
@@ -122,7 +122,7 @@ Launcher 参考 Apple 的 [Liquid Glass](https://developer.apple.com/design/) �
 
 - Dialog 是 Launcher 中模糊背后窗口的玻璃面板：沿用 `Regular - Large` 的边缘亮线，叠加顶部高光、`28px` 圆角、固定 `24px` 模糊与 `190%` 饱和度，并带深投影；遮罩只轻度压暗窗口，玻璃后方的内容以模糊色块透出。Fluent 把 Dialog 挂载在 `launcher-theme` 容器之外，玻璃选择器因此使用 Fluent provider 的类名。
 - Dialog 标题使用 `48px` 小号状态透镜：重置凭据为危险色，关闭启动器与其他待确认操作为人工关注色。选项与按钮位于玻璃之上，使用半透明白色填充与细亮边，不再叠加玻璃；确认按钮沿用主操作的着色玻璃配方，按危险或人工关注着色。
-- 主题菜单沿用套件 `Menus` 的玻璃样式：半透明中性填充、上下亮边、细描边与柔和投影，`16px` 圆角，固定 `24px` 模糊与 `190%` 饱和度。菜单项是 `10px` 圆角的行，悬停的行显示中性高亮，当前主题由青瓷勾选标记表示。开合动画只作用于菜单表面，Fluent 弹层自带的进入动画保持关闭：祖先元素上保留的透明度动画会让模糊只读取弹层内部，看不到背后的窗口。所有浮层的模糊半径固定，不随指针、滚动或动画变化。
+- 主题菜单沿用套件 `Menus` 的玻璃样式：半透明中性填充、上下亮边、细描边与柔和投影，`16px` 圆角，固定 `24px` 模糊与 `190%` 饱和度。菜单项是 `10px` 圆角的行，悬停的行显示中性高亮，当前主题由品牌前景色的勾选标记表示。开合动画只作用于菜单表面，Fluent 弹层自带的进入动画保持关闭：祖先元素上保留的透明度动画会让模糊只读取弹层内部，看不到背后的窗口。所有浮层的模糊半径固定，不随指针、滚动或动画变化。
 - 选中背景和文字使用中性色，玻璃不改变状态或操作语义。
 - 不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层降为完整不透明表面，Dialog 中的状态透镜显示为实色圆面。
 
