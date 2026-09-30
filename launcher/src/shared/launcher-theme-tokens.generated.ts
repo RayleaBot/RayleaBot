@@ -26,10 +26,6 @@ export const rayleaMark = {
 export interface GeneratedLauncherThemeTokens {
   attention: string;
   attentionSoft: string;
-  authCanvasFocus: string;
-  authCanvasWash: string;
-  authControl: string;
-  authControlHover: string;
   border: string;
   borderControl: string;
   brandFill: string;
@@ -43,18 +39,7 @@ export interface GeneratedLauncherThemeTokens {
   chromeText: string;
   danger: string;
   dangerSoft: string;
-  fieldLilac: string;
-  fieldMint: string;
-  fieldPeach: string;
-  fieldSand: string;
-  fieldSky: string;
   focus: string;
-  glassFill: string;
-  glassFillStrong: string;
-  glassInner: string;
-  glassRim: string;
-  glassRimSoft: string;
-  glassSheen: string;
   info: string;
   infoSoft: string;
   navHover: string;
@@ -62,27 +47,16 @@ export interface GeneratedLauncherThemeTokens {
   navSelectedText: string;
   onAttention: string;
   onBrand: string;
-  onLit: string;
-  onLitMuted: string;
   shadowFloating: string;
+  shadowRaised: string;
   shadowSurface: string;
   success: string;
   successSoft: string;
   surface: string;
-  surfaceLit: string;
   surfaceRaised: string;
   surfaceSoft: string;
   text: string;
   textMuted: string;
-  tileGlyphAmber: string;
-  tileGlyphBlue: string;
-  tileGlyphEmber: string;
-  tileGlyphGreen: string;
-  tileGlyphRose: string;
-  tileGlyphSlate: string;
-  tileGlyphTeal: string;
-  tileGlyphViolet: string;
-  tileOnGlyph: string;
   warning: string;
   warningSoft: string;
 }
@@ -91,127 +65,75 @@ export const launcherGeneratedThemes: Record<'light' | 'dark', GeneratedLauncher
   light: {
     attention: "#6240B8",
     attentionSoft: "#EEE8FB",
-    border: "#E4DDD3",
-    borderControl: "#8E877D",
-    brandFill: "#F07428",
-    brandForeground: "#9A4008",
-    brandSoft: "#F1EBE3",
-    canvas: "#E7E1D9",
-    chrome: "#F3EEE7",
-    chromeMuted: "#5A554D",
-    chromeText: "#1D1B18",
+    border: "#E4E2DE",
+    borderControl: "#8A8782",
+    brandFill: "#2860D8",
+    brandForeground: "#2860D8",
+    brandSoft: "#E8EEFB",
+    canvas: "#FFFFFF",
+    chrome: "#F5F5F3",
+    chromeMuted: "#5F5C56",
+    chromeText: "#1C1B19",
     danger: "#A92E29",
     dangerSoft: "#FBDEDB",
-    fieldLilac: "#CCB8EC8C",
-    fieldMint: "#96D0C680",
-    fieldPeach: "#F8BA92D1",
-    fieldSand: "#F6D6AC99",
-    fieldSky: "#A0C0EEC7",
-    focus: "#3B352E",
-    glassFill: "#FFFFFF1F",
-    glassFillStrong: "#FFFFFF61",
-    glassInner: "#FFFFFF42",
-    glassRim: "#FFFFFFFA",
-    glassRimSoft: "#FFFFFF8C",
-    glassSheen: "#FFFFFF52",
+    focus: "#2860D8",
     info: "#2159B8",
     infoSoft: "#E0E9FB",
     onAttention: "#FFFFFF",
-    onBrand: "#21140A",
-    onLit: "#1D1B18",
-    onLitMuted: "#57524B",
+    onBrand: "#FFFFFF",
     success: "#1D6E3D",
     successSoft: "#DDF1E3",
-    surface: "#FFFFFF",
-    surfaceLit: "#FFFDFA",
+    surface: "#F5F5F3",
     surfaceRaised: "#FFFFFF",
-    surfaceSoft: "#F4F0EA",
-    text: "#1D1B18",
-    textMuted: "#5A554D",
+    surfaceSoft: "#ECEBE8",
+    text: "#1C1B19",
+    textMuted: "#5F5C56",
     warning: "#7F5000",
     warningSoft: "#FBEBC7",
-    brandFillHover: "#F58A45",
-    brandFillPressed: "#E36A1F",
-    navHover: "#FFFFFF66",
-    navSelected: "#FFFDFA",
-    navSelectedText: "#1D1B18",
-    authCanvasFocus: "#F074281F",
-    authCanvasWash: "#F0742812",
-    authControl: "#FFFFFF",
-    authControlHover: "#F4F0EA",
-    tileGlyphAmber: "#B06F12",
-    tileGlyphBlue: "#1E7FD0",
-    tileGlyphEmber: "#D4552B",
-    tileGlyphGreen: "#2E7D5B",
-    tileGlyphRose: "#C8479E",
-    tileGlyphSlate: "#58616E",
-    tileGlyphTeal: "#13968A",
-    tileGlyphViolet: "#6A4FD0",
-    tileOnGlyph: "#FFFFFF",
-    shadowSurface: "0 2px 8px #0000000F",
-    shadowFloating: "0 18px 40px #0000002E",
+    brandFillHover: "#1F52C0",
+    brandFillPressed: "#1A47A8",
+    navHover: "#1C1B190D",
+    navSelected: "#FFFFFF",
+    navSelectedText: "#1C1B19",
+    shadowSurface: "0 1px 2px #1816120D, 0 10px 26px -14px #18161233",
+    shadowRaised: "0 1px 2px #18161214, 0 3px 8px -4px #18161224",
+    shadowFloating: "0 2px 6px #18161214, 0 24px 48px -16px #18161247",
   },
   dark: {
     attention: "#B9A5FF",
     attentionSoft: "#2A2342",
-    border: "#34302B",
-    borderControl: "#8A837A",
-    brandFill: "#FA914A",
-    brandForeground: "#FFA466",
-    brandSoft: "#2B2825",
-    canvas: "#0F0E0D",
-    chrome: "#1A1816",
-    chromeMuted: "#B6B0A8",
-    chromeText: "#EEEBE6",
+    border: "#2F2E2B",
+    borderControl: "#86837C",
+    brandFill: "#3567DC",
+    brandForeground: "#8DB3FF",
+    brandSoft: "#1F2A44",
+    canvas: "#111110",
+    chrome: "#1C1C1A",
+    chromeMuted: "#B4B1AA",
+    chromeText: "#EEEDEA",
     danger: "#FF8177",
     dangerSoft: "#3E1D1B",
-    fieldLilac: "#5C3C7C5C",
-    fieldMint: "#1E645C52",
-    fieldPeach: "#964E2475",
-    fieldSand: "#70523052",
-    fieldSky: "#28468E85",
-    focus: "#D9D3CA",
-    glassFill: "#FFFFFF0D",
-    glassFillStrong: "#1C1A1880",
-    glassInner: "#FFFFFF0F",
-    glassRim: "#FFFFFF66",
-    glassRimSoft: "#FFFFFF21",
-    glassSheen: "#FFFFFF17",
+    focus: "#8DB3FF",
     info: "#88AEFF",
     infoSoft: "#1B2A45",
     onAttention: "#1A1433",
-    onBrand: "#21140A",
-    onLit: "#1D1B18",
-    onLitMuted: "#57524B",
+    onBrand: "#FFFFFF",
     success: "#5BD08B",
     successSoft: "#173323",
-    surface: "#1C1A18",
-    surfaceLit: "#F1ECE6",
-    surfaceRaised: "#262320",
-    surfaceSoft: "#23201D",
-    text: "#EEEBE6",
-    textMuted: "#B6B0A8",
+    surface: "#1C1C1A",
+    surfaceRaised: "#282826",
+    surfaceSoft: "#2A2A27",
+    text: "#EEEDEA",
+    textMuted: "#B4B1AA",
     warning: "#F3BB4F",
     warningSoft: "#3A2C12",
-    brandFillHover: "#FCA366",
-    brandFillPressed: "#F07A30",
+    brandFillHover: "#2B5BD0",
+    brandFillPressed: "#2451BF",
     navHover: "#FFFFFF0F",
-    navSelected: "#F1ECE6",
-    navSelectedText: "#1D1B18",
-    authCanvasFocus: "#FA914A1F",
-    authCanvasWash: "#FA914A12",
-    authControl: "#23201D",
-    authControlHover: "#23201D",
-    tileGlyphAmber: "#B06F12",
-    tileGlyphBlue: "#1E7FD0",
-    tileGlyphEmber: "#D4552B",
-    tileGlyphGreen: "#2E7D5B",
-    tileGlyphRose: "#C8479E",
-    tileGlyphSlate: "#58616E",
-    tileGlyphTeal: "#13968A",
-    tileGlyphViolet: "#6A4FD0",
-    tileOnGlyph: "#FFFFFF",
-    shadowSurface: "0 2px 10px #00000047",
-    shadowFloating: "0 20px 56px #00000080",
+    navSelected: "#2E2E2B",
+    navSelectedText: "#EEEDEA",
+    shadowSurface: "0 1px 2px #00000059, 0 10px 28px -14px #00000099",
+    shadowRaised: "0 1px 2px #00000066, 0 3px 8px -4px #00000080",
+    shadowFloating: "0 2px 6px #00000066, 0 24px 56px -16px #000000B3",
   },
 };
