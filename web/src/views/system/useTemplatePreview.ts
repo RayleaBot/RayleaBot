@@ -44,7 +44,8 @@ export function useTemplatePreview(activeTemplateId: Ref<string>, isActiveTempla
       if (!activeTemplateId.value) {
         return '{}'
       }
-      return previewDataByTemplate.value[activeTemplateId.value] ?? '{}'
+      // Without a draft the template's own sample applies, so the first preview never goes out as an empty object.
+      return previewDataByTemplate.value[activeTemplateId.value] ?? defaultPreviewDataText(activeTemplateId.value)
     },
     set(value: string) {
       if (!activeTemplateId.value) {
@@ -94,6 +95,11 @@ export function useTemplatePreview(activeTemplateId: Ref<string>, isActiveTempla
     }
 
     return ''
+  }
+
+  function defaultPreviewDataText(templateId: string) {
+    const detail = detailById.value[templateId]
+    return buildDefaultPreviewData(detail?.input_schema_json ?? null, detail?.preview_data_json ?? null) || '{}'
   }
 
   function ensurePreviewDefaults(templateId: string) {

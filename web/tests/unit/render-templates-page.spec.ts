@@ -258,6 +258,32 @@ describe('RenderTemplatesView', () => {
     expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).not.toContain('等待可预览的 HTML')
   })
 
+  it('waits for the template sample before the first preview request', async () => {
+    const renderTemplatesStore = useRenderTemplatesStore()
+
+    renderTemplatesStore.items = [createTemplateSummary()]
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items, total: renderTemplatesStore.items.length })
+    // The workspace detail arrives after mounting, the way the real store fills it.
+    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockImplementation(async (templateId) => {
+      const detail = createTemplateDetail()
+      renderTemplatesStore.detailById = { ...renderTemplatesStore.detailById, [templateId]: detail }
+      return detail
+    })
+    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockImplementation(async (templateId, payload) => (
+      createPreviewHTML(templateId, String(payload.data.title ?? 'preview'))
+    ))
+
+    await mountPage()
+    await flushPromises()
+
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(1)
+    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledWith(
+      'help.menu',
+      { theme: 'default', data: JSON.parse(HELP_MENU_DEFAULT_PREVIEW_DATA) },
+      expect.any(AbortSignal),
+    )
+  })
+
   it('updates iframe html when JSON changes and blocks invalid JSON locally', async () => {
     const renderTemplatesStore = useRenderTemplatesStore()
 
