@@ -5,12 +5,23 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function normalizeJsonError(error: unknown) {
-  if (error instanceof Error && error.message) {
-    return t('renderTemplates.previewDataErrors.parseFailedWithReason', { message: error.message })
-  }
+// Browsers word JSON errors differently and in English. The position they report, when they report one,
+// becomes a line and column in the text; otherwise the message says what to check.
+function locateJsonError(text: string, error: unknown) {
+  const message = error instanceof Error ? error.message : ''
+  const lineColumn = /line (\d+) column (\d+)/i.exec(message)
+  if (lineColumn) return { line: Number(lineColumn[1]), column: Number(lineColumn[2]) }
+  const position = /position (\d+)/i.exec(message)
+  if (!position) return null
+  const lines = text.slice(0, Number(position[1])).split('\n')
+  return { line: lines.length, column: lines[lines.length - 1].length + 1 }
+}
 
-  return t('renderTemplates.previewDataErrors.parseFailed')
+function normalizeJsonError(text: string, error: unknown) {
+  const location = locateJsonError(text, error)
+  return location
+    ? t('renderTemplates.previewDataErrors.parseFailedAt', location)
+    : t('renderTemplates.previewDataErrors.parseFailed')
 }
 
 export function parseRenderTemplatePreviewData(raw: string) {
@@ -23,7 +34,8 @@ export function parseRenderTemplatePreviewData(raw: string) {
   }
 
   try {
-    const parsed = JSON.parse(text)
+    // Parse the text as typed so reported positions match its lines.
+    const parsed = JSON.parse(raw)
     if (!isPlainObject(parsed)) {
       return {
         data: null,
@@ -43,7 +55,7 @@ export function parseRenderTemplatePreviewData(raw: string) {
       data: null,
       issue: {
         field: 'preview_data',
-        message: normalizeJsonError(error),
+        message: normalizeJsonError(raw, error),
       } satisfies RenderTemplateLocalIssue,
     }
   }

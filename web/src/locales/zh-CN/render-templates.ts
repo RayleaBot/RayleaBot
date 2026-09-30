@@ -6,6 +6,7 @@ export const renderTemplates = {
   clearSearch: '清除搜索',
   refreshList: '刷新模板目录',
   catalogHint: '只显示当前可用的模板',
+  catalogCount: '当前可用 {count} 个模板',
   sampleTab: '示例数据',
   infoTab: '模板说明',
   previewTab: '效果预览',
@@ -13,7 +14,6 @@ export const renderTemplates = {
   sampleHint: '修改下方数据会自动更新预览，不会保存或影响机器人发送的图片。',
   technicalDetails: '查看标识与版本',
   removedTemplate: '原模板已不可用，已切换到当前模板。',
-  autoPreview: '数据修改后自动更新',
   types: { object: '对象', array: '列表', string: '文本', number: '数值', integer: '整数', boolean: '开关', null: '空值', unknown: '未声明' },
   templateList: '模板列表',
   schemaPreviewTitle: '输入结构',
@@ -41,8 +41,8 @@ export const renderTemplates = {
     required: '必填',
   },
   previewDataErrors: {
-    parseFailedWithReason: 'JSON 解析失败：{message}',
-    parseFailed: 'JSON 解析失败，请检查格式。',
+    parseFailedAt: '第 {line} 行第 {column} 列附近的 JSON 格式有误，请检查括号、引号和逗号。',
+    parseFailed: 'JSON 格式有误，请检查括号、引号和逗号。',
     objectRequired: '预览输入需要是 JSON 对象。',
   },
   sampleValues: {

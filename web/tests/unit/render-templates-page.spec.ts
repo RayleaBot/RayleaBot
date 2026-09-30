@@ -319,8 +319,10 @@ describe('RenderTemplatesView', () => {
     await flushPromises()
 
     expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(2)
-    expect(wrapper.text()).not.toContain('JSON 解析失败')
-    expect(toastMessages().some((message) => message.startsWith('JSON 解析失败'))).toBe(true)
+    // The error sits under the editor, located by line and column, and is not repeated as a toast.
+    expect(wrapper.get('#render-template-data-error').text()).toContain('JSON 格式有误')
+    expect(wrapper.get('#render-template-data-error').text()).toContain('第 1 行')
+    expect(toastMessages().some((message) => message.includes('JSON 格式有误'))).toBe(false)
   })
 
   it('reuses cached preview HTML immediately while refreshing in the background', async () => {

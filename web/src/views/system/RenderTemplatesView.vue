@@ -81,15 +81,6 @@ const pageErrorToast = computed(() => (
       }
     : null
 ))
-const previewParseIssueToast = computed(() => (
-  previewParseResult.value.issue
-    ? {
-        key: `render-templates-preview-parse:${previewParseResult.value.issue.message}`,
-        level: 'warning' as const,
-        message: previewParseResult.value.issue.message,
-      }
-    : null
-))
 const previewErrorToast = computed(() => (
   currentPreviewError.value
     ? {
@@ -101,7 +92,6 @@ const previewErrorToast = computed(() => (
 ))
 
 useToastFeedback(pageErrorToast)
-useToastFeedback(previewParseIssueToast)
 useToastFeedback(previewErrorToast)
 
 const previewEmptyDescription = computed(() => {
@@ -238,7 +228,7 @@ onDeactivated(() => {
       <aside class="template-catalog" :aria-label="t('renderTemplates.templateList')">
         <div class="template-catalog__content">
           <div class="template-catalog__search"><SearchIcon :size="16" aria-hidden="true" /><AppInput v-model="search" :maxlength="200" type="search" :aria-label="t('renderTemplates.search')" :placeholder="t('renderTemplates.search')" /></div>
-          <p class="template-catalog__hint">{{ t('renderTemplates.catalogHint') }}<span>{{ items.length }}</span></p>
+          <p class="template-catalog__hint">{{ t('renderTemplates.catalogCount', { count: total || items.length }) }}</p>
           <div class="template-catalog__list">
             <AppSkeleton v-if="loading && !items.length" :rows="6" />
             <section v-for="group in groupedTemplates" :key="group.key" class="template-nav-group">
@@ -261,7 +251,7 @@ onDeactivated(() => {
         </header>
         <AppSkeleton v-else-if="workspaceLoading || loading" :rows="3" />
         <AppTabs v-model="workspaceTab" :items="workspaceTabs" :label="t('renderTemplates.title')" keep-alive class="template-workspace__tabs">
-          <template #extra><AppButton variant="ghost" :disabled="!activeTemplateId || workspaceLoading" @click="reloadCurrentTemplate"><RefreshCwIcon :size="16" />{{ t('renderTemplates.reloadAction') }}</AppButton></template>
+          <template #extra><AppButton variant="ghost" :disabled="!activeTemplateId" :loading="workspaceLoading" @click="reloadCurrentTemplate"><template #icon><RefreshCwIcon /></template>{{ t('renderTemplates.reloadAction') }}</AppButton></template>
           <template #preview>
             <div class="render-template-preview-area" data-testid="render-template-preview-result">
               <p class="template-preview-hint">{{ t('renderTemplates.previewHint') }}</p>
@@ -272,8 +262,9 @@ onDeactivated(() => {
           <template #data>
             <div class="template-data-workspace">
               <div class="template-data-workspace__intro"><p>{{ t('renderTemplates.sampleHint') }}</p><AppButton :disabled="!currentTemplate" @click="resetPreviewData">{{ t('renderTemplates.resetSample') }}</AppButton></div>
-              <AppTextarea v-model="currentPreviewDataText" class="render-templates-json-input" :aria-label="t('renderTemplates.previewData')" :aria-invalid="previewParseResult.issue ? true : undefined" :placeholder="t('renderTemplates.previewDataPlaceholder')" :rows="18" spellcheck="false" />
-              <p class="template-preview-hint">{{ t('renderTemplates.autoPreview') }}</p>
+              <!-- The editor fills the tab; a JSON error sits right under it instead of in a toast per keystroke. -->
+              <AppTextarea v-model="currentPreviewDataText" class="render-templates-json-input" :aria-label="t('renderTemplates.previewData')" :aria-invalid="previewParseResult.issue ? true : undefined" :aria-describedby="previewParseResult.issue ? 'render-template-data-error' : undefined" :placeholder="t('renderTemplates.previewDataPlaceholder')" :rows="12" :max-rows="400" spellcheck="false" />
+              <p v-if="previewParseResult.issue" id="render-template-data-error" class="template-data-error" role="alert">{{ previewParseResult.issue.message }}</p>
             </div>
           </template>
           <template #info>
@@ -282,9 +273,14 @@ onDeactivated(() => {
               <h3>{{ t('renderTemplates.schemaPreviewTitle') }}</h3>
               <p v-if="!displaySchemaNodes.length" class="template-preview-hint">{{ t('renderTemplates.schemaPreviewEmpty') }}</p>
               <div v-else class="schema-tree">
+                <!-- The key a template reads comes first, with its type beside it; the description follows below. -->
                 <div v-for="node in displaySchemaNodes" :key="node.key" class="schema-tree-row" :style="{ '--schema-depth': node.depth }">
-                  <div><strong>{{ node.description || node.label }}</strong><code v-if="node.description">{{ node.label }}</code></div>
-                  <span>{{ getRenderTemplateTypeLabel(node.type) }}</span><small v-if="node.required">{{ t('renderTemplates.fields.required') }}</small>
+                  <div class="schema-tree-row__head">
+                    <code>{{ node.label }}</code>
+                    <span>{{ getRenderTemplateTypeLabel(node.type) }}</span>
+                    <small v-if="node.required">{{ t('renderTemplates.fields.required') }}</small>
+                  </div>
+                  <p v-if="node.description" class="schema-tree-row__description">{{ node.description }}</p>
                 </div>
               </div>
               <details class="template-technical"><summary>{{ t('renderTemplates.technicalDetails') }}</summary>
@@ -312,7 +308,7 @@ onDeactivated(() => {
 .template-catalog__search { position: relative; }
 .template-catalog__search > svg { position: absolute; z-index: 1; top: 14px; left: 12px; color: var(--muted); pointer-events: none; }
 .template-catalog__search :deep(input) { padding-left: 36px; }
-.template-catalog__hint { display: flex; justify-content: space-between; gap: 10px; margin: 12px 2px 18px; color: var(--muted); font-size: 12px; }
+.template-catalog__hint { margin: 12px 2px 18px; color: var(--muted); font-size: 12px; }
 .template-catalog__list { min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 .template-nav-group + .template-nav-group { margin-top: 24px; }
 .template-nav-group__title { display: flex; justify-content: space-between; gap: 12px; margin: 0 10px 8px; color: var(--muted); font-size: 12px; font-weight: 600; line-height: 1.5; }
@@ -322,9 +318,11 @@ onDeactivated(() => {
 .template-nav-item > span { min-width: 0; }
 .template-nav-item strong { display: block; font-size: 14px; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
 .template-nav-item small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.template-nav-item:hover { background: var(--surface-soft); }
-.template-nav-item.is-active { background: var(--brand-soft); color: var(--brand-foreground); }
-.template-nav-item.is-active svg, .template-nav-item.is-active small { color: var(--brand-foreground); }
+// Like the selected sidebar item: a lifted pill in the control fill of the page, dark text, only the icon in blue.
+.template-nav-item:hover { background: var(--nav-hover); }
+.template-nav-item.is-active { background: var(--surface); box-shadow: var(--shadow-xs); }
+.template-nav-item.is-active strong { font-weight: 600; }
+.template-nav-item.is-active > svg { color: var(--brand-foreground); }
 .template-nav-item:focus-visible, .template-technical summary:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .template-catalog__empty { padding: 24px 8px; color: var(--muted); font-size: 13px; text-align: center; }
 .template-workspace { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
@@ -339,17 +337,19 @@ onDeactivated(() => {
 .template-preview-hint { margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .render-template-preview-empty { display: grid; place-items: center; min-height: 320px; }
 .template-data-workspace, .template-information { width: 100%; max-width: 960px; }
+.template-data-workspace { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .template-data-workspace__intro { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
 .template-data-workspace__intro p { max-width: 60ch; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
 .template-data-workspace__intro button { flex: none; }
-.render-templates-json-input { font-family: var(--font-mono); font-size: 13px; line-height: 1.7; }
+.render-templates-json-input { flex: 1 1 auto; font-family: var(--font-mono); font-size: 13px; line-height: 1.7; }
+.template-data-error { margin: 8px 0 0; color: var(--text-danger); font-size: 13px; line-height: 1.5; }
 .template-information__description { margin: 0 0 24px; font-size: 14px; line-height: 1.7; }
 .template-information h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
-.schema-tree-row { display: flex; gap: 12px; align-items: baseline; padding: 12px 0 12px calc((var(--schema-depth) - 1) * 14px); border-bottom: 1px solid var(--border); }
-.schema-tree-row > div { flex: 1; min-width: 0; }
-.schema-tree-row strong { display: block; font-size: 13px; font-weight: 500; line-height: 1.6; overflow-wrap: anywhere; }
-.schema-tree-row code { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-.schema-tree-row > span, .schema-tree-row small { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.schema-tree-row { padding: 10px 0 10px calc((var(--schema-depth) - 1) * 16px); border-bottom: 1px solid var(--border); }
+.schema-tree-row__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
+.schema-tree-row code { color: var(--text); font-family: var(--font-mono); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.schema-tree-row__head span, .schema-tree-row__head small { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.schema-tree-row__description { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .template-technical { margin-top: 28px; }
 .template-technical summary { padding: 12px 0; color: var(--muted); font-size: 13px; cursor: pointer; }
 .template-info-list { display: grid; gap: 12px; margin: 8px 0 0; }
