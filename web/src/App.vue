@@ -43,7 +43,6 @@ watchEffect(() => {
 
 <template>
   <div :class="['app-root', `app-root--${uiShellStore.resolvedThemeMode}`, `app-root--${uiShellStore.preferences.density}`]">
-    <div class="app-field" aria-hidden="true" />
     <Transition name="connection-notice">
       <div
         v-if="availabilityStore.isConnectionInterrupted"

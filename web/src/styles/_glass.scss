@@ -3,16 +3,9 @@
 // `data-glass="clear"` lets src/lib/liquid-glass.ts refract the backdrop in Chromium; every other
 // engine keeps a lightly blurred material, and reduced transparency or forced colors go opaque.
 
+// The light field is the app root's own background. Glass panes refract it through backdrop-filter,
+// and it adds no stacking context, so toasts inside the root still stack over body-level dialogs.
 .app-root {
-  position: relative;
-  isolation: isolate;
-}
-
-.app-field {
-  position: fixed;
-  z-index: -1;
-  inset: 0;
-  pointer-events: none;
   background:
     radial-gradient(58vw 62vh at 4% 2%, var(--field-peach), transparent 72%),
     radial-gradient(52vw 44vh at 56% 16%, var(--field-sand), transparent 70%),
@@ -87,8 +80,8 @@ html[data-glass-refraction] .liquid-glass[data-glass-ready] {
 }
 
 @media (forced-colors: active) {
-  .app-field {
-    display: none;
+  .app-root {
+    background: Canvas;
   }
 
   .liquid-glass,
