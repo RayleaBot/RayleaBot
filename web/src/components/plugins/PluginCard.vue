@@ -27,7 +27,8 @@ const sourceTypeLabel = computed(() => {
     case 'remote_url': return t('plugins.remoteUrl')
     case 'catalog': return t('plugins.catalogSource')
     case 'development': return t('plugins.developmentSource')
-    default: return props.plugin.source?.package_source_type || t('display.empty')
+    // Plugins without a recorded package source show only their trust level.
+    default: return props.plugin.source?.package_source_type || ''
   }
 })
 const lifecycleSwitching = computed(() => props.plugin.state === 'starting' || props.plugin.state === 'stopping')
@@ -78,7 +79,7 @@ const healthNotices = computed(() => {
     </p>
 
     <div class="plugin-card__meta">
-      <span>{{ sourceTypeLabel }}</span>
+      <span v-if="sourceTypeLabel">{{ sourceTypeLabel }}</span>
       <AppTag :tone="plugin.trust?.level === 'unverified' ? 'warning' : 'neutral'">{{ getPluginTrustLabel(plugin.trust?.level) }}</AppTag>
     </div>
 
