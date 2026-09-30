@@ -5,7 +5,7 @@ import AppInput from '@/components/AppInput.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import AppCheckbox from '@/components/AppCheckbox.vue'
 import { computed, ref } from 'vue'
-import { CopyIcon } from '@lucide/vue'
+import { ChevronRightIcon, CopyIcon } from '@lucide/vue'
 
 import { copyText } from '@/adapter/clipboard'
 import { t } from '@/i18n'
@@ -75,7 +75,7 @@ function copyAddress(key: OneBotTransport) {
     >
       <div class="address-field">
         <AppInput :id="`adapter-${item.key}-url`" :model-value="String(settings[item.key].url ?? '')" :placeholder="item.placeholder" @update:model-value="(value: string) => settings[item.key].url = value" />
-        <AppButton v-if="item.key === 'reverse_ws' || item.key === 'webhook'" :aria-label="t('protocols.transportFields.copyAddress', { label: item.label })" @click="copyAddress(item.key)"><CopyIcon /></AppButton>
+        <AppButton v-if="item.key === 'reverse_ws' || item.key === 'webhook'" size="icon" :aria-label="t('protocols.transportFields.copyAddress', { label: item.label })" @click="copyAddress(item.key)"><CopyIcon /></AppButton>
       </div>
     </AppField>
     <AppField floating :label="t('protocols.transportFields.accessToken')" :for="`adapter-${item.key}-token`">
@@ -83,7 +83,7 @@ function copyAddress(key: OneBotTransport) {
       <p class="field-hint">{{ settings[item.key].access_token === '********' ? t('protocols.transportFields.accessTokenSaved') : t('protocols.transportFields.accessTokenHint') }}</p>
     </AppField>
     <details v-if="'access_token_query_compat' in settings[item.key]" class="transport-advanced">
-      <summary>{{ t('protocols.transportFields.tokenCompat') }}</summary>
+      <summary><ChevronRightIcon class="transport-advanced__chevron" aria-hidden="true" />{{ t('protocols.transportFields.tokenCompat') }}</summary>
       <AppCheckbox :model-value="Boolean((settings[item.key] as OneBotSettings['reverse_ws']).access_token_query_compat)" @update:model-value="(value: boolean) => (settings[item.key] as OneBotSettings['reverse_ws']).access_token_query_compat = value">
         {{ t('protocols.transportFields.tokenQuery') }}
       </AppCheckbox>
@@ -101,5 +101,9 @@ function copyAddress(key: OneBotTransport) {
 .address-field { display: flex; align-items: center; gap: 8px; }
 .address-field .app-input-wrap { min-width: 0; }
 .transport-advanced { color: var(--muted); font-size: 13px; }
-.transport-advanced summary { cursor: pointer; width: fit-content; margin-bottom: 12px; }
+.transport-advanced summary { display: flex; align-items: center; gap: 8px; width: fit-content; margin-bottom: 12px; cursor: pointer; list-style: none; }
+.transport-advanced summary::-webkit-details-marker { display: none; }
+.transport-advanced__chevron { flex: none; width: 16px; height: 16px; transition: transform 160ms ease; }
+.transport-advanced[open] > summary .transport-advanced__chevron { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .transport-advanced__chevron { transition: none; } }
 </style>

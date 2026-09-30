@@ -47,11 +47,12 @@ const attentionTone = computed(() => props.statusTone === 'danger' || props.stat
         <p v-else class="connection-pending">{{ t('protocols.connectionCard.accountAfterConnect') }}</p>
       </div>
     </div>
-    <p v-if="showSummary" class="connection-summary">{{ runtime?.summary || t('protocols.connectionCard.savedWaiting') }}</p>
+    <!-- A raw transport error can run long; the card keeps three lines and the configure dialog shows it all. -->
+    <p v-if="showSummary" class="connection-summary" :title="runtime?.summary">{{ runtime?.summary || t('protocols.connectionCard.savedWaiting') }}</p>
     <footer class="connection-footer">
       <div class="connection-instance"><span>{{ t('protocols.connectionDialog.instanceField') }}</span><code>{{ config.id }}</code></div>
       <div class="connection-actions">
-        <AppButton size="sm" :data-testid="`adapter-${config.id}`" :disabled="busy" @click="$emit('configure')"><Settings2Icon />{{ t('protocols.connectionCard.configure') }}</AppButton>
+        <AppButton size="sm" :data-testid="`adapter-${config.id}`" :disabled="busy" @click="$emit('configure')"><template #icon><Settings2Icon /></template>{{ t('protocols.connectionCard.configure') }}</AppButton>
         <AppButton size="sm" variant="ghost" class="connection-remove" :loading="removing" :disabled="busy" :aria-label="t('protocols.connectionCard.removeNamed', { id: config.id })" :title="t('protocols.connectionCard.remove')" @click="$emit('remove')"><Trash2Icon /></AppButton>
       </div>
     </footer>
@@ -74,9 +75,9 @@ const attentionTone = computed(() => props.statusTone === 'danger' || props.stat
 .connection-number > :first-child { color: var(--muted); }
 .connection-number > :last-child { min-width: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .connection-pending { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
-.connection-summary { margin: -8px 0 20px; color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.connection-summary { display: -webkit-box; margin: -8px 0 20px; overflow: hidden; color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
 .connection-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
-.connection-instance { display: grid; gap: 4px; min-width: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.connection-instance { display: grid; gap: 4px; min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .connection-instance code { font-size: 12px; overflow-wrap: anywhere; }
 .connection-actions { display: flex; flex: none; align-items: center; gap: 4px; }
 .connection-remove { color: var(--muted); }

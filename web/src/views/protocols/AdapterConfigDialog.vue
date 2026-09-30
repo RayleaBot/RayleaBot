@@ -43,6 +43,12 @@ const initialShared = ref('')
 const advancedOpen = ref(false)
 const allowedClose = ref(false)
 const formElement = ref<HTMLFormElement | null>(null)
+const pickerElement = ref<HTMLElement | null>(null)
+// The protocol step starts on its first choice rather than on the dialog's close button.
+async function focusFirstProtocol() {
+  await nextTick()
+  pickerElement.value?.querySelector<HTMLElement>('.protocol-choice')?.focus()
+}
 const isEditing = computed(() => Boolean(props.adapterId))
 const dirty = computed(() => Boolean(draft.value) && (JSON.stringify(draft.value) !== initialDraft.value || JSON.stringify(sharedDraft.value) !== initialShared.value))
 const descriptor = computed(() => adaptersStore.adapters.find((item) => item.id === props.adapterId))
@@ -88,6 +94,7 @@ async function load() {
   } catch (err) {
     error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
   } finally { loading.value = false }
+  if (!props.adapterId && !error.value) void focusFirstProtocol()
 }
 onMounted(() => { void load() })
 
@@ -145,6 +152,7 @@ async function changeProtocol() {
   advancedOpen.value = false
   error.value = ''
   fieldErrors.value = {}
+  void focusFirstProtocol()
 }
 onBeforeRouteLeave(canClose)
 onBeforeRouteUpdate((to, from) => (
@@ -208,11 +216,11 @@ function openLogs() {
       <AppAlert v-if="error" tone="danger" :title="error" class="dialog-error" role="alert">
         <template v-if="!draft" #action><AppButton size="sm" :loading="loading" @click="load">{{ t('protocols.retry') }}</AppButton></template>
       </AppAlert>
-      <div v-if="!draft && !loading && !error" class="protocol-picker">
+      <div v-if="!draft && !loading && !error" ref="pickerElement" class="protocol-picker">
         <p class="dialog-description">{{ t('protocols.connectionDialog.choose') }}</p>
         <button v-for="protocol in adaptersStore.availableProtocols" :key="protocol.protocol" type="button" class="protocol-choice" :data-testid="`adapter-select-${protocol.protocol}`" @click="selectProtocol(protocol.protocol)">
           <span><strong>{{ protocol.display_name }}</strong><small>{{ protocol.description }}</small></span>
-          <ChevronRightIcon />
+          <ChevronRightIcon class="protocol-choice__arrow" aria-hidden="true" />
         </button>
         <p v-if="!adaptersStore.availableProtocols.length" role="status">{{ t('protocols.connectionDialog.noProtocols') }}</p>
       </div>
@@ -238,7 +246,7 @@ function openLogs() {
             <AppSwitch id="adapter-enabled" v-model="draft.enabled" :aria-label="t('protocols.connectionDialog.enable')" />
           </div>
           <details class="dialog-disclosure" :open="advancedOpen" @toggle="advancedOpen = ($event.target as HTMLDetailsElement).open">
-            <summary>{{ t('protocols.connectionDialog.advanced') }}<span>{{ draft.qqofficial ? t('protocols.connectionDialog.advancedQQ') : t('protocols.connectionDialog.advancedOneBot') }}</span></summary>
+            <summary><ChevronRightIcon class="dialog-disclosure__chevron" aria-hidden="true" />{{ t('protocols.connectionDialog.advanced') }}<span>{{ draft.qqofficial ? t('protocols.connectionDialog.advancedQQ') : t('protocols.connectionDialog.advancedOneBot') }}</span></summary>
             <div class="disclosure-content">
               <AppField floating :label="t('protocols.connectionDialog.instanceField')" for="adapter-id" :error="fieldErrors.id">
                 <AppInput id="adapter-id" v-model="draft.id" :disabled="isEditing" :maxlength="64" />
@@ -258,7 +266,7 @@ function openLogs() {
             </div>
           </details>
           <details v-if="isEditing" class="dialog-disclosure">
-            <summary>{{ t('protocols.connectionDialog.runtimeTitle') }}</summary>
+            <summary><ChevronRightIcon class="dialog-disclosure__chevron" aria-hidden="true" />{{ t('protocols.connectionDialog.runtimeTitle') }}</summary>
             <div class="disclosure-content">
               <p>{{ descriptor?.summary || t('protocols.connectionDialog.runtimeUnknown') }}</p>
               <p v-if="descriptor?.identity" class="field-hint">{{ t('protocols.connectionDialog.identity', { name: descriptor.identity.name || descriptor.identity.id }) }}</p>
@@ -300,13 +308,20 @@ function openLogs() {
 .protocol-choice:hover { background: var(--control-fill-hover); border-color: var(--brand-foreground); }
 .protocol-choice:focus-visible { outline: 2px solid var(--app-primary); outline-offset: var(--focus-outline-offset); }
 .protocol-choice strong { display: block; margin-bottom: 6px; font-size: 15px; }
+// The arrow keeps its size when a long description wraps beside it.
+.protocol-choice__arrow { flex: none; width: 18px; height: 18px; color: var(--muted); }
 .protocol-choice small, .field-hint { color: var(--muted); font-size: 13px; line-height: 1.6; }
 .field-hint { margin: 6px 0 0; }
 .enable-connection { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 0 24px; }
 .enable-connection label { font-weight: 500; }
 .dialog-disclosure { border-top: 1px solid var(--border); }
-.dialog-disclosure summary { padding: 18px 0; color: var(--text); font-weight: 500; cursor: pointer; }
-.dialog-disclosure summary span { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 12px; }
+// Disclosures use the same chevron as the config workbench instead of the browser's triangle.
+.dialog-disclosure summary { display: flex; align-items: center; gap: 10px; padding: 18px 0; color: var(--text); font-weight: 500; cursor: pointer; list-style: none; }
+.dialog-disclosure summary::-webkit-details-marker { display: none; }
+.dialog-disclosure summary span { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+.dialog-disclosure__chevron { flex: none; width: 18px; height: 18px; color: var(--muted); transition: transform 160ms ease; }
+.dialog-disclosure[open] > summary .dialog-disclosure__chevron { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .dialog-disclosure__chevron { transition: none; } }
 .disclosure-content { padding-bottom: 20px; }
 .disclosure-content h3 { margin: 24px 0 0; font-size: 14px; }
 .shared-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; margin-top: 16px; }
