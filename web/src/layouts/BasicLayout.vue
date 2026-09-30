@@ -51,7 +51,7 @@ useToastFeedback(() => (
     ? {
         key: 'shell-shutdown-requested',
         level: 'warning' as const,
-        message: `${t('shell.shutdownRequestedTitle')}：${t('shell.shutdownRequestedDescription')}`,
+        message: t('shell.shutdownRequestedDescription'),
       }
     : null
 ))

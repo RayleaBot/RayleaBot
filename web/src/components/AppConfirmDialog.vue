@@ -10,7 +10,7 @@ defineEmits<{ confirm: []; cancel: []; afterClose: [] }>()
 const cancelId = `confirm-cancel-${useId()}`
 </script>
 <template>
-  <AppDialog :open="open" :title="title" :description="description" :width="440" :busy="busy" role="alertdialog" :initial-focus="`[id='${cancelId}']`" @close="$emit('cancel')" @after-close="$emit('afterClose')">
+  <AppDialog :open="open" :title="title" :description="description" :width="440" :busy="busy" role="alertdialog" :initial-focus="`[id='${cancelId}']`" :class="{ 'app-confirm-dialog--bare': !$slots.default }" @close="$emit('cancel')" @after-close="$emit('afterClose')">
     <slot />
     <template #footer>
       <div class="flex justify-end gap-3">
@@ -20,3 +20,7 @@ const cancelId = `confirm-cancel-${useId()}`
     </template>
   </AppDialog>
 </template>
+
+<style scoped>
+:global(.app-dialog.app-confirm-dialog--bare .app-dialog__body) { padding-bottom: 0; }
+</style>
