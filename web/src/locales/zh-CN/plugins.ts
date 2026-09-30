@@ -164,8 +164,8 @@ export const plugins = {
     reconnectConsole: '重新连接',
     clearConsole: '清空输出',
     uninstallConfirm: '确认卸载',
-    openPluginCommands: '当前插件指令',
-    openPluginLogs: '当前插件日志',
+    openPluginCommands: '在指令中心查看',
+    openPluginLogs: '查看历史日志',
   },
   panels: {
     overview: '概览',

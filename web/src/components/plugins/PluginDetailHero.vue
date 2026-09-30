@@ -19,8 +19,6 @@ const requiresTrustAttention = computed(() => props.plugin?.trust?.level === 'un
 const stateTone = computed(() => resolveStatusTone(props.plugin?.state))
 const facts = computed(() => [
   { key: 'version', label: t('plugins.fields.version'), value: formatPluginVersion(props.plugin?.version) },
-  { key: 'core', label: t('plugins.fields.minCoreVersion'), value: formatPluginVersion(props.plugin?.min_core_version) },
-  { key: 'source', label: t('plugins.fields.sourceRoot'), value: props.plugin?.source?.root?.trim() || t('display.empty') },
 ])
 </script>
 
@@ -53,7 +51,6 @@ const facts = computed(() => [
       <span class="plugin-detail-status__dot" :style="{ backgroundColor: stateTone === 'neutral' ? 'var(--muted)' : `var(--${stateTone})` }" aria-hidden="true"></span>
       <span class="plugin-detail-status__label">{{ t('plugins.fields.state') }}</span>
       <span class="plugin-detail-status__value">{{ getPluginStateLabel(plugin?.state) }}</span>
-      <span v-if="plugin?.state" class="plugin-detail-status__code">{{ plugin.state }}</span>
     </p>
 
     <dl class="plugin-detail-hero__facts">
@@ -168,11 +165,6 @@ const facts = computed(() => [
   font-weight: 600;
 }
 
-.plugin-detail-status__code {
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
 
 .plugin-detail-hero__facts {
   display: flex;

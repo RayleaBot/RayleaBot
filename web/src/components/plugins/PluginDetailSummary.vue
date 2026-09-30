@@ -186,8 +186,8 @@ function hasItems(value?: readonly unknown[] | null) {
     margin: 0;
     overflow-wrap: anywhere;
     color: var(--text);
-    font-size: 0.84rem;
-    font-weight: 555;
+    font-size: 13px;
+    font-weight: 500;
     line-height: 1.45;
   }
 }
@@ -282,7 +282,6 @@ function hasItems(value?: readonly unknown[] | null) {
 }
 
 .plugin-detail-disclosure__chevron {
-  margin-inline-start: auto;
   color: var(--muted);
   transition: transform var(--motion-fast) var(--motion-easing);
 }

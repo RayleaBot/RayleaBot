@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowUpRightIcon } from '@lucide/vue'
 import AppButton from '@/components/AppButton.vue'
 import type { ManagementContextAction } from '@/lib/management-links'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
@@ -23,6 +24,7 @@ const emit = defineEmits<{
       @click="() => { emit('action'); void navigate(action.to) }"
     >
       {{ action.label }}
+      <ArrowUpRightIcon class="management-context-actions__arrow" aria-hidden="true" />
     </AppButton>
   </div>
 </template>
@@ -32,5 +34,11 @@ const emit = defineEmits<{
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.management-context-actions__arrow {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
 }
 </style>
