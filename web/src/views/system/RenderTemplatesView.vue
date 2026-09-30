@@ -227,7 +227,9 @@ onDeactivated(() => {
     <div v-else class="render-templates-shell">
       <aside class="template-catalog" :aria-label="t('renderTemplates.templateList')">
         <div class="template-catalog__content">
-          <div class="template-catalog__search"><SearchIcon :size="16" aria-hidden="true" /><AppInput v-model="search" :maxlength="200" type="search" :aria-label="t('renderTemplates.search')" :placeholder="t('renderTemplates.search')" /></div>
+          <AppInput v-model="search" :maxlength="200" type="search" allow-clear :aria-label="t('renderTemplates.search')" :placeholder="t('renderTemplates.search')">
+            <template #prefix><SearchIcon :size="17" /></template>
+          </AppInput>
           <p class="template-catalog__hint">{{ t('renderTemplates.catalogCount', { count: total || items.length }) }}</p>
           <div class="template-catalog__list">
             <AppSkeleton v-if="loading && !items.length" :rows="6" />
@@ -305,9 +307,6 @@ onDeactivated(() => {
 .render-templates-shell { display: grid; grid-template-columns: 252px minmax(0, 1fr); gap: 28px; flex: 1; min-height: 0; }
 .template-catalog { display: flex; flex-direction: column; min-height: 0; padding-right: 20px; border-right: 1px solid var(--border); }
 .template-catalog__content { display: flex; flex: 1; flex-direction: column; min-height: 0; }
-.template-catalog__search { position: relative; }
-.template-catalog__search > svg { position: absolute; z-index: 1; top: 14px; left: 12px; color: var(--muted); pointer-events: none; }
-.template-catalog__search :deep(input) { padding-left: 36px; }
 .template-catalog__hint { margin: 12px 2px 18px; color: var(--muted); font-size: 12px; }
 .template-catalog__list { min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 .template-nav-group + .template-nav-group { margin-top: 24px; }

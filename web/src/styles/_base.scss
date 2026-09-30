@@ -78,6 +78,19 @@ textarea {
   caret-color: var(--brand-foreground);
 }
 
+// AppInput draws its own reveal and clear buttons, so the browser's built-in ones
+// (Edge's password eye, the search field's cancel cross) are hidden. The Edge rule stays
+// on its own: a browser that does not know a pseudo-element drops the whole rule.
+input::-ms-reveal {
+  display: none;
+}
+
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .monospace,
 table,
 time {
