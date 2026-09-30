@@ -201,6 +201,7 @@ export const plugins = {
     description: '安装第一个插件来扩展 RayleaBot 的功能',
     commands: '当前没有插件指令',
     console: '等待插件输出',
+    consoleDisabled: '插件已停用，启用后在此显示实时输出。',
     filteredTitle: '没有符合条件的插件',
     filteredDescription: '调整搜索词或筛选条件，或清除全部筛选。',
     clearFilters: '清除筛选',
@@ -225,6 +226,7 @@ export const plugins = {
   console: {
     ariaLabel: '插件实时输出',
     outputCount: '{count} 条输出',
+    streamStatus: '输出流{status}',
     streams: {
       stdout: '标准输出',
       stderr: '错误输出',

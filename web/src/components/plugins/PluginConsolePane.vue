@@ -27,7 +27,8 @@ import {
 const CONSOLE_ROW_ESTIMATED_HEIGHT = 84
 
 // active: the console tab is shown; ready: the page transition allows rendering heavy content.
-const props = defineProps<{ pluginId: string; active: boolean; ready: boolean }>()
+// pluginState: a stopped plugin produces no output, which the empty state says instead of "waiting".
+const props = defineProps<{ pluginId: string; active: boolean; ready: boolean; pluginState?: string }>()
 
 const pluginConsoleStore = usePluginConsoleStore()
 const socketStore = useSocketStore()
@@ -36,6 +37,7 @@ const frames = computed(() => pluginConsoleStore.getConsole(props.pluginId))
 const snapshot = computed(() => socketStore.snapshots.pluginConsole)
 const connectionTone = computed(() => getConsoleConnectionTone(snapshot.value.status))
 const connectionDotColor = computed(() => connectionTone.value === 'neutral' ? 'var(--muted)' : `var(--${connectionTone.value})`)
+const emptyText = computed(() => (props.pluginState === 'disabled' ? t('plugins.empty.consoleDisabled') : t('plugins.empty.console')))
 const viewportRef = ref<{ scrollToBottom: () => void } | null>(null)
 const followBottom = ref(true)
 let bottomSyncToken = 0
@@ -96,7 +98,7 @@ onBeforeUnmount(() => {
       <div class="plugin-console-title">
         <span class="console-status-indicator">
           <span class="console-status-dot" :style="{ backgroundColor: connectionDotColor }"></span>
-          <AppTag :tone="connectionTone" class="console-status-tag">{{ getConnectionStatusLabel(snapshot.status) }}</AppTag>
+          <AppTag :tone="connectionTone" class="console-status-tag">{{ t('plugins.console.streamStatus', { status: getConnectionStatusLabel(snapshot.status) }) }}</AppTag>
         </span>
         <span class="plugin-console-count">{{ t('plugins.console.outputCount', { count: frames.length }) }}</span>
       </div>
@@ -138,7 +140,7 @@ onBeforeUnmount(() => {
 
       <div v-if="frames.length === 0" class="plugin-console-empty">
         <TerminalIcon class="plugin-console-empty__icon" :size="20" aria-hidden="true" />
-        <span>{{ t('plugins.empty.console') }}</span>
+        <span>{{ emptyText }}</span>
       </div>
 
       <AppSkeleton
@@ -263,6 +265,7 @@ onBeforeUnmount(() => {
 
 .plugin-console-empty {
   display: flex;
+  justify-content: center;
   align-items: center;
   gap: 12px;
   flex: 1 1 auto;

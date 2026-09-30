@@ -195,6 +195,7 @@ function returnToPluginList() {
                 <PluginConsolePane
                   class="tab-pane-content"
                   :plugin-id="pluginId"
+                  :plugin-state="currentPlugin?.state"
                   :active="activeDetailTab === 'console'"
                   :ready="readyToRenderHeavyContent"
                 />
