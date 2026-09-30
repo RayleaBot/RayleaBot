@@ -397,7 +397,9 @@ export function getPluginSettingsConfigSections(): ConfigSectionDefinition[] {
           path: 'render.footer_template',
           label: t('config.fields.renderFooterTemplate'),
           type: 'textarea',
-          description: t('plugins.settings.hints.renderFooterTemplate'),
+          description: t('plugins.settings.hints.renderFooterTemplate', {
+            placeholders: ['rayleabot_version', 'plugin_name', 'plugin_version'].map(name => `{{${name}}}`).join('、'),
+          }),
         },
       ],
     },

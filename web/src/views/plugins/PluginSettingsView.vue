@@ -120,7 +120,7 @@ function getSectionIcon(key: string) {
 </script>
 
 <template>
-  <AppPage :title="t('plugins.settings.title')" width="form">
+  <AppPage :title="t('plugins.settings.title')" :description="t('plugins.settings.subtitle')" width="form">
     <RetryPanel
       v-if="error && !draft"
       :title="t('plugins.settings.title')"
