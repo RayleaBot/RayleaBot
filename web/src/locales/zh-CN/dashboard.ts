@@ -108,7 +108,6 @@ export const dashboard = {
   alertProtocolWarning: '协议连接警告',
   reconnect: '重新连接',
   runtimeBootstrap: '准备运行环境',
-  protocolAlertTitle: '协议提醒',
   eventSummary: {
     managementUpdated: '管理事件已更新',
     connection: {

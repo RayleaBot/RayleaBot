@@ -53,6 +53,8 @@ export function useDashboardPage() {
     uptimeSnapshotAt.value = uptimeClock.value
   }, { immediate: true })
 
+  // The attention summary and the connection rows keep showing these problems; toasts only announce changes
+  // that happen while the page is open.
   useToastFeedback(computed(() => {
     const alert = describeReadinessAlert(readiness.value, readinessIssues.value)
     if (!alert) return null
@@ -61,16 +63,16 @@ export function useDashboardPage() {
       level: alert.level,
       message: alert.detail ? `${alert.title}：${alert.detail}` : alert.title,
     }
-  }))
+  }), { skipFirst: true })
   useToastFeedback(computed(() => error.value && system.value
     ? { key: `dashboard-error:${error.value}`, level: 'error' as const, message: error.value }
     : null))
   useToastFeedback(computed(() => {
     const issue = describeProtocolIssue(adapters.value)
     return issue
-      ? { key: `dashboard-protocol:${issue.code}:${issue.summary}`, level: issue.level, message: `${t('dashboard.protocolAlertTitle')}：${issue.summary}` }
+      ? { key: `dashboard-protocol:${issue.code}:${issue.summary}`, level: issue.level, message: issue.summary }
       : null
-  }))
+  }), { skipFirst: true })
 
   async function refreshState() {
     try {

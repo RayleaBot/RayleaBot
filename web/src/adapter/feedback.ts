@@ -23,8 +23,10 @@ export function notifyWarning(content: string) {
   publishToast('warning', content)
 }
 
-export function useToastFeedback(source: WatchSource<ToastFeedback | null | undefined>) {
+// skipFirst: the page already shows this state persistently, so only changes after the first value are announced.
+export function useToastFeedback(source: WatchSource<ToastFeedback | null | undefined>, options: { skipFirst?: boolean } = {}) {
   let lastKey: string | null = null
+  let skipNext = options.skipFirst === true
 
   watch(
     source,
@@ -41,6 +43,10 @@ export function useToastFeedback(source: WatchSource<ToastFeedback | null | unde
       }
 
       lastKey = nextKey
+      if (skipNext) {
+        skipNext = false
+        return
+      }
       publishToast(feedback.level, content)
     },
     { immediate: true },

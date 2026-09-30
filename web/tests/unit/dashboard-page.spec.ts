@@ -230,7 +230,9 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).not.toContain('adapter.transport_forward_ws_session_lost')
     expect(feedbackMock.useToastFeedback).toHaveBeenCalledTimes(3)
     const protocolToastSource = feedbackMock.useToastFeedback.mock.calls[2][0] as { value: { message?: string | null } | null }
-    expect(protocolToastSource.value?.message).toBe('协议提醒：OneBot11：OneBot 主动连接已断开，正在重试。')
+    expect(protocolToastSource.value?.message).toBe('OneBot11：OneBot 主动连接已断开，正在重试。')
+    // The connection rows keep showing the problem, so opening the page does not replay it as a toast.
+    expect(feedbackMock.useToastFeedback.mock.calls[2][1]).toEqual({ skipFirst: true })
   })
 
   it('renders readiness issues from the readiness snapshot', async () => {
