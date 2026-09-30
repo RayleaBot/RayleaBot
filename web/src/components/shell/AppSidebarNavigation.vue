@@ -149,6 +149,10 @@ async function focusAfterScopeChange(selector: string) {
   navigation.value?.querySelector<HTMLElement>(selector)?.focus()
 }
 
+function containsCurrentPage(item: AppMenuItem) {
+  return props.selectedKeys.includes(item.key) || Boolean(item.children?.some(child => props.selectedKeys.includes(child.key)))
+}
+
 function toggleRootGroup(key: string) {
   emit('openChange', props.openKeys.includes(key) ? props.openKeys.filter(item => item !== key) : [...props.openKeys, key])
 }
@@ -161,7 +165,7 @@ function toggleRootGroup(key: string) {
         <div v-if="visibleScope === 'root'" class="sidebar-navigation__root">
           <template v-for="item in menuItems" :key="item.key">
             <AppDropdown v-if="collapsed && (item.children?.length || item.key === pluginCenterMenuKey)" side="right" align="start">
-              <button type="button" class="sidebar-navigation__item sidebar-navigation__collapsed-item" data-nav-item :aria-label="item.title" :title="item.title" :data-sidebar-entry="item.key === pluginCenterMenuKey ? 'plugin-center' : undefined">
+              <button type="button" class="sidebar-navigation__item sidebar-navigation__collapsed-item" data-nav-item :aria-label="item.title" :title="item.title" :aria-current="containsCurrentPage(item) ? 'true' : undefined" :data-sidebar-entry="item.key === pluginCenterMenuKey ? 'plugin-center' : undefined">
                 <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
               </button>
               <template #content>
@@ -500,14 +504,14 @@ function toggleRootGroup(key: string) {
 .sidebar-navigation__item { display: flex; align-items: center; width: calc(100% - 8px); min-height: 40px; margin: 2px 4px; padding: 8px 12px; border: 1px solid transparent; border-radius: 999px; color: var(--sider-menu-text); font-size: 14px; font-weight: 500; line-height: 1.4; text-align: left; cursor: pointer; transition: background-color var(--motion-fast) var(--motion-easing); }
 .sidebar-navigation__item .admin-layout__menu-icon { color: var(--chrome-muted); }
 .sidebar-navigation__item:hover { background: var(--sider-menu-hover-bg); color: var(--sider-menu-text); }
-.sidebar-navigation__item[aria-current=page] { background: var(--sider-menu-active-bg); color: var(--sider-menu-active); font-weight: 700; box-shadow: var(--shadow-xs); }
-.sidebar-navigation__item[aria-current=page] .admin-layout__menu-icon { color: var(--brand-foreground); }
+.sidebar-navigation__item:is([aria-current=page], [aria-current=true]) { background: var(--sider-menu-active-bg); color: var(--sider-menu-active); font-weight: 700; box-shadow: var(--shadow-xs); }
+.sidebar-navigation__item:is([aria-current=page], [aria-current=true]) .admin-layout__menu-icon { color: var(--brand-foreground); }
 .sidebar-navigation__item:focus-visible, .sidebar-navigation__group-heading:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .sidebar-navigation__entry { display: flex; align-items: center; min-width: 0; }
 .sidebar-navigation__entry > .sidebar-navigation__item { flex: 1; min-width: 0; }
 .sidebar-navigation__entry--active { background: var(--sider-menu-hover-bg); border-radius: 999px; }
 @media (prefers-reduced-motion: reduce) { .sidebar-navigation__item, .sidebar-navigation__back { transition: none; } }
-@media (forced-colors: active) { .sidebar-navigation__item[aria-current=page], .sidebar-navigation__back { border-color: Highlight; box-shadow: none; } }
+@media (forced-colors: active) { .sidebar-navigation__item:is([aria-current=page], [aria-current=true]), .sidebar-navigation__back { border-color: Highlight; box-shadow: none; } }
 .sidebar-navigation__entry--resource .sidebar-navigation__item { margin-right: 0; padding-right: 4px; }
 .sidebar-navigation__item .admin-layout__menu-label > span { overflow: hidden; text-overflow: ellipsis; }
 .sidebar-navigation__item.sidebar-navigation__plugin-child { padding-inline-start: 38px; }

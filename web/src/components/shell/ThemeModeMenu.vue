@@ -28,7 +28,7 @@ const options: Array<{ icon: typeof MonitorIcon; label: string; value: ThemeMode
 </script>
 <template>
   <AppDropdown :side="side" :align="align">
-    <AppButton ref="trigger" v-bind="$attrs" variant="ghost" size="icon" :aria-label="triggerLabel" :data-testid="testId">
+    <AppButton ref="trigger" v-bind="$attrs" variant="ghost" size="icon" :aria-label="triggerLabel" :title="triggerLabel" :data-testid="testId">
       <span class="theme-mode-icon" aria-hidden="true">
         <AnimatePresence :initial="false">
           <motion.span :key="mode" class="theme-mode-icon__layer" :initial="{ opacity: 0, rotate: overlayMotion.transition.duration ? -35 : 0, scale: .8 }" :animate="{ opacity: 1, rotate: 0, scale: 1 }" :exit="{ opacity: 0, rotate: overlayMotion.transition.duration ? 35 : 0, scale: .8 }" :transition="overlayMotion.transition"><component :is="triggerIcon" :size="18" /></motion.span>
@@ -37,7 +37,7 @@ const options: Array<{ icon: typeof MonitorIcon; label: string; value: ThemeMode
     </AppButton>
     <template #content>
       <AppDropdownItem v-for="option in options" :key="option.value" @select="selectTheme(option.value)">
-        <component :is="option.icon" /><span class="grow">{{ option.label }}</span><CheckIcon v-if="mode === option.value" class="text-accent" />
+        <component :is="option.icon" /><span class="grow">{{ option.label }}</span><CheckIcon v-if="mode === option.value" class="theme-mode-check" />
       </AppDropdownItem>
     </template>
   </AppDropdown>
@@ -46,4 +46,5 @@ const options: Array<{ icon: typeof MonitorIcon; label: string; value: ThemeMode
 <style scoped>
 .theme-mode-icon { position: relative; width: 18px; height: 18px; }
 .theme-mode-icon__layer { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.theme-mode-check { color: var(--brand-foreground); }
 </style>

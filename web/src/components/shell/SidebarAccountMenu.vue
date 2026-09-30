@@ -47,7 +47,7 @@ defineEmits<{
         <AppDropdownItem danger data-testid="shell-shutdown" @select="$emit('shutdown')"><PowerIcon />{{ t('shell.shutdown') }}</AppDropdownItem>
       </template>
     </AppDropdown>
-    <ThemeModeMenu class="sidebar-account__tool" :mode="mode" :resolved-mode="resolvedMode" side="top" align="start" test-id="theme-toggle" @change="(mode, origin) => $emit('theme', mode, origin)" />
+    <ThemeModeMenu class="sidebar-account__tool" :mode="mode" :resolved-mode="resolvedMode" side="top" align="end" test-id="theme-toggle" @change="(mode, origin) => $emit('theme', mode, origin)" />
     <AppButton
       class="sidebar-account__tool"
       variant="ghost"
