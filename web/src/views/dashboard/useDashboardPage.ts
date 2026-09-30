@@ -3,8 +3,7 @@ import { storeToRefs } from 'pinia'
 
 import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import { t } from '@/i18n'
-import { describeAdapterStates } from '@/lib/adapter-status'
-import { getReadinessStatusLabel, getStatusType, getSystemStatusLabel } from '@/lib/display'
+import { getReadinessStatusLabel, getStatusType } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { useAdaptersStore } from '@/stores/adapters'
 import { useSystemStore } from '@/stores/system'
@@ -45,8 +44,6 @@ export function useDashboardPage() {
   const readinessStatusType = computed(() => getStatusType(readiness.value?.status))
   const readinessValueText = computed(() => getReadinessStatusLabel(readiness.value?.status))
   const readinessDetailText = computed(() => readiness.value?.reason || getReadinessStatusLabel(readiness.value?.status))
-  const systemValueText = computed(() => getSystemStatusLabel(system.value?.status))
-  const adapterSummary = computed(() => describeAdapterStates(system.value?.adapters))
 
   const readinessIssues = computed(() => dedupeIssues(readiness.value?.issues))
   const checkItems = computed(() => buildReadinessCheckItems(readiness.value?.checks))
@@ -130,9 +127,6 @@ export function useDashboardPage() {
   })
 
   return {
-    adapterDetailText: computed(() => adapterSummary.value.detail),
-    adapterStatusType: computed(() => adapterSummary.value.status),
-    adapterValueText: computed(() => adapterSummary.value.value),
     backupPending,
     bootstrapRuntimeResources,
     checkItems,
@@ -157,7 +151,6 @@ export function useDashboardPage() {
     refreshState,
     runtimeBootstrapPending,
     system,
-    systemValueText,
     visibleReasonCodes,
   }
 }

@@ -3,27 +3,45 @@ import AppTabs from '@/components/AppTabs.vue'
 import AppTag from '@/components/AppTag.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppButton from '@/components/AppButton.vue'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch, type Component } from 'vue'
+import { storeToRefs } from 'pinia'
 
 import {
+  ArchiveIcon,
+  BlocksIcon,
+  BotIcon,
+  CalendarClockIcon,
   CircleCheckIcon,
   CircleXIcon,
   CircleAlertIcon,
   CircleMinusIcon,
-  DatabaseIcon,
+  FolderCheckIcon,
+  ImageIcon,
+  ListChecksIcon,
+  PackageCheckIcon,
+  PlusIcon,
+  RadioTowerIcon,
+  ServerIcon,
+  SlidersHorizontalIcon,
+  StethoscopeIcon,
 } from '@lucide/vue'
 
 import AppCard from '@/components/AppCard.vue'
 import ConnectionStatusStrip from '@/components/dashboard/ConnectionStatusStrip.vue'
 import DashboardStatusGrid from '@/components/dashboard/DashboardStatusGrid.vue'
-import DashboardToolsPanel from '@/components/dashboard/DashboardToolsPanel.vue'
 import DashboardUpdateCard from '@/components/dashboard/DashboardUpdateCard.vue'
+import HubSection from '@/components/dashboard/HubSection.vue'
+import HubTile, { type HubTileGlyph, type HubTileTone } from '@/components/dashboard/HubTile.vue'
+import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { formatDurationSeconds, formatRelativeTime } from '@/lib/format'
-import type { StatusType } from '@/lib/display'
-import { buildDashboardEventActions } from '@/lib/management-links'
+import { getAdapterStateLabel, getPluginStateLabel, type StatusType } from '@/lib/display'
+import { buildDashboardEventActions, buildPluginDetailLocation } from '@/lib/management-links'
+import { resolveStatusTone } from '@/lib/status-tone'
+import { usePluginCollection } from '@/lib/use-plugin-collection'
+import { useAdaptersStore } from '@/stores/adapters'
 import { t } from '@/i18n'
 import { useDashboardPage } from '@/views/dashboard/useDashboardPage'
 
@@ -35,9 +53,6 @@ const overviewTabs = computed(() => [
 ])
 
 const {
-  adapterDetailText,
-  adapterStatusType,
-  adapterValueText,
   backupPending,
   bootstrapRuntimeResources,
   checkItems,
@@ -62,9 +77,90 @@ const {
   refreshState,
   runtimeBootstrapPending,
   system,
-  systemValueText,
   visibleReasonCodes,
 } = useDashboardPage()
+
+// Hub tiles: running, connected or ready objects are lit; stopped ones are glass; problems get an outline.
+function tileTone(status?: string): HubTileTone {
+  const tone = resolveStatusTone(status)
+  return tone === 'neutral' || tone === 'attention' ? 'muted' : tone
+}
+
+const { adapters } = storeToRefs(useAdaptersStore())
+const connectionTiles = computed(() => adapters.value.map((adapter) => {
+  const tone = tileTone(adapter.state)
+  return {
+    id: adapter.id,
+    title: adapter.identity?.name || adapter.display_name || adapter.id,
+    detail: [adapter.protocol === 'qqofficial' ? t('protocols.qqTitle') : 'OneBot11', adapter.identity?.id].filter(Boolean).join(' · '),
+    status: adapter.enabled ? getAdapterStateLabel(adapter.state) : t('dashboard.hub.connectionDisabled'),
+    tone: adapter.enabled ? tone : 'muted' as HubTileTone,
+    lit: adapter.enabled && adapter.state === 'connected',
+    attention: adapter.enabled && tone === 'danger',
+    glyph: (adapter.protocol === 'qqofficial' ? 'violet' : 'blue') as HubTileGlyph,
+    icon: adapter.protocol === 'qqofficial' ? BotIcon : RadioTowerIcon,
+  }
+}))
+const connectedCount = computed(() => connectionTiles.value.filter(tile => tile.lit).length)
+
+// The hub reads its own first page of plugins; the plugin center keeps its own query and cursor.
+const pluginCollection = usePluginCollection()
+const pluginsLoading = pluginCollection.loading
+onMounted(() => { void pluginCollection.load({}).catch(() => undefined) })
+const pluginGlyphs: HubTileGlyph[] = ['ember', 'teal', 'violet', 'rose', 'blue', 'green', 'amber', 'slate']
+function pluginGlyph(pluginId: string): HubTileGlyph {
+  let hash = 0
+  for (const char of pluginId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  return pluginGlyphs[hash % pluginGlyphs.length] ?? 'slate'
+}
+const pluginTiles = computed(() => pluginCollection.items.value.map((plugin) => {
+  const tone = tileTone(plugin.state)
+  const name = plugin.name?.trim() || plugin.id
+  return {
+    id: plugin.id,
+    name,
+    icon: plugin.icon,
+    version: plugin.version,
+    initial: Array.from(name)[0] ?? '?',
+    status: getPluginStateLabel(plugin.state),
+    tone: tone === 'success' ? 'muted' as HubTileTone : tone,
+    lit: plugin.state === 'running',
+    attention: tone === 'danger' || tone === 'warning',
+    glyph: pluginGlyph(plugin.id),
+  }
+}))
+const runningPluginCount = computed(() => pluginTiles.value.filter(tile => tile.lit).length)
+
+const runtimeIcons: Record<string, Component> = {
+  system: ServerIcon,
+  config: SlidersHorizontalIcon,
+  render: ImageIcon,
+  scheduler: CalendarClockIcon,
+  tasks: ListChecksIcon,
+  dependencies: PackageCheckIcon,
+  filesystem: FolderCheckIcon,
+}
+const runtimeGlyphs: Record<string, HubTileGlyph> = {
+  system: 'slate',
+  config: 'slate',
+  render: 'amber',
+  scheduler: 'violet',
+  tasks: 'teal',
+  dependencies: 'blue',
+  filesystem: 'green',
+}
+// Connections and plugins have their own sections, so the runtime section shows the other subsystems.
+const runtimeTiles = computed(() => diagnosticsSubsystemItems.value
+  .filter(item => item.key in runtimeIcons)
+  .map(item => ({
+    ...item,
+    icon: runtimeIcons[item.key],
+    glyph: runtimeGlyphs[item.key] ?? 'slate',
+    lit: item.status === 'success',
+    attention: item.status === 'warning' || item.status === 'danger',
+    tone: (item.status === 'warning' || item.status === 'danger' ? item.status : 'muted') as HubTileTone,
+  })))
+const readyRuntimeCount = computed(() => runtimeTiles.value.filter(tile => tile.lit).length)
 
 const readinessCheckGroups = computed(() => [
   { key: 'issues', collapsed: false, items: checkItems.value.filter(item => item.status !== 'success') },
@@ -159,8 +255,95 @@ function getEventSeverityIcon(severity?: string) {
 
     <ConnectionStatusStrip />
 
-    <div class="dashboard-main-grid">
-      <div class="dashboard-primary-column">
+    <HubSection
+      :title="t('dashboard.hub.connections')"
+      :meta="connectionTiles.length ? t('dashboard.hub.connectionsMeta', { connected: connectedCount, total: connectionTiles.length }) : undefined"
+      :to="{ name: 'protocols' }"
+      :link-label="t('dashboard.hub.openProtocols')"
+    >
+      <HubTile
+        v-for="tile in connectionTiles"
+        :key="tile.id"
+        wide
+        :lit="tile.lit"
+        :attention="tile.attention"
+        :tone="tile.tone"
+        :glyph="tile.glyph"
+        :to="{ name: 'protocols' }"
+        :label="`${tile.title} · ${tile.status}`"
+      >
+        <template #glyph><component :is="tile.icon" /></template>
+        <template #title>{{ tile.title }}</template>
+        <template #detail>{{ tile.detail }}</template>
+        <template #status>{{ tile.status }}</template>
+      </HubTile>
+      <HubTile v-if="!connectionTiles.length" wide :to="{ name: 'protocols' }" :label="t('dashboard.hub.addConnection')">
+        <template #glyph><PlusIcon /></template>
+        <template #title>{{ t('dashboard.hub.addConnection') }}</template>
+        <template #detail>{{ t('dashboard.hub.addConnectionDetail') }}</template>
+        <template #status>{{ t('dashboard.hub.openProtocols') }}</template>
+      </HubTile>
+    </HubSection>
+
+    <HubSection
+      :title="t('dashboard.hub.plugins')"
+      :meta="pluginTiles.length ? t('dashboard.hub.pluginsMeta', { running: runningPluginCount, total: pluginTiles.length }) : undefined"
+      :to="{ name: 'plugins' }"
+      :link-label="t('dashboard.hub.openPlugins')"
+    >
+      <HubTile
+        v-for="tile in pluginTiles"
+        :key="tile.id"
+        :lit="tile.lit"
+        :attention="tile.attention"
+        :tone="tile.tone"
+        :glyph="tile.icon ? 'image' : tile.glyph"
+        :to="buildPluginDetailLocation(tile.id)"
+        :label="`${tile.name} · ${tile.status}`"
+      >
+        <template #glyph>
+          <PluginIcon v-if="tile.icon" :plugin-id="tile.id" :icon="tile.icon" :version="tile.version" />
+          <template v-else>{{ tile.initial }}</template>
+        </template>
+        <template #title>{{ tile.name }}</template>
+        <template #status>{{ tile.status }}</template>
+      </HubTile>
+      <HubTile v-if="!pluginTiles.length && !pluginsLoading" :to="{ name: 'plugins' }" :label="t('dashboard.hub.installPlugin')">
+        <template #glyph><BlocksIcon /></template>
+        <template #title>{{ t('dashboard.hub.installPlugin') }}</template>
+        <template #status>{{ t('dashboard.hub.openPlugins') }}</template>
+      </HubTile>
+    </HubSection>
+
+    <HubSection
+      :title="t('dashboard.hub.runtime')"
+      :meta="runtimeTiles.length ? t('dashboard.hub.runtimeMeta', { ready: readyRuntimeCount, total: runtimeTiles.length }) : undefined"
+    >
+      <HubTile
+        v-for="tile in runtimeTiles"
+        :key="tile.key"
+        :lit="tile.lit"
+        :attention="tile.attention"
+        :tone="tile.tone"
+        :glyph="tile.glyph"
+      >
+        <template #glyph><component :is="tile.icon" /></template>
+        <template #title>{{ tile.label }}</template>
+        <template #status>{{ tile.value }}</template>
+      </HubTile>
+      <HubTile action :disabled="backupPending" @click="createBackup">
+        <template #glyph><ArchiveIcon /></template>
+        <template #title>{{ t('dashboard.createBackup') }}</template>
+        <template #status>{{ backupPending ? t('dashboard.hub.inProgress') : t('dashboard.hub.runNow') }}</template>
+      </HubTile>
+      <HubTile action :disabled="diagnosticsPending" @click="exportDiagnostics">
+        <template #glyph><StethoscopeIcon /></template>
+        <template #title>{{ t('dashboard.exportDiagnostics') }}</template>
+        <template #status>{{ diagnosticsPending ? t('dashboard.hub.inProgress') : t('dashboard.hub.runNow') }}</template>
+      </HubTile>
+    </HubSection>
+
+    <div class="dashboard-detail-grid">
       <AppCard
         borderless
         class="dashboard-activity-card"
@@ -271,23 +454,7 @@ function getEventSeverityIcon(severity?: string) {
           </template>
 
           <template #diagnostics>
-            <div v-if="diagnosticsSubsystemItems.length" class="diagnostics-subsystem-grid">
-              <div
-                v-for="item in diagnosticsSubsystemItems"
-                :key="item.key"
-                :class="['diagnostics-subsystem', `diagnostics-subsystem--${item.status}`]"
-              >
-                <div class="diagnostics-subsystem__header">
-                  <component :is="getCheckIcon(item.status)" class="diagnostics-subsystem__icon" role="img" :aria-label="t('dashboard.subsystemStatusLabel', { status: item.status })" />
-                  <span class="diagnostics-subsystem__label">{{ item.label }}</span>
-                </div>
-                <AppTag :tone="getStatusTagColor(item.status)" class="diagnostics-subsystem__tag">
-                  {{ item.value }}
-                </AppTag>
-                <div class="diagnostics-subsystem__detail">{{ item.detail }}</div>
-              </div>
-            </div>
-            <AppEmptyState v-else :description="t('dashboard.diagnosticsEmpty')" />
+            <AppEmptyState v-if="!diagnosticsSubsystemItems.length" :description="t('dashboard.diagnosticsEmpty')" />
 
             <div v-if="diagnosticsIssueCards.length" class="diagnostics-issues">
               <div
@@ -321,48 +488,15 @@ function getEventSeverityIcon(severity?: string) {
           </template>
         </AppTabs>
       </AppCard>
-      </div>
-
-      <aside class="dashboard-support-column">
-      <AppCard
-        :title="t('dashboard.runtimeInfo')"
-        borderless
-        class="dashboard-runtime-card"
-      >
-        <div class="dashboard-runtime-body">
-          <DatabaseIcon class="dashboard-panel-icon" aria-hidden="true" />
-          <div class="dashboard-runtime-grid">
-          <div class="dashboard-runtime-item">
-            <span>{{ t('dashboard.service') }}</span>
-            <strong>{{ systemValueText }}</strong>
-          </div>
-          <div class="dashboard-runtime-item">
-            <span>{{ t('dashboard.adapter') }}</span>
-            <strong :class="`text-${adapterStatusType}`">{{ adapterValueText }}</strong>
-            <small v-if="adapterDetailText !== adapterValueText">{{ adapterDetailText }}</small>
-          </div>
-          </div>
-        </div>
-      </AppCard>
-
-      <DashboardToolsPanel
-        :backup-pending="backupPending"
-        :diagnostics-pending="diagnosticsPending"
-        @create-backup="createBackup"
-        @export-diagnostics="exportDiagnostics"
-      />
 
       <DashboardUpdateCard />
-
-      </aside>
     </div>
   </AppPage>
 </template>
 
 <style scoped lang="scss">
 @use '@/styles/breakpoints.generated' as bp;
-.dashboard-main-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, .85fr); gap: 16px; align-items: start; }
-.dashboard-primary-column, .dashboard-support-column { display: grid; min-width: 0; gap: 16px; align-content: start; }
+.dashboard-detail-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, .85fr); gap: 16px; align-items: start; }
 .dashboard-activity-card { min-width: 0; align-self: stretch; }
 .dashboard-activity-card :deep(.app-card__body) { padding: 6px 20px 16px; }
 .events-timeline { padding: 6px 0 0; margin: 0; list-style: none; }
@@ -387,15 +521,7 @@ function getEventSeverityIcon(severity?: string) {
 .readiness-check { grid-template-columns: minmax(120px, .8fr) minmax(0, 1fr); padding: 10px 0; gap: 12px; border-bottom: 1px solid var(--border); background: transparent; }
 .readiness-check__name { color: var(--text); font-weight: 500; }
 .readiness-check__value { text-align: right; color: var(--muted); }
-.readiness-check__icon, .diagnostics-subsystem__icon { width: 17px; height: 17px; }
-.diagnostics-subsystem-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; }
-.diagnostics-subsystem { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-width: 0; gap: 6px 10px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.diagnostics-subsystem__header { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; }
-.diagnostics-subsystem__label { overflow-wrap: anywhere; }
-.diagnostics-subsystem__detail { grid-column: 1 / -1; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
-.diagnostics-subsystem--success .diagnostics-subsystem__icon { color: var(--success); }
-.diagnostics-subsystem--warning .diagnostics-subsystem__icon { color: var(--warning); }
-.diagnostics-subsystem--danger .diagnostics-subsystem__icon { color: var(--danger); }
+.readiness-check__icon { width: 17px; height: 17px; }
 .diagnostics-issues, .issues-list { display: grid; gap: 12px; margin-top: 16px; }
 .diagnostics-issue-card, .issue-alert-card { min-width: 0; padding: 12px 0; border-radius: 0; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); }
 .diagnostics-issue-card__header, .issue-alert-card__header { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
@@ -406,28 +532,13 @@ function getEventSeverityIcon(severity?: string) {
 .diagnostics-issue-card__facts dt, .diagnostics-issue-card__facts dd { margin: 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .diagnostics-issue-card__facts dt { font-weight: 500; }
 .diagnostics-empty-issues { margin-top: 12px; }
-.dashboard-runtime-body { display: flex; align-items: center; gap: 18px; }
-.dashboard-panel-icon { width: 28px; height: 32px; flex: 0 0 auto; display: grid; place-items: center; background: transparent; color: var(--muted); font-size: 26px; }
-.dashboard-runtime-grid { display: grid; flex: 1; min-width: 0; }
-.dashboard-runtime-item { display: grid; grid-template-columns: minmax(78px, .6fr) minmax(0, 1fr); gap: 3px 12px; padding: 8px 0; min-width: 0; }
-.dashboard-runtime-item + .dashboard-runtime-item { border-top: 1px solid var(--border); }
-.dashboard-runtime-item span { grid-row: span 2; font-size: 13px; color: var(--muted); }
-.dashboard-runtime-item strong { font-size: 13px; font-weight: 500; text-align: right; overflow-wrap: anywhere; }
-.dashboard-runtime-item small { font-size: 12px; line-height: 1.4; color: var(--muted); text-align: right; overflow-wrap: anywhere; }
-.text-success { color: var(--text-success) !important; }
-.text-warning { color: var(--text-warning) !important; }
-.text-danger { color: var(--text-danger) !important; }
 @media (max-width: #{bp.$splitPanel}) {
- .dashboard-main-grid { grid-template-columns: 1fr; }
- .dashboard-support-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
- .dashboard-runtime-card { grid-column: 1 / -1; }
+ .dashboard-detail-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: #{bp.$phone}) {
- .dashboard-support-column, .diagnostics-subsystem-grid { grid-template-columns: 1fr; }
  .dashboard-activity-card :deep(.app-card__body) { padding-inline: 14px; }
  .events-timeline__item { grid-template-columns: minmax(0, 1fr); }
  .events-timeline__actions { grid-column: 1; grid-row: auto; }
  .events-timeline-wrapper--collapsed { max-height: 390px; }
- .dashboard-panel-icon { width: 44px; height: 44px; font-size: 24px; }
 }
 </style>

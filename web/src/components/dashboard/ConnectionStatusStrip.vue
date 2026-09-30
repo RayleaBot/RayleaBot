@@ -108,11 +108,13 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 
 <style scoped lang="scss">
 @use '@/styles/breakpoints.generated' as bp;
+// A quiet inline row under the summary capsules: the management streams are infrastructure, not objects.
 .connection-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
+  align-items: center;
   gap: 16px;
+  padding-inline: 4px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -128,8 +130,8 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 .card-header {
   span {
     font-size: 13px;
-    font-weight: 500;
-    color: var(--text);
+    font-weight: 600;
+    color: var(--muted);
   }
   p {
     font-size: 13px;
@@ -140,10 +142,9 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 }
 
 .connection-card__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  max-width: 640px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
 }
 
 .connection-card__item {
@@ -160,8 +161,7 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 
 .connection-card__row {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -184,7 +184,7 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 
 @media (max-width: #{bp.$phone - 1px}) {
   .connection-card { grid-template-columns: 1fr; gap: 8px; }
-  .connection-card__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .connection-card__grid { gap: 8px 16px; }
   .connection-card__row { flex-wrap: wrap; gap: 4px 8px; }
 
   .connection-card__item + .connection-card__item {
