@@ -100,18 +100,15 @@ export const useGovernanceStore = defineStore('governance', () => {
     }
   }
 
+  // Writes report their failure to the caller; the list error stays the result of the last read.
   async function addBlacklistEntry(payload: GovernanceEntryUpsertRequest) {
     blacklistLoading.value = true
-    blacklistError.value = null
     try {
       await apiRequest('/api/governance/blacklist/entries', {
         method: 'POST',
         body: payload,
       })
       return await fetchBlacklist()
-    } catch (err) {
-      blacklistError.value = getDisplayErrorMessage(err)
-      throw err
     } finally {
       blacklistLoading.value = false
     }
@@ -119,15 +116,11 @@ export const useGovernanceStore = defineStore('governance', () => {
 
   async function removeBlacklistEntry(entryType: GovernanceEntryType, targetId: string, scope: GovernanceScope) {
     blacklistLoading.value = true
-    blacklistError.value = null
     try {
       await apiRequest<void>(apiPath('/api/governance/blacklist/entries/{entry_type}/{target_id}', { entry_type: entryType, target_id: targetId }, new URLSearchParams(scope)), {
         method: 'DELETE',
       })
       return await fetchBlacklist()
-    } catch (err) {
-      blacklistError.value = getDisplayErrorMessage(err)
-      throw err
     } finally {
       blacklistLoading.value = false
     }
@@ -135,16 +128,12 @@ export const useGovernanceStore = defineStore('governance', () => {
 
   async function setWhitelistEnabled(enabled: boolean) {
     whitelistLoading.value = true
-    whitelistError.value = null
     try {
       await apiRequest('/api/governance/whitelist/state', {
         method: 'PUT',
         body: { enabled },
       })
       return await fetchWhitelist()
-    } catch (err) {
-      whitelistError.value = getDisplayErrorMessage(err)
-      throw err
     } finally {
       whitelistLoading.value = false
     }
@@ -152,16 +141,12 @@ export const useGovernanceStore = defineStore('governance', () => {
 
   async function addWhitelistEntry(payload: GovernanceEntryUpsertRequest) {
     whitelistLoading.value = true
-    whitelistError.value = null
     try {
       await apiRequest('/api/governance/whitelist/entries', {
         method: 'POST',
         body: payload,
       })
       return await fetchWhitelist()
-    } catch (err) {
-      whitelistError.value = getDisplayErrorMessage(err)
-      throw err
     } finally {
       whitelistLoading.value = false
     }
@@ -169,15 +154,11 @@ export const useGovernanceStore = defineStore('governance', () => {
 
   async function removeWhitelistEntry(entryType: GovernanceEntryType, targetId: string, scope: GovernanceScope) {
     whitelistLoading.value = true
-    whitelistError.value = null
     try {
       await apiRequest<void>(apiPath('/api/governance/whitelist/entries/{entry_type}/{target_id}', { entry_type: entryType, target_id: targetId }, new URLSearchParams(scope)), {
         method: 'DELETE',
       })
       return await fetchWhitelist()
-    } catch (err) {
-      whitelistError.value = getDisplayErrorMessage(err)
-      throw err
     } finally {
       whitelistLoading.value = false
     }

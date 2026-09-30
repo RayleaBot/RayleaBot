@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import AppField from '@/components/AppField.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import AppInput from '@/components/AppInput.vue'
 import { t } from '@/i18n'
@@ -22,13 +23,19 @@ const options = computed(() => [
 <template>
   <div class="scope-editor">
     <AppSelect :model-value="selectedMode" :options="options" :aria-label="t('accessLists.namespace.label')" @update:model-value="changeMode" />
+    <!-- Floating labels keep each field named after it has a value; a placeholder alone disappears. -->
     <template v-if="selectedMode !== 'onebot-global'">
-      <AppInput v-model="scope.source_adapter" :aria-label="t('accessLists.namespace.adapter')" :placeholder="t('accessLists.namespace.adapter')" />
-      <AppInput v-model="scope.bot_id" :aria-label="t('accessLists.namespace.bot')" :placeholder="t('accessLists.namespace.bot')" />
+      <AppField floating :label="t('accessLists.namespace.adapter')">
+        <AppInput v-model="scope.source_adapter" />
+      </AppField>
+      <AppField floating :label="t('accessLists.namespace.bot')">
+        <AppInput v-model="scope.bot_id" />
+      </AppField>
     </template>
   </div>
 </template>
 
 <style scoped>
 .scope-editor { display: grid; gap: 6px; }
+.scope-editor :deep(.app-field) { margin-bottom: 0; }
 </style>

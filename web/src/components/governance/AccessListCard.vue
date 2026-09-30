@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { CopyIcon, SearchIcon } from '@lucide/vue'
+import { CopyIcon, PlusIcon, RotateCwIcon, SearchIcon } from '@lucide/vue'
+import AppAlert from '@/components/AppAlert.vue'
 import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppHelp from '@/components/AppHelp.vue'
 import AppTag from '@/components/AppTag.vue'
@@ -10,6 +11,7 @@ import AppDataTable from '@/components/AppDataTable.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppCard from '@/components/AppCard.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
+import RetryPanel from '@/components/RetryPanel.vue'
 import GovernanceScopeEditor from '@/components/governance/GovernanceScopeEditor.vue'
 import { governanceEntryKey, governanceScopeLabel } from '@/lib/governance-scope'
 import { formatDateTime } from '@/lib/format'
@@ -18,14 +20,16 @@ import { t } from '@/i18n'
 import type { BlacklistEntry, GovernanceEntryType, GovernanceBlacklistResponse } from '@/types/api'
 import type { AccessListEditor } from './useAccessListEditor'
 
-defineProps<{
+const props = defineProps<{
   kind: 'blacklist' | 'whitelist'
   data: GovernanceBlacklistResponse | null
   loading: boolean
   loadingMore: boolean
+  // The last read of this list failed. Without data the list is unknown, so neither its entries nor its policy are shown.
+  error?: string | null
   editor: AccessListEditor
 }>()
-const emit = defineEmits<{ remove: [entry: BlacklistEntry]; more: [] }>()
+const emit = defineEmits<{ remove: [entry: BlacklistEntry]; more: []; retry: [] }>()
 
 const scopeOptions = computed(() => [
   { label: t('accessLists.scopes.user'), value: 'user' },
@@ -47,16 +51,25 @@ const tableColumns = computed(() => [
   { label: t('accessLists.table.columns.actions'), key: 'actions', width: 120, align: 'center' as const },
 ])
 
+// entry_count is the whole list; total is what the current search and type filter match.
+const countLabel = computed(() => {
+  const total = props.data?.total ?? 0
+  const count = props.data?.entry_count ?? total
+  return total === count ? t('accessLists.table.total', { total }) : t('accessLists.table.matched', { total, count })
+})
+const hasUnmatchedEntries = computed(() => (props.data?.entry_count ?? 0) > 0)
+
 function getEntryTypeLabel(type: GovernanceEntryType) {
   return type === 'user' ? t('accessLists.scopes.user') : t('accessLists.scopes.group')
 }
 
-function getEntryTypeTagColor(type: GovernanceEntryType) {
-  return type === 'user' ? 'info' : 'neutral'
+function copyTargetId(targetId: string) {
+  return copyText(targetId, t('accessLists.feedback.targetIdCopied'))
 }
 
-function copyTargetId(targetId: string) {
-  return copyText(targetId, t('accessLists.actions.copyTargetId'))
+function clearFilters() {
+  props.editor.searchQuery = ''
+  props.editor.scopeFilter = 'all'
 }
 
 </script>
@@ -65,28 +78,49 @@ function copyTargetId(targetId: string) {
   <AppCard :loading="loading && !data">
     <div :data-testid="`access-lists-${kind}-card`" class="access-lists-card-content">
       <div class="access-lists-card-header">
-        <div class="access-lists-card-header__copy">
-          <div class="access-lists-card-header__title-row">
-            <strong>{{ t(`accessLists.cards.${kind}Title`) }}</strong>
-            <AppHelp :label="t(`accessLists.cards.${kind}Help`)" :description="t(`accessLists.cards.${kind}Description`)" />
-          </div>
+        <div class="access-lists-card-header__title-row">
+          <h2>{{ t(`accessLists.cards.${kind}Title`) }}</h2>
+          <AppHelp :label="t(`accessLists.cards.${kind}Help`)" :description="t(`accessLists.cards.${kind}Description`)" />
         </div>
-        <div class="access-lists-card-header__meta">
-          <span class="access-lists-card-header__count">{{ data?.entry_count ?? 0 }}</span>
+        <div v-if="data && $slots.policy" class="access-lists-card-header__meta">
           <slot name="policy" />
         </div>
       </div>
 
-      <slot name="notice" />
+      <RetryPanel
+        v-if="error && !data"
+        :title="t(`accessLists.errors.${kind}LoadFailed`)"
+        :description="error"
+        :loading="loading"
+        @retry="emit('retry')"
+      />
 
-      <div class="access-lists-toolbar">
-        <div class="access-lists-toolbar__row">
+      <template v-else>
+        <slot name="notice" />
+
+        <!-- A failed refresh keeps the last read entries on screen and says so. -->
+        <AppAlert
+          v-if="error"
+          tone="danger"
+          :data-testid="`access-lists-${kind}-refresh-error`"
+          :title="t('accessLists.errors.refreshFailed')"
+          :description="error"
+        >
+          <template #action>
+            <AppButton size="sm" :loading="loading" @click="emit('retry')">
+              <template #icon><RotateCwIcon /></template>
+              {{ t('ui.retry') }}
+            </AppButton>
+          </template>
+        </AppAlert>
+
+        <div class="access-lists-toolbar">
           <div class="toolbar-left-group">
             <AppSelect
               v-model="editor.scopeFilter"
               :options="scopeFilterOptions"
               wrapper-class="access-lists-toolbar__filter"
-              :aria-label="t('accessLists.filters.all')"
+              :aria-label="t('accessLists.filters.type')"
             />
             <AppInput
               v-model="editor.searchQuery" :maxlength="200"
@@ -101,144 +135,150 @@ function copyTargetId(targetId: string) {
             </AppInput>
           </div>
           <div class="access-lists-toolbar__actions">
-            <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: data?.total ?? 0 }) }}</span>
+            <span class="access-lists-toolbar__count" :data-testid="`access-lists-${kind}-count`">{{ countLabel }}</span>
             <AppButton variant="default" :data-testid="`access-lists-${kind}-add-btn`" :disabled="editor.isAdding" @click="editor.startAdd">
+              <template #icon><PlusIcon /></template>
               {{ t('accessLists.actions.addEntry') }}
             </AppButton>
           </div>
         </div>
-      </div>
 
-      <AppDataTable
-        class="access-lists-data-table app-data-table"
-        :columns="tableColumns"
-        :rows="editor.tableData"
-        :min-width="760"
-        :row-key="(row) => row.isDraft ? `draft-${kind}` : governanceEntryKey(row)"
-        :loading="loading && !data"
-      >
-        <template #empty>
-          <AppEmptyState icon="box" :title="t(`accessLists.empty.${kind}Title`)" :description="t(`accessLists.empty.${kind}Description`)" />
-        </template>
-
-        <template #cell="{ column, row: record }">
-          <template v-if="record.isDraft">
-            <template v-if="column.key === 'type'">
-              <AppSelect
-                v-model="editor.draft.entry_type"
-                :options="scopeOptions"
-                style="width: 100%"
-                :data-testid="`${kind}-draft-type`"
-                :aria-label="t('accessLists.table.columns.type')"
-              />
-            </template>
-
-            <template v-else-if="column.key === 'namespace'">
-              <GovernanceScopeEditor v-model="editor.draft.scope" />
-              <span v-if="editor.draftErrors.scope" class="inline-error-text" role="alert">{{ editor.draftErrors.scope }}</span>
-            </template>
-
-            <template v-else-if="column.key === 'targetId'">
-              <div class="inline-edit-cell">
-                <AppInput
-                  v-model="editor.draft.target_id"
-                  :placeholder="t('accessLists.entryForm.placeholderTargetId')"
-                  :aria-invalid="Boolean(editor.draftErrors.target_id) || undefined"
-                  :aria-label="t('accessLists.table.columns.targetId')"
-                  :aria-describedby="editor.draftErrors.target_id ? `${kind}-draft-target_id-error` : undefined"
-                  :data-testid="`${kind}-draft-target-id`"
-                  @input="editor.draftErrors.target_id = ''"
-                />
-                <div v-if="editor.draftErrors.target_id" :id="`${kind}-draft-target_id-error`" class="inline-error-text" role="alert">
-                  {{ editor.draftErrors.target_id }}
-                </div>
-              </div>
-            </template>
-
-            <template v-else-if="column.key === 'reason'">
-              <div class="inline-edit-cell">
-                <AppInput
-                  v-model="editor.draft.reason"
-                  :placeholder="t('accessLists.entryForm.placeholderReason')"
-                  :aria-invalid="Boolean(editor.draftErrors.reason) || undefined"
-                  :aria-label="t('accessLists.table.columns.reason')"
-                  :aria-describedby="editor.draftErrors.reason ? `${kind}-draft-reason-error` : undefined"
-                  :data-testid="`${kind}-draft-reason`"
-                  @input="editor.draftErrors.reason = ''"
-                />
-                <div v-if="editor.draftErrors.reason" :id="`${kind}-draft-reason-error`" class="inline-error-text" role="alert">
-                  {{ editor.draftErrors.reason }}
-                </div>
-              </div>
-            </template>
-
-            <template v-else-if="column.key === 'createdAt'">
-              <span class="text-muted-inline">-</span>
-            </template>
-
-            <template v-else-if="column.key === 'actions'">
-              <div class="inline-actions">
-                <AppButton
-                  variant="link"
-                  size="sm"
-                  :loading="editor.adding"
-                  :data-testid="`${kind}-draft-save`"
-                  @click="editor.save"
-                >
-                  {{ t('accessLists.modal.save') }}
-                </AppButton>
-                <AppButton
-                  variant="link"
-                  size="sm"
-                  class="text-muted-btn"
-                  :data-testid="`${kind}-draft-cancel`"
-                  @click="editor.cancel"
-                >
-                  {{ t('accessLists.modal.cancel') }}
-                </AppButton>
-              </div>
-            </template>
+        <AppDataTable
+          class="access-lists-data-table app-data-table"
+          :columns="tableColumns"
+          :rows="editor.tableData"
+          :min-width="760"
+          :row-key="(row) => row.isDraft ? `draft-${kind}` : governanceEntryKey(row)"
+          :loading="loading && !data"
+        >
+          <template #empty>
+            <AppEmptyState
+              v-if="hasUnmatchedEntries"
+              icon="search"
+              :title="t('accessLists.empty.filteredTitle')"
+              :description="t('accessLists.empty.filteredDescription')"
+              :action-label="t('accessLists.empty.clearFilters')"
+              @action="clearFilters"
+            />
+            <AppEmptyState v-else icon="box" :title="t(`accessLists.empty.${kind}Title`)" :description="t(`accessLists.empty.${kind}Description`)" />
           </template>
 
-          <template v-else>
-            <template v-if="column.key === 'type'">
-              <AppTag :tone="getEntryTypeTagColor(record.entry_type)">
-                {{ getEntryTypeLabel(record.entry_type) }}
-              </AppTag>
+          <template #cell="{ column, row: record }">
+            <template v-if="record.isDraft">
+              <template v-if="column.key === 'type'">
+                <AppSelect
+                  v-model="editor.draft.entry_type"
+                  :options="scopeOptions"
+                  style="width: 100%"
+                  :data-testid="`${kind}-draft-type`"
+                  :aria-label="t('accessLists.table.columns.type')"
+                />
+              </template>
+
+              <template v-else-if="column.key === 'namespace'">
+                <GovernanceScopeEditor v-model="editor.draft.scope" />
+                <span v-if="editor.draftErrors.scope" class="inline-error-text" role="alert">{{ editor.draftErrors.scope }}</span>
+              </template>
+
+              <template v-else-if="column.key === 'targetId'">
+                <div class="inline-edit-cell">
+                  <AppInput
+                    v-model="editor.draft.target_id"
+                    :placeholder="t('accessLists.entryForm.placeholderTargetId')"
+                    :aria-invalid="Boolean(editor.draftErrors.target_id) || undefined"
+                    :aria-label="t('accessLists.table.columns.targetId')"
+                    :aria-describedby="editor.draftErrors.target_id ? `${kind}-draft-target_id-error` : undefined"
+                    :data-testid="`${kind}-draft-target-id`"
+                    @input="editor.draftErrors.target_id = ''"
+                  />
+                  <div v-if="editor.draftErrors.target_id" :id="`${kind}-draft-target_id-error`" class="inline-error-text" role="alert">
+                    {{ editor.draftErrors.target_id }}
+                  </div>
+                </div>
+              </template>
+
+              <template v-else-if="column.key === 'reason'">
+                <div class="inline-edit-cell">
+                  <AppInput
+                    v-model="editor.draft.reason"
+                    :placeholder="t('accessLists.entryForm.placeholderReason')"
+                    :aria-invalid="Boolean(editor.draftErrors.reason) || undefined"
+                    :aria-label="t('accessLists.table.columns.reason')"
+                    :aria-describedby="editor.draftErrors.reason ? `${kind}-draft-reason-error` : undefined"
+                    :data-testid="`${kind}-draft-reason`"
+                    @input="editor.draftErrors.reason = ''"
+                  />
+                  <div v-if="editor.draftErrors.reason" :id="`${kind}-draft-reason-error`" class="inline-error-text" role="alert">
+                    {{ editor.draftErrors.reason }}
+                  </div>
+                </div>
+              </template>
+
+              <template v-else-if="column.key === 'createdAt'">
+                <span class="text-muted-inline">-</span>
+              </template>
+
+              <template v-else-if="column.key === 'actions'">
+                <div class="inline-actions">
+                  <AppButton
+                    variant="link"
+                    size="sm"
+                    :loading="editor.adding"
+                    :data-testid="`${kind}-draft-save`"
+                    @click="editor.save"
+                  >
+                    {{ t('accessLists.modal.save') }}
+                  </AppButton>
+                  <AppButton
+                    variant="link"
+                    size="sm"
+                    class="text-muted-btn"
+                    :data-testid="`${kind}-draft-cancel`"
+                    @click="editor.cancel"
+                  >
+                    {{ t('accessLists.modal.cancel') }}
+                  </AppButton>
+                </div>
+              </template>
             </template>
 
-            <template v-else-if="column.key === 'namespace'">
-              <span>{{ governanceScopeLabel(record.scope) }}</span>
-            </template>
+            <template v-else>
+              <template v-if="column.key === 'type'">
+                <AppTag>{{ getEntryTypeLabel(record.entry_type) }}</AppTag>
+              </template>
 
-            <template v-else-if="column.key === 'targetId'">
-              <button
-                type="button"
-                class="target-id-chip copyable-text mono-text"
-                :aria-label="`${t('accessLists.actions.copyTargetId')} ${record.target_id}`"
-                @click="copyTargetId(record.target_id)"
-              >
-                <span class="chip-dot" :class="kind === 'whitelist' ? 'font-dot-success' : 'font-dot-danger'"></span>
-                <span class="chip-text">{{ record.target_id }}</span>
-                <CopyIcon class="copy-icon-hover" :size="12" aria-hidden="true" />
-              </button>
-            </template>
+              <template v-else-if="column.key === 'namespace'">
+                <span>{{ governanceScopeLabel(record.scope) }}</span>
+              </template>
 
-            <template v-else-if="column.key === 'reason'">
-              <span class="cell-reason">{{ record.reason }}</span>
-            </template>
+              <template v-else-if="column.key === 'targetId'">
+                <button
+                  type="button"
+                  class="target-id-chip copyable-text mono-text"
+                  :aria-label="t('accessLists.actions.copyTargetId', { target: record.target_id })"
+                  @click="copyTargetId(record.target_id)"
+                >
+                  <span class="chip-text">{{ record.target_id }}</span>
+                  <CopyIcon class="copy-icon-hover" :size="12" aria-hidden="true" />
+                </button>
+              </template>
 
-            <template v-else-if="column.key === 'createdAt'">
-              <span>{{ formatDateTime(record.created_at) }}</span>
-            </template>
+              <template v-else-if="column.key === 'reason'">
+                <span class="cell-reason">{{ record.reason }}</span>
+              </template>
 
-            <template v-else-if="column.key === 'actions'">
-              <AppButton variant="destructive" size="sm" class="remove-btn" @click="emit('remove', record)">{{ t('accessLists.entryForm.remove') }}</AppButton>
+              <template v-else-if="column.key === 'createdAt'">
+                <span>{{ formatDateTime(record.created_at) }}</span>
+              </template>
+
+              <template v-else-if="column.key === 'actions'">
+                <AppButton variant="destructive" size="sm" class="remove-btn" @click="emit('remove', record)">{{ t('accessLists.entryForm.remove') }}</AppButton>
+              </template>
             </template>
           </template>
-        </template>
-      </AppDataTable>
-      <AppCollectionPagination :loaded="editor.filteredEntries.length" :total="data?.total ?? 0" :next-cursor="data?.next_cursor" :loading="loadingMore || loading" @more="emit('more')" />
+        </AppDataTable>
+        <AppCollectionPagination :loaded="editor.filteredEntries.length" :total="data?.total ?? 0" :next-cursor="data?.next_cursor" :loading="loadingMore || loading" @more="emit('more')" />
+      </template>
     </div>
   </AppCard>
 </template>
@@ -255,11 +295,7 @@ function copyTargetId(targetId: string) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-
-.access-lists-card-header__copy {
-  display: grid;
-  gap: 4px;
+  min-height: 32px;
 }
 
 .access-lists-card-header__title-row {
@@ -268,7 +304,8 @@ function copyTargetId(targetId: string) {
   gap: 8px;
 }
 
-.access-lists-card-header__copy strong {
+.access-lists-card-header__title-row h2 {
+  margin: 0;
   font-size: 18px;
   font-weight: 700;
   line-height: 1.3;
@@ -283,20 +320,7 @@ function copyTargetId(targetId: string) {
   flex-shrink: 0;
 }
 
-.access-lists-card-header__count {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.3;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-
 .access-lists-toolbar {
-  display: grid;
-  gap: 12px;
-}
-
-.access-lists-toolbar__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -334,6 +358,7 @@ function copyTargetId(targetId: string) {
 .access-lists-toolbar__count {
   font-size: 13px;
   color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 // The copyable ID reads as text; hovering reveals the copy icon on a quiet fill.
@@ -356,20 +381,6 @@ function copyTargetId(targetId: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-
-  .chip-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-  }
-
-  .font-dot-success {
-    background-color: var(--success);
-  }
-
-  .font-dot-danger {
-    background-color: var(--danger);
-  }
 
   .chip-text {
     flex: 1;

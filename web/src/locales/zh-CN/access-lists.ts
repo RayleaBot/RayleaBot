@@ -1,20 +1,15 @@
 export const accessLists = {
   namespace: {
-    required: '请输入适配器与机器人 ID。',
+    required: '请输入连接标识与机器人 ID。',
     label: '适用范围', onebotGlobal: 'OneBot · 全部机器人', onebotInstance: 'OneBot · 指定机器人',
-    qqOfficial: 'QQ 官方 · 指定机器人', adapter: '适配器 ID', bot: '机器人 ID',
+    qqOfficial: 'QQ 官方 · 指定机器人', adapter: '连接标识', bot: '机器人 ID',
   },
   title: '黑白名单',
   subtitle: '维护白名单、黑名单和白名单启用状态。',
   actions: {
     openCommands: '查看指令中心',
     addEntry: '添加条目',
-    copyTargetId: '已复制目标 ID',
-  },
-  summary: {
-    whitelistStatus: '白名单',
-    whitelistEnabled: '已启用',
-    whitelistDisabled: '未启用',
+    copyTargetId: '复制目标 ID {target}',
   },
   cards: {
     whitelistTitle: '白名单',
@@ -43,17 +38,28 @@ export const accessLists = {
       actions: '操作',
     },
     total: '共 {total} 条',
+    matched: '匹配 {total} 条，共 {count} 条',
   },
   filters: {
     all: '全部',
+    type: '按类型筛选',
   },
   empty: {
     blacklistTitle: '暂无黑名单',
     blacklistDescription: '当前没有用户或群黑名单记录。',
     whitelistTitle: '暂无白名单',
     whitelistDescription: '当前没有用户或群白名单记录。',
+    filteredTitle: '没有匹配的条目',
+    filteredDescription: '调整搜索词或类型筛选，或清除全部筛选。',
+    clearFilters: '清除筛选',
+  },
+  errors: {
+    whitelistLoadFailed: '白名单读取失败',
+    blacklistLoadFailed: '黑名单读取失败',
+    refreshFailed: '刷新失败，下方是上次读取的条目',
   },
   whitelist: {
+    enableLabel: '启用白名单',
     emptyWarningTitle: '白名单已启用且当前为空',
     emptyWarningDescription: '除超级管理员外，所有命令都会被挡下。请尽快补充条目，或先关闭白名单。',
     enableConfirmTitle: '确认启用空白名单',
@@ -67,6 +73,7 @@ export const accessLists = {
     whitelistRemoved: '白名单条目已移除。',
     whitelistEnabled: '白名单已启用。',
     whitelistDisabled: '白名单已关闭。',
+    targetIdCopied: '已复制目标 ID',
   },
   modal: {
     save: '保存',
@@ -74,7 +81,7 @@ export const accessLists = {
   },
   confirm: {
     removeTitle: '确认移除',
-    removeDescription: '确定要移除该条目吗？',
+    removeDescription: '将从{list}移除{type} {target}（{scope}）。',
   },
   validation: {
     entryRequired: '目标 ID 和原因都需要填写。',

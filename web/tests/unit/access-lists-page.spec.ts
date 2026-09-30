@@ -142,9 +142,10 @@ describe('AccessListsPage', () => {
     expect(wrapper.text()).toContain('查看指令中心')
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('读取黑名单失败')
 
-    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('黑名单')
-    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).not.toContain('读取黑名单失败')
-    expect(toastMessages()).toContain('读取黑名单失败')
+    // The failed read stays inside the blacklist, above the entries it last read, instead of a toast.
+    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('10001')
+    expect(wrapper.get('[data-testid="access-lists-blacklist-refresh-error"]').text()).toContain('读取黑名单失败')
+    expect(toastMessages()).not.toContain('读取黑名单失败')
 
     await wrapper.get('[data-testid="access-lists-open-commands"]').trigger('click')
     await flushPromises()
@@ -506,7 +507,8 @@ describe('AccessListsPage', () => {
 
     const emptyWarning = wrapper.get('[data-testid="access-lists-whitelist-empty-warning"]')
     expect(emptyWarning.text()).toContain('所有命令都会被挡下')
-    expect(toastMessages().some((message) => message.includes('所有命令都会被挡下'))).toBe(true)
+    // The page keeps the risk in view, so it is not repeated as a toast.
+    expect(toastMessages().some((message) => message.includes('所有命令都会被挡下'))).toBe(false)
   }, 15000)
 
   it('copies the target id and keeps the existing success feedback', async () => {
@@ -574,8 +576,36 @@ describe('AccessListsPage', () => {
     mockAccessListFetches(store)
     const wrapper = mount(AccessListsPage, { global: { plugins: [getActivePinia()!, router] } })
     await flushPromises()
-    expect(wrapper.get('[data-testid="access-lists-whitelist-card"] .access-lists-card-header__count').text()).toBe('250')
+    expect(wrapper.get('[data-testid="access-lists-whitelist-count"]').text()).toBe(t('accessLists.table.matched', { total: 0, count: 250 }))
+    expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).toContain(t('accessLists.empty.filteredTitle'))
     expect(toastMessages().some(message => message.includes(t('accessLists.whitelist.emptyWarningTitle')))).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('shows an unread list as a failed read with retry instead of an empty, disabled list', async () => {
+    const router = createRouterForPage()
+    await router.push('/access-lists')
+    await router.isReady()
+    const store = useGovernanceStore()
+    store.blacklist = { user_entries: [], group_entries: [], total: 0, entry_count: 0 }
+    store.whitelist = null
+    store.whitelistError = '读取白名单失败'
+    vi.spyOn(store, 'fetchBlacklist').mockResolvedValue(store.blacklist)
+    const fetchWhitelist = vi.spyOn(store, 'fetchWhitelist').mockRejectedValue(new Error('offline'))
+    const wrapper = mount(AccessListsPage, { global: { plugins: [getActivePinia()!, router] } })
+    await flushPromises()
+
+    const whitelistCard = wrapper.get('[data-testid="access-lists-whitelist-card"]')
+    expect(whitelistCard.text()).toContain(t('accessLists.errors.whitelistLoadFailed'))
+    expect(whitelistCard.text()).toContain('读取白名单失败')
+    expect(whitelistCard.text()).not.toContain(t('accessLists.empty.whitelistTitle'))
+    // Whether the whitelist is on is unknown, so there is no switch to flip.
+    expect(wrapper.find('[data-testid="access-lists-whitelist-enabled"]').exists()).toBe(false)
+    expect(toastMessages()).not.toContain('读取白名单失败')
+
+    fetchWhitelist.mockClear()
+    await whitelistCard.get('.retry-panel button').trigger('click')
+    expect(fetchWhitelist).toHaveBeenCalledTimes(1)
     wrapper.unmount()
   })
 

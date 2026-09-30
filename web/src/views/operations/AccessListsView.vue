@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import AppTag from '@/components/AppTag.vue'
 import AppSwitch from '@/components/AppSwitch.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppAlert from '@/components/AppAlert.vue'
+import { ArrowUpRightIcon } from '@lucide/vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
@@ -11,10 +11,11 @@ import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getDisplayErrorMessage } from '@/lib/error-text'
+import { governanceScopeLabel } from '@/lib/governance-scope'
 import { buildCommandsLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
 import AccessListCard from '@/components/governance/AccessListCard.vue'
-import { useAccessListEditor } from '@/components/governance/useAccessListEditor'
+import { useAccessListEditor, type AccessListEditor } from '@/components/governance/useAccessListEditor'
 import { useGovernanceStore } from '@/stores/governance'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import type {
@@ -56,8 +57,18 @@ const whitelistEditor = reactive(useAccessListEditor({
   removed: () => { removeOpen.value = false },
 }))
 
-watch([() => blacklistEditor.searchQuery, () => blacklistEditor.scopeFilter], () => { void governanceStore.fetchBlacklist(undefined, { query: blacklistEditor.searchQuery, entry_type: blacklistEditor.scopeFilter === 'all' ? undefined : blacklistEditor.scopeFilter }).catch(() => undefined) })
-watch([() => whitelistEditor.searchQuery, () => whitelistEditor.scopeFilter], () => { void governanceStore.fetchWhitelist(undefined, { query: whitelistEditor.searchQuery, entry_type: whitelistEditor.scopeFilter === 'all' ? undefined : whitelistEditor.scopeFilter }).catch(() => undefined) })
+function listQuery(editor: AccessListEditor) {
+  return { query: editor.searchQuery, entry_type: editor.scopeFilter === 'all' ? undefined : editor.scopeFilter }
+}
+
+function fetchList(kind: 'blacklist' | 'whitelist') {
+  return kind === 'blacklist'
+    ? governanceStore.fetchBlacklist(undefined, listQuery(blacklistEditor))
+    : governanceStore.fetchWhitelist(undefined, listQuery(whitelistEditor))
+}
+
+watch([() => blacklistEditor.searchQuery, () => blacklistEditor.scopeFilter], () => { void fetchList('blacklist').catch(() => undefined) })
+watch([() => whitelistEditor.searchQuery, () => whitelistEditor.scopeFilter], () => { void fetchList('whitelist').catch(() => undefined) })
 
 const hasAccessListData = computed(() => Boolean(blacklist.value || whitelist.value))
 const pageBusy = computed(() => pageLoading.value || blacklistLoading.value || whitelistLoading.value)
@@ -68,48 +79,47 @@ const totalWhitelistEntries = computed(() => whitelist.value?.entry_count ?? 0)
 const whitelistEnabled = computed(() => whitelist.value?.enabled ?? false)
 const showWhitelistEmptyWarning = computed(() => whitelistEnabled.value && totalWhitelistEntries.value === 0)
 
-const blacklistRegionError = computed(() => blacklistEditor.actionError ?? blacklistError.value)
-const whitelistRegionError = computed(() => whitelistEditor.actionError ?? whitelistError.value)
-// When neither list loads, the page-level retry panel carries the error instead of two toasts.
-const whitelistRegionErrorToast = computed(() => (
-  whitelistRegionError.value && !showFatalError.value
+// Read failures stay inside their list; only a failed add, remove or switch arrives as a toast.
+const whitelistActionErrorToast = computed(() => (
+  whitelistEditor.actionError
     ? {
-        key: `access-lists-whitelist:${whitelistRegionError.value}`,
+        key: `access-lists-whitelist:${whitelistEditor.actionError}`,
         level: 'warning' as const,
-        message: whitelistRegionError.value,
+        message: whitelistEditor.actionError,
       }
     : null
 ))
-const blacklistRegionErrorToast = computed(() => (
-  blacklistRegionError.value && !showFatalError.value
+const blacklistActionErrorToast = computed(() => (
+  blacklistEditor.actionError
     ? {
-        key: `access-lists-blacklist:${blacklistRegionError.value}`,
+        key: `access-lists-blacklist:${blacklistEditor.actionError}`,
         level: 'warning' as const,
-        message: blacklistRegionError.value,
-      }
-    : null
-))
-const whitelistEmptyToast = computed(() => (
-  showWhitelistEmptyWarning.value
-    ? {
-        key: 'access-lists-whitelist-empty',
-        level: 'warning' as const,
-        message: `${t('accessLists.whitelist.emptyWarningTitle')}：${t('accessLists.whitelist.emptyWarningDescription')}`,
+        message: blacklistEditor.actionError,
       }
     : null
 ))
 
-useToastFeedback(whitelistRegionErrorToast)
-useToastFeedback(blacklistRegionErrorToast)
-useToastFeedback(whitelistEmptyToast)
+useToastFeedback(whitelistActionErrorToast)
+useToastFeedback(blacklistActionErrorToast)
+
+const removeDescription = computed(() => {
+  const candidate = removeCandidate.value
+  if (!candidate) return ''
+  return t('accessLists.confirm.removeDescription', {
+    list: t(`accessLists.cards.${candidate.kind}Title`),
+    type: candidate.entry.entry_type === 'user' ? t('accessLists.scopes.user') : t('accessLists.scopes.group'),
+    target: candidate.entry.target_id,
+    scope: governanceScopeLabel(candidate.entry.scope),
+  })
+})
 
 async function loadAccessLists() {
   pageLoading.value = true
   pageLoadError.value = null
 
   const [blacklistResult, whitelistResult] = await Promise.allSettled([
-    governanceStore.fetchBlacklist(undefined, { query: blacklistEditor.searchQuery, entry_type: blacklistEditor.scopeFilter === 'all' ? undefined : blacklistEditor.scopeFilter }),
-    governanceStore.fetchWhitelist(undefined, { query: whitelistEditor.searchQuery, entry_type: whitelistEditor.scopeFilter === 'all' ? undefined : whitelistEditor.scopeFilter }),
+    fetchList('blacklist'),
+    fetchList('whitelist'),
   ])
 
   pageLoading.value = false
@@ -156,8 +166,9 @@ onMounted(() => {
   <AppPage :title="t('accessLists.title')" :description="t('accessLists.subtitle')" width="form">
     <template #extra>
       <div class="table-actions">
-        <AppButton data-testid="access-lists-open-commands" variant="default" @click="navigate(buildCommandsLocation())">
+        <AppButton data-testid="access-lists-open-commands" @click="navigate(buildCommandsLocation())">
           {{ t('accessLists.actions.openCommands') }}
+          <ArrowUpRightIcon class="access-lists-page__arrow" aria-hidden="true" />
         </AppButton>
       </div>
     </template>
@@ -176,21 +187,22 @@ onMounted(() => {
         :data="whitelist"
         :loading="whitelistLoading"
         :loading-more="whitelistLoadingMore"
+        :error="whitelistError"
         :editor="whitelistEditor"
         @remove="removeCandidate = { kind: 'whitelist', entry: $event }; removeOpen = true"
         @more="governanceStore.loadMoreWhitelist().catch(() => undefined)"
+        @retry="fetchList('whitelist').catch(() => undefined)"
       >
         <template #policy>
-          <AppTag :tone="whitelistEnabled ? 'warning' : 'neutral'">
-            {{ whitelistEnabled ? t('accessLists.summary.whitelistEnabled') : t('accessLists.summary.whitelistDisabled') }}
-          </AppTag>
-          <AppSwitch
-            :model-value="whitelistEnabled"
-            :disabled="whitelistEditor.mutating"
-            :aria-label="t('accessLists.summary.whitelistStatus')"
-            data-testid="access-lists-whitelist-enabled"
-            @update:model-value="handleWhitelistToggle"
-          />
+          <label class="access-lists-policy">
+            <span>{{ t('accessLists.whitelist.enableLabel') }}</span>
+            <AppSwitch
+              :model-value="whitelistEnabled"
+              :disabled="whitelistEditor.mutating"
+              data-testid="access-lists-whitelist-enabled"
+              @update:model-value="handleWhitelistToggle"
+            />
+          </label>
         </template>
         <template #notice>
           <AppAlert
@@ -207,9 +219,11 @@ onMounted(() => {
         :data="blacklist"
         :loading="blacklistLoading"
         :loading-more="blacklistLoadingMore"
+        :error="blacklistError"
         :editor="blacklistEditor"
         @remove="removeCandidate = { kind: 'blacklist', entry: $event }; removeOpen = true"
         @more="governanceStore.loadMoreBlacklist().catch(() => undefined)"
+        @retry="fetchList('blacklist').catch(() => undefined)"
       />
     </div>
 
@@ -226,7 +240,7 @@ onMounted(() => {
     <AppConfirmDialog
       :open="removeOpen"
       :title="t('accessLists.confirm.removeTitle')"
-      :description="t('accessLists.confirm.removeDescription')"
+      :description="removeDescription"
       :confirm-text="t('accessLists.entryForm.remove')"
       :busy="blacklistEditor.mutating || whitelistEditor.mutating"
       :fallback-focus="removeCandidate ? `[data-testid='access-lists-${removeCandidate.kind}-add-btn']` : undefined"
@@ -243,5 +257,22 @@ onMounted(() => {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 24px;
+}
+
+.access-lists-page__arrow {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+
+// The whole label toggles the switch, and names it for assistive technology.
+.access-lists-policy {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
 }
 </style>
