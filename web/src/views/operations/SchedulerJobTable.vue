@@ -133,7 +133,7 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
         <template v-else-if="column.key === 'lastRun'">
           <div class="scheduler-cell-run-duration">
             <div class="last-run-time">
-              {{ record.last_run ? formatDateTime(record.last_run) : t('scheduler.neverRun') }}
+              {{ record.last_run ? formatDateTime(record.last_run) : t('scheduler.notRun') }}
             </div>
             <div class="duration-row" v-if="record.last_run">
               <span class="duration-badge" :class="getDurationClass(record.last_duration_ms)">
@@ -340,11 +340,9 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
       white-space: nowrap;
     }
 
+    // A global task is a kind of target, not a health state, so it stays neutral.
     &.global {
-      background: color-mix(in srgb, var(--success) 6%, transparent);
-      border-color: color-mix(in srgb, var(--success) 18%, transparent);
-      color: var(--success);
-      font-weight: 500;
+      font-family: var(--font-sans);
     }
   }
 }
@@ -431,16 +429,11 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
     font-family: var(--font-mono);
     border: 1px solid transparent;
 
-    &.duration-fast {
-      background: color-mix(in srgb, var(--success) 8%, transparent);
-      border-color: color-mix(in srgb, var(--success) 20%, transparent);
-      color: var(--success);
-    }
-
+    // Ordinary durations read as plain values; only a slow run is marked.
+    &.duration-fast,
     &.duration-normal {
-      background: color-mix(in srgb, var(--accent) 8%, transparent);
-      border-color: color-mix(in srgb, var(--accent) 20%, transparent);
-      color: var(--accent);
+      background: var(--surface-soft);
+      color: var(--muted);
     }
 
     &.duration-slow {

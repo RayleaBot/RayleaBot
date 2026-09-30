@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { SearchIcon } from '@lucide/vue'
 
+import { computed } from 'vue'
 import AppCard from '@/components/AppCard.vue'
 import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
@@ -22,6 +23,13 @@ const {
   searchQuery, statusFilter, sortBy, loadSchedulerJobs, triggerJob, getNextRunRelativeText,
 } = useSchedulerJobsPage()
 
+// With a search or a status filter in effect, an empty list means "no match", not "no jobs".
+const filtersActive = computed(() => Boolean(searchQuery.value.trim()) || statusFilter.value !== 'all')
+function clearFilters() {
+  searchQuery.value = ''
+  statusFilter.value = 'all'
+}
+
 const {
   closeJobDetail,
   currentJob,
@@ -32,7 +40,7 @@ const {
 </script>
 
 <template>
-  <AppPage :title="t('scheduler.title')">
+  <AppPage :title="t('scheduler.title')" :description="t('scheduler.description')">
     <div class="scheduler-page-container">
       <div class="scheduler-filter-card app-box">
         <div class="filter-left">
@@ -87,10 +95,19 @@ const {
         </AppCard>
 
         <AppEmptyState
+          v-else-if="sortedItems.length === 0 && filtersActive"
+          icon="search"
+          :title="t('scheduler.empty.filteredTitle')"
+          :description="t('scheduler.empty.filteredDescription')"
+          :action-label="t('scheduler.empty.clearFilters')"
+          @action="clearFilters"
+        />
+
+        <AppEmptyState
           v-else-if="sortedItems.length === 0"
           icon="box"
           :title="t('scheduler.empty.title')"
-          :description="searchQuery ? t('scheduler.noMatches') : t('scheduler.empty.description')"
+          :description="t('scheduler.empty.description')"
         />
 
         <SchedulerJobTable
@@ -145,7 +162,7 @@ const {
   }
 
   .filter-search-input {
-    width: 260px;
+    width: 300px;
 
     .search-icon {
       color: var(--muted);

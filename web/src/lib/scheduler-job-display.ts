@@ -89,9 +89,3 @@ export function successRateText(stats: SchedulerJobRunStats): string {
   return t('scheduler.successRate', { rate: getSuccessRate(stats) })
 }
 
-export function getHealthRingStyle(stats: SchedulerJobRunStats) {
-  const rate = getSuccessRate(stats)
-  return {
-    background: `conic-gradient(var(--success) 0% ${rate}%, var(--border) ${rate}% 100%)`
-  }
-}

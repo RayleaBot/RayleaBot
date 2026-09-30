@@ -85,6 +85,27 @@ describe('SchedulerJobsPage', () => {
   })
 
 
+  it('calls an empty filtered result a mismatch and offers to clear the filters', async () => {
+    const store = useSchedulerJobsStore()
+    const job = makeSchedulerJob()
+    store.items = [job]
+    // The server answers any search with no jobs, and the unfiltered list with the one job.
+    const search = vi.spyOn(store, 'search').mockImplementation(async (query) => { store.items = query?.query ? [] : [job] })
+    const wrapper = mount(SchedulerJobsPage, { global: { plugins: [getActivePinia()!] } })
+    await flushPromises()
+
+    await wrapper.get('input[aria-label="搜索定时任务"]').setValue('不存在的任务')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('没有符合条件的定时任务')
+    expect(wrapper.text()).not.toContain('插件创建定时任务后会显示在这里')
+    await wrapper.findAll('button').find(button => button.text() === '清除筛选')!.trigger('click')
+    await flushPromises()
+    expect(search).toHaveBeenLastCalledWith(expect.objectContaining({ query: '', status: undefined }))
+    expect(wrapper.text()).toContain('每日早报')
+    wrapper.unmount()
+  })
+
   it('renders scheduler job aggregate state', async () => {
     const store = useSchedulerJobsStore()
     store.items = [makeSchedulerJob()]
