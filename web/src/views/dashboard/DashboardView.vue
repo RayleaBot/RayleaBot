@@ -1,56 +1,56 @@
 <script setup lang="ts">
-import AppTabs from '@/components/AppTabs.vue'
-import AppTag from '@/components/AppTag.vue'
-import AppEmptyState from '@/components/AppEmptyState.vue'
-import AppButton from '@/components/AppButton.vue'
-import { computed, onMounted, ref, watch, type Component } from 'vue'
+import { computed, ref, watch, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
-
 import {
   ArchiveIcon,
-  BlocksIcon,
   BotIcon,
   CalendarClockIcon,
+  ChevronRightIcon,
   CircleCheckIcon,
-  CircleXIcon,
-  CircleAlertIcon,
   CircleMinusIcon,
+  CircleXIcon,
+  CpuIcon,
+  DatabaseIcon,
+  FileDownIcon,
   FolderCheckIcon,
   ImageIcon,
   ListChecksIcon,
   PackageCheckIcon,
+  PackagePlusIcon,
   PlusIcon,
+  PowerIcon,
   RadioTowerIcon,
+  RefreshCwIcon,
   ServerIcon,
   SlidersHorizontalIcon,
-  StethoscopeIcon,
+  TriangleAlertIcon,
 } from '@lucide/vue'
 
-import AppCard from '@/components/AppCard.vue'
-import ConnectionStatusStrip from '@/components/dashboard/ConnectionStatusStrip.vue'
-import DashboardStatusGrid from '@/components/dashboard/DashboardStatusGrid.vue'
-import DashboardUpdateCard from '@/components/dashboard/DashboardUpdateCard.vue'
-import HubSection from '@/components/dashboard/HubSection.vue'
-import HubTile, { type HubTileGlyph, type HubTileTone } from '@/components/dashboard/HubTile.vue'
-import PluginIcon from '@/components/plugins/PluginIcon.vue'
-import ManagementContextActions from '@/components/ManagementContextActions.vue'
+import AppButton from '@/components/AppButton.vue'
+import AppEmptyState from '@/components/AppEmptyState.vue'
+import AppSegmented from '@/components/AppSegmented.vue'
+import StatusRow from '@/components/dashboard/StatusRow.vue'
+import StatusSection from '@/components/dashboard/StatusSection.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import { formatDurationSeconds, formatRelativeTime } from '@/lib/format'
-import { getAdapterStateLabel, getPluginStateLabel, type StatusType } from '@/lib/display'
-import { buildDashboardEventActions, buildPluginDetailLocation } from '@/lib/management-links'
-import { resolveStatusTone } from '@/lib/status-tone'
-import { usePluginCollection } from '@/lib/use-plugin-collection'
-import { useAdaptersStore } from '@/stores/adapters'
+import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import { t } from '@/i18n'
+import { getAdapterStateLabel, getConnectionChannelLabel, getConnectionStatusLabel } from '@/lib/display'
+import { formatDurationSeconds, formatTime } from '@/lib/format'
+import { buildDashboardEventActions, buildProtocolsLocation } from '@/lib/management-links'
+import { useAdaptersStore } from '@/stores/adapters'
+import { useSocketStore } from '@/stores/sockets'
+import { useSystemStore } from '@/stores/system'
+import {
+  describeEventTone,
+  describeOverallStatus,
+  isSystemEvent,
+  summarizeAttention,
+  toRowTone,
+  type StatusRowTone,
+} from '@/views/dashboard/dashboard-status'
 import { useDashboardPage } from '@/views/dashboard/useDashboardPage'
-
-const activeOverviewTab = ref('events')
-const overviewTabs = computed(() => [
-  { value: 'events', label: t('dashboard.overviewEvents') },
-  { value: 'readiness', label: t('dashboard.overviewReadiness') },
-  { value: 'diagnostics', label: t('dashboard.overviewDiagnostics') },
-])
+import { useUpdateStatus } from '@/views/dashboard/useUpdateStatus'
 
 const {
   backupPending,
@@ -61,171 +61,175 @@ const {
   diagnosticsPending,
   diagnosticsSubsystemItems,
   error,
-  eventsExpanded,
   exportDiagnostics,
-  healthDetailText,
-  healthStatusType,
-  healthValueText,
-  issuesExpanded,
   liveUptimeSeconds,
   loading,
-  readinessDetailText,
   readinessIssues,
-  readinessStatusType,
-  readinessValueText,
   recentEvents,
   refreshState,
   runtimeBootstrapPending,
   system,
   visibleReasonCodes,
 } = useDashboardPage()
-
-// Hub tiles: running, connected or ready objects are lit; stopped ones are glass; problems get an outline.
-function tileTone(status?: string): HubTileTone {
-  const tone = resolveStatusTone(status)
-  return tone === 'neutral' || tone === 'attention' ? 'muted' : tone
-}
-
+const { diagnostics, readiness } = storeToRefs(useSystemStore())
 const { adapters } = storeToRefs(useAdaptersStore())
-const connectionTiles = computed(() => adapters.value.map((adapter) => {
-  const tone = tileTone(adapter.state)
-  return {
-    id: adapter.id,
-    title: adapter.identity?.name || adapter.display_name || adapter.id,
-    detail: [adapter.protocol === 'qqofficial' ? t('protocols.qqTitle') : 'OneBot11', adapter.identity?.id].filter(Boolean).join(' · '),
-    status: adapter.enabled ? getAdapterStateLabel(adapter.state) : t('dashboard.hub.connectionDisabled'),
-    tone: adapter.enabled ? tone : 'muted' as HubTileTone,
-    lit: adapter.enabled && adapter.state === 'connected',
-    attention: adapter.enabled && tone === 'danger',
-    glyph: (adapter.protocol === 'qqofficial' ? 'violet' : 'blue') as HubTileGlyph,
-    icon: adapter.protocol === 'qqofficial' ? BotIcon : RadioTowerIcon,
-  }
-}))
-const connectedCount = computed(() => connectionTiles.value.filter(tile => tile.lit).length)
+const socketStore = useSocketStore()
+const { snapshots } = storeToRefs(socketStore)
+const update = useUpdateStatus()
 
-// The hub reads its own first page of plugins; the plugin center keeps its own query and cursor.
-const pluginCollection = usePluginCollection()
-const pluginsLoading = pluginCollection.loading
-onMounted(() => { void pluginCollection.load({}).catch(() => undefined) })
-const pluginGlyphs: HubTileGlyph[] = ['ember', 'teal', 'violet', 'rose', 'blue', 'green', 'amber', 'slate']
-function pluginGlyph(pluginId: string): HubTileGlyph {
-  let hash = 0
-  for (const char of pluginId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-  return pluginGlyphs[hash % pluginGlyphs.length] ?? 'slate'
-}
-const pluginTiles = computed(() => pluginCollection.items.value.map((plugin) => {
-  const tone = tileTone(plugin.state)
-  const name = plugin.name?.trim() || plugin.id
-  return {
-    id: plugin.id,
-    name,
-    icon: plugin.icon,
-    version: plugin.version,
-    initial: Array.from(name)[0] ?? '?',
-    status: getPluginStateLabel(plugin.state),
-    tone: tone === 'success' ? 'muted' as HubTileTone : tone,
-    lit: plugin.state === 'running',
-    attention: tone === 'danger' || tone === 'warning',
-    glyph: pluginGlyph(plugin.id),
-  }
-}))
-const runningPluginCount = computed(() => pluginTiles.value.filter(tile => tile.lit).length)
-
-const runtimeIcons: Record<string, Component> = {
-  system: ServerIcon,
+// Connections have their own box and plugins stay in the plugin center, so the checks leave them out.
+const hiddenCheckKeys = new Set(['adapter', 'plugins'])
+const checkIcons: Record<string, Component> = {
   config: SlidersHorizontalIcon,
-  render: ImageIcon,
-  scheduler: CalendarClockIcon,
-  tasks: ListChecksIcon,
+  database: DatabaseIcon,
   dependencies: PackageCheckIcon,
   filesystem: FolderCheckIcon,
+  render: ImageIcon,
+  runtime: CpuIcon,
+  scheduler: CalendarClockIcon,
+  system: ServerIcon,
+  tasks: ListChecksIcon,
 }
-const runtimeGlyphs: Record<string, HubTileGlyph> = {
-  system: 'slate',
-  config: 'slate',
-  render: 'amber',
-  scheduler: 'violet',
-  tasks: 'teal',
-  dependencies: 'blue',
-  filesystem: 'green',
-}
-// Connections and plugins have their own sections, so the runtime section shows the other subsystems.
-const runtimeTiles = computed(() => diagnosticsSubsystemItems.value
-  .filter(item => item.key in runtimeIcons)
-  .map(item => ({
-    ...item,
-    icon: runtimeIcons[item.key],
-    glyph: runtimeGlyphs[item.key] ?? 'slate',
-    lit: item.status === 'success',
-    attention: item.status === 'warning' || item.status === 'danger',
-    tone: (item.status === 'warning' || item.status === 'danger' ? item.status : 'muted') as HubTileTone,
-  })))
-const readyRuntimeCount = computed(() => runtimeTiles.value.filter(tile => tile.lit).length)
 
-const readinessCheckGroups = computed(() => [
-  { key: 'issues', collapsed: false, items: checkItems.value.filter(item => item.status !== 'success') },
-  { key: 'passed', collapsed: true, items: checkItems.value.filter(item => item.status === 'success') },
+const overall = computed(() => describeOverallStatus(system.value?.status, readiness.value?.status))
+const headerSummary = computed(() => [
+  overall.value.label,
+  liveUptimeSeconds.value === undefined ? '' : t('dashboard.uptimeText', { duration: formatDurationSeconds(liveUptimeSeconds.value) }),
+  diagnostics.value?.generated_at ? t('dashboard.verifiedAt', { time: formatTime(diagnostics.value.generated_at) }) : '',
+].filter(Boolean).join(' · '))
+
+const readinessRows = computed(() => checkItems.value
+  .filter(item => !hiddenCheckKeys.has(item.key))
+  .map(item => ({ ...item, detail: readinessCheckDetail(item.key), icon: checkIcons[item.key] ?? ListChecksIcon })))
+const diagnosticsRows = computed(() => diagnosticsSubsystemItems.value
+  .filter(item => !hiddenCheckKeys.has(item.key))
+  .map(item => ({ ...item, icon: checkIcons[item.key] ?? ListChecksIcon })))
+
+// Readiness reports only a verdict per check; the diagnostics snapshot supplies the context line.
+function readinessCheckDetail(key: string) {
+  const snapshot = diagnostics.value
+  if (!snapshot) return undefined
+  const diagnosticsItem = diagnosticsSubsystemItems.value.find(item => item.key === key)
+  if (key === 'database') return t('dashboard.databaseValue', { engine: snapshot.config.database_engine, version: snapshot.database.schema_version })
+  if (key === 'config') return t('dashboard.configSchema', { version: snapshot.config.schema_version })
+  if (key === 'runtime') return diagnosticsSubsystemItems.value.find(item => item.key === 'dependencies')?.value
+  return diagnosticsItem?.value
+}
+
+const attention = computed(() => summarizeAttention(
+  readinessIssues.value,
+  diagnostics.value?.issues ?? [],
+  readinessRows.value.filter(item => item.status === 'success').length,
+))
+
+const checkView = ref<'readiness' | 'diagnostics'>('readiness')
+const checkViewOptions = computed(() => [
+  { value: 'readiness' as const, label: t('dashboard.overviewReadiness') },
+  { value: 'diagnostics' as const, label: t('dashboard.overviewDiagnostics') },
 ])
-
 watch(
   () => [readinessIssues.value.length, diagnosticsIssueCards.value.length] as const,
   ([readinessIssueCount, diagnosticsIssueCount]) => {
-    if (readinessIssueCount > 0) {
-      activeOverviewTab.value = 'readiness'
-      return
-    }
-
-    if (diagnosticsIssueCount > 0) {
-      activeOverviewTab.value = 'diagnostics'
-      return
-    }
-
-    if (activeOverviewTab.value === 'readiness' || activeOverviewTab.value === 'diagnostics') {
-      activeOverviewTab.value = 'events'
-    }
+    if (readinessIssueCount === 0 && diagnosticsIssueCount > 0) checkView.value = 'diagnostics'
+    else if (readinessIssueCount > 0) checkView.value = 'readiness'
   },
   { immediate: true },
 )
 
-function getCheckIcon(status: StatusType) {
-  const map = {
-    danger: CircleXIcon,
-    muted: CircleMinusIcon,
-    success: CircleCheckIcon,
-    warning: CircleAlertIcon,
-  } as const
-  return map[status]
+const checksSection = ref<InstanceType<typeof StatusSection> | null>(null)
+function showChecks() {
+  if (attention.value) checkView.value = attention.value.view
+  const element = checksSection.value?.$el as HTMLElement | undefined
+  element?.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
 }
 
-function getStatusTagColor(status: StatusType) {
-  if (status === 'success') return 'success'
-  if (status === 'warning') return 'warning'
-  if (status === 'danger') return 'danger'
-  return 'neutral'
-}
+const connectionRows = computed(() => adapters.value.map((adapter) => ({
+  id: adapter.id,
+  detail: [adapter.protocol === 'qqofficial' ? t('protocols.qqTitle') : 'OneBot11', adapter.identity?.id].filter(Boolean).join(' · '),
+  icon: adapter.protocol === 'qqofficial' ? BotIcon : RadioTowerIcon,
+  status: adapter.enabled ? getAdapterStateLabel(adapter.state) : t('dashboard.hub.connectionDisabled'),
+  title: adapter.identity?.name || adapter.display_name || adapter.id,
+  to: buildProtocolsLocation({ adapterId: adapter.id }),
+  tone: adapter.enabled ? toRowTone(adapter.state) : 'muted' as StatusRowTone,
+})))
+const connectionsMeta = computed(() => connectionRows.value.length
+  ? t('dashboard.hub.connectionsMeta', { connected: adapters.value.filter(adapter => adapter.enabled && adapter.state === 'connected').length, total: connectionRows.value.length })
+  : undefined)
 
-function getEventSeverity(payload: Record<string, unknown>) {
-  const severity = payload.severity
-  return typeof severity === 'string' ? severity : undefined
-}
+const versionText = computed(() => {
+  const snapshot = update.status.value
+  const version = snapshot?.current_version || diagnostics.value?.build.core_version || t('display.empty')
+  if (snapshot?.state === 'update_available' && snapshot.available_version) return t('dashboard.versionAvailable', { version, available: snapshot.available_version })
+  return snapshot ? `${version} · ${t(`dashboard.update.states.${snapshot.state}`)}` : version
+})
+const updateGuidance = computed(() => {
+  const snapshot = update.status.value
+  if (snapshot?.state === 'update_available' && snapshot.available_version) return t('dashboard.update.guidedAvailable', { version: snapshot.available_version })
+  if (snapshot?.state === 'disabled') return t('dashboard.update.checkUnavailable')
+  return ''
+})
+const managementAddress = typeof window === 'undefined' ? '' : window.location.host
 
-function getEventSeverityColor(severity?: string) {
-  if (severity === 'error' || severity === 'danger') return 'var(--danger)'
-  if (severity === 'warning') return 'var(--warning)'
-  if (severity === 'success') return 'var(--success)'
-  return 'var(--brand-foreground)'
-}
+// The management streams feed this page; a broken stream is shown with its retry countdown.
+const managementStreams = computed(() => {
+  const broken = (['events', 'logs'] as const)
+    .map(channel => ({ channel, snapshot: snapshots.value[channel] }))
+    .filter(({ snapshot }) => snapshot.status !== 'authenticated')
+  const first = broken[0]
+  if (!first) return { label: t('dashboard.streamsHealthy'), reconnect: false, tone: 'success' as StatusRowTone }
+  const seconds = first.snapshot.status === 'reconnecting' && first.snapshot.nextBackoffMs !== undefined
+    ? Math.max(1, Math.round(first.snapshot.nextBackoffMs / 1000))
+    : null
+  return {
+    label: [
+      getConnectionChannelLabel(first.channel),
+      getConnectionStatusLabel(first.snapshot.status),
+      seconds === null ? '' : t('dashboard.connectionReconnectIn', { seconds }),
+    ].filter(Boolean).join(' · '),
+    reconnect: true,
+    tone: toRowTone(first.snapshot.status),
+  }
+})
 
-function getEventSeverityIcon(severity?: string) {
-  if (severity === 'error' || severity === 'danger') return CircleXIcon
-  if (severity === 'warning') return CircleAlertIcon
-  if (severity === 'success') return CircleCheckIcon
-  return undefined
+const systemEvents = computed(() => recentEvents.value.filter(event => isSystemEvent(event.payload)).slice(0, 8))
+const eventIcons: Record<StatusRowTone, Component> = {
+  danger: CircleXIcon,
+  info: RefreshCwIcon,
+  muted: CircleMinusIcon,
+  success: CircleCheckIcon,
+  warning: TriangleAlertIcon,
+}
+function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) {
+  return buildDashboardEventActions(payload)[0]
 }
 </script>
 
 <template>
-  <AppPage :title="t('dashboard.title')" width="detail">
+  <AppPage :title="t('dashboard.title')">
+    <template #leading>
+      <span class="status-lens" :data-tone="overall.tone" aria-hidden="true">
+        <span class="status-lens__dot"><PowerIcon /></span>
+      </span>
+    </template>
+    <template #description>{{ headerSummary }}</template>
+    <template #extra>
+      <div class="status-actions" role="group" :aria-label="t('dashboard.maintenanceActions')">
+        <AppButton variant="ghost" :loading="loading" data-testid="dashboard-refresh" @click="refreshState">
+          <template #icon><RefreshCwIcon /></template>
+          {{ t('dashboard.refreshReadiness') }}
+        </AppButton>
+        <span class="status-actions__separator" aria-hidden="true" />
+        <AppButton variant="ghost" :loading="diagnosticsPending" @click="exportDiagnostics">
+          <template #icon><FileDownIcon /></template>
+          {{ t('dashboard.exportDiagnostics') }}
+        </AppButton>
+      </div>
+      <AppButton variant="default" :loading="backupPending" @click="createBackup">
+        <template #icon><ArchiveIcon /></template>
+        {{ t('dashboard.createBackup') }}
+      </AppButton>
+    </template>
+
     <RetryPanel
       v-if="error && !system"
       :title="t('routes.status')"
@@ -234,311 +238,245 @@ function getEventSeverityIcon(severity?: string) {
       @retry="refreshState()"
     />
 
-    <DashboardStatusGrid
-      :health-status-type="healthStatusType"
-      :readiness-status-type="readinessStatusType"
-      :health-label="t('dashboard.health')"
-      :health-value-text="healthValueText"
-      :health-detail-text="healthDetailText"
-      :readiness-label="t('dashboard.readiness')"
-      :readiness-value-text="readinessValueText"
-      :readiness-detail-text="readinessDetailText"
-      :active-plugins-label="t('dashboard.activePlugins')"
-      :active-plugins-count="system?.active_plugins ?? 0"
-      :active-plugins-detail-text="t('dashboard.pluginStateCounts', { running: system?.running_plugins ?? 0, failed: system?.failed_plugins ?? 0 })"
-      :active-plugins-to="{ name: 'plugins' }"
-      :active-plugins-aria-label="t('dashboard.openPluginList')"
-      :uptime-label="t('dashboard.uptime')"
-      :uptime-text="formatDurationSeconds(liveUptimeSeconds)"
-      :runtime-meta-text="t('dashboard.dbSchemaVersion', { version: system?.db_schema_version ?? t('display.empty') })"
-    />
+    <section v-if="attention" class="status-attention app-box" :data-tone="attention.tone" data-testid="dashboard-attention" aria-labelledby="dashboard-attention-title">
+      <span class="status-attention__icon" aria-hidden="true"><TriangleAlertIcon /></span>
+      <div class="status-attention__copy">
+        <h2 id="dashboard-attention-title">{{ attention.title }}</h2>
+        <p v-if="attention.detail">{{ attention.detail }}</p>
+      </div>
+      <div class="status-attention__actions">
+        <AppButton data-testid="dashboard-view-checks" @click="showChecks">{{ t('dashboard.viewChecks') }}</AppButton>
+        <AppButton
+          v-if="attention.runtimeResources.length"
+          variant="default"
+          :loading="runtimeBootstrapPending"
+          data-testid="readiness-prepare-runtime"
+          @click="bootstrapRuntimeResources(attention.runtimeResources)"
+        >
+          <template #icon><PackagePlusIcon /></template>
+          {{ t('dashboard.runtimeBootstrap') }}
+        </AppButton>
+      </div>
+    </section>
 
-    <ConnectionStatusStrip />
-
-    <HubSection
-      :title="t('dashboard.hub.connections')"
-      :meta="connectionTiles.length ? t('dashboard.hub.connectionsMeta', { connected: connectedCount, total: connectionTiles.length }) : undefined"
-      :to="{ name: 'protocols' }"
-      :link-label="t('dashboard.hub.openProtocols')"
-    >
-      <HubTile
-        v-for="tile in connectionTiles"
-        :key="tile.id"
-        wide
-        :lit="tile.lit"
-        :attention="tile.attention"
-        :tone="tile.tone"
-        :glyph="tile.glyph"
-        :to="{ name: 'protocols' }"
-        :label="`${tile.title} · ${tile.status}`"
-      >
-        <template #glyph><component :is="tile.icon" /></template>
-        <template #title>{{ tile.title }}</template>
-        <template #detail>{{ tile.detail }}</template>
-        <template #status>{{ tile.status }}</template>
-      </HubTile>
-      <HubTile v-if="!connectionTiles.length" wide :to="{ name: 'protocols' }" :label="t('dashboard.hub.addConnection')">
-        <template #glyph><PlusIcon /></template>
-        <template #title>{{ t('dashboard.hub.addConnection') }}</template>
-        <template #detail>{{ t('dashboard.hub.addConnectionDetail') }}</template>
-        <template #status>{{ t('dashboard.hub.openProtocols') }}</template>
-      </HubTile>
-    </HubSection>
-
-    <HubSection
-      :title="t('dashboard.hub.plugins')"
-      :meta="pluginTiles.length ? t('dashboard.hub.pluginsMeta', { running: runningPluginCount, total: pluginTiles.length }) : undefined"
-      :to="{ name: 'plugins' }"
-      :link-label="t('dashboard.hub.openPlugins')"
-    >
-      <HubTile
-        v-for="tile in pluginTiles"
-        :key="tile.id"
-        :lit="tile.lit"
-        :attention="tile.attention"
-        :tone="tile.tone"
-        :glyph="tile.icon ? 'image' : tile.glyph"
-        :to="buildPluginDetailLocation(tile.id)"
-        :label="`${tile.name} · ${tile.status}`"
-      >
-        <template #glyph>
-          <PluginIcon v-if="tile.icon" :plugin-id="tile.id" :icon="tile.icon" :version="tile.version" />
-          <template v-else>{{ tile.initial }}</template>
+    <div class="status-grid">
+      <StatusSection :title="t('dashboard.hub.connections')" :meta="connectionsMeta" data-testid="dashboard-connections">
+        <template #actions>
+          <MotionRouterLink :to="{ name: 'protocols' }" class="status-link">{{ t('dashboard.hub.openProtocols') }}<ChevronRightIcon aria-hidden="true" /></MotionRouterLink>
         </template>
-        <template #title>{{ tile.name }}</template>
-        <template #status>{{ tile.status }}</template>
-      </HubTile>
-      <HubTile v-if="!pluginTiles.length && !pluginsLoading" :to="{ name: 'plugins' }" :label="t('dashboard.hub.installPlugin')">
-        <template #glyph><BlocksIcon /></template>
-        <template #title>{{ t('dashboard.hub.installPlugin') }}</template>
-        <template #status>{{ t('dashboard.hub.openPlugins') }}</template>
-      </HubTile>
-    </HubSection>
+        <StatusRow
+          v-for="row in connectionRows"
+          :key="row.id"
+          :title="row.title"
+          :detail="row.detail"
+          :status="row.status"
+          :tone="row.tone"
+          :to="row.to"
+        >
+          <template #icon><component :is="row.icon" /></template>
+        </StatusRow>
+        <MotionRouterLink :to="buildProtocolsLocation({ view: 'add' })" class="status-add">
+          <span class="status-add__icon" aria-hidden="true"><PlusIcon /></span>
+          <span class="status-add__copy">
+            <span>{{ t('dashboard.hub.addConnection') }}</span>
+            <small v-if="!connectionRows.length">{{ t('dashboard.hub.addConnectionDetail') }}</small>
+          </span>
+        </MotionRouterLink>
+      </StatusSection>
 
-    <HubSection
-      :title="t('dashboard.hub.runtime')"
-      :meta="runtimeTiles.length ? t('dashboard.hub.runtimeMeta', { ready: readyRuntimeCount, total: runtimeTiles.length }) : undefined"
-    >
-      <HubTile
-        v-for="tile in runtimeTiles"
-        :key="tile.key"
-        :lit="tile.lit"
-        :attention="tile.attention"
-        :tone="tile.tone"
-        :glyph="tile.glyph"
-      >
-        <template #glyph><component :is="tile.icon" /></template>
-        <template #title>{{ tile.label }}</template>
-        <template #status>{{ tile.value }}</template>
-      </HubTile>
-      <HubTile action :disabled="backupPending" @click="createBackup">
-        <template #glyph><ArchiveIcon /></template>
-        <template #title>{{ t('dashboard.createBackup') }}</template>
-        <template #status>{{ backupPending ? t('dashboard.hub.inProgress') : t('dashboard.hub.runNow') }}</template>
-      </HubTile>
-      <HubTile action :disabled="diagnosticsPending" @click="exportDiagnostics">
-        <template #glyph><StethoscopeIcon /></template>
-        <template #title>{{ t('dashboard.exportDiagnostics') }}</template>
-        <template #status>{{ diagnosticsPending ? t('dashboard.hub.inProgress') : t('dashboard.hub.runNow') }}</template>
-      </HubTile>
-    </HubSection>
+      <StatusSection :title="t('dashboard.runtimeInfo')" data-testid="dashboard-runtime-info">
+        <dl class="status-facts">
+          <div class="status-facts__row">
+            <dt>{{ t('dashboard.facts.version') }}</dt>
+            <dd>
+              <span>{{ versionText }}</span>
+              <AppButton size="sm" variant="ghost" :loading="update.checking.value" data-testid="dashboard-update-check" @click="update.check">{{ t('dashboard.update.check') }}</AppButton>
+            </dd>
+          </div>
+          <div class="status-facts__row">
+            <dt>{{ t('dashboard.facts.database') }}</dt>
+            <dd>{{ diagnostics ? t('dashboard.databaseValue', { engine: diagnostics.config.database_engine, version: diagnostics.database.schema_version }) : t('dashboard.databaseSchema', { version: system?.db_schema_version ?? t('display.empty') }) }}</dd>
+          </div>
+          <div class="status-facts__row">
+            <dt>{{ t('dashboard.facts.config') }}</dt>
+            <dd>{{ diagnostics ? t('dashboard.configValue', { state: t(`dashboard.diagnosticsStatus.${diagnostics.config.apply_state}`), version: diagnostics.config.schema_version }) : t('display.empty') }}</dd>
+          </div>
+          <div class="status-facts__row">
+            <dt>{{ t('dashboard.facts.address') }}</dt>
+            <dd>{{ managementAddress || t('display.empty') }}</dd>
+          </div>
+          <div class="status-facts__row">
+            <dt>{{ t('dashboard.facts.streams') }}</dt>
+            <dd>
+              <span class="status-facts__state" :data-tone="managementStreams.tone">{{ managementStreams.label }}</span>
+              <AppButton v-if="managementStreams.reconnect" size="sm" variant="ghost" @click="socketStore.reconnectAll()">{{ t('dashboard.reconnect') }}</AppButton>
+            </dd>
+          </div>
+        </dl>
+        <p v-if="updateGuidance || update.error.value" class="status-facts__note" aria-live="polite">{{ update.error.value || updateGuidance }}</p>
+      </StatusSection>
 
-    <div class="dashboard-detail-grid">
-      <AppCard
-        borderless
-        class="dashboard-activity-card"
-      >
-        <AppTabs v-model="activeOverviewTab" :items="overviewTabs" :label="t('dashboard.overviewLabel')" keep-alive>
-          <template #events>
-            <AppEmptyState v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
+      <StatusSection ref="checksSection" :title="t('dashboard.checks')" data-testid="dashboard-checks">
+        <template #actions>
+          <AppSegmented v-model="checkView" :options="checkViewOptions" :label="t('dashboard.checkViewLabel')" class="status-checks__views" />
+        </template>
 
-            <div
-              v-else
-              class="events-timeline-wrapper"
-              :class="{ 'events-timeline-wrapper--collapsed': !eventsExpanded && recentEvents.length > 4 }"
-            >
-              <ol class="events-timeline">
-                <li
-                  v-for="event in recentEvents"
-                  :key="`${event.timestamp}-${event.summary}`"
-                  :style="{ '--event-color': getEventSeverityColor(getEventSeverity(event.payload)) }" class="events-timeline__row"
-                >
-                  <span class="events-timeline__marker">
-                    <component
-                      :is="getEventSeverityIcon(getEventSeverity(event.payload))"
-                      v-if="getEventSeverityIcon(getEventSeverity(event.payload))"
-                      class="events-timeline__dot-icon"
-                      role="img"
-                      :aria-label="t('dashboard.eventSeverityLabel', { severity: getEventSeverity(event.payload) ?? 'info' })"
-                    />
-                    <span v-else class="events-timeline__dot" role="img" :aria-label="t('dashboard.eventSeverityLabel', { severity: 'info' })" />
-                  </span>
-                  <div class="events-timeline__item">
-                    <div class="events-timeline__summary">{{ event.summary }}</div>
-                    <div class="events-timeline__time" :data-absolute="event.timestamp">
-                      {{ formatRelativeTime(event.timestamp) }}
-                    </div>
-                    <ManagementContextActions
-                      :actions="buildDashboardEventActions(event.payload)"
-                      class="events-timeline__actions"
-                    />
-                  </div>
-                </li>
-              </ol>
-            </div>
-            <div v-if="recentEvents.length > 4" class="events-toggle">
-              <AppButton size="sm" variant="link" @click="eventsExpanded = !eventsExpanded">
-                {{ eventsExpanded ? t('dashboard.collapseEvents') : t('dashboard.expandEvents', { count: recentEvents.length - 4 }) }}
-              </AppButton>
-            </div>
-          </template>
+        <template v-if="checkView === 'readiness'">
+          <StatusRow
+            v-for="issue in readinessIssues"
+            :key="`${issue.code}-${issue.summary}`"
+            :title="issue.summary"
+            :detail="issue.remediation"
+            :status="t(`dashboard.issueSeverity.${issue.severity === 'error' ? 'error' : issue.severity === 'warning' ? 'warning' : 'info'}`)"
+            :tone="issue.severity === 'error' ? 'danger' : issue.severity === 'warning' ? 'warning' : 'info'"
+            class="status-issue"
+          >
+            <template #icon><TriangleAlertIcon /></template>
+          </StatusRow>
+          <StatusRow
+            v-for="item in readinessRows"
+            :key="item.key"
+            :title="item.label"
+            :detail="item.detail"
+            :status="item.displayValue"
+            :tone="item.status"
+          >
+            <template #icon><component :is="item.icon" /></template>
+          </StatusRow>
+          <AppEmptyState v-if="!readinessRows.length && !readinessIssues.length" :description="t('display.empty')" />
+          <details v-if="visibleReasonCodes.length || readinessIssues.length" class="status-technical">
+            <summary>{{ t('dashboard.readinessTechnicalDetails') }}</summary>
+            <p v-if="visibleReasonCodes.length"><code>{{ visibleReasonCodes.join(', ') }}</code></p>
+            <ul v-if="readinessIssues.length"><li v-for="issue in readinessIssues" :key="issue.code"><code>{{ issue.code }}</code> · {{ issue.summary }}</li></ul>
+          </details>
+        </template>
 
-          <template #readiness>
-            <div class="readiness-actions"><AppButton size="sm" :loading="loading" @click="refreshState">{{ t('dashboard.refreshReadiness') }}</AppButton></div>
-            <template v-for="group in readinessCheckGroups" :key="group.key">
-              <component :is="group.collapsed ? 'details' : 'div'" v-if="group.items.length" class="readiness-check-group">
-                <summary v-if="group.collapsed">{{ t('dashboard.passedCheckCount', { count: group.items.length }) }}</summary>
-                <div class="readiness-checks">
-                  <div v-for="item in group.items" :key="item.key" :class="['readiness-check', `readiness-check--${item.status}`]">
-                    <div class="readiness-check__header">
-                      <component :is="getCheckIcon(item.status)" class="readiness-check__icon" aria-hidden="true" />
-                      <span class="readiness-check__name">{{ item.label }}</span>
-                    </div>
-                    <div class="readiness-check__value">{{ item.displayValue }}</div>
-                  </div>
-                </div>
-              </component>
-            </template>
-            <AppEmptyState v-if="!checkItems.length && !readinessIssues.length" :description="t('display.empty')" />
+        <template v-else>
+          <StatusRow
+            v-for="issue in diagnosticsIssueCards"
+            :key="issue.key"
+            :title="issue.problem"
+            :detail="`${issue.code} · ${issue.remediation}`"
+            :status="t(`dashboard.issueSeverity.${issue.severity === 'error' ? 'error' : 'warning'}`)"
+            :tone="issue.status === 'danger' ? 'danger' : 'warning'"
+            class="status-issue"
+          >
+            <template #icon><TriangleAlertIcon /></template>
+          </StatusRow>
+          <StatusRow
+            v-for="item in diagnosticsRows"
+            :key="item.key"
+            :title="item.label"
+            :detail="item.detail"
+            :status="item.value"
+            :tone="item.status"
+          >
+            <template #icon><component :is="item.icon" /></template>
+          </StatusRow>
+          <AppEmptyState v-if="!diagnosticsRows.length" :description="t('dashboard.diagnosticsEmpty')" />
+        </template>
+      </StatusSection>
 
-            <div
-              v-if="readinessIssues.length"
-              class="issues-list"
-              :class="{ 'issues-list--collapsed': !issuesExpanded && readinessIssues.length > 3 }"
-            >
-              <div
-                v-for="issue in readinessIssues"
-                :key="`${issue.code}-${issue.summary}`"
-                :class="['issue-alert-card', { 'issue-alert-card--warning': issue.severity === 'warning' }]"
-              >
-                <div class="issue-alert-card__header">
-                  <AppTag :tone="issue.severity === 'error' ? 'danger' : issue.severity === 'warning' ? 'warning' : 'success'">
-                    {{ t(`dashboard.issueSeverity.${issue.severity === 'error' ? 'error' : issue.severity === 'warning' ? 'warning' : 'info'}`) }}
-                  </AppTag>
-                  <span class="issue-alert-card__summary">{{ issue.summary }}</span>
-                </div>
-                <div v-if="issue.remediation" class="issue-alert-card__remediation">
-                  {{ issue.remediation }}
-                </div>
-                <div v-if="issue.runtime_resources?.length" class="issue-alert-card__actions">
-                  <AppButton size="sm" variant="default" :loading="runtimeBootstrapPending" data-testid="readiness-prepare-runtime" @click="bootstrapRuntimeResources(issue.runtime_resources)">{{ t('dashboard.runtimeBootstrap') }}</AppButton>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="readinessIssues.length > 3" class="issues-toggle">
-              <AppButton
-                size="sm"
-                variant="link"
-                :aria-label="issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readinessIssues.length - 3 })"
-                @click="issuesExpanded = !issuesExpanded"
-              >
-                {{ issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readinessIssues.length - 3 }) }}
-              </AppButton>
-            </div>
-            <details v-if="visibleReasonCodes.length || readinessIssues.length" class="readiness-technical">
-              <summary>{{ t('dashboard.readinessTechnicalDetails') }}</summary>
-              <p v-if="visibleReasonCodes.length"><code>{{ visibleReasonCodes.join(', ') }}</code></p>
-              <ul v-if="readinessIssues.length"><li v-for="issue in readinessIssues" :key="issue.code"><code>{{ issue.code }}</code> · {{ issue.summary }}</li></ul>
-            </details>
-          </template>
-
-          <template #diagnostics>
-            <AppEmptyState v-if="!diagnosticsSubsystemItems.length" :description="t('dashboard.diagnosticsEmpty')" />
-
-            <div v-if="diagnosticsIssueCards.length" class="diagnostics-issues">
-              <div
-                v-for="issue in diagnosticsIssueCards"
-                :key="issue.key"
-                :class="['diagnostics-issue-card', `diagnostics-issue-card--${issue.status}`]"
-              >
-                <div class="diagnostics-issue-card__header">
-                  <AppTag :tone="getStatusTagColor(issue.status)">
-                    {{ issue.code }}
-                  </AppTag>
-                  <strong>{{ issue.problem }}</strong>
-                </div>
-                <dl class="diagnostics-issue-card__facts">
-                  <div>
-                    <dt>{{ t('dashboard.diagnosticsProblem') }}</dt>
-                    <dd>{{ issue.problem }}</dd>
-                  </div>
-                  <div>
-                    <dt>{{ t('dashboard.diagnosticsImpact') }}</dt>
-                    <dd>{{ issue.impact }}</dd>
-                  </div>
-                  <div>
-                    <dt>{{ t('dashboard.diagnosticsAction') }}</dt>
-                    <dd>{{ issue.remediation }}</dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
-            <AppEmptyState v-else class="diagnostics-empty-issues" :description="t('dashboard.diagnosticsNoIssues')" />
-          </template>
-        </AppTabs>
-      </AppCard>
-
-      <DashboardUpdateCard />
+      <StatusSection :title="t('dashboard.overviewEvents')" data-testid="dashboard-events">
+        <template #actions>
+          <MotionRouterLink :to="{ name: 'logs-history' }" class="status-link">{{ t('routes.logsHistory') }}<ChevronRightIcon aria-hidden="true" /></MotionRouterLink>
+        </template>
+        <ol v-if="systemEvents.length" class="status-events">
+          <li v-for="event in systemEvents" :key="`${event.timestamp}-${event.summary}`" class="status-event">
+            <time :datetime="event.timestamp">{{ formatTime(event.timestamp) }}</time>
+            <span class="status-event__tone" :data-tone="describeEventTone(event.payload)" aria-hidden="true">
+              <component :is="eventIcons[describeEventTone(event.payload)]" />
+            </span>
+            <MotionRouterLink v-if="eventAction(event.payload)" :to="eventAction(event.payload)!.to" class="status-event__summary status-event__summary--link">{{ event.summary }}</MotionRouterLink>
+            <span v-else class="status-event__summary">{{ event.summary }}</span>
+          </li>
+        </ol>
+        <AppEmptyState v-else :description="t('dashboard.recentEventsEmpty')" />
+      </StatusSection>
     </div>
   </AppPage>
 </template>
 
 <style scoped lang="scss">
 @use '@/styles/breakpoints.generated' as bp;
-.dashboard-detail-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, .85fr); gap: 16px; align-items: start; }
-.dashboard-activity-card { min-width: 0; align-self: stretch; }
-.dashboard-activity-card :deep(.app-card__body) { padding: 6px 20px 16px; }
-.events-timeline { padding: 6px 0 0; margin: 0; list-style: none; }
-.events-timeline__row { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; }
-.events-timeline__marker { display: grid; place-items: start center; padding-top: 14px; color: var(--event-color); }
-.events-timeline__dot-icon { width: 18px; height: 18px; }
-.events-timeline__dot-icon { font-size: 18px; line-height: 1; }
-.events-timeline__dot { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-.events-timeline__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.events-timeline__summary { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--text); overflow-wrap: anywhere; }
-.events-timeline__time { color: var(--muted); font-size: 12px; grid-column: 1; }
-.events-timeline__actions { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
-.events-timeline-wrapper--collapsed { max-height: 284px; overflow: hidden; }
-.events-toggle, .issues-toggle { margin-top: 8px; text-align: center; }
-.readiness-checks { grid-template-columns: 1fr; gap: 0; border: 0; background: transparent; border-radius: 0; }
-.readiness-actions { display: flex; justify-content: flex-end; margin-bottom: 12px; }
-.readiness-check-group summary, .readiness-technical summary { padding: 12px 0; color: var(--muted); font-size: 13px; cursor: pointer; }
-.readiness-technical { margin-top: 16px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-.readiness-technical p { margin: 0 0 8px; }
-.readiness-technical ul { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
-.issue-alert-card__actions { margin-top: 12px; }
-.readiness-check { grid-template-columns: minmax(120px, .8fr) minmax(0, 1fr); padding: 10px 0; gap: 12px; border-bottom: 1px solid var(--border); background: transparent; }
-.readiness-check__name { color: var(--text); font-weight: 500; }
-.readiness-check__value { text-align: right; color: var(--muted); }
-.readiness-check__icon { width: 17px; height: 17px; }
-.diagnostics-issues, .issues-list { display: grid; gap: 12px; margin-top: 16px; }
-.diagnostics-issue-card, .issue-alert-card { min-width: 0; padding: 12px 0; border-radius: 0; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); }
-.diagnostics-issue-card__header, .issue-alert-card__header { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
-.issue-alert-card__summary { font-weight: 600; }
-.issue-alert-card__remediation { margin-top: 8px; color: inherit; font-size: 13px; line-height: 1.5; }
-.diagnostics-issue-card__facts { display: grid; gap: 8px; margin: 12px 0 0; }
-.diagnostics-issue-card__facts > div { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
-.diagnostics-issue-card__facts dt, .diagnostics-issue-card__facts dd { margin: 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
-.diagnostics-issue-card__facts dt { font-weight: 500; }
-.diagnostics-empty-issues { margin-top: 12px; }
-@media (max-width: #{bp.$splitPanel}) {
- .dashboard-detail-grid { grid-template-columns: 1fr; }
+
+// The header lens: a raised circle holding the overall status dot.
+.status-lens { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; background: var(--control-fill); box-shadow: var(--shadow-xs); }
+.status-lens__dot { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--muted); color: var(--on-brand); }
+.status-lens__dot svg { width: 13px; height: 13px; stroke-width: 2.8; }
+.status-lens[data-tone=success] .status-lens__dot { background: var(--success); }
+.status-lens[data-tone=warning] .status-lens__dot { background: var(--warning); }
+.status-lens[data-tone=danger] .status-lens__dot { background: var(--danger); }
+
+// Maintenance actions share one pill with a hairline between them; the backup is the page's primary action.
+.status-actions { display: inline-flex; align-items: center; height: 44px; padding: 4px; border: 1px solid transparent; border-radius: 999px; background: var(--control-fill); box-shadow: var(--shadow-xs); }
+.status-actions :deep(.app-button) { height: 36px; }
+.status-actions__separator { width: 1px; height: 18px; background: var(--border); }
+
+.status-attention { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 18px 20px 18px 18px; }
+.status-attention__icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: var(--warning-soft); color: var(--warning); }
+.status-attention[data-tone=danger] .status-attention__icon { background: var(--danger-soft); color: var(--danger); }
+.status-attention__icon svg { width: 22px; height: 22px; }
+.status-attention__copy { display: grid; gap: 2px; min-width: 0; }
+.status-attention h2 { margin: 0; font-size: var(--font-size-lg); font-weight: 700; letter-spacing: -0.01em; }
+.status-attention p { margin: 0; color: var(--muted); font-size: var(--font-size-sm); }
+.status-attention__actions { display: flex; gap: 8px; }
+
+.status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+
+.status-link { display: inline-flex; align-items: center; gap: 2px; border-radius: var(--radius-sm); color: var(--brand-foreground); font-size: var(--font-size-sm); font-weight: 500; }
+.status-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.status-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.status-link svg { width: 15px; height: 15px; }
+
+.status-add { display: flex; align-items: center; gap: 12px; padding: 12px 0 6px; border-top: 1px solid var(--border); color: var(--brand-foreground); font-weight: 500; }
+.status-add__icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: var(--control-fill); box-shadow: var(--shadow-xs); }
+.status-add__icon svg { width: 16px; height: 16px; }
+.status-add__copy { display: grid; }
+.status-add__copy small { color: var(--muted); font-size: var(--font-size-xs); font-weight: 400; }
+.status-add:hover .status-add__copy > span { text-decoration: underline; text-underline-offset: 3px; }
+.status-add:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-md); }
+
+.status-facts { display: grid; margin: 0; }
+.status-facts__row { display: flex; align-items: center; gap: 16px; min-height: 46px; padding: 6px 0; }
+.status-facts__row + .status-facts__row { border-top: 1px solid var(--border); }
+.status-facts dt { color: var(--muted); font-size: var(--font-size-sm); }
+.status-facts dd { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0 0 0 auto; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
+.status-facts dd :deep(.app-button) { height: 30px; padding-inline: 10px; color: var(--brand-foreground); }
+.status-facts__state[data-tone=success] { color: var(--success); }
+.status-facts__state[data-tone=warning] { color: var(--warning); }
+.status-facts__state[data-tone=danger] { color: var(--danger); }
+.status-facts__state[data-tone=info] { color: var(--info); }
+.status-facts__note { margin: 4px 0 8px; color: var(--muted); font-size: var(--font-size-xs); line-height: 1.6; }
+
+.status-checks__views :deep(.app-segmented__item) { min-height: 28px; padding: 3px 14px; }
+.status-technical { margin-top: 8px; padding: 8px 0 6px; border-top: 1px solid var(--border); color: var(--muted); font-size: var(--font-size-xs); overflow-wrap: anywhere; }
+.status-technical summary { cursor: pointer; }
+.status-technical summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-xs); }
+.status-technical p { margin: 8px 0 0; }
+.status-technical ul { display: grid; gap: 6px; margin: 8px 0 0; padding-left: 20px; }
+
+.status-events { margin: 0; padding: 0; list-style: none; }
+.status-event { display: grid; grid-template-columns: 72px 20px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 46px; padding: 7px 0; }
+.status-event + .status-event { border-top: 1px solid var(--border); }
+.status-event time { color: var(--muted); font-size: var(--font-size-sm); font-variant-numeric: tabular-nums; }
+.status-event__tone { display: grid; place-items: center; color: var(--muted); }
+.status-event__tone svg { width: 16px; height: 16px; }
+.status-event__tone[data-tone=success] { color: var(--success); }
+.status-event__tone[data-tone=warning] { color: var(--warning); }
+.status-event__tone[data-tone=danger] { color: var(--danger); }
+.status-event__tone[data-tone=info] { color: var(--info); }
+.status-event__summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-event__summary--link { border-radius: var(--radius-xs); color: var(--text); }
+.status-event__summary--link:hover { color: var(--brand-foreground); text-decoration: underline; text-underline-offset: 3px; }
+.status-event__summary--link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+@media (max-width: #{bp.$desktop - 1px}) {
+  .status-grid { grid-template-columns: minmax(0, 1fr); }
+  .status-attention { grid-template-columns: auto minmax(0, 1fr); }
+  .status-attention__actions { grid-column: 1 / -1; }
 }
-@media (max-width: #{bp.$phone}) {
- .dashboard-activity-card :deep(.app-card__body) { padding-inline: 14px; }
- .events-timeline__item { grid-template-columns: minmax(0, 1fr); }
- .events-timeline__actions { grid-column: 1; grid-row: auto; }
- .events-timeline-wrapper--collapsed { max-height: 390px; }
+@media (forced-colors: active) {
+  .status-lens, .status-actions, .status-attention__icon { border: 1px solid CanvasText; }
 }
 </style>

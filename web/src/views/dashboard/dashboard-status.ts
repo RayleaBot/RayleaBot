@@ -1,10 +1,90 @@
 import { i18n, t } from '@/i18n'
 import { describeAdapterStates } from '@/lib/adapter-status'
 import type { StatusType } from '@/lib/display'
-import type { AdapterDescriptor, ReadinessStatusResponse, SystemDiagnosticsResponse } from '@/types/api'
+import { resolveStatusTone } from '@/lib/status-tone'
+import type { AdapterDescriptor, EventsPayload, ReadinessStatusResponse, RuntimeBootstrapResource, SystemDiagnosticsResponse } from '@/types/api'
 
 type DiagnosticIssue = SystemDiagnosticsResponse['issues'][number]
 type ToastLevel = 'warning' | 'error'
+
+// Row and lens tones on the status page: the status colours plus a quiet muted tone.
+export type StatusRowTone = 'success' | 'warning' | 'danger' | 'info' | 'muted'
+
+export function toRowTone(status?: string | null): StatusRowTone {
+  const tone = resolveStatusTone(status)
+  if (tone === 'neutral') return 'muted'
+  if (tone === 'attention') return 'warning'
+  return tone
+}
+
+export function describeOverallStatus(systemStatus?: string, readinessStatus?: string): { label: string; tone: StatusRowTone } {
+  if (systemStatus === 'shutting_down') return { label: t('dashboard.overall.stopping'), tone: 'warning' }
+  if (readinessStatus === 'failed') return { label: t('dashboard.alertFailed'), tone: 'danger' }
+  if (readinessStatus === 'degraded') return { label: t('dashboard.alertDegraded'), tone: 'warning' }
+  if (readinessStatus === 'ready' || systemStatus === 'running') return { label: t('dashboard.overall.running'), tone: 'success' }
+  return { label: t('dashboard.overall.unknown'), tone: 'muted' }
+}
+
+export interface StatusAttention {
+  count: number
+  detail: string
+  runtimeResources: RuntimeBootstrapResource[]
+  title: string
+  tone: 'warning' | 'danger'
+  view: 'readiness' | 'diagnostics'
+}
+
+// The status page leads with what needs a person: readiness issues first, then diagnostics problems that
+// readiness has not already reported, each counted once.
+export function summarizeAttention(
+  readinessIssues: readonly DiagnosticIssue[],
+  diagnosticsIssues: readonly DiagnosticIssue[],
+  passedCheckCount: number,
+): StatusAttention | null {
+  const pending = readinessIssues.filter(issue => issue.severity === 'error' || issue.severity === 'warning')
+  const readinessCodes = new Set(pending.map(issue => issue.code))
+  const diagnostics = dedupeIssues(diagnosticsIssues)
+    .filter(issue => (issue.severity === 'error' || issue.severity === 'warning') && !readinessCodes.has(issue.code))
+  const count = pending.length + diagnostics.length
+  if (count === 0) return null
+
+  const tone = [...pending, ...diagnostics].some(issue => issue.severity === 'error') ? 'danger' : 'warning'
+  // One preparation covers every missing runtime resource, whichever issue reported it.
+  const runtimeResources = Array.from(new Set([...pending, ...diagnostics].flatMap(issue => issue.runtime_resources ?? [])))
+  const readinessTop = pending.find(issue => issue.severity === 'error') ?? pending[0]
+  if (readinessTop) {
+    const passed = passedCheckCount > 0 ? t('dashboard.attentionPassed', { count: passedCheckCount }) : ''
+    return {
+      count,
+      detail: `${readinessTop.remediation ?? ''}${passed}`,
+      runtimeResources,
+      title: t('dashboard.attentionTitle', { count, summary: readinessTop.summary }),
+      tone,
+      view: 'readiness',
+    }
+  }
+
+  const diagnosticsTop = diagnostics.find(issue => issue.severity === 'error') ?? diagnostics[0]!
+  return {
+    count,
+    detail: diagnosticsTop.remediation || t('dashboard.diagnosticsRemediationUnavailable'),
+    runtimeResources,
+    title: t('dashboard.attentionTitle', { count, summary: diagnosticsTop.user_message || diagnosticsTop.summary }),
+    tone,
+    view: 'diagnostics',
+  }
+}
+
+// Plugin lifecycle belongs to the plugin center and the logs; the status page lists system changes only.
+export function isSystemEvent(payload: EventsPayload) {
+  return !('plugin_id' in payload)
+}
+
+export function describeEventTone(payload: EventsPayload): StatusRowTone {
+  if ('service_status' in payload) return toRowTone(payload.service_status)
+  if ('connection_status' in payload) return toRowTone(payload.connection_status)
+  return 'muted'
+}
 
 const knownCheckNames = new Set(['config', 'database', 'runtime', 'render', 'adapter', 'plugins', 'scheduler'])
 const knownCheckStates = new Set(['ok', 'passed', 'ready', 'error', 'failed', 'unavailable', 'resource_missing', 'not_configured', 'skipped'])
@@ -192,7 +272,6 @@ export function buildDiagnosticsIssueCards(issues: readonly DiagnosticIssue[] = 
       key: `${issue.code}:${issue.severity}:${issue.summary}`,
       code: issue.code,
       problem: issue.user_message || issue.summary,
-      impact: t(`dashboard.diagnosticsIssueImpact.${issue.severity}`),
       remediation: issue.remediation || t('dashboard.diagnosticsRemediationUnavailable'),
       severity: issue.severity,
       status: issueSeverityStatus(issue.severity),

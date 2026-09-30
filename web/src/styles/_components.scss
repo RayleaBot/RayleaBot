@@ -154,87 +154,6 @@
   line-height: 1.5;
 }
 
-.readiness-checks {
-  display: grid;
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--border);
-}
-
-.readiness-check {
-  display: grid;
-  grid-template-columns: minmax(140px, 0.35fr) minmax(0, 1fr);
-  gap: 16px;
-  padding: 12px 16px;
-  background: var(--surface-strong);
-}
-
-.readiness-check__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.readiness-check__name,
-.readiness-check__value {
-  font-size: 13px;
-}
-
-.readiness-check__name {
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.readiness-check__value {
-  color: var(--text);
-  word-break: break-word;
-}
-
-.readiness-check--success .readiness-check__icon { color: var(--success); }
-.readiness-check--warning .readiness-check__icon { color: var(--warning); }
-.readiness-check--danger .readiness-check__icon { color: var(--danger); }
-
-.issues-list {
-  display: grid;
-  gap: 8px;
-}
-
-.issues-list--collapsed {
-  max-height: 240px;
-  overflow: hidden;
-}
-
-.issues-toggle {
-  margin-top: 8px;
-  text-align: center;
-}
-
-.issue-alert-card {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-}
-
-.issue-alert-card__header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.issue-alert-card__summary {
-  flex: 1;
-  font-weight: 600;
-}
-
-.issue-alert-card__remediation {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
 .logs-filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -299,8 +218,6 @@
   width: 100%;
   box-sizing: border-box;
 }
-
-.tools-panel { background: var(--surface-strong); }
 
 // Lists and viewports nested in a box sit directly on it instead of stacking a second box.
 :is(.app-card, .app-box) :is(.app-view-card, .app-data-table, .commands-data-table, .data-viewport) {

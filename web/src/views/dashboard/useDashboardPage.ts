@@ -3,7 +3,6 @@ import { storeToRefs } from 'pinia'
 
 import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import { t } from '@/i18n'
-import { getReadinessStatusLabel, getStatusType } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { useAdaptersStore } from '@/stores/adapters'
 import { useSystemStore } from '@/stores/system'
@@ -26,7 +25,6 @@ export function useDashboardPage() {
     diagnostics,
     diagnosticsPending,
     error,
-    health,
     loading,
     readiness,
     recentEvents,
@@ -34,16 +32,6 @@ export function useDashboardPage() {
     system,
   } = storeToRefs(systemStore)
   const { adapters } = storeToRefs(adaptersStore)
-
-  const issuesExpanded = ref(false)
-  const eventsExpanded = ref(false)
-
-  const healthStatusType = computed(() => getStatusType(health.value?.status))
-  const healthValueText = computed(() => health.value?.status === 'ok' ? t('dashboard.healthOk') : t('display.empty'))
-  const healthDetailText = computed(() => health.value?.status === 'ok' ? t('dashboard.healthOkDetail') : t('display.empty'))
-  const readinessStatusType = computed(() => getStatusType(readiness.value?.status))
-  const readinessValueText = computed(() => getReadinessStatusLabel(readiness.value?.status))
-  const readinessDetailText = computed(() => readiness.value?.reason || getReadinessStatusLabel(readiness.value?.status))
 
   const readinessIssues = computed(() => dedupeIssues(readiness.value?.issues))
   const checkItems = computed(() => buildReadinessCheckItems(readiness.value?.checks))
@@ -135,18 +123,10 @@ export function useDashboardPage() {
     diagnosticsPending,
     diagnosticsSubsystemItems,
     error,
-    eventsExpanded,
     exportDiagnostics,
-    healthDetailText,
-    healthStatusType,
-    healthValueText,
-    issuesExpanded,
     liveUptimeSeconds,
     loading,
-    readinessDetailText,
     readinessIssues,
-    readinessStatusType,
-    readinessValueText,
     recentEvents,
     refreshState,
     runtimeBootstrapPending,

@@ -64,11 +64,20 @@ function createDashboardRouter() {
       { path: '/', name: 'status', component: DashboardPage },
       { path: '/protocols', name: 'protocols', component: { template: '<div>protocols</div>' } },
       { path: '/logs', name: 'logs', component: { template: '<div>logs</div>' } },
+      { path: '/logs/history', name: 'logs-history', component: { template: '<div>history</div>' } },
       { path: '/plugins', name: 'plugins', component: { template: '<div>plugins</div>' } },
       { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin</div>' } },
-      { path: '/render/templates/:templateId?', name: 'render-templates', component: { template: '<div>template</div>' } },
     ],
   })
+}
+
+async function mountDashboard() {
+  const router = createDashboardRouter()
+  await router.push('/')
+  await router.isReady()
+  const wrapper = mount(DashboardPage, { global: { plugins: [getActivePinia()!, router] } })
+  await flushPromises()
+  return { router, wrapper }
 }
 
 describe('DashboardPage', () => {
@@ -79,10 +88,7 @@ describe('DashboardPage', () => {
     feedbackMock.useToastFeedback.mockClear()
   })
 
-  it('keeps passed checks collapsed and offers browser preparation', async () => {
-    const router = createDashboardRouter()
-    await router.push('/')
-    await router.isReady()
+  it('leads with the pending issue, lists every readiness check and prepares the missing runtime', async () => {
     const { systemStore: store } = mockDashboardRefreshes()
     store.readiness = {
       status: 'degraded',
@@ -90,26 +96,27 @@ describe('DashboardPage', () => {
       issues: [{ code: 'platform.resource_missing', runtime_resources: ['chromium'], severity: 'warning', summary: '浏览器运行资源缺失', remediation: '准备运行环境后重试。' }],
     }
     const prepare = vi.spyOn(store, 'bootstrapManagedRuntime').mockResolvedValue({ task_id: 'fixture-runtime-task' })
-    const wrapper = mount(DashboardPage, { global: { plugins: [getActivePinia()!, router] } })
-    await flushPromises()
-    expect(wrapper.get('details.readiness-check-group').attributes('open')).toBeUndefined()
-    expect(wrapper.get('.readiness-check-group:not(details)').text()).toContain('图片生成')
-    expect(wrapper.get('.readiness-check-group:not(details)').text()).toContain('缺少运行资源')
-    expect(wrapper.get('.readiness-technical').attributes('open')).toBeUndefined()
+    const { wrapper } = await mountDashboard()
+
+    expect(wrapper.get('[data-testid="dashboard-attention"]').text()).toContain('1 项需要处理：浏览器运行资源缺失')
+    expect(wrapper.get('[data-testid="dashboard-attention"]').text()).toContain('其余 1 项就绪检查通过。')
+    const checks = wrapper.get('[data-testid="dashboard-checks"]')
+    expect(checks.text()).toContain('图片生成')
+    expect(checks.text()).toContain('缺少运行资源')
+    expect(checks.get('details.status-technical').attributes('open')).toBeUndefined()
+
     await wrapper.get('[data-testid="readiness-prepare-runtime"]').trigger('click')
     await flushPromises()
     expect(prepare).toHaveBeenCalledWith(['chromium'])
+
     store.readiness.issues = [{ code: 'database.unavailable', severity: 'error', summary: '数据库不可用' }]
     await flushPromises()
     expect(wrapper.find('[data-testid="readiness-prepare-runtime"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="dashboard-attention"]').attributes('data-tone')).toBe('danger')
     wrapper.unmount()
   })
 
-  it('renders a compact status page with overview cards, tabs, and bottom workbench cards', async () => {
-    const router = createDashboardRouter()
-    await router.push('/')
-    await router.isReady()
-
+  it('shows the header actions, the connections and the runtime facts without any plugin content', async () => {
     const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'ready' }
@@ -123,35 +130,22 @@ describe('DashboardPage', () => {
       uptime_seconds: 120,
     }
     adaptersStore.adapters = createAdapterSnapshots()
-
     const createBackupSpy = vi.spyOn(store as never, 'createBackup').mockResolvedValue({ task_id: 'task_backup_create_0001' })
     const exportDiagnosticsSpy = vi.spyOn(store as never, 'exportDiagnostics').mockResolvedValue(undefined)
 
-    const wrapper = mount(DashboardPage, {
-      global: {
-        plugins: [getActivePinia()!, router],
-      },
-    })
-
-    await flushPromises()
+    const { wrapper } = await mountDashboard()
 
     expect(store.refreshAll).toHaveBeenCalledTimes(1)
     expect(adaptersStore.refresh).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-testid="dashboard-attention"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('运行中 · 已运行 2 分钟 0 秒')
+    expect(wrapper.get('[data-testid="dashboard-connections"]').text()).toContain('OneBot11')
+    expect(wrapper.get('[data-testid="dashboard-connections"]').text()).toContain('1 / 1 已连接')
+    expect(wrapper.get('[data-testid="dashboard-runtime-info"]').text()).toContain('schema 000001')
+    expect(wrapper.text()).not.toContain('插件')
 
-    const backupButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('创建备份'))
-    const diagnosticsButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('导出诊断包'))
-
-    expect(backupButton).toBeTruthy()
-    expect(diagnosticsButton).toBeTruthy()
-    expect(wrapper.find('[data-testid="dashboard-connection-card"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="dashboard-overview-grid"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="dashboard-active-plugins-card"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('运行 1 / 失败 1')
-    expect(wrapper.text()).toContain('数据库 schema 000001')
-
-    await backupButton!.trigger('click')
-    await diagnosticsButton!.trigger('click')
-
+    await wrapper.findAll('button').find(candidate => candidate.text().includes('创建备份'))!.trigger('click')
+    await wrapper.findAll('button').find(candidate => candidate.text().includes('导出诊断包'))!.trigger('click')
     expect(createBackupSpy).toHaveBeenCalledTimes(1)
     expect(exportDiagnosticsSpy).toHaveBeenCalledTimes(1)
   })
@@ -162,10 +156,6 @@ describe('DashboardPage', () => {
     let wrapper: { text: () => string; unmount: () => void } | null = null
 
     try {
-      const router = createDashboardRouter()
-      await router.push('/')
-      await router.isReady()
-
       const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
       store.health = { status: 'ok' }
       store.readiness = { status: 'ready' }
@@ -177,13 +167,7 @@ describe('DashboardPage', () => {
       }
       adaptersStore.adapters = createAdapterSnapshots()
 
-      wrapper = mount(DashboardPage, {
-        global: {
-          plugins: [getActivePinia()!, router],
-        },
-      })
-
-      await flushPromises()
+      wrapper = (await mountDashboard()).wrapper
 
       expect(wrapper.text()).toContain('2 分钟 0 秒')
       expect(store.refreshAll).toHaveBeenCalledTimes(1)
@@ -199,41 +183,26 @@ describe('DashboardPage', () => {
     }
   })
 
-  it('opens the plugin list from the active plugins card', async () => {
-    const router = createDashboardRouter()
-    await router.push('/')
-    await router.isReady()
-
+  it('lists system changes, leaves plugin lifecycle events out and links connection changes to the protocols page', async () => {
     const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
-    store.health = { status: 'ok' }
     store.readiness = { status: 'ready' }
-    store.system = {
-      status: 'running',
-      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'connected' }],
-      active_plugins: 2,
-      uptime_seconds: 120,
-    }
     adaptersStore.adapters = createAdapterSnapshots()
+    store.recentEvents = [
+      { timestamp: '2026-06-12T00:01:00Z', summary: '插件 weather 运行中', payload: { plugin_id: 'weather', state: 'running', commands: [], command_conflicts: [] } },
+      { timestamp: '2026-06-12T00:00:00Z', summary: '协议连接正常', payload: { connection_status: 'connected', summary: '协议连接正常' } },
+    ]
 
-    const wrapper = mount(DashboardPage, {
-      global: {
-        plugins: [getActivePinia()!, router],
-      },
-    })
+    const { router, wrapper } = await mountDashboard()
+    const events = wrapper.get('[data-testid="dashboard-events"]')
+    expect(events.text()).toContain('协议连接正常')
+    expect(events.text()).not.toContain('插件 weather 运行中')
 
+    await events.get('.status-event__summary--link').trigger('click')
     await flushPromises()
-    await wrapper.get('[data-testid="dashboard-active-plugins-card"]').trigger('click')
-    await flushPromises()
-
-    expect(router.currentRoute.value.name).toBe('plugins')
-    expect(router.currentRoute.value.path).toBe('/plugins')
+    expect(router.currentRoute.value.name).toBe('protocols')
   })
 
   it('shows a protocol reminder when the protocol snapshot is degraded with transport issues', async () => {
-    const router = createDashboardRouter()
-    await router.push('/')
-    await router.isReady()
-
     const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'degraded' }
@@ -255,13 +224,7 @@ describe('DashboardPage', () => {
       ],
     })
 
-    const wrapper = mount(DashboardPage, {
-      global: {
-        plugins: [getActivePinia()!, router],
-      },
-    })
-
-    await flushPromises()
+    const { wrapper } = await mountDashboard()
 
     expect(wrapper.text()).not.toContain('OneBot 主动连接已断开，正在重试。')
     expect(wrapper.text()).not.toContain('adapter.transport_forward_ws_session_lost')
@@ -271,10 +234,6 @@ describe('DashboardPage', () => {
   })
 
   it('renders readiness issues from the readiness snapshot', async () => {
-    const router = createDashboardRouter()
-    await router.push('/')
-    await router.isReady()
-
     const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = {
@@ -296,13 +255,7 @@ describe('DashboardPage', () => {
     }
     adaptersStore.adapters = createAdapterSnapshots()
 
-    const wrapper = mount(DashboardPage, {
-      global: {
-        plugins: [getActivePinia()!, router],
-      },
-    })
-
-    await flushPromises()
+    const { wrapper } = await mountDashboard()
 
     expect(wrapper.text()).toContain('就绪检查')
     expect(toastMessages()).toContain('协议连接警告：OneBot authentication failed')
@@ -313,10 +266,6 @@ describe('DashboardPage', () => {
   })
 
   it('shows readiness issues and their recovery guidance', async () => {
-    const router = createDashboardRouter()
-    await router.push('/')
-    await router.isReady()
-
     const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = {
@@ -341,25 +290,15 @@ describe('DashboardPage', () => {
     }
     adaptersStore.adapters = createAdapterSnapshots()
 
-    const wrapper = mount(DashboardPage, {
-      global: {
-        plugins: [getActivePinia()!, router],
-      },
-    })
-
-    await flushPromises()
+    const { wrapper } = await mountDashboard()
 
     expect(wrapper.text()).toContain('运行条件受限')
-    expect(wrapper.text()).toContain('图片渲染 Chromium 尚未准备完成。')
+    expect(wrapper.get('[data-testid="dashboard-attention"]').text()).toContain('1 项需要处理：图片渲染 Chromium 尚未准备完成。')
+    expect(wrapper.get('[data-testid="dashboard-attention"]').text()).toContain('请先准备图片渲染 Chromium。')
     expect(toastMessages()).toContain('运行条件受限：图片渲染 Chromium 尚未准备完成。')
-    expect(wrapper.text()).toContain('管理面可用')
   })
 
-  it('deduplicates readiness issue codes already represented by issue cards', async () => {
-    const router = createDashboardRouter()
-    await router.push('/')
-    await router.isReady()
-
+  it('deduplicates readiness issue codes already represented by issue rows', async () => {
     const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = {
@@ -391,16 +330,10 @@ describe('DashboardPage', () => {
     }
     adaptersStore.adapters = createAdapterSnapshots()
 
-    const wrapper = mount(DashboardPage, {
-      global: {
-        plugins: [getActivePinia()!, router],
-      },
-    })
+    const { wrapper } = await mountDashboard()
 
-    await flushPromises()
-
-    expect(wrapper.findAll('.issues-list .issue-alert-card')).toHaveLength(1)
-    expect(wrapper.text()).toContain('platform.resource_missing')
+    expect(wrapper.findAll('[data-testid="dashboard-checks"] .status-issue')).toHaveLength(1)
+    expect(wrapper.get('[data-testid="dashboard-attention"]').text()).toContain('1 项需要处理')
     expect((wrapper.text().match(/platform\.resource_missing/g) ?? []).length).toBe(1)
   })
 })

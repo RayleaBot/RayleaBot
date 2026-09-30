@@ -3,10 +3,6 @@
   .admin-layout__content {
     padding: var(--space-lg);
   }
-
-  .readiness-checks {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 
 @media (max-width: #{bp.$desktop - 1px}) {
@@ -40,10 +36,6 @@
     top: 18px;
     right: 20px;
   }
-
-  .readiness-checks {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 @media (max-width: #{bp.$phone - 1px}) {
@@ -66,12 +58,6 @@
   }
 
   .logs-filter-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: #{bp.$phone - 1px}) {
-  .readiness-checks {
     grid-template-columns: 1fr;
   }
 }
