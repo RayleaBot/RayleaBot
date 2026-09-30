@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './tests/production',
   timeout: 30_000,
   workers: 1,
-  use: { trace: 'on-first-retry' },
+  // Desktop verification runs at the 16:9 1920x1080 baseline.
+  use: { trace: 'on-first-retry', viewport: { width: 1920, height: 1080 } },
   projects: [{ name: 'real-server', testMatch: '*.real.spec.ts' }],
 })

@@ -9,7 +9,8 @@ const origin = `http://127.0.0.1:${port}`;
 export default defineConfig({
   testDir: "./tests/e2e",
   workers: 1,
-  use: { baseURL: origin, trace: "retain-on-failure" },
+  // The Launcher is verified at its default 1280x720 window, the 16:9 size it opens with on a 1920x1080 screen.
+  use: { baseURL: origin, trace: "retain-on-failure", viewport: { width: 1280, height: 720 } },
   webServer: {
     command: `corepack pnpm exec vite --host 127.0.0.1 --port ${port} --strictPort`,
     url: origin,
