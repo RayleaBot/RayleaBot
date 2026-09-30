@@ -56,11 +56,11 @@ const retryButtonLabel = computed(() => props.retryLabel || t('fallback.actions.
       <p>{{ descriptionText }}</p>
 
       <div class="vben-fallback__actions">
-        <AppButton size="lg" @click="emit('home')">
+        <AppButton @click="emit('home')">
           <template #icon><ArrowLeftIcon /></template>
           {{ t('fallback.actions.backHome') }}
         </AppButton>
-        <AppButton v-if="showRetry" variant="default" size="lg" :loading="retryLoading" @click="emit('retry')">
+        <AppButton v-if="showRetry" variant="default" :loading="retryLoading" @click="emit('retry')">
           <template #icon><RotateCwIcon /></template>
           {{ retryButtonLabel }}
         </AppButton>

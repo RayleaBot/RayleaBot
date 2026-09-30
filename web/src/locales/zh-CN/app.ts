@@ -108,21 +108,21 @@ export const shell = {
 
 export const fallback = {
   actions: {
-    backHome: '返回首页',
+    backHome: '返回系统状态',
     retry: '重试',
   },
   status: {
     403: {
-      title: '哎呀！访问被拒绝',
-      description: '抱歉，您没有权限访问此页面。',
+      title: '无权访问此页面',
+      description: '当前会话没有访问这个页面的权限。',
     },
     404: {
-      title: '哎呀！未找到页面',
-      description: '抱歉，我们无法找到您要找的页面。',
+      title: '页面不存在',
+      description: '这个地址没有对应的页面。可以返回系统状态，或按 Ctrl K 搜索页面。',
     },
     500: {
-      title: '哎呀！出错了',
-      description: '抱歉，服务器遇到错误。',
+      title: '页面加载出错',
+      description: '服务处理请求时出错，请稍后重试。',
     },
   },
 } as const

@@ -26,7 +26,6 @@ defineProps<{
       <path d="M82 84h.01M82 116h.01M96 84h22M96 116h14M116 108l10 10M126 108l-10 10" />
     </g>
 
-    <circle class="fallback-locator__point" cx="100" cy="100" r="3" />
   </svg>
 </template>
 
@@ -35,13 +34,11 @@ defineProps<{
   display: block;
   width: 100%;
   max-width: 280px;
-  color: var(--brand-foreground);
+  color: var(--muted);
 }
 
 .fallback-locator__surface {
-  fill: var(--surface-accent);
-  stroke: var(--border);
-  stroke-width: 1;
+  fill: var(--surface-soft);
 }
 
 .fallback-locator__frame,
@@ -58,7 +55,4 @@ defineProps<{
   stroke-width: 3;
 }
 
-.fallback-locator__point {
-  fill: var(--brand-foreground);
-}
 </style>
