@@ -55,8 +55,8 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
         appearance="secondary"
         onClick={props.onRefresh}
         icon={<ArrowClockwise20Regular />}
-        className="glass glass-button"
-        data-glass="regular"
+        className="launcher-button"
+        data-emphasis="regular"
         disabled={props.controlsDisabled}
       >
         刷新状态
@@ -70,8 +70,8 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
           appearance="secondary"
           onClick={props.onRefresh}
           icon={<ArrowClockwise20Regular />}
-          className="glass glass-button"
-          data-glass="regular"
+          className="launcher-button"
+          data-emphasis="regular"
           disabled={props.controlsDisabled}
         >
           重新检查
@@ -81,8 +81,8 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
             appearance="primary"
             onClick={props.onOpenTasks}
             icon={<ArrowDownload20Regular />}
-            className="glass glass-button"
-            data-glass="prominent"
+            className="launcher-button"
+            data-emphasis="prominent"
           >
             准备运行环境
           </Button>
@@ -103,8 +103,8 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
           appearance="secondary"
           onClick={props.onCancelEdit}
           icon={<Dismiss20Regular />}
-          className="glass glass-button"
-          data-glass="regular"
+          className="launcher-button"
+          data-emphasis="regular"
           disabled={props.controlsDisabled}
         >
           放弃
@@ -113,8 +113,8 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
           appearance="primary"
           onClick={props.onSaveSettings}
           icon={<Save20Regular />}
-          className="glass glass-button"
-          data-glass={props.controlsDisabled ? "regular" : "prominent"}
+          className="launcher-button"
+          data-emphasis={props.controlsDisabled ? "regular" : "prominent"}
           disabled={props.controlsDisabled}
         >
           保存
@@ -127,8 +127,8 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
       appearance="secondary"
       onClick={props.onBeginEdit}
       icon={<Edit20Regular />}
-      className="glass glass-button"
-      data-glass="regular"
+      className="launcher-button"
+      data-emphasis="regular"
       disabled={props.controlsDisabled}
     >
       编辑配置

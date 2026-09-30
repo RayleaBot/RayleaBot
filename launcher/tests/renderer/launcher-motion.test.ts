@@ -18,7 +18,7 @@ vi.mock("motion/react", async (importOriginal) => {
 });
 
 import { animate } from "motion/react";
-import { runLauncherWorkspaceTransition, workspaceOffset } from "@renderer/launcherMotion";
+import { runLauncherWorkspaceTransition, workspaceOpacity } from "@renderer/launcherMotion";
 
 afterEach(() => {
   vi.stubGlobal("matchMedia", () => ({ matches: true }));
@@ -28,28 +28,28 @@ afterEach(() => {
   workspaceAnimations.length = 0;
 });
 
-test("interrupted navigation continues from the current offset and keeps its replacement active", async () => {
+test("interrupted navigation continues from the current opacity and keeps its replacement active", async () => {
   vi.stubGlobal("matchMedia", () => ({ matches: false }));
   let content = "";
 
   runLauncherWorkspaceTransition(() => { content = "environment"; });
-  expect(workspaceOffset.get()).toBe(8);
-  workspaceOffset.set(4);
+  expect(workspaceOpacity.get()).toBe(0.88);
+  workspaceOpacity.set(0.94);
 
   runLauncherWorkspaceTransition(() => { content = "diagnostics"; });
   expect(content).toBe("diagnostics");
   expect(workspaceAnimations[0]!.stop).toHaveBeenCalledOnce();
-  expect(workspaceOffset.get()).toBe(4);
-  expect(animate).toHaveBeenLastCalledWith(workspaceOffset, 0, expect.objectContaining({ duration: 0.22 }));
+  expect(workspaceOpacity.get()).toBe(0.94);
+  expect(animate).toHaveBeenLastCalledWith(workspaceOpacity, 1, expect.objectContaining({ duration: 0.22 }));
 
   workspaceAnimations[0]!.finish();
   await Promise.resolve();
   await Promise.resolve();
-  workspaceOffset.set(2);
+  workspaceOpacity.set(0.97);
 
   runLauncherWorkspaceTransition(() => { content = "settings"; });
   expect(workspaceAnimations[1]!.stop).toHaveBeenCalledOnce();
-  expect(workspaceOffset.get()).toBe(2);
+  expect(workspaceOpacity.get()).toBe(0.97);
 });
 
 test("reduced motion applies the latest workspace immediately", () => {
@@ -59,6 +59,6 @@ test("reduced motion applies the latest workspace immediately", () => {
   runLauncherWorkspaceTransition(() => { content = "settings"; });
 
   expect(content).toBe("settings");
-  expect(workspaceOffset.get()).toBe(0);
+  expect(workspaceOpacity.get()).toBe(1);
   expect(animate).not.toHaveBeenCalled();
 });

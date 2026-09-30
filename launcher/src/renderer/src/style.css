@@ -22,7 +22,6 @@
   --layer-emergency: 600;
   --color-cool-hover: var(--color-brand-fill-hover);
   --color-cool-pressed: var(--color-brand-fill-pressed);
-  --color-border-soft: color-mix(in srgb, var(--color-border) 68%, transparent);
   --color-surface-hover: var(--color-surface-soft);
   --color-info-soft: var(--color-brand-soft);
 }
@@ -266,6 +265,7 @@ code,
   justify-content: flex-end;
 }
 
+/* Chips and notes are soft fills without borders; the neutral chip is a well on either the canvas or a box. */
 .status-chip,
 .status-label,
 .count-badges > span,
@@ -275,14 +275,13 @@ code,
   min-height: 24px;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
+  padding: 2px 10px;
   color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  background: var(--color-surface);
+  background: var(--color-surface-soft);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.2;
 }
 
@@ -291,7 +290,6 @@ code,
 .status-label[data-state="success"],
 .count-badges [data-state="success"] {
   color: var(--color-success);
-  border-color: color-mix(in srgb, var(--color-success) 36%, var(--color-border));
   background: var(--color-success-soft);
 }
 
@@ -300,7 +298,6 @@ code,
 .status-label[data-state="danger"],
 .count-badges [data-state="danger"] {
   color: var(--color-danger);
-  border-color: color-mix(in srgb, var(--color-danger) 36%, var(--color-border));
   background: var(--color-danger-soft);
 }
 
@@ -308,19 +305,16 @@ code,
 .status-label[data-state="warning"],
 .count-badges [data-state="warning"] {
   color: var(--color-warning);
-  border-color: color-mix(in srgb, var(--color-warning) 36%, var(--color-border));
   background: var(--color-warning-soft);
 }
 
 .status-chip[data-tone="info"] {
   color: var(--color-cool);
-  border-color: color-mix(in srgb, var(--color-cool) 34%, var(--color-border));
   background: var(--color-cool-soft);
 }
 
 .status-chip[data-tone="attention"] {
   color: var(--color-warm);
-  border-color: color-mix(in srgb, var(--color-warm) 34%, var(--color-border));
   background: var(--color-warm-soft);
 }
 
@@ -331,20 +325,17 @@ code,
   margin-top: 16px;
   padding: 12px 16px;
   color: var(--color-warm);
-  border: 1px solid color-mix(in srgb, var(--color-warm) 30%, var(--color-border));
-  border-radius: var(--radius-surface);
+  border-radius: 14px;
   background: var(--color-warm-soft);
 }
 
 .attention-note[data-severity="danger"] {
   color: var(--color-danger);
-  border-color: color-mix(in srgb, var(--color-danger) 32%, var(--color-border));
   background: var(--color-danger-soft);
 }
 
 .attention-note[data-severity="warning"] {
   color: var(--color-warning);
-  border-color: color-mix(in srgb, var(--color-warning) 32%, var(--color-border));
   background: var(--color-warning-soft);
 }
 
@@ -359,7 +350,7 @@ code,
   overflow: auto;
   padding: 16px 18px;
   color: var(--color-text);
-  background: color-mix(in srgb, var(--color-canvas) 78%, var(--color-surface));
+  background: var(--color-surface-soft);
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -414,7 +405,7 @@ code,
   display: grid;
   gap: 8px;
   padding-top: 12px;
-  border-top: 1px solid var(--color-border-soft);
+  border-top: 1px solid var(--color-border);
 }
 
 .runtime-prepare-item__title {
@@ -431,6 +422,7 @@ code,
 .runtime-prepare-progress-text {
   color: var(--color-text-muted);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .runtime-prepare-details {
@@ -533,7 +525,7 @@ html[data-theme="light"] :is(
 
 html[data-theme="light"] :is(
   .status-chip[data-tone="attention"],
-  .attention-note
+  .attention-note:not([data-severity="warning"], [data-severity="danger"])
 ) {
   color: color-mix(in srgb, var(--color-warm) 84%, var(--color-text));
 }

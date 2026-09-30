@@ -31,7 +31,7 @@ describe("ThemeModeMenu", () => {
     vi.unstubAllGlobals();
   });
 
-  test("commits a selection after the presence surface closes", async () => {
+  test("commits a selection, closes the menu and returns focus to the trigger", async () => {
     setupMatchMedia(false);
     renderMenu();
 

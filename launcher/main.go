@@ -145,7 +145,7 @@ func main() {
 		Hidden:                     true,
 		InitialPosition:            application.WindowCentered,
 		BackgroundType:             application.BackgroundTypeSolid,
-		BackgroundColour:           application.NewRGB(231, 225, 217),
+		BackgroundColour:           application.NewRGB(255, 255, 255),
 		DefaultContextMenuDisabled: true,
 		EnableFileDrop:             false,
 		Permissions: map[application.PermissionType]application.Permission{
@@ -341,11 +341,11 @@ func (h *appHost) HideWindow() { h.window.Hide() }
 
 func (h *appHost) SetThemeMode(mode string) {
 	dark := mode == "dark" || (mode == "system" && h.app.Env.IsDarkMode())
-	// The window paints the design canvas (design/tokens.json neutral canvas) before the renderer's
-	// light field arrives, so a theme switch or resize never flashes a different colour.
-	background := application.NewRGB(231, 225, 217)
+	// The window paints the renderer's canvas colour (design/tokens.json canvas) before the renderer
+	// draws, so a theme switch or resize never flashes a different colour.
+	background := application.NewRGB(255, 255, 255)
 	if dark {
-		background = application.NewRGB(15, 14, 13)
+		background = application.NewRGB(17, 17, 16)
 	}
 	h.window.SetBackgroundColour(background)
 }

@@ -8,7 +8,7 @@ import {
 } from "@fluentui/react-components";
 import { ArrowDownload24Filled, Delete24Filled, Stop24Filled } from "@fluentui/react-icons";
 
-import { GlassDialog } from "./GlassDialog";
+import { LauncherDialog } from "./LauncherDialog";
 import { StatusLens } from "./StatusLens";
 
 export type ConfirmedLauncherAction = "reset-admin" | "stop-external" | "apply-update";
@@ -65,23 +65,23 @@ export const ActionConfirmDialog = React.memo(function ActionConfirmDialog({
   }
   const copy = actionCopy[action ?? shownAction];
   return (
-    <GlassDialog open={action !== null} onDismiss={onCancel} tone={copy.tone}>
-      <DialogBody className="glass-dialog__body">
-        <DialogTitle className="glass-dialog__title" action={null}>
+    <LauncherDialog open={action !== null} onDismiss={onCancel} tone={copy.tone}>
+      <DialogBody className="launcher-dialog__body">
+        <DialogTitle className="launcher-dialog__title" action={null}>
           <StatusLens tone={copy.tone} size="small" icon={copy.icon} />
-          <span className="glass-dialog__heading">
+          <span className="launcher-dialog__heading">
             <strong>{copy.title}</strong>
           </span>
         </DialogTitle>
-        <DialogContent className="glass-dialog__content">
-          <p className="glass-dialog__lead">{copy.lead}</p>
-          <p className="glass-dialog__detail">{copy.detail}</p>
+        <DialogContent className="launcher-dialog__content">
+          <p className="launcher-dialog__lead">{copy.lead}</p>
+          <p className="launcher-dialog__detail">{copy.detail}</p>
         </DialogContent>
-        <DialogActions className="glass-dialog__actions">
-          <Button appearance="secondary" autoFocus className="glass-dialog__button" onClick={onCancel}>取消</Button>
+        <DialogActions className="launcher-dialog__actions">
+          <Button appearance="secondary" autoFocus className="launcher-button launcher-dialog__button" onClick={onCancel}>取消</Button>
           <Button
             appearance="primary"
-            className="glass-dialog__button glass-dialog__button--confirm"
+            className="launcher-button launcher-dialog__button launcher-dialog__button--confirm"
             data-tone={copy.tone}
             onClick={() => {
               if (action) onConfirm(action);
@@ -91,6 +91,6 @@ export const ActionConfirmDialog = React.memo(function ActionConfirmDialog({
           </Button>
         </DialogActions>
       </DialogBody>
-    </GlassDialog>
+    </LauncherDialog>
   );
 });

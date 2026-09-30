@@ -50,7 +50,7 @@ export function AppShellStatusRail({
           <h3>运行环境准备</h3>
           <p>检测到可由启动器准备的运行环境项。</p>
           <div className="button-row button-row--stackable">
-            <Button appearance="secondary" className="glass glass-button" data-glass="regular" onClick={onOpenTasks}>准备运行环境</Button>
+            <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onOpenTasks}>准备运行环境</Button>
           </div>
         </section>
       ) : null}

@@ -14,7 +14,7 @@ import { AppShellEnvironmentSection } from "./AppShellEnvironmentSection";
 import { AppShellSectionHeader } from "./AppShellSectionHeader";
 import { AppShellSettingsSection } from "./AppShellSettingsSection";
 import { AppShellStatusSection } from "./AppShellStatusSection";
-import { workspaceOffset } from "./launcherMotion";
+import { workspaceOpacity } from "./launcherMotion";
 
 export type AppShellViewProps = {
   snapshot: LauncherSnapshot;
@@ -99,7 +99,7 @@ export function AppShellView({
       <motion.main
         className={`shell-main active-${activeSection}`}
         data-active-section={activeSection}
-        style={{ y: workspaceOffset }}
+        style={{ opacity: workspaceOpacity }}
       >
         <div className="section-shell" data-section={activeSection}>
           <AppShellSectionHeader

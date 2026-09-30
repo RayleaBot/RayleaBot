@@ -69,28 +69,28 @@ export function AppShellAboutSection({
         </div>
         <div className="about-identity__actions">
           {updating ? (
-            <Button appearance="primary" className="glass glass-button" data-glass="regular" icon={<ArrowDownload20Regular />} disabled>
+            <Button appearance="primary" className="launcher-button" data-emphasis="regular" icon={<ArrowDownload20Regular />} disabled>
               正在更新
             </Button>
           ) : canApplyUpdate ? (
             <>
               <Button
                 appearance="primary"
-                className="glass glass-button"
-                data-glass={controlsDisabled ? "regular" : "prominent"}
+                className="launcher-button"
+                data-emphasis={controlsDisabled ? "regular" : "prominent"}
                 icon={<ArrowDownload20Regular />}
                 disabled={controlsDisabled}
                 onClick={onApplyUpdate}
               >
                 立即更新
               </Button>
-              <Button appearance="secondary" className="glass glass-button" data-glass="regular" icon={<Open20Regular />} onClick={onOpenReleasePage}>发布页</Button>
+              <Button appearance="secondary" className="launcher-button" data-emphasis="regular" icon={<Open20Regular />} onClick={onOpenReleasePage}>发布页</Button>
             </>
           ) : showUpdateAction ? (
             <Button
               appearance="secondary"
-              className="glass glass-button"
-              data-glass="regular"
+              className="launcher-button"
+              data-emphasis="regular"
               icon={guidedRelease ? <Open20Regular /> : <ArrowClockwise20Regular />}
               disabled={updateDisabled}
               onClick={onUpdateAction}
@@ -100,7 +100,7 @@ export function AppShellAboutSection({
           ) : (
             <span className="update-unavailable">当前构建不提供更新检查</span>
           )}
-          <Button appearance="secondary" className="glass glass-button" data-glass="regular" icon={<Open20Regular />} onClick={onOpenRepositoryPage}>GitHub</Button>
+          <Button appearance="secondary" className="launcher-button" data-emphasis="regular" icon={<Open20Regular />} onClick={onOpenRepositoryPage}>GitHub</Button>
         </div>
       </section>
 

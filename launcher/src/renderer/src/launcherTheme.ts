@@ -21,6 +21,8 @@ function createLauncherFluentTheme(effectiveTheme: LauncherEffectiveTheme): Them
   return {
     ...base,
     fontFamilyBase: "var(--font-sans)",
+    // HarmonyOS Sans SC ships 400, 500 and 700 only; Fluent's semibold role uses the Bold face explicitly.
+    fontWeightSemibold: 700,
     borderRadiusMedium: "8px",
     borderRadiusLarge: "12px",
     colorNeutralBackground1: tokens.surface,

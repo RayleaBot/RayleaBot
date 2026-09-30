@@ -29,7 +29,7 @@ export function AppShellDiagnosticsSection({
   const hasRecentStderr = snapshot.launcher.recentStderr.length > 0;
   const baseUrl = snapshot.launcher.endpoint.baseUrl;
   const openLogs = (
-    <Button appearance="secondary" className="glass glass-button" data-glass="regular" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开完整日志</Button>
+    <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开完整日志</Button>
   );
 
   return (

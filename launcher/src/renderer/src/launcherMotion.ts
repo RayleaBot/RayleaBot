@@ -43,12 +43,9 @@ let activeViewTransition: ActiveLauncherViewTransition | null = null;
 let pendingViewTransition: LauncherViewTransitionRequest | null = null;
 let transitionSequence = 0;
 
-/**
- * Vertical offset of the workspace. The workspace settles by position, not opacity: an opacity below 1 would
- * make it a backdrop root and cut its glass panels off from the wallpaper.
- */
-export const workspaceOffset = motionValue(0);
-const workspaceEntryOffset = 8;
+/** Opacity of the workspace. A newly shown workspace fades in from a slightly lowered opacity. */
+export const workspaceOpacity = motionValue(1);
+const workspaceEntryOpacity = 0.88;
 let workspaceAnimation: ReturnType<typeof animate> | null = null;
 
 export function prefersReducedMotion(): boolean {
@@ -97,15 +94,15 @@ export function runLauncherWorkspaceTransition(update: () => void): void {
   workspaceAnimation = null;
 
   if (prefersReducedMotion()) {
-    workspaceOffset.jump(0);
+    workspaceOpacity.jump(1);
     update();
     return;
   }
 
   flushSync(update);
-  // An interrupted settle continues from where it is instead of dropping back to the full offset.
-  workspaceOffset.jump(interrupted ? workspaceOffset.get() : workspaceEntryOffset);
-  const controls = animate(workspaceOffset, 0, {
+  // An interrupted fade continues from its current opacity instead of dropping back to the entry opacity.
+  workspaceOpacity.jump(interrupted ? workspaceOpacity.get() : workspaceEntryOpacity);
+  const controls = animate(workspaceOpacity, 1, {
     duration: launcherMotion.workspace / 1000,
     ease: launcherMotion.workspaceEase,
   });

@@ -1,9 +1,4 @@
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactElement,
-} from "react";
+import { useRef, type ReactElement } from "react";
 import {
   Menu,
   MenuButton,
@@ -17,9 +12,8 @@ import {
   WeatherMoon20Regular,
   WeatherSunny20Regular,
 } from "@fluentui/react-icons";
-import { motion } from "motion/react";
 import type { LauncherThemeMode } from "@shared/launcher-theme";
-import { overlayEnter, overlayExit, prefersReducedMotion, useLauncherReducedMotion } from "./launcherMotion";
+import { useLauncherReducedMotion } from "./launcherMotion";
 import { useTheme } from "./useTheme";
 
 const modeConfig: Record<LauncherThemeMode, { icon: ReactElement; label: string }> = {
@@ -28,72 +22,28 @@ const modeConfig: Record<LauncherThemeMode, { icon: ReactElement; label: string 
   dark: { icon: <WeatherMoon20Regular />, label: "深色" },
 };
 
+/**
+ * The theme menu opens with Fluent's own menu motion and closes as soon as an item is chosen. Fluent returns
+ * focus to the trigger, and the new theme grows out of the trigger's center.
+ */
 export function ThemeModeMenu() {
   const { mode, setMode, syncError } = useTheme();
+  // Fluent's motion follows prefers-reduced-motion only; the launcher also stills it in forced colors.
   const reducedMotion = useLauncherReducedMotion();
-  const [open, setOpen] = useState(false);
-  const [surfaceVisible, setSurfaceVisible] = useState(false);
-  const [pendingMode, setPendingMode] = useState<LauncherThemeMode | null>(null);
-  const pendingModeRef = useRef<LauncherThemeMode | null>(null);
-  const surfaceVisibleRef = useRef(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  useLayoutEffect(() => {
-    surfaceVisibleRef.current = surfaceVisible;
-  }, [surfaceVisible]);
-
-  const finishClose = () => {
-    const nextMode = pendingModeRef.current;
-    pendingModeRef.current = null;
-    setOpen(false);
-    setSurfaceVisible(false);
-    setPendingMode(null);
-    triggerRef.current?.focus();
-
-    if (nextMode === null || nextMode === mode) {
+  const selectMode = (nextMode: LauncherThemeMode) => {
+    if (nextMode === mode) {
       return;
     }
     const bounds = triggerRef.current?.getBoundingClientRect();
     setMode(nextMode, bounds ? { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 } : undefined);
   };
 
-  const requestClose = (nextMode?: LauncherThemeMode) => {
-    if (nextMode !== undefined) {
-      pendingModeRef.current = nextMode;
-      setPendingMode(nextMode);
-    }
-
-    if (!open || !surfaceVisible) {
-      return;
-    }
-    if (prefersReducedMotion()) {
-      finishClose();
-      return;
-    }
-    setSurfaceVisible(false);
-  };
-
-  const selectMode = (nextMode: LauncherThemeMode) => {
-    requestClose(nextMode);
-  };
-
   return (
     <Menu
-      open={open}
-      // Fluent's default surface motion leaves an opacity animation on the popover, which makes the popover the
-      // backdrop root so the glass surface can no longer blur the window. Motion animates the surface instead.
-      surfaceMotion={null}
-      checkedValues={{ theme: [pendingMode ?? mode] }}
-      onOpenChange={(_event, data) => {
-        if (data.open) {
-          pendingModeRef.current = null;
-          setPendingMode(null);
-          setOpen(true);
-          setSurfaceVisible(true);
-        } else {
-          requestClose();
-        }
-      }}
+      checkedValues={{ theme: [mode] }}
+      surfaceMotion={reducedMotion ? null : undefined}
       positioning={{ position: "above", align: "start" }}
     >
       <MenuTrigger disableButtonEnhancement>
@@ -106,16 +56,7 @@ export function ThemeModeMenu() {
         />
       </MenuTrigger>
       <MenuPopover className="theme-menu-positioner">
-        <motion.div
-          className="theme-menu-surface"
-          data-state={surfaceVisible ? "open" : "closing"}
-          initial={reducedMotion ? false : { opacity: 0, y: 5 }}
-          animate={surfaceVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 3 }}
-          transition={reducedMotion ? { duration: 0 } : surfaceVisible ? overlayEnter : overlayExit}
-          onAnimationComplete={() => {
-            if (!surfaceVisibleRef.current) finishClose();
-          }}
-        >
+        <div className="theme-menu-surface">
           <MenuList aria-label="选择主题">
             {(Object.keys(modeConfig) as LauncherThemeMode[]).map((itemMode) => (
               <MenuItemRadio
@@ -131,7 +72,7 @@ export function ThemeModeMenu() {
             ))}
           </MenuList>
           {syncError ? <p className="theme-menu-error" role="status">{syncError}</p> : null}
-        </motion.div>
+        </div>
       </MenuPopover>
     </Menu>
   );

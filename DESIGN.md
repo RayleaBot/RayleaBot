@@ -240,7 +240,7 @@ Web 产品弹窗、抽屉、菜单、说明弹层与选择器浮层使用不透�
 
 认证入口参考 Apple 的 [Liquid Glass 材质](https://developer.apple.com/videos/play/wwdc2025/219/)，在静态壁纸上使用通透面板、圆角透镜折射与边缘高光。这是浏览器适配，具体效果遵循浏览器能力；颜色由现有认证主题 token 局部派生，不改变共享品牌 token。折射路径与降级方式见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。
 
-Launcher 按 Apple 的分层把玻璃留给导航层与悬浮控件：侧栏、操作按钮、状态透镜、主题菜单与确认对话框是玻璃，内容分组是雾白画布上的安静填充。玻璃的填充、边缘亮线与投影转写自 Apple macOS 27 UI Kit 的 Liquid Glass 图层样式，主操作在青瓷着色上叠加受光高光，主题菜单与确认对话框模糊背后的窗口，状态透镜还把背后的状态色折射成边缘光环；画布与内容分组的颜色由 Launcher 语义 token 局部派生，不改变共享品牌 token。材质与降级见 [Launcher 界面规范](docs/design/launcher-design-system.md#liquid-glass-材质)。
+Launcher 与 Web 管理面使用同一套表面规则：窗口是白色画布（暗色主题为炭黑），侧栏、内容分组、主题菜单与确认对话框是浅灰盒子，只用柔和阴影分层；控件取所在容器相反的明暗，主操作使用蓝色填充，不使用渐变、背景模糊或半透明材质。规则与强制颜色降级见 [Launcher 界面规范](docs/design/launcher-design-system.md#表面与层次)。
 
 不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层、认证面板与 Launcher 玻璃表面使用完整不透明表面。内容可读性与操作反馈不依赖玻璃效果。
 

@@ -60,7 +60,7 @@ function PathField({ icon, label, value, chooseLabel, disabled, onChange, onChoo
       </span>
       <div className="field-row__control">
         <Input aria-label={label} value={value} disabled={disabled} className="settings-input settings-input--path" onChange={(_, data) => onChange(data.value)} />
-        <Button appearance="secondary" className="glass glass-button" data-glass="regular" onClick={onChoose} disabled={disabled} icon={<FolderOpen20Regular />}>{chooseLabel}</Button>
+        <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onChoose} disabled={disabled} icon={<FolderOpen20Regular />}>{chooseLabel}</Button>
       </div>
     </div>
   );
@@ -170,7 +170,7 @@ export function AppShellSettingsSection({
               <strong>重置凭据</strong>
               <span>清除本地管理凭据，下次启动时重新完成初始化。</span>
             </div>
-            <Button appearance="secondary" className="glass glass-button glass-button--danger" data-glass="regular" onClick={onResetAdmin} disabled={resetDisabled}>立即重置</Button>
+            <Button appearance="secondary" className="launcher-button launcher-button--danger" data-emphasis="regular" onClick={onResetAdmin} disabled={resetDisabled}>立即重置</Button>
           </div>
           <div className="action-row">
             <span className="action-row__icon" aria-hidden="true"><SignOut20Regular /></span>
@@ -178,7 +178,7 @@ export function AppShellSettingsSection({
               <strong>退出启动器</strong>
               <span>关闭启动器窗口和托盘入口。</span>
             </div>
-            <Button appearance="secondary" className="glass glass-button glass-button--danger" data-glass="regular" onClick={onExit} disabled={controlsDisabled}>退出启动器</Button>
+            <Button appearance="secondary" className="launcher-button launcher-button--danger" data-emphasis="regular" onClick={onExit} disabled={controlsDisabled}>退出启动器</Button>
           </div>
         </div>
       </section>

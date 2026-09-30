@@ -1,0 +1,1862 @@
+/*
+ * The Launcher's surfaces. The window is the canvas. Boxes (the floating sidebar, content groups, dialogs and
+ * the theme menu) use the surface color, have no border and are lifted by a soft shadow alone. Controls take the
+ * opposite lightness of what they sit on: `--control-fill` is the surface on the canvas and the raised surface
+ * inside a box, and every box redeclares it for its descendants.
+ */
+
+:root {
+  --shell-inset: 10px;
+  --control-fill: var(--color-surface);
+  --control-fill-hover: var(--color-surface-soft);
+  --control-fill-pressed: color-mix(in srgb, var(--color-text) 6%, var(--color-surface-soft));
+  /* Glyphs on solid status fills: white on the light theme's deep status colors, ink on the dark theme's light ones. */
+  --on-status-fill: var(--color-on-brand);
+  --dialog-scrim: rgb(0 0 0 / 0.28);
+}
+
+:root[data-theme="dark"] {
+  --on-status-fill: var(--color-canvas);
+  --dialog-scrim: rgb(0 0 0 / 0.5);
+}
+
+.shell-sidebar,
+.content-group,
+.launcher-fluent-provider .fui-DialogSurface.launcher-dialog,
+.launcher-fluent-provider .theme-menu-surface {
+  --control-fill: var(--color-surface-raised);
+  --control-fill-hover: color-mix(in srgb, var(--color-text) 4%, var(--color-surface-raised));
+  --control-fill-pressed: color-mix(in srgb, var(--color-text) 8%, var(--color-surface-raised));
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.app-shell {
+  height: 100%;
+  color: var(--color-text);
+  background: var(--color-canvas);
+}
+
+/* Window chrome */
+.window-drag-handle {
+  position: fixed;
+  z-index: var(--layer-sticky);
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 18px;
+  --wails-draggable: drag;
+  user-select: none;
+}
+
+.window-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.window-controls {
+  display: flex;
+  height: 100%;
+  --wails-draggable: no-drag;
+}
+
+.window-control-btn {
+  display: grid;
+  width: 46px;
+  height: 100%;
+  padding: 0;
+  place-items: center;
+  color: var(--color-text-muted);
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.window-control-btn:hover {
+  color: var(--color-text);
+  background: var(--color-nav-hover);
+}
+
+.window-control-btn.danger:hover {
+  color: var(--on-status-fill);
+  background: var(--color-danger);
+}
+
+/* The sidebar floats over the canvas as a box. */
+.shell-sidebar {
+  position: fixed;
+  z-index: var(--layer-sticky);
+  top: 44px;
+  bottom: var(--shell-inset);
+  left: var(--shell-inset);
+  display: flex;
+  width: calc(var(--sidebar-width) - var(--shell-inset) - 6px);
+  flex-direction: column;
+  color: var(--color-chrome-text);
+  border-radius: 24px;
+  background: var(--color-chrome);
+  box-shadow: var(--shadow-surface);
+}
+
+.section-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+}
+
+.nav-item {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  color: var(--color-chrome-muted);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  color: var(--color-chrome-text);
+  background: var(--color-nav-hover);
+}
+
+.nav-item.active,
+.nav-item.active:hover {
+  color: var(--color-nav-selected-text);
+  background: transparent;
+}
+
+/* The selection sits behind the active item's icon and label and slides to the next item on navigation. */
+.nav-item__selection {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--color-nav-selected);
+  box-shadow: var(--shadow-raised);
+}
+
+.nav-item__icon {
+  display: grid;
+  place-items: center;
+}
+
+.nav-item.active .nav-item__icon {
+  color: var(--color-brand-foreground);
+}
+
+.nav-item__label {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-item.active .nav-item__label {
+  font-weight: 700;
+}
+
+.nav-item:focus-visible,
+.window-control-btn:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.sidebar-footer--compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin: 0 10px;
+  padding: 8px 0 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.sidebar-footer__status {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+}
+
+/* Fluent injects its button styles at runtime; the trigger needs the extra specificity to stay a quiet tool button. */
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton {
+  display: grid;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  place-items: center;
+  color: var(--color-chrome-muted);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  cursor: pointer;
+}
+
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:hover,
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:hover:active,
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton[aria-expanded="true"] {
+  color: var(--color-chrome-text);
+  background: var(--color-nav-hover);
+}
+
+.status-indicator {
+  display: block;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--color-chrome-muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-chrome-muted) 18%, transparent);
+}
+
+.status-indicator--success {
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success) 20%, transparent);
+}
+
+.status-indicator--warning {
+  background: var(--color-warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-warning) 20%, transparent);
+}
+
+.status-indicator--danger {
+  background: var(--color-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 20%, transparent);
+}
+
+.status-indicator--info {
+  background: var(--color-brand-fill);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-fill) 20%, transparent);
+}
+
+.status-indicator--attention {
+  background: var(--color-attention);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-attention) 20%, transparent);
+}
+
+.shell-main {
+  position: fixed;
+  top: 44px;
+  right: 0;
+  bottom: 0;
+  left: var(--sidebar-width);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+/* Every workspace sits directly on the canvas, in a column sized to its content. */
+.section-shell[data-section] {
+  width: min(100%, 1120px);
+  padding: 8px 28px 32px;
+}
+
+.section-shell[data-section="environment"],
+.section-shell[data-section="settings"] {
+  width: min(100%, 960px);
+}
+
+.section-shell[data-section="about"] {
+  width: min(100%, 800px);
+}
+
+.section-shell[data-section] .section-header {
+  min-height: 64px;
+  padding: 4px 4px 16px;
+  border-bottom: 0;
+}
+
+.section-shell[data-section] .section-header__title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.section-shell[data-section] .section-shell__content {
+  padding-top: 0;
+}
+
+.status-homepage {
+  display: grid;
+  gap: 24px;
+}
+
+/* Buttons. Fluent styles buttons at runtime, so these selectors carry the provider class and restate every state
+   Fluent styles. A secondary button is the control fill lifted by the raised shadow; pressing drops the shadow. */
+.launcher-fluent-provider .launcher-button.fui-Button {
+  min-height: 36px;
+  padding-inline: 16px;
+  color: var(--color-text);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--control-fill);
+  box-shadow: var(--shadow-raised);
+  font-weight: 500;
+  transition:
+    color var(--motion-control) var(--ease-precision),
+    background-color var(--motion-control) var(--ease-precision),
+    box-shadow var(--motion-control) var(--ease-precision);
+}
+
+.launcher-fluent-provider .launcher-button.fui-Button:enabled:hover {
+  color: var(--color-text);
+  background: var(--control-fill-hover);
+}
+
+.launcher-fluent-provider .launcher-button.fui-Button:enabled:active {
+  background: var(--control-fill-pressed);
+  box-shadow: none;
+}
+
+.launcher-fluent-provider .launcher-button--danger.fui-Button,
+.launcher-fluent-provider .launcher-button--danger.fui-Button:enabled:hover {
+  color: var(--color-danger);
+}
+
+/* The one prominent action of a view. */
+.launcher-fluent-provider .launcher-button.fui-Button[data-emphasis="prominent"] {
+  color: var(--color-on-brand);
+  background: var(--color-brand-fill);
+  font-weight: 700;
+}
+
+.launcher-fluent-provider .launcher-button.fui-Button[data-emphasis="prominent"]:enabled:hover {
+  color: var(--color-on-brand);
+  background: var(--color-brand-fill-hover);
+}
+
+.launcher-fluent-provider .launcher-button.fui-Button[data-emphasis="prominent"]:enabled:active {
+  background: var(--color-brand-fill-pressed);
+}
+
+.launcher-fluent-provider .service-control__primary.fui-Button {
+  min-height: 40px;
+  padding-inline: 20px;
+}
+
+/* A disabled button keeps its fill and loses its lift. */
+.launcher-fluent-provider .launcher-button.fui-Button:disabled {
+  color: color-mix(in srgb, var(--color-text-muted) 72%, var(--control-fill)) !important;
+  background: var(--control-fill) !important;
+  box-shadow: none;
+  cursor: default;
+}
+
+/* Fluent's focus border and inset ring give way to the lift, so focused controls ring with an outline. */
+.launcher-fluent-provider .launcher-button.fui-Button:focus-visible,
+.launcher-fluent-provider .launcher-tile.fui-Button:focus-visible,
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:focus-visible {
+  border-color: transparent;
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:focus-visible {
+  box-shadow: none;
+}
+
+/* Text fields are always the raised surface with a control border; focus colors the border and adds an inset ring. */
+.launcher-fluent-provider .settings-input.fui-Input,
+.launcher-fluent-provider .settings-input.fui-Input:hover {
+  min-height: 36px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 10px;
+  background: var(--color-surface-raised);
+}
+
+.launcher-fluent-provider .settings-input.fui-Input::after {
+  display: none;
+}
+
+.launcher-fluent-provider .settings-input.fui-Input:focus-within {
+  border-color: var(--color-focus);
+  box-shadow: inset 0 0 0 1px var(--color-focus);
+}
+
+.launcher-fluent-provider .settings-input.fui-Input:has(input:disabled) {
+  border-color: var(--color-border);
+  background: var(--color-surface-soft);
+}
+
+.service-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px 48px;
+  padding: 6px 4px 10px;
+}
+
+.service-control__summary {
+  min-width: 0;
+}
+
+.service-control__state {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* The status lens is a solid dot in the state color carrying the state glyph, set in a raised control-fill ring. */
+.status-lens {
+  --lens-core: color-mix(in srgb, var(--color-text-muted) 72%, var(--color-canvas));
+  --lens-glyph: var(--on-status-fill);
+  display: grid;
+  width: 64px;
+  height: 64px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--control-fill);
+  box-shadow: var(--shadow-raised);
+}
+
+.status-lens[data-tone="success"] {
+  --lens-core: var(--color-success);
+}
+
+.status-lens[data-tone="warning"] {
+  --lens-core: var(--color-warning);
+}
+
+.status-lens[data-tone="danger"] {
+  --lens-core: var(--color-danger);
+}
+
+.status-lens[data-tone="info"] {
+  --lens-core: var(--color-brand-fill);
+  --lens-glyph: var(--color-on-brand);
+}
+
+.status-lens[data-tone="attention"] {
+  --lens-core: var(--color-attention);
+}
+
+.status-lens__core {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  color: var(--lens-glyph);
+  border-radius: 50%;
+  background: var(--lens-core);
+  transition:
+    color var(--motion-content) var(--ease-precision),
+    background-color var(--motion-content) var(--ease-precision);
+}
+
+/* Outgoing and incoming glyphs overlap in the dot while they swap. */
+.status-lens__glyph {
+  display: grid;
+  grid-area: 1 / 1;
+  place-items: center;
+}
+
+.status-lens__core svg {
+  width: 24px;
+  height: 24px;
+}
+
+.status-lens--small {
+  width: 48px;
+  height: 48px;
+}
+
+.status-lens--small .status-lens__core {
+  width: 32px;
+  height: 32px;
+}
+
+.status-lens--small .status-lens__core svg {
+  width: 20px;
+  height: 20px;
+}
+
+.status-lens--compact {
+  width: 22px;
+  height: 22px;
+  background: none;
+  box-shadow: none;
+}
+
+.status-lens--compact .status-lens__core {
+  width: 22px;
+  height: 22px;
+}
+
+.status-lens--compact .status-lens__core svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-lens__core {
+    transition: none;
+  }
+}
+
+.service-control__state-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* Outgoing and incoming state text share one grid cell while they cross-fade. */
+.presence-stack {
+  display: grid;
+}
+
+.presence-stack > * {
+  grid-area: 1 / 1;
+}
+
+.service-control__state-value {
+  color: var(--color-text);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.service-control__detail {
+  max-width: 62ch;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* One row of natural-width capsules, with the prominent action at the trailing edge. */
+.service-control__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.service-control__actions .launcher-button.fui-Button {
+  min-height: 40px;
+}
+
+/* The note wraps within the buttons' width instead of widening the actions column. */
+.operation-status {
+  flex-basis: 100%;
+  contain: inline-size;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+.service-control .attention-note {
+  margin-top: 18px;
+}
+
+/* Content groups are boxes on the canvas. */
+.content-group {
+  border-radius: 20px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-surface);
+}
+
+.status-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 24px;
+  align-items: start;
+}
+
+.status-layout[data-has-rail="false"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.status-main-column,
+.status-attention-column {
+  display: grid;
+  gap: 24px;
+}
+
+.workspace-group {
+  display: grid;
+  gap: 10px;
+}
+
+.workspace-group__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 16px;
+  padding-inline: 8px;
+}
+
+.workspace-group__title {
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.workspace-group > .workspace-group__title {
+  padding-inline: 8px;
+}
+
+.workspace-group__meta,
+.workspace-group__description {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.workspace-group__description {
+  flex-basis: 100%;
+  max-width: none;
+}
+
+.detail-list {
+  display: grid;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.detail-list__row {
+  display: grid;
+  grid-template-columns: minmax(132px, 0.3fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  min-height: 50px;
+  margin: 0 18px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.detail-list__row:last-child {
+  border-bottom: 0;
+}
+
+.detail-list__row dt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.detail-list__icon {
+  display: grid;
+  color: var(--color-text-muted);
+  place-items: center;
+}
+
+.detail-list__row dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.detail-list__value {
+  display: block;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Paths the operator reads or copies wrap instead of truncating. */
+.detail-list--wrap .detail-list__value {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.status-log-row {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px 12px 18px;
+}
+
+.status-log-row__status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.status-log-row__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  color: var(--color-success);
+  border-radius: 50%;
+  background: var(--color-success-soft);
+}
+
+.status-log-row__status > div {
+  display: grid;
+  gap: 2px;
+}
+
+.status-log-row__status h3 {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.status-log-row__status > div > span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.status-log-panel {
+  display: grid;
+}
+
+.status-log-panel__heading,
+.status-log-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+}
+
+.status-log-panel__heading h3 {
+  font-size: 16px;
+}
+
+.status-log-panel__footer {
+  justify-content: flex-end;
+  padding-top: 12px;
+}
+
+/* Log and snapshot wells are recessed into their box. */
+.status-log-panel__surface {
+  min-height: 120px;
+  max-height: 320px;
+  margin: 0 12px;
+  padding: 14px 16px;
+  overflow: auto;
+  border-radius: 14px;
+  background: var(--color-surface-soft);
+}
+
+.attention-panel {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.attention-panel[data-tone="attention"] {
+  background: var(--color-attention-soft);
+}
+
+.attention-panel[data-tone="warning"] {
+  background: var(--color-warning-soft);
+}
+
+.attention-panel[data-tone="danger"] {
+  background: var(--color-danger-soft);
+}
+
+.attention-panel > h3 {
+  font-size: 16px;
+}
+
+.attention-panel > p {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.attention-list {
+  display: grid;
+  gap: 12px;
+}
+
+.attention-list__item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.attention-list__item strong {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 500;
+}
+
+.attention-list__item p {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.attention-list__icon {
+  color: var(--color-warning);
+}
+
+.attention-list__item[data-severity="error"] .attention-list__icon {
+  color: var(--color-danger);
+}
+
+.service-diagnostics {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.service-diagnostics > h3 {
+  font-size: 16px;
+}
+
+.status-diagnostics-block > .status-label {
+  justify-self: start;
+  min-height: 0;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: none;
+}
+
+.service-diagnostics .status-chip {
+  color: var(--color-text);
+}
+
+.service-diagnostics .status-pill {
+  display: inline-flex;
+  min-height: 22px;
+  flex: none;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.service-diagnostics .status-pill--warning {
+  color: color-mix(in srgb, var(--color-warning) 84%, var(--color-text));
+  background: var(--color-warning-soft);
+}
+
+.service-diagnostics .status-pill--error {
+  color: color-mix(in srgb, var(--color-danger) 84%, var(--color-text));
+  background: var(--color-danger-soft);
+}
+
+.status-diagnostics-block {
+  display: grid;
+  gap: 8px;
+}
+
+.status-diagnostics-codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-diagnostics-list,
+.status-diagnostics-checks {
+  display: grid;
+}
+
+.status-diagnostics-item,
+.status-diagnostics-check {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.status-diagnostics-item:last-child,
+.status-diagnostics-check:last-child {
+  border-bottom: 0;
+}
+
+.status-diagnostics-item__header,
+.status-diagnostics-check {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.status-diagnostics-item__code,
+.status-diagnostics-check__value {
+  color: var(--color-text-muted);
+}
+
+.runtime-prepare-panel.content-group {
+  padding: 18px 20px;
+}
+
+.environment-workspace,
+.diagnostics-workspace,
+.settings-workspace,
+.about-workspace {
+  display: grid;
+  gap: 24px;
+}
+
+.check-list.content-group,
+.choice-list.content-group,
+.technical-disclosure.content-group {
+  overflow: hidden;
+}
+
+.disclosure > summary {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  color: var(--color-text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure > summary:hover {
+  background: var(--color-nav-hover);
+}
+
+.disclosure > summary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.disclosure > summary > span:first-of-type {
+  margin-right: auto;
+  font-weight: 500;
+}
+
+.disclosure > summary > span:last-child {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.disclosure__chevron {
+  flex: none;
+  color: var(--color-text-muted);
+  transition: rotate var(--motion-control) var(--ease-precision);
+}
+
+.disclosure[data-expanded="true"] > summary .disclosure__chevron {
+  rotate: 90deg;
+}
+
+/* Clips the content while Motion animates its height. */
+.disclosure__content {
+  overflow: hidden;
+}
+
+/* Environment workspace */
+.environment-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px 18px;
+  padding: 2px 4px;
+}
+
+.environment-summary__icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  color: var(--color-text-muted);
+  border-radius: 50%;
+  background: var(--color-surface-soft);
+}
+
+.environment-summary__icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.environment-summary[data-tone="success"] .environment-summary__icon {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.environment-summary[data-tone="warning"] .environment-summary__icon {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.environment-summary[data-tone="danger"] .environment-summary__icon {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.environment-summary__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.environment-summary__copy h2 {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.environment-summary__copy p {
+  color: var(--color-text-muted);
+}
+
+.check-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 14px;
+  margin: 0 18px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.check-row:last-child {
+  border-bottom: 0;
+}
+
+.check-row__icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  color: var(--color-warning);
+  border-radius: 50%;
+  background: var(--color-warning-soft);
+}
+
+.check-row[data-severity="error"] .check-row__icon {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.check-row__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.check-row__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.check-row__copy strong {
+  font-weight: 500;
+}
+
+.check-row__copy p {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.check-row .status-label {
+  flex: none;
+}
+
+.check-row__remediation {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 12px;
+  margin-top: 8px;
+  padding: 10px 14px;
+  color: color-mix(in srgb, var(--color-warning) 84%, var(--color-text));
+  border-radius: 12px;
+  background: var(--color-warning-soft);
+  font-size: 13px;
+}
+
+.check-row[data-severity="error"] .check-row__remediation {
+  color: color-mix(in srgb, var(--color-danger) 84%, var(--color-text));
+  background: var(--color-danger-soft);
+}
+
+.check-disclosure__list {
+  margin: 0 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.check-disclosure__list .check-row {
+  margin: 0;
+}
+
+.check-row--healthy {
+  grid-template-columns: 24px minmax(0, 1fr);
+  padding: 10px 0;
+}
+
+.check-row--healthy .check-row__icon {
+  width: 24px;
+  height: 24px;
+  color: var(--color-success);
+  background: none;
+}
+
+/* Diagnostics workspace */
+.overview-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+.overview-strip__item {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 18px;
+}
+
+.overview-strip__item + .overview-strip__item {
+  border-left: 1px solid var(--color-border);
+}
+
+.overview-strip__item dt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.overview-strip__item dt svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.overview-strip__item dd {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.overview-strip__item dd code {
+  overflow: hidden;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-strip__item[data-state="danger"] dd {
+  color: color-mix(in srgb, var(--color-danger) 84%, var(--color-text));
+}
+
+.overview-strip__item[data-state="success"] dd {
+  color: color-mix(in srgb, var(--color-success) 84%, var(--color-text));
+}
+
+.diagnostics-log {
+  display: grid;
+}
+
+.diagnostics-log__heading,
+.diagnostics-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 14px 12px 18px;
+}
+
+.diagnostics-log__title,
+.diagnostics-empty__status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.diagnostics-log__title > svg {
+  flex: none;
+  color: var(--color-danger);
+}
+
+.diagnostics-log__title h3 {
+  font-size: 16px;
+}
+
+.diagnostics-log__surface {
+  min-height: 160px;
+  max-height: none;
+  margin: 0 12px 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--color-surface-soft);
+}
+
+.diagnostics-empty {
+  min-height: 68px;
+}
+
+.diagnostics-empty__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  color: var(--color-success);
+  border-radius: 50%;
+  background: var(--color-success-soft);
+}
+
+.diagnostics-empty__status > div {
+  display: grid;
+  gap: 2px;
+}
+
+.diagnostics-empty__status strong {
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.diagnostics-empty__status > div > span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.technical-disclosure__surface {
+  margin: 0 12px 12px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  color: var(--color-text);
+  border-radius: 14px;
+  background: var(--color-surface-soft);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+/* Settings workspace */
+.settings-workspace > .attention-note {
+  margin-top: 0;
+}
+
+.field-list,
+.action-list {
+  display: grid;
+  padding: 2px 0;
+}
+
+.field-row,
+.action-row {
+  display: grid;
+  align-items: center;
+  gap: 16px;
+  margin: 0 14px 0 18px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.field-row:last-child,
+.action-row:last-child {
+  border-bottom: 0;
+}
+
+.field-row {
+  grid-template-columns: minmax(132px, 0.3fr) minmax(0, 1fr);
+  min-height: 58px;
+}
+
+.field-row__label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.field-row__control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-input--path {
+  min-width: 0;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 13px;
+}
+
+/* Fluent's radio group shrinks to its options; the list spans the column like the other groups. */
+.launcher-fluent-provider .choice-group,
+.choice-list {
+  display: grid;
+}
+
+.choice-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 60px;
+  padding: 8px 18px 8px 10px;
+  cursor: pointer;
+}
+
+.choice-row + .choice-row::before {
+  position: absolute;
+  top: 0;
+  right: 18px;
+  left: 18px;
+  border-top: 1px solid var(--color-border);
+  content: "";
+}
+
+.choice-row:hover {
+  background: var(--color-nav-hover);
+}
+
+.choice-row[data-selected="true"] {
+  background: var(--color-brand-soft);
+}
+
+.choice-row:has(input:disabled) {
+  cursor: default;
+}
+
+.choice-row__body,
+.choice-summary,
+.action-row__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.choice-row__title,
+.choice-summary strong,
+.action-row__copy strong {
+  font-weight: 500;
+}
+
+.choice-row__detail,
+.choice-summary span,
+.action-row__copy span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.choice-summary {
+  padding: 14px 18px;
+}
+
+.action-row {
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 14px;
+  min-height: 72px;
+  padding: 12px 0;
+}
+
+.action-row__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  color: var(--color-text-muted);
+  border-radius: 50%;
+  background: var(--color-surface-soft);
+}
+
+.action-row[data-tone="danger"] .action-row__icon {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+/* About workspace */
+.about-identity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px 18px;
+  padding: 2px 4px;
+}
+
+.about-identity__mark {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+
+.about-identity__mark .raylea-mark {
+  width: 30px;
+  height: 30px;
+}
+
+.about-identity__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.about-identity__copy h2 {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.about-identity__copy p {
+  color: var(--color-text-muted);
+}
+
+.about-identity__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.update-unavailable {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.version-value {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.font-notice {
+  display: grid;
+  gap: 2px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.font-notice > span:first-child {
+  color: var(--color-text);
+}
+
+.version-value[data-status="checking"] > span + span {
+  color: var(--color-cool);
+}
+
+.version-value[data-status="update_available"] > span + span {
+  color: color-mix(in srgb, var(--color-warm) 88%, var(--color-text));
+}
+
+.version-value[data-status="failed"] > span + span {
+  color: color-mix(in srgb, var(--color-danger) 88%, var(--color-text));
+}
+
+.launcher-fluent-provider .update-error-message {
+  border-color: transparent;
+  border-radius: 16px;
+  background: var(--color-danger-soft);
+}
+
+/* Dialogs are boxes over a plain scrim. Fluent mounts them outside the launcher-theme wrapper, which is why these
+   selectors use the provider class. */
+.launcher-fluent-provider .fui-DialogSurface__backdrop {
+  background-color: var(--dialog-scrim);
+}
+
+.launcher-fluent-provider .fui-DialogSurface.launcher-dialog {
+  width: min(92vw, 520px);
+  max-width: 520px;
+  padding: 24px;
+  color: var(--color-text);
+  border: 0;
+  border-radius: 24px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-floating);
+}
+
+.launcher-fluent-provider .launcher-dialog__body {
+  gap: 18px;
+}
+
+.launcher-fluent-provider .launcher-dialog__title {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+}
+
+.launcher-dialog__heading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.launcher-dialog__heading strong {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.launcher-dialog__heading > span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.launcher-fluent-provider .launcher-dialog__content {
+  display: grid;
+  gap: 14px;
+  overflow: visible;
+}
+
+.launcher-dialog__lead,
+.launcher-dialog__detail {
+  max-width: none;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.launcher-dialog__lead {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.launcher-dialog__detail {
+  color: var(--color-text-muted);
+}
+
+.launcher-dialog__choices {
+  display: grid;
+  gap: 10px;
+}
+
+/* Option tiles are wide controls on the dialog box. */
+.launcher-fluent-provider .fui-Button.launcher-tile {
+  width: 100%;
+  min-height: 72px;
+  justify-content: stretch;
+  padding: 12px 14px 12px 12px;
+  color: var(--color-text);
+  border: 0;
+  border-radius: 20px;
+  background: var(--control-fill);
+  box-shadow: var(--shadow-raised);
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+}
+
+.launcher-fluent-provider .fui-Button.launcher-tile:enabled:hover {
+  color: var(--color-text);
+  background: var(--control-fill-hover);
+}
+
+.launcher-fluent-provider .fui-Button.launcher-tile:enabled:active {
+  background: var(--control-fill-pressed);
+  box-shadow: none;
+}
+
+.launcher-tile__layout {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.launcher-tile__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  color: var(--color-brand-foreground);
+  border-radius: 50%;
+  background: var(--color-brand-soft);
+}
+
+.launcher-tile[data-tone="danger"] .launcher-tile__icon {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.launcher-tile__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.launcher-tile__copy strong {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.launcher-tile[data-tone="danger"] .launcher-tile__copy strong {
+  color: color-mix(in srgb, var(--color-danger) 88%, var(--color-text));
+}
+
+.launcher-tile__copy > span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.launcher-tile__chevron {
+  color: var(--color-text-muted);
+}
+
+.launcher-fluent-provider .launcher-dialog__actions {
+  gap: 10px;
+}
+
+.launcher-fluent-provider .launcher-button.launcher-dialog__button {
+  min-width: 96px;
+  padding-inline: 18px;
+}
+
+/* The confirm button is the dialog's one filled action, in the tone of the decision. */
+.launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button {
+  --confirm-fill: var(--color-attention);
+  color: var(--color-on-attention);
+  background: var(--confirm-fill);
+  font-weight: 700;
+}
+
+.launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button[data-tone="danger"] {
+  --confirm-fill: var(--color-danger);
+  color: var(--on-status-fill);
+}
+
+.launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button:enabled:hover {
+  color: var(--color-on-attention);
+  background: color-mix(in srgb, var(--confirm-fill) 88%, var(--color-text));
+}
+
+.launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button[data-tone="danger"]:enabled:hover {
+  color: var(--on-status-fill);
+}
+
+.launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button:enabled:active {
+  background: color-mix(in srgb, var(--confirm-fill) 78%, var(--color-text));
+}
+
+.launcher-fluent-provider .fui-DialogSurface.launcher-dialog[data-state="closing"] {
+  pointer-events: none;
+}
+
+/* The theme menu is a floating box; Fluent mounts it in a portal as well. */
+.launcher-fluent-provider .theme-menu-surface {
+  width: 100%;
+  min-width: 168px;
+  padding: 5px;
+  overflow: hidden;
+  color: var(--color-text);
+  border: 0;
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-floating);
+}
+
+.launcher-fluent-provider .theme-menu-surface .fui-MenuList {
+  gap: 2px;
+}
+
+.launcher-fluent-provider .theme-menu-surface .theme-menu-item {
+  min-height: 36px;
+  gap: 8px;
+  padding: 6px 10px;
+  color: var(--color-text);
+  border-radius: 10px;
+  background: transparent;
+  font-size: 13px;
+}
+
+.launcher-fluent-provider .theme-menu-surface .theme-menu-item:hover {
+  color: var(--color-text);
+  background: var(--color-nav-hover);
+}
+
+.launcher-fluent-provider .theme-menu-surface .theme-menu-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.launcher-fluent-provider .theme-menu-surface .fui-MenuItemRadio__icon {
+  order: 1;
+  color: var(--color-text-muted);
+}
+
+.launcher-fluent-provider .theme-menu-surface .fui-MenuItemRadio__content {
+  order: 2;
+  flex: 0 1 auto;
+}
+
+.launcher-fluent-provider .theme-menu-surface .fui-MenuItemRadio__checkmark {
+  order: 3;
+  margin-left: auto;
+  color: var(--color-brand-foreground);
+}
+
+.launcher-fluent-provider .theme-menu-surface .theme-menu-item:hover .fui-MenuItemRadio__icon,
+.launcher-fluent-provider .theme-menu-surface .theme-menu-item[aria-checked="true"] .fui-MenuItemRadio__icon {
+  color: var(--color-text);
+}
+
+@media (max-width: 1050px) {
+  .status-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .status-attention-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (pointer: coarse) {
+  .launcher-fluent-provider .theme-menu-trigger.fui-MenuButton,
+  .launcher-fluent-provider .launcher-button.fui-Button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .launcher-fluent-provider .theme-menu-surface .theme-menu-item {
+    min-height: 44px;
+  }
+}
+
+@media (forced-colors: active) {
+  .shell-sidebar,
+  .content-group,
+  .about-identity__mark,
+  .launcher-fluent-provider .theme-menu-surface,
+  .launcher-fluent-provider .fui-DialogSurface.launcher-dialog {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    box-shadow: none;
+  }
+
+  .launcher-fluent-provider .launcher-button.fui-Button,
+  .launcher-fluent-provider .fui-Button.launcher-tile {
+    color: ButtonText;
+    border: 1px solid ButtonText;
+    background: ButtonFace;
+    box-shadow: none;
+  }
+
+  .launcher-fluent-provider .launcher-button.fui-Button[data-emphasis="prominent"],
+  .launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button {
+    color: HighlightText;
+    border-color: Highlight;
+    background: Highlight;
+  }
+
+  .launcher-fluent-provider .launcher-button.fui-Button:disabled {
+    color: GrayText !important;
+    border-color: GrayText;
+  }
+
+  .window-drag-handle {
+    color: CanvasText;
+    background: Canvas;
+  }
+
+  .nav-item,
+  .theme-menu-trigger,
+  .window-control-btn {
+    color: CanvasText;
+    forced-color-adjust: auto;
+  }
+
+  .nav-item.active,
+  .nav-item.active:hover {
+    forced-color-adjust: none;
+    color: HighlightText;
+    border: 2px solid Highlight;
+    background: Highlight;
+  }
+
+  .nav-item.active .nav-item__icon {
+    color: HighlightText;
+  }
+
+  .nav-item__selection {
+    display: none;
+  }
+
+  .status-lens {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    box-shadow: none;
+    forced-color-adjust: none;
+  }
+
+  .status-lens--compact {
+    border: 0;
+  }
+
+  .status-lens__core {
+    color: Canvas;
+    background: CanvasText;
+  }
+
+  .status-log-row__icon,
+  .diagnostics-empty__icon,
+  .environment-summary__icon,
+  .check-row__icon,
+  .action-row__icon,
+  .launcher-tile__icon,
+  .check-row__remediation {
+    border: 1px solid CanvasText;
+  }
+
+  .choice-row[data-selected="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .disclosure > summary:hover,
+  .choice-row:hover {
+    background: transparent;
+  }
+}

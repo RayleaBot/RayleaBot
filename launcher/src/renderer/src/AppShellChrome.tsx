@@ -9,10 +9,11 @@ import type { LauncherSnapshot } from "@shared/launcher-models";
 import { motion } from "motion/react";
 import { useLayoutEffect, useRef, type MouseEvent } from "react";
 
-import { sections, serviceStateConfig } from "./AppShell.shared";
+import { sections, serviceStateConfig, serviceStateGlyphs } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
 import { useLauncherReducedMotion } from "./launcherMotion";
 import { RayleaMark } from "./RayleaMark";
+import { StatusLens } from "./StatusLens";
 import { ThemeModeMenu } from "./ThemeModeMenu";
 
 type AppShellChromeProps = {
@@ -63,7 +64,7 @@ export function AppShellChrome({
         </div>
       </div>
 
-      <aside className="shell-sidebar glass" data-glass="regular">
+      <aside className="shell-sidebar">
         <nav className="section-nav">
           {sections.map((section) => (
             <button
@@ -91,10 +92,12 @@ export function AppShellChrome({
         </nav>
 
         <div className="sidebar-footer--compact">
-          <div className="sidebar-footer__status-dot" title={`运行状态：${trayStatus}`}>
-            <span
-              className={`status-indicator status-indicator--${stateConfig.tone}`}
-              aria-label={`运行状态：${trayStatus}`}
+          <div className="sidebar-footer__status" role="img" aria-label={`运行状态：${trayStatus}`} title={`运行状态：${trayStatus}`}>
+            <StatusLens
+              tone={stateConfig.tone}
+              size="compact"
+              icon={serviceStateGlyphs[presentation.state]}
+              iconKey={presentation.state}
             />
           </div>
           <ThemeModeMenu />

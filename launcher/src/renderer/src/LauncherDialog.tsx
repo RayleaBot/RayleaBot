@@ -6,7 +6,7 @@ import { overlayEnter, overlayExit, useExitPresence, useLauncherReducedMotion } 
 
 const MotionDialogSurface = motion.create(DialogSurface);
 
-type GlassDialogProps = {
+type LauncherDialogProps = {
   open: boolean;
   onDismiss: () => void;
   tone?: "danger" | "attention";
@@ -14,10 +14,10 @@ type GlassDialogProps = {
 };
 
 /**
- * A Fluent dialog whose glass surface and backdrop are animated by Motion. The dialog, its content and its
- * focus trap stay mounted until the exit animation ends, so the glass does not vanish mid-fade.
+ * A Fluent dialog whose surface and scrim are animated by Motion. The dialog, its content and its focus trap
+ * stay mounted until the exit animation ends, so the surface does not vanish mid-fade.
  */
-export function GlassDialog({ open, onDismiss, tone, children }: GlassDialogProps) {
+export function LauncherDialog({ open, onDismiss, tone, children }: LauncherDialogProps) {
   const [present, finishExit] = useExitPresence(open);
   const reducedMotion = useLauncherReducedMotion();
   const transition = reducedMotion ? { duration: 0 } : open ? overlayEnter : overlayExit;
@@ -31,7 +31,7 @@ export function GlassDialog({ open, onDismiss, tone, children }: GlassDialogProp
       }}
     >
       <MotionDialogSurface
-        className="glass-dialog"
+        className="launcher-dialog"
         data-tone={tone}
         data-state={open ? "open" : "closing"}
         backdropMotion={null}

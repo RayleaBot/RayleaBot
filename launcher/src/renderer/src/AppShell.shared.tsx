@@ -1,12 +1,18 @@
 import {
+  ArrowSync24Filled,
+  Checkmark24Filled,
   CheckmarkCircle20Regular,
+  Dismiss24Filled,
   DocumentText20Regular,
   HeartPulse20Regular,
+  Important24Filled,
   Info20Regular,
+  Power24Filled,
   Settings20Regular,
   Status20Regular,
   Warning20Regular,
 } from "@fluentui/react-icons";
+import type { ReactNode } from "react";
 
 import { getLauncherStateLabel, type LauncherPresentationState } from "@shared/launcher-presentation";
 import type { LauncherSettings } from "@shared/launcher-models";
@@ -21,6 +27,16 @@ export const serviceStateConfig: Record<LauncherPresentationState, { label: stri
   degraded: { label: getLauncherStateLabel("degraded"), tone: "warning" },
   stopping: { label: getLauncherStateLabel("stopping"), tone: "info" },
   failed: { label: getLauncherStateLabel("failed"), tone: "danger" },
+};
+
+/** State glyphs shown in the status lens, so each service state reads without its color. */
+export const serviceStateGlyphs: Record<LauncherPresentationState, ReactNode> = {
+  stopped: <Power24Filled />,
+  starting: <ArrowSync24Filled />,
+  running: <Checkmark24Filled />,
+  degraded: <Important24Filled />,
+  stopping: <ArrowSync24Filled />,
+  failed: <Dismiss24Filled />,
 };
 
 export const severityConfig = {

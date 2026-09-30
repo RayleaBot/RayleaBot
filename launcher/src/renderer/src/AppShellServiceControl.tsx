@@ -1,11 +1,7 @@
 import { Button } from "@fluentui/react-components";
 import {
   ArrowSync20Regular,
-  ArrowSync24Filled,
-  Checkmark24Filled,
-  Dismiss24Filled,
   Globe20Regular,
-  Important24Filled,
   Play20Regular,
   Power24Filled,
   Stop20Regular,
@@ -14,7 +10,7 @@ import type { LauncherPresentationState } from "@shared/launcher-presentation";
 import { AnimatePresence, motion, useIsPresent } from "motion/react";
 import { useId, type ReactNode } from "react";
 
-import { serviceStateConfig } from "./AppShell.shared";
+import { serviceStateConfig, serviceStateGlyphs } from "./AppShell.shared";
 import { launcherMotion, useLauncherReducedMotion } from "./launcherMotion";
 import { StatusLens } from "./StatusLens";
 
@@ -39,15 +35,6 @@ type AppShellServiceControlProps = {
   };
   startDisabled: boolean;
   stopDisabled: boolean;
-};
-
-const serviceStateGlyphs: Record<LauncherPresentationState, ReactNode> = {
-  stopped: <Power24Filled />,
-  starting: <ArrowSync24Filled />,
-  running: <Checkmark24Filled />,
-  degraded: <Important24Filled />,
-  stopping: <ArrowSync24Filled />,
-  failed: <Dismiss24Filled />,
 };
 
 /** State text that fades in as it replaces the previous copy; the outgoing copy is hidden from assistive technology. */
@@ -131,12 +118,12 @@ export function AppShellServiceControl({
       </div>
 
       <div className="service-control__actions">
-        <Button appearance="secondary" className="glass glass-button glass-button--danger" data-glass="regular" onClick={onStop} disabled={stopDisabled} icon={<Stop20Regular />}>停止服务</Button>
+        <Button appearance="secondary" className="launcher-button launcher-button--danger" data-emphasis="regular" onClick={onStop} disabled={stopDisabled} icon={<Stop20Regular />}>停止服务</Button>
         {showRunningActions ? (
           <Button
             appearance="secondary"
-            className="glass glass-button"
-            data-glass="regular"
+            className="launcher-button"
+            data-emphasis="regular"
             onClick={onStart}
             disabled={startDisabled}
             aria-describedby={externalService ? noteId : undefined}
@@ -145,12 +132,12 @@ export function AppShellServiceControl({
             重启服务
           </Button>
         ) : (
-          <Button appearance="secondary" className="glass glass-button" data-glass="regular" onClick={onOpenWeb} disabled icon={<Globe20Regular />}>管理界面</Button>
+          <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onOpenWeb} disabled icon={<Globe20Regular />}>管理界面</Button>
         )}
         <Button
           appearance="primary"
-          className="service-control__primary glass"
-          data-glass={primaryDisabled ? "regular" : "prominent"}
+          className="launcher-button service-control__primary"
+          data-emphasis={primaryDisabled ? "regular" : "prominent"}
           onClick={showRunningActions ? onOpenWeb : onStart}
           disabled={primaryDisabled}
           icon={showRunningActions ? <Globe20Regular /> : <Play20Regular />}
