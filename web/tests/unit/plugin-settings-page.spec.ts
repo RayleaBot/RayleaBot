@@ -105,8 +105,11 @@ describe('PluginSettingsPage', () => {
 
     const footerInput = wrapper.get('textarea')
     expect((footerInput.element as HTMLTextAreaElement).value).toBe('Custom footer')
-    await wrapper.findAll('.plugin-settings-field-item').find(field => field.find('textarea').exists())!.get('[data-testid="plugin-settings-reset-default"]').trigger('click')
+    const resetButton = wrapper.findAll('.plugin-settings-field-item').find(field => field.find('textarea').exists())!.get('[data-testid="plugin-settings-reset-default"]')
+    await resetButton.trigger('click')
     await flushPromises()
+    // Back at the default, there is nothing left to restore.
+    expect(resetButton.attributes('disabled')).toBeDefined()
 
     expect(wrapper.find('[data-testid="plugin-settings-unsaved-status"]').exists()).toBe(true)
     expect((footerInput.element as HTMLTextAreaElement).value).toBe(

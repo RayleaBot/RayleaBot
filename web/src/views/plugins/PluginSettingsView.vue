@@ -8,7 +8,7 @@ import AppNumberInput from '@/components/AppNumberInput.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppButton from '@/components/AppButton.vue'
 import {
-  PlugZapIcon,
+  TerminalIcon,
   DatabaseIcon,
   FileTextIcon,
   MessageSquareIcon,
@@ -89,6 +89,12 @@ function isCommandPrefixField(path: string) {
   return path === 'command.prefixes'
 }
 
+// "恢复默认" only acts while the draft differs from the default value.
+function isAtDefault(field: ConfigFieldDefinition) {
+  if (!draft.value || field.defaultValue === undefined) return true
+  return JSON.stringify(getValueByPath(draft.value as unknown as Record<string, unknown>, field.path) ?? null) === JSON.stringify(field.defaultValue)
+}
+
 function resetFieldToDefault(field: ConfigFieldDefinition) {
   if (!draft.value || field.defaultValue === undefined) {
     return
@@ -101,7 +107,7 @@ function resetFieldToDefault(field: ConfigFieldDefinition) {
 function getSectionIcon(key: string) {
   switch (key) {
     case 'command':
-      return PlugZapIcon
+      return TerminalIcon
     case 'permission':
       return ShieldCheckIcon
     case 'log':
@@ -229,6 +235,7 @@ function getSectionIcon(key: string) {
                       variant="link"
                       class="plugin-settings-reset-default"
                       data-testid="plugin-settings-reset-default"
+                      :disabled="isAtDefault(field)"
                       @click="resetFieldToDefault(field)"
                     >
                       {{ t('plugins.settings.resetDefault') }}
