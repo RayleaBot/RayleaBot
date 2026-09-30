@@ -240,12 +240,28 @@ const themeFields = [
   'chromeText',
   'danger',
   'dangerSoft',
+  'fieldLilac',
+  'fieldMint',
+  'fieldPeach',
+  'fieldSand',
+  'fieldSky',
   'focus',
+  'glassFill',
+  'glassFillStrong',
+  'glassInner',
+  'glassRim',
+  'glassRimSoft',
+  'glassSheen',
+  'info',
+  'infoSoft',
   'onAttention',
   'onBrand',
+  'onLit',
+  'onLitMuted',
   'success',
   'successSoft',
   'surface',
+  'surfaceLit',
   'surfaceRaised',
   'surfaceSoft',
   'text',
@@ -384,12 +400,15 @@ function renderThemeVariables(mode) {
   --warning-soft: ${theme.warningSoft};
   --danger: ${theme.danger};
   --danger-soft: ${theme.dangerSoft};
-  --info: ${theme.textMuted};
+  --info: ${theme.info};
+  --info-soft: ${theme.infoSoft};
+  --surface-info: ${theme.infoSoft};
   --text-accent: ${theme.text};
   --text-attention: ${theme.attention};
   --text-success: ${theme.success};
   --text-warning: ${theme.warning};
   --text-danger: ${theme.danger};
+  --text-info: ${theme.info};
   --border: ${theme.border};
   --border-strong: ${theme.borderControl};
   --border-accent: ${theme.borderControl};
@@ -397,6 +416,22 @@ function renderThemeVariables(mode) {
   --border-success: ${theme.success};
   --border-warning: ${theme.warning};
   --border-danger: ${theme.danger};
+  --border-info: ${theme.info};
+  --surface-lit: ${theme.surfaceLit};
+  --on-lit: ${theme.onLit};
+  --on-lit-muted: ${theme.onLitMuted};
+  --glass-fill: ${theme.glassFill};
+  --glass-fill-strong: ${theme.glassFillStrong};
+  --glass-rim: ${theme.glassRim};
+  --glass-rim-soft: ${theme.glassRimSoft};
+  --glass-inner: ${theme.glassInner};
+  --glass-sheen: ${theme.glassSheen};
+  --field-base: ${theme.canvas};
+  --field-peach: ${theme.fieldPeach};
+  --field-sand: ${theme.fieldSand};
+  --field-mint: ${theme.fieldMint};
+  --field-sky: ${theme.fieldSky};
+  --field-lilac: ${theme.fieldLilac};
   --shadow-xs: ${theme.shadowSurface};
   --shadow-sm: ${theme.shadowSurface};
   --shadow: ${theme.shadowSurface};
@@ -454,7 +489,8 @@ function renderWebScss() {
   --font-size-display: ${css('base.font.size.display')};
   --font-size-hero: ${css('base.font.size.hero')};
   --app-border-radius: ${css('base.radius.md')};
-  --app-card-radius: ${css('base.radius.lg')};
+  --app-card-radius: ${css('base.radius.xl')};
+  --app-tile-radius: ${css('base.radius.xxl')};
   --app-content-max-width: none;
   --app-control-height: 36px;
   --app-font-size: ${css('base.font.size.md')};
@@ -486,7 +522,8 @@ function renderWebScss() {
   --radius-sm: ${css('base.radius.sm')};
   --radius-md: ${css('base.radius.md')};
   --radius-lg: ${css('base.radius.lg')};
-  --radius-xl: ${css('base.radius.lg')};
+  --radius-xl: ${css('base.radius.xl')};
+  --radius-2xl: ${css('base.radius.xxl')};
   --radius-full: ${css('base.radius.full')};
 ${renderThemeVariables('light')}
 }
@@ -507,20 +544,21 @@ function renderDesignFrontmatter() {
     `  ${role}:`, `    fontFamily: ${JSON.stringify(css(`base.font.family.${family}`))}`,
     `    fontSize: ${JSON.stringify(css(`base.font.size.${size}`))}`,
   ])
-  const radiusLines = ['xs', 'sm', 'md', 'lg', 'full'].map((name) => `  ${name}: ${JSON.stringify(css(`base.radius.${name}`))}`)
+  const radiusLines = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl', 'full'].map((name) => `  ${name}: ${JSON.stringify(css(`base.radius.${name}`))}`)
   const spaceLines = ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'].map((name) => `  ${name}: ${JSON.stringify(css(`base.space.${name}`))}`)
-  return ['---', 'name: RayleaBot', 'description: 雾白表面、青瓷绿与紧凑工作区组成的自托管机器人管理界面',
+  return ['---', 'name: RayleaBot', 'description: 暖石灰底、点亮磁贴与液态玻璃导航组成的自托管机器人中控界面',
     'colors:', ...colorLines, 'typography:', ...typeLines, 'rounded:', ...radiusLines, 'spacing:', ...spaceLines,
     'components:',
-    '  button-primary:', '    backgroundColor: "{colors.light-primary}"', '    textColor: "{colors.light-on-brand}"', '    rounded: "{rounded.md}"', '    height: "36px"',
+    '  button-primary:', '    backgroundColor: "{colors.light-primary}"', '    textColor: "{colors.light-on-brand}"', '    rounded: "{rounded.full}"', '    height: "40px"',
     '  button-primary-hover:', '    backgroundColor: "{colors.light-primary-hover}"',
     '  button-primary-active:', '    backgroundColor: "{colors.light-primary-pressed}"',
-    '  button-attention:', '    backgroundColor: "{colors.light-attention}"', '    textColor: "{colors.light-on-attention}"', '    rounded: "{rounded.md}"', '    height: "36px"',
-    '  input:', '    backgroundColor: "{colors.light-surface-raised}"', '    textColor: "{colors.light-text}"', '    rounded: "{rounded.md}"', '    height: "36px"',
-    '  navigation-item:', '    backgroundColor: "{colors.light-nav-selected}"', '    textColor: "{colors.light-nav-selected-text}"', '    rounded: "{rounded.md}"',
+    '  button-attention:', '    backgroundColor: "{colors.light-attention}"', '    textColor: "{colors.light-on-attention}"', '    rounded: "{rounded.full}"', '    height: "40px"',
+    '  input:', '    backgroundColor: "{colors.light-surface-raised}"', '    textColor: "{colors.light-text}"', '    rounded: "{rounded.md}"', '    height: "40px"',
+    '  navigation-item:', '    backgroundColor: "{colors.light-nav-selected}"', '    textColor: "{colors.light-nav-selected-text}"', '    rounded: "{rounded.full}"',
     '  status-chip:', '    backgroundColor: "{colors.light-success-soft}"', '    textColor: "{colors.light-success}"', '    rounded: "{rounded.full}"',
-    '  section-surface:', '    backgroundColor: "{colors.light-surface}"', '    textColor: "{colors.light-text}"', '    rounded: "{rounded.lg}"',
-    '  attention-callout:', '    backgroundColor: "{colors.light-attention-soft}"', '    textColor: "{colors.light-attention}"', '    rounded: "{rounded.lg}"',
+    '  object-tile-lit:', '    backgroundColor: "{colors.light-surface-lit}"', '    textColor: "{colors.light-on-lit}"', '    rounded: "{rounded.xxl}"',
+    '  section-surface:', '    backgroundColor: "{colors.light-surface}"', '    textColor: "{colors.light-text}"', '    rounded: "{rounded.xl}"',
+    '  attention-callout:', '    backgroundColor: "{colors.light-attention-soft}"', '    textColor: "{colors.light-attention}"', '    rounded: "{rounded.xl}"',
     '  data-row:', '    backgroundColor: "{colors.light-surface}"', '    textColor: "{colors.light-text}"',
     '---'].join('\n')
 }
@@ -530,7 +568,7 @@ function colorMetaEntry(role, displayName, canonical, tonalRamp) {
 }
 
 function renderColorMeta() {
-  const celadonRamp = ['1000', '900', '800', '700', '600', '500', '400', '300', '200', '100', '50'].map((step) => css(`base.color.celadon.${step}`))
+  const emberRamp = ['1000', '900', '800', '700', '600', '500', '400', '300', '200', '100', '50'].map((step) => css(`base.color.ember.${step}`))
   const neutralRamp = [
     themes.dark.canvas,
     themes.dark.surface,
@@ -545,24 +583,24 @@ function renderColorMeta() {
   ]
   const entries = {}
   for (const step of ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '1000']) {
-    entries[`celadon-${step}`] = colorMetaEntry('brand-base', `青瓷 ${step}`, css(`base.color.celadon.${step}`), celadonRamp)
+    entries[`ember-${step}`] = colorMetaEntry('brand-base', `暖橙 ${step}`, css(`base.color.ember.${step}`), emberRamp)
   }
   const labels = {
-    canvas: '画布', surface: '表面', surfaceRaised: '抬升表面', text: '正文', textMuted: '辅文', border: '结构边界',
+    canvas: '画布', surface: '表面', surfaceRaised: '抬升表面', surfaceLit: '点亮磁贴', onLit: '点亮磁贴内容', text: '正文', textMuted: '辅文', border: '结构边界',
     borderControl: '控件边界', brandFill: '主操作', brandFillHover: '主操作悬停', brandFillPressed: '主操作按下', onBrand: '主操作内容',
     brandForeground: '品牌前景', brandSoft: '中性淡面', focus: '焦点', chrome: '导航表面',
     navSelected: '导航选中', navSelectedText: '导航选中文字',
     attention: '人工关注', attentionSoft: '人工关注淡面', onAttention: '人工关注内容',
-    success: '成功', successSoft: '成功淡面', warning: '警告', danger: '危险',
+    success: '成功', successSoft: '成功淡面', warning: '警告', danger: '危险', info: '信息', infoSoft: '信息淡面',
   }
   for (const mode of ['light', 'dark']) {
     for (const [field, label] of Object.entries(labels)) {
       const role = ['brandFill', 'brandFillHover', 'brandFillPressed', 'brandForeground'].includes(field)
         ? 'primary'
-        : ['attention', 'success', 'warning', 'danger'].includes(field)
+        : ['attention', 'success', 'warning', 'danger', 'info'].includes(field)
           ? `semantic-${field}`
           : 'neutral'
-      const ramp = role === 'primary' ? celadonRamp : neutralRamp
+      const ramp = role === 'primary' ? emberRamp : neutralRamp
       const aliases = { borderControl: 'control-border', brandFill: 'primary', brandFillHover: 'primary-hover', brandFillPressed: 'primary-pressed' }
       const name = aliases[field] ?? field.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
       entries[`${mode}-${name}`] = colorMetaEntry(role, `${mode === 'light' ? '浅色' : '暗色'}${label}`, themes[mode][field], ramp)
@@ -574,54 +612,64 @@ function renderColorMeta() {
 function renderImpeccableComponents() {
   const light = themes.light
   const dark = themes.dark
+  const font = `'Noto Sans SC', 'Microsoft YaHei UI', sans-serif`
+  const field = (theme) => `radial-gradient(420px 260px at 8% 0%, ${theme.fieldPeach}, transparent 70%), radial-gradient(460px 300px at 100% 100%, ${theme.fieldSky}, transparent 70%), ${theme.canvas}`
   return [
     {
       name: 'Primary Button',
       kind: 'button',
       refersTo: 'button-primary',
-      description: '当前工作流唯一突出的主操作。',
-      html: '<button class="ds-btn-primary">保存设置</button>',
-      css: `.ds-btn-primary { height: 36px; padding: 8px 14px; border: 1px solid ${light.brandFill}; border-radius: 8px; background: ${light.brandFill}; color: ${light.onBrand}; font: 600 14px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; cursor: pointer; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: ${light.brandFillHover}; border-color: ${light.brandFillHover}; } .ds-btn-primary:focus-visible { outline: 2px solid ${light.focus}; outline-offset: 2px; } .ds-btn-primary:active { background: ${light.brandFillPressed}; border-color: ${light.brandFillPressed}; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.58; } @media (prefers-color-scheme: dark) { .ds-btn-primary { border-color: ${dark.brandFill}; background: ${dark.brandFill}; color: ${dark.onBrand}; } .ds-btn-primary:hover { border-color: ${dark.brandFillHover}; background: ${dark.brandFillHover}; } .ds-btn-primary:focus-visible { outline-color: ${dark.focus}; } .ds-btn-primary:active { border-color: ${dark.brandFillPressed}; background: ${dark.brandFillPressed}; } }`,
+      description: '当前工作流唯一突出的主操作：橙色胶囊配深色文字。',
+      html: '<button class="ds-btn-primary">安装插件</button>',
+      css: `.ds-btn-primary { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: ${light.brandFill}; color: ${light.onBrand}; font: 600 14px/1.4 ${font}; cursor: pointer; box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%), 0 6px 16px -10px rgb(0 0 0 / 45%); transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: ${light.brandFillHover}; } .ds-btn-primary:focus-visible { outline: 2px solid ${light.onBrand}; outline-offset: -4px; } .ds-btn-primary:active { background: ${light.brandFillPressed}; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.58; } @media (prefers-color-scheme: dark) { .ds-btn-primary { background: ${dark.brandFill}; color: ${dark.onBrand}; } .ds-btn-primary:hover { background: ${dark.brandFillHover}; } .ds-btn-primary:active { background: ${dark.brandFillPressed}; } }`,
     },
     {
       name: 'Attention Button',
       kind: 'button',
       refersTo: 'button-attention',
-      description: '需要人工判断或确认的明确操作。',
+      description: '需要人工判断或确认的明确操作，使用独立的紫色语义。',
       html: '<button class="ds-btn-attention">确认继续</button>',
-      css: `.ds-btn-attention { height: 36px; padding: 8px 14px; border: 1px solid ${light.attention}; border-radius: 8px; background: ${light.attention}; color: ${light.onAttention}; font: 600 14px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; cursor: pointer; } .ds-btn-attention:focus-visible { outline: 2px solid ${light.focus}; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-btn-attention { border-color: ${dark.attention}; background: ${dark.attention}; color: ${dark.onAttention}; } .ds-btn-attention:focus-visible { outline-color: ${dark.focus}; } }`,
+      css: `.ds-btn-attention { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: ${light.attention}; color: ${light.onAttention}; font: 600 14px/1.4 ${font}; cursor: pointer; } .ds-btn-attention:focus-visible { outline: 2px solid ${light.onAttention}; outline-offset: -4px; } @media (prefers-color-scheme: dark) { .ds-btn-attention { background: ${dark.attention}; color: ${dark.onAttention}; } .ds-btn-attention:focus-visible { outline-color: ${dark.onAttention}; } }`,
     },
     {
       name: 'Text Input',
       kind: 'input',
       refersTo: 'input',
-      description: '带持续标签、控件边界和清晰焦点的标准输入框。',
+      description: '实底输入框，持续可见标签、控件边界和贴边焦点。',
       html: '<label class="ds-field"><span>服务地址</span><input value="http://127.0.0.1:8080"></label>',
-      css: `.ds-field { display: grid; gap: 6px; color: ${light.text}; font: 600 13px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; } .ds-field input { width: 100%; height: 36px; padding: 8px 12px; border: 1px solid ${light.borderControl}; border-radius: 8px; background: ${light.surfaceRaised}; color: ${light.text}; font: 400 14px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; } .ds-field input:focus-visible { outline: 2px solid ${light.focus}; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-field { color: ${dark.text}; } .ds-field input { border-color: ${dark.borderControl}; background: ${dark.surfaceRaised}; color: ${dark.text}; } .ds-field input:focus-visible { outline-color: ${dark.focus}; } }`,
+      css: `.ds-field { display: grid; gap: 6px; color: ${light.text}; font: 600 13px/1.4 ${font}; } .ds-field input { width: 100%; height: 40px; padding: 8px 14px; border: 1px solid ${light.borderControl}; border-radius: 12px; background: ${light.surfaceRaised}; color: ${light.text}; font: 400 14px/1.55 ${font}; } .ds-field input:focus-visible { outline: none; border-color: ${light.brandForeground}; box-shadow: inset 0 0 0 1px ${light.brandForeground}; } @media (prefers-color-scheme: dark) { .ds-field { color: ${dark.text}; } .ds-field input { border-color: ${dark.borderControl}; background: ${dark.surfaceRaised}; color: ${dark.text}; } .ds-field input:focus-visible { border-color: ${dark.brandForeground}; box-shadow: inset 0 0 0 1px ${dark.brandForeground}; } }`,
     },
     {
       name: 'Selected Navigation Item',
       kind: 'nav',
       refersTo: 'navigation-item',
-      description: '使用完整中性色面、高对比文字和可见焦点表达当前工作区。',
-      html: '<a class="ds-nav-item" href="#" aria-current="page">系统状态</a>',
-      css: `.ds-nav-item { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 12px; border-radius: 8px; background: ${light.navSelected}; color: ${light.navSelectedText}; font: 600 14px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; text-decoration: none; } .ds-nav-item:focus-visible { outline: 2px solid ${light.chromeMuted}; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-nav-item { background: ${dark.navSelected}; color: ${dark.navSelectedText}; } .ds-nav-item:focus-visible { outline-color: ${dark.chromeMuted}; } }`,
+      description: '玻璃侧栏中点亮的当前工作区，亮暗主题都使用点亮表面与深色文字。',
+      html: '<div class="ds-nav-wrap"><a class="ds-nav-item" href="#" aria-current="page">系统状态</a></div>',
+      css: `.ds-nav-wrap { padding: 12px; border-radius: 24px; background: ${field(light)}; } .ds-nav-item { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border-radius: 999px; background: ${light.navSelected}; color: ${light.navSelectedText}; font: 600 14px/1.4 ${font}; text-decoration: none; box-shadow: inset 0 1px 0 #fff, 0 4px 12px -6px rgb(0 0 0 / 25%); } .ds-nav-item:focus-visible { outline: 2px solid ${light.focus}; outline-offset: -2px; } @media (prefers-color-scheme: dark) { .ds-nav-wrap { background: ${field(dark)}; } .ds-nav-item { background: ${dark.navSelected}; color: ${dark.navSelectedText}; } }`,
     },
     {
-      name: 'Status Chip',
+      name: 'Glass Status Capsule',
       kind: 'chip',
       refersTo: 'status-chip',
-      description: '同时使用语义色、文字和形状表达状态。',
-      html: '<span class="ds-status-chip"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg>运行正常</span>',
-      css: `.ds-status-chip { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; border: 1px solid ${light.success}; border-radius: 999px; background: ${light.successSoft}; color: ${light.success}; font: 600 13px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; } @media (prefers-color-scheme: dark) { .ds-status-chip { border-color: ${dark.success}; background: ${dark.successSoft}; color: ${dark.success}; } }`,
+      description: '光场上的液态玻璃胶囊，图标圆底与文字同时表达状态。',
+      html: '<div class="ds-field-wrap"><span class="ds-capsule"><span class="ds-capsule__icon">!</span><span><small>需要处理</small><b>图片生成</b></span></span></div>',
+      css: `.ds-field-wrap { padding: 16px; border-radius: 24px; background: ${field(light)}; } .ds-capsule { display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 18px 0 10px; border-radius: 999px; background: ${light.glassFillStrong}; box-shadow: inset 1.5px 1.5px 1px -1px ${light.glassRim}, inset -1px -1px 1px -0.5px ${light.glassRimSoft}, inset 0 0 12px ${light.glassInner}, 0 14px 32px -14px rgb(0 0 0 / 24%); -webkit-backdrop-filter: blur(2px) saturate(1.4); backdrop-filter: blur(2px) saturate(1.4); color: ${light.text}; font: 400 13px/1.3 ${font}; } .ds-capsule__icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: ${light.warningSoft}; color: ${light.warning}; font-weight: 700; } .ds-capsule small { display: block; color: ${light.textMuted}; font-size: 12px; } .ds-capsule b { display: block; font-size: 15px; } @media (prefers-color-scheme: dark) { .ds-field-wrap { background: ${field(dark)}; } .ds-capsule { background: ${dark.glassFillStrong}; box-shadow: inset 1.5px 1.5px 1px -1px ${dark.glassRim}, inset -1px -1px 1px -0.5px ${dark.glassRimSoft}, inset 0 0 12px ${dark.glassInner}, 0 16px 40px -14px rgb(0 0 0 / 70%); color: ${dark.text}; } .ds-capsule__icon { background: ${dark.warningSoft}; color: ${dark.warning}; } .ds-capsule small { color: ${dark.textMuted}; } } @media (prefers-reduced-transparency: reduce) { .ds-capsule { background: ${light.surface}; -webkit-backdrop-filter: none; backdrop-filter: none; } }`,
+    },
+    {
+      name: 'Lit Object Tile',
+      kind: 'card',
+      refersTo: 'object-tile-lit',
+      description: '运行中的插件或连接：点亮的磁贴，暗色主题中依然是浅色。',
+      html: '<article class="ds-tile"><span class="ds-tile__glyph">原</span><strong>原神</strong><span>运行中</span></article>',
+      css: `.ds-tile { display: grid; gap: 2px; width: 180px; min-height: 112px; padding: 14px; border-radius: 24px; background: ${light.surfaceLit}; color: ${light.onLit}; font: 400 12.5px/1.4 ${font}; box-shadow: inset 0 1.5px 0 #fff, 0 12px 28px -12px rgb(0 0 0 / 22%); } .ds-tile__glyph { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 12px; border-radius: 13px; background: #13968A; color: #fff; font-size: 19px; font-weight: 700; } .ds-tile strong { font-size: 15px; } .ds-tile span:last-child { color: ${light.onLitMuted}; } @media (prefers-color-scheme: dark) { .ds-tile { background: ${dark.surfaceLit}; color: ${dark.onLit}; box-shadow: 0 12px 30px -12px rgb(0 0 0 / 60%); } .ds-tile span:last-child { color: ${dark.onLitMuted}; } }`,
     },
     {
       name: 'Section Surface',
       kind: 'card',
       refersTo: 'section-surface',
-      description: '只承载具有独立任务边界的内容。',
+      description: '表单、列表、日志等连续任务的实底表面。',
       html: '<section class="ds-section-surface"><h3>运行环境</h3><p>检查托管运行时与模板资源。</p></section>',
-      css: `.ds-section-surface { max-width: 560px; padding: 16px; border: 1px solid ${light.border}; border-radius: 12px; background: ${light.surface}; color: ${light.text}; font: 400 14px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; } .ds-section-surface h3 { margin: 0 0 8px; font-family: "Noto Sans SC", "Microsoft YaHei UI", sans-serif; font-size: 18px; } .ds-section-surface p { margin: 0; color: ${light.textMuted}; } @media (prefers-color-scheme: dark) { .ds-section-surface { border-color: ${dark.border}; background: ${dark.surface}; color: ${dark.text}; } .ds-section-surface p { color: ${dark.textMuted}; } }`,
+      css: `.ds-section-surface { max-width: 560px; padding: 18px 20px; border-radius: 20px; background: ${light.surface}; color: ${light.text}; font: 400 14px/1.55 ${font}; box-shadow: ${light.shadowSurface}; } .ds-section-surface h3 { margin: 0 0 8px; font-size: 18px; } .ds-section-surface p { margin: 0; color: ${light.textMuted}; } @media (prefers-color-scheme: dark) { .ds-section-surface { background: ${dark.surface}; color: ${dark.text}; box-shadow: 0 0 0 1px ${dark.border}; } .ds-section-surface p { color: ${dark.textMuted}; } }`,
     },
     {
       name: 'Attention Callout',
@@ -629,7 +677,7 @@ function renderImpeccableComponents() {
       refersTo: 'attention-callout',
       description: '解释需要人工判断的事项并提供直接操作。',
       html: '<aside class="ds-attention"><strong>需要人工确认</strong><p>继续前请检查插件来源和声明能力。</p></aside>',
-      css: `.ds-attention { display: grid; gap: 4px; padding: 12px 16px; border: 1px solid ${light.attention}; border-radius: 12px; background: ${light.attentionSoft}; color: ${light.attention}; font: 400 14px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; } .ds-attention p { margin: 0; color: ${light.text}; } @media (prefers-color-scheme: dark) { .ds-attention { border-color: ${dark.attention}; background: ${dark.attentionSoft}; color: ${dark.attention}; } .ds-attention p { color: ${dark.text}; } }`,
+      css: `.ds-attention { display: grid; gap: 4px; padding: 14px 18px; border-radius: 20px; background: ${light.attentionSoft}; color: ${light.attention}; font: 400 14px/1.55 ${font}; } .ds-attention p { margin: 0; color: ${light.text}; } @media (prefers-color-scheme: dark) { .ds-attention { background: ${dark.attentionSoft}; color: ${dark.attention}; } .ds-attention p { color: ${dark.text}; } }`,
     },
     {
       name: 'Data Row',
@@ -637,7 +685,7 @@ function renderImpeccableComponents() {
       refersTo: 'data-row',
       description: '紧凑展示对象、状态和右侧操作。',
       html: '<div class="ds-data-row" role="row" tabindex="0"><strong>subscription_hub</strong><span>运行中</span><button>查看</button></div>',
-      css: `.ds-data-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 44px; padding: 10px 12px; border: 1px solid ${light.border}; border-radius: 8px; background: ${light.surface}; color: ${light.text}; font: 400 14px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; } .ds-data-row:hover { border-color: ${light.border}; background: ${light.brandSoft}; } .ds-data-row:focus-visible { outline: 2px solid ${light.focus}; outline-offset: 2px; } .ds-data-row button { border: 0; background: transparent; color: ${light.text}; font: 600 13px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; } @media (prefers-color-scheme: dark) { .ds-data-row { border-color: ${dark.border}; background: ${dark.surface}; color: ${dark.text}; } .ds-data-row:hover { border-color: ${dark.border}; background: ${dark.brandSoft}; } .ds-data-row:focus-visible { outline-color: ${dark.focus}; } .ds-data-row button { color: ${dark.text}; } }`,
+      css: `.ds-data-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 44px; padding: 10px 14px; border-bottom: 1px solid ${light.border}; background: ${light.surface}; color: ${light.text}; font: 400 14px/1.4 ${font}; } .ds-data-row:hover { background: ${light.brandSoft}; } .ds-data-row:focus-visible { outline: 2px solid ${light.focus}; outline-offset: -2px; } .ds-data-row button { border: 0; background: transparent; color: ${light.brandForeground}; font: 600 13px/1.4 ${font}; } @media (prefers-color-scheme: dark) { .ds-data-row { border-color: ${dark.border}; background: ${dark.surface}; color: ${dark.text}; } .ds-data-row:hover { background: ${dark.brandSoft}; } .ds-data-row:focus-visible { outline-color: ${dark.focus}; } .ds-data-row button { color: ${dark.brandForeground}; } }`,
     },
   ]
 }
@@ -757,14 +805,23 @@ function assertContrast(label, foreground, background, minimum, documented) {
 }
 
 function validateContrast() {
-  assertContrast('Light primary action', themes.light.onBrand, themes.light.brandFill, 4.5, 5.87)
-  assertContrast('Dark primary action', themes.dark.onBrand, themes.dark.brandFill, 4.5, 8.22)
-  assertContrast('Light muted text', themes.light.textMuted, themes.light.surface, 4.5, 5.74)
-  assertContrast('Dark muted text', themes.dark.textMuted, themes.dark.surface, 4.5, 7.43)
-  assertContrast('Light control boundary', themes.light.borderControl, themes.light.surface, 3, 3.45)
-  assertContrast('Dark control boundary', themes.dark.borderControl, themes.dark.surface, 3, 4.52)
-  assertContrast('Light focus ring', themes.light.focus, themes.light.surface, 3, 7.46)
-  assertContrast('Dark focus ring', themes.dark.focus, themes.dark.surface, 3, 9.16)
+  assertContrast('Light primary action', themes.light.onBrand, themes.light.brandFill, 4.5, 6.19)
+  assertContrast('Dark primary action', themes.dark.onBrand, themes.dark.brandFill, 4.5, 7.88)
+  assertContrast('Light muted text', themes.light.textMuted, themes.light.surface, 4.5, 7.39)
+  assertContrast('Dark muted text', themes.dark.textMuted, themes.dark.surface, 4.5, 8.07)
+  assertContrast('Light control boundary', themes.light.borderControl, themes.light.surface, 3, 3.55)
+  assertContrast('Dark control boundary', themes.dark.borderControl, themes.dark.surface, 3, 4.63)
+  assertContrast('Light focus ring', themes.light.focus, themes.light.surface, 3, 12.11)
+  assertContrast('Dark focus ring', themes.dark.focus, themes.dark.surface, 3, 11.67)
+  // Links, section actions and muted captions sit directly on the light field canvas.
+  assertContrast('Light brand text on canvas', themes.light.brandForeground, themes.light.canvas, 4.5, 5.20)
+  assertContrast('Light muted text on canvas', themes.light.textMuted, themes.light.canvas, 4.5, 5.69)
+  // Lit object tiles stay light in both themes, so their text roles are checked per theme.
+  assertContrast('Light lit tile muted text', themes.light.onLitMuted, themes.light.surfaceLit, 4.5, 7.62)
+  assertContrast('Dark lit tile text', themes.dark.onLit, themes.dark.surfaceLit, 4.5, 14.63)
+  assertContrast('Dark lit tile muted text', themes.dark.onLitMuted, themes.dark.surfaceLit, 4.5, 6.59)
+  assertContrast('Light attention action', themes.light.onAttention, themes.light.attention, 4.5, 7.13)
+  assertContrast('Dark attention action', themes.dark.onAttention, themes.dark.attention, 4.5, 8.30)
 }
 
 validateContrast()
