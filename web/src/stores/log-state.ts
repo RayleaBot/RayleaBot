@@ -248,6 +248,10 @@ function sameFilterValues(left: string[], right: string[]) {
     && normalizedLeft.every((item, index) => item === normalizedRight[index])
 }
 
+export function sameTimeRange(left: HistoryTimeRange, right: HistoryTimeRange) {
+  return (left.startAt ?? '') === (right.startAt ?? '') && (left.endAt ?? '') === (right.endAt ?? '')
+}
+
 export function sameLogFilters(left: LogFilters, right: LogFilters) {
   return sameFilterValues(normalizeFilterValues(left.levels), normalizeFilterValues(right.levels))
     && (left.source ?? '') === (right.source ?? '')

@@ -11,7 +11,7 @@ export const logs = {
     apply: '应用筛选',
     pending: '筛选未应用',
     all: '全部',
-    sourcePlaceholder: '例如 runtime / adapter.onebot11',
+    sourcePlaceholder: '精确匹配，例如 runtime、adapter',
     requestPlaceholder: '例如 req_*',
   },
   fields: {
@@ -49,6 +49,7 @@ export const logs = {
     frozen: '固定时间窗口',
     startAt: '开始时间',
     endAt: '结束时间',
+    quickRange: '快捷时间范围',
     lastDay: '最近一天',
     lastWeek: '最近一周',
     lastMonth: '最近一个月',

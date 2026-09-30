@@ -11,6 +11,7 @@ import {
   mergeSortedLogItemsAsc,
   normalizeLogLimit,
   normalizeLogListResponseItems,
+  sameTimeRange,
   type HistoryTimeRange,
   type LogFilters,
 } from '@/stores/log-state'
@@ -34,6 +35,8 @@ export const useLogHistoryStore = defineStore('log-history', () => {
   // The range of the loaded list. The inputs above are a draft until a query is issued, so paging older
   // entries keeps using the range the list was loaded with.
   const appliedRange = ref<HistoryTimeRange>({})
+  // The quick range the loaded list came from; a hand-edited range belongs to none of them.
+  const recentDays = ref<number | null>(1)
   const anchorAt = ref('')
   const loading = ref(false)
   const loadingOlder = ref(false)
@@ -82,6 +85,7 @@ export const useLogHistoryStore = defineStore('log-history', () => {
       throw new Error(error.value)
     }
     customTimeRange.value = true
+    if (!sameTimeRange(range, appliedRange.value)) recentDays.value = null
     items.value = []
     olderCursor.value = null
     hasOlder.value = false
@@ -91,6 +95,7 @@ export const useLogHistoryStore = defineStore('log-history', () => {
 
   function resetTimeRangeToDefault() {
     customTimeRange.value = false
+    recentDays.value = 1
   }
 
   function setTimeRange(days: number) {
@@ -101,6 +106,7 @@ export const useLogHistoryStore = defineStore('log-history', () => {
       endLocal: toLocalDateTimeInput(anchorDate),
     }
     customTimeRange.value = true
+    recentDays.value = days
   }
 
   async function loadOlder() {
@@ -180,6 +186,7 @@ export const useLogHistoryStore = defineStore('log-history', () => {
     anchorAt,
     appliedRange,
     customTimeRange,
+    recentDays,
     error,
     filters,
     hasOlder,

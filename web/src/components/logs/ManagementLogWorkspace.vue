@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { ChevronDownIcon } from '@lucide/vue'
 import AppTag from '@/components/AppTag.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
@@ -31,12 +31,14 @@ const {
 const { currentDetail, error: detailError, loading: detailLoading, open: detailOpen,
   selectedLogId, selectedSummary } = detail
 const logsLayoutRef = ref<HTMLElement | null>(null)
-const recentRanges = [
-  { days: 1, label: 'logs.history.lastDay' },
-  { days: 7, label: 'logs.history.lastWeek' },
-  { days: 30, label: 'logs.history.lastMonth' },
-  { days: 180, label: 'logs.history.lastHalfYear' },
+const recentRangeOptions = [
+  { value: '1', label: t('logs.history.lastDay') },
+  { value: '7', label: t('logs.history.lastWeek') },
+  { value: '30', label: t('logs.history.lastMonth') },
+  { value: '180', label: t('logs.history.lastHalfYear') },
 ]
+// No segment is selected while the list uses a hand-edited range.
+const recentRange = computed(() => historyStore?.recentDays ? String(historyStore.recentDays) : '')
 </script>
 
 <template>
@@ -45,17 +47,30 @@ const recentRanges = [
       <AppCard borderless class="app-view-card logs-toolbar">
         <ManagementLogFilters v-model="draftFilters" :history="history" :pending="filtersPending" @apply="applyFilters">
           <template v-if="historyStore" #fields>
-            <AppField :label="t('logs.history.startAt')" :hint="managementTimeZone()">
+            <!-- The time zone sits in the label, so every field keeps the same height and the actions stay on the control row. -->
+            <AppField :label="t('logs.history.startAt')">
+              <template #label>{{ t('logs.history.startAt') }} <span class="logs-toolbar__zone">{{ managementTimeZone() }}</span></template>
               <AppInput v-model="historyStore.timeRangeInput.startLocal" type="datetime-local" />
             </AppField>
-            <AppField :label="t('logs.history.endAt')" :hint="managementTimeZone()">
+            <AppField :label="t('logs.history.endAt')">
+              <template #label>{{ t('logs.history.endAt') }} <span class="logs-toolbar__zone">{{ managementTimeZone() }}</span></template>
               <AppInput v-model="historyStore.timeRangeInput.endLocal" type="datetime-local" />
             </AppField>
           </template>
           <template v-if="history" #actions>
-            <AppButton v-for="range in recentRanges" :key="range.days" @click="useRecentDays(range.days)">
-              {{ t(range.label) }}
-            </AppButton>
+            <!-- Looks like a segmented control but stays buttons: choosing the current range again re-anchors it to now. -->
+            <div class="logs-range-group" role="group" :aria-label="t('logs.history.quickRange')">
+              <button
+                v-for="range in recentRangeOptions"
+                :key="range.value"
+                type="button"
+                class="logs-range-group__item"
+                :aria-pressed="recentRange === range.value"
+                @click="useRecentDays(Number(range.value))"
+              >
+                {{ range.label }}
+              </button>
+            </div>
           </template>
         </ManagementLogFilters>
       </AppCard>
@@ -160,6 +175,62 @@ const recentRanges = [
 
 .logs-toolbar :deep(.app-card__body) {
   padding: 12px 14px;
+}
+
+.logs-toolbar__zone {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.logs-range-group {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.logs-range-group__item {
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--motion-fast), color var(--motion-fast);
+}
+
+.logs-range-group__item:hover {
+  color: var(--text);
+}
+
+.logs-range-group__item[aria-pressed=true] {
+  background: var(--surface-raised);
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: var(--shadow-xs);
+}
+
+.logs-range-group__item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: var(--focus-outline-offset);
+}
+
+@media (pointer: coarse) {
+  .logs-range-group__item { min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logs-range-group__item { transition: none; }
+}
+
+@media (forced-colors: active) {
+  .logs-range-group { border: 1px solid CanvasText; }
+  .logs-range-group__item[aria-pressed=true] { outline: 2px solid Highlight; outline-offset: -2px; }
 }
 
 .logs-feed-card,

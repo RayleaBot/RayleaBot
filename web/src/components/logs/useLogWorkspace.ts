@@ -5,7 +5,7 @@ import { useToastFeedback } from '@/adapter/feedback'
 import { useHeavyContentGate } from '@/layouts/usePageTransitionStage'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { areLocationQueriesEqual, buildLogsLocation, readLogWorkspaceState } from '@/lib/management-links'
-import { sameLogFilters, type HistoryTimeRange, type LogFilters } from '@/stores/log-state'
+import { sameLogFilters, sameTimeRange, type LogFilters } from '@/stores/log-state'
 import { toLocalDateTimeInput, useLogHistoryStore } from '@/stores/log-history'
 import { useLogsStore } from '@/stores/logs'
 import type { LogSummary } from '@/types/api'
@@ -19,10 +19,6 @@ function copyFilters(value: LogFilters): LogFilters {
     ...(value.levels && { levels: [...value.levels] }),
     ...(value.pluginIds && { pluginIds: [...value.pluginIds] }),
   }
-}
-
-function sameRange(left: HistoryTimeRange, right: HistoryTimeRange) {
-  return (left.startAt ?? '') === (right.startAt ?? '') && (left.endAt ?? '') === (right.endAt ?? '')
 }
 
 export interface LogViewport {
@@ -54,7 +50,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   const draftFilters = ref<LogFilters>(copyFilters(filters.value))
   watch(filters, value => { draftFilters.value = copyFilters(value) }, { deep: true })
   const filtersPending = computed(() => !sameLogFilters(draftFilters.value, filters.value)
-    || Boolean(historyStore && !sameRange(historyStore.currentUtcRange(), historyStore.appliedRange)))
+    || Boolean(historyStore && !sameTimeRange(historyStore.currentUtcRange(), historyStore.appliedRange)))
   const showJumpToLatest = computed(() => !history && readyToRenderHeavyContent.value
     && initialized.value && !restoringLatest.value && !atBottom.value)
   let routeSyncing = false

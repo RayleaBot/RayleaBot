@@ -319,6 +319,9 @@ describe('LogsHistoryPage', () => {
     await weekButton!.trigger('click')
     await flushPromises()
     expect(setTimeRangeSpy).toHaveBeenCalledWith(7)
+    // The range in effect reads as pressed; choosing it again still re-anchors it.
+    expect(weekButton!.attributes('aria-pressed')).toBe('true')
+    expect(recentDayButton!.attributes('aria-pressed')).toBe('false')
 
     const monthButton = buttons.find((candidate) => candidate.text().includes('最近一个月'))
     expect(monthButton).toBeTruthy()
