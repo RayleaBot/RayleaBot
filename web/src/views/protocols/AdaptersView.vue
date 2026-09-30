@@ -119,7 +119,6 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .connections-workspace { display: grid; gap: 20px; }
 .connections-surface { display: grid; gap: 16px; }
 .connections-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 36px; }
@@ -130,7 +129,4 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
 .connections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
 .connections-empty { padding: 56px 24px; text-align: center; }
 .connections-empty p { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
-@media (max-width: #{bp.$phone - 1px}) {
-  .connections-grid { gap: 16px; }
-}
 </style>

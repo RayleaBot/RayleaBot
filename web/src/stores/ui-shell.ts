@@ -78,7 +78,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     normalizeLayoutPreferences(persistedState.preferences ?? defaultLayoutPreferences),
   )
   const siderCollapsed = ref(Boolean(persistedState.siderCollapsed))
-  const mobileMenuOpen = ref(false)
   const searchOpen = ref(false)
   const settingsOpen = ref(false)
   const routeLoading = ref(false)
@@ -113,10 +112,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
   function toggleSider() {
     siderCollapsed.value = !siderCollapsed.value
     persist()
-  }
-
-  function setMobileMenuOpen(nextValue: boolean) {
-    mobileMenuOpen.value = nextValue
   }
 
   function patchPreferences(nextValue: Partial<LayoutPreferences>) {
@@ -157,7 +152,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
   }
 
   return {
-    mobileMenuOpen,
     preferences,
     resolvedThemeMode,
     patchPreferences,
@@ -169,7 +163,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     themeMode,
     closeSearch,
     closeSettings,
-    setMobileMenuOpen,
     setRouteLoading,
     setThemeMode,
     toggleSider,

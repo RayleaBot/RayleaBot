@@ -36,13 +36,11 @@ type NavigationScope = 'root' | 'plugin-center'
 const props = withDefaults(defineProps<{
   collapsed?: boolean
   menuItems: AppMenuItem[]
-  mobile?: boolean
   openKeys: string[]
   scope: NavigationScope
   selectedKeys: string[]
 }>(), {
   collapsed: false,
-  mobile: false,
 })
 
 const emit = defineEmits<{
@@ -115,9 +113,8 @@ function navigateStaticPage(page: (typeof pluginCenterPages)[number]) {
 function enterPluginCenter() {
   transitionDirection.value = 'forward'
   emit('scopeChange', 'plugin-center')
-  const navigates = !isPluginWorkspaceRoute(route.name)
-  if (navigates) emit('navigate', '/plugins')
-  void focusAfterScopeChange('[data-sidebar-scope-back="plugin-center"]', navigates)
+  if (!isPluginWorkspaceRoute(route.name)) emit('navigate', '/plugins')
+  void focusAfterScopeChange('[data-sidebar-scope-back="plugin-center"]')
 }
 
 function enterPlugin(pluginId: string) {
@@ -147,8 +144,7 @@ function activatePluginNavigationEntry(entry: SidebarPluginNavigationEntry) {
   }
 }
 
-async function focusAfterScopeChange(selector: string, closesOnMobile = false) {
-  if (props.mobile && closesOnMobile) return
+async function focusAfterScopeChange(selector: string) {
   await nextTick()
   navigation.value?.querySelector<HTMLElement>(selector)?.focus()
 }
@@ -159,7 +155,7 @@ function toggleRootGroup(key: string) {
 </script>
 
 <template>
-  <div ref="navigation" class="sidebar-navigation" :data-mobile="mobile ? 'true' : undefined" :data-collapsed="collapsed" :data-scope="visibleScope">
+  <div ref="navigation" class="sidebar-navigation" :data-collapsed="collapsed" :data-scope="visibleScope">
     <Transition :name="transitionName">
       <div :key="visibleScope" class="sidebar-navigation__stage">
         <div v-if="visibleScope === 'root'" class="sidebar-navigation__root">
@@ -237,7 +233,6 @@ function toggleRootGroup(key: string) {
   </div>
 </template>
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .sidebar-navigation {
   display: grid;
   min-width: 0;
@@ -456,7 +451,7 @@ function toggleRootGroup(key: string) {
   transform: translateX(-12px);
 }
 
-@media (max-width: #{bp.$navigation}), (pointer: coarse) {
+@media (pointer: coarse) {
   .sidebar-navigation__back {
     min-height: 44px;
   }
@@ -521,6 +516,6 @@ function toggleRootGroup(key: string) {
 .sidebar-navigation__item.sidebar-navigation__collapsed-item { width: 40px; height: 40px; justify-content: center; margin: 4px 0; padding: 10px; }
 .sidebar-navigation[data-collapsed=true] .admin-layout__menu-label { justify-content: center; }
 .sidebar-navigation__filter :deep(.app-input) { border-radius: 999px; background: var(--surface-raised); color: var(--sider-menu-text); border-color: transparent; box-shadow: var(--shadow-xs); font-size: 12px; }
-@media (max-width: #{bp.$desktop - 1px}), (pointer: coarse) { .sidebar-navigation__item, .sidebar-navigation__group-heading { min-height: 44px; } }
+@media (pointer: coarse) { .sidebar-navigation__item, .sidebar-navigation__group-heading { min-height: 44px; } }
 
 </style>

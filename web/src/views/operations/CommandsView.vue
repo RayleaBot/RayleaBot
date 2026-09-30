@@ -331,50 +331,12 @@ onMounted(() => {
             </template>
           </template>
         </AppDataTable>
-
-        <div class="commands-mobile-list" :aria-label="t('commands.sections.commandList')">
-          <article v-for="record in commandRows" :key="record.key" class="commands-mobile-row">
-            <div class="commands-mobile-row__heading">
-              <strong>{{ record.command.name }}</strong>
-              <AppTag :tone="getStatusColor(record.availability)">
-                {{ getStatusLabel(record.availability) }}
-              </AppTag>
-            </div>
-            <p>{{ record.command.description || t('display.empty') }}</p>
-            <dl>
-              <div>
-                <dt>{{ t('commands.fields.plugin') }}</dt>
-                <dd>
-                  <MotionRouterLink :to="buildPluginDetailLocation(record.pluginId)">
-                    {{ record.pluginName }}
-                  </MotionRouterLink>
-                </dd>
-              </div>
-              <div>
-                <dt>{{ t('commands.fields.usage') }}</dt>
-                <dd class="monospace">{{ getUsageText(record.command) }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('commands.fields.permission') }}</dt>
-                <dd>{{ getEffectivePermissionText(record.policy) }}</dd>
-              </div>
-            </dl>
-          </article>
-
-          <AppEmptyState
-            v-if="commandRows.length === 0"
-            icon="command"
-            :title="nextCursor && !selectedPluginIds.length ? t('commands.empty.partialTitle') : t('commands.empty.title')"
-            :description="nextCursor && !selectedPluginIds.length ? t('commands.empty.partialDescription') : t('commands.empty.description')"
-          />
-        </div>
       </AppCard>
     </template>
   </AppPage>
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .commands-filter-toolbar,
 .commands-section-card,
 .commands-data-table {
@@ -434,67 +396,5 @@ onMounted(() => {
 
 .command-plugin-cell small {
   font-family: var(--font-mono);
-}
-
-.commands-mobile-list {
-  display: none;
-}
-
-.commands-mobile-row {
-  display: grid;
-  gap: 10px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.commands-mobile-row:last-child {
-  border-bottom: 0;
-}
-
-.commands-mobile-row__heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.commands-mobile-row p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.55;
-}
-
-.commands-mobile-row dl {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-}
-
-.commands-mobile-row dl > div {
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
-  gap: 12px;
-}
-
-.commands-mobile-row dt,
-.commands-mobile-row dd {
-  margin: 0;
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
-.commands-mobile-row dt {
-  color: var(--muted);
-}
-
-@media (max-width: #{bp.$phone - 1px}) {
-  .commands-data-table {
-    display: none;
-  }
-
-  .commands-mobile-list {
-    display: block;
-  }
 }
 </style>

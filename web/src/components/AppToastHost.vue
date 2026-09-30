@@ -24,7 +24,6 @@ onBeforeUnmount(() => exitTimers.forEach(clearTimeout))
   </ToastProvider>
 </template>
 <style lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .app-toast-viewport { position: fixed; z-index: 1600; right: max(20px, env(safe-area-inset-right)); top: max(20px, env(safe-area-inset-top)); display: grid; gap: 10px; width: min(380px, calc(100vw - 32px)); margin: 0; padding: 0; list-style: none; outline: none; }
 .app-toast { display: flex; align-items: start; gap: 10px; padding: 14px 16px; border: 1px solid transparent; border-radius: var(--radius-lg); background: var(--surface-strong); color: var(--text); box-shadow: var(--shadow-floating); }
 .app-toast__description { flex: 1; min-width: 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
@@ -38,6 +37,6 @@ onBeforeUnmount(() => exitTimers.forEach(clearTimeout))
 .app-toast[data-state=closed] { animation: app-popup-exit var(--motion-fast, 160ms) ease; }
 .app-toast[data-swipe=move] { transform: translateX(var(--reka-toast-swipe-move-x)); }
 .app-toast[data-swipe=cancel] { transform: translateX(0); transition: transform var(--motion-fast, 160ms); }
-@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) { .app-toast__close { min-width: 44px; min-height: 44px; } }
+@media (pointer: coarse) { .app-toast__close { min-width: 44px; min-height: 44px; } }
 @media (prefers-reduced-motion: reduce), (forced-colors: active) { .app-toast[data-state], .app-toast[data-swipe] { animation: none; transition: none; } }
 </style>

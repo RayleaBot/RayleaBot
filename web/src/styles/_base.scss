@@ -20,7 +20,6 @@
 
 .app-box,
 .admin-layout__sider,
-.admin-layout__mobile-drawer,
 .app-card,
 .app-dialog,
 .app-menu-popup,
@@ -62,7 +61,6 @@ h2,
 h3,
 .app-card__title-text,
 .admin-layout__brand-copy,
-.admin-layout__mobile-brand,
 .auth-layout__brand {
   font-family: var(--font-display);
 }
@@ -197,12 +195,4 @@ summary:focus-visible,
   [data-slot='button'][data-variant='default']:focus-visible,
   [data-slot='checkbox'][data-state='checked']:focus-visible,
   [data-slot='switch'][data-state='checked']:focus-visible { outline-color: Highlight; }
-}
-
-.desktop-only {
-  display: inline-flex !important;
-}
-
-.mobile-only {
-  display: none !important;
 }

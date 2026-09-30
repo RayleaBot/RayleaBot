@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { MenuIcon } from '@lucide/vue'
 
-import AppButton from '@/components/AppButton.vue'
 import ShellSearchButton from '@/components/shell/ShellSearchButton.vue'
-import { t } from '@/i18n'
 import { useUiShellStore } from '@/stores/ui-shell'
 
 const uiShellStore = useUiShellStore()
@@ -32,9 +29,6 @@ const pageClasses = computed(() => {
   <div :class="['app-page', pageClasses, { 'app-page--full-height': fullHeight }]">
     <!-- The first row of every page: title and description, then page search and the page's own actions. -->
     <header class="app-page__header">
-      <AppButton class="app-page__menu mobile-only" variant="ghost" size="icon" :aria-label="t('shell.openMenu')" @click="uiShellStore.setMobileMenuOpen(true)">
-        <template #icon><MenuIcon /></template>
-      </AppButton>
       <div v-if="$slots.leading" class="app-page__leading">
         <slot name="leading" />
       </div>

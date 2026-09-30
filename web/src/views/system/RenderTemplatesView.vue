@@ -7,10 +7,8 @@ import AppTag from '@/components/AppTag.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppTabs from '@/components/AppTabs.vue'
-import { ChevronDownIcon, FileImageIcon, RefreshCwIcon, SearchIcon } from '@lucide/vue'
-import { computed, onActivated, onDeactivated, onMounted, ref, useId, watch } from 'vue'
-import { useMediaQuery } from '@vueuse/core'
-import { breakpoints } from '@/preferences/breakpoints.generated'
+import { FileImageIcon, RefreshCwIcon, SearchIcon } from '@lucide/vue'
+import { computed, onActivated, onDeactivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -34,9 +32,6 @@ const router = useRouter()
 const renderTemplatesStore = useRenderTemplatesStore()
 const pluginsStore = usePluginsStore()
 const search = ref('')
-const compact = useMediaQuery(`(max-width: ${breakpoints.tablet - 1}px)`)
-const catalogOpen = ref(false)
-const catalogId = useId()
 const workspaceTab = ref('preview')
 const removedTemplateNotice = ref(false)
 const workspaceTabs = computed(() => [
@@ -206,10 +201,6 @@ watch([items, currentTemplate], () => {
 })
 
 async function selectTemplate(templateId: string) {
-  if (compact.value) {
-    catalogOpen.value = false
-    search.value = ''
-  }
   if (templateId === activeTemplateId.value) {
     return
   }
@@ -245,10 +236,7 @@ onDeactivated(() => {
     <AppEmptyState v-else-if="!loading && hasRequestedList && items.length === 0 && !search && !activeTemplateId" icon="box" :title="t('renderTemplates.noTemplates')" :description="t('renderTemplates.catalogHint')" />
     <div v-else class="render-templates-shell">
       <aside class="template-catalog" :aria-label="t('renderTemplates.templateList')">
-        <AppButton v-if="compact" class="template-catalog__toggle" :aria-label="t('renderTemplates.chooseTemplate')" :aria-expanded="catalogOpen" :aria-controls="catalogId" @click="catalogOpen = !catalogOpen">
-          <span>{{ currentTemplate ? currentTemplate.name : t('renderTemplates.chooseTemplate') }}</span><ChevronDownIcon :size="16" :class="{ 'is-open': catalogOpen }" />
-        </AppButton>
-        <div :id="catalogId" v-show="!compact || catalogOpen" class="template-catalog__content">
+        <div class="template-catalog__content">
           <div class="template-catalog__search"><SearchIcon :size="16" aria-hidden="true" /><AppInput v-model="search" :maxlength="200" type="search" :aria-label="t('renderTemplates.search')" :placeholder="t('renderTemplates.search')" /></div>
           <p class="template-catalog__hint">{{ t('renderTemplates.catalogHint') }}<span>{{ items.length }}</span></p>
           <div class="template-catalog__list">
@@ -318,13 +306,9 @@ onDeactivated(() => {
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .render-templates-shell { display: grid; grid-template-columns: 252px minmax(0, 1fr); gap: 28px; flex: 1; min-height: 0; }
 .template-catalog { display: flex; flex-direction: column; min-height: 0; padding-right: 20px; border-right: 1px solid var(--border); }
 .template-catalog__content { display: flex; flex: 1; flex-direction: column; min-height: 0; }
-.template-catalog__toggle { width: 100%; justify-content: space-between; text-align: left; }
-.template-catalog__toggle svg { flex: none; transition: transform 160ms ease; }
-.template-catalog__toggle svg.is-open { transform: rotate(180deg); }
 .template-catalog__search { position: relative; }
 .template-catalog__search > svg { position: absolute; z-index: 1; top: 14px; left: 12px; color: var(--muted); pointer-events: none; }
 .template-catalog__search :deep(input) { padding-left: 36px; }
@@ -372,18 +356,5 @@ onDeactivated(() => {
 .template-info-list div { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 16px; font-size: 13px; line-height: 1.6; }
 .template-info-list dt { color: var(--muted); }
 .template-info-list dd { margin: 0; overflow-wrap: anywhere; }
-@media (max-width: #{bp.$splitPanel}) { .render-templates-shell { grid-template-columns: 220px minmax(0, 1fr); gap: 20px; } .template-catalog { padding-right: 16px; } }
-@media (max-width: #{bp.$tablet - 1px}) {
-  .render-templates-shell { display: flex; flex-direction: column; gap: 24px; }
-  .template-catalog { flex: none; padding: 0 0 16px; border-right: 0; border-bottom: 1px solid var(--border); }
-  .template-catalog__content { margin-top: 12px; }
-  .template-catalog__hint { margin-bottom: 10px; }
-  .template-catalog__list { max-height: 190px; }
-  .template-workspace { min-height: 440px; flex: 1; }
-  .template-workspace__heading h2 { font-size: 20px; }
-  .template-workspace__tabs :deep(.app-tabs__header) { flex-wrap: wrap; gap: 8px; }
-  .template-workspace__tabs :deep(.app-tabs__list) { gap: 18px; }
-  .template-data-workspace__intro { align-items: flex-start; }
-}
-@media (prefers-reduced-motion: reduce) { .template-nav-item, .template-catalog__toggle svg { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .template-nav-item { transition: none; } }
 </style>

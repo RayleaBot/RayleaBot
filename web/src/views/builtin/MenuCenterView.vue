@@ -273,7 +273,6 @@ async function save() {
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .menu-center-actions {
   display: flex;
   align-items: center;
@@ -469,59 +468,6 @@ async function save() {
 
   .app-select {
     border-radius: var(--radius-sm) !important;
-  }
-}
-
-@media (max-width: #{bp.$navigation - 1px}) {
-  .menu-center-layout {
-    --menu-center-preview-top-space: 0px;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .menu-center-float-panel {
-    width: 100%;
-    margin-bottom: var(--space-md);
-    background: var(--surface);
-  }
-}
-
-@media (max-width: #{bp.$compactPanel}) {
-  .menu-center-layout {
-    padding: var(--space-sm);
-  }
-
-  .menu-center-float-panel {
-    padding: var(--space-sm);
-  }
-
-  .menu-center-float-panel__body {
-    gap: var(--space-sm);
-  }
-
-  .menu-trigger-row {
-    margin-bottom: var(--space-sm);
-  }
-
-  .menu-center-tabs :deep(.app-tabs__header) {
-    flex-wrap: wrap;
-    row-gap: var(--space-sm);
-  }
-
-  .menu-center-tabs :deep(.app-tabs__list) {
-    min-width: 0;
-  }
-
-  .menu-center-tabs :deep(.app-tabs__extra) {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .menu-center-plugin-select {
-    width: 100%;
-  }
-
-  .menu-preview-card {
-    padding: var(--space-sm);
   }
 }
 </style>

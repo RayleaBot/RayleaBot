@@ -398,7 +398,6 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 
 // The header lens: a raised circle holding the overall status dot.
 .status-lens { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; background: var(--control-fill); box-shadow: var(--shadow-xs); }
@@ -471,11 +470,6 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
 .status-event__summary--link:hover { color: var(--brand-foreground); text-decoration: underline; text-underline-offset: 3px; }
 .status-event__summary--link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-@media (max-width: #{bp.$desktop - 1px}) {
-  .status-grid { grid-template-columns: minmax(0, 1fr); }
-  .status-attention { grid-template-columns: auto minmax(0, 1fr); }
-  .status-attention__actions { grid-column: 1 / -1; }
-}
 @media (forced-colors: active) {
   .status-lens, .status-actions, .status-attention__icon { border: 1px solid CanvasText; }
 }

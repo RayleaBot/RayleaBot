@@ -1,5 +1,3 @@
-@use './breakpoints.generated' as bp;
-
 // The shell is a white page with a floating light-gray sidebar and one scrolling workspace. It draws no
 // header of its own: each page's first row (AppPage) carries the title, the page search and the actions.
 .admin-layout {
@@ -154,38 +152,6 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-}
-
-.admin-layout__mobile-drawer {
-  background: var(--sider-bg);
-  color: var(--sider-menu-text);
-}
-
-.admin-layout__mobile-drawer .app-dialog__header { padding: 16px; }
-.admin-layout__mobile-drawer .app-dialog__header .app-button { color: var(--sider-menu-text); }
-.admin-layout__mobile-drawer .app-dialog__body { padding: 0 12px 16px; background: var(--sider-bg); }
-.admin-layout__mobile-drawer .app-dialog__footer { padding: 0; border-top: 0; }
-
-.admin-layout__mobile-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 8px 10px 4px;
-  color: var(--sider-brand-text);
-}
-
-.admin-layout__mobile-brand > .raylea-mark {
-  width: 24px;
-  height: 26px;
-}
-
-@media (max-width: #{bp.$desktop - 1px}) {
-  .admin-layout__sider { display: none; }
-}
-
-@media (min-width: #{bp.$desktop}) {
-  .admin-layout .app-button.mobile-only { display: none !important; }
 }
 
 @media (forced-colors: active) {

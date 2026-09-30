@@ -3,12 +3,11 @@ import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import AppSegmented from '@/components/AppSegmented.vue'
-import AppDrawer from '@/components/AppDrawer.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppButton from '@/components/AppButton.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { FilterIcon, SearchIcon, PlusIcon } from '@lucide/vue'
+import { SearchIcon, PlusIcon } from '@lucide/vue'
 
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppTableToolbar from '@/components/AppTableToolbar.vue'
@@ -30,7 +29,6 @@ const { actionPending, error, loading, sortedItems, total, nextCursor, loadingMo
 const installDialogVisible = ref(false)
 const summaryPluginId = ref<string | null>(null)
 const summaryDrawerVisible = ref(false)
-const filterDrawerVisible = ref(false)
 
 const searchQuery = ref('')
 const filterState = ref<'all' | 'running' | 'disabled' | 'alert'>('all')
@@ -107,7 +105,7 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
     <div v-else class="plugins-page-content">
       <AppTableToolbar class="plugins-toolbar">
         <template #left>
-          <div class="toolbar-filters plugins-filter-desktop">
+          <div class="toolbar-filters">
             <AppInput
               v-model="searchQuery" :maxlength="200"
               :placeholder="t('plugins.filter.searchPlaceholder')"
@@ -126,10 +124,6 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
         </template>
 
         <template #right>
-          <AppButton class="plugins-filter-mobile-trigger" @click="filterDrawerVisible = true">
-            <template #icon><FilterIcon /></template>
-            {{ t('plugins.filter.title') }}
-          </AppButton>
           <AppButton variant="default" @click="installDialogVisible = true">
             <template #icon><PlusIcon /></template>
             {{ t('plugins.install') }}
@@ -164,21 +158,6 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
       </div>
       <AppCollectionPagination :loaded="sortedItems.length" :total="total" :next-cursor="nextCursor" :loading="loadingMore || loading" @more="pluginsStore.loadMore().catch(() => undefined)" />
     </div>
-
-    <AppDrawer :open="filterDrawerVisible" placement="bottom" :title="t('plugins.filter.title')" @close="filterDrawerVisible = false">
-      <div class="plugins-filter-drawer">
-        <AppInput
-          v-model="searchQuery" :maxlength="200"
-          :placeholder="t('plugins.filter.searchPlaceholder')"
-          allow-clear
-        >
-          <template #prefix><SearchIcon /></template>
-        </AppInput>
-        <AppSegmented v-model="filterState" :options="stateOptions" :label="t('plugins.filter.title')" class="filter-radio-group" />
-        <AppSelect v-model="filterSource" :options="sourceOptions" :aria-label="t('plugins.filter.sourceAll')" wrapper-class="filter-select" />
-        <AppButton variant="default" @click="filterDrawerVisible = false">{{ t('plugins.filter.done') }}</AppButton>
-      </div>
-    </AppDrawer>
 
     <PluginInstallDialog v-model:open="installDialogVisible" />
 
@@ -225,30 +204,6 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
   width: 140px;
 }
 
-.plugins-filter-mobile-trigger {
-  display: none;
-}
-
-.plugins-filter-drawer {
-  display: grid;
-  gap: 16px;
-}
-
-.plugins-filter-drawer :deep(.app-segmented) {
-  display: flex;
-  flex-wrap: wrap;
-}
-
-@media (max-width: #{bp.$phone - 1px}) {
-  .plugins-filter-desktop {
-    display: none;
-  }
-
-  .plugins-filter-mobile-trigger {
-    display: inline-flex;
-  }
-}
-
 .plugins-page-content :deep(.collection-pagination) {
   padding-inline: 4px;
 }
@@ -259,13 +214,10 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
 
 .plugins-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-lg);
   align-items: stretch;
 }
 
-@media (min-width: #{bp.$fourColumns}) { .plugins-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (min-width: #{bp.$fiveColumns}) { .plugins-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-@media (max-width: #{bp.$wide - 1px}) { .plugins-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: #{bp.$tablet - 1px}) { .plugins-grid { grid-template-columns: minmax(0, 1fr); } }
 </style>

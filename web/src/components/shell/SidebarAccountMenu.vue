@@ -20,8 +20,8 @@ import type { ResolvedThemeMode, ThemeMode } from '@/preferences/app'
 import type { ThemeMotionOrigin } from '@/motion/runtime'
 
 withDefaults(defineProps<{
-  collapsed?: boolean; fullscreen?: boolean; mobile?: boolean; mode: ThemeMode; resolvedMode: ResolvedThemeMode
-}>(), { collapsed: false, fullscreen: false, mobile: false })
+  collapsed?: boolean; fullscreen?: boolean; mode: ThemeMode; resolvedMode: ResolvedThemeMode
+}>(), { collapsed: false, fullscreen: false })
 defineEmits<{
   collapse: []; fullscreen: []; logout: []; manage: []; settings: []; shutdown: []; theme: [mode: ThemeMode, origin: ThemeMotionOrigin]
 }>()
@@ -31,7 +31,7 @@ defineEmits<{
   <!-- The sidebar foot holds everything that is not a page: account, preferences, full screen, service shutdown, theme and the sidebar toggle. -->
   <div class="sidebar-account" :data-collapsed="collapsed" data-testid="sidebar-footer">
     <AppDropdown side="top" align="start">
-      <AppButton class="sidebar-account__trigger" variant="ghost" :size="collapsed ? 'icon' : 'default'" :aria-label="t('shell.account')" :data-testid="mobile ? 'mobile-account' : 'sidebar-account'">
+      <AppButton class="sidebar-account__trigger" variant="ghost" :size="collapsed ? 'icon' : 'default'" :aria-label="t('shell.account')" data-testid="sidebar-account">
         <span class="sidebar-account__avatar" aria-hidden="true"><UserRoundIcon /></span>
         <span v-if="!collapsed" class="sidebar-account__label">{{ t('shell.account') }}</span>
         <ChevronUpIcon v-if="!collapsed" class="sidebar-account__chevron" />
@@ -39,7 +39,7 @@ defineEmits<{
       <template #content>
         <AppDropdownItem @select="$emit('manage')"><KeyRoundIcon />{{ t('shell.credentials.title') }}</AppDropdownItem>
         <AppDropdownItem data-testid="shell-settings" @select="$emit('settings')"><SettingsIcon />{{ t('shell.settings') }}</AppDropdownItem>
-        <AppDropdownItem v-if="!mobile" data-testid="shell-fullscreen" @select="$emit('fullscreen')">
+        <AppDropdownItem data-testid="shell-fullscreen" @select="$emit('fullscreen')">
           <MinimizeIcon v-if="fullscreen" /><MaximizeIcon v-else />{{ fullscreen ? t('shell.exitFullscreen') : t('shell.enterFullscreen') }}
         </AppDropdownItem>
         <div class="app-menu-separator" role="separator" />
@@ -47,9 +47,8 @@ defineEmits<{
         <AppDropdownItem danger data-testid="shell-shutdown" @select="$emit('shutdown')"><PowerIcon />{{ t('shell.shutdown') }}</AppDropdownItem>
       </template>
     </AppDropdown>
-    <ThemeModeMenu class="sidebar-account__tool" :mode="mode" :resolved-mode="resolvedMode" side="top" align="start" :test-id="mobile ? 'mobile-theme-toggle' : 'theme-toggle'" @change="(mode, origin) => $emit('theme', mode, origin)" />
+    <ThemeModeMenu class="sidebar-account__tool" :mode="mode" :resolved-mode="resolvedMode" side="top" align="start" test-id="theme-toggle" @change="(mode, origin) => $emit('theme', mode, origin)" />
     <AppButton
-      v-if="!mobile"
       class="sidebar-account__tool"
       variant="ghost"
       size="icon"
@@ -64,7 +63,6 @@ defineEmits<{
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .sidebar-account { display: flex; align-items: center; gap: 2px; padding: 10px; border-top: 1px solid var(--border); }
 .sidebar-account__trigger { flex: 1; min-width: 0; justify-content: flex-start; gap: 10px; height: 44px; padding-inline: 6px 10px; color: var(--chrome-text); font-weight: 500; }
 .sidebar-account__avatar { display: grid; flex: none; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--text); color: var(--bg); }
@@ -75,7 +73,7 @@ defineEmits<{
 .sidebar-account__trigger:hover, .sidebar-account__tool:hover { background: var(--nav-hover); color: var(--chrome-text); }
 .sidebar-account[data-collapsed=true] { flex-direction: column; gap: 4px; padding: 10px 0; }
 .sidebar-account[data-collapsed=true] .sidebar-account__trigger { flex: none; justify-content: center; width: 44px; padding: 0; }
-@media (max-width: #{bp.$desktop - 1px}), (pointer: coarse) {
+@media (pointer: coarse) {
   .sidebar-account__trigger, .sidebar-account__tool { min-height: 44px; }
   .sidebar-account__tool { min-width: 44px; }
 }

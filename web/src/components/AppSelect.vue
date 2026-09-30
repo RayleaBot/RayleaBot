@@ -57,7 +57,6 @@ function clearSelection() {
   </div>
 </template>
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .app-select { min-height: 40px; height: auto; width: 100%; padding: 9px 12px; background: var(--surface-raised); }
 .app-select--floating { min-height: 56px; padding-top: 24px; padding-bottom: 8px; padding-right: 40px; }
 .app-select--floating :deep(svg:last-child) { position: absolute; right: 12px; top: 50%; translate: 0 -50%; }
@@ -67,5 +66,5 @@ function clearSelection() {
 .app-select-clear { position: absolute; right: 32px; top: 50%; translate: 0 -50%; display: grid; place-items: center; width: 32px; height: 36px; border-radius: 6px; color: var(--muted); }
 .app-select-clear:hover { color: var(--text); background: var(--surface-soft); }
 .app-select__value { text-align: left; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
-@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) { .app-select { min-height: 44px; } .app-select--clearable { padding-right: 82px; } .app-select-clear { width: 44px; height: 44px; } .app-select-content :deep([role=option]) { min-height: 44px; } }
+@media (pointer: coarse) { .app-select { min-height: 44px; } .app-select--clearable { padding-right: 82px; } .app-select-clear { width: 44px; height: 44px; } .app-select-content :deep([role=option]) { min-height: 44px; } }
 </style>

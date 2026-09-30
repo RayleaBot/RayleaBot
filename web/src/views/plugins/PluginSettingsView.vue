@@ -273,7 +273,6 @@ function getSectionIcon(key: string) {
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/breakpoints.generated' as bp;
 .plugin-settings-skeleton-layout {
   display: grid;
 }
@@ -300,10 +299,6 @@ function getSectionIcon(key: string) {
 }
 
 .plugin-settings-save-bar .app-button { flex: 0 0 auto; }
-@media (max-width: #{bp.$phone - 1px}) {
-  .plugin-settings-save-bar { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); }
-  .plugin-settings-save-bar .app-button { min-height: 44px; }
-}
 
 .plugin-settings-board {
   display: grid;
@@ -442,7 +437,7 @@ function getSectionIcon(key: string) {
 }
 
 // Touch targets grow to 44px without the outline that frames the compact desktop mark.
-@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
+@media (pointer: coarse) {
   .field-info-icon {
     min-width: 44px;
     min-height: 44px;
@@ -521,16 +516,5 @@ function getSectionIcon(key: string) {
   padding: 0;
   font-size: 0.82rem;
   font-weight: 650;
-}
-
-@media (max-width: #{bp.$pluginSettings}) {
-  .plugin-settings-setting-row {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .plugin-settings-control-wrap--with-preview {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

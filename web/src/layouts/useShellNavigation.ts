@@ -82,8 +82,6 @@ export function useShellNavigation(options: {
     const routeKeys = lineage.slice(0, -1).map((item) => item.key)
     openMenuKeys.value = Array.from(new Set([...openMenuKeys.value, ...routeKeys]))
   }, { immediate: true })
-  // In-page links and history navigation close the mobile drawer too.
-  watch(() => route.fullPath, () => uiShellStore.setMobileMenuOpen(false))
 
   const pluginNavigationScope = ref<PluginNavigationScope>('root')
   watch(
@@ -103,7 +101,6 @@ export function useShellNavigation(options: {
   ).values())
 
   function navigateTo(target: RouteLocationRaw) {
-    uiShellStore.setMobileMenuOpen(false)
     collapsedOpenMenuKeys.value = []
     void options.navigate(target)
   }

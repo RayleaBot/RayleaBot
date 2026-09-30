@@ -91,7 +91,6 @@ export const plugins = {
     sourceAll: '全部来源',
     sourceOfficial: '官方',
     sourceCommunity: '第三方 / 社区',
-    done: '完成',
   },
   sourceType: '来源类型',
   settings: {

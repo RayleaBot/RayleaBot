@@ -199,26 +199,6 @@ describe('ManagementLogDetailDrawer', () => {
     expect(wrapper.text()).toContain('weather')
   })
 
-  it('falls back to the drawer on narrow screens', async () => {
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes('max-width: 960px'),
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })) as typeof window.matchMedia
-
-    const { wrapper } = await mountFloatingDrawer({
-      memoryKey: 'logs-current',
-    })
-
-    expect(document.body.querySelector('[data-slot=app-dialog]')).not.toBeNull()
-    expect(document.body.querySelector('.log-detail-window')).toBeNull()
-  })
-
   it('keeps dragging inside the right corridor and remembers the last position', async () => {
     const { wrapper } = await mountFloatingDrawer({
       memoryKey: 'logs-current',

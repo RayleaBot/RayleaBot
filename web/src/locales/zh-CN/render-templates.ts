@@ -2,7 +2,6 @@ export const renderTemplates = {
   title: '模板预览',
   subtitle: '按插件浏览当前可用模板，调整示例数据并查看效果。',
   search: '搜索插件或模板',
-  chooseTemplate: '选择模板',
   noMatches: '没有匹配的模板',
   clearSearch: '清除搜索',
   refreshList: '刷新模板目录',

@@ -2,7 +2,6 @@ export const logs = {
   currentTitle: '实时日志',
   historyTitle: '历史日志',
   filters: {
-    panel: '筛选条件',
     level: '级别',
     source: '来源',
     protocol: '协议',

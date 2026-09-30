@@ -59,7 +59,6 @@ const attentionTone = computed(() => props.statusTone === 'danger' || props.stat
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .connection-card { display: flex; flex-direction: column; min-width: 0; min-height: 240px; padding: 20px; color: var(--text); }
 .connection-card[data-attention=warning] { box-shadow: inset 0 0 0 2px var(--warning), var(--shadow-card); }
 .connection-card[data-attention=danger] { box-shadow: inset 0 0 0 2px var(--danger), var(--shadow-card); }
@@ -82,7 +81,7 @@ const attentionTone = computed(() => props.statusTone === 'danger' || props.stat
 .connection-actions { display: flex; flex: none; align-items: center; gap: 4px; }
 .connection-remove { color: var(--muted); }
 .connection-remove:hover { color: var(--text-danger); background: var(--surface-danger); }
-@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
+@media (pointer: coarse) {
   .connection-actions :deep(button) { min-width: 44px; min-height: 44px; }
 }
 @media (forced-colors: active) {

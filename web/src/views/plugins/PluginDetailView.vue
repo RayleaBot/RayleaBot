@@ -224,7 +224,6 @@ function returnToPluginList() {
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 :deep(.app-card) {
   box-shadow: var(--shadow-xs);
   border-radius: var(--radius-lg);
@@ -268,10 +267,8 @@ function returnToPluginList() {
   flex: 0 0 auto;
 }
 
-@media (min-width: #{bp.$navigation + 1px}) {
-  .plugin-detail-panel-switch--sidebar-owned {
-    display: none;
-  }
+.plugin-detail-panel-switch--sidebar-owned {
+  display: none;
 }
 
 .premium-detail-tabs {
@@ -418,13 +415,5 @@ function returnToPluginList() {
 .plugin-detail-main-column {
   display: grid;
   gap: 14px;
-}
-
-@media (max-width: #{bp.$compactPanel}) {
-  .plugin-detail-back-button {
-    width: 44px;
-    min-width: 44px;
-    height: 44px;
-  }
 }
 </style>

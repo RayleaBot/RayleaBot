@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useFullscreen } from '@vueuse/core'
-import AppDrawer from '@/components/AppDrawer.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 
 import { notifyError, notifyInfo, notifySuccess, useToastFeedback } from '@/adapter/feedback'
@@ -35,7 +34,6 @@ const configStore = useConfigStore()
 const uiShellStore = useUiShellStore()
 
 const {
-  mobileMenuOpen,
   preferences,
   routeLoading,
   searchOpen,
@@ -45,8 +43,8 @@ const { shutdownPending, shutdownRequested } = storeToRefs(systemStore)
 
 const shutdownDialogVisible = ref(false)
 const accountDialogVisible = ref(false)
-// Dialogs opened from the account menu return focus to the menu trigger they came from.
-const accountFallbackFocus = ref('[data-testid=sidebar-account]')
+// Dialogs opened from the account menu return focus to its trigger.
+const accountFallbackFocus = '[data-testid=sidebar-account]'
 
 useToastFeedback(() => (
   shutdownRequested.value
@@ -96,20 +94,6 @@ async function toggleFullscreen() {
 
 function setThemeModeWithMotion(mode: ThemeMode, origin: ThemeMotionOrigin) {
   if (mode !== uiShellStore.themeMode) applyThemeWithMotion(() => uiShellStore.setThemeMode(mode), origin)
-}
-
-function rememberAccountTrigger(mobile: boolean) {
-  accountFallbackFocus.value = mobile ? '[data-testid=mobile-account]' : '[data-testid=sidebar-account]'
-}
-
-function openAccountDialog(mobile = false) {
-  rememberAccountTrigger(mobile)
-  accountDialogVisible.value = true
-}
-
-function openShutdownDialog(mobile = false) {
-  rememberAccountTrigger(mobile)
-  shutdownDialogVisible.value = true
 }
 
 async function handleLogout() {
@@ -187,57 +171,12 @@ onBeforeUnmount(() => stopRoutePrefetch?.())
         @collapse="uiShellStore.toggleSider()"
         @fullscreen="toggleFullscreen"
         @logout="handleLogout"
-        @manage="openAccountDialog()"
-        @settings="rememberAccountTrigger(false); uiShellStore.openSettings()"
-        @shutdown="openShutdownDialog()"
+        @manage="accountDialogVisible = true"
+        @settings="uiShellStore.openSettings()"
+        @shutdown="shutdownDialogVisible = true"
         @theme="setThemeModeWithMotion"
       />
     </aside>
-
-    <AppDrawer
-      :open="mobileMenuOpen"
-      class="admin-layout__mobile-drawer"
-      placement="left"
-      :title="t('app.mainNavigation')"
-      :width="280"
-      @close="uiShellStore.setMobileMenuOpen(false)"
-    >
-      <div class="admin-layout__mobile-brand">
-        <RayleaMark variant="chrome" />
-        <strong>{{ t('app.brand') }}</strong>
-        <span class="admin-layout__build-version" :title="buildVersionLabel">{{ buildVersionLabel }}</span>
-      </div>
-
-      <nav
-        class="admin-layout__primary-navigation"
-        tabindex="0"
-        :aria-label="t('app.mainNavigation')"
-        @keydown="handleNavigationKeydown"
-      >
-        <AppSidebarNavigation
-          mobile
-          :menu-items="menuItems"
-          :open-keys="openMenuKeys"
-          :scope="pluginNavigationScope"
-          :selected-keys="selectedMenuKeys"
-          @navigate="navigateTo"
-          @open-change="handleOpenChange"
-          @scope-change="setPluginNavigationScope"
-        />
-      </nav>
-      <template #footer>
-        <SidebarAccountMenu
-          mobile
-          :mode="uiShellStore.themeMode"
-          :resolved-mode="uiShellStore.resolvedThemeMode"
-          @logout="handleLogout"
-          @manage="openAccountDialog(true)"
-          @settings="rememberAccountTrigger(true); uiShellStore.openSettings()"
-          @shutdown="openShutdownDialog(true)"
-          @theme="setThemeModeWithMotion"
-        />
-      </template>
-    </AppDrawer>
 
     <div class="admin-layout__workspace">
       <div class="admin-layout__progress-track" aria-hidden="true">

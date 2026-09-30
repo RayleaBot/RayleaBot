@@ -321,7 +321,7 @@ const healthNotices = computed(() => {
 @media (forced-colors: active) {
   .plugin-grid-card[data-attention] { outline: 2px solid Highlight; outline-offset: -4px; }
 }
-@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
+@media (pointer: coarse) {
   .plugin-card__name { min-height: 44px; white-space: normal; line-height: 1.4; }
   .plugin-card__manage-action.app-button { min-height: 44px; }
   .plugin-card__icon-action.app-button { width: 44px; height: 44px; }

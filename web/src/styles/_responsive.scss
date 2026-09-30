@@ -1,67 +1,3 @@
-@use './breakpoints.generated' as bp;
-@media (max-width: #{bp.$wide - 1px}) {
-  .admin-layout__content {
-    padding: var(--space-lg);
-  }
-}
-
-@media (max-width: #{bp.$desktop - 1px}) {
-  .desktop-only {
-    display: none !important;
-  }
-
-  .mobile-only {
-    display: inline-flex !important;
-  }
-
-  .admin-layout .app-button.desktop-only,
-  .auth-layout .app-button.desktop-only {
-    display: none !important;
-  }
-
-  .admin-layout .app-button.mobile-only,
-  .auth-layout .app-button.mobile-only {
-    display: inline-flex !important;
-  }
-
-  .admin-layout__content {
-    padding: 16px;
-  }
-
-  .admin-layout__sider {
-    display: none;
-  }
-
-  .auth-layout__toolbar {
-    top: 18px;
-    right: 20px;
-  }
-}
-
-@media (max-width: #{bp.$phone - 1px}) {
-  .app-page__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .app-page__extra {
-    justify-content: flex-start;
-  }
-
-  .admin-layout__content {
-    padding: 12px;
-  }
-
-  .app-page__extra .app-button,
-  .app-table-toolbar .app-button {
-    min-height: 44px;
-  }
-
-  .logs-filter-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (prefers-reduced-motion: reduce), (forced-colors: active) {
   .admin-layout__progress-bar.is-active::after {
     animation: none;
@@ -79,7 +15,7 @@
   }
 }
 
-@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
+@media (pointer: coarse) {
  .admin-layout .app-button,
  .auth-layout .app-button { min-height: 44px; }
  .auth-layout .auth-layout__theme-toggle.app-button { width: 44px; min-width: 44px; height: 44px; }

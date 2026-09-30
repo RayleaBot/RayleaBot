@@ -37,7 +37,6 @@ defineExpose({ focus: () => wrapper.value?.querySelector('input')?.focus() })
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .app-input-wrap { position: relative; min-width: 0; width: 100%; }
 .app-input { height: 40px; background: var(--surface-raised); color: var(--text); }
 .app-input--floating { height: 56px; min-height: 56px; padding-top: 24px; padding-bottom: 8px; line-height: 22px; }
@@ -45,5 +44,5 @@ defineExpose({ focus: () => wrapper.value?.querySelector('input')?.focus() })
 .app-input-prefix { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 40px; height: 40px; color: var(--muted); pointer-events: none; }
 .app-input-reveal { position: absolute; right: 0; top: 0; display: grid; place-items: center; width: 40px; height: 40px; color: var(--muted); border-radius: 8px; }
 .app-input-reveal:hover { color: var(--text); }
-@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) { .app-input, .app-input-reveal { min-height: 44px; } .app-input-reveal { width: 44px; } }
+@media (pointer: coarse) { .app-input, .app-input-reveal { min-height: 44px; } .app-input-reveal { width: 44px; } }
 </style>

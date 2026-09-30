@@ -131,7 +131,6 @@ function hasItems(value?: readonly unknown[] | null) {
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 
 .plugin-detail-summary-panel {
   min-width: 0;
@@ -299,18 +298,5 @@ function hasItems(value?: readonly unknown[] | null) {
 
 .meta-tag {
   font-size: 12px;
-}
-
-@media (max-width: #{bp.$pluginDetail}) {
-  .plugin-detail-summary-stack {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: #{bp.$pluginSettings}) {
-  .plugin-detail-summary-stack,
-  .plugin-detail-kv-list {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

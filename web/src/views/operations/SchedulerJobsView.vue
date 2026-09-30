@@ -118,7 +118,6 @@ const {
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/breakpoints.generated' as bp;
 .lucide { width: 16px; height: 16px; flex-shrink: 0; }
 .scheduler-page-container {
   display: grid;

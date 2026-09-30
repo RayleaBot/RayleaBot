@@ -224,7 +224,6 @@ function getSectionIcon(key: string) {
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/breakpoints.generated' as bp;
 .rate-limits-page {
   display: grid;
   gap: 18px;
@@ -452,7 +451,7 @@ function getSectionIcon(key: string) {
 }
 
 // Touch targets grow to 44px without the outline that frames the compact desktop mark.
-@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
+@media (pointer: coarse) {
   .field-info-icon {
     min-width: 44px;
     min-height: 44px;
@@ -479,33 +478,5 @@ function getSectionIcon(key: string) {
   display: flex;
   min-height: 36px;
   align-items: center;
-}
-
-@media (max-width: #{bp.$pluginDetail}) {
-  .rate-limits-summary-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: #{bp.$pluginSettings}) {
-  .rate-limits-board__header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .rate-limits-setting-row {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .rate-limits-control-wrap--with-preview {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: #{bp.$phone}) {
-  .rate-limits-summary-cards {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

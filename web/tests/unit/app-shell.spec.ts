@@ -385,30 +385,6 @@ describe('BasicLayout', () => {
     expect(pluginCenterTrigger.attributes('aria-label')).toBe('插件中心')
   })
 
-  it('keeps the mobile drawer open when navigating back through sidebar levels', async () => {
-    const { wrapper, router, uiShellStore } = await mountShell('/plugins')
-    uiShellStore.setMobileMenuOpen(true)
-    await flushPromises()
-
-    const mobileCenter = document.body.querySelector<HTMLElement>('[data-mobile="true"][data-scope="plugin-center"]')
-    expect(mobileCenter).not.toBeNull()
-    mobileCenter?.querySelector<HTMLElement>('[data-sidebar-scope-back="plugin-center"]')?.click()
-    await flushPromises()
-
-    expect(uiShellStore.mobileMenuOpen).toBe(true)
-    const mobileRoot = document.body.querySelector<HTMLElement>('[data-mobile="true"][data-scope="root"]')
-    expect(mobileRoot).not.toBeNull()
-    mobileRoot?.querySelector<HTMLElement>('[data-sidebar-entry="plugin-center"]')?.click()
-    await flushPromises()
-
-    expect(router.currentRoute.value.path).toBe('/plugins')
-    expect(uiShellStore.mobileMenuOpen).toBe(true)
-    const reopenedCenter = document.body.querySelector<HTMLElement>('[data-mobile="true"][data-scope="plugin-center"]')
-    reopenedCenter?.querySelector<HTMLElement>('[data-sidebar-page="plugins"]')?.click()
-    await flushPromises()
-    expect(uiShellStore.mobileMenuOpen).toBe(false)
-  })
-
   it('searches installed plugins remotely and leaves retry under explicit user control', async () => {
     const pluginsStore = usePluginsStore()
     for (let index = 0; index < 8; index += 1) {
@@ -495,14 +471,6 @@ describe('BasicLayout', () => {
     await router.push('/plugins/settings')
     await flushPromises()
     expect((wrapper.get('[data-testid="settings-draft"]').element as HTMLInputElement).value).toBe('fixture draft')
-  })
-
-  it('closes the mobile drawer after any navigation', async () => {
-    const { router, uiShellStore } = await mountShell('/plugins')
-    uiShellStore.setMobileMenuOpen(true)
-    await router.push('/logs')
-    await flushPromises()
-    expect(uiShellStore.mobileMenuOpen).toBe(false)
   })
 
   it('opens the page search with Ctrl+K and the preferences with Alt+Shift+S, also from inside fields', async () => {

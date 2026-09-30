@@ -22,7 +22,6 @@ withDefaults(defineProps<{
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 // Pill buttons: the blue primary is the only filled action. Secondary buttons take the opposite lightness of
 // their container (--control-fill) and float on a soft shadow; ghost buttons stay flat.
 .app-button { transition-property: background-color, color, border-color, box-shadow, opacity; transition-duration: var(--motion-fast, 160ms); }
@@ -35,7 +34,7 @@ withDefaults(defineProps<{
 .app-button[data-variant=destructive] { color: var(--text-danger); }
 .app-button[data-variant=link] { color: var(--brand-foreground); }
 .app-button:disabled { cursor: not-allowed; box-shadow: none; }
-@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) { .app-button { min-width: 44px; min-height: 44px; } }
+@media (pointer: coarse) { .app-button { min-width: 44px; min-height: 44px; } }
 .app-spinner { animation: app-spin 800ms linear infinite; }
 @keyframes app-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce), (forced-colors: active) { .app-spinner { animation: none; } .app-button { transition: none; } }

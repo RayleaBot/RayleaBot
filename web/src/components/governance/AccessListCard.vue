@@ -264,7 +264,6 @@ function copyTargetId(targetId: string) {
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 
 .access-lists-card {
   border-radius: var(--radius-lg);
@@ -533,33 +532,5 @@ function copyTargetId(targetId: string) {
 
 .mono-text {
   font-family: var(--font-mono);
-}
-
-@media (max-width: #{bp.$tablet}) {
-  .access-lists-card-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .access-lists-card-header__meta {
-    width: 100%;
-  }
-
-  .access-lists-toolbar__row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .toolbar-left-group {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .access-lists-toolbar__actions {
-    width: 100%;
-    justify-content: space-between;
-  }
 }
 </style>

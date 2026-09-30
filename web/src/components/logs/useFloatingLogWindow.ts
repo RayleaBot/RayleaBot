@@ -1,7 +1,6 @@
 import { computed, onBeforeUnmount, ref, watch, type Ref } from 'vue'
-import { useMediaQuery, useResizeObserver } from '@vueuse/core'
+import { useResizeObserver } from '@vueuse/core'
 
-import { breakpoints } from '@/preferences/breakpoints.generated'
 import {
   readLogDetailWindowPosition,
   writeLogDetailWindowPosition,
@@ -33,7 +32,6 @@ function clamp(value: number, min: number, max: number) {
 
 // Positions a non-modal log detail window inside its host and remembers where it was dragged.
 export function useFloatingLogWindow(options: FloatingLogWindowOptions) {
-  const isNarrowScreen = useMediaQuery(`(max-width: ${breakpoints.protocolPanel}px)`)
   const hostWidth = ref(0)
   const hostHeight = ref(0)
   const dragging = ref(false)
@@ -75,8 +73,7 @@ export function useFloatingLogWindow(options: FloatingLogWindowOptions) {
     max: Math.max(safeInset, hostHeight.value - height.value - safeInset),
   }))
   const floating = computed(() => (
-    !isNarrowScreen.value
-    && Boolean(options.hostElement())
+    Boolean(options.hostElement())
     && hostWidth.value > 0
     && hostHeight.value > 0
   ))

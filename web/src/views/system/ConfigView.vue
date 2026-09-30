@@ -10,7 +10,6 @@ import AppButton from '@/components/AppButton.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppInput from '@/components/AppInput.vue'
-import AppSelect from '@/components/AppSelect.vue'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
 import ConfigFieldRow from '@/components/config/ConfigFieldRow.vue'
@@ -74,7 +73,6 @@ const activeGroup = computed(() => visibleGroups.value.find(group => group.key =
 const commonSections = computed(() => activeGroup.value ? getWorkbenchSections(activeGroup.value, false, query.value) : [])
 const advancedSections = computed(() => activeGroup.value ? getWorkbenchSections(activeGroup.value, true, query.value) : [])
 const advancedOpen = computed(() => Boolean(query.value.trim()) || Boolean(activeGroup.value && expanded.value[activeGroup.value.key]))
-const categoryOptions = computed(() => visibleGroups.value.map(group => ({ value: group.key, label: group.title })))
 const resultCount = computed(() => visibleGroups.value.reduce((total, group) => total + matchCount(group), 0))
 const statusLabel = computed(() => {
   if (isSaving.value) return t('config.workbench.saving')
@@ -192,9 +190,6 @@ onBeforeUnmount(() => {
               <span v-else-if="query.trim()" class="config-category__status">{{ matchCount(group) }}</span>
             </TabsTrigger>
           </TabsList>
-          <div v-if="activeGroup" class="config-category-select">
-            <AppSelect :model-value="activeGroup.key" :options="categoryOptions" :aria-label="t('config.workbench.categories')" @update:model-value="changeGroup" />
-          </div>
           <p v-if="query.trim()" class="config-search-status" role="status">{{ t('config.workbench.results', { count: resultCount }) }}</p>
         </aside>
 
@@ -268,9 +263,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .config-workbench-page { width: 100%; max-width: 1120px; margin-inline: auto; }
-.config-page { container-type: inline-size; container-name: config-workbench; }
 .config-workbench { display: grid; grid-template-columns: 200px minmax(0, 1fr); align-items: start; gap: 24px; }
 .config-navigation { position: sticky; top: 12px; display: grid; gap: 18px; min-width: 0; }
 .config-categories { display: grid; gap: 4px; }
@@ -280,9 +273,8 @@ onBeforeUnmount(() => {
 .config-category__label { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .config-category__icon { flex: none; stroke-width: 1.75; }
 .config-category__status { flex: none; color: var(--brand-foreground); font-size: 11px; font-weight: 500; }
-.config-category-select { display: none; }
 .config-search-status { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.config-editor { --control-fill: var(--surface-raised); --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text)); display: flex; flex-direction: column; min-width: 0; min-height: 520px; border: 1px solid transparent; border-radius: var(--app-card-radius); background: var(--surface-strong); box-shadow: var(--shadow-card); container-type: inline-size; container-name: config-editor; }
+.config-editor { --control-fill: var(--surface-raised); --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text)); display: flex; flex-direction: column; min-width: 0; min-height: 520px; border: 1px solid transparent; border-radius: var(--app-card-radius); background: var(--surface-strong); box-shadow: var(--shadow-card); }
 .config-editor__body { flex: 1; padding: 24px 28px; min-width: 0; animation: config-section-enter 160ms ease-out; }
 .config-editor__header { margin-bottom: 26px; }
 .config-editor__header h2 { margin: 0; color: var(--text); font-size: 20px; font-weight: 600; line-height: 1.4; }
@@ -320,16 +312,7 @@ onBeforeUnmount(() => {
 :global([data-density=compact]) .config-editor__body { padding: 20px 24px; }
 :global([data-density=compact]) .config-editor__header { margin-bottom: 20px; }
 :global([data-density=compact]) .config-advanced__trigger { padding-block: 16px; }
-@container config-workbench (max-width: #{bp.$compactStore}) {
-  .config-workbench { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .config-navigation { position: static; gap: 10px; }
-  .config-categories { display: none; }
-  .config-category-select { display: block; }
-}
-@container config-editor (max-width: #{bp.$configActions}) {
-  .config-editor__body { padding: 20px 16px; }
-}
-@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) { .config-category { min-height: 44px; } }
+@media (pointer: coarse) { .config-category { min-height: 44px; } }
 @keyframes config-section-enter { from { opacity: .88; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce), (forced-colors: active) {
   .config-editor__body { animation: none; }

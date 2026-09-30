@@ -182,7 +182,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 
 .plugin-console-header {
   display: flex;
@@ -394,12 +393,5 @@ onBeforeUnmount(() => {
 
 [data-theme='dark'] .console-terminal-line__text {
   color: var(--code-text);
-}
-
-@media (max-width: #{bp.$compactPanel}) {
-  .console-terminal-line {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
 }
 </style>

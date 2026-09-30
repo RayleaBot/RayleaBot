@@ -115,7 +115,6 @@ function restoreFocus(event: Event) {
   </DialogRoot>
 </template>
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .app-dialog-overlay { position: fixed; inset: 0; z-index: 1200; background: rgb(0 0 0 / 28%); }
 :global([data-theme=dark]) .app-dialog-overlay { background: rgb(0 0 0 / 50%); }
 .app-dialog { position: fixed; z-index: 1201; top: 50%; left: 50%; translate: -50% -50%; transform-origin: 50% 50%; display: flex; flex-direction: column; max-width: calc(100vw - 32px); max-height: calc(100dvh - 48px); overflow: hidden; background: var(--surface-strong); color: var(--text); border-radius: var(--radius-2xl); box-shadow: var(--shadow-floating); outline: none; }
@@ -133,11 +132,5 @@ function restoreFocus(event: Event) {
 .app-dialog[data-placement=left] { left: 12px; }
 .app-dialog[data-placement=bottom] { top: auto; bottom: 0; left: 0; translate: none; max-width: 100vw; max-height: calc(100dvh - 24px); border-radius: var(--radius-2xl) var(--radius-2xl) 0 0; }
 .app-dialog:not([data-placement=center]) .app-dialog__body { flex: 1; }
-@media (max-width: #{bp.$phone - 1px}) {
-  .app-dialog { max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: var(--radius-xl); }
-  .app-dialog__header { padding: 20px 16px 16px; }
-  .app-dialog__body { padding: 0 16px 20px; }
-  .app-dialog__footer { padding: 16px; }
-}
 @media (forced-colors: active) { .app-dialog { border: 1px solid CanvasText; } }
 </style>

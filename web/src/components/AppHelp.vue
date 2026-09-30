@@ -13,9 +13,8 @@ defineProps<{ label: string; description: string }>()
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 .app-help { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 24px; padding: 0; border-radius: 6px; color: var(--muted); }
 .app-help:hover { color: var(--text); background: var(--surface-soft); }
 .app-help__description { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
-@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) { .app-help { width: 44px; height: 44px; } }
+@media (pointer: coarse) { .app-help { width: 44px; height: 44px; } }
 </style>

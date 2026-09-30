@@ -61,7 +61,6 @@ export const shell = {
   exitFullscreen: '退出全屏',
   fullscreenUnsupported: '当前环境不支持全屏',
   logout: '退出登录',
-  openMenu: '打开菜单',
   search: '搜索',
   searchEmpty: '没有匹配的页面',
   searchPlaceholder: '搜索页面标题或路径',

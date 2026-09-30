@@ -14,7 +14,6 @@ import { copyText } from '@/adapter/clipboard'
 import AppButton from '@/components/AppButton.vue'
 import AppDataTable from '@/components/AppDataTable.vue'
 import AppPopover from '@/components/AppPopover.vue'
-import AppTag from '@/components/AppTag.vue'
 import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import { t } from '@/i18n'
 import { formatDateTime } from '@/lib/format'
@@ -222,39 +221,10 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
         </template>
       </template>
     </AppDataTable>
-    <div class="scheduler-mobile-list" :aria-label="t('scheduler.listLabel')">
-      <article v-for="job in jobs" :key="job.job_id" class="scheduler-mobile-row">
-        <div class="scheduler-mobile-row__heading">
-          <div>
-            <strong>{{ pluginName(job) }}</strong>
-            <span>{{ job.task_name }}</span>
-          </div>
-          <AppTag :tone="job.last_error ? 'danger' : 'success'">
-            {{ job.last_error ? job.last_error.code : t('scheduler.normal') }}
-          </AppTag>
-        </div>
-        <dl>
-          <div><dt>{{ t('scheduler.schedule') }}</dt><dd>{{ formatCronSchedule(job.cron_expr) }}</dd></div>
-          <div><dt>{{ t('scheduler.nextExecution') }}</dt><dd>{{ formatDateTime(job.next_run) }}</dd></div>
-          <div><dt>{{ t('scheduler.recentDuration') }}</dt><dd>{{ formatDurationMs(job.last_duration_ms) }}</dd></div>
-        </dl>
-        <div class="scheduler-mobile-row__actions">
-          <AppButton @click="emit('view', job)">{{ t('scheduler.view') }}</AppButton>
-          <AppButton
-            variant="default"
-            :loading="triggeringJobId === job.job_id"
-            @click="emit('trigger', job)"
-          >
-            {{ t('scheduler.trigger') }}
-          </AppButton>
-        </div>
-      </article>
-    </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/breakpoints.generated' as bp;
 .lucide { width: 16px; height: 16px; flex-shrink: 0; }
 .error-capsule:focus-visible { outline: 2px solid var(--focus); outline-offset: var(--focus-outline-offset); }
 .table-container-wrapper {
@@ -268,79 +238,6 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
 .refactored-table :deep(th) { font-weight: 600; color: var(--text); }
 .refactored-table :deep(th:last-child), .refactored-table :deep(td:last-child) { position: sticky; right: 0; z-index: 1; background: var(--surface-strong); border-left: 1px solid var(--border); }
 .refactored-table :deep(th:last-child) { background: var(--surface-soft); }
-
-.scheduler-mobile-list {
-  display: none;
-}
-
-.scheduler-mobile-row {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.scheduler-mobile-row__heading,
-.scheduler-mobile-row__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.scheduler-mobile-row__heading > div {
-  display: grid;
-  min-width: 0;
-}
-
-.scheduler-mobile-row__heading span {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.scheduler-mobile-row dl {
-  display: grid;
-  gap: 0;
-  margin: 0;
-}
-
-.scheduler-mobile-row dl > div {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: 12px;
-  padding-block: 8px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.scheduler-mobile-row dt,
-.scheduler-mobile-row dd {
-  margin: 0;
-  font-size: 13px;
-}
-
-.scheduler-mobile-row dt {
-  color: var(--muted);
-}
-
-.scheduler-mobile-row dd {
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: #{bp.$phone - 1px}) {
-  .scheduler-data-table {
-    display: none;
-  }
-
-  .scheduler-mobile-list {
-    display: grid;
-  }
-
-  .scheduler-mobile-row__actions > * {
-    min-height: 44px;
-    flex: 1 1 0;
-  }
-}
 
 /* 单元格布局 */
 .scheduler-cell-plugin-task {

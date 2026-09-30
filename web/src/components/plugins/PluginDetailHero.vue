@@ -78,7 +78,6 @@ function getPluginStateTone(status?: string | null): StatusTone {
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/breakpoints.generated' as bp;
 
 .plugin-detail-hero {
   display: grid;
@@ -276,15 +275,5 @@ function getPluginStateTone(status?: string | null): StatusTone {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-@media (max-width: #{bp.$pluginSettings}) {
-  .plugin-detail-hero {
-    grid-template-columns: 1fr;
-  }
-
-  .plugin-detail-hero__tools {
-    justify-content: flex-start;
-  }
 }
 </style>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, useId } from 'vue'
-import { ChevronDownIcon, FilterIcon } from '@lucide/vue'
+import { ref } from 'vue'
+import { ChevronDownIcon } from '@lucide/vue'
 import AppTag from '@/components/AppTag.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
@@ -31,67 +31,33 @@ const {
 const { currentDetail, error: detailError, loading: detailLoading, open: detailOpen,
   selectedLogId, selectedSummary } = detail
 const logsLayoutRef = ref<HTMLElement | null>(null)
-const filtersExpanded = ref(false)
-const filterPanelRef = ref<HTMLElement | null>(null)
-const filterToggleRef = ref<HTMLButtonElement | null>(null)
-const filterPanelId = useId()
 const recentRanges = [
   { days: 1, label: 'logs.history.lastDay' },
   { days: 7, label: 'logs.history.lastWeek' },
   { days: 30, label: 'logs.history.lastMonth' },
   { days: 180, label: 'logs.history.lastHalfYear' },
 ]
-
-function collapseMobileFilters() {
-  if (!filterToggleRef.value?.getClientRects().length) return
-  const restoreFocus = filterPanelRef.value?.contains(document.activeElement)
-  filtersExpanded.value = false
-  if (restoreFocus) filterToggleRef.value?.focus()
-}
-
-async function submitFilters() {
-  if (await applyFilters()) collapseMobileFilters()
-}
-
-async function selectRecentRange(days: number) {
-  if (await useRecentDays(days)) collapseMobileFilters()
-}
 </script>
 
 <template>
   <AppPage :title="t(history ? 'logs.historyTitle' : 'logs.currentTitle')" full-height>
     <template #toolbar>
-      <AppCard borderless class="app-view-card logs-toolbar" :class="{ 'logs-toolbar--history': history }">
-        <button
-          v-if="history"
-          ref="filterToggleRef"
-          type="button"
-          class="logs-filter-toggle"
-          :aria-expanded="filtersExpanded"
-          :aria-controls="filterPanelId"
-          @click="filtersExpanded = !filtersExpanded"
-        >
-          <FilterIcon aria-hidden="true" />
-          <span>{{ t('logs.filters.panel') }}</span>
-          <ChevronDownIcon class="logs-filter-toggle__chevron" :class="{ 'is-expanded': filtersExpanded }" aria-hidden="true" />
-        </button>
-        <div :id="filterPanelId" ref="filterPanelRef" :class="{ 'logs-filter-panel': history, 'is-expanded': filtersExpanded }">
-          <ManagementLogFilters v-model="filters" :history="history" @apply="submitFilters">
-            <template v-if="historyStore" #fields>
-              <AppField :label="t('logs.history.startAt')" :hint="managementTimeZone()">
-                <AppInput v-model="historyStore.timeRangeInput.startLocal" type="datetime-local" />
-              </AppField>
-              <AppField :label="t('logs.history.endAt')" :hint="managementTimeZone()">
-                <AppInput v-model="historyStore.timeRangeInput.endLocal" type="datetime-local" />
-              </AppField>
-            </template>
-            <template v-if="history" #actions>
-              <AppButton v-for="range in recentRanges" :key="range.days" @click="selectRecentRange(range.days)">
-                {{ t(range.label) }}
-              </AppButton>
-            </template>
-          </ManagementLogFilters>
-        </div>
+      <AppCard borderless class="app-view-card logs-toolbar">
+        <ManagementLogFilters v-model="filters" :history="history" @apply="applyFilters">
+          <template v-if="historyStore" #fields>
+            <AppField :label="t('logs.history.startAt')" :hint="managementTimeZone()">
+              <AppInput v-model="historyStore.timeRangeInput.startLocal" type="datetime-local" />
+            </AppField>
+            <AppField :label="t('logs.history.endAt')" :hint="managementTimeZone()">
+              <AppInput v-model="historyStore.timeRangeInput.endLocal" type="datetime-local" />
+            </AppField>
+          </template>
+          <template v-if="history" #actions>
+            <AppButton v-for="range in recentRanges" :key="range.days" @click="useRecentDays(range.days)">
+              {{ t(range.label) }}
+            </AppButton>
+          </template>
+        </ManagementLogFilters>
       </AppCard>
     </template>
 
@@ -182,7 +148,6 @@ async function selectRecentRange(days: number) {
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/breakpoints.generated' as bp;
 .logs-layout {
   position: relative;
   display: flex;
@@ -202,8 +167,6 @@ async function selectRecentRange(days: number) {
 .logs-toolbar :deep(.app-card__body) {
   padding: 12px 14px;
 }
-
-.logs-filter-toggle { display: none; }
 
 .logs-feed-card,
 .logs-feed-card :deep(.app-card__body) {
@@ -228,28 +191,6 @@ async function selectRecentRange(days: number) {
   gap: 10px;
 }
 
-@media (max-width: #{bp.$compactStore}) {
-  .logs-toolbar--history :deep(.app-card__body) { padding: 6px 12px; }
-  .logs-filter-toggle {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    min-height: 44px;
-    padding: 0 2px;
-    border: 0;
-    background: transparent;
-    color: var(--text);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .logs-filter-toggle__chevron { margin-inline-start: auto; color: var(--muted); }
-  .logs-filter-toggle__chevron.is-expanded { transform: rotate(180deg); }
-  .logs-filter-panel { display: none; }
-  .logs-filter-panel.is-expanded { display: block; max-height: 55dvh; overflow: auto; padding: 8px 2px 10px; }
-
-}
 .logs-feed-card__body {
   position: relative;
   display: flex;
@@ -281,11 +222,5 @@ async function selectRecentRange(days: number) {
   font-size: 12px;
 }
 
-@media (max-width: #{bp.$compactStore}) {
-  .logs-jump-latest { right: 14px; bottom: 14px; }
-}
-
-@media (min-width: #{bp.$protocolPanel + 1px}) {
-  .logs-layout.has-detail-window .logs-jump-latest { right: max(18px, calc(50% - 12px)); }
-}
+.logs-layout.has-detail-window .logs-jump-latest { right: max(18px, calc(50% - 12px)); }
 </style>

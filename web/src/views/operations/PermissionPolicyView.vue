@@ -275,7 +275,6 @@ async function save() {
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/breakpoints.generated' as bp;
 .permission-policy-page {
   display: grid;
   gap: 22px;
@@ -444,26 +443,5 @@ async function save() {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.6;
-}
-
-@media (max-width: #{bp.$tablet}) {
-  .permission-policy-actions {
-    justify-content: flex-start;
-  }
-
-  .permission-policy-settings-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .permission-policy-status-row {
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: #{bp.$pluginDetail}) {
-  .permission-policy-settings-layout {
-    grid-template-columns: 1fr;
-  }
 }
 </style>
