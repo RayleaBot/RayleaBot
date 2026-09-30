@@ -1,5 +1,4 @@
 import { t } from '@/i18n'
-import type { StatusTone } from '@/lib/status-tone'
 import type {
   GovernanceCommandPolicyEntry,
   PluginCommandSummary,
@@ -18,10 +17,6 @@ export function getCommandPermissionLabel(permission?: string | null) {
   if (!value) return t('commands.permissionDefault')
   const key = permissionLabelKeys[value]
   return key ? t(key) : value
-}
-
-export function getCommandTriggerTone(type: PluginCommandSummary['trigger']['type']): StatusTone {
-  return type === 'pattern' || type === 'setting' ? 'info' : 'neutral'
 }
 
 export type PluginCommandAvailability = 'available' | 'starting' | 'switching' | 'not_ready' | 'disabled'

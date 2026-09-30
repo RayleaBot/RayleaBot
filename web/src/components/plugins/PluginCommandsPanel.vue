@@ -3,7 +3,7 @@ import AppTag from '@/components/AppTag.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import { formatCommandUsage } from '@/lib/command-usage'
 import { t } from '@/i18n'
-import { getCommandPermissionLabel, getCommandTriggerTone, isPluginCommandConflicted } from '@/lib/plugin-commands'
+import { getCommandPermissionLabel, isPluginCommandConflicted } from '@/lib/plugin-commands'
 import type { PluginCommandSummary } from '@/types/api'
 
 const MAX_VISIBLE_ALIASES = 12
@@ -66,13 +66,13 @@ function isConflicted(command: PluginCommandSummary) {
     >
       <div class="plugin-command-row__identity">
         <div class="plugin-command-row__tags">
-          <AppTag :tone="isConflicted(command) ? 'warning' : 'info'" class="command-badge">
+          <AppTag :tone="isConflicted(command) ? 'warning' : 'neutral'" class="command-badge">
             {{ command.name }}
           </AppTag>
           <AppTag v-if="isConflicted(command)" tone="warning">
             {{ t('plugins.commandConflictBadge') }}
           </AppTag>
-          <AppTag :tone="getCommandTriggerTone(command.trigger.type)">
+          <AppTag>
             {{ getTriggerText(command) }}
           </AppTag>
         </div>

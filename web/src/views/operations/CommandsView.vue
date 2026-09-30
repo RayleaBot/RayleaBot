@@ -26,7 +26,6 @@ import {
 import { t } from '@/i18n'
 import {
   getCommandPermissionLabel,
-  getCommandTriggerTone,
   mergeCommandCenterRows,
   type PluginCommandAvailability,
   type UnifiedCommandRow,
@@ -132,7 +131,7 @@ function compareByLabel(left: string, right: string) {
 
 function getAliasesText(command: PluginCommandSummary) {
   const aliases = command.effective_names.slice(1)
-  return aliases.length ? aliases.join(', ') : t('display.empty')
+  return aliases.length ? aliases.join('、') : t('display.empty')
 }
 
 function getEffectivePermissionText(policy: { effective_permission?: CommandPermissionLevel } | null) {
@@ -251,7 +250,7 @@ onMounted(() => {
         <template #title>
           <div class="card-header">
             <span>{{ t('commands.sections.commandList') }}</span>
-            <AppTag tone="info">{{ commandRows.length }}</AppTag>
+            <AppTag>{{ commandRows.length }}</AppTag>
           </div>
         </template>
 
@@ -280,7 +279,7 @@ onMounted(() => {
 
           <template #cell="{ column, row: record }">
             <template v-if="column.key === 'command'">
-              <AppTag :tone="record.conflicted ? 'warning' : 'info'" :aria-label="t('commands.aria.command', { name: record.command.name })">
+              <AppTag :tone="record.conflicted ? 'warning' : 'neutral'" class="command-name-tag" :aria-label="t('commands.aria.command', { name: record.command.name })">
                 {{ record.command.name }}
               </AppTag>
             </template>
@@ -290,7 +289,7 @@ onMounted(() => {
             </template>
 
             <template v-else-if="column.key === 'source'">
-              <AppTag :tone="getCommandTriggerTone(record.command.trigger.type)">
+              <AppTag>
                 {{ getCommandSourceLabel(record.command.trigger.type) }}
               </AppTag>
             </template>
@@ -374,7 +373,24 @@ onMounted(() => {
 }
 
 .command-plugin-link {
-  color: var(--accent);
+  width: fit-content;
+  border-radius: var(--radius-xs);
+  color: var(--brand-foreground);
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.command-plugin-link:hover {
+  text-decoration: underline;
+}
+
+.command-plugin-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.command-name-tag {
+  font-family: var(--font-mono);
   font-weight: 600;
 }
 

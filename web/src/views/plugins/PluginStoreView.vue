@@ -278,7 +278,7 @@ onMounted(() => {
         <AppSelect v-model="sourceId" :options="sourceOptions" :aria-label="t('plugins.fields.source')" wrapper-class="store-source" @update:model-value="changeSource" />
         <AppSelect v-model="sort" :options="sortOptions" :aria-label="t('plugins.store.sortLabel')" wrapper-class="store-sort" @update:model-value="loadEntries" />
         <div class="store-actions">
-          <AppTag v-if="selectedSource" :tone="selectedSource.official ? 'info' : 'neutral'">
+          <AppTag v-if="selectedSource">
             {{ selectedSource.official ? t('plugins.store.sources.official') : t('plugins.store.sources.custom') }}
           </AppTag>
           <AppTag v-if="selectedSource && !selectedSource.cached" tone="warning">
@@ -324,7 +324,7 @@ onMounted(() => {
               <div class="plugin-heading">
                 <div class="plugin-title-line">
                   <h2>{{ plugin.name }}</h2>
-                  <AppTag v-if="plugin.recommended" tone="info">{{ t('plugins.store.recommended') }}</AppTag>
+                  <AppTag v-if="plugin.recommended">{{ t('plugins.store.recommended') }}</AppTag>
                   <AppTag v-if="plugin.category">{{ plugin.category }}</AppTag>
                 </div>
                 <span class="plugin-id">{{ plugin.id }}</span>
@@ -418,7 +418,7 @@ onMounted(() => {
           <div class="source-copy">
             <div class="source-title">
               <strong>{{ item.name }}</strong>
-              <AppTag v-if="item.official" tone="info">{{ t('plugins.store.sources.official') }}</AppTag>
+              <AppTag v-if="item.official">{{ t('plugins.store.sources.official') }}</AppTag>
               <AppTag v-else>{{ t('plugins.store.sources.custom') }}</AppTag>
               <AppTag :tone="item.cached ? 'success' : 'neutral'">
                 {{ item.cached ? t('plugins.store.sources.cached') : t('plugins.store.sources.notCached') }}
