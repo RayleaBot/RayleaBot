@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import AppButton from '@/components/AppButton.vue'
 import AppDrawer from '@/components/AppDrawer.vue'
-import { XIcon } from '@lucide/vue'
+import AppTag from '@/components/AppTag.vue'
+import { GripHorizontalIcon, XIcon } from '@lucide/vue'
 import { computed, shallowRef, nextTick, ref, watch } from 'vue'
 import { useEventListener } from '@vueuse/core'
 
@@ -16,7 +18,7 @@ import { useFloatingLogWindow } from './useFloatingLogWindow'
 interface SummaryChip {
   key: string
   label: string
-  tone: 'debug' | 'info' | 'warn' | 'error' | 'neutral'
+  tone: 'neutral' | 'info' | 'warning' | 'danger'
 }
 
 const props = defineProps<{
@@ -78,12 +80,13 @@ const summaryChips = computed<SummaryChip[]>(() => {
     return []
   }
 
+  // The same tones as the level tags in the list.
   const chips: SummaryChip[] = []
   if (summary.level) {
     chips.push({
       key: 'level',
       label: getLogLevelLabel(summary.level),
-      tone: summary.level === 'error' || summary.level === 'warn' || summary.level === 'info' ? summary.level : 'debug',
+      tone: summary.level === 'error' ? 'danger' : summary.level === 'warn' ? 'warning' : summary.level === 'info' ? 'info' : 'neutral',
     })
   }
 
@@ -188,25 +191,14 @@ watch(
         class="log-detail-window__header"
         @pointerdown="startDragging"
       >
-        <div class="log-detail-window__handle" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </div>
+        <GripHorizontalIcon class="log-detail-window__handle" :size="16" aria-hidden="true" />
 
         <div class="log-detail-window__heading">
           <h2 :id="titleId">{{ t('logs.detail.title') }}</h2>
           <div class="log-detail-window__title-row">
             <strong class="log-detail-window__source">{{ displaySummary?.source || t('display.empty') }}</strong>
             <div v-if="summaryChips.length" class="log-detail-window__chips">
-              <span
-                v-for="chip in summaryChips"
-                :key="chip.key"
-                class="log-detail-window__chip"
-                :class="`is-${chip.tone}`"
-              >
-                {{ chip.label }}
-              </span>
+              <AppTag v-for="chip in summaryChips" :key="chip.key" size="small" :tone="chip.tone">{{ chip.label }}</AppTag>
             </div>
           </div>
           <p class="log-detail-window__subtitle">
@@ -214,15 +206,16 @@ watch(
           </p>
         </div>
 
-        <button
-          type="button"
+        <AppButton
+          variant="ghost"
+          size="icon"
           class="log-detail-window__close"
           :aria-label="t('logs.detail.close')"
           @pointerdown.stop
           @click="emit('close')"
         >
-          <XIcon :size="18" />
-        </button>
+          <XIcon />
+        </AppButton>
       </header>
 
       <div ref="bodyRef" class="log-detail-window__body">
@@ -234,6 +227,7 @@ watch(
               :summary="displaySummary"
               :detail="displayDetail"
               :scope="scope"
+              summary-in-header
               @action="emit('close')"
             />
           </div>
@@ -249,28 +243,27 @@ watch(
   background: var(--surface-strong);
 }
 
+// A floating box like the dialogs: the gray surface and the floating shadow, no border and no header band.
 .log-detail-window {
   position: absolute;
   z-index: 12;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--border-strong) 82%, var(--border));
+  border-radius: var(--radius-xl);
   background: var(--surface-strong);
-  box-shadow:
-    0 22px 50px color-mix(in srgb, var(--text) 12%, transparent),
-    0 6px 18px color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: var(--shadow-floating);
   overflow: hidden;
+  --control-fill: var(--surface-raised);
+  --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text));
 }
 
 .log-detail-window__header {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 16px 18px 14px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  background: var(--surface-soft);
+  gap: 12px;
+  padding: 16px 16px 14px 18px;
+  border-bottom: 1px solid var(--border);
   cursor: grab;
   user-select: none;
 }
@@ -281,17 +274,8 @@ watch(
 
 .log-detail-window__handle {
   flex: 0 0 auto;
-  display: grid;
-  gap: 4px;
-  padding-top: 5px;
-}
-
-.log-detail-window__handle span {
-  display: block;
-  width: 14px;
-  height: 2px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--muted) 72%, transparent);
+  margin-top: 3px;
+  color: var(--muted);
 }
 
 .log-detail-window__heading {
@@ -310,15 +294,16 @@ watch(
 .log-detail-window__heading h2 {
   margin: 0;
   color: var(--text);
-  font-size: 1.04rem;
-  line-height: 1.25;
-  letter-spacing: -0.02em;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .log-detail-window__source {
   min-width: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
   font-weight: 500;
   overflow-wrap: anywhere;
 }
@@ -330,77 +315,21 @@ watch(
   flex-wrap: wrap;
 }
 
-.log-detail-window__chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  max-width: 100%;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  background: color-mix(in srgb, var(--surface-soft) 92%, transparent);
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.log-detail-window__chip.is-debug {
-  background: color-mix(in srgb, var(--surface-soft) 96%, transparent);
-  color: var(--muted);
-}
-
-.log-detail-window__chip.is-info {
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface-soft));
-  color: color-mix(in srgb, var(--accent) 84%, var(--text));
-}
-
-.log-detail-window__chip.is-warn {
-  background: color-mix(in srgb, var(--app-warning) 12%, var(--surface-soft));
-  color: color-mix(in srgb, var(--app-warning) 86%, var(--text));
-}
-
-.log-detail-window__chip.is-error {
-  background: color-mix(in srgb, var(--app-danger) 12%, var(--surface-soft));
-  color: color-mix(in srgb, var(--app-danger) 86%, var(--text));
-}
-
-.log-detail-window__chip.is-neutral {
-  background: color-mix(in srgb, var(--surface-soft) 88%, transparent);
-  color: var(--text);
-}
-
 .log-detail-window__subtitle {
+  margin: 6px 0 0;
+  color: var(--muted);
   font-family: var(--font-mono);
-}
-
-.log-detail-window__subtitle {
-  margin: 8px 0 0;
-  color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
 }
 
 .log-detail-window__close {
   flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-soft) 92%, transparent);
-  color: var(--muted);
   cursor: pointer;
-  transition: border-color var(--motion-fast) var(--motion-easing), background-color var(--motion-fast) var(--motion-easing), color var(--motion-fast) var(--motion-easing);
 }
 
-.log-detail-window__close:hover {
-  border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface-soft));
-  color: var(--text);
+@media (forced-colors: active) {
+  .log-detail-window { border: 1px solid CanvasText; }
 }
 
 .log-detail-window__body {
