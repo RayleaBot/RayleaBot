@@ -5,13 +5,25 @@ import { useToastFeedback } from '@/adapter/feedback'
 import { useHeavyContentGate } from '@/layouts/usePageTransitionStage'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { areLocationQueriesEqual, buildLogsLocation, readLogWorkspaceState } from '@/lib/management-links'
-import { sameLogFilters } from '@/stores/log-state'
+import { sameLogFilters, type HistoryTimeRange, type LogFilters } from '@/stores/log-state'
 import { toLocalDateTimeInput, useLogHistoryStore } from '@/stores/log-history'
 import { useLogsStore } from '@/stores/logs'
 import type { LogSummary } from '@/types/api'
 import { useLogDetailController } from './useLogDetailController'
 
 export type LogWorkspaceScope = 'current_session' | 'history'
+
+function copyFilters(value: LogFilters): LogFilters {
+  return {
+    ...value,
+    ...(value.levels && { levels: [...value.levels] }),
+    ...(value.pluginIds && { pluginIds: [...value.pluginIds] }),
+  }
+}
+
+function sameRange(left: HistoryTimeRange, right: HistoryTimeRange) {
+  return (left.startAt ?? '') === (right.startAt ?? '') && (left.endAt ?? '') === (right.endAt ?? '')
+}
 
 export interface LogViewport {
   getScrollMetrics?: () => { clientHeight: number; scrollHeight: number; scrollTop: number }
@@ -37,6 +49,12 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   const atBottom = computed(() => liveStore?.atBottom ?? false)
   const followBottom = computed(() => liveStore?.atBottom ?? historyFollowBottom.value)
   const pendingNewCount = computed(() => liveStore?.pendingNewCount ?? 0)
+  // The toolbar edits a draft. The store keeps the applied filters, which load pages and match streamed logs,
+  // so a half-typed source never hides arriving entries before "应用筛选".
+  const draftFilters = ref<LogFilters>(copyFilters(filters.value))
+  watch(filters, value => { draftFilters.value = copyFilters(value) }, { deep: true })
+  const filtersPending = computed(() => !sameLogFilters(draftFilters.value, filters.value)
+    || Boolean(historyStore && !sameRange(historyStore.currentUtcRange(), historyStore.appliedRange)))
   const showJumpToLatest = computed(() => !history && readyToRenderHeavyContent.value
     && initialized.value && !restoringLatest.value && !atBottom.value)
   let routeSyncing = false
@@ -65,7 +83,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
 
   async function replaceRouteState(logId: string | null = detail.selectedLogId.value) {
     if (route.name !== routeName) return
-    const range = historyStore?.currentUtcRange()
+    const range = historyStore?.appliedRange
     const target = buildLogsLocation({ history, filters: filters.value, logId,
       startAt: range?.startAt ?? '', endAt: range?.endAt ?? '' })
     if (areLocationQueriesEqual(route.query, target.query ?? {})) return
@@ -187,6 +205,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   }
 
   async function applyFilters() {
+    filters.value = copyFilters(draftFilters.value)
     routeVersion += 1
     cancelViewportSync()
     liveStore?.setViewportAtBottom(true)
@@ -200,6 +219,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
 
   async function useRecentDays(days: number) {
     if (!historyStore) return false
+    filters.value = copyFilters(draftFilters.value)
     routeVersion += 1
     cancelViewportSync()
     if (days === 1) historyStore.resetTimeRangeToDefault()
@@ -253,7 +273,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   onDeactivated(() => { deactivate() })
   onUnmounted(() => { deactivate() })
 
-  return { historyStore, filters, initialized, items, loading, error, detail,
+  return { historyStore, filters, draftFilters, filtersPending, initialized, items, loading, error, detail,
     readyToRenderHeavyContent, atBottom, followBottom, pendingNewCount, showJumpToLatest,
     activatePage, applyFilters, useRecentDays, loadOlder, scrollToLatest,
     openLogDetail, closeLogDetail, onViewportBottomChange }

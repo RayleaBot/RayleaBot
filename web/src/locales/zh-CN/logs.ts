@@ -9,6 +9,7 @@ export const logs = {
     requestId: '请求 ID',
     more: '更多筛选',
     apply: '应用筛选',
+    pending: '筛选未应用',
     all: '全部',
     sourcePlaceholder: '例如 runtime / adapter.onebot11',
     requestPlaceholder: '例如 req_*',

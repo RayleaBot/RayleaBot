@@ -23,7 +23,7 @@ const history = props.scope === 'history'
 const labelPrefix = history ? 'logs.history' : 'logs.current'
 const viewportRef = ref<LogViewport | null>(null)
 const {
-  historyStore, filters, initialized, items, loading, error, detail,
+  historyStore, draftFilters, filtersPending, initialized, items, loading, error, detail,
   readyToRenderHeavyContent, atBottom, followBottom, pendingNewCount, showJumpToLatest,
   activatePage, applyFilters, useRecentDays, loadOlder, scrollToLatest,
   openLogDetail, closeLogDetail, onViewportBottomChange,
@@ -43,7 +43,7 @@ const recentRanges = [
   <AppPage :title="t(history ? 'logs.historyTitle' : 'logs.currentTitle')" full-height>
     <template #toolbar>
       <AppCard borderless class="app-view-card logs-toolbar">
-        <ManagementLogFilters v-model="filters" :history="history" @apply="applyFilters">
+        <ManagementLogFilters v-model="draftFilters" :history="history" :pending="filtersPending" @apply="applyFilters">
           <template v-if="historyStore" #fields>
             <AppField :label="t('logs.history.startAt')" :hint="managementTimeZone()">
               <AppInput v-model="historyStore.timeRangeInput.startLocal" type="datetime-local" />

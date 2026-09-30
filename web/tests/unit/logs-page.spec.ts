@@ -193,6 +193,44 @@ describe('LogsPage', () => {
     expect(store.atBottom).toBe(true)
   })
 
+  it('keeps edited filters as a draft until they are applied', async () => {
+    const router = createTestRouter()
+    await router.push('/logs')
+    await router.isReady()
+
+    const store = useLogsStore()
+    store.items = [
+      {
+        log_id: 'log_info_0001',
+        timestamp: '2026-04-02T00:53:16Z',
+        level: 'info',
+        source: 'runtime',
+        message: 'runtime ready',
+      },
+    ]
+    vi.spyOn(store, 'ensureLoaded').mockResolvedValue(store.items)
+    const applyFilters = vi.spyOn(store, 'applyFilters').mockResolvedValue(store.items)
+
+    const wrapper = mountRoutedView(router)
+    await flushPromises()
+
+    await wrapper.get('.logs-filter-grid input').setValue('adapter')
+    await flushPromises()
+
+    // Streamed logs are still matched against the applied filters while the source is being typed.
+    expect(store.filters.source).toBeUndefined()
+    expect(store.append({ log_id: 'log_info_0002', timestamp: '2026-04-02T00:53:17Z', level: 'info', source: 'runtime', message: 'still shown' })).toBe(true)
+    expect(wrapper.get('.logs-toolbar__pending').text()).toBe('筛选未应用')
+
+    await wrapper.get('.logs-toolbar__apply').trigger('click')
+    await flushPromises()
+
+    expect(applyFilters).toHaveBeenCalledTimes(1)
+    expect(store.filters.source).toBe('adapter')
+    expect(router.currentRoute.value.query.source).toBe('adapter')
+    expect(wrapper.get('.logs-toolbar__pending').text()).toBe('')
+  })
+
   it('closes the current log detail and resets live state when leaving the realtime page', async () => {
     const router = createTestRouter()
     await router.push('/logs')

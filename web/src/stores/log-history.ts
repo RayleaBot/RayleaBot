@@ -31,6 +31,9 @@ export const useLogHistoryStore = defineStore('log-history', () => {
     endLocal: '',
   })
   const customTimeRange = ref(false)
+  // The range of the loaded list. The inputs above are a draft until a query is issued, so paging older
+  // entries keeps using the range the list was loaded with.
+  const appliedRange = ref<HistoryTimeRange>({})
   const anchorAt = ref('')
   const loading = ref(false)
   const loadingOlder = ref(false)
@@ -112,7 +115,7 @@ export const useLogHistoryStore = defineStore('log-history', () => {
       const response = await apiRequest<LogListResponse>(buildLogListPath({
         scope: 'history',
         filters: filters.value,
-        timeRange: currentUtcRange(),
+        timeRange: appliedRange.value,
         cursor: olderCursor.value,
         direction: 'older',
         limit: pageLimit.value,
@@ -136,12 +139,13 @@ export const useLogHistoryStore = defineStore('log-history', () => {
     error.value = null
     requestVersion += 1
     const currentVersion = requestVersion
+    appliedRange.value = currentUtcRange()
 
     try {
       const response = await apiRequest<LogListResponse>(buildLogListPath({
         scope: 'history',
         filters: filters.value,
-        timeRange: currentUtcRange(),
+        timeRange: appliedRange.value,
         limit: pageLimit.value,
       }))
       if (currentVersion !== requestVersion) {
@@ -174,6 +178,7 @@ export const useLogHistoryStore = defineStore('log-history', () => {
 
   return {
     anchorAt,
+    appliedRange,
     customTimeRange,
     error,
     filters,

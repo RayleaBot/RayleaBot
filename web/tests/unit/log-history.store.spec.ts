@@ -136,6 +136,8 @@ describe('log history store', () => {
     }
 
     await store.applyFilters()
+    // Editing the range without applying it must not change the query of the loaded list.
+    store.timeRangeInput = { startLocal: '2026-04-10T00:00', endLocal: '2026-04-11T00:00' }
     await store.loadOlder()
 
     const startAt = encodeURIComponent(localDateTimeToUtc('2026-04-16T08:00'))

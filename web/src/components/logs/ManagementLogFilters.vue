@@ -8,7 +8,8 @@ import { useLogFilterControls } from './useLogFilterControls'
 import type { LogFilters } from '@/stores/log-state'
 import { t } from '@/i18n'
 
-defineProps<{ history?: boolean }>()
+// pending: the fields differ from the filters of the list on screen until they are applied.
+defineProps<{ history?: boolean; pending?: boolean }>()
 defineEmits<{ apply: [] }>()
 const filters = defineModel<LogFilters>({ required: true })
 const { selectedLevels, levelOptions } = useLogFilterControls(filters)
@@ -30,6 +31,7 @@ const { selectedLevels, levelOptions } = useLogFilterControls(filters)
         v-model:plugin-ids="filters.pluginIds"
         v-model:request-id="filters.requestId"
       />
+      <span class="logs-toolbar__pending" :class="{ 'is-idle': !pending }" aria-live="polite">{{ pending ? t('logs.filters.pending') : '' }}</span>
       <AppButton class="logs-toolbar__apply" variant="default" :aria-label="t('logs.filters.apply')" @click="$emit('apply')">{{ t('logs.filters.apply') }}</AppButton>
     </div>
   </div>
@@ -43,4 +45,7 @@ const { selectedLevels, levelOptions } = useLogFilterControls(filters)
 .logs-filter-grid :deep(.app-field:first-child) { max-width: 220px; }
 .logs-toolbar__actions { display: flex; flex: 0 0 auto; gap: 8px; justify-content: flex-end; align-items: center; align-self: flex-end; margin-inline-start: auto; }
 .logs-filter-grid--history .logs-toolbar__actions { flex-wrap: wrap; }
+.logs-toolbar__pending { color: var(--text-attention); font-size: 13px; font-weight: 500; white-space: nowrap; }
+// The live region stays rendered so the change is announced; while idle it gives its gap back.
+.logs-toolbar__pending.is-idle { margin-inline-end: -8px; }
 </style>
