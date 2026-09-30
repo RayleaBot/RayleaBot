@@ -9,7 +9,7 @@ import AppTooltip from '@/components/AppTooltip.vue'
 import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import PluginPowerButton from '@/components/plugins/PluginPowerButton.vue'
 import { t } from '@/i18n'
-import { formatPluginVersion, getPluginStateLabel, getPluginTrustLabel } from '@/lib/display'
+import { formatPluginVersion, getPluginSourceTypeLabel, getPluginStateLabel, getPluginTrustLabel } from '@/lib/display'
 import { resolveStatusTone, type StatusTone } from '@/lib/status-tone'
 import { usePluginsStore } from '@/stores/plugins'
 import type { PluginSummary } from '@/types/api'
@@ -20,17 +20,8 @@ defineEmits<{ detail: []; summary: []; manage: []; reload: []; toggle: [] }>()
 
 const pluginsStore = usePluginsStore()
 const description = computed(() => props.plugin.description?.trim() || t('display.empty'))
-const sourceTypeLabel = computed(() => {
-  switch (props.plugin.source?.package_source_type) {
-    case 'local_zip': return t('plugins.localZip')
-    case 'local_directory': return t('plugins.localDirectory')
-    case 'remote_url': return t('plugins.remoteUrl')
-    case 'catalog': return t('plugins.catalogSource')
-    case 'development': return t('plugins.developmentSource')
-    // Plugins without a recorded package source show only their trust level.
-    default: return props.plugin.source?.package_source_type || ''
-  }
-})
+// Plugins without a recorded package source show only their trust level.
+const sourceTypeLabel = computed(() => getPluginSourceTypeLabel(props.plugin.source?.package_source_type))
 const lifecycleSwitching = computed(() => props.plugin.state === 'starting' || props.plugin.state === 'stopping')
 // Every plugin is a light gray box; stopped plugins dim their icon and problems get a ring in their tone.
 const attentionTone = computed(() => {

@@ -4,7 +4,7 @@ import { ChevronDownIcon } from '@lucide/vue'
 
 import AppTag from '@/components/AppTag.vue'
 import { t } from '@/i18n'
-import { formatPluginVersion, getPluginTrustLabel } from '@/lib/display'
+import { formatPluginVersion, getPluginInstallMethodLabel, getPluginTrustLabel } from '@/lib/display'
 import { safeJsonStringify } from '@/lib/text-safety'
 import type { PluginDetail } from '@/types/api'
 
@@ -27,7 +27,7 @@ const sections = computed(() => {
       title: t('plugins.sections.sourceInfo'),
       rows: [
         { key: 'root', label: t('plugins.fields.sourceRoot'), value: textOrEmpty(plugin?.source?.root) },
-        { key: 'ref', label: t('plugins.fields.sourceRef'), value: textOrEmpty(plugin?.source?.package_source_ref ?? plugin?.source?.package_source_type) },
+        { key: 'method', label: t('plugins.fields.sourceRef'), value: getPluginInstallMethodLabel(plugin?.source) },
         { key: 'trust', label: t('plugins.fields.trust'), value: getPluginTrustLabel(plugin?.trust?.level) },
       ],
     },
@@ -42,6 +42,22 @@ const sections = computed(() => {
     },
   ]
 })
+
+// Manifest fields the plugin declares are listed; the ones it leaves out share a single line.
+const metadataFields = computed(() => {
+  const plugin = props.plugin
+  return [
+    { key: 'description', label: t('plugins.fields.description'), present: Boolean(plugin?.description?.trim()) },
+    { key: 'icon', label: t('plugins.fields.icon'), present: Boolean(plugin?.icon?.trim()) },
+    { key: 'repo', label: t('plugins.fields.repo'), present: Boolean(plugin?.repo) },
+    { key: 'homepage', label: t('plugins.fields.homepage'), present: Boolean(plugin?.homepage) },
+    { key: 'keywords', label: t('plugins.fields.keywords'), present: hasItems(plugin?.keywords) },
+    { key: 'webhooks', label: t('plugins.fields.webhooks'), present: hasItems(plugin?.webhooks) },
+    { key: 'screenshots', label: t('plugins.fields.screenshots'), present: hasItems(plugin?.screenshots) },
+  ]
+})
+const declared = computed(() => new Set(metadataFields.value.filter(field => field.present).map(field => field.key)))
+const undeclaredLabels = computed(() => metadataFields.value.filter(field => !field.present).map(field => field.label))
 
 function textOrEmpty(value?: string | null) {
   return value?.trim() || t('display.empty')
@@ -62,71 +78,64 @@ function hasItems(value?: readonly unknown[] | null) {
             <dt>{{ item.label }}</dt>
             <dd>{{ item.value }}</dd>
           </div>
-        </dl>
-        <div v-if="section.key === 'runtime'" class="metadata-section">
-          <strong>{{ t('plugins.fields.events') }}</strong>
-          <div v-if="hasItems(plugin?.events)" class="tag-list">
-            <AppTag v-for="eventName in plugin?.events" :key="eventName">{{ eventName }}</AppTag>
+          <div v-if="section.key === 'runtime'" class="plugin-detail-kv-list__wide">
+            <dt>{{ t('plugins.fields.events') }}</dt>
+            <dd>
+              <span v-if="hasItems(plugin?.events)" class="tag-list">
+                <AppTag v-for="eventName in plugin?.events" :key="eventName">{{ eventName }}</AppTag>
+              </span>
+              <template v-else>{{ t('display.empty') }}</template>
+            </dd>
           </div>
-          <p v-else class="empty-val">{{ t('display.empty') }}</p>
-        </div>
+        </dl>
       </section>
 
       <details class="plugin-detail-disclosure">
         <summary>
           <span>{{ t('plugins.sections.details') }}</span>
-          <AppTag size="small">{{ t('plugins.sections.metadata') }}</AppTag>
           <ChevronDownIcon class="plugin-detail-disclosure__chevron" :size="16" aria-hidden="true" />
+          <AppTag size="small">{{ t('plugins.sections.metadata') }}</AppTag>
         </summary>
 
-        <div class="plugin-detail-detail-stack">
-          <section class="metadata-section">
-            <strong>{{ t('plugins.fields.description') }}</strong>
-            <p class="meta-desc">{{ textOrEmpty(plugin?.description) }}</p>
-          </section>
-
-          <section class="metadata-section">
-            <strong>{{ t('plugins.fields.icon') }}</strong>
-            <p class="meta-icon">{{ textOrEmpty(plugin?.icon) }}</p>
-          </section>
-
-          <section class="metadata-section">
-            <strong>{{ t('plugins.fields.repo') }}</strong>
-            <a v-if="plugin?.repo" :href="plugin.repo" target="_blank" rel="noreferrer" class="meta-link">{{ plugin.repo }}</a>
-            <p v-else class="empty-val">{{ t('display.empty') }}</p>
-          </section>
-
-          <section class="metadata-section">
-            <strong>{{ t('plugins.fields.homepage') }}</strong>
-            <a v-if="plugin?.homepage" :href="plugin.homepage" target="_blank" rel="noreferrer" class="meta-link">{{ plugin.homepage }}</a>
-            <p v-else class="empty-val">{{ t('display.empty') }}</p>
-          </section>
-
-          <section class="metadata-section">
-            <strong>{{ t('plugins.fields.keywords') }}</strong>
-            <div v-if="hasItems(plugin?.keywords)" class="tag-list">
-              <AppTag v-for="keyword in plugin?.keywords" :key="keyword">{{ keyword }}</AppTag>
-            </div>
-            <p v-else class="empty-val">{{ t('display.empty') }}</p>
-          </section>
-
-          <section class="metadata-section">
-            <strong>{{ t('plugins.fields.webhooks') }}</strong>
-            <pre v-if="hasItems(plugin?.webhooks)" class="metadata-json">{{ safeJsonStringify(plugin?.webhooks ?? {}) }}</pre>
-            <p v-else class="empty-val">{{ t('display.empty') }}</p>
-          </section>
-
-          <section class="metadata-section">
-            <strong>{{ t('plugins.fields.screenshots') }}</strong>
-            <div v-if="hasItems(plugin?.screenshots)" class="screenshot-list">
+        <dl class="plugin-detail-kv-list plugin-detail-metadata">
+          <div v-if="declared.has('description')" class="plugin-detail-kv-list__wide">
+            <dt>{{ t('plugins.fields.description') }}</dt>
+            <dd>{{ plugin?.description }}</dd>
+          </div>
+          <div v-if="declared.has('icon')">
+            <dt>{{ t('plugins.fields.icon') }}</dt>
+            <dd class="is-mono">{{ plugin?.icon }}</dd>
+          </div>
+          <div v-if="declared.has('repo')">
+            <dt>{{ t('plugins.fields.repo') }}</dt>
+            <dd><a :href="plugin?.repo" target="_blank" rel="noreferrer" class="meta-link">{{ plugin?.repo }}</a></dd>
+          </div>
+          <div v-if="declared.has('homepage')">
+            <dt>{{ t('plugins.fields.homepage') }}</dt>
+            <dd><a :href="plugin?.homepage" target="_blank" rel="noreferrer" class="meta-link">{{ plugin?.homepage }}</a></dd>
+          </div>
+          <div v-if="declared.has('keywords')">
+            <dt>{{ t('plugins.fields.keywords') }}</dt>
+            <dd class="tag-list"><AppTag v-for="keyword in plugin?.keywords" :key="keyword">{{ keyword }}</AppTag></dd>
+          </div>
+          <div v-if="declared.has('webhooks')" class="plugin-detail-kv-list__wide">
+            <dt>{{ t('plugins.fields.webhooks') }}</dt>
+            <dd><pre class="metadata-json">{{ safeJsonStringify(plugin?.webhooks ?? {}) }}</pre></dd>
+          </div>
+          <div v-if="declared.has('screenshots')" class="plugin-detail-kv-list__wide">
+            <dt>{{ t('plugins.fields.screenshots') }}</dt>
+            <dd class="screenshot-list">
               <article v-for="screenshot in plugin?.screenshots" :key="screenshot.path" class="screenshot-item">
-                <span class="ss-path">{{ t('plugins.fields.screenshotPath') }}：{{ screenshot.path }}</span>
-                <span class="ss-alt">{{ t('plugins.fields.screenshotAlt') }}：{{ textOrEmpty(screenshot.alt) }}</span>
+                <span class="ss-path">{{ screenshot.path }}</span>
+                <span v-if="screenshot.alt?.trim()" class="ss-alt">{{ screenshot.alt }}</span>
               </article>
-            </div>
-            <p v-else class="empty-val">{{ t('display.empty') }}</p>
-          </section>
-        </div>
+            </dd>
+          </div>
+          <div v-if="undeclaredLabels.length" class="plugin-detail-kv-list__wide">
+            <dt>{{ t('plugins.sections.undeclared') }}</dt>
+            <dd class="plugin-detail-metadata__undeclared">{{ undeclaredLabels.join('、') }}</dd>
+          </div>
+        </dl>
       </details>
     </div>
   </section>
@@ -138,8 +147,7 @@ function hasItems(value?: readonly unknown[] | null) {
   min-width: 0;
 }
 
-.plugin-detail-summary-stack,
-.plugin-detail-detail-stack {
+.plugin-detail-summary-stack {
   display: grid;
   gap: 14px;
 }
@@ -192,21 +200,27 @@ function hasItems(value?: readonly unknown[] | null) {
   }
 }
 
-.metadata-section {
-  display: grid;
-  gap: 8px;
+.plugin-detail-kv-list .plugin-detail-kv-list__wide {
+  grid-column: 1 / -1;
+}
 
-  strong {
-    font-size: 0.84rem;
-    font-weight: 600;
-    color: var(--text);
-  }
+.plugin-detail-kv-list dd.is-mono {
+  font-family: var(--font-mono);
+}
 
-  p, a {
-    margin: 0;
-    word-break: break-word;
-    font-size: 0.84rem;
-  }
+// The manifest fields span the whole panel, so they use three columns instead of two.
+.plugin-detail-metadata {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.plugin-detail-metadata__undeclared {
+  color: var(--muted) !important;
+  font-weight: 400 !important;
+}
+
+.meta-link {
+  color: var(--brand-foreground);
+  overflow-wrap: anywhere;
 }
 
 // Code sits on a white inset inside the gray box, without a second border.
@@ -237,8 +251,12 @@ function hasItems(value?: readonly unknown[] | null) {
   display: grid;
   gap: 4px;
   padding-block: 8px;
-  border-top: 1px solid var(--border);
   font-size: 13px;
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+
 
   .ss-path {
     font-family: var(--font-mono);
@@ -246,7 +264,7 @@ function hasItems(value?: readonly unknown[] | null) {
   }
   .ss-alt {
     color: var(--text);
-    font-weight: 550;
+    font-weight: 400;
   }
 }
 

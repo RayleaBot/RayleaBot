@@ -34,6 +34,22 @@ export function getPluginRoleLabel(role?: PluginRole) {
   return role ? translated(`display.pluginRoles.${role}`, role) : t('display.empty')
 }
 
+export function getPluginSourceTypeLabel(type?: string | null) {
+  switch (type) {
+    case 'local_zip': return t('plugins.localZip')
+    case 'local_directory': return t('plugins.localDirectory')
+    case 'remote_url': return t('plugins.remoteUrl')
+    case 'catalog': return t('plugins.catalogSource')
+    case 'development': return t('plugins.developmentSource')
+    default: return type || ''
+  }
+}
+
+// How a plugin was installed, followed by the path or address it came from when that is recorded.
+export function getPluginInstallMethodLabel(source?: { package_source_type?: string | null; package_source_ref?: string | null } | null) {
+  return [getPluginSourceTypeLabel(source?.package_source_type), source?.package_source_ref?.trim()].filter(Boolean).join(' · ') || t('display.empty')
+}
+
 export function formatPluginVersion(version?: string | null) {
   const value = version?.trim()
   return value ? `v${value.replace(/^v(?=\d)/, '')}` : t('display.empty')

@@ -1,47 +1,49 @@
 <script setup lang="ts">
+import { ArrowUpRightIcon } from '@lucide/vue'
+import AppButton from '@/components/AppButton.vue'
 import AppCard from '@/components/AppCard.vue'
 import AppDetailItem from '@/components/AppDetailItem.vue'
 import AppDetails from '@/components/AppDetails.vue'
 import AppDrawer from '@/components/AppDrawer.vue'
+import AppStatusTag from '@/components/AppStatusTag.vue'
 import AppTag from '@/components/AppTag.vue'
 import PluginCommandsPanel from '@/components/plugins/PluginCommandsPanel.vue'
 import { t } from '@/i18n'
-import { getPluginRoleLabel, getPluginStateLabel, getPluginTrustLabel } from '@/lib/display'
+import { getPluginInstallMethodLabel, getPluginRoleLabel, getPluginStateLabel, getPluginTrustLabel } from '@/lib/display'
+import { buildPluginDetailLocation } from '@/lib/management-links'
+import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import type { PluginSummary } from '@/types/api'
 
 defineProps<{ open: boolean; plugin: PluginSummary | null }>()
-defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: [] }>()
+const navigate = useMotionNavigation()
+
+function openDetail(pluginId: string) {
+  emit('close')
+  void navigate(buildPluginDetailLocation(pluginId))
+}
 </script>
 
 <template>
-  <AppDrawer :open="open" :title="t('plugins.actions.summary')" :width="560" @close="$emit('close')">
+  <!-- The drawer is named after its plugin; the facts follow as divided rows. -->
+  <AppDrawer :open="open" :title="plugin?.name || t('plugins.actions.summary')" :width="560" @close="$emit('close')">
     <template v-if="plugin">
-      <div class="drawer-section">
-        <div class="mono-list">
-          <strong>{{ plugin.name }}</strong>
-          <small>{{ plugin.id }}</small>
-        </div>
-      </div>
-
-      <AppCard variant="flat" class="drawer-card">
-        <AppDetails>
-          <AppDetailItem :label="t('plugins.fields.role')">{{ getPluginRoleLabel(plugin.role) }}</AppDetailItem>
-          <AppDetailItem :label="t('plugins.fields.trust')">{{ getPluginTrustLabel(plugin.trust?.level) }}</AppDetailItem>
-          <AppDetailItem :label="t('plugins.fields.state')">{{ getPluginStateLabel(plugin.state) }}</AppDetailItem>
-          <AppDetailItem :label="t('plugins.fields.source')">{{ plugin.source?.root ?? t('display.empty') }}</AppDetailItem>
-          <AppDetailItem :label="t('plugins.fields.sourceRef')">
-            {{ plugin.source?.package_source_ref ?? plugin.source?.package_source_type ?? t('display.empty') }}
-          </AppDetailItem>
-          <AppDetailItem :label="t('plugins.fields.conflicts')">
-            <div v-if="plugin.command_conflicts?.length" class="table-actions">
-              <AppTag v-for="command in plugin.command_conflicts" :key="command" tone="warning">
-                {{ command }}
-              </AppTag>
-            </div>
-            <span v-else>{{ t('display.empty') }}</span>
-          </AppDetailItem>
-        </AppDetails>
-      </AppCard>
+      <AppDetails>
+        <AppDetailItem :label="t('plugins.fields.id')"><span class="plugin-summary-drawer__mono">{{ plugin.id }}</span></AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.state')"><AppStatusTag :label="getPluginStateLabel(plugin.state)" :status="plugin.state" /></AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.role')">{{ getPluginRoleLabel(plugin.role) }}</AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.trust')">{{ getPluginTrustLabel(plugin.trust?.level) }}</AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.sourceRoot')"><span class="plugin-summary-drawer__mono">{{ plugin.source?.root ?? t('display.empty') }}</span></AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.sourceRef')">{{ getPluginInstallMethodLabel(plugin.source) }}</AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.conflicts')">
+          <div v-if="plugin.command_conflicts?.length" class="table-actions">
+            <AppTag v-for="command in plugin.command_conflicts" :key="command" tone="warning">
+              {{ command }}
+            </AppTag>
+          </div>
+          <span v-else>{{ t('display.empty') }}</span>
+        </AppDetailItem>
+      </AppDetails>
 
       <AppCard :title="t('plugins.sections.commands')" variant="flat" class="drawer-card">
         <PluginCommandsPanel
@@ -50,6 +52,14 @@ defineEmits<{ close: [] }>()
           :command-conflicts="plugin.command_conflicts"
         />
       </AppCard>
+    </template>
+    <template v-if="plugin" #footer>
+      <div class="plugin-summary-drawer__footer">
+        <AppButton data-testid="plugin-summary-open-detail" @click="openDetail(plugin.id)">
+          {{ t('plugins.actions.openDetail') }}
+          <ArrowUpRightIcon class="plugin-summary-drawer__arrow" aria-hidden="true" />
+        </AppButton>
+      </div>
     </template>
   </AppDrawer>
 </template>
@@ -68,20 +78,18 @@ defineEmits<{ close: [] }>()
   padding: 12px 0 0;
 }
 
-.drawer-section {
-  margin-top: 24px;
-  padding: var(--space-lg) 0;
-  border-bottom: 1px solid var(--border);
+.plugin-summary-drawer__mono {
+  font-family: var(--font-mono);
 }
 
-.mono-list {
+.plugin-summary-drawer__footer {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  font-family: var(--font-mono);
-  font-size: 13px;
+  justify-content: flex-end;
+}
 
-  strong { font-size: 1rem; font-weight: 600; }
-  small { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+.plugin-summary-drawer__arrow {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
 }
 </style>
