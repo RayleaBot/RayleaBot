@@ -32,7 +32,7 @@ test('password update verifies the current password and supports an optional new
   expect(outgoing.headers()['x-raylea-csrf']).toBeTruthy()
   expect(outgoing.postDataJSON()).toEqual({ current_secret: 'fixture-only-secret', new_secret: 'fixture-next-secret', new_identifier: 'renamed-admin' })
   await expect(page).toHaveURL(/\/login(?:\?|$)/)
-  await expect(page.getByText('账户已更新，请使用新凭据重新登录。', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('账号已更新，请使用新凭据重新登录。', { exact: true }).first()).toBeVisible()
   await page.getByLabel('管理员账号').fill('renamed-admin')
   await page.getByLabel('管理员密钥').fill('fixture-next-secret')
   await page.getByRole('button', { name: /登\s*录/ }).click()
