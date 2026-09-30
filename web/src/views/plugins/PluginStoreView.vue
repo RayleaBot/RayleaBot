@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppSelect from '@/components/AppSelect.vue'
-import AppSearchInput from '@/components/AppSearchInput.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
@@ -21,6 +20,7 @@ import {
   ArrowUpRightIcon,
   ExternalLinkIcon,
   PlusIcon,
+  SearchIcon,
   RotateCwIcon,
   SettingsIcon,
   RefreshCwIcon,
@@ -50,6 +50,11 @@ const navigate = useMotionNavigation()
 const { error, installing, items, loading, loadingMore, nextCursor, refreshing, source, sourceSaving, sources, total, sourcesTotal, sourcesNextCursor, sourcesLoadingMore, sourcesLoading, sourcesError } = storeToRefs(store)
 
 const query = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+watch(query, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { if (pageActive) void loadEntries() }, 300)
+})
 const sourceQuery = ref('')
 watch(sourceQuery, () => { void store.fetchSources({ query: sourceQuery.value }).catch(() => undefined) })
 const sort = ref<PluginStoreSort>('recommended')
@@ -204,6 +209,11 @@ function openSourceEditor(id: string) {
   sourceEditorOpen.value = true
 }
 
+function cancelSourceEditor() {
+  sourceEditorOpen.value = false
+  sourceManagerOpen.value = true
+}
+
 async function saveSource() {
   const input = { name: sourceForm.name.trim(), url: sourceForm.url.trim() }
   if (!input.name || !input.url) return
@@ -263,8 +273,8 @@ watch(() => pluginsStore.items.map(plugin => `${plugin.id}:${plugin.version}:${p
   refreshTimer = setTimeout(() => { if (pageActive) void loadEntries() }, 150)
 })
 onActivated(() => { pageActive = true; if (activated) void loadEntries(); activated = true })
-onDeactivated(() => { pageActive = false; clearTimeout(refreshTimer) })
-onBeforeUnmount(() => { pageActive = false; clearTimeout(refreshTimer) })
+onDeactivated(() => { pageActive = false; clearTimeout(refreshTimer); clearTimeout(searchTimer) })
+onBeforeUnmount(() => { pageActive = false; clearTimeout(refreshTimer); clearTimeout(searchTimer) })
 onMounted(() => {
   void loadInitialEntries()
 })
@@ -274,14 +284,16 @@ onMounted(() => {
   <AppPage :title="t('plugins.store.title')">
     <template #toolbar>
       <div class="store-toolbar">
-        <AppSearchInput v-model="query" :placeholder="t('plugins.store.searchPlaceholder')" class="store-search" @search="loadEntries" />
+        <AppInput v-model="query" :maxlength="200" :placeholder="t('plugins.store.searchPlaceholder')" :aria-label="t('plugins.store.searchPlaceholder')" wrapper-class="store-search" allow-clear>
+          <template #prefix><SearchIcon class="store-search__icon" /></template>
+        </AppInput>
         <AppSelect v-model="sourceId" :options="sourceOptions" :aria-label="t('plugins.fields.source')" wrapper-class="store-source" @update:model-value="changeSource" />
         <AppSelect v-model="sort" :options="sortOptions" :aria-label="t('plugins.store.sortLabel')" wrapper-class="store-sort" @update:model-value="loadEntries" />
         <div class="store-actions">
           <AppTag v-if="selectedSource">
             {{ selectedSource.official ? t('plugins.store.sources.official') : t('plugins.store.sources.custom') }}
           </AppTag>
-          <AppTag v-if="selectedSource && !selectedSource.cached" tone="warning">
+          <AppTag v-if="selectedSource && !selectedSource.cached">
             {{ t('plugins.store.sources.notCached') }}
           </AppTag>
           <span class="store-count">{{ t('plugins.store.resultCount', { count: total }) }}</span>
@@ -338,7 +350,7 @@ onMounted(() => {
                 :href="plugin.repository_url"
                 target="_blank"
                 rel="noopener noreferrer"
-                variant="ghost"
+                size="icon"
                 :aria-label="t('plugins.store.repository')"
               >
                 <template #icon><ExternalLinkIcon /></template>
@@ -426,11 +438,12 @@ onMounted(() => {
               <AppTag :tone="item.cached ? 'success' : 'neutral'">
                 {{ item.cached ? t('plugins.store.sources.cached') : t('plugins.store.sources.notCached') }}
               </AppTag>
+              <AppTag v-if="item.id === sourceId" tone="info">{{ t('plugins.store.sources.current') }}</AppTag>
             </div>
-            <code>{{ item.url }}</code>
+            <code :title="item.url">{{ item.url }}</code>
           </div>
           <div class="source-row-actions">
-            <AppButton @click="sourceId = item.id; sourceManagerOpen = false; changeSource()">{{ t('plugins.store.sources.select') }}</AppButton>
+            <AppButton v-if="item.id !== sourceId" @click="sourceId = item.id; sourceManagerOpen = false; changeSource()">{{ t('plugins.store.sources.select') }}</AppButton>
             <template v-if="!item.official">
             <AppButton variant="ghost" @click="openSourceEditor(item.id)">
               <template #icon><PencilIcon /></template>
@@ -450,16 +463,16 @@ onMounted(() => {
 
     </AppDialog>
 
-    <AppDialog :open="sourceEditorOpen" :title="editingSourceId ? t('plugins.store.sources.edit') : t('plugins.store.sources.add')" :busy="sourceSaving" fallback-focus="[data-testid=plugin-store-sources]" @close="sourceEditorOpen = false">
+    <AppDialog :open="sourceEditorOpen" :title="editingSourceId ? t('plugins.store.sources.edit') : t('plugins.store.sources.add')" :busy="sourceSaving" fallback-focus="[data-testid=plugin-store-sources]" @close="cancelSourceEditor">
       <div>
         <AppField floating :label="t('plugins.store.sources.name')">
           <AppInput v-model="sourceForm.name" :maxlength="120" />
         </AppField>
-        <AppField floating :label="t('plugins.store.sources.url')">
+        <AppField floating :label="t('plugins.store.sources.url')" :hint="t('plugins.store.sources.urlHint')">
           <AppInput v-model="sourceForm.url" placeholder="https://example.com/catalog.json" />
         </AppField>
       </div>
-    <template #footer><div class="flex justify-end gap-3"><AppButton :disabled="sourceSaving" @click="sourceEditorOpen = false">{{ t('shell.cancel') }}</AppButton><AppButton variant="default" :loading="sourceSaving" :disabled="!sourceForm.name.trim() || !sourceForm.url.trim()" @click="saveSource">{{ t('plugins.store.sources.save') }}</AppButton></div></template>
+    <template #footer><div class="flex justify-end gap-3"><AppButton :disabled="sourceSaving" @click="cancelSourceEditor">{{ t('shell.cancel') }}</AppButton><AppButton variant="default" :loading="sourceSaving" :disabled="!sourceForm.name.trim() || !sourceForm.url.trim()" @click="saveSource">{{ t('plugins.store.sources.save') }}</AppButton></div></template>
     </AppDialog>
     <AppConfirmDialog :open="pendingSourceRemoval !== null" :title="t('plugins.store.sources.remove')" :description="t('plugins.store.sources.removeConfirm')" :busy="sourceRemoving" danger :confirm-text="t('plugins.store.sources.remove')" @confirm="pendingSourceRemoval && removeSource(pendingSourceRemoval)" @cancel="pendingSourceRemoval = null" />
   </AppPage>
@@ -473,7 +486,8 @@ onMounted(() => {
   gap: 12px;
 }
 
-.store-search { width: min(420px, 100%); }
+:deep(.store-search) { width: min(420px, 100%); }
+.store-search__icon { width: 16px; height: 16px; color: var(--muted); }
 .store-source { width: min(240px, 100%); }
 .store-sort { width: 150px; }
 

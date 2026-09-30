@@ -114,6 +114,33 @@ describe('PluginStoreView', () => {
     expect(store.items).toEqual([echoPlugin])
   })
 
+  it('searches as the query is typed, once the typing pauses', async () => {
+    vi.useFakeTimers()
+    try {
+      const store = usePluginStore()
+      store.items = [echoPlugin]
+      store.sources = [officialSource]
+      store.source = officialSource
+      store.total = 1
+      vi.spyOn(store, 'fetchSources').mockResolvedValue(store.sources)
+      const fetchEntries = vi.spyOn(store, 'fetchEntries').mockResolvedValue({ items: store.items, total: 1, source: officialSource })
+      vi.spyOn(store, 'refreshSource').mockResolvedValue(officialSource)
+      const wrapper = mount(PluginStoreView, { global: { plugins: [getActivePinia()!] } })
+      await flushPromises()
+      fetchEntries.mockClear()
+
+      await wrapper.get('.store-search input').setValue('ec')
+      await wrapper.get('.store-search input').setValue('echo')
+      expect(fetchEntries).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(300)
+      expect(fetchEntries).toHaveBeenCalledTimes(1)
+      expect(fetchEntries).toHaveBeenLastCalledWith(expect.objectContaining({ query: 'echo' }))
+      wrapper.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('keeps the loaded catalog on screen while it reloads', async () => {
     const store = usePluginStore()
     store.items = [echoPlugin]

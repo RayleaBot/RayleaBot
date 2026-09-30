@@ -36,6 +36,8 @@ export const plugins = {
       searchLabel: '搜索插件来源',
       searchPlaceholder: '搜索来源名称、标识或网址',
       select: '选择来源',
+      current: '当前使用',
+      urlHint: '以 https:// 开头的插件目录 JSON 地址',
     },
     sortLabel: '排序方式',
     sort: {
