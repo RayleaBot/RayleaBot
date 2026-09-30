@@ -75,7 +75,8 @@ function optionLabel(plugin: PluginSummary) { return plugins.getPluginLabel(plug
 </template>
 
 <style scoped>
-.plugin-picker__trigger { justify-content: space-between; width: 100%; min-height: 40px; text-align: start; white-space: normal; }
+.plugin-picker__trigger.app-button { justify-content: space-between; width: 100%; min-height: 40px; height: auto; padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: none; color: var(--text); font-weight: 400; text-align: start; white-space: normal; }
+.plugin-picker__trigger.app-button:hover, .plugin-picker__trigger.app-button[aria-expanded=true] { background: var(--surface-raised); border-color: var(--text); }
 .plugin-picker__trigger span { overflow-wrap: anywhere; }
 .plugin-picker__options { display: grid; gap: 4px; max-height: 300px; overflow-y: auto; }
 .plugin-picker__option { justify-content: flex-start; white-space: normal; text-align: start; }

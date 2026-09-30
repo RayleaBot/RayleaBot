@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowUpRightIcon } from '@lucide/vue'
 import PluginPicker from '@/components/plugins/PluginPicker.vue'
 import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppDataTable from '@/components/AppDataTable.vue'
@@ -218,7 +219,8 @@ onMounted(() => {
 <template>
   <AppPage :title="t('commands.title')" width="detail">
     <template #toolbar>
-      <div class="app-view-card commands-filter-toolbar">
+      <!-- The plugin filter sits on the page like the plugin list's filters; permission policy is another page. -->
+      <div class="commands-filter-toolbar">
         <div class="commands-filter-form">
           <AppField :label="t('commands.filters.plugins')">
             <PluginPicker
@@ -228,8 +230,9 @@ onMounted(() => {
             />
           </AppField>
         </div>
-        <AppButton variant="default" data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="navigate(buildPermissionPolicyLocation())">
+        <AppButton data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="navigate(buildPermissionPolicyLocation())">
           {{ t('commands.actions.openPermissionPolicy') }}
+          <ArrowUpRightIcon class="commands-filter-toolbar__arrow" aria-hidden="true" />
         </AppButton>
       </div>
     </template>
@@ -339,12 +342,12 @@ onMounted(() => {
 .commands-filter-toolbar {
   display: flex;
   align-items: flex-end;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 16px;
 
   .commands-filter-form {
-    flex: 1 1 260px;
+    flex: 0 1 420px;
     min-width: 0;
   }
 
@@ -392,6 +395,12 @@ onMounted(() => {
 .command-name-tag {
   font-family: var(--font-mono);
   font-weight: 600;
+}
+
+.commands-filter-toolbar__arrow {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
 }
 
 .command-plugin-cell small,
