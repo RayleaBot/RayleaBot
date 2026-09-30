@@ -32,6 +32,8 @@
 .data-viewport {
   --control-fill: var(--surface-raised);
   --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text));
+  // Inside a box an empty-state plate would be a box within the box, so the illustration stands alone.
+  --empty-state-plate: transparent;
 }
 
 @media (forced-colors: active) {
