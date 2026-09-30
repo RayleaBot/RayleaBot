@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, computed, ref, useTemplateRef, watch } from 'vue'
+import { nextTick, computed, ref, useId, useTemplateRef, watch } from 'vue'
 import { CornerDownLeftIcon as EnterOutlined } from '@lucide/vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppInput from '@/components/AppInput.vue'
@@ -21,24 +21,29 @@ const emit = defineEmits<{
 const keyword = ref('')
 const activeIndex = ref(0)
 const inputRef = useTemplateRef('inputRef')
+const listboxId = useId()
 
+// Without a keyword every page is listed in sidebar order; matches keep that order within the same score.
 const results = computed(() => {
   const normalizedKeyword = keyword.value.trim().toLowerCase()
-  const sourceItems = props.items
+  return props.items
     .filter((item) => item.title)
-    .map((item) => ({
+    .map((item, order) => ({
       ...item,
+      order,
       score: getSearchScore(item, normalizedKeyword),
     }))
     .filter((item) => item.score > 0 || normalizedKeyword.length === 0)
-    .sort((left, right) => {
-      if (left.score === right.score) {
-        return left.title.localeCompare(right.title, 'zh-CN')
-      }
-      return right.score - left.score
-    })
+    .sort((left, right) => right.score - left.score || left.order - right.order)
+})
 
-  return sourceItems.slice(0, 12)
+function optionId(index: number) {
+  return `${listboxId}-option-${index}`
+}
+
+watch(activeIndex, async (index) => {
+  await nextTick()
+  document.getElementById(optionId(index))?.scrollIntoView({ block: 'nearest' })
 })
 
 watch(
@@ -157,17 +162,26 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
           ref="inputRef"
           v-model="keyword"
           id="route-search-input"
+          role="combobox"
+          aria-autocomplete="list"
+          :aria-expanded="results.length > 0"
+          :aria-controls="listboxId"
+          :aria-activedescendant="results.length > 0 ? optionId(activeIndex) : undefined"
           :aria-label="t('shell.searchPlaceholder')"
           :placeholder="t('shell.searchPlaceholder')"
           @keydown="handleInputKeydown"
         />
       </div>
 
-      <div v-if="results.length > 0" class="route-search-panel__results">
+      <div v-if="results.length > 0" :id="listboxId" class="route-search-panel__results" role="listbox" :aria-label="t('shell.search')">
         <button
           v-for="(item, index) in results"
+          :id="optionId(index)"
           :key="item.key"
           type="button"
+          role="option"
+          tabindex="-1"
+          :aria-selected="index === activeIndex"
           :class="['route-search-panel__result', { 'is-active': index === activeIndex }]"
           @mouseenter="activeIndex = index"
           @click="selectResult(item.path)"
@@ -176,7 +190,7 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
             <strong>{{ item.title }}</strong>
             <span>{{ item.path }}</span>
           </div>
-          <EnterOutlined />
+          <EnterOutlined v-if="index === activeIndex" class="route-search-panel__enter" aria-hidden="true" />
         </button>
       </div>
 
@@ -190,6 +204,13 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
 </template>
 
 <style scoped lang="scss">
+// The panel hangs from a fixed top line so filtering, which changes its height, never moves the input.
+:global(.app-dialog.route-search-modal) {
+  top: 14vh;
+  translate: -50% 0;
+  transform-origin: 50% 0;
+}
+
 .route-search-panel {
   display: grid;
   gap: 16px;
@@ -198,7 +219,8 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
 .route-search-panel__results {
   display: grid;
   gap: 2px;
-  max-height: 420px;
+  max-height: min(440px, 52vh);
+  padding: 2px;
   overflow-y: auto;
 }
 
@@ -222,6 +244,13 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
     background: var(--surface-raised);
     box-shadow: var(--shadow-xs);
   }
+}
+
+.route-search-panel__enter {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
 }
 
 .route-search-panel__meta {

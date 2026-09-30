@@ -73,13 +73,16 @@ export function buildMenuItems(routes: RouteRecordRaw[], parentPath = ''): AppMe
     .map(({ order: _order, ...route }) => route)
 }
 
+// Only named routes are pages; unnamed menu groups share their parent's path and would shadow the page there.
+// Siblings follow the same order as the sidebar menu.
 export function collectNavigationItems(routes: RouteRecordRaw[], parentPath = ''): AppNavigationItem[] {
-  return routes.flatMap((route) => {
+  const orderOf = (route: RouteRecordRaw) => (typeof route.meta?.order === 'number' ? route.meta.order : 0)
+  return [...routes].sort((left, right) => orderOf(left) - orderOf(right)).flatMap((route) => {
     const routePath = joinRoutePath(parentPath, route.path)
     const path = resolveRouteEntryPath(route.meta, routePath)
     const title = resolveRouteTitle(route.meta)
     const children = route.children ? collectNavigationItems(route.children, routePath) : []
-    const current = title && !route.meta?.hideInMenu
+    const current = title && route.name && !route.meta?.hideInMenu
       ? [{
         icon: route.meta?.icon,
         key: String(route.name ?? `nav:${path}:${title}`),

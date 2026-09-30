@@ -3,8 +3,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute, type RouteLocationRaw } from 'vue-router'
 
 import { buildMenuItems, collectNavigationItems, type AppMenuItem, type AppNavigationItem } from '@/access/menu'
-import { isPluginCenterRoute, pluginCenterPath, projectPluginCenterMenu } from '@/access/plugin-center'
-import { t } from '@/i18n'
+import { isPluginCenterRoute, pluginCenterPages, pluginCenterPath, projectPluginCenterMenu } from '@/access/plugin-center'
 import { adminRoutes } from '@/router/routes/modules/admin'
 import { useUiShellStore } from '@/stores/ui-shell'
 import { getLeafRouteMeta } from './shell-routes'
@@ -93,12 +92,16 @@ export function useShellNavigation(options: {
     { immediate: true },
   )
 
-  // Search lists every static page once per path.
-  const navigationItems = Array.from(new Map<string, AppNavigationItem>(
-    collectNavigationItems(adminPageRoutes, '')
-      .filter(item => !(item.path === '/' && item.title === t('routes.features')))
-      .map(item => [item.path, item]),
-  ).values())
+  // Search lists every page once per path, in sidebar order; plugin center pages follow their own sidebar layer.
+  const pluginCenterRank = new Map<string, number>(pluginCenterPages.map((page, index) => [page.path, index]))
+  const collectedItems = collectNavigationItems(adminPageRoutes, '')
+    .filter((item, index, items) => items.findIndex(other => other.path === item.path) === index)
+  const pluginCenterItems = collectedItems
+    .filter(item => pluginCenterRank.has(item.path))
+    .sort((left, right) => (pluginCenterRank.get(left.path) ?? 0) - (pluginCenterRank.get(right.path) ?? 0))
+  let pluginCenterSlot = 0
+  const navigationItems: AppNavigationItem[] = collectedItems
+    .map(item => (pluginCenterRank.has(item.path) ? pluginCenterItems[pluginCenterSlot++] ?? item : item))
 
   function navigateTo(target: RouteLocationRaw) {
     collapsedOpenMenuKeys.value = []

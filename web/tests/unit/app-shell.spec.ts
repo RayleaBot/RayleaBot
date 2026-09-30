@@ -537,6 +537,24 @@ describe('BasicLayout', () => {
     expect(uiShellStore.searchOpen).toBe(false)
   })
 
+  // Menu groups share the status page's path and used to replace it in the search list.
+  it('finds the status page by its own title in route search', async () => {
+    const { wrapper } = await mountShell('/')
+
+    await wrapper.get('[data-testid="header-search"]').trigger('click')
+    await flushPromises()
+
+    const input = document.body.querySelector<HTMLInputElement>('.route-search-panel input')
+    input!.value = '系统状态'
+    input!.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+
+    const results = Array.from(document.body.querySelectorAll<HTMLElement>('.route-search-panel__result'))
+    const statusItem = results.find(node => node.querySelector('strong')?.textContent === '系统状态')
+    expect(statusItem?.querySelector('span')?.textContent).toBe('/')
+    expect(results.some(node => node.querySelector('strong')?.textContent === '系统')).toBe(false)
+  })
+
   it('uses the stable template preview entry path for menu and route search', async () => {
     const { wrapper, router, uiShellStore } = await mountShell('/')
 
