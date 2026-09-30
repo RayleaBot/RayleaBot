@@ -42,7 +42,7 @@ const recentRange = computed(() => historyStore?.recentDays ? String(historyStor
 </script>
 
 <template>
-  <AppPage :title="t(history ? 'logs.historyTitle' : 'logs.currentTitle')" full-height>
+  <AppPage :title="t(history ? 'logs.historyTitle' : 'logs.currentTitle')" :description="t(`${labelPrefix}.description`)" full-height>
     <template #toolbar>
       <AppCard borderless class="app-view-card logs-toolbar">
         <ManagementLogFilters v-model="draftFilters" :history="history" :pending="filtersPending" @apply="applyFilters">
@@ -94,7 +94,8 @@ const recentRange = computed(() => historyStore?.recentDays ? String(historyStor
         <template #title>
           <div class="logs-feed-card__title">
             <span>{{ t(`${labelPrefix}.streamTitle`) }}</span>
-            <AppTag :tone="!history && atBottom ? 'success' : 'neutral'">
+            <!-- Following is a mode of the list, not a health state, so it stays neutral like the paused state. -->
+            <AppTag>
               {{ t(history ? 'logs.history.frozen' : atBottom ? 'logs.current.following' : 'logs.current.paused') }}
             </AppTag>
           </div>
@@ -270,7 +271,8 @@ const recentRange = computed(() => historyStore?.recentDays ? String(historyStor
 }
 
 .logs-jump-latest__control { pointer-events: auto; }
-.logs-jump-latest__button { box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 24%, transparent); }
+.logs-jump-latest__button { box-shadow: var(--shadow-floating); }
+// The count of unread entries is information, not an error: a white badge on the blue button.
 .logs-jump-latest__count {
   position: absolute;
   top: -8px;
@@ -278,9 +280,12 @@ const recentRange = computed(() => historyStore?.recentDays ? String(historyStor
   min-width: 22px;
   padding: 2px 5px;
   border-radius: 12px;
-  background: var(--surface-danger);
-  color: var(--text-danger);
+  background: var(--surface-raised);
+  color: var(--brand-foreground);
+  box-shadow: var(--shadow-xs);
   font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .logs-layout.has-detail-window .logs-jump-latest { right: max(18px, calc(50% - 12px)); }
