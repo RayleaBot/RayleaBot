@@ -43,7 +43,7 @@ colors:
   dark-canvas: "#111110"
   dark-surface: "#1C1C1A"
   dark-surface-raised: "#282826"
-  dark-surface-soft: "#2A2A27"
+  dark-surface-soft: "#161615"
   dark-text: "#EEEDEA"
   dark-text-muted: "#B4B1AA"
   dark-border: "#2F2E2B"

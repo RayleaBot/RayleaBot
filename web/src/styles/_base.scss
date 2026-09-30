@@ -7,7 +7,8 @@
   // Controls take the opposite lightness of the surface they sit on: light gray on the white page,
   // white inside the gray boxes below. Both are lifted by a soft shadow instead of a border.
   --control-fill: var(--surface);
-  --control-fill-hover: var(--surface-soft);
+  // Hover moves toward the text colour, so it stands out from the page in both themes.
+  --control-fill-hover: color-mix(in srgb, var(--surface) 93%, var(--text));
 }
 
 // Boxes: light gray on the white page, separated only by their shadow.

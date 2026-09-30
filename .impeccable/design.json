@@ -719,7 +719,7 @@
       "dark-surface-soft": {
         "role": "neutral",
         "displayName": "暗色凹槽",
-        "canonical": "#2A2A27",
+        "canonical": "#161615",
         "tonalRamp": [
           "#111110",
           "#1C1C1A",
@@ -1317,7 +1317,7 @@
       "refersTo": "raised-control",
       "description": "次要操作取与所在容器相反的明度：白色页面上是浅灰胶囊，浅灰卡片里是白色胶囊，只靠柔和阴影浮起。",
       "html": "<div class=\"ds-raised-wrap\"><button class=\"ds-raised\">重新检查</button><div class=\"ds-raised-card\"><button class=\"ds-raised\">查看检查</button></div></div>",
-      "css": ".ds-raised-wrap { display: flex; align-items: center; gap: 16px; padding: 16px; background: #FFFFFF; } .ds-raised { height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: #F5F5F3; color: #1C1B19; font: 500 14px/1.4 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; cursor: pointer; box-shadow: 0 1px 2px #18161214, 0 3px 8px -4px #18161224; } .ds-raised:hover { background: #ECEBE8; } .ds-raised:focus-visible { outline: 2px solid #2860D8; outline-offset: 2px; } .ds-raised-card { padding: 16px; border-radius: 20px; background: #F5F5F3; box-shadow: 0 1px 2px #1816120D, 0 10px 26px -14px #18161233; } .ds-raised-card .ds-raised { background: #FFFFFF; } .ds-raised-card .ds-raised:hover { background: #FFFFFF; } @media (prefers-color-scheme: dark) { .ds-raised-wrap { background: #111110; } .ds-raised { background: #1C1C1A; color: #EEEDEA; box-shadow: 0 1px 2px #00000066, 0 3px 8px -4px #00000080; } .ds-raised:hover { background: #2A2A27; } .ds-raised:focus-visible { outline-color: #8DB3FF; } .ds-raised-card { background: #1C1C1A; box-shadow: 0 1px 2px #00000059, 0 10px 28px -14px #00000099; } .ds-raised-card .ds-raised { background: #282826; } }"
+      "css": ".ds-raised-wrap { display: flex; align-items: center; gap: 16px; padding: 16px; background: #FFFFFF; } .ds-raised { height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: #F5F5F3; color: #1C1B19; font: 500 14px/1.4 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; cursor: pointer; box-shadow: 0 1px 2px #18161214, 0 3px 8px -4px #18161224; } .ds-raised:hover { background: #ECEBE8; } .ds-raised:focus-visible { outline: 2px solid #2860D8; outline-offset: 2px; } .ds-raised-card { padding: 16px; border-radius: 20px; background: #F5F5F3; box-shadow: 0 1px 2px #1816120D, 0 10px 26px -14px #18161233; } .ds-raised-card .ds-raised { background: #FFFFFF; } .ds-raised-card .ds-raised:hover { background: #FFFFFF; } @media (prefers-color-scheme: dark) { .ds-raised-wrap { background: #111110; } .ds-raised { background: #1C1C1A; color: #EEEDEA; box-shadow: 0 1px 2px #00000066, 0 3px 8px -4px #00000080; } .ds-raised:hover { background: #161615; } .ds-raised:focus-visible { outline-color: #8DB3FF; } .ds-raised-card { background: #1C1C1A; box-shadow: 0 1px 2px #00000059, 0 10px 28px -14px #00000099; } .ds-raised-card .ds-raised { background: #282826; } }"
     },
     {
       "name": "Text Input",

@@ -821,7 +821,15 @@ function validateContrast() {
   assertContrast('Light muted text on canvas', themes.light.textMuted, themes.light.canvas, 4.5, 6.66)
   // Segmented tracks and wells carry muted labels.
   assertContrast('Light muted text on soft', themes.light.textMuted, themes.light.surfaceSoft, 4.5, 5.59)
-  assertContrast('Dark muted text on soft', themes.dark.textMuted, themes.dark.surfaceSoft, 4.5, 6.72)
+  assertContrast('Dark muted text on soft', themes.dark.textMuted, themes.dark.surfaceSoft, 4.5, 8.46)
+  // Segmented sliders and chips are raised above their groove in both themes; a lighter groove hides the selection.
+  for (const mode of ['light', 'dark']) {
+    const raised = themes[mode].surfaceRaised
+    const groove = themes[mode].surfaceSoft
+    if (relativeLuminance(raised) <= relativeLuminance(groove) || contrastRatio(raised, groove) < 1.15) {
+      errors.push(`${mode} raised surface must stay lighter than the soft groove (${contrastRatio(raised, groove).toFixed(2)}:1)`)
+    }
+  }
   assertContrast('Light attention action', themes.light.onAttention, themes.light.attention, 4.5, 7.13)
   assertContrast('Dark attention action', themes.dark.onAttention, themes.dark.attention, 4.5, 8.30)
   for (const mode of ['light', 'dark']) {

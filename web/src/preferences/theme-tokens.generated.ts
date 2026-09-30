@@ -122,7 +122,7 @@ export const webThemes: Record<'light' | 'dark', WebThemeTokens> = {
     successSoft: '#173323',
     surface: '#1C1C1A',
     surfaceRaised: '#282826',
-    surfaceSoft: '#2A2A27',
+    surfaceSoft: '#161615',
     text: '#EEEDEA',
     textMuted: '#B4B1AA',
     warning: '#F3BB4F',
