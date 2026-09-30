@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
-import AppSkeleton from '@/components/AppSkeleton.vue'
+import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import AppSegmented from '@/components/AppSegmented.vue'
 import AppInput from '@/components/AppInput.vue'
@@ -65,6 +65,14 @@ const listQuery = computed(() => ({
 watch(listQuery, () => { void loadPlugins() })
 
 const summaryPlugin = computed(() => sortedItems.value.find((item) => item.id === summaryPluginId.value) ?? null)
+// With a search or filter in effect an empty result means "no match", not "nothing installed".
+const filtersActive = computed(() => Boolean(searchQuery.value.trim()) || filterState.value !== 'all' || filterSource.value !== 'all')
+
+function clearFilters() {
+  searchQuery.value = ''
+  filterState.value = 'all'
+  filterSource.value = 'all'
+}
 
 async function loadPlugins() {
   try {
@@ -133,7 +141,17 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
       </AppTableToolbar>
 
       <div class="plugins-grid-container">
-        <AppSkeleton v-if="loading && sortedItems.length === 0" :rows="6" />
+        <div v-if="loading && sortedItems.length === 0" class="plugins-grid" aria-hidden="true">
+          <AppSkeletonCard v-for="index in 8" :key="index" show-header :rows="2" />
+        </div>
+        <AppEmptyState
+          v-else-if="sortedItems.length === 0 && filtersActive"
+          icon="search"
+          :title="t('plugins.empty.filteredTitle')"
+          :description="t('plugins.empty.filteredDescription')"
+          :action-label="t('plugins.empty.clearFilters')"
+          @action="clearFilters"
+        />
         <AppEmptyState
           v-else-if="sortedItems.length === 0"
           icon="plugin"
