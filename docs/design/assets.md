@@ -11,7 +11,7 @@
 
 HarmonyOS Sans 许可允许随软件分发未经修改的字体副本，禁止修改字体及其任何组件，也禁止单独分发字体。因此界面字体不做子集化、格式转换或重新封装，Web 与 Launcher 各自随包携带三个 TTF（共约 24.7 MB）。`scripts/generate-design-tokens.mjs` 每次运行都核对字体文件与 `upstream.json` 记录的摘要，并把许可协议复制到 Web 与 Launcher public 目录的 `fonts/HarmonyOS-Sans-LICENSE.txt`；`THIRD_PARTY_NOTICES.md` 收录协议全文。
 
-许可要求在软件中显著声明使用了该字体：Web 在“偏好设置 › 外观”中说明并链接协议原文，Launcher 在“关于”页说明。该许可为可撤销授权，发布前确认授权仍然有效。
+许可要求在软件中显著声明使用了该字体：Web 在“偏好设置 › 外观”、Launcher 在“关于”页的“界面字体”一项列出字体名称；协议全文随安装包的 `THIRD_PARTY_NOTICES.md` 与字体目录中的许可文件分发。该许可为可撤销授权，发布前确认授权仍然有效。
 
 Noto Sans SC 子集是模板共用源文件，不按单个页面显示的少量字符删减；插件名、用户输入和中文状态文本都可能需要额外字形。
 

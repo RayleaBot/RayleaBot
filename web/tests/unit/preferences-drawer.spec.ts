@@ -13,7 +13,7 @@ afterEach(() => {
 
 describe('preferences drawer', () => {
   // The HarmonyOS Sans agreement requires a notice in the software that the fonts are used.
-  it('states the bundled HarmonyOS Sans font and links its agreement', async () => {
+  it('states the bundled HarmonyOS Sans font', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     useUiShellStore().openSettings()
@@ -22,8 +22,5 @@ describe('preferences drawer', () => {
 
     const notice = document.querySelector('[data-testid=preferences-font-notice]')
     expect(notice?.textContent).toContain('HarmonyOS Sans SC')
-    const link = notice?.querySelector('a')
-    expect(link?.getAttribute('href')).toBe('/fonts/HarmonyOS-Sans-LICENSE.txt')
-    expect(link?.getAttribute('target')).toBe('_blank')
   })
 })
