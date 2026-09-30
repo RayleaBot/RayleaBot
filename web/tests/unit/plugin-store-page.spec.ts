@@ -113,4 +113,30 @@ describe('PluginStoreView', () => {
     expect(refresh).toHaveBeenCalledTimes(2)
     expect(store.items).toEqual([echoPlugin])
   })
+
+  it('keeps the loaded catalog on screen while it reloads', async () => {
+    const store = usePluginStore()
+    store.items = [echoPlugin]
+    store.sources = [officialSource]
+    store.source = officialSource
+    store.total = 1
+    vi.spyOn(store, 'fetchSources').mockResolvedValue(store.sources)
+    vi.spyOn(store, 'fetchEntries').mockResolvedValue({ items: store.items, total: 1, source: officialSource })
+    vi.spyOn(store, 'refreshSource').mockResolvedValue(officialSource)
+
+    const wrapper = mount(PluginStoreView, { global: { plugins: [getActivePinia()!] } })
+    await flushPromises()
+
+    // A reload of the same catalog, as on returning to the page, must not swap the cards for a skeleton.
+    store.loading = true
+    await flushPromises()
+    expect(wrapper.findAll('.store-plugin-card')).toHaveLength(1)
+    expect(wrapper.find('.app-skeleton-card').exists()).toBe(false)
+
+    // With nothing loaded yet the skeleton stands in for the cards.
+    store.items = []
+    await flushPromises()
+    expect(wrapper.find('.app-skeleton-card').exists()).toBe(true)
+    expect(wrapper.find('.store-plugin-card').exists()).toBe(false)
+  })
 })

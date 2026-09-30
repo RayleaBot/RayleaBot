@@ -6,7 +6,7 @@ import AppDialog from '@/components/AppDialog.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
 import AppTag from '@/components/AppTag.vue'
-import AppSkeleton from '@/components/AppSkeleton.vue'
+import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppField from '@/components/AppField.vue'
 import AppDetails from '@/components/AppDetails.vue'
@@ -310,7 +310,10 @@ onMounted(() => {
     />
 
     <template v-else>
-      <AppSkeleton v-if="loading" :rows="8" />
+      <!-- A reload keeps the loaded catalog on screen; the skeleton only stands in while there is nothing to show. -->
+      <div v-if="loading && items.length === 0" class="store-grid" aria-hidden="true">
+        <AppSkeletonCard v-for="index in 8" :key="index" show-header :rows="2" />
+      </div>
       <AppEmptyState
         v-else-if="items.length === 0"
         :title="t('plugins.store.empty.title')"

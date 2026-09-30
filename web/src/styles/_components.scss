@@ -247,16 +247,15 @@ html::view-transition-new(root),
   pointer-events: none;
 }
 
-.admin-layout__content[data-view-transition-kind='route'][data-motion-profile='fade']::view-transition-old(root) {
-  animation: raylea-view-fade-out 120ms linear both;
+// Switching pages replaces the content: the old page leaves at once instead of fading over the new one,
+// so two pages (a loading skeleton and loaded cards, two titles) never show through each other.
+.admin-layout__content[data-view-transition-kind='route']::view-transition-old(root) {
+  animation: none;
+  opacity: 0;
 }
 
 .admin-layout__content[data-view-transition-kind='route'][data-motion-profile='fade']::view-transition-new(root) {
   animation: raylea-route-enter 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.admin-layout__content[data-view-transition-kind='route'][data-motion-profile='fade-slide']::view-transition-old(root) {
-  animation: raylea-view-slide-out 120ms linear both;
 }
 
 .admin-layout__content[data-view-transition-kind='route'][data-motion-profile='fade-slide']::view-transition-new(root) {
@@ -283,24 +282,9 @@ html[data-view-transition-kind='theme']::view-transition-new(root) {
   z-index: 2;
 }
 
-@keyframes raylea-view-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes raylea-view-fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
 @keyframes raylea-view-slide-in {
   from { opacity: .88; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes raylea-view-slide-out {
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(-2px); }
 }
 
 @media (prefers-reduced-motion: reduce), (forced-colors: active) {
