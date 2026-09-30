@@ -395,8 +395,9 @@ async function save() {
   }
 }
 
+// Wide enough for a plugin name with its ID on one line, so both tabs start the stage at the same height.
 .menu-center-plugin-select {
-  width: 200px;
+  width: 320px;
 }
 
 .menu-preview-card {
