@@ -67,6 +67,11 @@ html[data-theme='dark'] .raylea-mark {
   filter: invert(1);
 }
 
+// Lit surfaces are light-theme islands inside the dark theme, so the mark keeps its original colours.
+html[data-theme='dark'] [data-theme='light'] .raylea-mark {
+  filter: none;
+}
+
 .skip-link,
 .sr-only {
   position: absolute;

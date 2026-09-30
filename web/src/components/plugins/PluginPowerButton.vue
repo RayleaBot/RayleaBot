@@ -86,8 +86,8 @@ function handleClick(event: MouseEvent) {
   --off-track-border: color-mix(in srgb, var(--text) 16%, var(--surface-soft));
   --off-text: color-mix(in srgb, var(--text) 65%, transparent);
   --thumb-bg: var(--surface-raised);
-  --on-track: var(--brand-fill);
-  --on-text: var(--on-brand);
+  --on-track: var(--text);
+  --on-text: var(--surface-strong);
   position: relative;
   display: inline-flex;
   width: var(--button-width);

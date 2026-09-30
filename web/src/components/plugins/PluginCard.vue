@@ -10,7 +10,7 @@ import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import PluginPowerButton from '@/components/plugins/PluginPowerButton.vue'
 import { t } from '@/i18n'
 import { formatPluginVersion, getPluginStateLabel, getPluginTrustLabel } from '@/lib/display'
-import type { StatusTone } from '@/lib/status-tone'
+import { resolveStatusTone, type StatusTone } from '@/lib/status-tone'
 import { usePluginsStore } from '@/stores/plugins'
 import type { PluginSummary } from '@/types/api'
 
@@ -31,6 +31,10 @@ const sourceTypeLabel = computed(() => {
   }
 })
 const lifecycleSwitching = computed(() => props.plugin.state === 'starting' || props.plugin.state === 'stopping')
+// Running plugins are lit devices; a lit card is a light-theme island so its tags and buttons read as
+// they do in the light theme. Stopped plugins are text-bearing glass; problems get an outline.
+const lit = computed(() => props.plugin.state === 'running')
+const attention = computed(() => ['danger', 'warning'].includes(resolveStatusTone(props.plugin.state)))
 const toggleLoading = computed(() => props.pendingAction === 'enable' || props.pendingAction === 'disable' || lifecycleSwitching.value)
 const reloadDisabled = computed(() => props.plugin.state === 'disabled' || lifecycleSwitching.value || props.plugin.state === 'invalid')
 
@@ -56,7 +60,12 @@ const healthNotices = computed(() => {
 </script>
 
 <template>
-  <article class="plugin-grid-card">
+  <article
+    :class="['plugin-grid-card', lit ? 'plugin-grid-card--lit' : 'liquid-glass liquid-glass--strong']"
+    :data-glass="lit ? undefined : 'clear'"
+    :data-theme="lit ? 'light' : undefined"
+    :data-attention="attention || undefined"
+  >
     <header class="plugin-card__header">
       <PluginIcon :refresh-key="pluginsStore.iconRevision" :plugin-id="plugin.id" :icon="plugin.icon" :version="plugin.version" />
       <div class="plugin-card__identity">
@@ -141,16 +150,36 @@ const healthNotices = computed(() => {
   overflow: hidden;
   flex-direction: column;
   min-height: 224px;
-  border: 1px solid var(--border);
-  border-radius: var(--app-card-radius);
-  background: var(--surface-strong);
-  box-shadow: none;
-  transition: border-color 160ms var(--motion-easing), box-shadow 160ms var(--motion-easing);
+  border: 0;
+  border-radius: var(--app-tile-radius);
+  color: var(--text);
+  transition: translate 160ms var(--motion-easing), box-shadow 160ms var(--motion-easing);
+}
+
+// The grid hands down its theme's lit surface, so a light island keeps the dimmer dark-theme lit tone.
+.plugin-grid-card--lit {
+  background: var(--tile-lit-surface, var(--surface-lit));
+  box-shadow:
+    inset 0 1.5px 0 var(--glass-rim),
+    inset 0 0 0 1px color-mix(in srgb, var(--glass-rim) 50%, transparent),
+    0 1px 2px rgb(0 0 0 / 6%),
+    0 12px 28px -12px rgb(0 0 0 / 22%);
+}
+
+:global(html[data-theme='dark']) .plugin-grid-card--lit {
+  box-shadow:
+    inset 0 1.5px 0 rgb(255 255 255 / 80%),
+    0 12px 30px -12px rgb(0 0 0 / 60%);
+}
+
+.plugin-grid-card[data-attention] {
+  box-shadow:
+    inset 0 0 0 2px var(--warning),
+    var(--shadow-floating);
 }
 
 .plugin-grid-card:hover {
-  border-color: var(--border-strong);
-  box-shadow: none;
+  translate: 0 -1px;
 }
 
 .plugin-card__header {
@@ -266,7 +295,7 @@ const healthNotices = computed(() => {
   justify-content: space-between;
   margin-top: auto;
   padding: 10px 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
   background: transparent;
 }
 
@@ -279,15 +308,15 @@ const healthNotices = computed(() => {
   align-items: center;
   justify-content: center;
   min-height: 36px;
-  padding-inline: 11px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
+  padding-inline: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
   color: var(--text);
   font-size: 14px;
   box-shadow: none;
 }
-.plugin-card__manage-action.app-button:hover:not(:disabled) { background: var(--surface-accent); color: var(--text-accent); }
+.plugin-card__manage-action.app-button:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 12%, transparent); color: var(--text); }
 .plugin-card__manage-action.app-button:active:not(:disabled) { transform: scale(.97); }
 .plugin-card__icon-action.app-button {
   display: inline-flex;
@@ -297,17 +326,25 @@ const healthNotices = computed(() => {
   height: 36px;
   padding: 0;
   color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  border: 0;
   font-size: 18px;
-  border-radius: var(--radius-md);
+  border-radius: 999px;
   box-shadow: none;
 }
-.plugin-card__icon-action.app-button:hover:not(:disabled) { background: var(--surface-accent); color: var(--text); }
+.plugin-card__icon-action.app-button:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 12%, transparent); color: var(--text); }
 .plugin-card__icon-action.app-button:active:not(:disabled) { transform: scale(.94); }
 .plugin-card__icon-action.app-button:disabled { color: var(--muted); opacity: .45; }
 @media (min-width: #{bp.$fiveColumns}) {
   .plugin-grid-card { min-height: 240px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plugin-grid-card { transition: none; }
+  .plugin-grid-card:hover { translate: none; }
+}
+@media (forced-colors: active) {
+  .plugin-grid-card { border: 1px solid CanvasText; }
+  .plugin-grid-card[data-attention] { outline: 2px solid Highlight; outline-offset: -4px; }
 }
 @media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
   .plugin-card__name { min-height: 44px; white-space: normal; line-height: 1.4; }

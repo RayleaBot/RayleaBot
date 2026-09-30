@@ -10,7 +10,6 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { FilterIcon, SearchIcon, PlusIcon } from '@lucide/vue'
 
-import AppCard from '@/components/AppCard.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppTableToolbar from '@/components/AppTableToolbar.vue'
 import PluginCard from '@/components/plugins/PluginCard.vue'
@@ -106,69 +105,64 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
     />
 
     <div v-else class="plugins-page-content">
-      <AppCard
-        borderless
-        class="plugins-card"
-      >
-        <AppTableToolbar class="plugins-toolbar">
-          <template #left>
-            <div class="toolbar-filters plugins-filter-desktop">
-              <AppInput
-                v-model="searchQuery" :maxlength="200"
-                :placeholder="t('plugins.filter.searchPlaceholder')"
-                wrapper-class="filter-search"
-                allow-clear
-              >
-                <template #prefix>
-                  <SearchIcon class="search-icon" />
-                </template>
-              </AppInput>
+      <AppTableToolbar class="plugins-toolbar liquid-glass liquid-glass--strong" data-glass="clear">
+        <template #left>
+          <div class="toolbar-filters plugins-filter-desktop">
+            <AppInput
+              v-model="searchQuery" :maxlength="200"
+              :placeholder="t('plugins.filter.searchPlaceholder')"
+              wrapper-class="filter-search"
+              allow-clear
+            >
+              <template #prefix>
+                <SearchIcon class="search-icon" />
+              </template>
+            </AppInput>
 
-              <AppSegmented v-model="filterState" :options="stateOptions" :label="t('plugins.filter.title')" class="filter-radio-group" />
+            <AppSegmented v-model="filterState" :options="stateOptions" :label="t('plugins.filter.title')" class="filter-radio-group" />
 
-              <AppSelect v-model="filterSource" :options="sourceOptions" :aria-label="t('plugins.filter.sourceAll')" wrapper-class="filter-select" />
-            </div>
-          </template>
-
-          <template #right>
-            <AppButton class="plugins-filter-mobile-trigger" @click="filterDrawerVisible = true">
-              <template #icon><FilterIcon /></template>
-              {{ t('plugins.filter.title') }}
-            </AppButton>
-            <AppButton variant="default" @click="installDialogVisible = true">
-              <template #icon><PlusIcon /></template>
-              {{ t('plugins.install') }}
-            </AppButton>
-          </template>
-        </AppTableToolbar>
-
-        <div class="plugins-grid-container">
-          <AppSkeleton v-if="loading && sortedItems.length === 0" :rows="6" />
-          <AppEmptyState
-            v-else-if="sortedItems.length === 0"
-            icon="plugin"
-            :title="t('plugins.empty.title')"
-            :description="t('plugins.empty.description')"
-            :action-label="t('plugins.install')"
-            @action="installDialogVisible = true"
-          />
-
-          <div v-else class="plugins-grid" :aria-label="t('plugins.title')">
-            <PluginCard
-              v-for="item in sortedItems"
-              :key="item.id"
-              :plugin="item"
-              :pending-action="actionPending[item.id]"
-              @detail="navigate(buildPluginDetailLocation(item.id))"
-              @summary="openSummary(item.id)"
-              @manage="navigate(buildPluginDetailLocation(item.id, { panel: 'management-ui' }))"
-              @reload="runPluginAction(item.id, 'reload')"
-              @toggle="runPluginAction(item.id, item.state === 'disabled' ? 'enable' : 'disable')"
-            />
+            <AppSelect v-model="filterSource" :options="sourceOptions" :aria-label="t('plugins.filter.sourceAll')" wrapper-class="filter-select" />
           </div>
+        </template>
+
+        <template #right>
+          <AppButton class="plugins-filter-mobile-trigger" @click="filterDrawerVisible = true">
+            <template #icon><FilterIcon /></template>
+            {{ t('plugins.filter.title') }}
+          </AppButton>
+          <AppButton variant="default" @click="installDialogVisible = true">
+            <template #icon><PlusIcon /></template>
+            {{ t('plugins.install') }}
+          </AppButton>
+        </template>
+      </AppTableToolbar>
+
+      <div class="plugins-grid-container">
+        <AppSkeleton v-if="loading && sortedItems.length === 0" :rows="6" />
+        <AppEmptyState
+          v-else-if="sortedItems.length === 0"
+          icon="plugin"
+          :title="t('plugins.empty.title')"
+          :description="t('plugins.empty.description')"
+          :action-label="t('plugins.install')"
+          @action="installDialogVisible = true"
+        />
+
+        <div v-else class="plugins-grid" :aria-label="t('plugins.title')">
+          <PluginCard
+            v-for="item in sortedItems"
+            :key="item.id"
+            :plugin="item"
+            :pending-action="actionPending[item.id]"
+            @detail="navigate(buildPluginDetailLocation(item.id))"
+            @summary="openSummary(item.id)"
+            @manage="navigate(buildPluginDetailLocation(item.id, { panel: 'management-ui' }))"
+            @reload="runPluginAction(item.id, 'reload')"
+            @toggle="runPluginAction(item.id, item.state === 'disabled' ? 'enable' : 'disable')"
+          />
         </div>
-        <AppCollectionPagination :loaded="sortedItems.length" :total="total" :next-cursor="nextCursor" :loading="loadingMore || loading" @more="pluginsStore.loadMore().catch(() => undefined)" />
-      </AppCard>
+      </div>
+      <AppCollectionPagination :loaded="sortedItems.length" :total="total" :next-cursor="nextCursor" :loading="loadingMore || loading" @more="pluginsStore.loadMore().catch(() => undefined)" />
     </div>
 
     <AppDrawer :open="filterDrawerVisible" placement="bottom" :title="t('plugins.filter.title')" @close="filterDrawerVisible = false">
@@ -202,10 +196,11 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
   min-height: 0;
 }
 
+// Filters float on the light field as a glass bar; the plugin devices sit on the field below it.
 .plugins-toolbar {
-  border-bottom: 1px solid var(--border);
-  padding: var(--space-md) var(--space-lg);
-  background: var(--surface);
+  padding: 8px 8px 8px 10px;
+  border-bottom: 0;
+  border-radius: 28px;
 }
 
 .toolbar-filters {
@@ -262,26 +257,16 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
   }
 }
 
-.plugins-card {
-  box-shadow: none;
-}
-
-.plugins-card :deep(.app-card__body) {
-  padding: 0;
-}
-
-// The card body has no padding of its own, so the loaded count lines up with the toolbar instead.
-.plugins-card :deep(.collection-pagination) {
-  padding-inline: var(--space-lg);
+.plugins-page-content :deep(.collection-pagination) {
+  padding-inline: 4px;
 }
 
 .plugins-grid-container {
   min-height: 220px;
-  padding: 16px 0 0;
-  background: var(--bg);
 }
 
 .plugins-grid {
+  --tile-lit-surface: var(--surface-lit);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-lg);
