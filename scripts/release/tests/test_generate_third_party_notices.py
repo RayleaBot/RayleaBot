@@ -106,6 +106,23 @@ class ThirdPartyNoticeTests(unittest.TestCase):
             self.assertIn("shadcn-vue/reka-nova", rendered)
             self.assertIn("Copyright (c) 2023 radix-vue", rendered)
 
+    def test_bundled_font_agreement_is_included_in_release_notices(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(notices, "REPO_ROOT", Path(tmp)):
+            font_dir = Path(tmp) / "design" / "fonts" / "harmonyos-sans-sc"
+            font_dir.mkdir(parents=True)
+            (font_dir / "upstream.json").write_text(
+                json.dumps({"name": "HarmonyOS Sans SC", "version": "1.0", "license": "LicenseRef-HarmonyOS-Sans-Fonts"}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(notices.NoticeGenerationError, "no LICENSE or COPYING"):
+                notices.collect_bundled_fonts()
+            (font_dir / "LICENSE.txt").write_text(
+                "License Notice\nCopyright 2021 Huawei Device Co., Ltd.", encoding="utf-8",
+            )
+            rendered = notices.render_notices(notices.collect_bundled_fonts())
+            self.assertIn("| asset:font | HarmonyOS Sans SC | 1.0 | LicenseRef-HarmonyOS-Sans-Fonts |", rendered)
+            self.assertIn("Copyright 2021 Huawei Device Co., Ltd.", rendered)
+
     def test_license_text_removes_trailing_whitespace(self) -> None:
         self.assertEqual(
             notices.normalize_license_text("first  \r\n\r\n\tsecond\t\r\n"),

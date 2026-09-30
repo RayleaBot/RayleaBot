@@ -71,19 +71,19 @@ colors:
   dark-info-soft: "#1B2A45"
 typography:
   headline:
-    fontFamily: "'Noto Sans SC', 'Microsoft YaHei UI', sans-serif"
+    fontFamily: "'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'PingFang SC', sans-serif"
     fontSize: "24px"
   title:
-    fontFamily: "'Noto Sans SC', 'Microsoft YaHei UI', sans-serif"
+    fontFamily: "'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'PingFang SC', sans-serif"
     fontSize: "18px"
   section:
-    fontFamily: "'Noto Sans SC', 'Microsoft YaHei UI', sans-serif"
+    fontFamily: "'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'PingFang SC', sans-serif"
     fontSize: "16px"
   body:
-    fontFamily: "'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', system-ui, sans-serif"
+    fontFamily: "'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'PingFang SC', 'Hiragino Sans GB', system-ui, sans-serif"
     fontSize: "14px"
   label:
-    fontFamily: "'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', system-ui, sans-serif"
+    fontFamily: "'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'PingFang SC', 'Hiragino Sans GB', system-ui, sans-serif"
     fontSize: "13px"
   mono:
     fontFamily: "'Cascadia Mono', Consolas, 'JetBrains Mono', 'Courier New', monospace"
@@ -166,7 +166,7 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 
 - 灰白与炭灰画布、中性导航和连续工作区。
 - 少量青瓷主操作与选中标记，以及按亮暗主题切换原版与反色版的黑白人物标识。
-- 自托管 Noto Sans SC 用于 Web 普通文字，Launcher 正文使用系统字体；字号、字重与间距形成克制层级。
+- 随包的 HarmonyOS Sans SC 用于 Web 与 Launcher 的全部界面文字；字号、字重与间距形成克制层级。
 - 亮暗主题、键盘操作和窄屏呈现保持等价操作能力。
 - Web 管理工作区的状态、表单、列表与日志采用不透明表面，玻璃用于浮层；认证入口与 Launcher 采用 Liquid Glass 适配。
 
@@ -202,11 +202,11 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 
 ## Typography
 
-**Display Font:** 自托管 Noto Sans SC，回退为 Microsoft YaHei UI 与 sans-serif，用于品牌文字、页面标题和面板标题。共享 [typography.generated.css](design/typography.generated.css) 引入仓库已有 WOFF2 子集，两端随构建打包；[字体授权](templates/help.menu/assets/fonts/noto-sans-sc/OFL.txt) 随两端公开资源附带。
+**Display Font:** HarmonyOS Sans SC，回退为 Microsoft YaHei UI、PingFang SC 与 sans-serif，用于品牌文字、页面标题和面板标题。共享 [typography.generated.css](design/typography.generated.css) 以 `@font-face` 声明 [design/fonts/harmonyos-sans-sc](design/fonts/harmonyos-sans-sc/upstream.json) 中未经修改的 Regular、Medium、Bold 三个 TTF，两端随构建打包；[字体许可协议](design/fonts/harmonyos-sans-sc/LICENSE.txt) 随两端公开资源附带，两端界面都声明使用了该字体。
 
-**Body Font:** 共享基础 token 保留 Segoe UI Variable Text、Segoe UI 与中文系统无衬线回退栈，Launcher 正文和标准控件使用该栈。Web 在 [`_base.scss`](web/src/styles/_base.scss) 的 `:root` 中将 `--font-sans` 局部映射到现有 `--font-display`，管理面与认证产品组件继承同一 CSS 字体映射，因此 Web 普通正文、控件与插件卡片版本使用自托管 Noto Sans SC。认证主题同样通过 CSS 变量映射。
+**Body Font:** 与标题相同的 HarmonyOS Sans SC，回退为 Microsoft YaHei UI、PingFang SC、Hiragino Sans GB 与系统无衬线字体。Web 管理面、认证页与 Launcher 的正文和标准控件都继承 `--font-sans`，Launcher 的 Fluent `fontFamilyBase` 同样映射到该变量。字体只提供 400、500、700 三个字重，600 及以上的字重使用 Bold。
 
-**Label/Mono Font:** 标签沿用所在应用的正文栈。Web 日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据、JSON 和代码使用 Cascadia Mono、Consolas、JetBrains Mono 等宽回退栈；日志消息正文使用 Noto Sans SC，不因位于 `pre` 中而改用等宽字体。
+**Label/Mono Font:** 标签沿用所在应用的正文栈。Web 日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据、JSON 和代码使用 Cascadia Mono、Consolas、JetBrains Mono 等宽回退栈；日志消息正文使用界面字体，不因位于 `pre` 中而改用等宽字体。
 
 ### Hierarchy
 
@@ -371,7 +371,7 @@ Web 产品组件基于 Vue 3、Reka UI 2.10.4、仓库持有的 shadcn-vue / rek
 
 ### Authentication
 
-登录、首次初始化与凭据恢复指引共享居中单栏面板，保留共享黑白人物标识与 Noto Sans SC，凭据表单使用 AppField、AppInput、AppButton 和 AppAlert。静态青瓷玻璃壁纸与面板不随指针移动，鼠标仅改变边缘高光位置，空闲时没有持续绘制循环。
+登录、首次初始化与凭据恢复指引共享居中单栏面板，保留共享黑白人物标识与 HarmonyOS Sans SC，凭据表单使用 AppField、AppInput、AppButton 和 AppAlert。静态青瓷玻璃壁纸与面板不随指针移动，鼠标仅改变边缘高光位置，空闲时没有持续绘制循环。
 
 壁纸资源、法线图生成、入场动画、低高度视口、reduced-motion 与 forced-colors 行为见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。认证区域文字选区使用现有品牌填充与对应前景。
 

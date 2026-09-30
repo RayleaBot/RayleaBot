@@ -46,6 +46,9 @@ const pageTransitionOptions: Array<{ label: string; value: PageTransition }> = [
   { label: t('shell.preferences.transitionNone'), value: 'none' },
 ]
 
+// HarmonyOS Sans requires a notice in the software; the agreement ships next to the bundled fonts.
+const fontLicenseUrl = `${import.meta.env.BASE_URL}fonts/HarmonyOS-Sans-LICENSE.txt`
+
 const shortcutItems = computed(() => [
   { combo: 'Ctrl / Cmd + K', description: t('shell.preferences.shortcutSearch') },
   { combo: 'Ctrl / Cmd + W', description: t('shell.preferences.shortcutCloseCurrent') },
@@ -109,6 +112,14 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
             :model-value="preferences.pageTransition" :label="t('shell.preferences.pageTransition')"
             @update:model-value="patchPreference('pageTransition', $event as PageTransition)"
           />
+        </div>
+
+        <div class="preferences-group" data-testid="preferences-font-notice">
+          <div class="preferences-group__heading">
+            <strong>{{ t('shell.preferences.uiFont') }}</strong>
+            <span>{{ t('shell.preferences.uiFontNotice') }}</span>
+          </div>
+          <a class="preferences-font-license" :href="fontLicenseUrl" target="_blank" rel="noopener">{{ t('shell.preferences.uiFontLicense') }}</a>
         </div>
       </template>
 
@@ -196,6 +207,21 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.preferences-font-license {
+  width: fit-content;
+  border-radius: 4px;
+  color: var(--brand-foreground);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.preferences-font-license:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .preferences-switch {

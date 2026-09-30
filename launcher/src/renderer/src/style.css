@@ -1,7 +1,7 @@
 @import "../../../../design/typography.generated.css";
 
 :root {
-  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  font-family: var(--font-sans);
   --sidebar-width: 184px;
   font-synthesis: none;
   text-rendering: optimizeLegibility;

@@ -20,7 +20,7 @@ function createLauncherFluentTheme(effectiveTheme: LauncherEffectiveTheme): Them
 
   return {
     ...base,
-    fontFamilyBase: '"Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif',
+    fontFamilyBase: "var(--font-sans)",
     borderRadiusMedium: "8px",
     borderRadiusLarge: "12px",
     colorNeutralBackground1: tokens.surface,

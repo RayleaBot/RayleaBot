@@ -8,9 +8,9 @@
 - HTTP、WebSocket、Pinia store、generated types 和路由语义保持现有正式来源。
 - `design/tokens.json` 通过生成脚本提供 CSS variables，Tailwind 和产品组件消费相同的语义 token。
 - 页面局部样式只负责业务布局和无法由组件 token 表达的最小差异。
-- 品牌、页面与面板标题、普通正文、控件及插件卡片版本使用共享的自托管 Noto Sans SC。Web 的 `web/src/styles/_base.scss` 在 `:root` 将 `--font-sans` 局部映射到现有 `--font-display`，产品组件通过 CSS 继承字体。字体子集与授权文件随 Web 构建发布。
-- 日志消息正文使用 Noto Sans SC；日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据与 JSON 使用等宽栈。共享基础字体 token、Launcher 系统正文与独立 iframe 字体各自遵循所属界面的规范。
-- `DESIGN.md` 前置数据、`.impeccable/design.json` 与共享字体 CSS 由 `scripts/generate-design-tokens.mjs` 维护；Web 局部字体映射不要求修改共享基础 token，设计正文变化由生成器同步到 sidecar 的 narrative。
+- 品牌、页面与面板标题、普通正文、控件及插件卡片版本使用共享的 HarmonyOS Sans SC：`--font-display` 与 `--font-sans` 都以它为首选，产品组件通过 CSS 继承字体。三个未经修改的 TTF 与许可协议随 Web 构建发布，“偏好设置 › 外观”声明使用了该字体并链接协议原文。
+- 日志消息正文使用界面字体；日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据与 JSON 使用等宽栈。独立 iframe 的字体遵循插件自己的规范。
+- `DESIGN.md` 前置数据、`.impeccable/design.json` 与共享字体 CSS 由 `scripts/generate-design-tokens.mjs` 维护，设计正文变化由生成器同步到 sidecar 的 narrative。
 
 ## 主题映射
 
@@ -109,7 +109,7 @@ favicon 由现有 `resolvedThemeMode` 同步：浅色引用 [`favicon.svg`](../.
 ## 认证入口
 
 - 登录、首次初始化与凭据恢复指引共用居中单栏面板；窄屏时缩小圆角并收紧内边距，低高度视口允许页面自然滚动。
-- 认证表面沿用共享黑白人物标识、自托管 Noto Sans SC 和 Web 局部语义 token。玻璃颜色由现有认证主题 token 通过 CSS `color-mix()` 派生，浅色与暗色使用不同的表面与高光比例；浅色辅文与底部链接局部加深以保持对比度。亮暗主题保留相同的信息、验证和提交能力，共享品牌 token 表达统一的颜色和字体语义。
+- 认证表面沿用共享黑白人物标识、HarmonyOS Sans SC 和 Web 局部语义 token。玻璃颜色由现有认证主题 token 通过 CSS `color-mix()` 派生，浅色与暗色使用不同的表面与高光比例；浅色辅文与底部链接局部加深以保持对比度。亮暗主题保留相同的信息、验证和提交能力，共享品牌 token 表达统一的颜色和字体语义。
 - 页面只保留产品身份、任务标题、必要说明和凭据表单，不使用 hero 或功能宣传。
 - 认证背景使用静态青瓷玻璃壁纸，运行时加载无损压缩的 [`celadon-glass.webp`](../../web/src/assets/auth/celadon-glass.webp)；原始 [`PNG`](../../web/src/assets/auth/celadon-glass.png) 保留内嵌生成提示词。壁纸覆盖视口并底部对齐；窄屏调整裁切位置，暗色主题降低亮度与饱和度。背景不跟随指针，不参与表单交互。
 - 材质参考 Apple 的 [Liquid Glass 介绍](https://www.apple.com.cn/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/)与 [WWDC25 设计说明](https://developer.apple.com/videos/play/wwdc2025/219/)，在浏览器中实现通透面板、圆角边缘折射和反射高光，具体效果按浏览器能力适配。支持 SVG backdrop 的 Chromium 路径使用 `feDisplacementMap`，只使用轻微前置模糊；WebKit 与 Gecko 使用轻度模糊与饱和度的透明材质降级。

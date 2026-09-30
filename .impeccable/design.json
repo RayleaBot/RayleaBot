@@ -1166,19 +1166,19 @@
     "typographyMeta": {
       "headline": {
         "displayName": "页面标题",
-        "purpose": "Noto Sans SC 紧凑页面标题。"
+        "purpose": "HarmonyOS Sans SC 紧凑页面标题。"
       },
       "title": {
         "displayName": "分区标题",
-        "purpose": "Noto Sans SC 工作区和分区标题。"
+        "purpose": "HarmonyOS Sans SC 工作区和分区标题。"
       },
       "section": {
         "displayName": "组标题",
-        "purpose": "Noto Sans SC 面板与字段组标题。"
+        "purpose": "HarmonyOS Sans SC 面板与字段组标题。"
       },
       "body": {
         "displayName": "正文",
-        "purpose": "系统无衬线栈承载说明、表单与标准控件。"
+        "purpose": "HarmonyOS Sans SC 承载说明、表单与标准控件。"
       },
       "label": {
         "displayName": "标签",
@@ -1325,7 +1325,7 @@
       "refersTo": "button-primary",
       "description": "当前工作流唯一突出的主操作：橙色胶囊配深色文字。",
       "html": "<button class=\"ds-btn-primary\">安装插件</button>",
-      "css": ".ds-btn-primary { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: #F07428; color: #21140A; font: 600 14px/1.4 'Noto Sans SC', 'Microsoft YaHei UI', sans-serif; cursor: pointer; box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%), 0 6px 16px -10px rgb(0 0 0 / 45%); transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: #F58A45; } .ds-btn-primary:focus-visible { outline: 2px solid #21140A; outline-offset: -4px; } .ds-btn-primary:active { background: #E36A1F; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.58; } @media (prefers-color-scheme: dark) { .ds-btn-primary { background: #FA914A; color: #21140A; } .ds-btn-primary:hover { background: #FCA366; } .ds-btn-primary:active { background: #F07A30; } }"
+      "css": ".ds-btn-primary { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: #F07428; color: #21140A; font: 600 14px/1.4 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; cursor: pointer; box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%), 0 6px 16px -10px rgb(0 0 0 / 45%); transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: #F58A45; } .ds-btn-primary:focus-visible { outline: 2px solid #21140A; outline-offset: -4px; } .ds-btn-primary:active { background: #E36A1F; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.58; } @media (prefers-color-scheme: dark) { .ds-btn-primary { background: #FA914A; color: #21140A; } .ds-btn-primary:hover { background: #FCA366; } .ds-btn-primary:active { background: #F07A30; } }"
     },
     {
       "name": "Attention Button",
@@ -1333,7 +1333,7 @@
       "refersTo": "button-attention",
       "description": "需要人工判断或确认的明确操作，使用独立的紫色语义。",
       "html": "<button class=\"ds-btn-attention\">确认继续</button>",
-      "css": ".ds-btn-attention { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: #6240B8; color: #FFFFFF; font: 600 14px/1.4 'Noto Sans SC', 'Microsoft YaHei UI', sans-serif; cursor: pointer; } .ds-btn-attention:focus-visible { outline: 2px solid #FFFFFF; outline-offset: -4px; } @media (prefers-color-scheme: dark) { .ds-btn-attention { background: #B9A5FF; color: #1A1433; } .ds-btn-attention:focus-visible { outline-color: #1A1433; } }"
+      "css": ".ds-btn-attention { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: #6240B8; color: #FFFFFF; font: 600 14px/1.4 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; cursor: pointer; } .ds-btn-attention:focus-visible { outline: 2px solid #FFFFFF; outline-offset: -4px; } @media (prefers-color-scheme: dark) { .ds-btn-attention { background: #B9A5FF; color: #1A1433; } .ds-btn-attention:focus-visible { outline-color: #1A1433; } }"
     },
     {
       "name": "Text Input",
@@ -1341,7 +1341,7 @@
       "refersTo": "input",
       "description": "实底输入框，持续可见标签、控件边界和贴边焦点。",
       "html": "<label class=\"ds-field\"><span>服务地址</span><input value=\"http://127.0.0.1:8080\"></label>",
-      "css": ".ds-field { display: grid; gap: 6px; color: #1D1B18; font: 600 13px/1.4 'Noto Sans SC', 'Microsoft YaHei UI', sans-serif; } .ds-field input { width: 100%; height: 40px; padding: 8px 14px; border: 1px solid #8E877D; border-radius: 12px; background: #FFFFFF; color: #1D1B18; font: 400 14px/1.55 'Noto Sans SC', 'Microsoft YaHei UI', sans-serif; } .ds-field input:focus-visible { outline: none; border-color: #9A4008; box-shadow: inset 0 0 0 1px #9A4008; } @media (prefers-color-scheme: dark) { .ds-field { color: #EEEBE6; } .ds-field input { border-color: #8A837A; background: #262320; color: #EEEBE6; } .ds-field input:focus-visible { border-color: #FFA466; box-shadow: inset 0 0 0 1px #FFA466; } }"
+      "css": ".ds-field { display: grid; gap: 6px; color: #1D1B18; font: 600 13px/1.4 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; } .ds-field input { width: 100%; height: 40px; padding: 8px 14px; border: 1px solid #8E877D; border-radius: 12px; background: #FFFFFF; color: #1D1B18; font: 400 14px/1.55 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; } .ds-field input:focus-visible { outline: none; border-color: #9A4008; box-shadow: inset 0 0 0 1px #9A4008; } @media (prefers-color-scheme: dark) { .ds-field { color: #EEEBE6; } .ds-field input { border-color: #8A837A; background: #262320; color: #EEEBE6; } .ds-field input:focus-visible { border-color: #FFA466; box-shadow: inset 0 0 0 1px #FFA466; } }"
     },
     {
       "name": "Selected Navigation Item",
@@ -1349,7 +1349,7 @@
       "refersTo": "navigation-item",
       "description": "玻璃侧栏中点亮的当前工作区，亮暗主题都使用点亮表面与深色文字。",
       "html": "<div class=\"ds-nav-wrap\"><a class=\"ds-nav-item\" href=\"#\" aria-current=\"page\">系统状态</a></div>",
-      "css": ".ds-nav-wrap { padding: 12px; border-radius: 24px; background: radial-gradient(420px 260px at 8% 0%, #F8BA92D1, transparent 70%), radial-gradient(460px 300px at 100% 100%, #A0C0EEC7, transparent 70%), #E7E1D9; } .ds-nav-item { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border-radius: 999px; background: #FFFDFA; color: #1D1B18; font: 600 14px/1.4 'Noto Sans SC', 'Microsoft YaHei UI', sans-serif; text-decoration: none; box-shadow: inset 0 1px 0 #fff, 0 4px 12px -6px rgb(0 0 0 / 25%); } .ds-nav-item:focus-visible { outline: 2px solid #3B352E; outline-offset: -2px; } @media (prefers-color-scheme: dark) { .ds-nav-wrap { background: radial-gradient(420px 260px at 8% 0%, #964E2475, transparent 70%), radial-gradient(460px 300px at 100% 100%, #28468E85, transparent 70%), #0F0E0D; } .ds-nav-item { background: #F1ECE6; color: #1D1B18; } }"
+      "css": ".ds-nav-wrap { padding: 12px; border-radius: 24px; background: radial-gradient(420px 260px at 8% 0%, #F8BA92D1, transparent 70%), radial-gradient(460px 300px at 100% 100%, #A0C0EEC7, transparent 70%), #E7E1D9; } .ds-nav-item { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border-radius: 999px; background: #FFFDFA; color: #1D1B18; font: 600 14px/1.4 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; text-decoration: none; box-shadow: inset 0 1px 0 #fff, 0 4px 12px -6px rgb(0 0 0 / 25%); } .ds-nav-item:focus-visible { outline: 2px solid #3B352E; outline-offset: -2px; } @media (prefers-color-scheme: dark) { .ds-nav-wrap { background: radial-gradient(420px 260px at 8% 0%, #964E2475, transparent 70%), radial-gradient(460px 300px at 100% 100%, #28468E85, transparent 70%), #0F0E0D; } .ds-nav-item { background: #F1ECE6; color: #1D1B18; } }"
     },
     {
       "name": "Glass Status Capsule",
@@ -1357,7 +1357,7 @@
       "refersTo": "status-chip",
       "description": "光场上的液态玻璃胶囊，图标圆底与文字同时表达状态。",
       "html": "<div class=\"ds-field-wrap\"><span class=\"ds-capsule\"><span class=\"ds-capsule__icon\">!</span><span><small>需要处理</small><b>图片生成</b></span></span></div>",
-      "css": ".ds-field-wrap { padding: 16px; border-radius: 24px; background: radial-gradient(420px 260px at 8% 0%, #F8BA92D1, transparent 70%), radial-gradient(460px 300px at 100% 100%, #A0C0EEC7, transparent 70%), #E7E1D9; } .ds-capsule { display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 18px 0 10px; border-radius: 999px; background: #FFFFFF61; box-shadow: inset 1.5px 1.5px 1px -1px #FFFFFFFA, inset -1px -1px 1px -0.5px #FFFFFF8C, inset 0 0 12px #FFFFFF42, 0 14px 32px -14px rgb(0 0 0 / 24%); -webkit-backdrop-filter: blur(2px) saturate(1.4); backdrop-filter: blur(2px) saturate(1.4); color: #1D1B18; font: 400 13px/1.3 'Noto Sans SC', 'Microsoft YaHei UI', sans-serif; } .ds-capsule__icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #FBEBC7; color: #7F5000; font-weight: 700; } .ds-capsule small { display: block; color: #5A554D; font-size: 12px; } .ds-capsule b { display: block; font-size: 15px; } @media (prefers-color-scheme: dark) { .ds-field-wrap { background: radial-gradient(420px 260px at 8% 0%, #964E2475, transparent 70%), radial-gradient(460px 300px at 100% 100%, #28468E85, transparent 70%), #0F0E0D; } .ds-capsule { background: #1C1A1880; box-shadow: inset 1.5px 1.5px 1px -1px #FFFFFF66, inset -1px -1px 1px -0.5px #FFFFFF21, inset 0 0 12px #FFFFFF0F, 0 16px 40px -14px rgb(0 0 0 / 70%); color: #EEEBE6; } .ds-capsule__icon { background: #3A2C12; color: #F3BB4F; } .ds-capsule small { color: #B6B0A8; } } @media (prefers-reduced-transparency: reduce) { .ds-capsule { background: #FFFFFF; -webkit-backdrop-filter: none; backdrop-filter: none; } }"
+      "css": ".ds-field-wrap { padding: 16px; border-radius: 24px; background: radial-gradient(420px 260px at 8% 0%, #F8BA92D1, transparent 70%), radial-gradient(460px 300px at 100% 100%, #A0C0EEC7, transparent 70%), #E7E1D9; } .ds-capsule { display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 18px 0 10px; border-radius: 999px; background: #FFFFFF61; box-shadow: inset 1.5px 1.5px 1px -1px #FFFFFFFA, inset -1px -1px 1px -0.5px #FFFFFF8C, inset 0 0 12px #FFFFFF42, 0 14px 32px -14px rgb(0 0 0 / 24%); -webkit-backdrop-filter: blur(2px) saturate(1.4); backdrop-filter: blur(2px) saturate(1.4); color: #1D1B18; font: 400 13px/1.3 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; } .ds-capsule__icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #FBEBC7; color: #7F5000; font-weight: 700; } .ds-capsule small { display: block; color: #5A554D; font-size: 12px; } .ds-capsule b { display: block; font-size: 15px; } @media (prefers-color-scheme: dark) { .ds-field-wrap { background: radial-gradient(420px 260px at 8% 0%, #964E2475, transparent 70%), radial-gradient(460px 300px at 100% 100%, #28468E85, transparent 70%), #0F0E0D; } .ds-capsule { background: #1C1A1880; box-shadow: inset 1.5px 1.5px 1px -1px #FFFFFF66, inset -1px -1px 1px -0.5px #FFFFFF21, inset 0 0 12px #FFFFFF0F, 0 16px 40px -14px rgb(0 0 0 / 70%); color: #EEEBE6; } .ds-capsule__icon { background: #3A2C12; color: #F3BB4F; } .ds-capsule small { color: #B6B0A8; } } @media (prefers-reduced-transparency: reduce) { .ds-capsule { background: #FFFFFF; -webkit-backdrop-filter: none; backdrop-filter: none; } }"
     },
     {
       "name": "Lit Object Tile",
@@ -1365,7 +1365,7 @@
       "refersTo": "object-tile-lit",
       "description": "运行中的插件或连接：点亮的磁贴，暗色主题中依然是浅色。",
       "html": "<article class=\"ds-tile\"><span class=\"ds-tile__glyph\">原</span><strong>原神</strong><span>运行中</span></article>",
-      "css": ".ds-tile { display: grid; gap: 2px; width: 180px; min-height: 112px; padding: 14px; border-radius: 24px; background: #FFFDFA; color: #1D1B18; font: 400 12.5px/1.4 'Noto Sans SC', 'Microsoft YaHei UI', sans-serif; box-shadow: inset 0 1.5px 0 #fff, 0 12px 28px -12px rgb(0 0 0 / 22%); } .ds-tile__glyph { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 12px; border-radius: 13px; background: #13968A; color: #fff; font-size: 19px; font-weight: 700; } .ds-tile strong { font-size: 15px; } .ds-tile span:last-child { color: #57524B; } @media (prefers-color-scheme: dark) { .ds-tile { background: #F1ECE6; color: #1D1B18; box-shadow: 0 12px 30px -12px rgb(0 0 0 / 60%); } .ds-tile span:last-child { color: #57524B; } }"
+      "css": ".ds-tile { display: grid; gap: 2px; width: 180px; min-height: 112px; padding: 14px; border-radius: 24px; background: #FFFDFA; color: #1D1B18; font: 400 12.5px/1.4 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; box-shadow: inset 0 1.5px 0 #fff, 0 12px 28px -12px rgb(0 0 0 / 22%); } .ds-tile__glyph { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 12px; border-radius: 13px; background: #13968A; color: #fff; font-size: 19px; font-weight: 700; } .ds-tile strong { font-size: 15px; } .ds-tile span:last-child { color: #57524B; } @media (prefers-color-scheme: dark) { .ds-tile { background: #F1ECE6; color: #1D1B18; box-shadow: 0 12px 30px -12px rgb(0 0 0 / 60%); } .ds-tile span:last-child { color: #57524B; } }"
     },
     {
       "name": "Section Surface",
@@ -1373,7 +1373,7 @@
       "refersTo": "section-surface",
       "description": "表单、列表、日志等连续任务的实底表面。",
       "html": "<section class=\"ds-section-surface\"><h3>运行环境</h3><p>检查托管运行时与模板资源。</p></section>",
-      "css": ".ds-section-surface { max-width: 560px; padding: 18px 20px; border-radius: 20px; background: #FFFFFF; color: #1D1B18; font: 400 14px/1.55 'Noto Sans SC', 'Microsoft YaHei UI', sans-serif; box-shadow: 0 2px 8px #0000000F; } .ds-section-surface h3 { margin: 0 0 8px; font-size: 18px; } .ds-section-surface p { margin: 0; color: #5A554D; } @media (prefers-color-scheme: dark) { .ds-section-surface { background: #1C1A18; color: #EEEBE6; box-shadow: 0 0 0 1px #34302B; } .ds-section-surface p { color: #B6B0A8; } }"
+      "css": ".ds-section-surface { max-width: 560px; padding: 18px 20px; border-radius: 20px; background: #FFFFFF; color: #1D1B18; font: 400 14px/1.55 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; box-shadow: 0 2px 8px #0000000F; } .ds-section-surface h3 { margin: 0 0 8px; font-size: 18px; } .ds-section-surface p { margin: 0; color: #5A554D; } @media (prefers-color-scheme: dark) { .ds-section-surface { background: #1C1A18; color: #EEEBE6; box-shadow: 0 0 0 1px #34302B; } .ds-section-surface p { color: #B6B0A8; } }"
     },
     {
       "name": "Attention Callout",
@@ -1381,7 +1381,7 @@
       "refersTo": "attention-callout",
       "description": "解释需要人工判断的事项并提供直接操作。",
       "html": "<aside class=\"ds-attention\"><strong>需要人工确认</strong><p>继续前请检查插件来源和声明能力。</p></aside>",
-      "css": ".ds-attention { display: grid; gap: 4px; padding: 14px 18px; border-radius: 20px; background: #EEE8FB; color: #6240B8; font: 400 14px/1.55 'Noto Sans SC', 'Microsoft YaHei UI', sans-serif; } .ds-attention p { margin: 0; color: #1D1B18; } @media (prefers-color-scheme: dark) { .ds-attention { background: #2A2342; color: #B9A5FF; } .ds-attention p { color: #EEEBE6; } }"
+      "css": ".ds-attention { display: grid; gap: 4px; padding: 14px 18px; border-radius: 20px; background: #EEE8FB; color: #6240B8; font: 400 14px/1.55 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; } .ds-attention p { margin: 0; color: #1D1B18; } @media (prefers-color-scheme: dark) { .ds-attention { background: #2A2342; color: #B9A5FF; } .ds-attention p { color: #EEEBE6; } }"
     },
     {
       "name": "Data Row",
@@ -1389,7 +1389,7 @@
       "refersTo": "data-row",
       "description": "紧凑展示对象、状态和右侧操作。",
       "html": "<div class=\"ds-data-row\" role=\"row\" tabindex=\"0\"><strong>subscription_hub</strong><span>运行中</span><button>查看</button></div>",
-      "css": ".ds-data-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 44px; padding: 10px 14px; border-bottom: 1px solid #E4DDD3; background: #FFFFFF; color: #1D1B18; font: 400 14px/1.4 'Noto Sans SC', 'Microsoft YaHei UI', sans-serif; } .ds-data-row:hover { background: #F1EBE3; } .ds-data-row:focus-visible { outline: 2px solid #3B352E; outline-offset: -2px; } .ds-data-row button { border: 0; background: transparent; color: #9A4008; font: 600 13px/1.4 'Noto Sans SC', 'Microsoft YaHei UI', sans-serif; } @media (prefers-color-scheme: dark) { .ds-data-row { border-color: #34302B; background: #1C1A18; color: #EEEBE6; } .ds-data-row:hover { background: #2B2825; } .ds-data-row:focus-visible { outline-color: #D9D3CA; } .ds-data-row button { color: #FFA466; } }"
+      "css": ".ds-data-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 44px; padding: 10px 14px; border-bottom: 1px solid #E4DDD3; background: #FFFFFF; color: #1D1B18; font: 400 14px/1.4 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; } .ds-data-row:hover { background: #F1EBE3; } .ds-data-row:focus-visible { outline: 2px solid #3B352E; outline-offset: -2px; } .ds-data-row button { border: 0; background: transparent; color: #9A4008; font: 600 13px/1.4 'HarmonyOS Sans SC', 'Microsoft YaHei UI', sans-serif; } @media (prefers-color-scheme: dark) { .ds-data-row { border-color: #34302B; background: #1C1A18; color: #EEEBE6; } .ds-data-row:hover { background: #2B2825; } .ds-data-row:focus-visible { outline-color: #D9D3CA; } .ds-data-row button { color: #FFA466; } }"
     }
   ],
   "narrative": {
@@ -1398,7 +1398,7 @@
     "keyCharacteristics": [
       "灰白与炭灰画布、中性导航和连续工作区。",
       "少量青瓷主操作与选中标记，以及按亮暗主题切换原版与反色版的黑白人物标识。",
-      "自托管 Noto Sans SC 用于 Web 普通文字，Launcher 正文使用系统字体；字号、字重与间距形成克制层级。",
+      "随包的 HarmonyOS Sans SC 用于 Web 与 Launcher 的全部界面文字；字号、字重与间距形成克制层级。",
       "亮暗主题、键盘操作和窄屏呈现保持等价操作能力。",
       "Web 管理工作区的状态、表单、列表与日志采用不透明表面，玻璃用于浮层；认证入口与 Launcher 采用 Liquid Glass 适配。"
     ],

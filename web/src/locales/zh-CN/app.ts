@@ -118,6 +118,9 @@ export const shell = {
     transitionFade: '淡入淡出',
     transitionFadeSlide: '滑入淡入',
     transitionNone: '关闭动画',
+    uiFont: '界面字体',
+    uiFontLicense: '查看字体许可协议',
+    uiFontNotice: '界面使用 HarmonyOS Sans SC 字体，按 HarmonyOS Sans 字体许可协议随附未经修改的字体文件。Copyright 2021 Huawei Device Co., Ltd.',
     workspace: '工作区',
   },
 } as const

@@ -29,6 +29,7 @@ export function resolveDevWebSocketBaseUrl(configuredBaseUrl: string | undefined
 export function resolveServerFsAllow(webRoot: string) {
   return [
     resolvePath(webRoot),
+    resolvePath(webRoot, '..', 'design', 'fonts'),
     resolvePath(webRoot, '..', 'templates'),
   ]
 }

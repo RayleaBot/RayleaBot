@@ -20,6 +20,7 @@ DEFAULT_OUTPUT = REPO_ROOT / "THIRD_PARTY_NOTICES.md"
 UNKNOWN_LICENSE_MARKERS = {"", "unknown", "unlicensed", "none", "n/a"}
 REVIEWED_LICENSE_EXPRESSIONS = {
 	"LicenseRef-xi2-xz-Public-Domain",
+    "LicenseRef-HarmonyOS-Sans-Fonts",
     "0BSD",
     "Apache-2.0",
     "BSD-2-Clause",
@@ -353,6 +354,22 @@ def collect_web_ui_sources() -> list[Component]:
     )]
 
 
+def collect_bundled_fonts() -> list[Component]:
+    """Fonts shipped unmodified with Web and Launcher, described by design/fonts/*/upstream.json."""
+    components: list[Component] = []
+    for provenance_path in sorted((REPO_ROOT / "design" / "fonts").glob("*/upstream.json")):
+        provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+        name = provenance["name"]
+        components.append(Component(
+            "asset:font",
+            name,
+            provenance["version"],
+            normalize_license_expression(provenance["license"], name),
+            license_documents(provenance_path.parent, name),
+        ))
+    return components
+
+
 def generate() -> str:
     components = merge_components(
         [
@@ -360,6 +377,7 @@ def generate() -> str:
             collect_node_components("web"),
             collect_node_components("launcher"),
             collect_web_ui_sources(),
+            collect_bundled_fonts(),
         ]
     )
     return render_notices(components)

@@ -43,9 +43,10 @@ describe('vite config', () => {
     })
   })
 
-  it('allows both the web app root and shared templates in dev server fs access', () => {
+  it('allows the web app root, bundled UI fonts and shared templates in dev server fs access', () => {
     expect(resolveServerFsAllow('C:/repo/web')).toEqual([
       resolvePath('C:/repo/web'),
+      resolvePath('C:/repo/design/fonts'),
       resolvePath('C:/repo/templates'),
     ])
   })
