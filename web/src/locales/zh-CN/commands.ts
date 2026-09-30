@@ -45,6 +45,7 @@ export const commands = {
     superAdmin: '超级管理员',
   },
   permissionDefault: '跟随默认权限',
+  permissionInactive: '尚未生效',
   permissionSource: {
     declared: '命令声明',
     default_level: '默认权限',

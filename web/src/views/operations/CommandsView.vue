@@ -135,8 +135,10 @@ function getAliasesText(command: PluginCommandSummary) {
   return aliases.length ? aliases.join('、') : t('display.empty')
 }
 
+// A command outside the effective policy (its plugin is not running) has no permission in force yet;
+// a bare dash there read like "no permission".
 function getEffectivePermissionText(policy: { effective_permission?: CommandPermissionLevel } | null) {
-  return policy?.effective_permission ? getCommandPermissionLabel(policy.effective_permission) : t('display.empty')
+  return policy?.effective_permission ? getCommandPermissionLabel(policy.effective_permission) : t('commands.permissionInactive')
 }
 
 // Without a loaded policy entry the command's own declaration is the best available answer.
@@ -307,7 +309,7 @@ onMounted(() => {
 
             <template v-else-if="column.key === 'permission'">
               <div class="command-permission-cell">
-                <span>{{ getEffectivePermissionText(record.policy) }}</span>
+                <span :class="{ 'command-permission-cell__inactive': !record.policy?.effective_permission }">{{ getEffectivePermissionText(record.policy) }}</span>
                 <small>
                   {{ t('commands.fields.declaredPermission') }}：{{ getDeclaredPermissionText(record.command, record.policy) }}
                 </small>
@@ -404,6 +406,10 @@ onMounted(() => {
 }
 
 .command-plugin-cell small,
+.command-permission-cell__inactive {
+  color: var(--muted);
+}
+
 .command-permission-cell small {
   color: var(--muted);
 }
