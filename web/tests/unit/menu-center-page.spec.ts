@@ -178,8 +178,17 @@ describe('MenuCenterView', () => {
   })
 
   it('keeps native preview scaling bounded', () => {
-    expect(calculateNativePreviewLayout({ containerWidth: 1180, contentHeight: 760, viewportHeight: 1280, containerTop: 120 }))
+    expect(calculateNativePreviewLayout({ containerWidth: 1180, containerHeight: 880, contentHeight: 760 }))
       .toMatchObject({ frameWidth: 960, scale: 1 })
-    expect(calculateNativePreviewLayout({ containerWidth: 480, contentHeight: 760, viewportHeight: 1280, containerTop: 120 }).scale).toBeLessThan(1)
+    expect(calculateNativePreviewLayout({ containerWidth: 480, containerHeight: 880, contentHeight: 760 }).scale).toBeLessThan(1)
+  })
+
+  it('fills the stage height while the frame keeps the content height', () => {
+    // A short menu sits at its own height in the full-height stage instead of stretching the template background.
+    expect(calculateNativePreviewLayout({ containerWidth: 1040, containerHeight: 880, contentHeight: 600 }))
+      .toMatchObject({ previewHeight: 880, frameHeight: 600, scaledFrameHeight: 600, isScrollable: false })
+    // A long menu is cut to the stage and scrolls inside the frame.
+    expect(calculateNativePreviewLayout({ containerWidth: 1040, containerHeight: 880, contentHeight: 1400 }))
+      .toMatchObject({ previewHeight: 880, frameHeight: 880, isScrollable: true })
   })
 })

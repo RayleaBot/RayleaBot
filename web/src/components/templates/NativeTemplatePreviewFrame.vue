@@ -4,7 +4,6 @@ export {
   calculateNativePreviewScale,
   nativePreviewMinHeight,
   nativePreviewTemplateWidth,
-  nativePreviewViewportPadding,
 } from '@/components/templates/template-preview-frame'
 
 export function stripHelpMenuPreviewFontImports(styles: string) {

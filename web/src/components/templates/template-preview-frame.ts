@@ -1,6 +1,5 @@
 export const nativePreviewTemplateWidth = 960
 export const nativePreviewMinHeight = 320
-export const nativePreviewViewportPadding = 24
 
 export function normalizeNativePreviewFrameWidth(frameWidth?: number) {
   if (!Number.isFinite(frameWidth) || !frameWidth || frameWidth <= 0) {
@@ -16,11 +15,12 @@ export function calculateNativePreviewScale(containerWidth: number, frameWidth =
   return Math.min(1, containerWidth / normalizeNativePreviewFrameWidth(frameWidth))
 }
 
+// The stage fills the height its layout gives it. The frame keeps the rendered content's own height inside
+// it, so a short image is not stretched by the template background; taller content is cut to the stage and scrolls.
 export function calculateNativePreviewLayout(input: {
   containerWidth: number
+  containerHeight: number
   contentHeight: number
-  viewportHeight: number
-  containerTop: number
   frameWidth?: number
 }) {
   const frameWidth = normalizeNativePreviewFrameWidth(input.frameWidth)
@@ -28,15 +28,11 @@ export function calculateNativePreviewLayout(input: {
   const contentHeight = Math.max(nativePreviewMinHeight, Math.ceil(input.contentHeight || nativePreviewMinHeight))
   const scaledFrameWidth = Math.max(1, Math.min(frameWidth, Math.floor(frameWidth * scale)))
   const scaledContentHeight = Math.ceil(contentHeight * scale)
-  const availableHeight = Math.max(
-    nativePreviewMinHeight,
-    Math.floor(input.viewportHeight - input.containerTop - nativePreviewViewportPadding),
-  )
-  const previewHeight = Math.max(nativePreviewMinHeight, Math.min(scaledContentHeight, availableHeight))
-  const frameHeight = Math.ceil(previewHeight / scale)
+  const previewHeight = Math.max(nativePreviewMinHeight, Math.floor(input.containerHeight || nativePreviewMinHeight))
+  const scaledFrameHeight = Math.min(scaledContentHeight, previewHeight)
+  const frameHeight = Math.ceil(scaledFrameHeight / scale)
 
   return {
-    availableHeight,
     contentHeight,
     frameHeight,
     frameWidth,
@@ -44,6 +40,7 @@ export function calculateNativePreviewLayout(input: {
     previewHeight,
     scale,
     scaledContentHeight,
+    scaledFrameHeight,
     scaledFrameWidth,
   }
 }

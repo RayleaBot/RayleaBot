@@ -351,18 +351,15 @@ async function save() {
   line-height: 1.5;
 }
 
+// The tabs and the full-height preview stage form one column centered in the space beside the fields.
 .menu-preview-area {
   min-width: 0;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   min-height: 0;
   padding-top: var(--menu-center-preview-top-space);
-}
-
-.menu-preview-area :deep(.native-template-preview__frame) {
-  transform-origin: left top;
 }
 
 .menu-center-tabs {
@@ -404,9 +401,11 @@ async function save() {
 
 .menu-preview-card {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   width: min(100%, var(--menu-center-preview-max-width));
   min-width: 0;
+  min-height: 0;
   padding: 0;
   border: 0;
   background: transparent;

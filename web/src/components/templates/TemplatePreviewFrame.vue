@@ -25,17 +25,15 @@ const props = withDefaults(defineProps<{
 const containerRef = ref<HTMLElement | null>(null)
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 const containerWidth = ref(nativePreviewTemplateWidth)
-const containerTop = ref(0)
+const containerHeight = ref(nativePreviewMinHeight)
 const contentHeight = ref(nativePreviewMinHeight)
-const viewportHeight = ref(typeof window === 'undefined' ? 720 : window.innerHeight)
 let resizeObserver: ResizeObserver | null = null
 let measureFrame = 0
 
 const previewLayout = computed(() => calculateNativePreviewLayout({
-  containerTop: containerTop.value,
   containerWidth: containerWidth.value,
+  containerHeight: containerHeight.value,
   contentHeight: contentHeight.value,
-  viewportHeight: viewportHeight.value,
   frameWidth: normalizedFrameWidth.value,
 }))
 
@@ -44,8 +42,8 @@ const normalizedSrcdoc = computed(() => injectPreviewOverflowGuard(props.srcdoc)
 const previewStyle = computed<CSSProperties>(() => ({
   '--native-template-preview-frame-height': `${previewLayout.value.frameHeight}px`,
   '--native-template-preview-frame-width': `${previewLayout.value.frameWidth}px`,
-  '--native-template-preview-height': `${previewLayout.value.previewHeight}px`,
   '--native-template-preview-scale': `${previewLayout.value.scale}`,
+  '--native-template-preview-scaled-frame-height': `${previewLayout.value.scaledFrameHeight}px`,
   '--native-template-preview-scaled-frame-width': `${previewLayout.value.scaledFrameWidth}px`,
 }))
 
@@ -99,12 +97,16 @@ function measurePreview() {
     const horizontalBorderWidth = style
       ? parseFloat(style.borderLeftWidth || '0') + parseFloat(style.borderRightWidth || '0')
       : 0
+    const verticalBorderWidth = style
+      ? parseFloat(style.borderTopWidth || '0') + parseFloat(style.borderBottomWidth || '0')
+      : 0
     const innerWidth = Math.max(0, rect.width - horizontalBorderWidth)
+    const innerHeight = Math.max(0, rect.height - verticalBorderWidth)
     containerWidth.value = innerWidth > 0 ? innerWidth : nativePreviewTemplateWidth
-    containerTop.value = rect.top
+    // A hidden tab measures zero; keep the last real height until it is shown again.
+    if (innerHeight > 0) containerHeight.value = innerHeight
   }
 
-  viewportHeight.value = typeof window === 'undefined' ? viewportHeight.value : window.innerHeight
   contentHeight.value = measureFrameContentHeight() || contentHeight.value
 }
 
@@ -190,14 +192,15 @@ function applyPreviewOverflowGuard() {
 </template>
 
 <style scoped lang="scss">
+// The stage takes the height left in its flex column and centers the rendered image in it.
 .native-template-preview {
   position: relative;
   display: flex;
+  flex: 1 1 0;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   min-width: 0;
-  height: var(--native-template-preview-height);
-  min-height: var(--native-template-preview-height);
+  min-height: 320px;
   overflow: hidden;
   background: var(--surface-soft);
   border: 1px solid transparent;
@@ -207,7 +210,7 @@ function applyPreviewOverflowGuard() {
 .native-template-preview__scaled-frame {
   flex: 0 0 var(--native-template-preview-scaled-frame-width);
   width: var(--native-template-preview-scaled-frame-width);
-  height: var(--native-template-preview-height);
+  height: var(--native-template-preview-scaled-frame-height);
   overflow: hidden;
 }
 
