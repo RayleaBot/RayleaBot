@@ -4,6 +4,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import AppBadge from '@/components/AppBadge.vue'
 import AppButton from '@/components/AppButton.vue'
+import AppJumpToLatest from '@/components/AppJumpToLatest.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppTag from '@/components/AppTag.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
@@ -41,6 +42,9 @@ const connectionTone = computed(() => getConsoleConnectionTone(snapshot.value.st
 const emptyText = computed(() => (props.pluginState === 'disabled' ? t('plugins.empty.consoleDisabled') : t('plugins.empty.console')))
 const viewportRef = ref<{ scrollToBottom: () => void } | null>(null)
 const followBottom = ref(true)
+// Output that arrived while following is paused, counted on the jump button as on the live log page.
+const pendingNewCount = ref(0)
+const showJumpToLatest = computed(() => props.ready && frames.value.length > 0 && !followBottom.value)
 let bottomSyncToken = 0
 
 // As in the log rows, the reserved request ID of output written outside a request is not shown.
@@ -50,9 +54,18 @@ function rowRequestId(frame: ConsoleFrame) {
 
 function onViewportBottomChange(atBottom: boolean) {
   followBottom.value = atBottom
-  if (!atBottom) {
+  if (atBottom) {
+    pendingNewCount.value = 0
+  } else {
     bottomSyncToken += 1
   }
+}
+
+// Frames keep their identity while buffered, except outbound ones merged again from history, which match by log ID.
+function countArrivals(next: ConsoleFrame[], previous: ConsoleFrame[]) {
+  const known = new Set<ConsoleFrame>(previous)
+  const knownLogIds = new Set(previous.flatMap(frame => frame.stream === 'outbound' ? [frame.log_id] : []))
+  return next.filter(frame => !known.has(frame) && !(frame.stream === 'outbound' && knownLogIds.has(frame.log_id))).length
 }
 
 function waitForAnimationFrame() {
@@ -68,6 +81,7 @@ function waitForAnimationFrame() {
 async function syncViewportToBottom() {
   const syncToken = ++bottomSyncToken
   followBottom.value = true
+  pendingNewCount.value = 0
   await nextTick()
   for (let attempt = 0; attempt < 4; attempt += 1) {
     if (syncToken !== bottomSyncToken || !props.active) return
@@ -93,6 +107,14 @@ watch(() => frames.value.length, async () => {
   }
 })
 
+watch(frames, (next, previous) => {
+  if (next.length === 0) {
+    pendingNewCount.value = 0
+  } else if (!followBottom.value) {
+    pendingNewCount.value += countArrivals(next, previous)
+  }
+})
+
 onBeforeUnmount(() => {
   bottomSyncToken += 1
 })
@@ -104,6 +126,8 @@ onBeforeUnmount(() => {
       <div class="plugin-console-title">
         <AppBadge :tone="connectionTone">{{ t('plugins.console.streamStatus', { status: getConnectionStatusLabel(snapshot.status) }) }}</AppBadge>
         <span class="plugin-console-count">{{ t('plugins.console.outputCount', { count: frames.length }) }}</span>
+        <!-- Following is a mode of the list, not a health state, so it stays neutral like the paused state. -->
+        <AppTag>{{ t(followBottom ? 'plugins.console.following' : 'plugins.console.paused') }}</AppTag>
       </div>
       <div class="plugin-console-actions">
         <AppTooltip :title="t('plugins.actions.reconnectConsole')">
@@ -181,6 +205,15 @@ onBeforeUnmount(() => {
           </article>
         </template>
       </VirtualDataViewport>
+
+      <AppJumpToLatest
+        v-if="showJumpToLatest"
+        class="plugin-console-jump-latest"
+        :label="t('plugins.console.jumpToLatest')"
+        :pending-label="t('plugins.console.pendingNew', { count: pendingNewCount })"
+        :count="pendingNewCount"
+        @jump="syncViewportToBottom"
+      />
     </div>
   </div>
 </template>
@@ -219,6 +252,7 @@ onBeforeUnmount(() => {
 
 // The console output is a white inset inside the gray tab box, without a second border.
 .plugin-console-panel {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;

@@ -525,6 +525,15 @@ describe('PluginDetailPage', () => {
     await flushPromises()
 
     expect(getViewportMetrics(wrapper).scrollTop).toBe(0)
+    // As on the live log page, the paused list says so and offers the way back with the count of new output.
+    expect(wrapper.get('.plugin-console-header').text()).toContain('已暂停跟随')
+    const jump = wrapper.get('.plugin-console-jump-latest')
+    expect(jump.get('.app-jump-latest__count').text()).toBe('1')
+
+    await jump.get('.app-button').trigger('click')
+    await vi.waitFor(() => expect(getViewportMetrics(wrapper).scrollTop).toBeGreaterThan(0))
+    expect(wrapper.find('.plugin-console-jump-latest').exists()).toBe(false)
+    expect(wrapper.get('.plugin-console-header').text()).toContain('跟随最新')
   })
 
   it('escapes unsafe control characters in console output', async () => {

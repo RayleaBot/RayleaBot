@@ -235,6 +235,10 @@ export const plugins = {
     ariaLabel: '插件实时输出',
     outputCount: '{count} 条输出',
     streamStatus: '输出流{status}',
+    following: '跟随最新',
+    paused: '已暂停跟随',
+    pendingNew: '有 {count} 条新输出',
+    jumpToLatest: '滚动到最新',
     streams: {
       stdout: '标准输出',
       stderr: '错误输出',

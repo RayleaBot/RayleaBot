@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ChevronDownIcon } from '@lucide/vue'
 import AppTag from '@/components/AppTag.vue'
-import AppTooltip from '@/components/AppTooltip.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppField from '@/components/AppField.vue'
 import AppCard from '@/components/AppCard.vue'
-import AppButton from '@/components/AppButton.vue'
+import AppJumpToLatest from '@/components/AppJumpToLatest.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
@@ -125,26 +123,14 @@ const recentRange = computed(() => historyStore?.recentDays ? String(historyStor
             </template>
           </VirtualDataViewport>
 
-          <div v-if="showJumpToLatest" class="logs-jump-latest">
-            <div class="logs-jump-latest__control">
-              <AppTooltip
-                :title="pendingNewCount > 0 ? t('logs.current.pendingNew', { count: pendingNewCount }) : t('logs.current.jumpToLatest')"
-              >
-                <AppButton
-                  variant="default"
-                  size="icon"
-                  class="logs-jump-latest__button"
-                  :aria-label="t('logs.current.jumpToLatest')"
-                  @click="scrollToLatest"
-                >
-                  <template #icon>
-                    <ChevronDownIcon />
-                  </template>
-                  <span v-if="pendingNewCount" class="logs-jump-latest__count">{{ pendingNewCount }}</span>
-                </AppButton>
-              </AppTooltip>
-            </div>
-          </div>
+          <AppJumpToLatest
+            v-if="showJumpToLatest"
+            class="logs-jump-latest"
+            :label="t('logs.current.jumpToLatest')"
+            :pending-label="t('logs.current.pendingNew', { count: pendingNewCount })"
+            :count="pendingNewCount"
+            @jump="scrollToLatest"
+          />
         </div>
       </AppCard>
 
@@ -258,34 +244,6 @@ const recentRange = computed(() => historyStore?.recentDays ? String(historyStor
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
-}
-
-.logs-jump-latest {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  z-index: 2;
-  display: flex;
-  justify-content: flex-end;
-  pointer-events: none;
-}
-
-.logs-jump-latest__control { pointer-events: auto; }
-.logs-jump-latest__button { box-shadow: var(--shadow-floating); }
-// The count of unread entries is information, not an error: a white badge on the blue button.
-.logs-jump-latest__count {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  min-width: 22px;
-  padding: 2px 5px;
-  border-radius: 12px;
-  background: var(--surface-raised);
-  color: var(--brand-foreground);
-  box-shadow: var(--shadow-xs);
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
 }
 
 .logs-layout.has-detail-window .logs-jump-latest { right: max(18px, calc(50% - 12px)); }
