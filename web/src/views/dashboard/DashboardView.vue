@@ -419,8 +419,9 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
 .status-lens[data-tone=danger] .status-lens__dot { background: var(--danger); }
 
 // Maintenance actions share one pill with a hairline between them; the backup is the page's primary action.
-.status-actions { display: inline-flex; align-items: center; height: 44px; padding: 4px; border: 1px solid transparent; border-radius: 999px; background: var(--control-fill); box-shadow: var(--shadow-xs); }
-.status-actions :deep(.app-button) { height: 36px; }
+// The page's first row keeps one control height: 40px, like the page search and the primary action.
+.status-actions { display: inline-flex; align-items: center; height: 40px; padding: 4px; border: 1px solid transparent; border-radius: 999px; background: var(--control-fill); box-shadow: var(--shadow-xs); }
+.status-actions :deep(.app-button) { height: 32px; }
 .status-actions__separator { width: 1px; height: 18px; background: var(--border); }
 
 .status-attention { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 18px 20px 18px 18px; }

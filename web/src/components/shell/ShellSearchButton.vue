@@ -18,7 +18,7 @@ const shortcutLabel = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test
 </template>
 
 <style scoped lang="scss">
-.shell-search { display: inline-flex; align-items: center; gap: 8px; width: 300px; height: 44px; padding: 0 16px; border: 1px solid transparent; border-radius: 999px; background: var(--control-fill); color: var(--muted); box-shadow: var(--shadow-xs); font: inherit; font-size: var(--font-size-sm); cursor: pointer; transition: background-color var(--motion-fast) var(--motion-easing), color var(--motion-fast) var(--motion-easing); }
+.shell-search { display: inline-flex; align-items: center; gap: 8px; width: 300px; height: 40px; padding: 0 16px; border: 1px solid transparent; border-radius: 999px; background: var(--control-fill); color: var(--muted); box-shadow: var(--shadow-xs); font: inherit; font-size: var(--font-size-sm); cursor: pointer; transition: background-color var(--motion-fast) var(--motion-easing), color var(--motion-fast) var(--motion-easing); }
 .shell-search:hover { background: var(--control-fill-hover); color: var(--text); }
 .shell-search:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .shell-search svg { flex: none; width: 16px; height: 16px; }
