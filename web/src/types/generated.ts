@@ -1449,6 +1449,7 @@ export interface components {
             message: string;
             protocol?: components["schemas"]["LogProtocol"];
             plugin_id?: string;
+            /** @description Correlates the logs written while handling one request. Logs written outside any request carry the reserved value `system`, which correlates nothing. */
             request_id?: string;
         };
         LogSummary: components["schemas"]["LogSummaryFields"];

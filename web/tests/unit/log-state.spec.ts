@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { canAppendInPlace, mergeSortedLogItemsAsc, sortLogItemsAsc } from '@/stores/log-state'
+import { buildLogContextActions } from '@/lib/management-links'
+import { canAppendInPlace, correlatedRequestId, mergeSortedLogItemsAsc, sortLogItemsAsc } from '@/stores/log-state'
 import type { LogSummary } from '@/types/api'
 
 function log(logID: string, timestamp: string): LogSummary {
@@ -22,5 +23,17 @@ describe('log timestamp ordering', () => {
     const same = log('a-same', '2026-11-01T05:30:00.100000000Z')
     const repeated = log('a-repeated', '2026-11-01T01:30:00.1-05:00')
     expect(sortLogItemsAsc([repeated, first, same])).toEqual([same, first, repeated])
+  })
+})
+
+describe('log request correlation', () => {
+  it('treats the reserved system request ID as uncorrelated', () => {
+    expect(correlatedRequestId('system')).toBeUndefined()
+    expect(correlatedRequestId(undefined)).toBeUndefined()
+    expect(correlatedRequestId('req_1')).toBe('req_1')
+
+    const actionKeys = (requestId: string) => buildLogContextActions({ request_id: requestId }, 'current_session').map(action => action.key)
+    expect(actionKeys('system')).toEqual([])
+    expect(actionKeys('req_1')).toHaveLength(1)
   })
 })

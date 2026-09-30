@@ -196,7 +196,7 @@ describe('LogsHistoryPage', () => {
     expect(scrollToBottomSpy).toHaveBeenCalledTimes(3)
     expect(getScrollMetricsSpy).toHaveBeenCalledTimes(3)
     expect(wrapper.findComponent(VirtualDataViewportStub).props('dynamicItemHeight')).toBe(true)
-    expect(wrapper.findComponent(VirtualDataViewportStub).props('itemHeight')).toBe(80)
+    expect(wrapper.findComponent(VirtualDataViewportStub).props('itemHeight')).toBe(44)
     expect(wrapper.findComponent(VirtualDataViewportStub).props('followBottom')).toBe(true)
     expect(wrapper.find('input[type="datetime-local"]').exists()).toBe(true)
   })

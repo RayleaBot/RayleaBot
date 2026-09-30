@@ -109,7 +109,7 @@ const recentRange = computed(() => historyStore?.recentDays ? String(historyStor
             v-else
             ref="viewportRef"
             :items="items"
-            :item-height="80"
+            :item-height="44"
             :dynamic-item-height="true"
             :overscan="6"
             :follow-bottom="followBottom"

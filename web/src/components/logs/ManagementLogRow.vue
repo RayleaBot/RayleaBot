@@ -1,14 +1,19 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import AppTag from '@/components/AppTag.vue'
-import { getLogLevelLabel } from '@/lib/display'
+import { getLogLevelLabel, getLogProtocolLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import { escapeUnsafeDisplayText } from '@/lib/text-safety'
 import { usePluginDisplayName } from '@/lib/use-plugin-display-name'
+import { correlatedRequestId } from '@/stores/log-state'
+import { t } from '@/i18n'
 import type { LogSummary } from '@/types/api'
 
 const props = defineProps<{ item: LogSummary; selected: boolean }>()
 defineEmits<{ select: [item: LogSummary] }>()
 const pluginName = usePluginDisplayName(() => props.item.plugin_id)
+// The reserved request ID of logs written outside a request correlates nothing, so it is not shown.
+const requestId = computed(() => correlatedRequestId(props.item.request_id))
 function getLevelColor(level: string) {
   if (level === 'error') return 'danger'
   if (level === 'warn') return 'warning'
@@ -18,6 +23,7 @@ function getLevelColor(level: string) {
 </script>
 
 <template>
+  <!-- One line per entry: time, level, source and protocol, then the message led by its plugin; long messages wrap. -->
   <button
     type="button"
     class="logs-row"
@@ -25,24 +31,17 @@ function getLevelColor(level: string) {
     :aria-label="`${getLogLevelLabel(item.level)} · ${item.source} · ${formatDateTime(item.timestamp)} · ${escapeUnsafeDisplayText(item.message)}`"
     @click="$emit('select', item)"
   >
-    <div class="logs-row__meta">
-      <div class="logs-row__time">{{ formatDateTime(item.timestamp) }}</div>
-      <div class="logs-row__source">
-        <span>{{ item.source }}</span>
-        <span v-if="item.protocol" class="logs-row__protocol">{{ item.protocol }}</span>
-      </div>
-    </div>
-
-    <div class="logs-row__main">
-      <div class="logs-row__headline">
-        <AppTag size="small" :tone="getLevelColor(item.level)">
-          {{ getLogLevelLabel(item.level) }}
-        </AppTag>
-        <span v-if="item.plugin_id" class="logs-row__sub" :title="item.plugin_id">{{ pluginName }}</span>
-        <span v-if="item.request_id" class="logs-row__sub">{{ item.request_id }}</span>
-      </div>
-      <p class="logs-row__message">{{ escapeUnsafeDisplayText(item.message) }}</p>
-    </div>
+    <span class="logs-row__time">{{ formatDateTime(item.timestamp) }}</span>
+    <span class="logs-row__level">
+      <AppTag size="small" :tone="getLevelColor(item.level)">{{ getLogLevelLabel(item.level) }}</AppTag>
+    </span>
+    <span class="logs-row__source">
+      <span class="logs-row__source-name">{{ item.source }}</span>
+      <AppTag v-if="item.protocol" size="small">{{ getLogProtocolLabel(item.protocol) }}</AppTag>
+    </span>
+    <!-- No whitespace between the parts: the message keeps pre-wrap, so any would show as a leading space. -->
+    <p class="logs-row__message"><span v-if="item.plugin_id" class="logs-row__plugin" :title="item.plugin_id">{{ pluginName }}</span>{{ escapeUnsafeDisplayText(item.message) }}</p>
+    <span v-if="requestId" class="logs-row__request" :title="`${t('logs.filters.requestId')} ${requestId}`">{{ requestId }}</span>
   </button>
 </template>
 
@@ -50,12 +49,13 @@ function getLevelColor(level: string) {
 .logs-row {
   width: 100%;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: 156px 64px minmax(120px, 200px) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
   border: none;
   border-bottom: 1px solid var(--border);
   background: transparent;
-  padding: 14px 16px;
+  padding: 10px 16px;
   text-align: left;
   cursor: pointer;
 }
@@ -80,54 +80,54 @@ function getLevelColor(level: string) {
   .logs-row.is-selected { outline: 2px solid Highlight; outline-offset: -2px; }
 }
 
-.logs-row__meta,
-.logs-row__main {
-  min-width: 0;
+.logs-row__time,
+.logs-row__level,
+.logs-row__source,
+.logs-row__request {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  min-height: 22px;
+  min-width: 0;
 }
 
 .logs-row__time,
-.logs-row__source,
-.logs-row__sub {
+.logs-row__source-name,
+.logs-row__request {
   font-family: var(--font-mono);
-}
-
-.logs-row__time {
+  font-size: 13px;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .logs-row__source {
-  display: flex;
-  flex-wrap: wrap;
   gap: 6px;
-  color: var(--muted);
-  font-size: 13px;
 }
 
-.logs-row__protocol {
-  color: var(--accent);
+.logs-row__source-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.logs-row__headline {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+.logs-row__request {
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.logs-row__sub {
-  color: var(--muted);
-  font-size: 13px;
+.logs-row__plugin {
+  margin-inline-end: 8px;
+  color: var(--text);
+  font-weight: 600;
 }
 
 .logs-row__message {
   margin: 0;
+  min-width: 0;
   color: var(--text);
-  line-height: 1.6;
-  font-size: 0.9rem;
+  line-height: 22px;
+  font-size: 14px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;

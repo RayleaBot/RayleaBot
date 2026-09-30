@@ -108,6 +108,7 @@ channels:
               type: string
             request_id:
               type: string
+              description: Correlates the logs written while handling one request. Logs written outside any request carry the reserved value `system`, which correlates nothing.
         required: [log_id, timestamp, level, source, message]
         example_ref: fixtures/websocket/ok.logs-appended.protocol-onebot11.json
 

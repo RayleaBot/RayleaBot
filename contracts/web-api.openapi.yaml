@@ -3081,6 +3081,7 @@ components:
           type: string
         request_id:
           type: string
+          description: Correlates the logs written while handling one request. Logs written outside any request carry the reserved value `system`, which correlates nothing.
 
     LogSummary:
       allOf:

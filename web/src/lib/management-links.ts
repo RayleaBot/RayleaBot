@@ -11,7 +11,7 @@ import type {
   EventsPayload,
   LogSummary,
 } from '@/types/api'
-import { normalizeFilterValues, type LogScope, type LogFilters } from '@/stores/log-state'
+import { correlatedRequestId, normalizeFilterValues, type LogScope, type LogFilters } from '@/stores/log-state'
 
 export interface ManagementContextAction {
   key: string
@@ -297,8 +297,9 @@ export function buildLogContextActions(summary: Pick<LogSummary, 'plugin_id' | '
     })
   }
 
-  if (summary.request_id) {
-    pushAction(actions, buildRequestLogsAction(summary.request_id, scope))
+  const requestId = correlatedRequestId(summary.request_id)
+  if (requestId) {
+    pushAction(actions, buildRequestLogsAction(requestId, scope))
   }
 
   return actions

@@ -248,6 +248,14 @@ function sameFilterValues(left: string[], right: string[]) {
     && normalizedLeft.every((item, index) => item === normalizedRight[index])
 }
 
+// Logs written outside any request carry this reserved request ID (see the log request_id contract).
+// It correlates nothing, so it is neither shown on a row nor offered as a filter for related logs.
+export const SYSTEM_LOG_REQUEST_ID = 'system'
+
+export function correlatedRequestId(requestId?: string | null) {
+  return requestId && requestId !== SYSTEM_LOG_REQUEST_ID ? requestId : undefined
+}
+
 export function sameTimeRange(left: HistoryTimeRange, right: HistoryTimeRange) {
   return (left.startAt ?? '') === (right.startAt ?? '') && (left.endAt ?? '') === (right.endAt ?? '')
 }
