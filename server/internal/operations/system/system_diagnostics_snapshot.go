@@ -166,11 +166,13 @@ func (s *Service) diagnosticsDependencies() ([]DiagnosticsDependency, []health.D
 				remediation = bootstrapErr.Remediation
 				summary = bootstrapErr.Message
 			}
+			// A missing managed runtime is what the runtime preparation task handles, as for startup issues.
 			issues = append(issues, health.DiagnosticIssue{
-				Code:        "dependency." + kind,
-				Severity:    "warning",
-				Summary:     summary,
-				Remediation: remediation,
+				RuntimeResources: []string{kind},
+				Code:             "dependency." + kind,
+				Severity:         "warning",
+				Summary:          summary,
+				Remediation:      remediation,
 			})
 			items = append(items, item)
 			continue

@@ -2,6 +2,7 @@ package system
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
@@ -24,6 +25,24 @@ func TestRuntimeResourceSelectionSurvivesReadinessProjectionWithoutAliasing(t *t
 	state, _ = s.startupRuntimeState("ffmpeg")
 	if state.Issue.RuntimeResources[0] != "ffmpeg" {
 		t.Fatal("snapshot shared the stored resource slice")
+	}
+}
+
+func TestUnavailableDependencyIssuesNameTheirRuntimeResource(t *testing.T) {
+	t.Parallel()
+	// A root without .deps has no FFmpeg; Chromium may still resolve to a browser installed on the machine.
+	s := &Service{repoRoot: t.TempDir()}
+	_, issues := s.diagnosticsDependencies()
+	sawFFmpeg := false
+	for _, issue := range issues {
+		kind := strings.TrimPrefix(issue.Code, "dependency.")
+		if len(issue.RuntimeResources) != 1 || issue.RuntimeResources[0] != kind {
+			t.Fatalf("issue %s names runtime resources %#v", issue.Code, issue.RuntimeResources)
+		}
+		sawFFmpeg = sawFFmpeg || kind == "ffmpeg"
+	}
+	if !sawFFmpeg {
+		t.Fatalf("dependency issues = %#v", issues)
 	}
 }
 
