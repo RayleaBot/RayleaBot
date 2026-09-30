@@ -108,9 +108,6 @@ export const plugins = {
     placeholders: {
       commandPrefixes: '输入命令前缀',
     },
-    status: {
-      unsaved: '有未保存更改',
-    },
   },
   localZip: '本地 ZIP 包',
   localDirectory: '本地目录',

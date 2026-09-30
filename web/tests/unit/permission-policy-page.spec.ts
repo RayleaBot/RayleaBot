@@ -121,7 +121,7 @@ describe('PermissionPolicyPage', () => {
     await flushPromises()
 
     expect(wrapper.find('.retry-panel').exists()).toBe(true)
-    expect(wrapper.find('.permission-policy-settings-section').exists()).toBe(false)
+    expect(wrapper.find('.permission-policy-form').exists()).toBe(false)
   }, 15000)
 
   it('submits policy fields and refreshes command policy after saving', async () => {

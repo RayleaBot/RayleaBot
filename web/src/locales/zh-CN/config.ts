@@ -34,9 +34,9 @@ export const config = {
       logs: { title: '日志', description: '设置日志记录与保留时间。', advancedTitle: '高级设置', advancedDescription: '' },
     },
   },
-  fieldCount: '项配置',
   fieldHelp: '字段说明',
   save: '保存更改',
+  unsaved: '有未保存更改',
   saveIdle: '无需保存',
   restartHint: '修改后需重启服务才能生效。',
   restartNeeded: '保存完成，仍需重启服务',
@@ -114,7 +114,7 @@ export const config = {
     byte: '字节',
   },
   hints: {
-    rateLimitPreview: '当前表示',
+    rateLimitPreview: '预览',
   },
   descriptions: {
     serverHost: 'HTTP 服务监听地址。本机或反向代理模式使用回环地址；局域网模式使用明确的私网地址。通配地址会被拒绝。',

@@ -1,71 +1,39 @@
 <script setup lang="ts">
-import AppHelp from '@/components/AppHelp.vue'
 import AppSwitch from '@/components/AppSwitch.vue'
-import AppField from '@/components/AppField.vue'
-import AppButton from '@/components/AppButton.vue'
 import {
-  CircleCheckIcon,
-  CircleAlertIcon,
-  BellIcon,
-  SaveIcon,
+  HourglassIcon,
   SendIcon,
-  UsersIcon,
-  ZapIcon,
   UserIcon,
+  UsersIcon,
 } from '@lucide/vue'
 import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
+import ConfigSaveBar from '@/components/config/ConfigSaveBar.vue'
 import RateLimitInput from '@/components/config/RateLimitInput.vue'
 import RateLimitPreview from '@/components/config/RateLimitPreview.vue'
+import SettingSection from '@/components/config/SettingSection.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import { useConfigDraft } from '@/components/config/useConfigDraft'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
   getRateLimitConfigSections,
 } from '@/lib/config-form'
-import { formatRateLimit, formatRateLimitPreview } from '@/lib/format'
+import { formatRateLimitPreview } from '@/lib/format'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 
 const configStore = useConfigStore()
-const { document, error, loading, saving } = storeToRefs(configStore)
+const { error, loading, saving } = storeToRefs(configStore)
 
-const { draft, saveStatus, saveStatusLabel, loadConfig, hasUnsavedChanges, canSave, readField, writeField, save } = useConfigDraft()
+const { draft, saveStatusLabel, loadConfig, hasUnsavedChanges, canSave, readField, writeField, save } = useConfigDraft()
 
 const configSections = computed(() => getRateLimitConfigSections().map(section => ({
   ...section,
   fields: section.fields.map(field => ({ ...field, rateLimitPreview: field.type === 'rateLimit'
     ? formatRateLimitPreview(readField(field.path, field.type)) : null })),
 })))
-
-const summaryCards = computed(() => [
-  {
-    key: 'user-command',
-    icon: UserIcon,
-    label: t('rateLimits.summary.userCommand'),
-    value: formatRateLimit(document.value?.user.command_rate_limit),
-    description: t('rateLimits.summary.userCommandMeta'),
-    tone: 'primary' as const,
-  },
-  {
-    key: 'group-command',
-    icon: UsersIcon,
-    label: t('rateLimits.summary.groupCommand'),
-    value: formatRateLimit(document.value?.group.command_rate_limit),
-    description: t('rateLimits.summary.groupCommandMeta'),
-    tone: 'default' as const,
-  },
-  {
-    key: 'target-message',
-    icon: BellIcon,
-    label: t('rateLimits.summary.targetMessage'),
-    value: formatRateLimit(document.value?.message.rate_limit_per_target),
-    description: t('rateLimits.summary.targetMessageMeta'),
-    tone: 'warning' as const,
-  },
-])
 
 onMounted(() => {
   void loadConfig()
@@ -78,369 +46,122 @@ function getSectionIcon(key: string) {
     case 'group':
       return UsersIcon
     case 'cooldown-reply':
-      return SendIcon
-    case 'target-message':
-      return BellIcon
+      return HourglassIcon
     default:
-      return ZapIcon
+      return SendIcon
   }
 }
 
 </script>
 
 <template>
-  <AppPage :title="t('rateLimits.title')" width="form">
-    <template #extra>
-      <div class="table-actions">
-        <AppButton
-          variant="default"
-          :disabled="!canSave"
-          :loading="saving"
-          :aria-label="t('config.save')"
-          data-testid="rate-limits-save"
-          @click="save"
-        >
-          <template #icon>
-            <SaveIcon />
-          </template>
-          {{ t('config.save') }}
-        </AppButton>
-      </div>
-    </template>
+  <AppPage :title="t('rateLimits.title')" :description="t('rateLimits.subtitle')" width="form">
+    <RetryPanel
+      v-if="error && !draft"
+      :title="t('rateLimits.title')"
+      :description="error"
+      :loading="loading"
+      @retry="loadConfig"
+    />
 
-    <div class="rate-limits-page">
-      <RetryPanel
-        v-if="error && !draft"
-        :title="t('rateLimits.title')"
-        :description="error"
-        :loading="loading"
-        @retry="loadConfig"
-      />
+    <AppSkeletonCard v-else-if="!draft" show-header :rows="5" />
 
-      <div v-else-if="loading && !draft" class="rate-limits-skeleton-layout">
-        <AppSkeletonCard show-header :rows="5" />
-      </div>
+    <!-- A section with a single field is named by its section title; the control keeps the field name for assistive technology. -->
+    <div v-else class="rate-limits-form app-box">
+      <SettingSection
+        v-for="section in configSections"
+        :key="section.key"
+        :title="section.title"
+        :icon="getSectionIcon(section.key)"
+      >
+        <div v-for="field in section.fields" :key="field.path" class="rate-limits-field">
+          <span v-if="section.fields.length > 1 && field.type !== 'boolean'" class="rate-limits-field__label">{{ field.label }}</span>
 
-      <template v-else-if="draft">
-        <div class="rate-limits-summary-cards app-box" data-testid="rate-limits-summary-card">
-          <div
-            v-for="card in summaryCards"
-            :key="card.key"
-            class="rate-limits-summary-item"
-            :data-tone="card.tone"
-          >
-            <component :is="card.icon" :size="18" class="rate-limits-summary-item__icon" />
-            <div class="rate-limits-summary-item__copy">
-              <span>{{ card.label }}</span>
-              <strong>{{ card.value }}</strong>
-              <small>{{ card.description }}</small>
-            </div>
+          <div v-if="field.type === 'rateLimit'" class="rate-limits-field__rate">
+            <RateLimitInput
+              :value="String(readField(field.path, field.type) ?? '')"
+              :ariaLabel="field.label"
+              @update:value="writeField(field.path, field.type, $event)"
+            />
+            <RateLimitPreview :text="field.rateLimitPreview" class="rate-limits-field__preview" />
           </div>
+
+          <label v-else-if="field.type === 'boolean'" class="rate-limits-field__switch">
+            <AppSwitch
+              :model-value="Boolean(readField(field.path, field.type))"
+              :aria-label="field.label"
+              @update:model-value="writeField(field.path, field.type, $event)"
+            />
+            <span>{{ field.label }}</span>
+          </label>
+
+          <p v-if="field.description" class="rate-limits-field__note">{{ field.description }}</p>
         </div>
+      </SettingSection>
 
-        <section class="rate-limits-board" :aria-label="t('rateLimits.sections.settings')">
-          <div class="rate-limits-board__header">
-            <div class="rate-limits-board__title">
-              <span class="rate-limits-board__icon">
-                <ZapIcon :size="16" />
-              </span>
-              <h2>{{ t('rateLimits.sections.settings') }}</h2>
-            </div>
-            <div class="rate-limits-status-row" aria-live="polite">
-              <span
-                v-if="hasUnsavedChanges"
-                class="rate-limits-status-pill rate-limits-status-pill--dirty"
-                data-testid="rate-limits-unsaved-status"
-              >
-                <CircleAlertIcon />
-                {{ t('rateLimits.status.unsaved') }}
-              </span>
-              <span
-                v-else-if="saveStatus"
-                class="rate-limits-status-pill rate-limits-status-pill--saved"
-                data-testid="rate-limits-save-status"
-              >
-                <CircleCheckIcon />
-                {{ saveStatusLabel }}
-              </span>
-            </div>
-          </div>
-
-          <div class="rate-limits-form-matrix">
-            <section
-              v-for="section in configSections"
-              :key="section.key"
-              class="rate-limits-setting-row"
-            >
-              <div class="rate-limits-setting-row__intro">
-                <span class="rate-limits-setting-row__icon">
-                  <component :is="getSectionIcon(section.key)" :size="16" />
-                </span>
-                <div class="rate-limits-setting-row__title">
-                  <h3>{{ section.title }}</h3>
-                </div>
-              </div>
-
-              <div class="rate-limits-setting-row__controls">
-                <div v-for="field in section.fields" :key="field.path" class="rate-limits-field-item">
-                  <AppField label="">
-                    <template #label>
-                      <div class="field-label-wrap">
-                        <span class="field-label-text">{{ field.label }}</span>
-                        <AppHelp v-if="field.description" :label="`${field.label} · ${t('config.fieldHelp')}`" :description="field.description" />
-                      </div>
-                    </template>
-
-                    <div class="rate-limits-control-wrap" :class="{ 'rate-limits-control-wrap--with-preview': field.rateLimitPreview }">
-                      <RateLimitInput
-                        v-if="field.type === 'rateLimit'"
-                        :value="String(readField(field.path, field.type) ?? '')"
-                        :ariaLabel="field.label"
-                        @update:value="writeField(field.path, field.type, $event)"
-                      />
-
-                      <div v-else-if="field.type === 'boolean'" class="switch-wrap">
-                        <AppSwitch
-                          :model-value="Boolean(readField(field.path, field.type))"
-                          :aria-label="field.label"
-                          @update:model-value="writeField(field.path, field.type, $event)"
-                        />
-                      </div>
-
-                      <RateLimitPreview :text="field.rateLimitPreview" class="rate-limits-rate-preview" />
-                    </div>
-
-                  </AppField>
-                </div>
-              </div>
-            </section>
-          </div>
-        </section>
-      </template>
+      <ConfigSaveBar
+        test-id-prefix="rate-limits"
+        :dirty="hasUnsavedChanges"
+        :saved-label="saveStatusLabel"
+        :can-save="canSave"
+        :saving="saving"
+        @save="save"
+      />
     </div>
   </AppPage>
 </template>
 
 <style lang="scss" scoped>
-.rate-limits-page {
+.rate-limits-form {
   display: grid;
-  gap: 18px;
 }
 
-.rate-limits-skeleton-layout {
+.rate-limits-field {
   display: grid;
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
 }
 
-.rate-limits-summary-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.rate-limits-field__label {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
 }
 
-// Top-aligned so a description that wraps does not shift its label and value out of line.
-.rate-limits-summary-item {
+// Three short numbers do not need the full column; the reading of the value sits beside them.
+.rate-limits-field__rate {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 20px;
+}
+
+.rate-limits-field__rate > :first-child {
+  flex: 0 1 480px;
+  min-width: 0;
+}
+
+.rate-limits-field__preview {
+  padding-bottom: 9px;
+}
+
+.rate-limits-field__switch {
+  display: inline-flex;
+  align-items: center;
   gap: 10px;
-  min-width: 0;
-  padding: 16px 20px;
+  width: fit-content;
+  min-height: 32px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
 }
 
-.rate-limits-summary-item + .rate-limits-summary-item {
-  border-inline-start: 1px solid var(--border);
-}
-
-.rate-limits-summary-item__icon {
-  flex-shrink: 0;
-  margin-top: 1px;
-  color: var(--accent);
-  font-size: 18px;
-}
-
-.rate-limits-summary-item[data-tone='success'] .rate-limits-summary-item__icon {
-  color: var(--success);
-}
-
-.rate-limits-summary-item[data-tone='warning'] .rate-limits-summary-item__icon {
-  color: var(--warning);
-}
-
-.rate-limits-summary-item__copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.rate-limits-summary-item__copy span,
-.rate-limits-summary-item__copy small {
+.rate-limits-field__note {
+  max-width: 72ch;
+  margin: 0;
   color: var(--muted);
   font-size: 13px;
-}
-
-.rate-limits-summary-item__copy strong {
-  color: var(--text);
-  font-size: 16px;
-}
-
-.rate-limits-board {
-  display: grid;
-  overflow: hidden;
-  border: 1px solid transparent;
-  border-radius: var(--app-card-radius);
-  background: var(--surface-strong);
-  box-shadow: var(--shadow-card);
-  --control-fill: var(--surface-raised);
-  --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text));
-}
-
-.rate-limits-board__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--border);
-}
-
-.rate-limits-board__title {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.rate-limits-board__title h2 {
-  margin: 0;
-  color: var(--text);
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.rate-limits-board__icon,
-.rate-limits-setting-row__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border-radius: 50%;
-  color: var(--accent);
-  background: var(--surface-accent);
-  border: 1px solid var(--border-accent);
-}
-
-.rate-limits-board__icon {
-  width: 28px;
-  height: 28px;
-}
-
-.rate-limits-status-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-height: 28px;
-}
-
-.rate-limits-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 28px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 650;
-  line-height: 1;
-  box-shadow: var(--shadow-xs);
-}
-
-.rate-limits-status-pill--dirty {
-  color: var(--text-attention);
-  background: var(--surface-attention);
-  border: 1px solid var(--border-attention);
-}
-
-.rate-limits-status-pill--saved {
-  color: var(--success);
-  background: var(--surface-success);
-  border: 1px solid color-mix(in srgb, var(--success) 32%, var(--border));
-}
-
-.rate-limits-form-matrix {
-  display: grid;
-}
-
-.rate-limits-setting-row {
-  display: grid;
-  grid-template-columns: minmax(176px, 240px) minmax(0, 1fr);
-  gap: 24px;
-  padding: 18px 20px;
-  border-top: 1px solid var(--border);
-}
-
-.rate-limits-setting-row:first-child {
-  border-top: 0;
-}
-
-.rate-limits-setting-row__intro {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  min-width: 0;
-  padding-top: 2px;
-}
-
-.rate-limits-setting-row__icon {
-  width: 26px;
-  height: 26px;
-}
-
-.rate-limits-setting-row__title h3 {
-  margin: 0;
-  color: var(--text);
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.rate-limits-setting-row__controls {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
-.rate-limits-field-item :deep(.app-field) {
-  margin-bottom: 0;
-}
-
-.field-label-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.field-label-text {
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--theme-text, var(--text));
-}
-
-
-
-
-
-.rate-limits-control-wrap {
-  display: grid;
-  gap: 10px;
-  align-items: stretch;
-}
-
-.rate-limits-control-wrap--with-preview {
-  grid-template-columns: minmax(260px, 1fr) minmax(180px, 240px);
-}
-
-.switch-wrap {
-  display: flex;
-  min-height: 36px;
-  align-items: center;
+  line-height: 1.6;
 }
 </style>

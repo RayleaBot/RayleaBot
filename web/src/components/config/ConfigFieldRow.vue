@@ -180,7 +180,7 @@ function handleTextareaUpdate(value: unknown) {
       <span v-if="layout === 'row' && field.unit" class="config-field__unit-end" aria-hidden="true">{{ field.unit }}</span>
     </div>
 
-    <RateLimitPreview :text="rateLimitPreview" inline class="config-field__preview" />
+    <RateLimitPreview :text="rateLimitPreview" class="config-field__preview" />
   </div>
 </template>
 
@@ -245,6 +245,6 @@ function handleTextareaUpdate(value: unknown) {
 .config-field--row .config-field__control > :first-child { flex: 1; width: 100%; min-width: 0; }
 .config-field--row :deep(.rate-limit-input__grid) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 76px; gap: 8px; }
 .config-field__unit-end { flex: none; color: var(--muted); font-size: 13px; }
-.config-field--row .config-field__preview { grid-column: 2; padding: 0; border: 0; background: transparent; flex-wrap: wrap; }
+.config-field--row .config-field__preview { grid-column: 2; }
 :global([data-density=compact]) .config-field--row { padding-block: 12px; }
 </style>
