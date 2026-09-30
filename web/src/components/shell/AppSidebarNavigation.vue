@@ -176,7 +176,7 @@ function toggleRootGroup(key: string) {
               </template>
             </AppDropdown>
             <section v-else-if="item.children?.length" class="sidebar-navigation__group">
-              <button type="button" class="sidebar-navigation__group-heading" data-nav-item :aria-expanded="openKeys.includes(item.key)" @click="toggleRootGroup(item.key)">{{ item.title }}<ChevronDownIcon :class="{ 'is-collapsed': !openKeys.includes(item.key) }" :size="13" /></button>
+              <button type="button" class="sidebar-navigation__group-heading" data-nav-item :aria-expanded="openKeys.includes(item.key)" @click="toggleRootGroup(item.key)">{{ item.title }}<ChevronDownIcon :class="{ 'is-collapsed': !openKeys.includes(item.key) }" :size="16" /></button>
               <div v-if="openKeys.includes(item.key)">
                 <button v-for="child in item.children" :key="child.key" type="button" class="sidebar-navigation__item" data-nav-item :aria-current="selectedKeys.includes(child.key) ? 'page' : undefined" @click="emit('navigate', child.path)">
                   <span class="admin-layout__menu-label"><component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" class="admin-layout__menu-icon" /><span>{{ child.title }}</span></span>
@@ -498,7 +498,8 @@ function toggleRootGroup(key: string) {
 
 .sidebar-navigation__group { margin-bottom: 10px; }
 .sidebar-navigation__group-title, .sidebar-navigation__group-heading { margin: 0; padding: 12px 12px 6px; color: var(--chrome-muted); font-size: 12px; font-weight: 500; line-height: 1.4; }
-.sidebar-navigation__group-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 36px; cursor: pointer; }
+// The group chevron matches the plugin center's chevron in size and right inset, so both sit in one column.
+.sidebar-navigation__group-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 36px; padding-inline-end: 16px; cursor: pointer; }
 .sidebar-navigation__group-heading .is-collapsed { rotate: -90deg; }
 // Items are quiet text rows; the current page is a white pill lifted by a soft shadow, with its icon in blue.
 .sidebar-navigation__item { display: flex; align-items: center; width: calc(100% - 8px); min-height: 40px; margin: 2px 4px; padding: 8px 12px; border: 1px solid transparent; border-radius: 999px; color: var(--sider-menu-text); font-size: 14px; font-weight: 500; line-height: 1.4; text-align: left; cursor: pointer; transition: background-color var(--motion-fast) var(--motion-easing); }

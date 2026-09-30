@@ -111,13 +111,9 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
           />
         </div>
 
-        <!-- HarmonyOS Sans requires the software to state that the fonts are used; the agreement ships with the package. -->
-        <div class="preferences-group" data-testid="preferences-font-notice">
-          <div class="preferences-group__heading">
-            <strong>{{ t('shell.preferences.uiFont') }}</strong>
-            <span>{{ t('shell.preferences.uiFontName') }}</span>
-          </div>
-        </div>
+        <!-- HarmonyOS Sans requires the software to state that the fonts are used; the agreement ships with the package.
+             It is a fact about the interface, not a setting, so it reads as a note rather than a group with a control. -->
+        <p class="preferences-note" data-testid="preferences-font-notice">{{ t('shell.preferences.uiFont') }}：{{ t('shell.preferences.uiFontName') }}</p>
       </template>
 
       <template #workspace>
@@ -165,6 +161,14 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
 
 .preferences-group {
   margin-bottom: 28px;
+}
+
+.preferences-note {
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .preferences-group__heading {
