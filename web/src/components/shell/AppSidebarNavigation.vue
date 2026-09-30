@@ -320,7 +320,6 @@ function toggleRootGroup(key: string) {
 }
 
 .sidebar-navigation__disclosure:hover {
-  background: var(--sider-menu-hover-bg);
   color: var(--sider-menu-text);
 }
 
@@ -373,7 +372,6 @@ function toggleRootGroup(key: string) {
 }
 
 .sidebar-navigation :deep(.sidebar-navigation__plugin-resource--active) {
-  background: var(--sider-menu-hover-bg);
   color: var(--sider-menu-text);
   font-weight: 700;
 }
@@ -510,10 +508,12 @@ function toggleRootGroup(key: string) {
 .sidebar-navigation__item:focus-visible, .sidebar-navigation__group-heading:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .sidebar-navigation__entry { display: flex; align-items: center; min-width: 0; }
 .sidebar-navigation__entry > .sidebar-navigation__item { flex: 1; min-width: 0; }
-.sidebar-navigation__entry--active { background: var(--sider-menu-hover-bg); border-radius: 999px; }
-@media (prefers-reduced-motion: reduce) { .sidebar-navigation__item, .sidebar-navigation__back { transition: none; } }
+// A plugin row is one pill: the row takes the hover and open-plugin face, and its name and disclosure buttons stay transparent inside it.
+.sidebar-navigation__entry--resource { margin: 2px 4px; border-radius: 999px; transition: background-color var(--motion-fast) var(--motion-easing); }
+.sidebar-navigation__entry--resource:hover, .sidebar-navigation__entry--active { background: var(--sider-menu-hover-bg); }
+.sidebar-navigation__entry--resource > .sidebar-navigation__item, .sidebar-navigation__entry--resource > .sidebar-navigation__item:hover { width: auto; margin: 0; padding-right: 4px; background: transparent; }
+@media (prefers-reduced-motion: reduce) { .sidebar-navigation__item, .sidebar-navigation__entry--resource, .sidebar-navigation__back { transition: none; } }
 @media (forced-colors: active) { .sidebar-navigation__item:is([aria-current=page], [aria-current=true]), .sidebar-navigation__back { border-color: Highlight; box-shadow: none; } }
-.sidebar-navigation__entry--resource .sidebar-navigation__item { margin-right: 0; padding-right: 4px; }
 .sidebar-navigation__item .admin-layout__menu-label > span { overflow: hidden; text-overflow: ellipsis; }
 .sidebar-navigation__item.sidebar-navigation__plugin-child { padding-inline-start: 38px; }
 .sidebar-navigation__disclosure > svg, .sidebar-navigation__chevron { width: 16px; height: 16px; }
