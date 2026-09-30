@@ -15,9 +15,15 @@ export function formatDateTime(value?: string | number | Date | null) {
     return formatFallbackValue(value)
   }
 
+  // Two-digit fields keep timestamps the same width, so they line up down a list or table.
   return new Intl.DateTimeFormat(i18n.global.locale.value, {
-    dateStyle: 'short',
-    timeStyle: 'medium',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
     timeZone: managementTimeZone(),
   }).format(date)
 }

@@ -16,12 +16,9 @@ describe('format helpers', () => {
 
   it('formats unix-second timestamps from numbers and scientific-notation strings', () => {
     const unixSeconds = 1.775762955e+09
-    const expected = new Intl.DateTimeFormat(i18n.global.locale.value, {
-      dateStyle: 'short',
-      timeStyle: 'medium',
-      timeZone: 'Asia/Shanghai',
-    }).format(new Date(unixSeconds * 1000))
+    const expected = '2026/04/10 03:29:15'
 
+    expect(i18n.global.locale.value).toBe('zh-CN')
     expect(formatDateTime(unixSeconds)).toBe(expected)
     expect(formatDateTime(String(unixSeconds))).toBe(expected)
   })
