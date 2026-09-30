@@ -1,15 +1,12 @@
 /*
  * The Launcher's Liquid Glass. Following Apple's layering, glass is reserved for the navigation
  * layer and the controls that float over content: the sidebar, action buttons and the status lens.
- * Content groups stay in the content layer as quiet fills on a calm mist field. The material is plain
+ * Content groups stay in the content layer as quiet fills on the warm light field. The material is plain
  * CSS; glassSurfaces.ts only adds refraction to clear lenses in WebView2.
  */
 
 :root {
   --glass-inset: 10px;
-  --glass-canvas-top: color-mix(in srgb, var(--color-canvas) 90%, var(--color-brand-fill));
-  --glass-canvas-bottom: color-mix(in srgb, var(--color-canvas) 83%, var(--color-brand-fill));
-  --glass-ambient: color-mix(in srgb, var(--color-brand-fill) 11%, transparent);
   --glass-text-muted: color-mix(in srgb, var(--color-text-muted) 80%, var(--color-text));
   --glass-divider: color-mix(in srgb, var(--color-text) 9%, transparent);
   --glass-fill: color-mix(in srgb, var(--color-surface) 62%, transparent);
@@ -92,9 +89,6 @@
 }
 
 :root[data-theme="dark"] {
-  --glass-canvas-top: color-mix(in srgb, var(--color-canvas) 94%, var(--color-brand-fill));
-  --glass-canvas-bottom: var(--color-canvas);
-  --glass-ambient: color-mix(in srgb, var(--color-brand-fill) 7%, transparent);
   --glass-text-muted: color-mix(in srgb, var(--color-text-muted) 86%, var(--color-text));
   --glass-fill: color-mix(in srgb, var(--color-text) 5.5%, transparent);
   --glass-fill-strong: color-mix(in srgb, var(--color-surface) 90%, transparent);
@@ -179,9 +173,14 @@
 .app-shell {
   height: 100%;
   color: var(--color-text);
+  /* The same warm stone light field as the Web shell; glass refracts it and content groups sit on it. */
   background:
-    radial-gradient(90% 70% at 0% 0%, var(--glass-ambient), transparent 62%),
-    linear-gradient(180deg, var(--glass-canvas-top), var(--glass-canvas-bottom));
+    radial-gradient(58vw 62vh at 4% 2%, var(--color-field-peach), transparent 72%),
+    radial-gradient(52vw 44vh at 56% 16%, var(--color-field-sand), transparent 70%),
+    radial-gradient(42vw 48vh at 68% 32%, var(--color-field-mint), transparent 70%),
+    radial-gradient(64vw 78vh at 100% 100%, var(--color-field-sky), transparent 70%),
+    radial-gradient(50vw 56vh at 24% 104%, var(--color-field-lilac), transparent 72%),
+    var(--color-canvas);
 }
 
 .glass-filter-host {

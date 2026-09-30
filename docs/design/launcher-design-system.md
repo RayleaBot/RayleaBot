@@ -107,7 +107,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 
 Launcher 参考 Apple 的 [Liquid Glass](https://developer.apple.com/design/) 与 Human Interface Guidelines 的分层：玻璃只属于浮在内容之上的导航层与控件，内容分组留在内容层。材质由 [`liquid-glass.css`](../../launcher/src/renderer/src/liquid-glass.css) 与 [`glassSurfaces.ts`](../../launcher/src/renderer/src/glassSurfaces.ts) 实现，元素通过 `data-glass` 声明 `clear`、`regular` 或 `prominent` 变体。玻璃的填充、边缘与投影转写自 [Apple Design Resources](https://developer.apple.com/design/resources/) 中 macOS 27 UI Kit 的 Liquid Glass 图层样式，作为 `liquid-glass.css` 的局部变量；画布与内容分组从主题 token 以 `color-mix` 局部派生。两者都不新增共享 token，仓库也不包含套件文件、SF 字体或 SF Symbols。
 
-- 画布是窗口画布混入少量青瓷的雾白渐变，左上角叠一层淡青瓷环境光；暗色主题使用炭灰画布与更弱的环境光。画布不使用图片。
+- 画布与 Web 管理壳共用暖石灰光场：五层柔和径向光晕叠在中性画布上，暗色主题使用炭色画布与更暗的光晕；Go 宿主窗口先绘制同色画布，切换主题时不闪烁。画布不使用图片。
 - `regular` 用于侧栏与次级按钮，按尺寸取不同配方：按钮使用套件的 `Regular - Small`，浅色是半透明浅灰胶囊，暗色是略亮于画布的炭灰胶囊，几乎没有外侧投影；侧栏使用 `Regular - Large`，填充更白并带纵向外侧投影。`prominent` 用于主操作：套件把着色玻璃画成平涂色面，Launcher 在青瓷填充上叠加顶部受光的渐变高光、上下亮边、细深色描边和同色投影，使着色部分读作玻璃。
 - 边缘由多层内阴影组成：两侧与四周有深色细线，上下边缘有亮线和向内衰减的亮边，两侧向内渐暗。Sketch 样式中的 Lighten、Darken、Luminosity、Plus darker 与 Plus lighter 混合改写为半透明填充和黑白内阴影，按 Launcher 画布算出与原混合一致的明度。
 - 侧栏、按钮与主操作只由背景色、渐变与阴影构成，不运行脚本，也不读取背景。

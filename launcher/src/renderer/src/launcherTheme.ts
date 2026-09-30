@@ -73,6 +73,11 @@ export function applyLauncherDocumentTheme(effectiveTheme: LauncherEffectiveThem
 
   const variables: Record<string, string> = {
     "--color-canvas": tokens.canvas,
+    "--color-field-peach": tokens.fieldPeach,
+    "--color-field-sand": tokens.fieldSand,
+    "--color-field-mint": tokens.fieldMint,
+    "--color-field-sky": tokens.fieldSky,
+    "--color-field-lilac": tokens.fieldLilac,
     "--color-surface": tokens.surface,
     "--color-surface-raised": tokens.surfaceRaised,
     "--color-surface-soft": tokens.surfaceSoft,
