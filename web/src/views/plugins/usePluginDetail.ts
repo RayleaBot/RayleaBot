@@ -63,8 +63,8 @@ export function usePluginDetail(pluginId: Readonly<Ref<string>>) {
     const context = captureContext()
     operationError.value = null
     try {
-      await pluginsStore.executeAction(context.id, action)
-      if (context.isCurrent()) notifySuccess(t('plugins.actionAccepted'))
+      const plugin = await pluginsStore.executeAction(context.id, action)
+      if (context.isCurrent()) notifySuccess(t(`plugins.actionResult.${action}`, { name: plugin.name || context.id }))
     } catch (error) {
       if (context.isCurrent()) operationError.value = getDisplayErrorMessage(error)
     }

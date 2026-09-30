@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { LoaderCircleIcon, CirclePlayIcon, BanIcon } from '@lucide/vue'
+import { LoaderCircleIcon, CirclePlayIcon, CircleStopIcon } from '@lucide/vue'
 import { t } from '@/i18n'
 
 const props = withDefaults(defineProps<{
@@ -57,10 +57,9 @@ function handleClick(event: MouseEvent) {
     :aria-busy="loading ? 'true' : undefined"
     :aria-checked="checked ? 'true' : 'false'"
     :aria-label="ariaLabel"
-    :title="iconOnly ? ariaLabel : undefined"
     @click="handleClick"
   >
-    <component :is="loading ? LoaderCircleIcon : checked ? BanIcon : CirclePlayIcon" v-if="iconOnly" aria-hidden="true" />
+    <component :is="loading ? LoaderCircleIcon : checked ? CircleStopIcon : CirclePlayIcon" v-if="iconOnly" aria-hidden="true" />
     <span v-else class="plugin-holo-button__track" aria-hidden="true">
       <span class="plugin-holo-button__thumb">
         <span class="plugin-holo-button__thumb-inner" />
@@ -245,9 +244,7 @@ function handleClick(event: MouseEvent) {
   transition: color 140ms ease, background-color 140ms ease, transform 140ms ease;
 }
 
-.plugin-holo-button--icon:not(.is-checked) { color: var(--brand-foreground); }
 .plugin-holo-button--icon:hover:not(:disabled) { background: var(--control-fill-hover); color: var(--text); }
-.plugin-holo-button--icon.is-checked:hover:not(:disabled) { color: var(--text-danger); }
 .plugin-holo-button--icon:active:not(:disabled) { transform: scale(.94); }
 .plugin-holo-button--icon.is-loading :deep(.lucide) { animation: spinner 800ms linear infinite; }
 .plugin-holo-button--icon :deep(.lucide) { width: 18px; height: 18px; }

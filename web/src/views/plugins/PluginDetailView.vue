@@ -120,8 +120,8 @@ function returnToPluginList() {
           :checked="currentPlugin?.state !== 'disabled'"
           :loading="actionPending[pluginId] === 'enable' || actionPending[pluginId] === 'disable'"
           :disabled="!currentPlugin"
-          :checked-label="t('plugins.actions.enable')"
-          :unchecked-label="t('plugins.actions.disable')"
+          :checked-label="t('plugins.power.enabled')"
+          :unchecked-label="t('plugins.power.disabled')"
           @click="runAction(getToggleAction())"
         />
         <AppButton :disabled="!currentPlugin" :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</AppButton>
@@ -221,7 +221,7 @@ function returnToPluginList() {
     </AppCard>
   </AppPage>
 
-  <AppConfirmDialog :open="uninstallDialogVisible" :title="t('plugins.uninstallConfirmTitle')" :description="t('plugins.uninstallConfirmBody')" :busy="actionPending[pluginId] === 'uninstall'" danger :confirm-text="t('plugins.actions.uninstallConfirm')" :cancel-text="t('dashboard.previewCancel')" @confirm="uninstallPlugin" @cancel="uninstallDialogVisible = false" />
+  <AppConfirmDialog :open="uninstallDialogVisible" :title="t('plugins.uninstallConfirmTitle')" :description="t('plugins.uninstallConfirmBody', { name: pluginDisplayName })" :busy="actionPending[pluginId] === 'uninstall'" danger :confirm-text="t('plugins.actions.uninstallConfirm')" :cancel-text="t('dashboard.previewCancel')" @confirm="uninstallPlugin" @cancel="uninstallDialogVisible = false" />
 </template>
 
 <style scoped lang="scss">
@@ -309,6 +309,7 @@ function returnToPluginList() {
 
 .plugin-detail-actions :deep(.plugin-holo-button) {
   flex: 0 0 auto;
+  --button-height: 40px;
 }
 
 /* Detail header switcher */

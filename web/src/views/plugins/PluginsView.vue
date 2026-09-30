@@ -93,8 +93,8 @@ function openSummary(id: string) {
 
 async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 'reload') {
   try {
-    await pluginsStore.executeAction(pluginId, action)
-    notifySuccess(t('plugins.actionAccepted'))
+    const plugin = await pluginsStore.executeAction(pluginId, action)
+    notifySuccess(t(`plugins.actionResult.${action}`, { name: plugin.name || pluginId }))
   } catch (error) {
     notifyError(getDisplayErrorMessage(error))
   }

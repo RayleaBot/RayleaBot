@@ -125,15 +125,17 @@ const healthNotices = computed(() => {
           </AppButton>
         </AppTooltip>
       </div>
-      <PluginPowerButton
-        icon-only
-        :checked="plugin.state !== 'disabled'"
-        :data-testid="`plugin-enable-button-${plugin.id}`"
-        :loading="toggleLoading"
-        :checked-label="t('plugins.actions.enable')"
-        :unchecked-label="t('plugins.actions.disable')"
-        @click="$emit('toggle')"
-      />
+      <AppTooltip :title="plugin.state === 'disabled' ? t('plugins.actions.enable') : t('plugins.actions.disable')">
+        <PluginPowerButton
+          icon-only
+          :checked="plugin.state !== 'disabled'"
+          :data-testid="`plugin-enable-button-${plugin.id}`"
+          :loading="toggleLoading"
+          :checked-label="t('plugins.power.enabled')"
+          :unchecked-label="t('plugins.power.disabled')"
+          @click="$emit('toggle')"
+        />
+      </AppTooltip>
     </footer>
   </article>
 </template>

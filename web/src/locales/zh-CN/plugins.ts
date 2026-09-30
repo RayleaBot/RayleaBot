@@ -239,10 +239,14 @@ export const plugins = {
     },
   },
   uninstallConfirmTitle: '确认卸载插件',
-  uninstallConfirmBody: '卸载会异步执行，可在实时日志查看结果。',
+  uninstallConfirmBody: '卸载后 {name} 会停止运行并从已安装插件中移除，完成后返回插件列表。',
   installAccepted: '插件安装完成',
   uninstallAccepted: '插件卸载完成',
-  actionAccepted: '操作已提交',
+  actionResult: {
+    enable: '已启用 {name}',
+    disable: '已停用 {name}',
+    reload: '已重载 {name}',
+  },
   managementUi: {
     loading: '正在载入插件页面',
     loadFailed: '插件页面未打开',
@@ -262,6 +266,8 @@ export const plugins = {
     aria: '健康状态：{label}',
   },
   power: {
+    enabled: '已启用',
+    disabled: '已停用',
     pending: '{state}处理中',
     toggle: '当前{current}，点击切换为{action}',
   },
