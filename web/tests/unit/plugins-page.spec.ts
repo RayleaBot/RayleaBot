@@ -302,10 +302,10 @@ describe('PluginsPage', () => {
     expect(wrapper.find('button[aria-label="管理"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.findAll('.plugin-card__meta .app-tag').filter(tag => tag.text() === '未验证来源')).toHaveLength(1)
-    expect(wrapper.find('.plugin-health-notices').text()).not.toContain('未验证来源')
     store.items[0]!.trust = undefined
     await flushPromises()
-    expect(wrapper.find('.plugin-health-notices').text()).toContain('未验证来源')
+    // Without a trust level the unverified source becomes a notice in the same row, still shown once.
+    expect(wrapper.findAll('.plugin-card__meta .app-tag').filter(tag => tag.text() === '未验证来源')).toHaveLength(1)
     expect(wrapper.find('.plugins-grid').text()).not.toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
     expect(wrapper.text()).toContain('1 个命令冲突')
@@ -316,7 +316,7 @@ describe('PluginsPage', () => {
     expect(wrapper.find('.plugins-grid').exists()).toBe(true)
     expect(wrapper.find('.plugin-card__meta').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('订阅状态')
-    expect(wrapper.find('.plugin-health-notices').exists()).toBe(true)
+    expect(wrapper.get('.plugin-card__meta').text()).toContain('1 个命令冲突')
 
     await wrapper.get('[data-testid="plugin-manage-button-weather"]').trigger('click')
     await flushPromises()

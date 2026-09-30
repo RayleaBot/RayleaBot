@@ -69,12 +69,10 @@ const healthNotices = computed(() => {
       {{ description }}
     </p>
 
+    <!-- Source, trust and health notices share one wrapping row. -->
     <div class="plugin-card__meta">
       <span v-if="sourceTypeLabel">{{ sourceTypeLabel }}</span>
       <AppTag :tone="plugin.trust?.level === 'unverified' ? 'attention' : 'neutral'">{{ getPluginTrustLabel(plugin.trust?.level) }}</AppTag>
-    </div>
-
-    <div v-if="healthNotices.length > 0" class="plugin-health-notices">
       <AppTag
         v-for="notice in healthNotices"
         :key="notice.label"
@@ -102,18 +100,20 @@ const healthNotices = computed(() => {
           <template #icon><SettingsIcon /></template>
           {{ t('plugins.actions.manage') }}
         </AppButton>
-        <AppTooltip :title="t('plugins.actions.reload')">
-          <AppButton
-            class="plugin-card__icon-action"
-            variant="ghost"
-            :aria-label="t('plugins.actions.reload')"
-            :data-testid="`plugin-reload-button-${plugin.id}`"
-            :loading="pendingAction === 'reload'"
-            :disabled="reloadDisabled"
-            @click="$emit('reload')"
-          >
-            <template #icon><RefreshCwIcon /></template>
-          </AppButton>
+        <AppTooltip :title="reloadDisabled ? t('plugins.actions.reloadUnavailable') : t('plugins.actions.reload')">
+          <span class="plugin-card__tooltip-anchor">
+            <AppButton
+              class="plugin-card__icon-action"
+              variant="ghost"
+              :aria-label="t('plugins.actions.reload')"
+              :data-testid="`plugin-reload-button-${plugin.id}`"
+              :loading="pendingAction === 'reload'"
+              :disabled="reloadDisabled"
+              @click="$emit('reload')"
+            >
+              <template #icon><RefreshCwIcon /></template>
+            </AppButton>
+          </span>
         </AppTooltip>
       </div>
       <AppTooltip :title="plugin.state === 'disabled' ? t('plugins.actions.enable') : t('plugins.actions.disable')">
@@ -141,16 +141,11 @@ const healthNotices = computed(() => {
   flex-direction: column;
   min-height: 224px;
   color: var(--text);
-  transition: translate 160ms var(--motion-easing);
 }
 
 .plugin-grid-card[data-attention=warning] { box-shadow: inset 0 0 0 2px var(--warning), var(--shadow-card); }
 .plugin-grid-card[data-attention=danger] { box-shadow: inset 0 0 0 2px var(--danger), var(--shadow-card); }
 .plugin-grid-card[data-state=disabled] :deep(.plugin-icon) { filter: grayscale(1); opacity: .7; }
-
-.plugin-grid-card:hover {
-  translate: 0 -1px;
-}
 
 .plugin-card__header {
   display: flex;
@@ -219,8 +214,7 @@ const healthNotices = computed(() => {
   -webkit-line-clamp: 2;
 }
 
-.plugin-card__meta,
-.plugin-health-notices {
+.plugin-card__meta {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -244,13 +238,12 @@ const healthNotices = computed(() => {
   white-space: nowrap;
 }
 
-.plugin-card__meta :deep(.app-tag),
-.plugin-health-notices :deep(.app-tag) {
+.plugin-card__meta :deep(.app-tag) {
   margin-inline-end: 0;
 }
 
-.plugin-health-notices {
-  padding: 0 16px 12px;
+.plugin-card__tooltip-anchor {
+  display: inline-flex;
 }
 
 .plugin-card__actions,
@@ -307,10 +300,6 @@ const healthNotices = computed(() => {
 .plugin-card__icon-action.app-button:disabled { color: var(--muted); opacity: .45; box-shadow: none; }
 @media (min-width: #{bp.$fiveColumns}) {
   .plugin-grid-card { min-height: 240px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .plugin-grid-card { transition: none; }
-  .plugin-grid-card:hover { translate: none; }
 }
 @media (forced-colors: active) {
   .plugin-grid-card[data-attention] { outline: 2px solid Highlight; outline-offset: -4px; }

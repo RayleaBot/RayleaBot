@@ -157,6 +157,7 @@ export const plugins = {
     manage: '管理',
     enable: '启用',
     reload: '重载',
+    reloadUnavailable: '启用后可重载',
     disable: '停用',
     summary: '查看概要',
     openDetail: '打开详情页',
