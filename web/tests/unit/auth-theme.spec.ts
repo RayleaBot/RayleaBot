@@ -17,7 +17,7 @@ describe('auth theme', () => {
     expect(variables['--auth-panel-shadow']).toBe(tokens.shadowFloating)
   })
 
-  it('uses the accessible celadon action and dark action text in dark mode', () => {
+  it('uses the accessible brand action and dark action text in dark mode', () => {
     const tokens = webThemes.dark
     const variables = resolveAuthCssVariables('dark')
 

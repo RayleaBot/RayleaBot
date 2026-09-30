@@ -109,12 +109,12 @@ favicon 由现有 `resolvedThemeMode` 同步：浅色引用 [`favicon.svg`](../.
 ## 认证入口
 
 - 登录、首次初始化与凭据恢复指引共用居中单栏面板；窄屏时缩小圆角并收紧内边距，低高度视口允许页面自然滚动。
-- 认证表面沿用共享黑白人物标识、HarmonyOS Sans SC 和 Web 局部语义 token。玻璃颜色由现有认证主题 token 通过 CSS `color-mix()` 派生，浅色与暗色使用不同的表面与高光比例；浅色辅文与底部链接局部加深以保持对比度。亮暗主题保留相同的信息、验证和提交能力，共享品牌 token 表达统一的颜色和字体语义。
+- 认证表面沿用共享黑白人物标识、HarmonyOS Sans SC 和 Web 局部语义 token。面板使用管理壳共享的液态玻璃材质，文字、控件与链接颜色由认证主题 token 映射；浅色辅文与底部链接局部加深以保持对比度。亮暗主题保留相同的信息、验证和提交能力，共享品牌 token 表达统一的颜色和字体语义。
 - 页面只保留产品身份、任务标题、必要说明和凭据表单，不使用 hero 或功能宣传。
-- 认证背景使用静态青瓷玻璃壁纸，运行时加载无损压缩的 [`celadon-glass.webp`](../../web/src/assets/auth/celadon-glass.webp)；原始 [`PNG`](../../web/src/assets/auth/celadon-glass.png) 保留内嵌生成提示词。壁纸覆盖视口并底部对齐；窄屏调整裁切位置，暗色主题降低亮度与饱和度。背景不跟随指针，不参与表单交互。
+- 认证页与管理工作区共用应用根部的暖石灰光场背景，不使用图片；背景不跟随指针，不参与表单交互。
 - 材质参考 Apple 的 [Liquid Glass 介绍](https://www.apple.com.cn/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/)与 [WWDC25 设计说明](https://developer.apple.com/videos/play/wwdc2025/219/)，在浏览器中实现通透面板、圆角边缘折射和反射高光，具体效果按浏览器能力适配。支持 SVG backdrop 的 Chromium 路径使用 `feDisplacementMap`，只使用轻微前置模糊；WebKit 与 Gecko 使用轻度模糊与饱和度的透明材质降级。
-- [`liquid-glass.ts`](../../web/src/components/auth/liquid-glass.ts) 按面板几何生成边缘倒角的法线图，中部保持清晰；离屏 Canvas 限制最长边，只在尺寸或圆角变化时更新。ResizeObserver 与单次 requestAnimationFrame 合并尺寸更新，卸载时断开观察并取消待执行帧。鼠标移动仅更新边缘高光位置，不移动面板或重新生成法线图；空闲时没有持续绘制循环。
-- 不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，面板使用不透明表面；forced-colors 同时隐藏壁纸与边缘高光并使用系统边界与焦点色。模糊半径不参与动画，reduced-motion 下指针高光保持静态。
+- 共享的 [`liquid-glass.ts`](../../web/src/lib/liquid-glass.ts) 按镜片尺寸与圆角生成边缘折射的位移图，中部保持清晰；ResizeObserver 只在尺寸或圆角变化时更新，同尺寸的镜片共享一个滤镜，空闲时没有持续绘制循环。
+- 不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，面板使用不透明表面；forced-colors 同时隐藏光场并使用系统边界与焦点色。模糊半径不参与动画。
 - 认证布局进入时执行透明度与轻微垂直位移动画，切换恢复指引不重复播放；reduced-motion 环境即时呈现。
 - 面板标题、凭据输入与主按钮使用认证入口专用尺寸；主题切换、底部文字操作与密钥显隐按钮保留触控尺寸的点击目标。
 - 字段交互参考 Apple [Text fields](https://developer.apple.com/design/human-interface-guidelines/text-fields)，认证输入沿用 Web 的贴边焦点几何：边框搭配内侧描边，不使用外扩光环。forced-colors 下使用内侧系统轮廓；主按钮、主题切换和文字操作保留可见键盘焦点。
