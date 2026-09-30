@@ -175,7 +175,7 @@ onMounted(() => {
   <a class="skip-link" href="#app-main">{{ t('app.skipToMain') }}</a>
 
   <div class="admin-layout" :class="[`admin-layout--${preferences.density}`]">
-    <aside class="admin-layout__sider" :data-collapsed="siderCollapsed" data-testid="app-sider">
+    <aside class="admin-layout__sider liquid-glass" data-glass="clear" :data-collapsed="siderCollapsed" data-testid="app-sider">
       <button
         type="button"
         class="admin-layout__brand"
@@ -257,7 +257,8 @@ onMounted(() => {
         <div class="admin-layout__header-main">
           <div class="admin-layout__header-left">
             <AppButton
-              class="admin-layout__icon-button admin-layout__nav-trigger desktop-only"
+              class="admin-layout__icon-button admin-layout__nav-trigger desktop-only liquid-glass liquid-glass--strong"
+              data-glass="clear"
               variant="ghost"
               :aria-label="t('shell.toggleSidebar')"
               @click="uiShellStore.toggleSider()"
@@ -268,7 +269,8 @@ onMounted(() => {
               </template>
             </AppButton>
             <AppButton
-              class="admin-layout__icon-button admin-layout__nav-trigger mobile-only"
+              class="admin-layout__icon-button admin-layout__nav-trigger mobile-only liquid-glass liquid-glass--strong"
+              data-glass="clear"
               variant="ghost"
               :aria-label="t('shell.openMenu')"
               @click="uiShellStore.setMobileMenuOpen(true)"
@@ -324,7 +326,8 @@ onMounted(() => {
           <div class="admin-layout__header-tools">
               <AppTooltip :title="t('shell.search')">
                 <AppButton
-                  class="admin-layout__icon-button admin-layout__search-button"
+                  class="admin-layout__icon-button admin-layout__search-button liquid-glass liquid-glass--strong"
+                  data-glass="clear"
                   variant="ghost"
                   :aria-label="t('shell.search')"
                   data-testid="header-search"
@@ -341,7 +344,8 @@ onMounted(() => {
           <div class="admin-layout__header-right">
             <AppDropdown>
               <AppButton
-                class="admin-layout__icon-button"
+                class="admin-layout__icon-button liquid-glass liquid-glass--strong"
+                data-glass="clear"
                 variant="ghost"
                 :aria-label="t('shell.moreActions')"
                 data-testid="header-more"
@@ -372,7 +376,7 @@ onMounted(() => {
         </div>
 
         <div v-if="showWorkspaceTabs" class="admin-layout__tabbar">
-          <div class="admin-layout__tabbar-main">
+          <div class="admin-layout__tabbar-main liquid-glass liquid-glass--strong" data-glass="clear">
             <TabsRoot class="workspace-tabs" :model-value="currentTabPath" activation-mode="manual" @update:model-value="onTabChange(String($event))">
               <TabsList class="workspace-tabs__list" :aria-label="t('shell.workspaceTabs')">
                 <AppDropdown v-for="{ tab: item, plugin, icon, iconData } in tabViews" :key="item.path" context align="start" data-testid="tab-context-menu">

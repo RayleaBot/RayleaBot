@@ -1,0 +1,103 @@
+// Liquid Glass material and the light field behind it. Glass belongs to the navigation layer,
+// floating controls, overlays and unlit object tiles; forms, tables and logs stay on solid surfaces.
+// `data-glass="clear"` lets src/lib/liquid-glass.ts refract the backdrop in Chromium; every other
+// engine keeps a lightly blurred material, and reduced transparency or forced colors go opaque.
+
+.app-root {
+  position: relative;
+  isolation: isolate;
+}
+
+.app-field {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58vw 62vh at 4% 2%, var(--field-peach), transparent 72%),
+    radial-gradient(52vw 44vh at 56% 16%, var(--field-sand), transparent 70%),
+    radial-gradient(42vw 48vh at 68% 32%, var(--field-mint), transparent 70%),
+    radial-gradient(64vw 78vh at 100% 100%, var(--field-sky), transparent 70%),
+    radial-gradient(50vw 56vh at 24% 104%, var(--field-lilac), transparent 72%),
+    var(--field-base);
+}
+
+.liquid-glass {
+  --glass-blur: 8px;
+  --glass-saturate: 1.5;
+  isolation: isolate;
+  background:
+    linear-gradient(158deg, var(--glass-sheen) 0%, transparent 34%, transparent 80%, var(--glass-inner) 100%),
+    var(--glass-fill);
+  box-shadow:
+    inset 1.5px 1.5px 1px -1px var(--glass-rim),
+    inset -1px -1px 1px -0.5px var(--glass-rim-soft),
+    inset 0 0 12px 0 var(--glass-inner),
+    var(--shadow-floating);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+// Text-bearing glass (search, chips, capsule buttons) keeps a denser fill for legibility.
+.liquid-glass--strong {
+  background:
+    linear-gradient(158deg, var(--glass-sheen) 0%, transparent 34%, transparent 80%, var(--glass-inner) 100%),
+    var(--glass-fill-strong);
+}
+
+// Controls nested inside another glass pane cannot see the page behind it, so they use a plain
+// translucent fill with the same rims instead of a second backdrop filter.
+.liquid-glass-inset {
+  background: color-mix(in srgb, var(--surface-lit) 55%, transparent);
+  box-shadow:
+    inset 1px 1px 0.5px -0.5px var(--glass-rim),
+    inset 0 0 0 1px color-mix(in srgb, var(--glass-rim-soft) 40%, transparent);
+}
+
+[data-theme='dark'] .liquid-glass-inset {
+  background: color-mix(in srgb, var(--surface-lit) 8%, transparent);
+}
+
+html[data-glass-refraction] .liquid-glass {
+  --glass-blur: 1px;
+}
+
+html[data-glass-refraction] .liquid-glass[data-glass-ready] {
+  backdrop-filter: var(--glass-filter) blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .liquid-glass,
+  .liquid-glass--strong {
+    background: var(--chrome);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .liquid-glass,
+  .liquid-glass--strong {
+    background: var(--chrome);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .liquid-glass-inset {
+    background: var(--surface-soft);
+  }
+}
+
+@media (forced-colors: active) {
+  .app-field {
+    display: none;
+  }
+
+  .liquid-glass,
+  .liquid-glass--strong,
+  .liquid-glass-inset {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
