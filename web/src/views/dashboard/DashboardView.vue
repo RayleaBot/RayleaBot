@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, type Component } from 'vue'
+import { computed, nextTick, ref, watch, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   ArchiveIcon,
@@ -137,10 +137,21 @@ watch(
 )
 
 const checksSection = ref<InstanceType<typeof StatusSection> | null>(null)
-function showChecks() {
+// "View checks" takes the operator to the first problem even when the checks box is already on screen:
+// the row receives focus and briefly lights up.
+async function showChecks() {
   if (attention.value) checkView.value = attention.value.view
+  await nextTick()
   const element = checksSection.value?.$el as HTMLElement | undefined
-  element?.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  const target = element?.querySelector<HTMLElement>('.status-issue') ?? element
+  if (!target) return
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  target.setAttribute('tabindex', '-1')
+  target.focus({ preventScroll: true })
+  target.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' })
+  target.classList.remove('is-highlighted')
+  void target.offsetWidth
+  target.classList.add('is-highlighted')
 }
 
 const connectionRows = computed(() => adapters.value.map((adapter) => ({
@@ -473,4 +484,11 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
 @media (forced-colors: active) {
   .status-lens, .status-actions, .status-attention__icon { border: 1px solid CanvasText; }
 }
+// Issue rows share the link rows' inset so the highlight from "view checks" has room around the text.
+.status-issue { margin-inline: -8px; padding-inline: 8px; border-radius: var(--radius-md); }
+.status-issue:focus { outline: none; }
+.status-issue:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.status-issue.is-highlighted { animation: status-issue-highlight 1.6s var(--motion-easing); }
+@keyframes status-issue-highlight { 0%, 45% { background: var(--warning-soft); } 100% { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .status-issue.is-highlighted { animation: none; } }
 </style>
