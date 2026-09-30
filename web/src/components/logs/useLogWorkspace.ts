@@ -216,7 +216,10 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   }
 
   async function openLogDetail(summary: LogSummary) {
-    if (history) cancelViewportSync()
+    // Reading an entry stops following the newest logs, so arrivals do not push the selected row out of view;
+    // the paused tag and the jump button then lead back to the latest.
+    cancelViewportSync()
+    liveStore?.setViewportAtBottom(false)
     const request = detail.openDetail(summary).catch(() => undefined)
     await run(() => replaceRouteState(summary.log_id))
     await request

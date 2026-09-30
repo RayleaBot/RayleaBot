@@ -228,8 +228,10 @@ describe('LogsPage', () => {
 
     expect(router.currentRoute.value.query.log_id).toBe('log_info_0001')
     expect(wrapper.find('.log-detail-window').exists()).toBe(true)
+    // Opening an entry pauses following, so new logs cannot scroll the selected row away.
+    expect(store.atBottom).toBe(false)
+    expect(wrapper.text()).toContain('已暂停跟随')
 
-    store.setViewportAtBottom(false)
     store.pendingNewCount = 1
     await router.push('/protocols')
     await flushPromises()

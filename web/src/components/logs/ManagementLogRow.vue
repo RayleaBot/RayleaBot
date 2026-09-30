@@ -60,20 +60,24 @@ function getLevelColor(level: string) {
   cursor: pointer;
 }
 
-.logs-row:hover,
-.logs-row.is-selected {
-  background: var(--surface-accent);
+// Hover stays neutral; only the selected row takes the blue selected face and an inner ring,
+// so the row under the pointer is never mistaken for the one shown in the detail window.
+.logs-row:hover {
+  background: var(--nav-hover);
 }
 
 .logs-row:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline: 2px solid var(--focus);
+  outline-offset: var(--focus-outline-offset);
 }
 
 .logs-row.is-selected {
-  outline: 2px solid color-mix(in srgb, var(--accent) 34%, transparent);
-  outline-offset: -2px;
-  background: var(--surface-accent) !important;
+  background: var(--brand-soft);
+  box-shadow: inset 0 0 0 2px var(--brand-foreground);
+}
+
+@media (forced-colors: active) {
+  .logs-row.is-selected { outline: 2px solid Highlight; outline-offset: -2px; }
 }
 
 .logs-row__meta,
