@@ -7,6 +7,7 @@ import AppTabs from '@/components/AppTabs.vue'
 import AppSegmented from '@/components/AppSegmented.vue'
 import AppButton from '@/components/AppButton.vue'
 import { t } from '@/i18n'
+import { searchShortcutLabel, settingsShortcutLabel } from '@/lib/shortcuts'
 import { applyThemeWithMotion } from '@/motion/runtime'
 import type {
   ContentWidth,
@@ -48,8 +49,8 @@ const pageTransitionOptions: Array<{ label: string; value: PageTransition }> = [
 
 
 const shortcutItems = computed(() => [
-  { combo: 'Ctrl / Cmd + K', description: t('shell.preferences.shortcutSearch') },
-  { combo: 'Alt + Shift + S', description: t('shell.preferences.shortcutSettings') },
+  { combo: searchShortcutLabel, description: t('shell.preferences.shortcutSearch') },
+  { combo: settingsShortcutLabel, description: t('shell.preferences.shortcutSettings') },
 ])
 
 function patchPreference<T extends keyof LayoutPreferences>(key: T, value: LayoutPreferences[T]) {

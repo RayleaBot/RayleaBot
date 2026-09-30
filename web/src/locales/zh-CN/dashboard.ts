@@ -10,7 +10,7 @@ export const dashboard = {
   runtimeInfo: '运行信息',
   checks: '检查',
   checkViewLabel: '检查类型',
-  facts: { version: '版本', database: '数据库', config: '配置', address: '管理面', streams: '实时推送' },
+  facts: { version: '版本', database: '数据库', config: '配置', address: '管理界面', streams: '实时推送' },
   versionAvailable: '{version} · 可更新至 {available}',
   databaseValue: '{engine} · schema {version}',
   databaseSchema: 'schema {version}',

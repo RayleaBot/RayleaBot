@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ArrowLeftIcon, MonitorIcon, TerminalIcon } from '@lucide/vue'
+import { AppWindowIcon, ArrowLeftIcon, TerminalIcon } from '@lucide/vue'
 
 import AuthPanel from '@/components/auth/AuthPanel.vue'
 import { t } from '@/i18n'
@@ -20,7 +20,7 @@ defineExpose({ focus: () => panel.value?.focus() })
   >
     <div class="auth-recovery">
       <section class="auth-recovery__method" aria-labelledby="auth-recovery-launcher">
-        <h2 id="auth-recovery-launcher"><MonitorIcon aria-hidden="true" />{{ t('auth.recovery.launcherTitle') }}</h2>
+        <h2 id="auth-recovery-launcher"><AppWindowIcon aria-hidden="true" />{{ t('auth.recovery.launcherTitle') }}</h2>
         <p>{{ t('auth.recovery.launcherBody') }}</p>
       </section>
       <section class="auth-recovery__method" aria-labelledby="auth-recovery-cli">
@@ -57,7 +57,7 @@ defineExpose({ focus: () => panel.value?.focus() })
   font-size: 14px;
   font-weight: 700;
   line-height: 1.5;
-  svg { color: var(--auth-brand-foreground); width: 16px; height: 16px; }
+  svg { color: var(--auth-text-muted); width: 16px; height: 16px; }
 }
 .auth-recovery p { margin: 0; color: var(--auth-text-muted); font-size: 13px; line-height: 1.8; }
 .auth-recovery__commands {
@@ -67,7 +67,6 @@ defineExpose({ focus: () => panel.value?.focus() })
   border: 1px solid transparent;
   border-radius: 12px;
   background: var(--auth-control);
-  box-shadow: var(--shadow-xs);
 }
 .auth-recovery__platform { display: block; margin-bottom: 4px; color: var(--auth-text-muted); font-size: 12px; }
 .auth-recovery__command + .auth-recovery__platform { margin-top: 12px; }

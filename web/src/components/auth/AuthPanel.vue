@@ -54,13 +54,14 @@ defineExpose({ focus: () => heading.value?.focus() })
   &:focus { outline: none; }
   &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: var(--focus-outline-offset); border-radius: 4px; }
 }
+// A centered subtitle splits into even lines instead of leaving a word or two on the last one.
 .auth-panel__subtitle {
   max-width: 100%;
   margin: 12px auto 0;
   color: var(--auth-text-muted);
   font-size: 14px;
   line-height: 1.75;
-  text-wrap: pretty;
+  text-wrap: balance;
 }
 .auth-panel__footer {
   display: grid;
@@ -92,6 +93,7 @@ defineExpose({ focus: () => heading.value?.focus() })
   &:hover { background: var(--auth-control); }
   &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: var(--focus-outline-offset); }
   &:disabled { opacity: .55; cursor: wait; }
+  svg { width: 16px; height: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .auth-panel :deep(.auth-panel__text-action) { transition: none; }

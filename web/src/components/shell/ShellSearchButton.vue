@@ -2,10 +2,10 @@
 import { SearchIcon } from '@lucide/vue'
 
 import { t } from '@/i18n'
+import { searchShortcutLabel as shortcutLabel } from '@/lib/shortcuts'
 import { useUiShellStore } from '@/stores/ui-shell'
 
 const uiShellStore = useUiShellStore()
-const shortcutLabel = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘ K' : 'Ctrl K'
 </script>
 
 <template>

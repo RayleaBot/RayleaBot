@@ -11,7 +11,7 @@ test('password update verifies the current password and supports an optional new
   await page.getByRole('button', { name: /登\s*录/ }).click()
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
   await page.getByTestId('sidebar-account').click()
-  await page.getByRole('menuitem', { name: '修改账户', exact: true }).click()
+  await page.getByRole('menuitem', { name: '修改账号', exact: true }).click()
   const dialog = page.getByTestId('account-credentials-dialog')
   await dialog.getByLabel('当前密码', { exact: true }).fill('incorrect-current-secret')
   await dialog.getByLabel('新密码', { exact: true }).fill('fixture-next-secret')

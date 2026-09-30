@@ -1,9 +1,8 @@
 export const auth = {
-  surface: '管理工作台',
   loginTitle: '登录',
-  loginBody: '使用管理员账号和密钥进入管理工作区。',
+  loginBody: '使用管理员账号和密钥进入管理界面。',
   setupTitle: '创建管理员账号',
-  setupBody: '首次使用时创建管理员账号并进入管理工作区。',
+  setupBody: '首次使用时创建管理员账号并进入管理界面。',
   setupHint: '请妥善保存管理员密钥，后续登录时需要使用。',
   secretPlaceholder: '输入管理员密钥',
   newSecretPlaceholder: '设置管理员密钥',

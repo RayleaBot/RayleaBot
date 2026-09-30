@@ -122,8 +122,8 @@ function restoreFocus(event: Event) {
 .app-dialog__header > div { min-width: 0; }
 .app-dialog__header { flex-shrink: 0; }
 .app-dialog__title { margin: 3px 0 0; font-size: var(--font-size-xl); font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
-.app-dialog__description { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
-.app-dialog__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 0 24px 24px; }
+.app-dialog__description { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; text-wrap: pretty; }
+.app-dialog__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 24px 24px; }
 .app-dialog__body-content { display: flow-root; }
 .app-dialog__footer { flex-shrink: 0; padding: 16px 24px 20px; border-top: 1px solid var(--border); }
 // Side sheets float inside the viewport like the sidebar instead of running edge to edge.

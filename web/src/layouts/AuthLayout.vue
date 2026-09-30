@@ -37,7 +37,6 @@ function setThemeModeWithMotion(mode: ThemeMode, origin: ThemeMotionOrigin) {
           </div>
           <RouterView />
         </section>
-        <p class="auth-layout__caption">{{ t('auth.surface') }}</p>
       </div>
     </main>
 </template>
@@ -99,13 +98,6 @@ function setThemeModeWithMotion(mode: ThemeMode, origin: ThemeMotionOrigin) {
   transition: background-color 160ms var(--motion-easing), color 160ms var(--motion-easing);
   &:hover { color: var(--auth-text); background: var(--auth-control); }
   &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: var(--focus-outline-offset); }
-}
-.auth-layout__caption {
-  margin: 24px 0 0;
-  color: var(--auth-text);
-  font-size: 12px;
-  line-height: 1.6;
-  text-align: center;
 }
 @keyframes auth-surface-enter {
   from { opacity: .75; transform: translateY(8px); }

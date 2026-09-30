@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, useId } from 'vue'
 import { AnimatePresence, motion } from 'motion-v'
-import { ChevronDownIcon, LockKeyholeIcon, UserRoundPenIcon } from '@lucide/vue'
+import { ChevronDownIcon, UserRoundPenIcon } from '@lucide/vue'
 import AppButton from '@/components/AppButton.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppField from '@/components/AppField.vue'
@@ -87,7 +87,7 @@ function afterClose() {
   <AppDialog :open="open" :title="t('shell.credentials.title')" :description="t('shell.credentials.description')" :width="480" :busy="pending" :fallback-focus="fallbackFocus" initial-focus="[data-account-current-password]" data-testid="account-credentials-dialog" @close="$emit('close')" @after-close="afterClose">
     <form :id="formId" ref="form" class="account-credentials" novalidate @submit.prevent="submit">
       <AppField floating :label="t('shell.credentials.currentPassword')" :error="errors.current" required>
-        <AppInput v-model="currentSecret" type="password" autocomplete="current-password" data-account-current-password :disabled="pending || saved" @update:model-value="delete errors.current"><template #prefix><LockKeyholeIcon :size="18" /></template></AppInput>
+        <AppInput v-model="currentSecret" type="password" autocomplete="current-password" data-account-current-password :disabled="pending || saved" @update:model-value="delete errors.current" />
       </AppField>
       <AppField floating :label="t('shell.credentials.newPassword')" :error="errors.next" :hint="t('shell.credentials.passwordHint')" required>
         <AppInput v-model="newSecret" type="password" autocomplete="new-password" :disabled="pending || saved" @update:model-value="delete errors.next" />
