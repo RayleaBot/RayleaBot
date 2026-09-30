@@ -15,12 +15,14 @@ const props = withDefaults(defineProps<{
   width: 'wide',
 })
 
+// Forms keep a readable, centered width on every screen; the content width preference only fixes the other page types.
 const pageClasses = computed(() => {
   const usesFixedWidth = uiShellStore.preferences.contentWidth === 'fixed'
 
   return {
     'app-page--fixed-width': usesFixedWidth,
-    [`app-page--${props.width}`]: usesFixedWidth && props.width !== 'wide',
+    'app-page--form': props.width === 'form',
+    'app-page--detail': usesFixedWidth && props.width === 'detail',
   }
 })
 </script>

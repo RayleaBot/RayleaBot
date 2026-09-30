@@ -11,37 +11,49 @@ describe('AppPage content width', () => {
     window.localStorage.clear()
   })
 
-  it.each(['detail', 'form'] as const)(
-    'applies the %s width limit only when fixed content width is selected',
-    async (width) => {
-      const pinia = createPinia()
-      setActivePinia(pinia)
+  function mountPage(width: 'detail' | 'form') {
+    const pinia = createPinia()
+    setActivePinia(pinia)
 
-      const wrapper = mount(AppPage, {
-        global: {
-          plugins: [pinia],
-        },
-        props: {
-          title: '工作区',
-          width,
-        },
-      })
-      const store = useUiShellStore()
+    const wrapper = mount(AppPage, {
+      global: {
+        plugins: [pinia],
+      },
+      props: {
+        title: '工作区',
+        width,
+      },
+    })
+    return { store: useUiShellStore(), wrapper }
+  }
 
-      expect(wrapper.classes()).not.toContain('app-page--fixed-width')
-      expect(wrapper.classes()).not.toContain(`app-page--${width}`)
+  it('applies the detail width limit only when fixed content width is selected', async () => {
+    const { store, wrapper } = mountPage('detail')
 
-      store.patchPreferences({ contentWidth: 'fixed' })
-      await nextTick()
+    expect(wrapper.classes()).not.toContain('app-page--fixed-width')
+    expect(wrapper.classes()).not.toContain('app-page--detail')
 
-      expect(wrapper.classes()).toContain('app-page--fixed-width')
-      expect(wrapper.classes()).toContain(`app-page--${width}`)
+    store.patchPreferences({ contentWidth: 'fixed' })
+    await nextTick()
 
-      store.patchPreferences({ contentWidth: 'wide' })
-      await nextTick()
+    expect(wrapper.classes()).toContain('app-page--fixed-width')
+    expect(wrapper.classes()).toContain('app-page--detail')
 
-      expect(wrapper.classes()).not.toContain('app-page--fixed-width')
-      expect(wrapper.classes()).not.toContain(`app-page--${width}`)
-    },
-  )
+    store.patchPreferences({ contentWidth: 'wide' })
+    await nextTick()
+
+    expect(wrapper.classes()).not.toContain('app-page--fixed-width')
+    expect(wrapper.classes()).not.toContain('app-page--detail')
+  })
+
+  it('keeps the form width limit under both content width preferences', async () => {
+    const { store, wrapper } = mountPage('form')
+
+    expect(wrapper.classes()).toContain('app-page--form')
+
+    store.patchPreferences({ contentWidth: 'fixed' })
+    await nextTick()
+
+    expect(wrapper.classes()).toContain('app-page--form')
+  })
 })

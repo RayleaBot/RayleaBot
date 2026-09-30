@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <AppPage :title="t('config.title')" :description="t('config.workbench.description')" class="config-workbench-page">
+  <AppPage :title="t('config.title')" :description="t('config.workbench.description')" width="form" class="config-workbench-page">
     <RetryPanel v-if="error && !draft" :title="t('config.title')" :description="error" :loading="loading" @retry="loadConfig" />
     <AppSkeletonCard v-else-if="loading && !draft" show-header :rows="7" />
     <div v-else-if="draft" class="config-page">
@@ -263,7 +263,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
-.config-workbench-page { width: 100%; max-width: 1120px; margin-inline: auto; }
+// The page grows to the workspace height so the save button rests in the bottom-right corner even when a category is short.
+.config-workbench-page { flex: 1 0 auto; }
+.config-workbench-page > :deep(.app-page__content) { display: flex; flex: 1 0 auto; flex-direction: column; }
+.config-page { display: flex; flex: 1 0 auto; flex-direction: column; }
 .config-workbench { display: grid; grid-template-columns: 200px minmax(0, 1fr); align-items: start; gap: 24px; }
 .config-navigation { position: sticky; top: 12px; display: grid; gap: 18px; min-width: 0; }
 .config-categories { display: grid; gap: 4px; }
@@ -293,7 +296,7 @@ onBeforeUnmount(() => {
 .config-advanced__content { padding-bottom: 4px; }
 .config-advanced > h3 { margin-top: 20px; }
 .config-editor__empty { display: grid; flex: 1; place-content: center; justify-items: center; gap: 16px; padding: 32px 24px; }
-.config-save-anchor { position: sticky; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 10; display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 20px; padding: 0 4px 4px; pointer-events: none; }
+.config-save-anchor { position: sticky; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 10; display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: auto; padding: 20px 4px 4px; pointer-events: none; }
 .config-discard-fab { width: 48px; height: 48px; border: 0; border-radius: 16px; background: var(--surface-strong); color: var(--muted); box-shadow: var(--shadow-sm); pointer-events: auto; }
 .config-discard-fab:hover { background: var(--surface-soft); color: var(--text); }
 .config-discard-fab :deep(svg) { width: 20px; height: 20px; }

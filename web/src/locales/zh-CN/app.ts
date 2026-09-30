@@ -79,7 +79,7 @@ export const shell = {
   preferences: {
     appearance: '外观',
     contentWidth: '内容宽度',
-    contentWidthHelp: '自适应使用全部可用空间，固定模式按页面类型保持可读宽度。',
+    contentWidthHelp: '表单页始终保持可读宽度；其他页面在自适应时使用全部可用空间，固定时按页面类型限宽。',
     contentWidthFixed: '固定',
     contentWidthWide: '自适应',
     density: '界面密度',
