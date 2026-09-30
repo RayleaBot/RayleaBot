@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
+import { LOG_FILTER_DEBOUNCE_MS } from '@/components/logs/useLogWorkspace'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
 import LogsPage from '@/views/operations/LogsView.vue'
@@ -193,7 +194,7 @@ describe('LogsPage', () => {
     expect(store.atBottom).toBe(true)
   })
 
-  it('keeps edited filters as a draft until they are applied', async () => {
+  it('applies edited filters on their own once the edits pause', async () => {
     const router = createTestRouter()
     await router.push('/logs')
     await router.isReady()
@@ -214,21 +215,28 @@ describe('LogsPage', () => {
     const wrapper = mountRoutedView(router)
     await flushPromises()
 
-    await wrapper.get('.logs-filter-grid input').setValue('adapter')
-    await flushPromises()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const source = wrapper.get('.logs-filter-grid__source input')
+      await source.setValue('adap')
+      await vi.advanceTimersByTimeAsync(LOG_FILTER_DEBOUNCE_MS - 50)
+      await source.setValue('adapter')
+      await vi.advanceTimersByTimeAsync(LOG_FILTER_DEBOUNCE_MS - 50)
 
-    // Streamed logs are still matched against the applied filters while the source is being typed.
-    expect(store.filters.source).toBeUndefined()
-    expect(store.append({ log_id: 'log_info_0002', timestamp: '2026-04-02T00:53:17Z', level: 'info', source: 'runtime', message: 'still shown' })).toBe(true)
-    expect(wrapper.get('.logs-toolbar__pending').text()).toBe('筛选未应用')
+      // While the source is still being typed, streamed logs are matched against the filters on screen.
+      expect(applyFilters).not.toHaveBeenCalled()
+      expect(store.filters.source).toBeUndefined()
+      expect(store.append({ log_id: 'log_info_0002', timestamp: '2026-04-02T00:53:17Z', level: 'info', source: 'runtime', message: 'still shown' })).toBe(true)
 
-    await wrapper.get('.logs-toolbar__apply').trigger('click')
+      await vi.advanceTimersByTimeAsync(50)
+    } finally {
+      vi.useRealTimers()
+    }
     await flushPromises()
 
     expect(applyFilters).toHaveBeenCalledTimes(1)
     expect(store.filters.source).toBe('adapter')
     expect(router.currentRoute.value.query.source).toBe('adapter')
-    expect(wrapper.get('.logs-toolbar__pending').text()).toBe('')
   })
 
   it('closes the current log detail and resets live state when leaving the realtime page', async () => {

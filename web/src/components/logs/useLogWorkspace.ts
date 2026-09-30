@@ -13,6 +13,9 @@ import { useLogDetailController } from './useLogDetailController'
 
 export type LogWorkspaceScope = 'current_session' | 'history'
 
+// Filter edits apply on their own once they pause for this long, like the other live searches.
+export const LOG_FILTER_DEBOUNCE_MS = 300
+
 function copyFilters(value: LogFilters): LogFilters {
   return {
     ...value,
@@ -45,12 +48,12 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   const atBottom = computed(() => liveStore?.atBottom ?? false)
   const followBottom = computed(() => liveStore?.atBottom ?? historyFollowBottom.value)
   const pendingNewCount = computed(() => liveStore?.pendingNewCount ?? 0)
-  // The toolbar edits a draft. The store keeps the applied filters, which load pages and match streamed logs,
-  // so a half-typed source never hides arriving entries before "应用筛选".
+  // The toolbar edits a draft that is applied once the edits pause. The store keeps the applied filters,
+  // which load pages and match streamed logs, so every keystroke of a source does not query or hide entries.
   const draftFilters = ref<LogFilters>(copyFilters(filters.value))
-  watch(filters, value => { draftFilters.value = copyFilters(value) }, { deep: true })
-  const filtersPending = computed(() => !sameLogFilters(draftFilters.value, filters.value)
-    || Boolean(historyStore && !sameTimeRange(historyStore.currentUtcRange(), historyStore.appliedRange)))
+  // Why the edited history range cannot be queried, shown under the field to fix instead of querying.
+  const timeRangeIssue = computed(() => historyStore?.timeRangeIssue() ?? null)
+  let applyTimer: ReturnType<typeof setTimeout> | undefined
   const showJumpToLatest = computed(() => !history && readyToRenderHeavyContent.value
     && initialized.value && !restoringLatest.value && !atBottom.value)
   let routeSyncing = false
@@ -143,6 +146,27 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
     }
   }
 
+  function cancelScheduledApply() {
+    clearTimeout(applyTimer)
+    applyTimer = undefined
+  }
+
+  function hasUnappliedEdits() {
+    return !sameLogFilters(draftFilters.value, filters.value)
+      || Boolean(historyStore && !sameTimeRange(historyStore.currentUtcRange(), historyStore.appliedRange))
+  }
+
+  // Quick ranges, route changes and anchor refreshes load the range they set themselves, so only edits
+  // that still differ from the list on screen are applied.
+  function scheduleApply() {
+    cancelScheduledApply()
+    if (!hasUnappliedEdits() || timeRangeIssue.value) return
+    applyTimer = setTimeout(() => {
+      applyTimer = undefined
+      if (hasUnappliedEdits() && !timeRangeIssue.value) void applyFilters()
+    }, LOG_FILTER_DEBOUNCE_MS)
+  }
+
   function toLocalInput(value: string) {
     const date = new Date(value)
     return value && !Number.isNaN(date.getTime()) ? toLocalDateTimeInput(date) : ''
@@ -195,12 +219,15 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
       liveStore?.setViewportActive(true)
       liveStore?.setViewportAtBottom(true)
       await syncFromRoute()
+      // An edit still waiting when the page was left is applied on return instead of sitting unapplied.
+      scheduleApply()
       await scrollToLatest()
     }).then(() => undefined)
     try { await activation } finally { activation = null }
   }
 
   async function applyFilters() {
+    cancelScheduledApply()
     filters.value = copyFilters(draftFilters.value)
     routeVersion += 1
     cancelViewportSync()
@@ -215,6 +242,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
 
   async function useRecentDays(days: number) {
     if (!historyStore) return false
+    cancelScheduledApply()
     filters.value = copyFilters(draftFilters.value)
     routeVersion += 1
     cancelViewportSync()
@@ -252,6 +280,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
 
   function deactivate() {
     routeVersion += 1
+    cancelScheduledApply()
     cancelViewportSync()
     if (!liveStore) return
     liveStore.setViewportActive(false)
@@ -260,6 +289,12 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
     detail.closeDetail()
   }
 
+  watch(filters, value => {
+    cancelScheduledApply()
+    draftFilters.value = copyFilters(value)
+  }, { deep: true })
+  watch(draftFilters, scheduleApply, { deep: true })
+  if (historyStore) watch(() => historyStore.timeRangeInput, scheduleApply, { deep: true })
   watch(() => route.query, () => {
     if (!routeSyncing && route.name === routeName) void run(syncFromRoute)
   })
@@ -269,8 +304,8 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   onDeactivated(() => { deactivate() })
   onUnmounted(() => { deactivate() })
 
-  return { historyStore, filters, draftFilters, filtersPending, initialized, items, loading, error, detail,
+  return { historyStore, filters, draftFilters, timeRangeIssue, initialized, items, loading, error, detail,
     readyToRenderHeavyContent, atBottom, followBottom, pendingNewCount, showJumpToLatest,
-    activatePage, applyFilters, useRecentDays, loadOlder, scrollToLatest,
+    activatePage, useRecentDays, loadOlder, scrollToLatest,
     openLogDetail, closeLogDetail, onViewportBottomChange }
 }

@@ -24,7 +24,7 @@ const PopoverStub = defineComponent({
 
 describe('ManagementLogAdvancedFilters', () => {
 
-  it('keeps low-frequency filters out of the toolbar flow until requested', async () => {
+  it('offers only the filters that did not fit in the toolbar, once requested', async () => {
     const wrapper = mount(ManagementLogAdvancedFilters, {
       attachTo: document.body,
       global: {
@@ -34,6 +34,8 @@ describe('ManagementLogAdvancedFilters', () => {
         },
       },
       props: {
+        fields: ['plugin', 'requestId'],
+        modelValue: {},
       },
     })
 
@@ -42,22 +44,23 @@ describe('ManagementLogAdvancedFilters', () => {
     await wrapper.get('button').trigger('click')
     await flushPromises()
 
-    expect(document.body.querySelector('.log-advanced-filters__panel')).not.toBeNull()
+    const panel = document.body.querySelector('.log-advanced-filters__panel')
+    expect(panel).not.toBeNull()
+    expect([...panel!.querySelectorAll('.app-field__label')].map(label => label.textContent?.trim())).toEqual(['插件', '请求 ID'])
   })
 
-  it('shows how many advanced filter categories are active', () => {
+  it('counts only the active filters it holds, since the others are in view', () => {
     const wrapper = mount(ManagementLogAdvancedFilters, {
       global: {
         plugins: [createPinia()],
       },
       props: {
-        protocol: 'onebot11',
-        pluginIds: ['weather'],
-        requestId: 'req_1',
+        fields: ['plugin', 'requestId'],
+        modelValue: { protocol: 'onebot11', pluginIds: ['weather'], requestId: 'req_1' },
       },
     })
 
-    expect(wrapper.get('.app-tag').text()).toBe('3')
+    expect(wrapper.get('.log-advanced-filters__count').text()).toBe('2')
     expect(wrapper.get('button').classes()).toContain('is-active')
   })
 })

@@ -74,14 +74,20 @@ export const useLogHistoryStore = defineStore('log-history', () => {
     return fetchLatest()
   }
 
+  // Why the edited range cannot be queried, tied to the field to fix; null when it can.
+  function timeRangeIssue(): { field: 'start' | 'end'; message: string } | null {
+    const range = currentUtcRange()
+    if (timeRangeInput.value.startLocal && !range.startAt) return { field: 'start', message: t('logs.history.invalidTimeZoneTime') }
+    if (timeRangeInput.value.endLocal && !range.endAt) return { field: 'end', message: t('logs.history.invalidTimeZoneTime') }
+    if (range.startAt && range.endAt && range.startAt > range.endAt) return { field: 'end', message: t('logs.history.invalidTimeRange') }
+    return null
+  }
+
   async function applyFilters() {
     const range = currentUtcRange()
-    if ((timeRangeInput.value.startLocal && !range.startAt) || (timeRangeInput.value.endLocal && !range.endAt)) {
-      error.value = t('logs.history.invalidTimeZoneTime')
-      throw new Error(error.value)
-    }
-    if (range.startAt && range.endAt && range.startAt > range.endAt) {
-      error.value = t('logs.history.invalidTimeRange')
+    const issue = timeRangeIssue()
+    if (issue) {
+      error.value = issue.message
       throw new Error(error.value)
     }
     customTimeRange.value = true
@@ -201,6 +207,7 @@ export const useLogHistoryStore = defineStore('log-history', () => {
     refreshAnchor,
     resetTimeRangeToDefault,
     setTimeRange,
+    timeRangeIssue,
   }
 })
 

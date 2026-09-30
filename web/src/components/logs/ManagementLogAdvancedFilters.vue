@@ -1,28 +1,20 @@
 <script setup lang="ts">
-import AppTag from '@/components/AppTag.vue'
 import AppPopover from '@/components/AppPopover.vue'
-import AppSelect from '@/components/AppSelect.vue'
-import PluginPicker from '@/components/plugins/PluginPicker.vue'
-import AppInput from '@/components/AppInput.vue'
-import AppField from '@/components/AppField.vue'
 import AppButton from '@/components/AppButton.vue'
 import { FilterIcon } from '@lucide/vue'
 import { computed, onBeforeUnmount, onDeactivated, ref } from 'vue'
 
 import { t } from '@/i18n'
+import type { LogFilters } from '@/stores/log-state'
+import ManagementLogAdvancedField from './ManagementLogAdvancedField.vue'
+import { isLogAdvancedFilterActive, type LogAdvancedFilterKey } from './useLogFilterControls'
 
-const protocol = defineModel<string | undefined>('protocol')
-const pluginIds = defineModel<string[]>('pluginIds', { default: () => [] })
-const requestId = defineModel<string>('requestId', { default: '' })
+// fields: the filters that did not fit in the toolbar. The count covers only those, since the rest are in view.
+const props = defineProps<{ fields: readonly LogAdvancedFilterKey[] }>()
+const filters = defineModel<LogFilters>({ required: true })
 
-const protocolOptions: { value: string; label: string }[] = [{ value: '', label: t('logs.filters.all') }, { value: 'onebot11', label: 'OneBot11' }, { value: 'qqofficial', label: t('display.logProtocols.qqofficial') }]
-const protocolSelection = computed({ get: () => protocol.value ?? '', set: (value: string) => { protocol.value = value || undefined } })
 const open = ref(false)
-const activeFilterCount = computed(() => (
-  Number(Boolean(protocol.value))
-  + Number(pluginIds.value.length > 0)
-  + Number(Boolean(requestId.value.trim()))
-))
+const activeFilterCount = computed(() => props.fields.filter(field => isLogAdvancedFilterActive(filters.value, field)).length)
 
 function close() {
   open.value = false
@@ -40,46 +32,50 @@ onBeforeUnmount(close)
         :aria-label="t('logs.filters.more')"
         @keydown.esc="close"
       >
-        <AppField floating :label="t('logs.filters.protocol')">
-          <AppSelect
-            v-model="protocolSelection"
-            :options="protocolOptions"
-            :placeholder="t('logs.filters.all')"
-          />
-        </AppField>
-        <AppField :label="t('logs.filters.plugin')">
-          <PluginPicker
-            v-model="pluginIds"
-            multiple
-            :placeholder="t('logs.filters.all')"
-          />
-        </AppField>
-        <AppField floating :label="t('logs.filters.requestId')">
-          <AppInput v-model="requestId" :placeholder="t('logs.filters.requestPlaceholder')" />
-        </AppField>
+        <ManagementLogAdvancedField v-for="field in fields" :key="field" v-model="filters" :field="field" />
       </div>
     </template>
-      <AppButton
-        class="log-advanced-filters__trigger"
-        :class="{ 'is-active': activeFilterCount > 0 }"
-        :aria-expanded="open"
-        aria-haspopup="dialog"
-      >
-        <template #icon>
-          <FilterIcon />
-        </template>
-        {{ t('logs.filters.more') }}
-        <AppTag v-if="activeFilterCount" tone="info">{{ activeFilterCount }}</AppTag>
-      </AppButton>
-
+    <AppButton
+      class="log-advanced-filters__trigger"
+      :class="{ 'is-active': activeFilterCount > 0 }"
+      :aria-expanded="open"
+      aria-haspopup="dialog"
+    >
+      <template #icon>
+        <FilterIcon />
+      </template>
+      {{ t('logs.filters.more') }}
+      <span v-if="activeFilterCount" class="log-advanced-filters__count">{{ activeFilterCount }}</span>
+    </AppButton>
   </AppPopover>
 </template>
 
 <style scoped lang="scss">
+.log-advanced-filters__trigger {
+  position: relative;
+}
+
 .log-advanced-filters__trigger.is-active {
   border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
   background: var(--surface-accent);
   color: var(--text-accent);
+}
+
+// The count sits on the corner like the jump button's, so it never widens the button and reflows the toolbar.
+.log-advanced-filters__count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--brand-fill);
+  color: var(--on-brand);
+  box-shadow: var(--shadow-xs);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
 }
 
 .log-advanced-filters__trigger:focus-visible {
@@ -93,4 +89,7 @@ onBeforeUnmount(close)
   width: 100%;
 }
 
+.log-advanced-filters__panel :deep(.app-field) {
+  margin-bottom: 0;
+}
 </style>

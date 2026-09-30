@@ -21,9 +21,9 @@ const history = props.scope === 'history'
 const labelPrefix = history ? 'logs.history' : 'logs.current'
 const viewportRef = ref<LogViewport | null>(null)
 const {
-  historyStore, draftFilters, filtersPending, initialized, items, loading, error, detail,
+  historyStore, draftFilters, timeRangeIssue, initialized, items, loading, error, detail,
   readyToRenderHeavyContent, atBottom, followBottom, pendingNewCount, showJumpToLatest,
-  activatePage, applyFilters, useRecentDays, loadOlder, scrollToLatest,
+  activatePage, useRecentDays, loadOlder, scrollToLatest,
   openLogDetail, closeLogDetail, onViewportBottomChange,
 } = useLogWorkspace(props.scope, viewportRef)
 const { currentDetail, error: detailError, loading: detailLoading, open: detailOpen,
@@ -43,14 +43,15 @@ const recentRange = computed(() => historyStore?.recentDays ? String(historyStor
   <AppPage :title="t(history ? 'logs.historyTitle' : 'logs.currentTitle')" :description="t(`${labelPrefix}.description`)" full-height>
     <template #toolbar>
       <AppCard borderless class="app-view-card logs-toolbar">
-        <ManagementLogFilters v-model="draftFilters" :history="history" :pending="filtersPending" @apply="applyFilters">
+        <ManagementLogFilters v-model="draftFilters" :history="history">
           <template v-if="historyStore" #fields>
-            <!-- The time zone sits in the label, so every field keeps the same height and the actions stay on the control row. -->
-            <AppField :label="t('logs.history.startAt')">
+            <!-- The time zone sits in the label, so every field keeps the same height and the actions stay on the control row.
+                 A range that cannot be queried is explained under the field to fix and is not applied. -->
+            <AppField class="logs-toolbar__time" :label="t('logs.history.startAt')" :error="timeRangeIssue?.field === 'start' ? timeRangeIssue.message : undefined">
               <template #label>{{ t('logs.history.startAt') }} <span class="logs-toolbar__zone">{{ managementTimeZone() }}</span></template>
               <AppInput v-model="historyStore.timeRangeInput.startLocal" type="datetime-local" />
             </AppField>
-            <AppField :label="t('logs.history.endAt')">
+            <AppField class="logs-toolbar__time" :label="t('logs.history.endAt')" :error="timeRangeIssue?.field === 'end' ? timeRangeIssue.message : undefined">
               <template #label>{{ t('logs.history.endAt') }} <span class="logs-toolbar__zone">{{ managementTimeZone() }}</span></template>
               <AppInput v-model="historyStore.timeRangeInput.endLocal" type="datetime-local" />
             </AppField>
@@ -168,6 +169,10 @@ const recentRange = computed(() => historyStore?.recentDays ? String(historyStor
   color: var(--muted);
   font-size: 12px;
   font-weight: 400;
+}
+
+.logs-toolbar__time {
+  width: 220px;
 }
 
 .logs-range-group {

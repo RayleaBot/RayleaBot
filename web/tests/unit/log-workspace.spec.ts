@@ -3,8 +3,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDrawer.vue'
-import ManagementLogFilters from '@/components/logs/ManagementLogFilters.vue'
 import ManagementLogWorkspace from '@/components/logs/ManagementLogWorkspace.vue'
+import { LOG_FILTER_DEBOUNCE_MS } from '@/components/logs/useLogWorkspace'
 import { useLogHistoryStore } from '@/stores/log-history'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginsStore } from '@/stores/plugins'
@@ -84,12 +84,19 @@ describe.each([
       expect(router.currentRoute.value.name).toBe(name)
       expect(router.currentRoute.value.query.log_id).toBe('selected')
 
-      wrapper.findComponent(ManagementLogFilters).vm.$emit('apply')
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        await wrapper.get('.logs-filter-grid__source input').setValue('runtime')
+        await vi.advanceTimersByTimeAsync(LOG_FILTER_DEBOUNCE_MS)
+      } finally {
+        vi.useRealTimers()
+      }
       await flushPromises()
       expect(drawer.props('open')).toBe(false)
       expect(drawer.props('error')).toBeNull()
       expect(router.currentRoute.value.query.log_id).toBeUndefined()
       expect(router.currentRoute.value.query.level).toEqual(['warn'])
+      expect(router.currentRoute.value.query.source).toBe('runtime')
       expect(store.items).toHaveLength(1)
     } finally {
       wrapper.unmount()
