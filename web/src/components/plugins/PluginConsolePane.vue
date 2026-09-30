@@ -295,10 +295,6 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--border);
   color: var(--text);
 
-  &:last-child {
-    border-bottom: none;
-  }
-
   &:hover {
     background: var(--nav-hover);
   }
