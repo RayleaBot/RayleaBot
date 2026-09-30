@@ -80,7 +80,7 @@ const healthNotices = computed(() => {
 
     <div class="plugin-card__meta">
       <span v-if="sourceTypeLabel">{{ sourceTypeLabel }}</span>
-      <AppTag :tone="plugin.trust?.level === 'unverified' ? 'warning' : 'neutral'">{{ getPluginTrustLabel(plugin.trust?.level) }}</AppTag>
+      <AppTag :tone="plugin.trust?.level === 'unverified' ? 'attention' : 'neutral'">{{ getPluginTrustLabel(plugin.trust?.level) }}</AppTag>
     </div>
 
     <div v-if="healthNotices.length > 0" class="plugin-health-notices">

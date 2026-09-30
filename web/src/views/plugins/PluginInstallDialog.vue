@@ -26,8 +26,9 @@ const installForm = reactive<{ source_type: PluginInstallSourceType; source: str
 })
 const trustedCodeConfirmed = ref(false)
 
+// While the dialog is open the error sits beside the field; a failure after it closed still arrives as a toast.
 useToastFeedback(computed(() => (
-  installError.value
+  installError.value && !open.value
     ? {
         key: `plugins-install-error:${installError.value}`,
         level: 'error' as const,
@@ -60,6 +61,7 @@ function resetInstallDialog() {
   installForm.source_type = 'local_zip'
   installForm.source = ''
   trustedCodeConfirmed.value = false
+  if (!installPending.value) installError.value = null
 }
 </script>
 
@@ -83,12 +85,17 @@ function resetInstallDialog() {
         />
       </AppField>
 
-      <AppField floating :label="installForm.source_type === 'remote_url' ? t('plugins.remoteUrlLabel') : t('plugins.serverPath')">
-        <AppInput v-model="installForm.source" />
+      <AppField
+        floating
+        :label="installForm.source_type === 'remote_url' ? t('plugins.remoteUrlLabel') : t('plugins.serverPath')"
+        :hint="installForm.source_type === 'remote_url' ? t('plugins.remoteUrlHint') : t('plugins.serverPathHint')"
+        :error="installError ?? undefined"
+      >
+        <AppInput v-model="installForm.source" @update:model-value="installError = null" />
       </AppField>
 
       <AppAlert
-        tone="warning"
+        tone="attention"
         :title="t('plugins.installTrust.title')"
         :description="t('plugins.installTrust.description')"
       />

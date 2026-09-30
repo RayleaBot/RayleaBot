@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { CircleAlertIcon, CircleCheckIcon, InfoIcon } from '@lucide/vue'
-withDefaults(defineProps<{ tone?: 'info' | 'success' | 'warning' | 'danger'; title: string; description?: string }>(), { tone: 'info' })
+import { CircleAlertIcon, CircleCheckIcon, InfoIcon, ShieldAlertIcon } from '@lucide/vue'
+// attention: a decision the operator has to make, such as trusting third-party code; warning stays for degraded states.
+withDefaults(defineProps<{ tone?: 'info' | 'success' | 'warning' | 'danger' | 'attention'; title: string; description?: string }>(), { tone: 'info' })
 </script>
 <template>
   <div class="app-alert" :data-tone="tone" :role="tone === 'danger' ? 'alert' : 'status'">
     <CircleCheckIcon v-if="tone === 'success'" :size="18" aria-hidden="true" />
     <CircleAlertIcon v-else-if="tone === 'danger' || tone === 'warning'" :size="18" aria-hidden="true" />
+    <ShieldAlertIcon v-else-if="tone === 'attention'" :size="18" aria-hidden="true" />
     <InfoIcon v-else :size="18" aria-hidden="true" />
     <div class="app-alert__content"><p>{{ title }}</p><p v-if="description" class="app-alert__description">{{ description }}</p><slot /></div>
     <div v-if="$slots.action" class="app-alert__action"><slot name="action" /></div>
@@ -16,6 +18,7 @@ withDefaults(defineProps<{ tone?: 'info' | 'success' | 'warning' | 'danger'; tit
 .app-alert[data-tone=warning] { --alert-accent: var(--text-warning); }
 .app-alert[data-tone=danger] { --alert-accent: var(--text-danger); }
 .app-alert[data-tone=success] { --alert-accent: var(--text-success); }
+.app-alert[data-tone=attention] { --alert-accent: var(--text-attention); }
 .app-alert > svg { margin-top: 3px; color: var(--alert-accent); }
 .app-alert__content { min-width: 0; max-width: 72ch; overflow-wrap: anywhere; }
 .app-alert p { margin: 0; }

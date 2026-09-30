@@ -117,7 +117,9 @@ export const plugins = {
   catalogSource: '插件商店',
   developmentSource: '开发工作区',
   serverPath: '服务器路径',
+  serverPathHint: '运行 RayleaBot 服务的主机上的绝对路径，例如 D:\\plugins\\echo.zip',
   remoteUrlLabel: 'HTTPS 地址',
+  remoteUrlHint: '以 https:// 开头的插件包下载地址',
   installSubmit: '开始安装',
   stateAria: '状态：{state}',
   fields: {
@@ -278,7 +280,7 @@ export const plugins = {
     description: '执行启停、重载或管理操作前，请确认插件来源、目标平台、artifact 摘要和能力声明符合预期。',
   },
   installTrust: {
-    title: '第三方插件是完全可信的本地代码',
+    title: '第三方插件将作为完全可信的本地代码运行',
     description: '原生插件进程使用当前用户权限运行。仅安装来源和内容均可信的插件包。',
     confirm: '我信任此插件包，允许它使用本机当前用户权限运行。',
     required: '请确认该预编译插件将作为完全可信的本地代码运行。',

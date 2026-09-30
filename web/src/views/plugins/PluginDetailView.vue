@@ -156,7 +156,7 @@ function returnToPluginList() {
       <AppAlert
         v-if="currentPlugin?.trust?.level === 'unverified'"
         class="plugin-trust-attention"
-        tone="warning"
+        tone="attention"
         :title="t('plugins.trustAttention.title')"
         :description="t('plugins.trustAttention.description')"
       />

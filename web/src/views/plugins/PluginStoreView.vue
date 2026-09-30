@@ -369,7 +369,7 @@ onMounted(() => {
 
     <AppDialog :open="confirmationOpen" :title="t('plugins.store.confirm.title')" :busy="Boolean(selectedPlugin && installing[selectedPlugin.id])" fallback-focus="[data-testid=plugin-store-refresh]" @close="closeConfirmation" @after-close="resetConfirmation">
       <AppAlert
-        tone="warning"
+        tone="attention"
         :title="t('plugins.store.confirm.warning')"
         :description="t('plugins.store.confirm.description', { name: selectedPlugin?.name ?? '' })"
       />

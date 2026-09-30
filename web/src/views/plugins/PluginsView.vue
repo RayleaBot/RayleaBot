@@ -25,7 +25,7 @@ import PluginInstallDialog from './PluginInstallDialog.vue'
 
 const navigate = useMotionNavigation()
 const pluginsStore = usePluginsStore()
-const { actionPending, error, loading, sortedItems, total, nextCursor, loadingMore } = storeToRefs(pluginsStore)
+const { actionPending, error, installPending, loading, sortedItems, total, nextCursor, loadingMore } = storeToRefs(pluginsStore)
 const installDialogVisible = ref(false)
 const summaryPluginId = ref<string | null>(null)
 const summaryDrawerVisible = ref(false)
@@ -133,7 +133,7 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
         </template>
 
         <template #right>
-          <AppButton variant="default" @click="installDialogVisible = true">
+          <AppButton variant="default" :loading="installPending" @click="installDialogVisible = true">
             <template #icon><PlusIcon /></template>
             {{ t('plugins.install') }}
           </AppButton>
