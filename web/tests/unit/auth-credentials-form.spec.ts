@@ -25,9 +25,10 @@ describe('AuthCredentialsForm', () => {
   it('blocks submit, reports required fields, and focuses the first invalid input', async () => {
     const wrapper = mountForm()
     const inputs = wrapper.findAll('input')
-    expect((inputs[0].element as HTMLInputElement).value).toBe('admin')
+    // Neither field is prefilled, on login or on setup.
+    expect((inputs[0].element as HTMLInputElement).value).toBe('')
+    expect((inputs[1].element as HTMLInputElement).value).toBe('')
 
-    await inputs[0].setValue('')
     await wrapper.get('form').trigger('submit')
 
     expect(wrapper.emitted('submit')).toBeUndefined()
@@ -42,10 +43,11 @@ describe('AuthCredentialsForm', () => {
     expect(inputs[0].attributes('autocomplete')).toBe('username')
     expect(inputs[1].attributes('autocomplete')).toBe('current-password')
 
+    await inputs[0].setValue('admin')
     await inputs[1].setValue('super-secret')
     await wrapper.get('form').trigger('submit')
 
-    expect(wrapper.emitted('change')).toHaveLength(1)
+    expect(wrapper.emitted('change')).toHaveLength(2)
     expect(wrapper.emitted('submit')).toEqual([[{ identifier: 'admin', secret: 'super-secret' }]])
   })
 

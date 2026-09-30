@@ -35,7 +35,7 @@ const emit = defineEmits<{
 }>()
 
 const credentials = reactive({
-  identifier: 'admin',
+  identifier: '',
   secret: '',
 })
 const errors = reactive<{ identifier: string | null, secret: string | null }>({
