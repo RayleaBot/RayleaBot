@@ -74,6 +74,15 @@ export interface GeneratedLauncherThemeTokens {
   surfaceSoft: string;
   text: string;
   textMuted: string;
+  tileGlyphAmber: string;
+  tileGlyphBlue: string;
+  tileGlyphEmber: string;
+  tileGlyphGreen: string;
+  tileGlyphRose: string;
+  tileGlyphSlate: string;
+  tileGlyphTeal: string;
+  tileGlyphViolet: string;
+  tileOnGlyph: string;
   warning: string;
   warningSoft: string;
 }
@@ -130,6 +139,15 @@ export const launcherGeneratedThemes: Record<'light' | 'dark', GeneratedLauncher
     authCanvasWash: "#F0742812",
     authControl: "#FFFFFF",
     authControlHover: "#F4F0EA",
+    tileGlyphAmber: "#B06F12",
+    tileGlyphBlue: "#1E7FD0",
+    tileGlyphEmber: "#D4552B",
+    tileGlyphGreen: "#2E7D5B",
+    tileGlyphRose: "#C8479E",
+    tileGlyphSlate: "#58616E",
+    tileGlyphTeal: "#13968A",
+    tileGlyphViolet: "#6A4FD0",
+    tileOnGlyph: "#FFFFFF",
     shadowSurface: "0 2px 8px #0000000F",
     shadowFloating: "0 18px 40px #0000002E",
   },
@@ -184,6 +202,15 @@ export const launcherGeneratedThemes: Record<'light' | 'dark', GeneratedLauncher
     authCanvasWash: "#FA914A12",
     authControl: "#23201D",
     authControlHover: "#23201D",
+    tileGlyphAmber: "#B06F12",
+    tileGlyphBlue: "#1E7FD0",
+    tileGlyphEmber: "#D4552B",
+    tileGlyphGreen: "#2E7D5B",
+    tileGlyphRose: "#C8479E",
+    tileGlyphSlate: "#58616E",
+    tileGlyphTeal: "#13968A",
+    tileGlyphViolet: "#6A4FD0",
+    tileOnGlyph: "#FFFFFF",
     shadowSurface: "0 2px 10px #00000047",
     shadowFloating: "0 20px 56px #00000080",
   },

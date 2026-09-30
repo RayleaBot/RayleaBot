@@ -292,6 +292,15 @@ const componentFields = {
   authCanvasWash: 'auth.canvasWash',
   authControl: 'auth.control',
   authControlHover: 'auth.controlHover',
+  tileGlyphAmber: 'tile.glyphAmber',
+  tileGlyphBlue: 'tile.glyphBlue',
+  tileGlyphEmber: 'tile.glyphEmber',
+  tileGlyphGreen: 'tile.glyphGreen',
+  tileGlyphRose: 'tile.glyphRose',
+  tileGlyphSlate: 'tile.glyphSlate',
+  tileGlyphTeal: 'tile.glyphTeal',
+  tileGlyphViolet: 'tile.glyphViolet',
+  tileOnGlyph: 'tile.onGlyph',
 }
 
 function resolvedTheme(mode) {
@@ -443,6 +452,11 @@ function renderThemeVariables(mode) {
   --surface-lit: ${theme.surfaceLit};
   --on-lit: ${theme.onLit};
   --on-lit-muted: ${theme.onLitMuted};
+  --lit-success: ${themes.light.success};
+  --lit-warning: ${themes.light.warning};
+  --lit-danger: ${themes.light.danger};
+  --lit-info: ${themes.light.info};
+  --lit-attention: ${themes.light.attention};
   --glass-fill: ${theme.glassFill};
   --glass-fill-strong: ${theme.glassFillStrong};
   --glass-rim: ${theme.glassRim};
@@ -455,6 +469,15 @@ function renderThemeVariables(mode) {
   --field-mint: ${theme.fieldMint};
   --field-sky: ${theme.fieldSky};
   --field-lilac: ${theme.fieldLilac};
+  --tile-glyph-amber: ${theme.tileGlyphAmber};
+  --tile-glyph-blue: ${theme.tileGlyphBlue};
+  --tile-glyph-ember: ${theme.tileGlyphEmber};
+  --tile-glyph-green: ${theme.tileGlyphGreen};
+  --tile-glyph-rose: ${theme.tileGlyphRose};
+  --tile-glyph-slate: ${theme.tileGlyphSlate};
+  --tile-glyph-teal: ${theme.tileGlyphTeal};
+  --tile-glyph-violet: ${theme.tileGlyphViolet};
+  --on-tile-glyph: ${theme.tileOnGlyph};
   --shadow-xs: ${theme.shadowSurface};
   --shadow-sm: ${theme.shadowSurface};
   --shadow: ${theme.shadowSurface};
@@ -827,6 +850,13 @@ function assertContrast(label, foreground, background, minimum, documented) {
   }
 }
 
+function assertMinimumContrast(label, foreground, background, minimum) {
+  const actual = contrastRatio(foreground, background)
+  if (actual + 0.005 < minimum) {
+    errors.push(`${label} contrast is ${actual.toFixed(2)}:1; expected at least ${minimum}:1`)
+  }
+}
+
 function validateContrast() {
   assertContrast('Light primary action', themes.light.onBrand, themes.light.brandFill, 4.5, 6.19)
   assertContrast('Dark primary action', themes.dark.onBrand, themes.dark.brandFill, 4.5, 7.88)
@@ -845,6 +875,18 @@ function validateContrast() {
   assertContrast('Dark lit tile muted text', themes.dark.onLitMuted, themes.dark.surfaceLit, 4.5, 6.59)
   assertContrast('Light attention action', themes.light.onAttention, themes.light.attention, 4.5, 7.13)
   assertContrast('Dark attention action', themes.dark.onAttention, themes.dark.attention, 4.5, 8.30)
+  // Lit tiles keep the light theme's status colours in both themes, so check them on each lit surface.
+  for (const mode of ['light', 'dark']) {
+    for (const field of ['success', 'warning', 'danger', 'info', 'attention']) {
+      assertMinimumContrast(`${mode} lit ${field} text`, themes.light[field], themes[mode].surfaceLit, 4.5)
+    }
+  }
+  // Tile glyph fills identify objects on lit tiles in both themes; their icons are graphics (3:1).
+  for (const mode of ['light', 'dark']) {
+    for (const field of Object.keys(componentFields).filter((name) => name.startsWith('tileGlyph'))) {
+      assertMinimumContrast(`${mode} ${field} icon`, themes[mode].tileOnGlyph, themes[mode][field], 3)
+    }
+  }
 }
 
 validateContrast()
