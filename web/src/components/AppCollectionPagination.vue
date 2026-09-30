@@ -7,7 +7,8 @@ defineEmits<{ more: [] }>()
 </script>
 
 <template>
-  <div class="collection-pagination">
+  <!-- An empty or still-loading collection has nothing to count; its own empty or loading state speaks for it. -->
+  <div v-if="loaded > 0 || total > 0 || nextCursor" class="collection-pagination">
     <span role="status">{{ t('ui.loadedCount', { loaded, total }) }}</span>
     <AppButton v-if="nextCursor" :loading="loading" :disabled="loading" @click="$emit('more')">{{ t('ui.loadMore') }}</AppButton>
   </div>

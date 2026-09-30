@@ -70,8 +70,9 @@ const showWhitelistEmptyWarning = computed(() => whitelistEnabled.value && total
 
 const blacklistRegionError = computed(() => blacklistEditor.actionError ?? blacklistError.value)
 const whitelistRegionError = computed(() => whitelistEditor.actionError ?? whitelistError.value)
+// When neither list loads, the page-level retry panel carries the error instead of two toasts.
 const whitelistRegionErrorToast = computed(() => (
-  whitelistRegionError.value
+  whitelistRegionError.value && !showFatalError.value
     ? {
         key: `access-lists-whitelist:${whitelistRegionError.value}`,
         level: 'warning' as const,
@@ -80,7 +81,7 @@ const whitelistRegionErrorToast = computed(() => (
     : null
 ))
 const blacklistRegionErrorToast = computed(() => (
-  blacklistRegionError.value
+  blacklistRegionError.value && !showFatalError.value
     ? {
         key: `access-lists-blacklist:${blacklistRegionError.value}`,
         level: 'warning' as const,

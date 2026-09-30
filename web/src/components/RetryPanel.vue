@@ -20,7 +20,8 @@ defineEmits<{
       <CircleAlertIcon class="retry-panel__icon" :size="28" aria-hidden="true" />
       <div class="retry-panel__copy">
         <strong>{{ title }}</strong>
-        <span>{{ description }}</span>
+        <!-- A generic failure often has no more to say than the title; the same sentence is not shown twice. -->
+        <span v-if="description && description !== title">{{ description }}</span>
       </div>
       <AppButton :loading="loading" @click="$emit('retry')">
         <template #icon><RotateCwIcon :size="16" /></template>

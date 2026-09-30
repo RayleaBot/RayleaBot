@@ -230,7 +230,7 @@ onDeactivated(() => {
 <template>
   <AppPage :title="t('renderTemplates.title')" :description="t('renderTemplates.subtitle')" full-height>
     <template #extra>
-      <AppButton :disabled="loading" @click="loadTemplateList"><RefreshCwIcon :size="16" />{{ t('renderTemplates.refreshList') }}</AppButton>
+      <AppButton :loading="loading" @click="loadTemplateList"><template #icon><RefreshCwIcon :size="16" /></template>{{ t('renderTemplates.refreshList') }}</AppButton>
     </template>
     <RetryPanel v-if="error && items.length === 0" :title="t('renderTemplates.title')" :description="error" :loading="loading" @retry="loadTemplateList" />
     <AppEmptyState v-else-if="!loading && hasRequestedList && items.length === 0 && !search && !activeTemplateId" icon="box" :title="t('renderTemplates.noTemplates')" :description="t('renderTemplates.catalogHint')" />

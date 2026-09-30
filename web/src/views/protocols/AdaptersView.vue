@@ -88,7 +88,7 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
 <template>
   <AppPage :title="t('protocols.title')" :description="t('protocols.connectionsDescription')" width="detail">
     <template #extra>
-      <AppButton variant="default" :disabled="loading || !configStore.document || Boolean(removingId)" data-testid="adapter-add" @click="router.push(buildProtocolsLocation({ view: 'add' }))"><PlusIcon />{{ t('protocols.addConnection') }}</AppButton>
+      <AppButton variant="default" :disabled="loading || !configStore.document || Boolean(removingId)" data-testid="adapter-add" @click="router.push(buildProtocolsLocation({ view: 'add' }))"><template #icon><PlusIcon /></template>{{ t('protocols.addConnection') }}</AppButton>
     </template>
     <div class="connections-workspace">
       <AppAlert v-if="restartPending" tone="info" :title="t('protocols.restartNotice')" :description="t('protocols.restartDescription')" data-testid="adapter-restart-notice" />
@@ -98,7 +98,7 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
       <section class="connections-surface" aria-labelledby="connections-title">
         <header class="connections-toolbar">
           <div><h2 id="connections-title">{{ t('protocols.configuredConnections') }}</h2><span v-if="!loading && configStore.document">{{ t('protocols.connectionsCount', { count: rows.length }) }}</span></div>
-          <AppButton variant="ghost" :loading="loading" :disabled="Boolean(removingId) || configStore.saving" :aria-label="t('protocols.refreshConnections')" @click="refresh"><RefreshCwIcon /></AppButton>
+          <AppButton variant="ghost" size="icon" :loading="loading" :disabled="Boolean(removingId) || configStore.saving" :aria-label="t('protocols.refreshConnections')" @click="refresh"><template #icon><RefreshCwIcon /></template></AppButton>
         </header>
         <div v-if="loading && !configStore.document" class="connections-loading"><Skeleton class="h-36 w-full" /></div>
         <div v-else-if="!pageError && !rows.length" class="connections-empty app-box">

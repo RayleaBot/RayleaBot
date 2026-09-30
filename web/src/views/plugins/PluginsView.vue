@@ -45,8 +45,9 @@ const sourceOptions = computed(() => [
   { value: 'community', label: t('plugins.filter.sourceCommunity') },
 ])
 
+// The retry panel already explains a failed first load; the toast only reports a failed refresh over shown plugins.
 useToastFeedback(computed(() => (
-  error.value
+  error.value && sortedItems.value.length > 0
     ? {
         key: `plugins-error:${error.value}`,
         level: 'error' as const,
