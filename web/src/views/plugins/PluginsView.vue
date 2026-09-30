@@ -95,7 +95,7 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
 </script>
 
 <template>
-  <AppPage :title="t('plugins.title')" :show-header="false">
+  <AppPage :title="t('plugins.title')">
     <RetryPanel
       v-if="error && sortedItems.length === 0"
       :title="t('errors.common.loadFailed')"
