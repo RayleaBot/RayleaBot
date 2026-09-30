@@ -239,9 +239,6 @@ async function save() {
             <div class="menu-preview-card">
               <p v-if="nextCursor" role="status">{{ t('builtinFeatures.menuCenter.preview.partial') }}</p>
               <AppCollectionPagination :loaded="sortedItems.length" :total="total" :next-cursor="nextCursor" :loading="pluginsLoading || loadingMore" @more="pluginCollection.loadMore().catch(() => undefined)" />
-              <div class="menu-trigger-row">
-                <span v-for="example in rootMenuTriggerExamples" :key="example" class="menu-trigger-chip">{{ example }}</span>
-              </div>
               <NativeTemplatePreviewFrame
                 template-id="help.menu"
                 :data="rootPreviewData"
@@ -288,7 +285,7 @@ async function save() {
 }
 
 .menu-center-layout {
-  --menu-center-panel-width: 260px;
+  --menu-center-panel-width: 320px;
   --menu-center-panel-inset: var(--space-md);
   --menu-center-preview-max-width: 1040px;
   --menu-center-preview-top-space: 0px;
@@ -359,7 +356,7 @@ async function save() {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   min-height: 0;
   padding-top: var(--menu-center-preview-top-space);
 }
@@ -410,45 +407,12 @@ async function save() {
   flex-direction: column;
   width: min(100%, var(--menu-center-preview-max-width));
   min-width: 0;
-  margin-inline: auto;
   padding: 0;
   border: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.menu-trigger-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-}
-
-.menu-trigger-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 4px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-soft);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.4;
-  word-break: break-all;
-
-  &::before {
-    content: '';
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--brand-fill);
-    flex-shrink: 0;
-  }
-
-}
 
 .menu-preview-empty {
   flex: 1 1 auto;
