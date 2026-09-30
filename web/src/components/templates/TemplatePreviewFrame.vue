@@ -200,9 +200,8 @@ function applyPreviewOverflowGuard() {
   min-height: var(--native-template-preview-height);
   overflow: hidden;
   background: var(--surface-soft);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
 }
 
 .native-template-preview__scaled-frame {

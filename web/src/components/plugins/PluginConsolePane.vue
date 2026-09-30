@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EraserIcon, RotateCwIcon } from '@lucide/vue'
+import { EraserIcon, RotateCwIcon, TerminalIcon } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import AppButton from '@/components/AppButton.vue'
@@ -137,7 +137,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-if="frames.length === 0" class="plugin-console-empty">
-        <span class="plugin-console-empty__prompt">&gt;_</span>
+        <TerminalIcon class="plugin-console-empty__icon" :size="20" aria-hidden="true" />
         <span>{{ t('plugins.empty.console') }}</span>
       </div>
 
@@ -232,27 +232,15 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 
-/* Console terminal surface */
+// The console output is a white inset inside the gray tab box, without a second border.
 .plugin-console-panel {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--surface-soft);
-  box-shadow: none;
-
-  &.is-empty {
-    background: var(--surface-soft);
-  }
-}
-
-[data-theme='dark'] .plugin-console-panel {
-  background: var(--code-surface);
-  box-shadow: none;
-  border-color: var(--border);
+  background: var(--surface-raised);
 }
 
 .plugin-console-warning {
@@ -284,19 +272,9 @@ onBeforeUnmount(() => {
   font-size: 0.88rem;
 }
 
-.plugin-console-empty__prompt {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 26px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-strong);
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: bold;
+.plugin-console-empty__icon {
+  flex: none;
+  color: var(--muted);
 }
 
 .console-terminal-skeleton {
@@ -393,5 +371,8 @@ onBeforeUnmount(() => {
 
 [data-theme='dark'] .console-terminal-line__text {
   color: var(--code-text);
+}
+@media (forced-colors: active) {
+  .plugin-console-panel { border: 1px solid CanvasText; }
 }
 </style>

@@ -24,8 +24,9 @@ defineProps<{
 <style scoped lang="scss">
 .app-skeleton-card {
   border-radius: var(--app-card-radius);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   background: var(--surface-strong);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 

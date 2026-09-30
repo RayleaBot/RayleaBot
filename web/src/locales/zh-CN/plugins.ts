@@ -191,7 +191,6 @@ export const plugins = {
     runtimeSummary: '运行摘要',
     packageInfo: '包信息',
     sourceInfo: '来源信息',
-    statusSummary: '状态摘要',
     details: '详细信息',
     commands: '插件指令',
     console: '实时输出',

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppTooltip from '@/components/AppTooltip.vue'
+import AppHelp from '@/components/AppHelp.vue'
 import AppSwitch from '@/components/AppSwitch.vue'
 import AppField from '@/components/AppField.vue'
 import AppButton from '@/components/AppButton.vue'
@@ -122,7 +122,7 @@ function getSectionIcon(key: string) {
       </div>
 
       <template v-else-if="draft">
-        <div class="rate-limits-summary-cards" data-testid="rate-limits-summary-card">
+        <div class="rate-limits-summary-cards app-box" data-testid="rate-limits-summary-card">
           <div
             v-for="card in summaryCards"
             :key="card.key"
@@ -187,9 +187,7 @@ function getSectionIcon(key: string) {
                     <template #label>
                       <div class="field-label-wrap">
                         <span class="field-label-text">{{ field.label }}</span>
-                        <AppTooltip v-if="field.description" :title="field.description">
-                          <button type="button" class="field-info-icon" :aria-label="t('config.fieldHelp')">?</button>
-                        </AppTooltip>
+                        <AppHelp v-if="field.description" :label="`${field.label} · ${t('config.fieldHelp')}`" :description="field.description" />
                       </div>
                     </template>
 
@@ -237,7 +235,6 @@ function getSectionIcon(key: string) {
 .rate-limits-summary-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-block: 1px solid var(--border);
 }
 
 // Top-aligned so a description that wraps does not shift its label and value out of line.
@@ -246,7 +243,7 @@ function getSectionIcon(key: string) {
   align-items: flex-start;
   gap: 10px;
   min-width: 0;
-  padding: 14px 12px;
+  padding: 16px 20px;
 }
 
 .rate-limits-summary-item + .rate-limits-summary-item {
@@ -427,42 +424,9 @@ function getSectionIcon(key: string) {
   color: var(--theme-text, var(--text));
 }
 
-.field-info-icon {
-  appearance: none;
-  background: transparent;
-  color: var(--muted);
-  cursor: help;
-  font-size: 13px;
-  font-weight: bold;
-  opacity: 0.7;
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
 
-.field-info-icon:hover {
-  opacity: 1;
-  color: var(--accent);
-  border-color: var(--accent);
-}
 
-// Touch targets grow to 44px without the outline that frames the compact desktop mark.
-@media (pointer: coarse) {
-  .field-info-icon {
-    min-width: 44px;
-    min-height: 44px;
-    border-color: transparent;
-  }
-}
 
-.field-info-icon:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: var(--focus-outline-offset);
-}
 
 .rate-limits-control-wrap {
   display: grid;

@@ -34,7 +34,7 @@ const {
 <template>
   <AppPage :title="t('scheduler.title')">
     <div class="scheduler-page-container">
-      <div class="scheduler-filter-card">
+      <div class="scheduler-filter-card app-box">
         <div class="filter-left">
           <AppInput
             v-model="searchQuery"
@@ -82,7 +82,7 @@ const {
           @retry="loadSchedulerJobs"
         />
 
-        <AppCard v-else-if="loading && sortedItems.length === 0" class="scheduler-loading-card" borderless>
+        <AppCard v-else-if="loading && sortedItems.length === 0">
           <AppSkeleton :rows="6" />
         </AppCard>
 
@@ -135,11 +135,6 @@ const {
   flex-wrap: wrap;
   gap: var(--space-md);
   padding: 14px 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-  margin-bottom: var(--space-md);
 
   .filter-left,
   .filter-right {
@@ -151,25 +146,10 @@ const {
 
   .filter-search-input {
     width: 260px;
-    height: 36px;
-    border-radius: var(--radius-md);
-    border-color: var(--border);
-    transition: border-color 150ms ease;
-
-    &:hover, &:focus {
-      border-color: var(--accent);
-    }
 
     .search-icon {
       color: var(--muted);
     }
-  }
-
-  .filter-segmented {
-    background: color-mix(in srgb, var(--text) 5%, transparent);
-    padding: 2px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border);
   }
 
   .sort-wrapper {
@@ -196,12 +176,5 @@ const {
       white-space: nowrap;
     }
   }
-}
-
-.scheduler-loading-card {
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 24px;
 }
 </style>

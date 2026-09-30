@@ -192,10 +192,9 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
   .info-block {
     display: flex;
     flex-direction: column;
-    background: color-mix(in srgb, var(--text) 3%, transparent);
+    background: var(--surface-raised);
     padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
 
     .label {
       font-size: 13px;
@@ -268,9 +267,8 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
     display: flex;
     align-items: center;
     gap: 16px;
-    background: color-mix(in srgb, var(--text) 3%, transparent);
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    background: var(--surface-raised);
+    border-radius: var(--radius-lg);
     padding: 14px;
   }
 
@@ -288,12 +286,11 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
       width: 100%;
       height: 100%;
       border-radius: 50%;
-      background: var(--surface) !important;
+      background: var(--surface-raised) !important;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      box-shadow: var(--shadow-sm);
     }
 
     .gauge-pct {

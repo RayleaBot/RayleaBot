@@ -167,8 +167,10 @@ onBeforeUnmount(clearLoadTimer)
 <style scoped lang="scss">
 .plugin-management-ui-host { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
 .plugin-management-ui-confirm { display: grid; gap: 16px; }
-.plugin-management-ui-confirm-note { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-soft); }
-.plugin-management-ui-confirm-note p { margin: 0; color: var(--muted); }
+/* Confirming an unverified source is a decision for the operator, so the note uses the attention tone. */
+.plugin-management-ui-confirm-note { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid transparent; border-radius: var(--radius-md); background: var(--surface-attention); }
+.plugin-management-ui-confirm-note strong { color: var(--text-attention); }
+.plugin-management-ui-confirm-note p { margin: 0; color: var(--text); }
 .plugin-management-ui-frame-shell,
 .plugin-management-ui-frame-shell :deep(.app-loading-panel),
 .plugin-management-ui-frame-shell :deep(.app-loading-panel__content) { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; width: 100%; }

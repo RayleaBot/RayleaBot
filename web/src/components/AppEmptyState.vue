@@ -75,7 +75,6 @@ const iconClass = computed(() => `app-empty-state__icon--${props.icon ?? 'generi
   height: 80px;
   border-radius: var(--radius-xl);
   background: var(--surface-soft);
-  border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;

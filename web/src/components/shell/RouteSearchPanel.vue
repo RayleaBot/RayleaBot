@@ -197,7 +197,7 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
 
 .route-search-panel__results {
   display: grid;
-  gap: 8px;
+  gap: 2px;
   max-height: 420px;
   overflow-y: auto;
 }
@@ -208,19 +208,19 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
   justify-content: space-between;
   gap: 16px;
   width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
+  padding: 10px 14px;
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
-  background: var(--surface);
+  background: transparent;
   color: var(--text);
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: background-color var(--motion-fast) var(--motion-easing), box-shadow var(--motion-fast) var(--motion-easing);
 
   &:hover,
   &.is-active {
-    border-color: var(--border-accent);
-    background: var(--surface-accent);
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-xs);
   }
 }
 
@@ -229,12 +229,12 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
   gap: 4px;
 
   strong {
-    font-size: 0.96rem;
+    font-size: 14px;
   }
 
   span {
     color: var(--muted);
-    font-size: 0.82rem;
+    font-size: 13px;
   }
 }
 

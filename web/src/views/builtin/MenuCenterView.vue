@@ -430,16 +430,13 @@ async function save() {
   gap: 6px;
   min-height: 30px;
   padding: 4px 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: var(--surface-soft);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: 13px;
   line-height: 1.4;
   word-break: break-all;
-  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
-  cursor: default;
 
   &::before {
     content: '';
@@ -459,15 +456,5 @@ async function save() {
   align-items: center;
   justify-content: center;
   min-height: 320px;
-}
-
-:deep(.app-tabs__extra) {
-  .app-select-wrap {
-    font-size: 0.85rem;
-  }
-
-  .app-select {
-    border-radius: var(--radius-sm) !important;
-  }
 }
 </style>

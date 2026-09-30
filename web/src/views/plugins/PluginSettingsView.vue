@@ -2,7 +2,6 @@
 import AppTagsInput from '@/components/AppTagsInput.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import AppField from '@/components/AppField.vue'
-import AppTooltip from '@/components/AppTooltip.vue'
 import AppTextarea from '@/components/AppTextarea.vue'
 import AppSwitch from '@/components/AppSwitch.vue'
 import AppNumberInput from '@/components/AppNumberInput.vue'
@@ -135,7 +134,7 @@ function getSectionIcon(key: string) {
       <AppSkeletonCard show-header :rows="5" />
     </div>
 
-    <div v-else-if="draft" class="plugin-settings-layout">
+    <div v-else-if="draft" class="plugin-settings-layout app-box">
       <section class="plugin-settings-board" :aria-label="t('plugins.settings.title')">
         <div class="plugin-settings-form-matrix">
           <section
@@ -158,9 +157,6 @@ function getSectionIcon(key: string) {
                   <template v-if="!(['text', 'number', 'select', 'textarea', 'list'].includes(field.type) && !isCommandPrefixField(field.path))" #label>
                     <div class="field-label-wrap">
                       <span class="field-label-text">{{ field.label }}</span>
-                      <AppTooltip v-if="field.description" :title="field.description">
-                        <button type="button" class="field-info-icon" :aria-label="t('config.fieldHelp')">?</button>
-                      </AppTooltip>
                     </div>
                   </template>
 
@@ -292,8 +288,7 @@ function getSectionIcon(key: string) {
   gap: 12px;
   min-height: 64px;
   padding: 12px 20px;
-  border: 1px solid var(--border);
-  margin-top: -1px;
+  border-top: 1px solid var(--border);
   border-radius: 0 0 var(--app-card-radius) var(--app-card-radius);
   background: var(--surface);
 }
@@ -302,13 +297,6 @@ function getSectionIcon(key: string) {
 
 .plugin-settings-board {
   display: grid;
-  overflow: hidden;
-  border: 1px solid transparent;
-  border-radius: var(--app-card-radius) var(--app-card-radius) 0 0;
-  background: var(--surface-strong);
-  box-shadow: none;
-  --control-fill: var(--surface-raised);
-  --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text));
 }
 
 .plugin-settings-status-row {
@@ -413,42 +401,9 @@ function getSectionIcon(key: string) {
   color: var(--theme-text, var(--text));
 }
 
-.field-info-icon {
-  appearance: none;
-  background: transparent;
-  color: var(--muted);
-  cursor: help;
-  font-size: 13px;
-  font-weight: bold;
-  opacity: 0.7;
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
 
-.field-info-icon:hover {
-  opacity: 1;
-  color: var(--accent);
-  border-color: var(--accent);
-}
 
-// Touch targets grow to 44px without the outline that frames the compact desktop mark.
-@media (pointer: coarse) {
-  .field-info-icon {
-    min-width: 44px;
-    min-height: 44px;
-    border-color: transparent;
-  }
-}
 
-.field-info-icon:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: var(--focus-outline-offset);
-}
 
 .plugin-settings-number-input {
   width: 100%;

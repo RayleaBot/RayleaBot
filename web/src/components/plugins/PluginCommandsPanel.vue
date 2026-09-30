@@ -8,13 +8,16 @@ import type { PluginCommandSummary } from '@/types/api'
 
 const MAX_VISIBLE_ALIASES = 12
 
+// stacked: narrow hosts such as the summary drawer put each command's parts under one another.
 const props = withDefaults(defineProps<{
   commands: PluginCommandSummary[]
   commandConflicts?: string[]
   commandPrefix?: string
+  stacked?: boolean
 }>(), {
   commandConflicts: () => [],
   commandPrefix: '/',
+  stacked: false,
 })
 
 function getText(value?: string) {
@@ -54,214 +57,132 @@ function isConflicted(command: PluginCommandSummary) {
 <template>
   <AppEmptyState v-if="commands.length === 0" :description="t('plugins.empty.commands')" />
 
-  <div v-else class="plugin-command-grid" role="list">
-    <article
+  <!-- One divided row per command inside the tab box: identity, description and aliases, then usage. -->
+  <ul v-else class="plugin-command-list" :class="{ 'plugin-command-list--stacked': stacked }">
+    <li
       v-for="command in commands"
-    :key="command.id"
-      class="plugin-command-card"
-      :class="{ 'is-conflicted': isConflicted(command) }"
-      role="listitem"
+      :key="command.id"
+      class="plugin-command-row"
     >
-      <header class="plugin-command-card__header">
-        <div class="plugin-command-card__title-row">
-          <AppTag :tone="isConflicted(command) ? 'warning' : 'success'" class="command-badge">
+      <div class="plugin-command-row__identity">
+        <div class="plugin-command-row__tags">
+          <AppTag :tone="isConflicted(command) ? 'warning' : 'info'" class="command-badge">
             {{ command.name }}
           </AppTag>
           <AppTag v-if="isConflicted(command)" tone="warning">
             {{ t('plugins.commandConflictBadge') }}
           </AppTag>
-      <AppTag :tone="getCommandTriggerTone(command.trigger.type)">
-      {{ getTriggerText(command) }}
+          <AppTag :tone="getCommandTriggerTone(command.trigger.type)">
+            {{ getTriggerText(command) }}
           </AppTag>
         </div>
-      </header>
+        <span class="plugin-command-row__permission">{{ getCommandPermissionLabel(command.permission) }}</span>
+      </div>
 
-      <div class="plugin-command-card__body">
-        <div class="plugin-command-card__desc">
-          {{ getText(command.description) }}
-        </div>
-
-        <div class="plugin-command-card__section">
+      <div class="plugin-command-row__copy">
+        <p class="plugin-command-row__desc">{{ getText(command.description) }}</p>
+        <div class="plugin-command-row__aliases">
           <span class="section-label">{{ t('plugins.commandAliases') }}</span>
-      <div class="alias-tags" v-if="getVisibleCommandAliases(command).length">
-            <AppTag v-for="alias in getVisibleAliases(command)" :key="alias" class="alias-tag">
+          <template v-if="getVisibleCommandAliases(command).length">
+            <AppTag v-for="alias in getVisibleAliases(command)" :key="alias" size="small">
               {{ alias }}
             </AppTag>
-            <AppTag v-if="getHiddenAliasCount(command) > 0" class="alias-tag alias-tag--more">
+            <AppTag v-if="getHiddenAliasCount(command) > 0" size="small">
               {{ t('plugins.commandOverflow', { count: getHiddenAliasCount(command) }) }}
             </AppTag>
             <!-- Hidden text for unit test compatibility -->
             <span class="sr-only">{{ getAliasesText(command) }}</span>
-          </div>
+          </template>
           <span v-else class="empty-val">—</span>
         </div>
-
-        <div class="plugin-command-card__section">
-          <span class="section-label">{{ t('plugins.commandUsage') }}</span>
-          <div class="usage-snippet">
-            <span class="usage-prefix">>_</span>
-            <code class="usage-text">{{ getUsageText(command) }}</code>
-          </div>
-        </div>
-
-        <div class="plugin-command-card__footer">
-          <span class="permission-pill">
-            <span class="pill-dot"></span>
-            {{ getCommandPermissionLabel(command.permission) }}
-          </span>
-        </div>
       </div>
-    </article>
-  </div>
+
+      <div class="plugin-command-row__usage">
+        <span class="section-label">{{ t('plugins.commandUsage') }}</span>
+        <code class="usage-snippet">{{ getUsageText(command) }}</code>
+      </div>
+    </li>
+  </ul>
 </template>
 
 <style scoped lang="scss">
-.plugin-command-grid {
+.plugin-command-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.plugin-command-card {
+.plugin-command-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(240px, 360px);
+  gap: 8px 24px;
+  align-items: start;
+  padding-block: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.plugin-command-list--stacked .plugin-command-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.plugin-command-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.plugin-command-row:last-child {
+  padding-bottom: 0;
+}
+
+.plugin-command-row__identity,
+.plugin-command-row__copy,
+.plugin-command-row__usage {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.plugin-command-row__tags,
+.plugin-command-row__aliases {
   display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-  transition: border-color 150ms ease, background-color 150ms ease;
-  overflow: hidden;
-  box-shadow: var(--shadow-xs);
-
-  &:hover {
-    border-color: var(--border-accent);
-    background: var(--surface);
-  }
-
-  &.is-conflicted {
-    border-color: var(--border-warning);
-    background: color-mix(in srgb, var(--surface-warning) 15%, var(--surface-soft));
-
-    &:hover {
-      border-color: var(--warning);
-    }
-  }
-}
-
-.plugin-command-card__header {
-  padding: 12px 14px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-}
-
-.plugin-command-card__title-row {
-  display: flex;
-  align-items: center;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
 .command-badge {
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 0.85rem;
 }
 
-.plugin-command-card__body {
-  padding: 12px 14px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex-grow: 1;
-}
-
-.plugin-command-card__desc {
-  font-size: 0.88rem;
-  color: var(--text);
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.plugin-command-card__section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.section-label {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.alias-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.alias-tag {
-  font-size: 13px;
-}
-
-.alias-tag--more {
-  color: var(--muted);
-}
-
+.plugin-command-row__permission,
+.section-label,
 .empty-val {
-  font-size: 0.82rem;
   color: var(--muted);
+  font-size: 12px;
 }
 
+.plugin-command-row__desc {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+// Usage reads as code on a white inset inside the gray box.
 .usage-snippet {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--surface-strong);
-  border: 1px solid var(--border);
+  display: block;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
-  padding: 4px 8px;
-  min-height: 28px;
-}
-
-.usage-prefix {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--accent);
-  user-select: none;
-  font-weight: bold;
-}
-
-.usage-text {
-  font-family: var(--font-mono);
-  font-size: 13px;
+  background: var(--surface-raised);
   color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
   word-break: break-all;
-}
-
-.plugin-command-card__footer {
-  margin-top: auto;
-  padding-top: 8px;
-  border-top: 1px dashed color-mix(in srgb, var(--border) 40%, transparent);
-}
-
-.permission-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text);
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
-  border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border));
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-sans);
-}
-
-.pill-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--brand-fill);
 }
 </style>

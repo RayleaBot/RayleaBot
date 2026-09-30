@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ChevronDownIcon } from '@lucide/vue'
 
 import AppTag from '@/components/AppTag.vue'
 import { t } from '@/i18n'
@@ -74,7 +75,8 @@ function hasItems(value?: readonly unknown[] | null) {
       <details class="plugin-detail-disclosure">
         <summary>
           <span>{{ t('plugins.sections.details') }}</span>
-          <AppTag class="meta-tag">{{ t('plugins.sections.metadata') }}</AppTag>
+          <AppTag size="small">{{ t('plugins.sections.metadata') }}</AppTag>
+          <ChevronDownIcon class="plugin-detail-disclosure__chevron" :size="16" aria-hidden="true" />
         </summary>
 
         <div class="plugin-detail-detail-stack">
@@ -207,13 +209,13 @@ function hasItems(value?: readonly unknown[] | null) {
   }
 }
 
+// Code sits on a white inset inside the gray box, without a second border.
 .metadata-json {
   margin: 0;
   padding: 12px 14px;
   border-radius: var(--radius-md);
-  background: var(--surface-soft);
+  background: var(--surface-raised);
   color: var(--text);
-  border: 1px solid var(--border);
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--font-mono);
@@ -229,16 +231,13 @@ function hasItems(value?: readonly unknown[] | null) {
 
 .screenshot-list {
   display: grid;
-  gap: 8px;
 }
 
 .screenshot-item {
   display: grid;
   gap: 4px;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
+  padding-block: 8px;
+  border-top: 1px solid var(--border);
   font-size: 13px;
 
   .ss-path {
@@ -259,44 +258,40 @@ function hasItems(value?: readonly unknown[] | null) {
   summary {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 10px;
+    border-radius: var(--radius-xs);
     cursor: pointer;
     color: var(--text);
     font-weight: 700;
-    font-size: 0.88rem;
+    font-size: 14px;
     list-style: none;
 
     &::-webkit-details-marker {
       display: none;
     }
 
-    &::after {
-      content: '+';
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 20px;
-      height: 20px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--muted);
-      font-family: var(--font-mono);
-      font-weight: 500;
-      font-size: 13px;
+    &:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
     }
   }
 
   &[open] summary {
     margin-bottom: 12px;
-
-    &::after {
-      content: '-';
-    }
   }
 }
 
-.meta-tag {
-  font-size: 12px;
+.plugin-detail-disclosure__chevron {
+  margin-inline-start: auto;
+  color: var(--muted);
+  transition: transform var(--motion-fast) var(--motion-easing);
+}
+
+.plugin-detail-disclosure[open] .plugin-detail-disclosure__chevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plugin-detail-disclosure__chevron { transition: none; }
 }
 </style>

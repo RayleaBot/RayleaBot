@@ -20,7 +20,7 @@ defineProps<{ text: string | null; inline?: boolean }>()
   padding: 7px 10px;
   border-radius: var(--radius-md);
   background: var(--surface-accent);
-  border: 1px solid var(--border-accent);
+  border: 1px solid transparent;
 }
 .rate-limit-preview__label { font-size: 13px; letter-spacing: 0; color: var(--accent); }
 .rate-limit-preview__value { color: var(--text); font-size: 0.9rem; line-height: 1.4; }
@@ -31,7 +31,6 @@ defineProps<{ text: string | null; inline?: boolean }>()
   min-height: auto;
   padding: 6px 10px;
   background: var(--surface-soft);
-  border-color: var(--border);
   color: var(--muted);
   font-size: 13px;
   line-height: 1.4;

@@ -213,10 +213,11 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
 .shortcut-item kbd {
   width: fit-content;
   padding: 4px 8px;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 6px;
   color: var(--text);
-  background: var(--surface-soft);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-raised);
   font-family: var(--font-mono);
   font-size: 12px;
 }

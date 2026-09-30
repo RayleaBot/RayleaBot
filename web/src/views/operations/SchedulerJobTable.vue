@@ -58,7 +58,7 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
 </script>
 
 <template>
-  <div class="table-container-wrapper">
+  <div class="table-container-wrapper app-box">
     <AppDataTable
       class="scheduler-data-table app-data-table refactored-table"
       :columns="tableColumns"
@@ -228,10 +228,6 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
 .lucide { width: 16px; height: 16px; flex-shrink: 0; }
 .error-capsule:focus-visible { outline: 2px solid var(--focus); outline-offset: var(--focus-outline-offset); }
 .table-container-wrapper {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: none;
   overflow: hidden;
 }
 
@@ -328,11 +324,10 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
     align-items: center;
     gap: 4px;
     font-size: 13px;
-    background: color-mix(in srgb, var(--text) 5%, transparent);
-    border: 1px solid var(--border);
+    background: var(--surface-soft);
     color: var(--muted);
-    padding: 1px 6px;
-    border-radius: 6px;
+    padding: 1px 8px;
+    border-radius: var(--radius-xs);
     max-width: 160px;
     font-family: var(--font-mono);
 
@@ -507,11 +502,11 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
   .error-capsule {
     font-size: 12px;
     font-weight: 700;
-    background: color-mix(in srgb, var(--danger) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--danger) 24%, transparent);
-    color: var(--danger);
-    padding: 1px 6px;
-    border-radius: 4px;
+    background: var(--surface-danger);
+    border: 0;
+    color: var(--text-danger);
+    padding: 2px 8px;
+    border-radius: var(--radius-xs);
     cursor: pointer;
     font-family: var(--font-mono);
     text-transform: uppercase;
@@ -521,7 +516,6 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
     &:hover {
       background: var(--danger);
       color: var(--on-brand);
-      box-shadow: 0 2px 6px color-mix(in srgb, var(--danger) 30%, transparent);
     }
   }
 
@@ -587,30 +581,5 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-
-  .action-btn {
-    height: 28px;
-    font-size: 12px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: var(--surface);
-    transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
-
-    &:hover {
-      border-color: var(--border-strong);
-    }
-
-    &.view-btn:hover {
-      color: var(--accent) !important;
-      border-color: var(--accent) !important;
-      background: var(--surface-accent) !important;
-    }
-
-    &.trigger-btn:hover {
-      color: var(--success) !important;
-      border-color: var(--success) !important;
-      background: var(--surface-success) !important;
-    }
-  }
 }
 </style>

@@ -247,7 +247,7 @@ forced-colors 下盒子、浮层与认证面板使用系统颜色与 1px 系统�
 
 ### Named Rules
 
-**The Single Elevation Rule.** 每个盒子只用一种方式与背景分开：盒子用阴影，不再叠加边框；盒子内的分组用分隔线，嵌套在盒子里的列表与视口不叠加第二层盒子。
+**The Single Elevation Rule.** 每个盒子只用一种方式与背景分开：盒子用阴影，不再叠加边框；盒子内的分组用分隔线，嵌套在盒子里的列表与视口不叠加第二层盒子。盒子里需要与正文区分的代码、用法与实时输出使用白色内嵌底，同样不加边框。
 
 **The Opposite Fill Rule.** 控件取所在容器相反的明暗：位于白色页面上的次要按钮与分段轨道使用浅灰，位于浅灰盒子里的使用白色，两者都以 raised 阴影抬起；输入框始终为白色并保留控件边界。
 
@@ -337,7 +337,7 @@ Web 持续提示使用 [`AppAlert`](web/src/components/AppAlert.vue) 的紧凑�
 
 [`AppDataTable`](web/src/components/AppDataTable.vue) 使用原生 table、列标题和辅助技术可读的表名；列定义提供标识、标签、宽度和对齐，业务单元格保留自己的内容与操作。表格使用紧凑正文、中性表头和行分隔，长内容可换行，宽表只在内部区域横向滚动；首次加载展示骨架，空数据提供对应空态。
 
-[`AppDetails`](web/src/components/AppDetails.vue) 与 [`AppDetailItem`](web/src/components/AppDetailItem.vue) 使用定义列表呈现安装检查、来源和属性等键值信息。标签列使用中性淡面，值列允许路径、摘要和长标识换行，各项通过分隔线组织。
+[`AppDetails`](web/src/components/AppDetails.vue) 与 [`AppDetailItem`](web/src/components/AppDetailItem.vue) 使用定义列表呈现安装检查、来源和属性等键值信息。各行直接排在所属盒子上，不另加外框；标签列使用次要文字色，值列允许路径、摘要和长标识换行，各项通过分隔线组织。
 
 名单表格保留最小宽度并在自己的区域横向滚动；行内新增保留类型、目标、说明与操作。字段错误通过 `aria-invalid`、关联说明和可读错误文字一起表达。复制入口预留图标空间，以透明度反馈状态，避免复制前后改变列宽。
 

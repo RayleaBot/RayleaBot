@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { CopyIcon, SearchIcon } from '@lucide/vue'
 import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppHelp from '@/components/AppHelp.vue'
 import AppTag from '@/components/AppTag.vue'
@@ -8,6 +9,7 @@ import AppInput from '@/components/AppInput.vue'
 import AppDataTable from '@/components/AppDataTable.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppCard from '@/components/AppCard.vue'
+import AppEmptyState from '@/components/AppEmptyState.vue'
 import GovernanceScopeEditor from '@/components/governance/GovernanceScopeEditor.vue'
 import { governanceEntryKey, governanceScopeLabel } from '@/lib/governance-scope'
 import { formatDateTime } from '@/lib/format'
@@ -60,11 +62,7 @@ function copyTargetId(targetId: string) {
 </script>
 
 <template>
-  <AppCard
-    borderless
-    class="access-lists-card"
-    :loading="loading && !data"
-  >
+  <AppCard :loading="loading && !data">
     <div :data-testid="`access-lists-${kind}-card`" class="access-lists-card-content">
       <div class="access-lists-card-header">
         <div class="access-lists-card-header__copy">
@@ -87,21 +85,18 @@ function copyTargetId(targetId: string) {
             <AppSelect
               v-model="editor.scopeFilter"
               :options="scopeFilterOptions"
-              class="access-lists-toolbar__filter"
+              wrapper-class="access-lists-toolbar__filter"
               :aria-label="t('accessLists.filters.all')"
             />
             <AppInput
               v-model="editor.searchQuery" :maxlength="200"
               :placeholder="t('accessLists.entryForm.searchPlaceholder')"
-              class="access-lists-toolbar__search"
+              wrapper-class="access-lists-toolbar__search"
               allow-clear
               :data-testid="`${kind}-search-input`"
             >
               <template #prefix>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-svg">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
+                <SearchIcon :size="16" class="access-lists-toolbar__search-icon" aria-hidden="true" />
               </template>
             </AppInput>
           </div>
@@ -123,17 +118,7 @@ function copyTargetId(targetId: string) {
         :loading="loading && !data"
       >
         <template #empty>
-          <div class="access-lists-empty-container">
-            <div class="empty-graphic">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-            </div>
-            <p class="empty-title">{{ t(`accessLists.empty.${kind}Title`) }}</p>
-            <p class="empty-desc">{{ t(`accessLists.empty.${kind}Description`) }}</p>
-          </div>
+          <AppEmptyState icon="box" :title="t(`accessLists.empty.${kind}Title`)" :description="t(`accessLists.empty.${kind}Description`)" />
         </template>
 
         <template #cell="{ column, row: record }">
@@ -235,12 +220,7 @@ function copyTargetId(targetId: string) {
               >
                 <span class="chip-dot" :class="kind === 'whitelist' ? 'font-dot-success' : 'font-dot-danger'"></span>
                 <span class="chip-text">{{ record.target_id }}</span>
-                <span class="copy-icon-hover">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                </span>
+                <CopyIcon class="copy-icon-hover" :size="12" aria-hidden="true" />
               </button>
             </template>
 
@@ -264,17 +244,6 @@ function copyTargetId(targetId: string) {
 </template>
 
 <style scoped lang="scss">
-
-.access-lists-card {
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  transition: border-color 150ms ease;
-}
-
-:deep(.access-lists-card) {
-  box-shadow: none;
-}
 
 .access-lists-card-content {
   display: grid;
@@ -300,10 +269,10 @@ function copyTargetId(targetId: string) {
 }
 
 .access-lists-card-header__copy strong {
-  font-size: 1.15rem;
+  font-size: 18px;
   font-weight: 700;
-  line-height: 1.2;
-  color: var(--fg);
+  line-height: 1.3;
+  color: var(--text);
 }
 
 .access-lists-card-header__meta {
@@ -315,11 +284,11 @@ function copyTargetId(targetId: string) {
 }
 
 .access-lists-card-header__count {
-  font-size: 1.65rem;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--fg);
-  letter-spacing: -0.02em;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .access-lists-toolbar {
@@ -338,17 +307,21 @@ function copyTargetId(targetId: string) {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex: 1;
-  max-width: 400px;
+  min-width: 0;
 }
 
-.access-lists-toolbar__filter {
-  width: 110px;
-  flex-shrink: 0;
+.toolbar-left-group :deep(.access-lists-toolbar__filter) {
+  flex: none;
+  width: 140px;
 }
 
-.access-lists-toolbar__search {
-  flex: 1;
+.toolbar-left-group :deep(.access-lists-toolbar__search) {
+  flex: none;
+  width: 280px;
+}
+
+.access-lists-toolbar__search-icon {
+  color: var(--muted);
 }
 
 .access-lists-toolbar__actions {
@@ -359,41 +332,25 @@ function copyTargetId(targetId: string) {
 }
 
 .access-lists-toolbar__count {
-  font-size: 0.82rem;
+  font-size: 13px;
   color: var(--muted);
 }
 
-.access-lists-data-table {
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.access-lists-data-table :deep(thead > tr > th) {
-  background: color-mix(in srgb, var(--surface-accent) 25%, var(--surface));
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--fg);
-  border-bottom: 1px solid var(--border);
-}
-
-.access-lists-data-table :deep(tbody tr:hover > td) {
-  background: var(--surface-accent) !important;
-}
-
+// The copyable ID reads as text; hovering reveals the copy icon on a quiet fill.
 .target-id-chip {
   appearance: none;
-  border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border));
-  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
-  padding: 4px 10px;
-  border-radius: 20px;
+  border: 0;
+  background: transparent;
+  padding: 4px 8px;
+  margin-inline-start: -8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--fg);
-  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
-  font-size: 0.85rem;
+  color: var(--text);
+  transition: background-color var(--motion-fast) var(--motion-easing);
+  font-size: 13px;
   font-weight: 600;
   max-width: 100%;
   overflow: hidden;
@@ -421,18 +378,15 @@ function copyTargetId(targetId: string) {
   }
 
   .copy-icon-hover {
+    flex: none;
     color: var(--muted);
     opacity: 0;
-    width: 12px;
-    margin-left: 2px;
     transition: opacity var(--motion-fast) var(--motion-easing);
-    display: inline-flex;
-    align-items: center;
   }
 
-  &:hover {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  &:hover,
+  &:focus-visible {
+    background: var(--nav-hover);
 
     .copy-icon-hover {
       opacity: 1;
@@ -446,18 +400,8 @@ function copyTargetId(targetId: string) {
 }
 
 .cell-reason {
-  font-size: 0.88rem;
-  color: var(--fg-light, var(--fg));
-}
-
-.remove-btn {
-  font-size: 0.85rem;
-  font-weight: 500;
-  padding: 0 4px;
-
-  &:hover {
-    color: var(--danger) !important;
-  }
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .inline-edit-cell {
@@ -490,44 +434,6 @@ function copyTargetId(targetId: string) {
 
 .text-muted-inline {
   color: var(--muted);
-}
-
-.text-muted-svg {
-  color: var(--muted);
-  opacity: 0.7;
-}
-
-.access-lists-empty-container {
-  padding: 44px 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  background: color-mix(in srgb, var(--surface-accent) 15%, transparent);
-  border-radius: var(--radius-lg);
-  border: 1px dashed var(--border);
-  margin: 12px 0;
-
-  .empty-graphic {
-    color: var(--muted);
-    opacity: 0.45;
-    margin-bottom: 12px;
-  }
-
-  .empty-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--fg);
-    margin: 0 0 4px;
-  }
-
-  .empty-desc {
-    font-size: 0.82rem;
-    color: var(--muted);
-    margin: 0;
-    max-width: 280px;
-  }
 }
 
 .mono-text {

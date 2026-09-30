@@ -337,17 +337,6 @@ onMounted(() => {
 </template>
 
 <style scoped lang="scss">
-.commands-filter-toolbar,
-.commands-section-card,
-.commands-data-table {
-  border-radius: var(--radius-md);
-}
-
-.commands-filter-toolbar,
-.commands-section-card {
-  box-shadow: none;
-}
-
 .commands-filter-toolbar {
   display: flex;
   align-items: flex-end;

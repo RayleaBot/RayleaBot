@@ -23,7 +23,7 @@ defineEmits<{ close: [] }>()
         </div>
       </div>
 
-      <AppCard borderless class="drawer-card">
+      <AppCard variant="flat" class="drawer-card">
         <AppDetails>
           <AppDetailItem :label="t('plugins.fields.role')">{{ getPluginRoleLabel(plugin.role) }}</AppDetailItem>
           <AppDetailItem :label="t('plugins.fields.trust')">{{ getPluginTrustLabel(plugin.trust?.level) }}</AppDetailItem>
@@ -43,8 +43,9 @@ defineEmits<{ close: [] }>()
         </AppDetails>
       </AppCard>
 
-      <AppCard :title="t('plugins.sections.commands')" borderless class="drawer-card">
+      <AppCard :title="t('plugins.sections.commands')" variant="flat" class="drawer-card">
         <PluginCommandsPanel
+          stacked
           :commands="plugin.commands"
           :command-conflicts="plugin.command_conflicts"
         />
@@ -54,8 +55,17 @@ defineEmits<{ close: [] }>()
 </template>
 
 <style lang="scss" scoped>
+// The drawer is already a box, so its sections sit flat on it and only dividers separate them.
 .drawer-card {
   margin-top: 12px;
+}
+
+.drawer-card :deep(.app-card__head) {
+  padding: 12px 0;
+}
+
+.drawer-card :deep(.app-card__body) {
+  padding: 12px 0 0;
 }
 
 .drawer-section {

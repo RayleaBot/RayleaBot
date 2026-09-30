@@ -93,6 +93,7 @@ function returnToPluginList() {
         <AppTooltip :title="t('plugins.actions.backToList')">
           <AppButton
             variant="ghost"
+            size="icon"
             class="plugin-detail-back-button"
             :aria-label="t('plugins.actions.backToList')"
             data-testid="plugin-detail-back-button"
@@ -106,7 +107,7 @@ function returnToPluginList() {
           v-if="panelOptions.length > 1"
           :model-value="activePanelKey"
           :options="panelOptions"
-          class="plugin-header-segmented plugin-detail-panel-switch"
+          class="plugin-detail-panel-switch"
           :class="{ 'plugin-detail-panel-switch--sidebar-owned': !siderCollapsed }"
           @update:model-value="setActivePanelKey(String($event))"
         />
@@ -224,13 +225,6 @@ function returnToPluginList() {
 </template>
 
 <style scoped lang="scss">
-:deep(.app-card) {
-  box-shadow: var(--shadow-xs);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
 /* Tab Panel Styling */
 .plugin-detail-tab-card {
   :deep(.app-card__body) {
@@ -294,8 +288,6 @@ function returnToPluginList() {
 .tab-badge {
   font-family: var(--font-mono);
   font-size: 12px;
-  padding-inline: 6px;
-  border-radius: 4px;
 }
 
 .tab-pane-content {
@@ -325,53 +317,11 @@ function returnToPluginList() {
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-
-  h1 {
-    margin: 0 !important;
-    font-size: clamp(1.12rem, 1.38vw, 1.32rem) !important;
-    line-height: 1.25 !important;
-    letter-spacing: -0.02em !important;
-    font-weight: 700 !important;
-  }
 }
 
 .plugin-detail-back-button {
-  display: inline-flex;
   flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  min-width: 32px;
-  height: 32px;
-  padding: 0;
-  border-radius: var(--radius-sm);
   color: var(--muted);
-
-  &:hover,
-  &:focus-visible {
-    background: var(--surface-soft);
-    color: var(--text);
-  }
-}
-
-.plugin-header-segmented {
-  font-size: 0.82rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  padding: 2px;
-
-  :deep(.app-segmented__item) {
-    border-radius: 4px;
-    font-weight: 550;
-    transition: border-color 120ms ease-out, background-color 120ms ease-out, color 120ms ease-out;
-  }
-
-  :deep(.app-segmented__item[data-state=checked]) {
-    background: var(--surface);
-    color: var(--text-accent);
-    box-shadow: none;
-  }
 }
 
 /* Workspace Structure */

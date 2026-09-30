@@ -158,12 +158,6 @@ const recentRanges = [
   overflow: hidden;
 }
 
-.logs-toolbar {
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  box-shadow: none;
-}
-
 .logs-toolbar :deep(.app-card__body) {
   padding: 12px 14px;
 }
@@ -174,10 +168,6 @@ const recentRanges = [
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-}
-
-.logs-feed-card {
-  box-shadow: none;
 }
 
 .logs-feed-card :deep(.data-viewport) {
