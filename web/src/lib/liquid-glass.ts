@@ -27,6 +27,9 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 const REFRACTIVE_INDEX = 1.5
 const PROFILE_STEPS = 512
 const FILTER_RELEASE_MS = 4000
+// A lens whose size keeps changing (window drags, collapsing panes) drops its filter and waits for the
+// size to settle, instead of rendering a full displacement map for every intermediate size.
+const RESIZE_SETTLE_MS = 150
 // Green and blue bend slightly less than red; the offset only shows along the rim.
 const CHANNEL_SPREAD = [1, 0.94, 0.88] as const
 
@@ -292,8 +295,19 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
     })
   }
 
+  const settleTimers = new Map<HTMLElement, ReturnType<typeof setTimeout>>()
+  const scheduleRefresh = (element: HTMLElement) => {
+    const state = lenses.get(element)
+    if (state?.key) clearLens(element, state)
+    clearTimeout(settleTimers.get(element))
+    settleTimers.set(element, setTimeout(() => {
+      settleTimers.delete(element)
+      refresh(element)
+    }, RESIZE_SETTLE_MS))
+  }
+
   const resizeObserver = new ResizeObserver((entries) => {
-    for (const entry of entries) refresh(entry.target as HTMLElement)
+    for (const entry of entries) scheduleRefresh(entry.target as HTMLElement)
   })
 
   const attach = (element: HTMLElement) => {
@@ -306,6 +320,8 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
     const state = lenses.get(element)
     if (!state) return
     clearLens(element, state)
+    clearTimeout(settleTimers.get(element))
+    settleTimers.delete(element)
     lenses.delete(element)
     resizeObserver.unobserve(element)
   }
@@ -346,6 +362,8 @@ export function startGlassSurfaces(root: HTMLElement): () => void {
   return () => {
     mutationObserver.disconnect()
     resizeObserver.disconnect()
+    settleTimers.forEach(timer => clearTimeout(timer))
+    settleTimers.clear()
     preferenceQueries.forEach((query) => query.removeEventListener('change', onPreferenceChange))
     for (const [element, state] of lenses) clearLens(element, state)
     lenses.clear()
