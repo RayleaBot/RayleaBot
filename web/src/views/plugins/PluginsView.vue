@@ -223,6 +223,8 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
     border-radius: 6px;
   }
   .search-icon {
+    width: 16px;
+    height: 16px;
     color: var(--muted);
   }
 }
@@ -266,6 +268,11 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
 
 .plugins-card :deep(.app-card__body) {
   padding: 0;
+}
+
+// The card body has no padding of its own, so the loaded count lines up with the toolbar instead.
+.plugins-card :deep(.collection-pagination) {
+  padding-inline: var(--space-lg);
 }
 
 .plugins-grid-container {

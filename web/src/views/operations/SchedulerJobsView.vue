@@ -176,24 +176,25 @@ const {
   .sort-wrapper {
     display: flex;
     align-items: center;
-    gap: var(--space-xs);
-    background: color-mix(in srgb, var(--text) 3%, transparent);
-    padding-inline: 10px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border);
-    height: 36px;
+    gap: var(--space-sm);
 
     .sort-label {
-      font-size: 12px;
+      font-size: 13px;
       color: var(--muted);
       white-space: nowrap;
     }
 
+    // The select sizes to its longest option; a fixed width wrapped "按任务字母排序" onto two lines.
     .sort-select {
-      width: 140px;
+      width: auto;
+      min-width: 150px;
       font-size: 13px;
       font-weight: 500;
       color: var(--text);
+    }
+
+    .sort-select :deep(.app-select__value) {
+      white-space: nowrap;
     }
   }
 }

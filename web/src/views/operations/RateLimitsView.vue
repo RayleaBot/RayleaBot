@@ -237,13 +237,14 @@ function getSectionIcon(key: string) {
 
 .rate-limits-summary-cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border-block: 1px solid var(--border);
 }
 
+// Top-aligned so a description that wraps does not shift its label and value out of line.
 .rate-limits-summary-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   min-width: 0;
   padding: 14px 12px;
@@ -254,6 +255,8 @@ function getSectionIcon(key: string) {
 }
 
 .rate-limits-summary-item__icon {
+  flex-shrink: 0;
+  margin-top: 1px;
   color: var(--accent);
   font-size: 18px;
 }
@@ -444,6 +447,15 @@ function getSectionIcon(key: string) {
   opacity: 1;
   color: var(--accent);
   border-color: var(--accent);
+}
+
+// Touch targets grow to 44px without the outline that frames the compact desktop mark.
+@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
+  .field-info-icon {
+    min-width: 44px;
+    min-height: 44px;
+    border-color: transparent;
+  }
 }
 
 .field-info-icon:focus-visible {

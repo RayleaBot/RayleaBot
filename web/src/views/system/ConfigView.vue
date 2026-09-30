@@ -3,7 +3,7 @@ import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } fr
 import { matchedRouteKey, onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { CollapsibleContent, CollapsibleRoot, CollapsibleTrigger, TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
-import { ChevronRightIcon, CircleAlertIcon, CpuIcon, DatabaseIcon, ImageIcon, RotateCcwIcon, SaveIcon, ScrollTextIcon, SearchIcon, ShieldCheckIcon, UsersRoundIcon } from '@lucide/vue'
+import { CalendarClockIcon, ChevronRightIcon, CircleAlertIcon, CpuIcon, DatabaseIcon, ImageIcon, RotateCcwIcon, SaveIcon, ScrollTextIcon, SearchIcon, ShieldCheckIcon } from '@lucide/vue'
 import AppPage from '@/components/page/AppPage.vue'
 import AppAlert from '@/components/AppAlert.vue'
 import AppButton from '@/components/AppButton.vue'
@@ -27,7 +27,7 @@ import { changedConfigPaths, getConfigWorkbenchGroups, getWorkbenchSections, mat
 const configStore = useConfigStore()
 const { document: configDocument, error, loading, restartRequired, saving } = storeToRefs(configStore)
 const groups = getConfigWorkbenchGroups()
-const categoryIcons = { access: ShieldCheckIcon, render: ImageIcon, accounts: UsersRoundIcon, runtime: CpuIcon, data: DatabaseIcon, logs: ScrollTextIcon }
+const categoryIcons = { access: ShieldCheckIcon, render: ImageIcon, scheduler: CalendarClockIcon, runtime: CpuIcon, data: DatabaseIcon, logs: ScrollTextIcon }
 const fields = groups.flatMap(group => group.sections.flatMap(section => section.fields))
 const initialSection = typeof window === 'undefined' ? '' : window.location.hash.replace('#config-section-', '')
 const initialGroup = groups.find(group => group.sections.some(section => section.key === initialSection))

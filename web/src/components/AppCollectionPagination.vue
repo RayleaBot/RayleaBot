@@ -14,5 +14,5 @@ defineEmits<{ more: [] }>()
 </template>
 
 <style scoped>
-.collection-pagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 0.75rem; color: var(--muted-foreground); font-size: 0.875rem; }
+.collection-pagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 0.75rem; color: var(--muted); font-size: 0.875rem; }
 </style>

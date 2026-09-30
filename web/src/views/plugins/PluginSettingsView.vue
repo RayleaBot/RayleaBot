@@ -439,6 +439,15 @@ function getSectionIcon(key: string) {
   border-color: var(--accent);
 }
 
+// Touch targets grow to 44px without the outline that frames the compact desktop mark.
+@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
+  .field-info-icon {
+    min-width: 44px;
+    min-height: 44px;
+    border-color: transparent;
+  }
+}
+
 .field-info-icon:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: var(--focus-outline-offset);
