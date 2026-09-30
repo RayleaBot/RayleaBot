@@ -189,7 +189,7 @@ p {
 code,
 .mono,
 .log-surface {
-  font-family: "Cascadia Mono", Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 

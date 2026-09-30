@@ -1257,7 +1257,7 @@
   color: var(--color-text);
   border-radius: 14px;
   background: var(--color-surface-soft);
-  font-family: "Cascadia Mono", Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   line-height: 1.55;
@@ -1313,7 +1313,7 @@
 
 .settings-input--path {
   min-width: 0;
-  font-family: "Cascadia Mono", Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 

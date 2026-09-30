@@ -364,6 +364,7 @@ ${faces.join('\n\n')}
 :root {
   --font-display: ${css('base.font.family.display')};
   --font-sans: ${css('base.font.family.sans')};
+  --font-mono: ${css('base.font.family.mono')};
 }
 `
 }

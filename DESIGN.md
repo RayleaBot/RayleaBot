@@ -84,7 +84,7 @@ typography:
     fontFamily: "'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'PingFang SC', 'Hiragino Sans GB', system-ui, sans-serif"
     fontSize: "13px"
   mono:
-    fontFamily: "'Cascadia Mono', Consolas, 'JetBrains Mono', 'Courier New', monospace"
+    fontFamily: "'Cascadia Mono', Consolas, 'JetBrains Mono', 'Courier New', 'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'PingFang SC', monospace"
     fontSize: "13px"
 rounded:
   xs: "6px"

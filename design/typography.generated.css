@@ -26,4 +26,5 @@
 :root {
   --font-display: 'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'PingFang SC', sans-serif;
   --font-sans: 'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'PingFang SC', 'Hiragino Sans GB', system-ui, sans-serif;
+  --font-mono: 'Cascadia Mono', Consolas, 'JetBrains Mono', 'Courier New', 'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'PingFang SC', monospace;
 }
