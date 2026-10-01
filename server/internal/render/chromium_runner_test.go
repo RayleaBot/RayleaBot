@@ -3,6 +3,9 @@ package render
 import (
 	"context"
 	"errors"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,7 +23,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
 )
 
-func newTestChromiumRunner(t *testing.T) *chromiumRunner {
+func newTestChromiumRunner(t *testing.T, browserArgs ...string) *chromiumRunner {
 	t.Helper()
 	repoRoot := filepath.Join("..", "..", "..")
 	browserPath, err := deps.NewManager(repoRoot).ResolvePreparedEntrypoint("chromium", "browser")
@@ -30,7 +33,7 @@ func newTestChromiumRunner(t *testing.T) *chromiumRunner {
 
 	logTestBrowserVersion(t, browserPath)
 	output := &testBrowserOutput{}
-	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath, CombinedOutput: output})
+	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath, BrowserArgs: browserArgs, CombinedOutput: output})
 	t.Cleanup(func() {
 		if err := runner.Close(); err != nil {
 			t.Errorf("close test Chromium runner: %v", err)
@@ -40,6 +43,22 @@ func newTestChromiumRunner(t *testing.T) *chromiumRunner {
 		}
 	})
 	return runner
+}
+
+// newTestAssetServer serves handler to pages in the test browser and returns the
+// browser argument that allows its port. Browsers block the Fetch standard's bad
+// ports, which systems such as Windows with a low dynamic port range can assign
+// as ephemeral ports; page requests would then fail inside the browser instead of
+// reaching handler.
+func newTestAssetServer(t *testing.T, handler http.Handler) (*httptest.Server, string) {
+	t.Helper()
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+	_, port, err := net.SplitHostPort(server.Listener.Addr().String())
+	if err != nil {
+		t.Fatalf("parse test asset server address: %v", err)
+	}
+	return server, "--explicitly-allowed-ports=" + port
 }
 
 func logTestBrowserVersion(t *testing.T, browserPath string) {

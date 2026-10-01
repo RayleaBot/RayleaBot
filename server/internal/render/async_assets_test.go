@@ -10,7 +10,6 @@ import (
 	"image/color"
 	"image/png"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sync"
@@ -152,13 +151,10 @@ document.fonts.addEventListener("loadingdone", mark);
 
 func assertDelayedResourcePaint(t *testing.T, contentType string, payload []byte, want color.RGBA, document func(string) Document) {
 	t.Helper()
-	runner := newTestChromiumRunner(t)
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-	defer cancel()
 	requested, release := make(chan struct{}), make(chan struct{})
 	var requestOnce, releaseOnce sync.Once
 	releaseResponse := func() { releaseOnce.Do(func() { close(release) }) }
-	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	endpoint, browserArg := newTestAssetServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Content-Type", contentType)
 		requestOnce.Do(func() { close(requested) })
@@ -168,7 +164,9 @@ func assertDelayedResourcePaint(t *testing.T, contentType string, payload []byte
 		case <-r.Context().Done():
 		}
 	}))
-	t.Cleanup(endpoint.Close)
+	runner := newTestChromiumRunner(t, browserArg)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
 	t.Cleanup(releaseResponse)
 	type result struct {
 		image []byte

@@ -10,7 +10,6 @@ import (
 	"image/color"
 	"image/png"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sync"
@@ -19,9 +18,6 @@ import (
 )
 
 func TestChromiumRunnerConcurrentTabsWaitIndependentlyForAssets(t *testing.T) {
-	runner := newTestChromiumRunner(t)
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-	defer cancel()
 	font, err := os.ReadFile(filepath.Join("..", "..", "..", "templates", "help.menu", "assets", "fonts", "noto-sans-sc", "k3kXo84MPvpLmixcA63oeALRLoKI.woff2"))
 	if err != nil {
 		t.Fatal(err)
@@ -70,8 +66,10 @@ func TestChromiumRunnerConcurrentTabsWaitIndependentlyForAssets(t *testing.T) {
 			})
 		}
 	}
-	endpoint := httptest.NewServer(mux)
-	t.Cleanup(endpoint.Close)
+	endpoint, browserArg := newTestAssetServer(t, mux)
+	runner := newTestChromiumRunner(t, browserArg)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
 	for _, g := range gates {
 		t.Cleanup(func() { g.once.Do(func() { close(g.release) }) })
 	}
