@@ -222,6 +222,7 @@ export const plugins = {
         invalid_manifest: { label: '清单无效', description: '插件清单未通过校验，插件不会启动。' },
         plugin_id_conflict: { label: '插件 ID 冲突', description: '多个插件包声明了同一个插件 ID，插件不会启动。' },
         initialization_failed: { label: '初始化失败', description: '插件未能完成初始化，修正问题后重载。' },
+        shutdown_failed: { label: '未能正常停止', description: '插件没有在停止宽限时间内退出，已被强制结束。' },
         crashed: { label: '插件进程崩溃', description: '插件进程异常退出，平台会自动重试。' },
         retrying: { label: '等待自动重试', description: '插件进程异常退出，正在等待自动重试。' },
         recovery_required: { label: '需要人工恢复', description: '连续崩溃后已停止自动重试，重载后重新开始计数。' },
@@ -334,6 +335,7 @@ export const plugins = {
     confirmTitle: '未验证来源需要手动确认',
     confirmBody: '这个插件页面来自未验证来源。确认后可继续打开当前插件版本对应的内置管理页。',
     confirmAction: '确认并打开',
+    notRunning: '插件当前{state}，页面里需要插件运行的操作暂不可用。',
   },
   health: {
     commandConflicts: '{count} 个指令冲突',

@@ -3,6 +3,7 @@ import AppLoadingPanel from '@/components/AppLoadingPanel.vue'
 import AppDetails from '@/components/AppDetails.vue'
 import AppDetailItem from '@/components/AppDetailItem.vue'
 import AppButton from '@/components/AppButton.vue'
+import AppAlert from '@/components/AppAlert.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -39,6 +40,16 @@ const frameSrc = computed(() => {
 })
 const canRenderIframe = computed(() => Boolean(frameSrc.value) && iframeKey.value > 0 && (!requiresConfirmation.value || confirmed.value))
 const busyLabel = computed(() => waitingForLoad.value ? t('plugins.managementUi.loading') : '')
+// The page itself still opens while the plugin is not running, but its actions are refused until it runs again, so
+// the page says so before an action fails inside the frame.
+const notRunningNotice = computed(() => {
+  const state = props.plugin.state
+  if (state === 'running') return null
+  return {
+    title: t('plugins.managementUi.notRunning', { state: t(`display.pluginStates.${state}`) }),
+    tone: state === 'failed' || state === 'invalid' ? 'warning' as const : 'info' as const,
+  }
+})
 
 function clearLoadTimer() {
   if (loadTimer) {
@@ -147,6 +158,13 @@ onBeforeUnmount(clearLoadTimer)
     <RetryPanel v-else-if="fatalError" :title="t('plugins.managementUi.loadFailed')" :description="fatalError" :loading="false" @retry="restartFrame" />
 
     <div v-else class="plugin-management-ui-frame-shell">
+      <AppAlert
+        v-if="notRunningNotice"
+        class="plugin-management-ui-state"
+        :tone="notRunningNotice.tone"
+        :title="notRunningNotice.title"
+        data-testid="plugin-management-ui-not-running"
+      />
       <AppLoadingPanel :busy="waitingForLoad" :label="busyLabel">
         <iframe
           v-if="canRenderIframe"
@@ -174,4 +192,5 @@ onBeforeUnmount(clearLoadTimer)
 .plugin-management-ui-frame-shell :deep(.app-loading-panel),
 .plugin-management-ui-frame-shell :deep(.app-loading-panel__content) { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; width: 100%; }
 .plugin-management-ui-frame { display: block; flex: 1 1 0; width: 100%; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-strong); }
+.plugin-management-ui-state { flex: none; padding-top: 0; }
 </style>

@@ -41,6 +41,15 @@ describe('scheduler job display', () => {
     expect(errorLabel('timeout')).toBe('执行超时')
   })
 
+  // Older records may hold a run cancelled by a stop as the last error; a cancelled run did not fail.
+  it('does not read a cancelled last run as a failure', () => {
+    const job = {
+      last_run: '2026-09-23T08:00:00Z',
+      last_error: { code: 'plugin.event_canceled', message: 'canceled', at: '2026-09-23T08:00:00Z' },
+    } as SchedulerJobSummary
+    expect(isLatestRunFailed(job)).toBe(false)
+  })
+
   it('names the chat a job targets', () => {
     const job = (payload: Partial<SchedulerJobSummary['payload_summary']>) => ({
       payload_summary: { conversation_id: '', target_type: '', target_id: '', content: '', ...payload },

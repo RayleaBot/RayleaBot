@@ -17,9 +17,13 @@ export function taskLabel(job: SchedulerJobSummary) {
   return job.log_label?.trim() || job.task_name
 }
 
+// Runs cancelled by a stop are counted, not failed; records written before the server stopped keeping them as the
+// last error may still hold one.
+const cancellationCodes = new Set(['plugin.event_canceled'])
+
 // The server keeps the last error after later runs succeed, so it describes the latest run only when it is that run's.
 export function isLatestRunFailed(job: SchedulerJobSummary) {
-  if (!job.last_error) return false
+  if (!job.last_error || cancellationCodes.has(job.last_error.code)) return false
   const errorAt = timestampMilliseconds(job.last_error.at)
   const lastRunAt = timestampMilliseconds(job.last_run)
   if (errorAt === null || lastRunAt === null) return true

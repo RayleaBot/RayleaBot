@@ -27,7 +27,7 @@ describe('system store', () => {
 
     await store.requestShutdown()
 
-    expect(store.shutdownRequested).toBe(true)
+    expect(store.stopIntent).toBe('stop')
     expect(store.system?.status).toBe('shutting_down')
   })
 
@@ -97,16 +97,21 @@ describe('system store', () => {
     expect(store.recentEvents.map(event => event.summary)).toEqual(['服务运行中', '图片渲染 Chromium 未准备。'])
   })
 
-  // The Launcher stops the service without this page asking; the stream's stopping status is how the page learns it.
-  it('expects the disconnect once the service reports that it is stopping', () => {
+  // The Launcher stops, restarts or updates the service without this page asking; the stream's stopping status and
+  // its intent are how the page learns why the connection is about to go.
+  it('takes the reason for the coming disconnect from the stopping status', () => {
+    const status = (service_status: string, stop_intent?: string) => ({ service_status, stop_intent, summary: '' }) as never
+
     const store = useSystemStore()
-    const status = (service_status: string) => ({ service_status, summary: '' }) as never
-
     store.applyEvent('2026-04-08T10:00:00Z', status('running'))
-    expect(store.shutdownRequested).toBe(false)
+    expect(store.stopIntent).toBeNull()
+    store.applyEvent('2026-04-08T10:01:00Z', status('stopping', 'restart'))
+    expect(store.stopIntent).toBe('restart')
 
-    store.applyEvent('2026-04-08T10:01:00Z', status('stopping'))
-    expect(store.shutdownRequested).toBe(true)
+    // A server that predates stop_intent means a final stop.
+    store.stopIntent = null
+    store.applyEvent('2026-04-08T10:02:00Z', status('stopping'))
+    expect(store.stopIntent).toBe('stop')
   })
 
   it('does not overwrite newer status with an older completed request', async () => {

@@ -2,6 +2,8 @@ export const app = {
   brand: 'RayleaBot',
   connectionInterrupted: '无法连接 RayleaBot 服务，正在重试…',
   serviceStopped: '服务已停止，需要在启动器或服务所在设备上重新启动。',
+  serviceRestarting: '服务正在重启，恢复后自动重新连接…',
+  serviceUpdating: '服务正在安装更新，完成后自动重新连接…',
   loading: '正在加载管理界面',
   mainNavigation: '主导航',
   skipToMain: '跳到主内容',
@@ -74,6 +76,8 @@ export const shell = {
   shutdownConfirmAction: '停止服务',
   shutdownAccepted: '已请求停止服务',
   shutdownRequestedDescription: '服务正在停止，管理界面连接断开属于预期行为。',
+  restartRequestedDescription: '服务正在重启，管理界面会在服务恢复后自动重新连接。',
+  updateRequestedDescription: '服务正在安装更新，管理界面会在更新完成后自动重新连接。',
   toggleSidebar: '折叠侧栏',
   expandSidebar: '展开侧栏',
   preferences: {

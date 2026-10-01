@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch, watchEffect } from 'vue'
+import { computed, watch, watchEffect } from 'vue'
 
 import AppSpinner from '@/components/AppSpinner.vue'
 import AppToastHost from '@/components/AppToastHost.vue'
@@ -13,10 +13,19 @@ const uiShellStore = useUiShellStore()
 const availabilityStore = useAppAvailabilityStore()
 const systemStore = useSystemStore()
 
-// After a requested shutdown the lost connection is expected and nothing will bring it back by itself; once the
-// service answers again, a later interruption is an ordinary one.
+// The notice says why the connection is gone: an announced stop stays down until someone starts the service again,
+// a restart or an update comes back by itself, and anything else is a lost connection that keeps retrying. Once
+// the service answers again, a later interruption is an ordinary one.
 watch(() => availabilityStore.isConnectionInterrupted, (interrupted) => {
-  if (!interrupted) systemStore.shutdownRequested = false
+  if (!interrupted) systemStore.stopIntent = null
+})
+const connectionNotice = computed(() => {
+  switch (systemStore.stopIntent) {
+    case 'stop': return { state: 'stopped', text: t('app.serviceStopped') }
+    case 'restart': return { state: 'restarting', text: t('app.serviceRestarting') }
+    case 'update': return { state: 'updating', text: t('app.serviceUpdating') }
+    default: return { state: 'retrying', text: t('app.connectionInterrupted') }
+  }
 })
 
 watchEffect(() => {
@@ -48,13 +57,13 @@ watchEffect(() => {
       <div
         v-if="availabilityStore.isConnectionInterrupted"
         class="connection-notice"
-        :data-state="systemStore.shutdownRequested ? 'stopped' : 'retrying'"
+        :data-state="connectionNotice.state"
         role="status"
         aria-live="polite"
         data-testid="connection-reconnect-notice"
       >
         <span class="connection-notice__signal" aria-hidden="true" />
-        <span>{{ systemStore.shutdownRequested ? t('app.serviceStopped') : t('app.connectionInterrupted') }}</span>
+        <span>{{ connectionNotice.text }}</span>
       </div>
     </Transition>
 
@@ -106,6 +115,12 @@ watchEffect(() => {
   --notice-tone-soft: var(--surface-soft);
 }
 
+// A restart or an update is planned and comes back by itself, so it pulses in the calm info tone.
+.connection-notice:is([data-state='restarting'], [data-state='updating']) {
+  --notice-tone: var(--info);
+  --notice-tone-soft: var(--surface-info);
+}
+
 .connection-notice__signal {
   position: relative;
   z-index: 0;
@@ -126,8 +141,9 @@ watchEffect(() => {
   content: '';
 }
 
-// While the page retries, a soft disc keeps spreading out from behind the dot; a stopped service keeps the dot still.
-.connection-notice[data-state='retrying'] .connection-notice__signal::after {
+// While the service is expected back, a soft disc keeps spreading out from behind the dot; a stopped service keeps
+// the dot still.
+.connection-notice:not([data-state='stopped']) .connection-notice__signal::after {
   position: absolute;
   z-index: -1;
   inset: 0;
@@ -173,7 +189,7 @@ watchEffect(() => {
     transition: none;
   }
 
-  .connection-notice[data-state='retrying'] .connection-notice__signal::after {
+  .connection-notice:not([data-state='stopped']) .connection-notice__signal::after {
     animation: none;
     opacity: 0;
   }

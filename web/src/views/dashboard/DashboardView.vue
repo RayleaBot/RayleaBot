@@ -41,7 +41,7 @@ import { formatDurationSeconds, formatTime } from '@/lib/format'
 import { buildDashboardEventActions, buildProtocolsLocation } from '@/lib/management-links'
 import { useAdaptersStore } from '@/stores/adapters'
 import { useSocketStore } from '@/stores/sockets'
-import { useSystemStore } from '@/stores/system'
+import { useSystemStore, type ServiceStopIntent } from '@/stores/system'
 import {
   describeEventTone,
   describeOverallStatus,
@@ -72,7 +72,7 @@ const {
   system,
   visibleReasonCodes,
 } = useDashboardPage()
-const { diagnostics, readiness } = storeToRefs(useSystemStore())
+const { diagnostics, readiness, stopIntent } = storeToRefs(useSystemStore())
 const adaptersStore = useAdaptersStore()
 const { adapters, error: adaptersError, loaded: adaptersLoaded, loading: adaptersLoading } = storeToRefs(adaptersStore)
 const systemUnread = computed(() => Boolean(error.value && !system.value))
@@ -193,13 +193,18 @@ const updateGuidance = computed(() => {
   if (snapshot?.state === 'disabled') return t('dashboard.update.checkUnavailable')
   return ''
 })
-// The management streams feed this page; a broken stream is shown with its retry countdown.
+// The management streams feed this page; a broken stream is shown with its retry countdown, unless the service said
+// why it went away: then the row names that, and reconnecting by hand has nothing to reach.
+const stopIntentTones: Record<ServiceStopIntent, StatusRowTone> = { stop: 'muted', restart: 'info', update: 'info' }
 const managementStreams = computed(() => {
   const broken = (['events', 'logs'] as const)
     .map(channel => snapshots.value[channel])
     .filter(snapshot => snapshot.status !== 'authenticated')
   const first = broken[0]
   if (!first) return { label: t('dashboard.streamsHealthy'), reconnect: false, tone: 'success' as StatusRowTone }
+  if (stopIntent.value) {
+    return { label: t(`display.serviceStopIntents.${stopIntent.value}`), reconnect: false, tone: stopIntentTones[stopIntent.value] }
+  }
   const seconds = first.status === 'reconnecting' && first.nextBackoffMs !== undefined
     ? Math.max(1, Math.round(first.nextBackoffMs / 1000))
     : null

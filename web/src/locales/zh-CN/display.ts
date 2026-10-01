@@ -15,6 +15,12 @@ export const display = {
     logs: '日志流',
     pluginConsole: '插件输出流',
   },
+  // A stream that is down because the service announced why it went away names that instead of a connection state.
+  serviceStopIntents: {
+    stop: '服务已停止',
+    restart: '服务正在重启',
+    update: '服务正在安装更新',
+  },
   connectionStatuses: {
     disconnected: '未连接',
     connecting: '连接中',

@@ -16,6 +16,7 @@ import { escapeUnsafeDisplayText } from '@/lib/text-safety'
 import { correlatedRequestId } from '@/stores/log-state'
 import { type ConsoleFrame, usePluginConsoleStore } from '@/stores/plugin-console'
 import { useSocketStore } from '@/stores/sockets'
+import { useSystemStore } from '@/stores/system'
 import {
   getConsoleConnectionTone,
   getConsoleFrameKey,
@@ -37,8 +38,20 @@ const pluginConsoleStore = usePluginConsoleStore()
 const socketStore = useSocketStore()
 
 const frames = computed(() => pluginConsoleStore.getConsole(props.pluginId))
+const systemStore = useSystemStore()
 const snapshot = computed(() => socketStore.snapshots.pluginConsole)
-const connectionTone = computed(() => getConsoleConnectionTone(snapshot.value.status))
+// Once the service has said why it is going away, a dropped output stream names that, and reconnecting by hand has
+// nothing to reach until the service is back.
+const serviceStopIntent = computed(() => snapshot.value.status === 'authenticated' ? null : systemStore.stopIntent)
+const connectionLabel = computed(() => (
+  serviceStopIntent.value
+    ? t(`display.serviceStopIntents.${serviceStopIntent.value}`)
+    : t('plugins.console.streamStatus', { status: getConnectionStatusLabel(snapshot.value.status) })
+))
+const connectionTone = computed(() => {
+  if (serviceStopIntent.value) return serviceStopIntent.value === 'stop' ? 'neutral' : 'info'
+  return getConsoleConnectionTone(snapshot.value.status)
+})
 const emptyText = computed(() => {
   if (props.pluginState === 'disabled') return t('plugins.empty.consoleDisabled')
   if (props.pluginState === 'invalid') return t('plugins.empty.consoleInvalid')
@@ -129,7 +142,7 @@ onBeforeUnmount(() => {
   <div class="plugin-console-pane">
     <div class="plugin-console-header">
       <div class="plugin-console-title">
-        <AppBadge :tone="connectionTone">{{ t('plugins.console.streamStatus', { status: getConnectionStatusLabel(snapshot.status) }) }}</AppBadge>
+        <AppBadge :tone="connectionTone">{{ connectionLabel }}</AppBadge>
         <span class="plugin-console-count">{{ t('plugins.console.outputCount', { count: frames.length }) }}</span>
         <!-- Following is a mode of the list, not a health state, so it stays neutral like the paused state. -->
         <AppTag>{{ t(followBottom ? 'plugins.console.following' : 'plugins.console.paused') }}</AppTag>
@@ -140,6 +153,7 @@ onBeforeUnmount(() => {
             size="sm"
             class="plugin-console-icon-button"
             :aria-label="t('plugins.actions.reconnectConsole')"
+            :disabled="Boolean(serviceStopIntent)"
             @click="socketStore.reconnectConsole()"
           >
             <template #icon>

@@ -14,6 +14,9 @@ import type {
   SystemShutdownResponse,
   SystemStatusResponse,
 } from '@/types/api'
+import type { ServiceStatusEventPayload } from '@/types/websocket.generated'
+
+export type ServiceStopIntent = NonNullable<ServiceStatusEventPayload['stop_intent']>
 
 export const useSystemStore = defineStore('system', () => {
   const health = ref<LivenessStatusResponse | null>(null)
@@ -22,8 +25,9 @@ export const useSystemStore = defineStore('system', () => {
   const system = ref<SystemStatusResponse | null>(null)
   const loading = ref(false)
   const shutdownPending = ref(false)
-  // Set once a stop is expected: this page asked for it, or the service announced that it is stopping.
-  const shutdownRequested = ref(false)
+  // Why the service is about to go away, once that is known: this page asked it to stop, or the service announced
+  // that it is stopping, restarting or installing an update. Cleared when the connection comes back.
+  const stopIntent = ref<ServiceStopIntent | null>(null)
   const backupPending = ref(false)
   const diagnosticsPending = ref(false)
   const runtimeBootstrapPending = ref(false)
@@ -84,9 +88,10 @@ export const useSystemStore = defineStore('system', () => {
 
   function applyEvent(timestamp: string, payload: EventsPayload) {
     // Whoever stops the service, the Launcher included, it reports stopping before it closes the stream, so the
-    // disconnect that follows is expected rather than a lost connection.
-    if ('service_status' in payload && (payload.service_status === 'stopping' || payload.service_status === 'stopped')) {
-      shutdownRequested.value = true
+    // disconnect that follows is expected rather than a lost connection. A stop without a stated intent is final.
+    if ('service_status' in payload) {
+      if (payload.service_status === 'stopping') stopIntent.value = payload.stop_intent ?? 'stop'
+      else if (payload.service_status === 'stopped') stopIntent.value = 'stop'
     }
 
     const summary = formatDashboardEventSummary(payload)
@@ -115,7 +120,7 @@ export const useSystemStore = defineStore('system', () => {
       const response = await apiRequest<SystemShutdownResponse>('/api/system/shutdown', {
         method: 'POST',
       })
-      shutdownRequested.value = response.accepted
+      if (response.accepted) stopIntent.value = 'stop'
       if (response.accepted && system.value) {
         system.value = {
           ...system.value,
@@ -183,7 +188,7 @@ export const useSystemStore = defineStore('system', () => {
     readiness,
     recentEvents,
     shutdownPending,
-    shutdownRequested,
+    stopIntent,
     system,
     runtimeBootstrapPending,
     applyEvent,

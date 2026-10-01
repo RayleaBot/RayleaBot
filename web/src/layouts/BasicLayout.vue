@@ -39,22 +39,22 @@ const {
   searchOpen,
   siderCollapsed,
 } = storeToRefs(uiShellStore)
-const { shutdownPending, shutdownRequested } = storeToRefs(systemStore)
+const { shutdownPending, stopIntent } = storeToRefs(systemStore)
 
 const shutdownDialogVisible = ref(false)
 const accountDialogVisible = ref(false)
 // Dialogs opened from the account menu return focus to its trigger.
 const accountFallbackFocus = '[data-testid=sidebar-account]'
 
-useToastFeedback(() => (
-  shutdownRequested.value
-    ? {
-        key: 'shell-shutdown-requested',
-        level: 'warning' as const,
-        message: t('shell.shutdownRequestedDescription'),
-      }
-    : null
-))
+// A final stop is worth a warning; a restart or an update only explains the coming disconnect.
+useToastFeedback(() => {
+  switch (stopIntent.value) {
+    case 'stop': return { key: 'shell-stop-intent:stop', level: 'warning' as const, message: t('shell.shutdownRequestedDescription') }
+    case 'restart': return { key: 'shell-stop-intent:restart', level: 'info' as const, message: t('shell.restartRequestedDescription') }
+    case 'update': return { key: 'shell-stop-intent:update', level: 'info' as const, message: t('shell.updateRequestedDescription') }
+    default: return null
+  }
+})
 
 const pageMotionProfile = computed(() => preferences.value.pageTransition)
 function navigate(target: RouteLocationRaw) {
