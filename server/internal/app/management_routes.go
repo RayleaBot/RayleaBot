@@ -79,6 +79,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 	eventsWS, err := managementapi.NewEventsHandler(managementevents.Sources{
 		Bridge: eventState.Bridge, Plugins: pluginState.Plugins, Adapters: services.Protocol,
 		Status: deps.ServiceBuild.Status, Governance: services.GovernanceEvents,
+		MessageStats: services.MessageStatsEvents,
 	})
 	if err != nil {
 		return managementRouteState{}, err

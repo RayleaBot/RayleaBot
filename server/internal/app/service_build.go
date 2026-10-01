@@ -36,26 +36,28 @@ type runtimeStateView interface {
 }
 
 type serviceBuildDeps struct {
-	Runtime          runtimeStateView
-	Platform         PlatformState
-	Plugins          PluginStackState
-	Events           EventState
-	Renderer         *render.Service
-	ManagementRedact func(string) string
+	Runtime            runtimeStateView
+	Platform           PlatformState
+	Plugins            PluginStackState
+	Events             EventState
+	Renderer           *render.Service
+	ManagementRedact   func(string) string
+	MessageStatsEvents *managementevents.MessageStatsService
 }
 
 type Services struct {
-	LocalActions     *actions.Service
-	PluginSettings   *settings.Service
-	PluginLifecycle  *pluginservice.Controller
-	EventIngress     *chatpolicy.Ingress
-	Protocol         *adapterservice.Service
-	PluginWebhooks   *pluginwebhook.Service
-	Governance       *governance.Service
-	GovernanceEvents *managementevents.GovernanceService
-	Logs             *logging.ManagementService
-	System           *systemsvc.Service
-	Browser          *browser.Manager
+	LocalActions       *actions.Service
+	PluginSettings     *settings.Service
+	PluginLifecycle    *pluginservice.Controller
+	EventIngress       *chatpolicy.Ingress
+	Protocol           *adapterservice.Service
+	PluginWebhooks     *pluginwebhook.Service
+	Governance         *governance.Service
+	GovernanceEvents   *managementevents.GovernanceService
+	MessageStatsEvents *managementevents.MessageStatsService
+	Logs               *logging.ManagementService
+	System             *systemsvc.Service
+	Browser            *browser.Manager
 }
 
 type serviceBuildResult struct {
@@ -77,6 +79,9 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	platform := deps.Platform
 	if platform.MessageStats == nil {
 		return serviceBuildResult{}, errors.New("message statistics service is required")
+	}
+	if deps.MessageStatsEvents == nil {
+		return serviceBuildResult{}, errors.New("message statistics event service is required")
 	}
 	pluginStack := deps.Plugins
 	eventStack := deps.Events
@@ -182,17 +187,18 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	})
 	return serviceBuildResult{
 		Services: Services{
-			LocalActions:     pluginRuntime.LocalActions,
-			PluginSettings:   pluginRuntime.Settings,
-			PluginLifecycle:  pluginServices.PluginLifecycle,
-			EventIngress:     eventIngress,
-			Protocol:         protocolService,
-			PluginWebhooks:   pluginServices.PluginWebhooks,
-			Governance:       governanceService,
-			GovernanceEvents: governanceEvents,
-			Logs:             logService,
-			System:           systemService,
-			Browser:          browserManager,
+			LocalActions:       pluginRuntime.LocalActions,
+			PluginSettings:     pluginRuntime.Settings,
+			PluginLifecycle:    pluginServices.PluginLifecycle,
+			EventIngress:       eventIngress,
+			Protocol:           protocolService,
+			PluginWebhooks:     pluginServices.PluginWebhooks,
+			Governance:         governanceService,
+			GovernanceEvents:   governanceEvents,
+			MessageStatsEvents: deps.MessageStatsEvents,
+			Logs:               logService,
+			System:             systemService,
+			Browser:            browserManager,
 		},
 		Runtimes: runtimeRegistry,
 		Status:   serviceStatusService,

@@ -28,11 +28,12 @@ type ChangeSource interface {
 }
 
 type Sources struct {
-	Bridge     BridgeSource
-	Plugins    PluginSource
-	Adapters   AdapterSource
-	Status     StatusSource
-	Governance ChangeSource
+	Bridge       BridgeSource
+	Plugins      PluginSource
+	Adapters     AdapterSource
+	Status       StatusSource
+	Governance   ChangeSource
+	MessageStats ChangeSource
 }
 
 // Stream owns event subscriptions and cancels active transports on shutdown.
@@ -142,6 +143,12 @@ func (s *Stream) Run(ctx context.Context, write func(context.Context, any) error
 		governanceFrames, unsubscribe = sources.Governance.Subscribe(4)
 		defer unsubscribe()
 	}
+	var messageStatsFrames <-chan Frame
+	if sources.MessageStats != nil {
+		var unsubscribe func()
+		messageStatsFrames, unsubscribe = sources.MessageStats.Subscribe(1)
+		defer unsubscribe()
+	}
 	for _, frame := range []Frame{initialStatus, AdaptersSnapshotFrame(initialAdapters)} {
 		if err := writeFrame(ctx, frame); err != nil {
 			return err
@@ -180,6 +187,13 @@ func (s *Stream) Run(ctx context.Context, write func(context.Context, any) error
 				return err
 			}
 		case frame, ok := <-governanceFrames:
+			if !ok {
+				return nil
+			}
+			if err := write(ctx, frame); err != nil {
+				return err
+			}
+		case frame, ok := <-messageStatsFrames:
 			if !ok {
 				return nil
 			}

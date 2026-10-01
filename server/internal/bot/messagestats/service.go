@@ -23,6 +23,8 @@ type Options struct {
 	CurrentConfig func() config.Config
 	Timezone      string
 	Now           func() time.Time
+	// NotifyChanged must return promptly; it runs outside the service locks.
+	NotifyChanged func(Change)
 }
 
 type hourKey struct {
@@ -37,17 +39,21 @@ type offlineKey struct {
 type adapterState struct {
 	enabled, connected bool
 	since              time.Time
+	offlineNotified    bool
 }
 
 type Service struct {
-	loopCancel context.CancelFunc
-	loopDone   chan struct{}
+	loopCancel   context.CancelFunc
+	loopDone     chan struct{}
+	notifierDone chan struct{}
 	// ioMu serializes queries and flushes through commit or merge-back.
 	// Always take ioMu before mu; mu protects memory only, never database I/O.
 	ioMu              sync.Mutex
 	mu                sync.Mutex
 	store             *storage.Store
 	now               func() time.Time
+	notifyChanged     func(Change)
+	changed           map[string]struct{}
 	config            func() config.Config
 	location          *time.Location
 	tracking, stopped time.Time
@@ -72,7 +78,11 @@ func New(ctx context.Context, options Options) (*Service, error) {
 	if options.CurrentConfig == nil {
 		options.CurrentConfig = func() config.Config { return config.Config{} }
 	}
+	if options.NotifyChanged == nil {
+		options.NotifyChanged = func(Change) {}
+	}
 	s := &Service{store: options.Store, now: options.Now, config: options.CurrentConfig, location: location,
+		notifyChanged: options.NotifyChanged, changed: make(map[string]struct{}),
 		pending: make(map[hourKey]Counts), metadata: make(map[string]sqlcgen.UpsertMessageStatsAdapterParams),
 		states: make(map[string]adapterState), offline: make(map[offlineKey]sql.NullInt64)}
 	now := s.timeNow()
@@ -111,7 +121,14 @@ func New(ctx context.Context, options Options) (*Service, error) {
 	}
 	loopCtx, cancel := context.WithCancel(context.Background())
 	s.loopCancel, s.loopDone = cancel, make(chan struct{})
-	go func() { defer close(s.loopDone); s.run(loopCtx, logger) }()
+	s.notifierDone = make(chan struct{})
+	go func() {
+		defer close(s.loopDone)
+		var workers sync.WaitGroup
+		workers.Go(func() { s.run(loopCtx, logger) })
+		workers.Go(func() { defer close(s.notifierDone); s.runNotifier(loopCtx) })
+		workers.Wait()
+	}()
 	return s, nil
 }
 
@@ -152,6 +169,7 @@ func (s *Service) count(adapterID, protocol string, received bool) {
 		count.Sent++
 	}
 	s.pending[key], s.metadata[adapterID] = count, meta
+	s.markChanged(adapterID)
 }
 
 type Adapter struct {
@@ -178,10 +196,13 @@ func (s *Service) ObserveAdapters(adapters []Adapter) {
 		case !a.Enabled || a.Connected:
 			s.endOffline(a.ID, old, now)
 			next.since = time.Time{}
+			next.offlineNotified = false
 		case !exists || !old.enabled:
 			next.since = now.Add(time.Minute)
+			next.offlineNotified = false
 		case old.connected:
 			next.since = now
+			next.offlineNotified = false
 		}
 		s.states[a.ID] = next
 	}
@@ -204,6 +225,7 @@ func (s *Service) ReloadAdapter(id string) {
 	old := s.states[id]
 	s.endOffline(id, old, now)
 	old.connected = false
+	old.offlineNotified = false
 	if old.enabled {
 		old.since = now.Add(time.Minute)
 	} else {
@@ -217,6 +239,7 @@ func (s *Service) endOffline(id string, state adapterState, now time.Time) {
 		return
 	}
 	s.offline[offlineKey{s.runID, id, state.since.UnixMilli()}] = sql.NullInt64{Int64: now.UnixMilli(), Valid: true}
+	s.markChanged(id)
 }
 
 func (s *Service) openOffline(now time.Time) map[offlineKey]sql.NullInt64 {
@@ -260,6 +283,9 @@ func (s *Service) Stop(ctx context.Context) error {
 	// Keep heartbeats running through event/plugin drain; only final persistence
 	// ends this worker. Cancellation and the final transaction share its budget.
 	s.loopCancel()
+	// The notifier only takes mu and calls the nonblocking publisher. Join it
+	// even if the persistence budget has expired, so Stop cannot leave a notice in flight.
+	<-s.notifierDone
 	select {
 	case <-s.loopDone:
 	case <-ctx.Done():

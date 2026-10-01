@@ -9,17 +9,19 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/messagestats"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/pubsub"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 type streamSources struct {
-	bridge   pubsub.Hub[bridge.ObservabilityFrame]
-	plugins  pubsub.Hub[plugins.Snapshot]
-	adapters pubsub.Hub[adapters.AdaptersView]
-	status   streamStatusSource
-	changes  pubsub.Hub[Frame]
+	bridge       pubsub.Hub[bridge.ObservabilityFrame]
+	plugins      pubsub.Hub[plugins.Snapshot]
+	adapters     pubsub.Hub[adapters.AdaptersView]
+	status       streamStatusSource
+	changes      pubsub.Hub[Frame]
+	messageStats MessageStatsService
 }
 type streamStatusSource struct {
 	hub           pubsub.Hub[Frame]
@@ -49,7 +51,7 @@ func (source *streamStatusSource) SnapshotAndSubscribe(buffer int) (Frame, <-cha
 func newStreamFixture(t *testing.T) (*Stream, *streamSources) {
 	t.Helper()
 	source := &streamSources{}
-	stream, err := NewStream(Sources{Bridge: source, Plugins: source, Adapters: source, Status: &source.status, Governance: &source.changes})
+	stream, err := NewStream(Sources{Bridge: source, Plugins: source, Adapters: source, Status: &source.status, Governance: &source.changes, MessageStats: &source.messageStats})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,9 +61,30 @@ func newStreamFixture(t *testing.T) (*Stream, *streamSources) {
 
 func (source *streamSources) assertReleased(t *testing.T) {
 	t.Helper()
-	if source.bridge.SubscriberCount()+source.plugins.SubscriberCount()+source.adapters.SubscriberCount()+source.status.hub.SubscriberCount()+source.changes.SubscriberCount() != 0 {
+	if source.bridge.SubscriberCount()+source.plugins.SubscriberCount()+source.adapters.SubscriberCount()+source.status.hub.SubscriberCount()+source.changes.SubscriberCount()+source.messageStats.hub.SubscriberCount() != 0 {
 		t.Fatal("event stream retained source subscriptions")
 	}
+}
+
+func TestStreamForwardsMessageStatsAndReleasesSubscription(t *testing.T) {
+	stream, source := newStreamFixture(t)
+	failure := errors.New("fixture write ended")
+	var notice *MessageStatsChange
+	err := stream.Run(t.Context(), func(_ context.Context, value any) error {
+		frame := value.(Frame)
+		switch payload := frame.Data.(type) {
+		case AdaptersSnapshotPayload:
+			source.messageStats.PublishChanged(messagestats.Change{ChangedAt: time.Now(), AdapterIDs: []string{"fixture"}})
+		case MessageStatsPayload:
+			notice = &payload.MessageStats
+			return failure
+		}
+		return nil
+	}, func() {})
+	if !errors.Is(err, failure) || notice == nil || len(notice.AdapterIDs) != 1 || notice.AdapterIDs[0] != "fixture" {
+		t.Fatalf("message stats frame not forwarded: %+v, %v", notice, err)
+	}
+	source.assertReleased(t)
 }
 
 func waitStreamSignal(t *testing.T, signal <-chan struct{}) {

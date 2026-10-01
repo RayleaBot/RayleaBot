@@ -62,6 +62,15 @@ type GenericPayload struct {
 	Summary   string `json:"summary"`
 }
 
+type MessageStatsPayload struct {
+	MessageStats MessageStatsChange `json:"message_stats"`
+}
+
+type MessageStatsChange struct {
+	ChangedAt  string   `json:"changed_at"`
+	AdapterIDs []string `json:"adapter_ids"`
+}
+
 // AdaptersSnapshotPayload carries every configured instance and its protocol details.
 type AdaptersSnapshotPayload struct {
 	Adapters []adapters.AdapterDescriptor `json:"adapters"`

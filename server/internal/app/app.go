@@ -9,6 +9,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/messagestats"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
 	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
+	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
@@ -182,9 +183,11 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	}
 	buildState.core.SetConfig(resolvedConfig)
 	buildState.core.AddRedactionValues(configruntime.ConfigSecretValues(resolvedConfig)...)
+	messageStatsEvents := managementevents.NewMessageStatsService()
 	platformState.MessageStats, err = messagestats.New(ctx, messagestats.Options{
 		Logger: buildState.core.Logger,
 		Store:  platformState.Storage, CurrentConfig: buildState.core.CurrentConfig, Timezone: platformState.Scheduler.Timezone(),
+		NotifyChanged: messageStatsEvents.PublishChanged,
 	})
 	if err != nil {
 		return nil, cleanupPartialBuild(err)
@@ -228,12 +231,13 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 
 	state := buildState.core
 	serviceBuild, err = buildServices(serviceBuildDeps{
-		Runtime:          state,
-		Platform:         platformState,
-		Plugins:          pluginState,
-		Events:           eventState,
-		Renderer:         renderState.Renderer,
-		ManagementRedact: buildState.managementRedact,
+		Runtime:            state,
+		Platform:           platformState,
+		Plugins:            pluginState,
+		Events:             eventState,
+		Renderer:           renderState.Renderer,
+		ManagementRedact:   buildState.managementRedact,
+		MessageStatsEvents: messageStatsEvents,
 	})
 	if err != nil {
 		return nil, cleanupPartialBuild(err)
