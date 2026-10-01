@@ -258,11 +258,23 @@ function incompatibilityReason(plugin: PluginStoreEntry) {
   return ''
 }
 
+// Only a store release plainly newer than the installed one is an update; an unreadable version makes no claim.
+function isPlainlyNewer(candidate: string, current: string) {
+  const parse = (version: string) => /^v?(\d+)\.(\d+)\.(\d+)$/.exec(version.trim())?.slice(1).map(Number)
+  const next = parse(candidate)
+  const installed = parse(current)
+  if (!next || !installed) return false
+  for (let index = 0; index < 3; index += 1) {
+    if (next[index] !== installed[index]) return next[index]! > installed[index]!
+  }
+  return false
+}
+
 // An installed plugin whose newer store release cannot be installed shows no update button, so it says why.
 function blockedUpdateReason(plugin: PluginStoreEntry) {
   const release = plugin.latest_release
   if (plugin.install_state !== 'installed' || !release || !plugin.installed_version) return ''
-  if (formatPluginVersion(release.version) === formatPluginVersion(plugin.installed_version)) return ''
+  if (!isPlainlyNewer(release.version, plugin.installed_version)) return ''
   const reason = incompatibilityReason(plugin)
   return reason ? t('plugins.store.updateBlocked', { reason }) : ''
 }
