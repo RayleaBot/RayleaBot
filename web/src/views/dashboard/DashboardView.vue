@@ -183,7 +183,9 @@ const connectionsMeta = computed(() => {
 
 const versionText = computed(() => {
   const snapshot = update.status.value
-  const version = snapshot?.current_version || diagnostics.value?.build.core_version || t('display.empty')
+  const reported = snapshot?.current_version || diagnostics.value?.build.core_version
+  // The server reports `unknown` when the install has no readable build_info.json, as a development tree does.
+  const version = !reported ? t('display.empty') : reported === 'unknown' ? t('dashboard.versionUnknown') : reported
   if (snapshot?.state === 'update_available' && snapshot.available_version) return t('dashboard.versionAvailable', { version, available: snapshot.available_version })
   return snapshot ? `${version} · ${t(`dashboard.update.states.${snapshot.state}`)}` : version
 })

@@ -12,6 +12,7 @@ export const dashboard = {
   checkViewLabel: '检查类型',
   facts: { version: '版本', configFile: '配置文件', databaseFile: '数据库文件', streams: '实时更新' },
   versionAvailable: '{version} · 可更新至 {available}',
+  versionUnknown: '版本未知',
   streamsHealthy: '已连接',
   streamsReconnecting: '已断开 · {seconds} 秒后重连',
   readinessTechnicalDetails: '问题代码（排查用）',
