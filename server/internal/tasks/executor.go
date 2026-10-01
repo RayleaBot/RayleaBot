@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"errors"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"sync"
 	"time"
@@ -44,7 +45,7 @@ type Executor struct {
 	now      func() time.Time
 
 	baseCtx    context.Context
-	baseCancel context.CancelFunc
+	baseCancel context.CancelCauseFunc
 	wg         sync.WaitGroup
 	jobs       chan executorJob
 	admission  *QueueAdmission
@@ -60,6 +61,8 @@ type executorJob struct {
 	ctx     context.Context
 }
 
+var errExecutorShutdown = errors.New("task executor shutdown")
+
 // NewExecutor creates a new generic task executor with the given default
 // timeout per job. The executor starts a single background goroutine that
 // processes submitted jobs sequentially.
@@ -67,7 +70,7 @@ func NewExecutor(registry *Registry, timeout time.Duration) *Executor {
 	if timeout <= 0 {
 		timeout = 15 * time.Minute
 	}
-	baseCtx, baseCancel := context.WithCancel(context.Background())
+	baseCtx, baseCancel := context.WithCancelCause(context.Background())
 	e := &Executor{
 		registry:   registry,
 		timeout:    timeout,
@@ -121,6 +124,11 @@ func (e *Executor) List() []Snapshot {
 }
 
 func (e *Executor) Cancel(taskID string) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.closed {
+		return false
+	}
 	snapshot, ok := e.registry.Get(taskID)
 	if !ok {
 		return false
@@ -128,9 +136,7 @@ func (e *Executor) Cancel(taskID string) bool {
 	if snapshot.Status != StatusPending && snapshot.Status != StatusRunning {
 		return false
 	}
-	e.mu.Lock()
 	cancel, ok := e.cancels[taskID]
-	e.mu.Unlock()
 	if !ok || cancel == nil {
 		return false
 	}
@@ -142,7 +148,7 @@ func (e *Executor) Cancel(taskID string) bool {
 			Summary:    strPtr("任务已取消"),
 			FinishedAt: &now,
 		})
-		e.dropCancel(taskID)
+		delete(e.cancels, taskID)
 	}
 	return true
 }
@@ -159,11 +165,8 @@ func (e *Executor) Close() error {
 		return nil
 	}
 	e.closed = true
-	for _, cancel := range e.cancels {
-		cancel()
-	}
+	e.baseCancel(errExecutorShutdown)
 	e.mu.Unlock()
-	e.baseCancel()
 	e.wg.Wait()
 	return nil
 }
@@ -173,7 +176,16 @@ func (e *Executor) run() {
 	for {
 		select {
 		case <-e.baseCtx.Done():
-			return
+			// Settle every accepted queued task before flushing the registry.
+			for {
+				select {
+				case job := <-e.jobs:
+					e.admission.Release()
+					e.execute(job)
+				default:
+					return
+				}
+			}
 		case job := <-e.jobs:
 			e.admission.Release()
 			e.execute(job)
@@ -184,11 +196,19 @@ func (e *Executor) run() {
 func (e *Executor) execute(job executorJob) {
 	defer e.dropCancel(job.taskID)
 
+	e.mu.Lock()
 	snapshot, ok := e.registry.Get(job.taskID)
 	if !ok {
+		e.mu.Unlock()
 		return
 	}
 	if snapshot.Status == StatusCancelled {
+		e.mu.Unlock()
+		return
+	}
+	if err := job.ctx.Err(); err != nil {
+		e.mu.Unlock()
+		e.finishError(job, err)
 		return
 	}
 
@@ -198,39 +218,14 @@ func (e *Executor) execute(job executorJob) {
 		Progress:  intP(0),
 		StartedAt: &startedAt,
 	})
+	e.mu.Unlock()
 
 	reporter := ProgressReporter{registry: e.registry, taskID: job.taskID}
 	result, err := job.execute(job.ctx, reporter)
 
 	now := e.now().UTC()
 	if err != nil {
-		var taskErr *TaskError
-		if ok := isTaskError(err, &taskErr); ok {
-			e.registry.Update(job.taskID, Update{
-				Status:     statusPtr(StatusFailed),
-				Summary:    strPtr(taskErr.Message),
-				FinishedAt: &now,
-				Error: &ErrorSummary{
-					Code:    taskErr.Code,
-					Message: taskErr.Message,
-					Details: taskErr.Details,
-				},
-			})
-		} else {
-			code := errorcodes.PlatformInternalError
-			if job.ctx.Err() != nil {
-				code = errorcodes.PlatformTaskTimeout
-			}
-			e.registry.Update(job.taskID, Update{
-				Status:     statusPtr(StatusFailed),
-				Summary:    strPtr(err.Error()),
-				FinishedAt: &now,
-				Error: &ErrorSummary{
-					Code:    code,
-					Message: err.Error(),
-				},
-			})
-		}
+		e.finishError(job, err)
 		return
 	}
 
@@ -246,18 +241,77 @@ func (e *Executor) execute(job executorJob) {
 	})
 }
 
+func (e *Executor) finishError(job executorJob, err error) {
+	now := e.now().UTC()
+	var taskErr *TaskError
+	if !isTaskError(err, &taskErr) && onlyCancellation(err) {
+		status, summary := StatusCancelled, "任务已取消"
+		if errors.Is(context.Cause(job.ctx), errExecutorShutdown) {
+			status, summary = StatusInterrupted, "任务因服务关闭而中断"
+		}
+		e.registry.Update(job.taskID, Update{Status: &status, Summary: &summary, FinishedAt: &now})
+		return
+	}
+	if taskErr != nil {
+		e.registry.Update(job.taskID, Update{
+			Status:     statusPtr(StatusFailed),
+			Summary:    strPtr(taskErr.Message),
+			FinishedAt: &now,
+			Error: &ErrorSummary{
+				Code:    taskErr.Code,
+				Message: taskErr.Message,
+				Details: taskErr.Details,
+			},
+		})
+	} else {
+		code := errorcodes.PlatformInternalError
+		if errors.Is(err, context.DeadlineExceeded) {
+			code = errorcodes.PlatformTaskTimeout
+		}
+		e.registry.Update(job.taskID, Update{
+			Status:     statusPtr(StatusFailed),
+			Summary:    strPtr(err.Error()),
+			FinishedAt: &now,
+			Error: &ErrorSummary{
+				Code:    code,
+				Message: err.Error(),
+			},
+		})
+	}
+}
+
+// Joined cleanup failures remain failures even when the initiating operation
+// was cancelled. A wrapper around cancellation alone retains its identity.
+func onlyCancellation(err error) bool {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		children := joined.Unwrap()
+		if len(children) == 0 {
+			return false
+		}
+		for _, child := range children {
+			if !onlyCancellation(child) {
+				return false
+			}
+		}
+		return true
+	}
+	if inner := errors.Unwrap(err); inner != nil {
+		return onlyCancellation(inner)
+	}
+	return errors.Is(err, context.Canceled)
+}
+
 func (e *Executor) dropCancel(taskID string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if cancel := e.cancels[taskID]; cancel != nil {
+		cancel()
+	}
 	delete(e.cancels, taskID)
 }
 
 func isTaskError(err error, target **TaskError) bool {
-	te, ok := err.(*TaskError)
-	if ok {
-		*target = te
-	}
-	return ok
+	return errors.As(err, target)
 }
 
 func statusPtr(s Status) *Status { return &s }

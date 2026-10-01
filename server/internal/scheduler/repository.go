@@ -24,6 +24,7 @@ type Repository interface {
 type SQLiteRepository struct {
 	readQ  *sqlcgen.Queries
 	writeQ *sqlcgen.Queries
+	write  *sql.DB
 }
 
 func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
@@ -33,6 +34,7 @@ func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
 	return &SQLiteRepository{
 		readQ:  sqlcgen.New(store.Read),
 		writeQ: sqlcgen.New(store.Write),
+		write:  store.Write,
 	}, nil
 }
 
@@ -171,6 +173,18 @@ func (r *SQLiteRepository) RecordJobRunResult(ctx context.Context, result RunRes
 	}
 	outcome := normalizeRunOutcome(result.Outcome)
 	lastRun := result.OccurredAt.UTC().Format(time.RFC3339Nano)
+	result.Outcome = outcome
+	if isCanceledRun(result) {
+		// Update only the run accounting atomically; cancellation must not
+		// replace a previous failure, even across concurrent completions.
+		_, err := r.write.ExecContext(ctx, `UPDATE scheduler_jobs SET
+			last_run = ?, last_duration_ms = ?, other_count = other_count + 1,
+			updated_at = ? WHERE job_id = ?`, lastRun, result.Duration.Milliseconds(), lastRun, result.JobID)
+		if err != nil {
+			return fmt.Errorf("record canceled scheduler job run %s: %w", result.JobID, err)
+		}
+		return nil
+	}
 
 	if outcome == RunOutcomeSuccess {
 		if err := r.writeQ.RecordJobRunSuccess(ctx, sqlcgen.RecordJobRunSuccessParams{

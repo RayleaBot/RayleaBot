@@ -23,6 +23,8 @@ type httpHandlers struct {
 	Auth       *managementapi.AuthHandlers
 	Management *managementapi.CoreHandlers
 	EventsWS   *managementapi.EventsHandler
+	LogsWS     *managementapi.LogsHandler
+	ConsoleWS  *managementapi.ConsoleHandler
 }
 
 type managementRouteState struct {
@@ -107,6 +109,8 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		Auth:       authHandler,
 		Management: managementHandler,
 		EventsWS:   eventsWS,
+		LogsWS:     logsWS,
+		ConsoleWS:  consoleWS,
 	}
 
 	return managementRouteState{

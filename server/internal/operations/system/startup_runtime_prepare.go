@@ -197,6 +197,9 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		}
 
 		inspection, err := s.inspectRuntime(s.repoRootPath(), kind)
+		if errors.Is(ctx.Err(), context.Canceled) || errors.Is(err, context.Canceled) {
+			return
+		}
 		if err != nil {
 			issue := startupInspectionIssue(kind, err)
 			s.setStartupRuntimeState(kind, StartupRuntimePhaseFailed, &issue)
@@ -230,8 +233,14 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 
 		repoRoot := s.repoRootPath()
 		report, err := s.prepareRuntime(ctx, repoRoot, kind, func(event deps.PrepareProgress) {
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return
+			}
 			logStartupProgress(s.currentLogger(), repoRoot, event)
 		})
+		if errors.Is(ctx.Err(), context.Canceled) || errors.Is(err, context.Canceled) {
+			return
+		}
 		if err != nil {
 			issue := startupFailureIssue(kind, err)
 			s.setStartupRuntimeState(kind, StartupRuntimePhaseFailed, &issue)

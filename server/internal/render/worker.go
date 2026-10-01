@@ -61,6 +61,9 @@ func NewWorker(config WorkerConfig) *Worker {
 }
 
 func (w *Worker) Acquire(ctx context.Context) (func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, WrapRenderError(ctx, err)
+	}
 	if err := w.reserveSlot(); err != nil {
 		return nil, err
 	}
@@ -75,7 +78,13 @@ func (w *Worker) Acquire(ctx context.Context) (func(), error) {
 
 	select {
 	case w.slots <- struct{}{}:
+		err := queueCtx.Err()
 		cancel()
+		if err != nil {
+			<-w.slots
+			release()
+			return nil, WrapRenderError(ctx, err)
+		}
 		if err := w.ctx.Err(); err != nil {
 			<-w.slots
 			release()
@@ -90,12 +99,16 @@ func (w *Worker) Acquire(ctx context.Context) (func(), error) {
 		release()
 		return nil, w.ctx.Err()
 	case <-queueCtx.Done():
+		err := queueCtx.Err()
 		cancel()
 		release()
+		if errors.Is(err, context.Canceled) {
+			return nil, err
+		}
 		return nil, &Error{
 			Code:    errorcodes.PlatformRenderTimeout,
 			Message: "render queue wait timed out",
-			Err:     queueCtx.Err(),
+			Err:     err,
 		}
 	}
 }

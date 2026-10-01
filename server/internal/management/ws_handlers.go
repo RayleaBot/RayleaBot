@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -68,7 +69,8 @@ func (h *EventsHandler) Close() { h.stream.Close() }
 func (h *EventsHandler) Shutdown(ctx context.Context) { h.stream.Shutdown(ctx) }
 
 type LogsHandler struct {
-	logs logEventSource
+	logs    logEventSource
+	streams websocketStreams
 }
 
 type logEventSource interface {
@@ -84,7 +86,67 @@ func NewLogsHandler(logs logEventSource) *LogsHandler {
 type ConsoleHandler struct {
 	console consoleEventSource
 	plugins pluginLookupSource
+	streams websocketStreams
 }
+
+// websocketStreams owns log/console connections independently of HTTP, whose
+// Shutdown does not join upgraded connections.
+type websocketStreams struct {
+	mu      sync.Mutex
+	closed  bool
+	clients map[*websocket.Conn]streamClient
+}
+
+type streamClient struct {
+	done   chan struct{}
+	cancel context.CancelFunc
+}
+
+func (s *websocketStreams) run(conn *websocket.Conn, serve func(context.Context)) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		_ = conn.CloseNow()
+		return
+	}
+	if s.clients == nil {
+		s.clients = make(map[*websocket.Conn]streamClient)
+	}
+	done := make(chan struct{})
+	s.clients[conn] = streamClient{done: done, cancel: cancel}
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		delete(s.clients, conn)
+		close(done)
+		s.mu.Unlock()
+	}()
+	defer func() { _ = conn.Close(websocket.StatusNormalClosure, "") }()
+	serve(conn.CloseRead(ctx))
+}
+
+func (s *websocketStreams) shutdown(ctx context.Context) {
+	s.mu.Lock()
+	s.closed = true
+	var closing sync.WaitGroup
+	for conn, client := range s.clients {
+		closing.Go(func() {
+			// Healthy peers receive 1000. A blocked peer shares the announcement
+			// deadline rather than extending shutdown by a close-handshake timeout.
+			force := context.AfterFunc(ctx, client.cancel)
+			defer force()
+			_ = conn.Close(websocket.StatusNormalClosure, "server stopping")
+			<-client.done
+		})
+	}
+	s.mu.Unlock()
+	closing.Wait()
+}
+
+func (h *LogsHandler) Shutdown(ctx context.Context)    { h.streams.shutdown(ctx) }
+func (h *ConsoleHandler) Shutdown(ctx context.Context) { h.streams.shutdown(ctx) }
 
 type consoleEventSource interface {
 	Snapshot(string) []console.Entry
@@ -158,10 +220,11 @@ func (h *LogsHandler) HandleLogsWebSocket() http.HandlerFunc {
 			return
 		}
 		serveManagementWebSocket(w, r, func(conn *websocket.Conn) {
-			framesCtx := conn.CloseRead(context.Background())
-			summaries, unsubscribe := h.logs.Subscribe(8)
-			defer unsubscribe()
-			streamFrames(framesCtx, conn, h.initialLogSummaries(framesCtx), summaries, newLogFrame)
+			h.streams.run(conn, func(framesCtx context.Context) {
+				summaries, unsubscribe := h.logs.Subscribe(8)
+				defer unsubscribe()
+				streamFrames(framesCtx, conn, h.initialLogSummaries(framesCtx), summaries, newLogFrame)
+			})
 		})
 	}
 }
@@ -232,10 +295,11 @@ func (h *ConsoleHandler) HandlePluginConsoleWebSocket() http.HandlerFunc {
 			return
 		}
 		serveManagementWebSocket(w, r, func(conn *websocket.Conn) {
-			framesCtx := conn.CloseRead(context.Background())
-			entries, unsubscribe := h.console.Subscribe(pluginID, 8)
-			defer unsubscribe()
-			streamFrames(framesCtx, conn, h.console.Snapshot(pluginID), entries, newConsoleFrame)
+			h.streams.run(conn, func(framesCtx context.Context) {
+				entries, unsubscribe := h.console.Subscribe(pluginID, 8)
+				defer unsubscribe()
+				streamFrames(framesCtx, conn, h.console.Snapshot(pluginID), entries, newConsoleFrame)
+			})
 		})
 	}
 }

@@ -52,7 +52,7 @@ func (a *App) closeResources() error {
 	if a.services.PluginLifecycle != nil {
 		a.services.PluginLifecycle.Close()
 	}
-	if a.runtimes != nil {
+	if a.runtimes != nil || a.eventStack.Dispatcher != nil || a.services.EventIngress != nil {
 		if err := a.stopRuntimeManagers(5 * time.Second); err != nil {
 			errs = append(errs, fmt.Errorf("stop runtime managers: %w", err))
 		}
@@ -101,10 +101,13 @@ func (a *App) closeResources() error {
 
 func (a *App) stopRuntimeManagers(timeout time.Duration) error {
 	var drainErr error
+	drainCtx, cancelDrain := context.WithTimeout(context.Background(), timeout)
+	defer cancelDrain()
+	if a.services.EventIngress != nil {
+		drainErr = a.services.EventIngress.Drain(drainCtx)
+	}
 	if a.eventStack.Dispatcher != nil {
-		drainCtx, cancelDrain := context.WithTimeout(context.Background(), timeout)
-		drainErr = a.eventStack.Dispatcher.DrainAll(drainCtx)
-		cancelDrain()
+		drainErr = errors.Join(drainErr, a.eventStack.Dispatcher.DrainAll(drainCtx))
 		defer a.eventStack.Dispatcher.Close()
 	}
 	if a.runtimes == nil {

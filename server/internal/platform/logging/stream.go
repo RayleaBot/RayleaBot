@@ -209,6 +209,7 @@ func (s *Stream) Close() {
 	if s == nil {
 		return
 	}
+	s.hub.Close()
 
 	s.mu.Lock()
 	if s.flushLoopClosed {

@@ -130,7 +130,7 @@ func (a *App) Run(ctx context.Context) error {
 			return nil
 		})
 	}
-	if err := a.services.Protocol.Start(runCtx); err != nil {
+	if err := a.startAdapters(runCtx); err != nil {
 		close(started)
 		return errors.Join(err, a.Close())
 	}
@@ -182,9 +182,17 @@ func (a *App) requestShutdown(intent systemsvc.StopIntent) {
 		if a.services.System != nil {
 			a.services.System.PublishStatusSnapshot()
 		}
+		if a.services.EventIngress != nil {
+			a.services.EventIngress.StopAdmission()
+		}
+		var streams sync.WaitGroup
+		for _, shutdown := range []func(context.Context){a.shutdownLogsStream, a.shutdownConsoleStream} {
+			streams.Go(func() { shutdown(ctx) })
+		}
 		if a.httpHandlers.EventsWS != nil {
 			a.httpHandlers.EventsWS.Shutdown(ctx)
 		}
+		streams.Wait()
 		// Publish and finish the bounded event writes before canceling workers
 		// whose teardown can close event sources or the HTTP server.
 		a.process.runCancelMu.Lock()
@@ -194,6 +202,24 @@ func (a *App) requestShutdown(intent systemsvc.StopIntent) {
 			cancel()
 		}
 	})
+}
+
+func (a *App) startAdapters(ctx context.Context) error {
+	// Transport ownership lasts through accepted-event drain. Stop explicitly
+	// after the dispatcher and runtimes finish, including receipt readers.
+	return a.services.Protocol.Start(context.WithoutCancel(ctx))
+}
+
+func (a *App) shutdownLogsStream(ctx context.Context) {
+	if a.httpHandlers.LogsWS != nil {
+		a.httpHandlers.LogsWS.Shutdown(ctx)
+	}
+}
+
+func (a *App) shutdownConsoleStream(ctx context.Context) {
+	if a.httpHandlers.ConsoleWS != nil {
+		a.httpHandlers.ConsoleWS.Shutdown(ctx)
+	}
 }
 
 func (a *App) Handler() http.Handler {

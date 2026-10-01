@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -19,6 +20,8 @@ const (
 	sandboxAPIBase     = "https://sandbox.api.sgroup.qq.com"
 	tokenRenewLeadTime = 60 * time.Second
 )
+
+var errTokenCredentialRejected = errors.New("qqofficial: token credential rejected")
 
 // TokenSource hands out a valid app access token, refreshing it before it
 // expires. The platform issues tokens with a 7200s lifetime and keeps the
@@ -80,6 +83,12 @@ func (s *TokenSource) fetch(ctx context.Context) (string, time.Duration, error) 
 		return "", 0, fmt.Errorf("qqofficial: request app access token: %w", err)
 	}
 	defer func(release func() error) { _ = release() }(response.Body.Close)
+	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
+		return "", 0, fmt.Errorf("%w (http %d)", errTokenCredentialRejected, response.StatusCode)
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return "", 0, fmt.Errorf("qqofficial: app access token request failed (http %d)", response.StatusCode)
+	}
 
 	var payload struct {
 		AccessToken string          `json:"access_token"`
@@ -94,7 +103,7 @@ func (s *TokenSource) fetch(ctx context.Context) (string, time.Duration, error) 
 		if message == "" {
 			message = "response carried no access_token"
 		}
-		return "", 0, fmt.Errorf("qqofficial: app access token rejected (http %d): %s", response.StatusCode, message)
+		return "", 0, fmt.Errorf("qqofficial: app access token unavailable: %s", message)
 	}
 	return payload.AccessToken, parseExpiresIn(payload.ExpiresIn), nil
 }

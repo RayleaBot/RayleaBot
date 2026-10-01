@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"maps"
+	"sync"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/conversation"
@@ -46,6 +47,10 @@ type IngressDeps struct {
 }
 
 type Ingress struct {
+	admissionMu      sync.Mutex
+	stopping         bool
+	active           map[*context.CancelFunc]struct{}
+	drained          chan struct{}
 	replyTargets     *outbound.ReplyTargetCache
 	menu             *menuext.Service
 	bridge           EventBridge
@@ -61,6 +66,8 @@ func NewIngress(deps IngressDeps) *Ingress {
 		currentConfig = func() config.Config { return config.Config{} }
 	}
 	service := &Ingress{
+		active:           make(map[*context.CancelFunc]struct{}),
+		drained:          make(chan struct{}),
 		replyTargets:     deps.ReplyTargets,
 		menu:             deps.Menu,
 		bridge:           deps.Bridge,
@@ -110,7 +117,27 @@ func (s *Ingress) Policy() *Service {
 }
 
 func (s *Ingress) HandleAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) {
+	s.admissionMu.Lock()
+	if s.stopping {
+		s.admissionMu.Unlock()
+		return
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	s.active[&cancel] = struct{}{}
+	s.admissionMu.Unlock()
+	defer func() {
+		cancel()
+		s.admissionMu.Lock()
+		delete(s.active, &cancel)
+		if s.stopping && len(s.active) == 0 {
+			close(s.drained)
+		}
+		s.admissionMu.Unlock()
+	}()
 	event = s.enrichEventMetadata(ctx, event)
+	if ctx.Err() != nil {
+		return
+	}
 	if s.replyTargets != nil {
 		s.replyTargets.Record(event)
 	}
@@ -160,6 +187,41 @@ func (s *Ingress) HandleAdapterEvent(ctx context.Context, event chatevent.Normal
 	}
 }
 
+// StopAdmission leaves accepted handlers and outbound transports alive.
+func (s *Ingress) StopAdmission() {
+	s.admissionMu.Lock()
+	defer s.admissionMu.Unlock()
+	if s.stopping {
+		return
+	}
+	s.stopping = true
+	if len(s.active) == 0 {
+		close(s.drained)
+	}
+}
+
+// Drain shares the dispatcher budget; expired handlers are cancelled before
+// transport shutdown joins them and releases their dependencies.
+func (s *Ingress) Drain(ctx context.Context) error {
+	s.StopAdmission()
+	select {
+	case <-s.drained:
+		return nil
+	default:
+	}
+	select {
+	case <-s.drained:
+		return nil
+	case <-ctx.Done():
+		s.admissionMu.Lock()
+		for cancel := range s.active {
+			(*cancel)()
+		}
+		s.admissionMu.Unlock()
+		return ctx.Err()
+	}
+}
+
 func (s *Ingress) enrichEventMetadata(ctx context.Context, event chatevent.NormalizedEvent) chatevent.NormalizedEvent {
 	if s.metadataEnricher == nil {
 		return event
@@ -168,6 +230,12 @@ func (s *Ingress) enrichEventMetadata(ctx context.Context, event chatevent.Norma
 }
 
 func (s *Ingress) HandleAdapterReady(ctx context.Context) {
+	s.admissionMu.Lock()
+	stopping := s.stopping
+	s.admissionMu.Unlock()
+	if stopping {
+		return
+	}
 	if s.lifecycle == nil {
 		return
 	}

@@ -84,7 +84,7 @@ func renderImageActionError(err error) *plugins.Error {
 }
 
 func logRenderImageFailure(deps Deps, req ActionRequest, phase, template string, err error) {
-	if deps.Logger == nil || err == nil {
+	if deps.Logger == nil || err == nil || errors.Is(err, context.Canceled) {
 		return
 	}
 	message := err.Error()

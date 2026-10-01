@@ -2,6 +2,7 @@ package system
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -47,6 +48,9 @@ func (s *Service) createBackupArchive(ctx context.Context, progress tasks.Progre
 		Progress:       progress.Update,
 	})
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return "", err
+		}
 		return "", &tasks.TaskError{Code: errorcodes.PluginInternalError, Message: "创建在线备份失败"}
 	}
 	return result.ArchivePath, nil

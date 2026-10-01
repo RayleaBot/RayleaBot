@@ -300,9 +300,23 @@ func (c *Client) runConnection(ctx context.Context) (runErr error) {
 	}()
 	token, err := tokens.Token(connCtx)
 	if err != nil {
-		// A rejected credential will not fix itself by reconnecting, so it is
-		// reported distinctly from a dropped connection.
-		c.setState(StateAuthFailed, err.Error())
+		// Serialize with reload and stop: their cancellation must not publish
+		// an authentication failure for the retired connection.
+		c.settingsMu.Lock()
+		stopping := false
+		select {
+		case <-c.stopping:
+			stopping = true
+		default:
+		}
+		rejected := connCtx.Err() == nil && !stopping && !c.reloading && !c.disabled && errors.Is(err, errTokenCredentialRejected)
+		if rejected {
+			c.status.set(StateAuthFailed, err.Error())
+		}
+		c.settingsMu.Unlock()
+		if rejected {
+			c.notifyStateChanged()
+		}
 		return err
 	}
 	url, err := gatewayEndpoint(connCtx, httpClient, apiBase, appID, token)

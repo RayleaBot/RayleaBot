@@ -2,6 +2,7 @@ package menu
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -126,6 +127,9 @@ func (s *Service) Handle(ctx context.Context, event chatevent.NormalizedEvent) b
 	s.logBuiltinMenuTrigger(ctx, event, request)
 
 	result, err := s.renderBuiltinMenu(ctx, payload)
+	if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+		return true
+	}
 	if err != nil || strings.TrimSpace(result) == "" {
 		if err == nil {
 			err = fmt.Errorf("render service returned no image")

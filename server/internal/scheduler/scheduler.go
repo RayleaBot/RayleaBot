@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 var ErrJobNotFound = errors.New("scheduler job not found")
@@ -550,7 +551,7 @@ func (e *Engine) RecordRunResult(ctx context.Context, result RunResult) error {
 	job.LastRun = &lastRun
 	job.LastDurationMS = result.Duration.Milliseconds()
 	applyRunOutcome(&job.RunStats, result.Outcome)
-	if result.Outcome != RunOutcomeSuccess {
+	if result.Outcome != RunOutcomeSuccess && !isCanceledRun(result) {
 		job.LastError = &RunError{
 			Code:    DisplayLabel(result.ErrorCode, string(result.Outcome)),
 			Message: DisplayLabel(result.ErrorText, string(result.Outcome)),
@@ -567,6 +568,10 @@ func (e *Engine) RecordRunResult(ctx context.Context, result RunResult) error {
 	e.jobs[job.JobID] = job
 	e.mu.Unlock()
 	return nil
+}
+
+func isCanceledRun(result RunResult) bool {
+	return result.Outcome == RunOutcomeOther && result.ErrorCode == errorcodes.PluginEventCanceled
 }
 
 func (e *Engine) nextJobRevision() uint64 {
