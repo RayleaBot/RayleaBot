@@ -40,6 +40,11 @@ func (s *ServiceStatusService) currentServiceStatusSnapshot() (ServiceStatusPayl
 		}, nil
 	}
 
+	// Stopping does not depend on readiness probes, which may be blocked or
+	// already tearing down when shutdown begins.
+	if s.system.SystemStatus() == "shutting_down" {
+		return ServiceStatusPayloadFrom("shutting_down", systemsvc.ReadinessReport{}), nil
+	}
 	readiness := s.system.CurrentReadiness()
 	return ServiceStatusPayloadFrom(s.system.SystemStatus(), readiness), readiness.Checks
 }

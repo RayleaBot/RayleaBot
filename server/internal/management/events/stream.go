@@ -44,6 +44,7 @@ type Stream struct {
 	mu      sync.Mutex
 	closed  bool
 	wg      sync.WaitGroup
+	clients map[chan struct{}]struct{}
 }
 
 func NewStream(sources Sources) (*Stream, error) {
@@ -51,7 +52,27 @@ func NewStream(sources Sources) (*Stream, error) {
 		return nil, errors.New("management event stream requires bridge, adapters and status sources")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Stream{sources: sources, ctx: ctx, cancel: cancel}, nil
+	return &Stream{sources: sources, ctx: ctx, cancel: cancel, clients: make(map[chan struct{}]struct{})}, nil
+}
+
+// Shutdown waits for each subscriber to write the published stopping snapshot
+// or disconnect. All subscribers share ctx's deadline, including blocked writes.
+func (s *Stream) Shutdown(ctx context.Context) {
+	s.mu.Lock()
+	s.closed = true
+	pending := make([]<-chan struct{}, 0, len(s.clients))
+	for done := range s.clients {
+		pending = append(pending, done)
+	}
+	s.mu.Unlock()
+	defer s.Close()
+	for _, done := range pending {
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (s *Stream) Close() {
@@ -68,9 +89,29 @@ func (s *Stream) Run(ctx context.Context, write func(context.Context, any) error
 		s.mu.Unlock()
 		return context.Canceled
 	}
+	done := make(chan struct{})
+	s.clients[done] = struct{}{}
 	s.wg.Add(1)
 	s.mu.Unlock()
 	defer s.wg.Done()
+	defer func() {
+		s.mu.Lock()
+		delete(s.clients, done)
+		s.mu.Unlock()
+	}()
+	finish := sync.OnceFunc(func() { close(done) })
+	defer finish()
+	writeFrame := func(ctx context.Context, value any) error {
+		if err := write(ctx, value); err != nil {
+			return err
+		}
+		if frame, ok := value.(Frame); ok {
+			if status, ok := frame.Data.(ServiceStatusPayload); ok && status.ServiceStatus == "stopping" {
+				finish()
+			}
+		}
+		return nil
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	stopCancel := context.AfterFunc(s.ctx, cancel)
@@ -102,7 +143,7 @@ func (s *Stream) Run(ctx context.Context, write func(context.Context, any) error
 		defer unsubscribe()
 	}
 	for _, frame := range []Frame{initialStatus, AdaptersSnapshotFrame(initialAdapters)} {
-		if err := write(ctx, frame); err != nil {
+		if err := writeFrame(ctx, frame); err != nil {
 			return err
 		}
 	}
@@ -135,7 +176,7 @@ func (s *Stream) Run(ctx context.Context, write func(context.Context, any) error
 			if !ok {
 				return nil
 			}
-			if err := write(ctx, frame); err != nil {
+			if err := writeFrame(ctx, frame); err != nil {
 				return err
 			}
 		case frame, ok := <-governanceFrames:

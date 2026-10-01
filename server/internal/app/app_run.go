@@ -25,6 +25,7 @@ type appProcessState struct {
 	runCancelMu  sync.Mutex
 	runCancel    context.CancelFunc
 	runWait      func() error
+	shutdownOnce sync.Once
 	closeOnce    sync.Once
 	closeErr     error
 }
@@ -173,13 +174,25 @@ func (a *App) clearRunCancel() {
 }
 
 func (a *App) requestShutdown() {
-	a.process.shuttingDown.Store(true)
-	a.process.runCancelMu.Lock()
-	cancel := a.process.runCancel
-	a.process.runCancelMu.Unlock()
-	if cancel != nil {
-		cancel()
-	}
+	a.process.shutdownOnce.Do(func() {
+		a.process.shuttingDown.Store(true)
+		ctx, cancelDrain := context.WithTimeout(context.Background(), time.Second)
+		defer cancelDrain()
+		if a.services.System != nil {
+			a.services.System.PublishStatusSnapshot()
+		}
+		if a.httpHandlers.EventsWS != nil {
+			a.httpHandlers.EventsWS.Shutdown(ctx)
+		}
+		// Publish and finish the bounded event writes before canceling workers
+		// whose teardown can close event sources or the HTTP server.
+		a.process.runCancelMu.Lock()
+		cancel := a.process.runCancel
+		a.process.runCancelMu.Unlock()
+		if cancel != nil {
+			cancel()
+		}
+	})
 }
 
 func (a *App) Handler() http.Handler {

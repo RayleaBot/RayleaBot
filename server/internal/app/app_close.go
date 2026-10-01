@@ -23,9 +23,6 @@ func (a *App) Close() error {
 func (a *App) closeResources() error {
 	var errs []error
 	a.requestShutdown()
-	if a.httpHandlers.EventsWS != nil {
-		a.httpHandlers.EventsWS.Close()
-	}
 	if err := a.shutdownHTTPServer(5 * time.Second); err != nil {
 		errs = append(errs, fmt.Errorf("shutdown http server: %w", err))
 	}

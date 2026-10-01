@@ -237,39 +237,6 @@ func TestEventsWebSocketDeliversPluginStateFrame(t *testing.T) {
 	}
 }
 
-func TestEventsWebSocketPublishesStoppingServiceStatusAfterShutdownRequest(t *testing.T) {
-	t.Parallel()
-
-	application := newTestApp(t, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
-	server := newManagementTestServer(t, application.Handler())
-	defer server.Close()
-
-	conn := dialEventsWebSocket(t, server.URL, token)
-	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
-
-	readServiceStatusReplayFrame(t, conn)
-	readProtocolReplayFrame(t, conn)
-
-	request, err := http.NewRequest(http.MethodPost, server.URL+"/api/system/shutdown", nil)
-	if err != nil {
-		t.Fatalf("create shutdown request: %v", err)
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-
-	response, err := server.Client().Do(request)
-	if err != nil {
-		t.Fatalf("perform shutdown request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(response.Body.Close)
-	if response.StatusCode != http.StatusAccepted {
-		t.Fatalf("unexpected shutdown status: got %d want %d", response.StatusCode, http.StatusAccepted)
-	}
-
-	frame := readServiceStatusReplayFrame(t, conn)
-	assertServiceStatusReplayFrame(t, frame, "stopping")
-}
-
 func TestEventsWebSocketPublishesGovernanceChangedAfterGovernanceWrite(t *testing.T) {
 	t.Parallel()
 
@@ -514,6 +481,7 @@ func TestEventsWebSocketApplicationCloseReleasesConnectionAndSubscriptions(t *te
 	if err := application.Close(); err != nil {
 		t.Fatal(err)
 	}
+	assertServiceStatusReplayFrame(t, readServiceStatusReplayFrame(t, conn), "stopping")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	for {

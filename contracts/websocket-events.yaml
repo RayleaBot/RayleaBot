@@ -129,7 +129,12 @@ channels:
             - type: object
               additionalProperties: false
               required: [service_status, summary]
-              description: 新订阅收到当前服务快照；后续在 service_status、summary、reason、reason_codes 或 readiness checks 的内容与上次广播不同时推送。checks 不包含在载荷中，因此检查变化时可能推送相同载荷；时间戳不参与比较。
+              description: >
+                新订阅收到当前服务快照；后续在 service_status、summary、reason、reason_codes 或 readiness checks 的内容与上次广播不同时推送。
+                checks 不包含在载荷中，因此检查变化时可能推送相同载荷；时间戳不参与比较。
+                通过 Launcher、管理 API 或操作系统信号开始优雅关闭时，服务立即发布 service_status 为 stopping 的快照。
+                服务关闭事件连接前，为已有订阅者写出该快照提供共享的最多 1 秒等待窗口；全部写出或断开后立即继续关闭，不逐连接累加等待时间。
+                连接不可写、等待超时或进程被强制终止时不保证送达；客户端收到 stopping 后应将随后的断线视为预期停止，不等待 stopped 帧。
               properties:
                 service_status:
                   type: string

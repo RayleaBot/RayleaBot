@@ -118,11 +118,12 @@ func receiveServiceStatus(t *testing.T, updates <-chan Frame) ServiceStatusPaylo
 }
 
 type statusTestProvider struct {
+	systemStatus   string
 	readiness      systemsvc.ReadinessReport
 	readinessCalls int
 }
 
-func (p *statusTestProvider) SystemStatus() string { return "running" }
+func (p *statusTestProvider) SystemStatus() string { return p.systemStatus }
 func (p *statusTestProvider) CurrentReadiness() systemsvc.ReadinessReport {
 	p.readinessCalls++
 	return p.readiness
@@ -232,4 +233,21 @@ func TestPublishServiceStatusWhenReadinessChecksChange(t *testing.T) {
 	provider.readiness.Checks = map[string]string{"runtime": "ok", "database": "ok"}
 	publish()
 	assertNoServiceStatusFrame(t, updates)
+}
+
+func TestStoppingSnapshotDoesNotWaitForReadinessProbes(t *testing.T) {
+	provider := &statusTestProvider{systemStatus: "shutting_down"}
+	service := NewServiceStatusService(provider)
+	initial, updates, unsubscribe := service.SnapshotAndSubscribe(1)
+	defer unsubscribe()
+	if initial.Data.(ServiceStatusPayload).ServiceStatus != "stopping" {
+		t.Fatalf("initial snapshot = %#v", initial)
+	}
+	service.PublishSnapshot()
+	if got := receiveServiceStatus(t, updates); got.ServiceStatus != "stopping" {
+		t.Fatalf("shutdown snapshot = %#v", got)
+	}
+	if provider.readinessCalls != 0 {
+		t.Fatal("stopping notification ran readiness probes")
+	}
 }

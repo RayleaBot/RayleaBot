@@ -61,7 +61,6 @@ type coreAuthService interface {
 
 type coreSystemService interface {
 	StatusSnapshot() systemsvc.StatusSnapshot
-	PublishStatusSnapshot()
 }
 
 type coreSetupStatusResponse struct {
@@ -142,7 +141,6 @@ func (h *CoreHandlers) handleShutdown(requireLauncherToken bool) http.HandlerFun
 			return
 		}
 		h.requestShutdown()
-		h.system.PublishStatusSnapshot()
 		httpapi.WriteJSON(w, http.StatusAccepted, coreShutdownResponse{Accepted: true})
 	}
 }
