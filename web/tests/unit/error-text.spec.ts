@@ -26,6 +26,16 @@ describe('error text helpers', () => {
     expect(getDisplayErrorMessage(codeError)).toBe(t(localeKey))
   })
 
+  it('says why an install was refused for the RayleaBot version from the structured reason', () => {
+    const unknown = new ApiError('无法确认', 409, 'plugin.core_version_incompatible', undefined, { incompatible_reason: 'core_version_unknown', min_core_version: '0.4.0' })
+    const tooOld = new ApiError('版本过旧', 409, 'plugin.core_version_incompatible', undefined, { incompatible_reason: 'core_version_too_old', min_core_version: '0.9.0' })
+    const bare = new ApiError('不兼容', 409, 'plugin.core_version_incompatible')
+
+    expect(getDisplayErrorMessage(unknown)).toBe(t('errors.coreVersion.unknown'))
+    expect(getDisplayErrorMessage(tooOld)).toBe(t('errors.coreVersion.tooOld', { version: 'v0.9.0' }))
+    expect(getDisplayErrorMessage(bare)).toBe(t('errors.plugin.core_version_incompatible'))
+  })
+
   it('maps structured API errors without exposing raw backend text', () => {
     const error = new ApiError(
       'invalid socket channel',

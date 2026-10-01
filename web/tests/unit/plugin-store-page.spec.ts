@@ -78,16 +78,17 @@ describe('PluginStoreView', () => {
     const store = usePluginStore()
     const release = echoPlugin.latest_release
     store.items = [
-      { ...echoPlugin, id: 'needs-core', name: 'Needs Core', install_state: 'incompatible', latest_release: { ...release, min_core_version: '0.9.0', compatible: false } },
+      { ...echoPlugin, id: 'needs-core', name: 'Needs Core', install_state: 'incompatible', latest_release: { ...release, min_core_version: '0.9.0', compatible: false, incompatible_reason: 'core_version_too_old' } },
+      { ...echoPlugin, id: 'unknown-core', name: 'Unknown Core', install_state: 'incompatible', latest_release: { ...release, compatible: false, incompatible_reason: 'core_version_unknown' } },
       { ...echoPlugin, id: 'no-asset', name: 'No Asset', install_state: 'incompatible', latest_release: { ...release, asset_available: false } },
       { ...echoPlugin, id: 'blocked-update', name: 'Blocked Update', install_state: 'installed', installed_version: '0.3.0', latest_release: { ...release, asset_available: false } },
       { ...echoPlugin, id: 'older-in-store', name: 'Older In Store', install_state: 'installed', installed_version: '0.5.0', latest_release: { ...release, asset_available: false } },
     ]
     store.sources = [officialSource]
     store.source = officialSource
-    store.total = 4
+    store.total = 5
     vi.spyOn(store, 'fetchSources').mockResolvedValue(store.sources)
-    vi.spyOn(store, 'fetchEntries').mockResolvedValue({ items: store.items, total: 4, source: officialSource })
+    vi.spyOn(store, 'fetchEntries').mockResolvedValue({ items: store.items, total: 5, source: officialSource })
     vi.spyOn(store, 'refreshSource').mockResolvedValue(officialSource)
 
     const wrapper = mount(PluginStoreView, { global: { plugins: [getActivePinia()!] } })
@@ -95,10 +96,13 @@ describe('PluginStoreView', () => {
 
     const cards = wrapper.findAll('.store-plugin-card')
     expect(cards[0]!.text()).toContain('需要 RayleaBot v0.9.0 或更高')
-    expect(cards[1]!.text()).toContain('没有适用于本机平台的安装包')
-    expect(cards[2]!.text()).toContain('商店新版本暂不能更新：没有适用于本机平台的安装包')
+    // An unknown RayleaBot version is not an old one; asking for a newer RayleaBot would mislead.
+    expect(cards[1]!.text()).toContain('无法确认当前 RayleaBot 版本')
+    expect(cards[1]!.text()).not.toContain('或更高')
+    expect(cards[2]!.text()).toContain('没有适用于本机平台的安装包')
+    expect(cards[3]!.text()).toContain('商店新版本暂不能更新：没有适用于本机平台的安装包')
     // A store release older than the installed version is no update, so nothing claims one is blocked.
-    expect(cards[3]!.text()).not.toContain('暂不能更新')
+    expect(cards[4]!.text()).not.toContain('暂不能更新')
   })
 
   it('opens the plugin repository as an external link', async () => {

@@ -248,11 +248,12 @@ async function removeSource(id: string) {
   }
 }
 
-// A release is incompatible for one of two reasons, and each has a different remedy: upgrading RayleaBot only helps
-// the first.
+// A release cannot be installed when RayleaBot's own version is unknown (a source checkout), when that version is too
+// old, or when no package fits this platform; each has a different remedy, and upgrading RayleaBot only helps one.
 function incompatibilityReason(plugin: PluginStoreEntry) {
   const release = plugin.latest_release
   if (!release) return ''
+  if (release.incompatible_reason === 'core_version_unknown') return t('plugins.store.coreVersionUnknown')
   if (!release.compatible) return t('plugins.store.requiresCore', { version: formatPluginVersion(release.min_core_version) })
   if (!release.asset_available) return t('plugins.store.noPlatformAsset')
   return ''

@@ -13,4 +13,8 @@ export const errors = {
     taskFailed: '任务执行失败。',
     taskStillRunning: '任务仍在执行，请稍后刷新查看结果。',
   },
+  coreVersion: {
+    unknown: '无法确认当前 RayleaBot 版本，不能安装要求最低版本的插件。',
+    tooOld: '插件需要 RayleaBot {version} 或更高版本。',
+  },
 } as const

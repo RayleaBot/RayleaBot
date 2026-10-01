@@ -1,4 +1,5 @@
 import { i18n, t } from '@/i18n'
+import { formatPluginVersion } from '@/lib/display'
 import { ApiError } from '@/lib/http'
 
 // Browser-side failures have no server error code; each client code maps to its own message.
@@ -20,10 +21,22 @@ export function getErrorCodeMessage(code: string | undefined, fallbackKey = 'err
   return translateErrorCode(code) ?? t(fallbackKey)
 }
 
+// An install refused for RayleaBot's version says in its details whether that version is unknown or too old, and the
+// two need different remedies.
+function describeCoreVersionIncompatible(details?: Record<string, unknown>) {
+  if (details?.incompatible_reason === 'core_version_unknown') return t('errors.coreVersion.unknown')
+  if (details?.incompatible_reason === 'core_version_too_old' && typeof details.min_core_version === 'string') {
+    return t('errors.coreVersion.tooOld', { version: formatPluginVersion(details.min_core_version) })
+  }
+  return undefined
+}
+
 export function getDisplayErrorMessage(error: unknown, fallbackKey = 'errors.common.actionFailed') {
   if (error instanceof ApiError) {
     const clientKey = clientErrorKeys[error.code]
     if (clientKey) return t(clientKey)
+    const specific = error.code === 'plugin.core_version_incompatible' ? describeCoreVersionIncompatible(error.details) : undefined
+    if (specific) return specific
     const message = translateErrorCode(error.code)
     if (message) return message
   }

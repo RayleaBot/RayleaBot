@@ -13,6 +13,7 @@ export const plugins = {
     repository: '打开源码仓库',
     installedVersion: '已安装 {version}',
     requiresCore: '需要 RayleaBot {version} 或更高',
+    coreVersionUnknown: '无法确认当前 RayleaBot 版本',
     noPlatformAsset: '没有适用于本机平台的安装包',
     updateBlocked: '商店新版本暂不能更新：{reason}',
     latestVersion: '商店版本 {version}',
