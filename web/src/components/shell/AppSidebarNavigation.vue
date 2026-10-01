@@ -72,6 +72,16 @@ const {
 } = useSidebarPluginNavigation({ activePluginId })
 const { error, loading, nextCursor, loadingMore } = pluginCollection
 const navigation = ref<HTMLElement | null>(null)
+
+// Each plugin row owns the pages listed under it, so the pages open and close as one block with their plugin.
+const pluginNavigationGroups = computed(() => {
+  const groups: Array<{ resource: SidebarPluginNavigationEntry; pages: SidebarPluginNavigationEntry[] }> = []
+  for (const entry of pluginNavigationEntries.value) {
+    if (entry.kind === 'resource') groups.push({ resource: entry, pages: [] })
+    else groups.at(-1)?.pages.push(entry)
+  }
+  return groups
+})
 const transitionDirection = ref<'forward' | 'back'>('forward')
 
 const visibleScope = computed<NavigationScope>(() => props.collapsed ? 'root' : props.scope)
@@ -177,11 +187,15 @@ function toggleRootGroup(key: string) {
             </AppDropdown>
             <section v-else-if="item.children?.length" class="sidebar-navigation__group">
               <button type="button" class="sidebar-navigation__group-heading" data-nav-item :aria-expanded="openKeys.includes(item.key)" @click="toggleRootGroup(item.key)">{{ item.title }}<ChevronDownIcon :class="{ 'is-collapsed': !openKeys.includes(item.key) }" :size="16" /></button>
-              <div v-if="openKeys.includes(item.key)">
-                <button v-for="child in item.children" :key="child.key" type="button" class="sidebar-navigation__item" data-nav-item :aria-current="selectedKeys.includes(child.key) ? 'page' : undefined" @click="emit('navigate', child.path)">
-                  <span class="admin-layout__menu-label"><component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" class="admin-layout__menu-icon" /><span>{{ child.title }}</span></span>
-                </button>
-              </div>
+              <Transition name="sidebar-collapse">
+                <div v-if="openKeys.includes(item.key)" class="sidebar-collapse">
+                  <div class="sidebar-collapse__inner">
+                    <button v-for="child in item.children" :key="child.key" type="button" class="sidebar-navigation__item" data-nav-item :aria-current="selectedKeys.includes(child.key) ? 'page' : undefined" @click="emit('navigate', child.path)">
+                      <span class="admin-layout__menu-label"><component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" class="admin-layout__menu-icon" /><span>{{ child.title }}</span></span>
+                    </button>
+                  </div>
+                </div>
+              </Transition>
             </section>
             <button v-else type="button" class="sidebar-navigation__item" :class="{ 'sidebar-navigation__collapsed-item': collapsed }" data-nav-item :aria-label="item.title" :title="collapsed ? item.title : undefined" :aria-current="selectedKeys.includes(item.key) ? 'page' : undefined" :data-sidebar-entry="item.key === pluginCenterMenuKey ? 'plugin-center' : undefined" @click="item.key === pluginCenterMenuKey ? enterPluginCenter() : emit('navigate', item.path)">
               <span class="admin-layout__menu-label sidebar-navigation__root-label"><component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" /><span v-if="!collapsed">{{ item.title }}</span><ChevronRightIcon v-if="item.key === pluginCenterMenuKey && !collapsed" class="sidebar-navigation__chevron" aria-hidden="true" /></span>
@@ -199,31 +213,43 @@ function toggleRootGroup(key: string) {
           <div v-if="showPluginFilter" class="sidebar-navigation__filter"><AppInput v-model="pluginFilter" allow-clear :aria-label="t('plugins.navigation.filterLabel')" :placeholder="t('plugins.navigation.filterPlaceholder')" /></div>
           <section class="sidebar-navigation__group">
             <h3 class="sidebar-navigation__group-title">{{ t('plugins.navigation.groups.installed') }}</h3>
-            <div v-for="entry in pluginNavigationEntries" :key="entry.key" class="sidebar-navigation__entry" :class="{ 'sidebar-navigation__entry--resource': entry.kind === 'resource', 'sidebar-navigation__entry--active': entry.kind === 'resource' && entry.plugin.id === activePluginId }">
-              <button type="button" class="sidebar-navigation__item" data-nav-item
-                :aria-expanded="entry.kind === 'resource' ? isPluginContentVisible(entry.plugin.id) : undefined"
-                :aria-busy="entry.kind === 'resource' && isPluginExpansionPending(entry.plugin.id) ? 'true' : undefined"
-                :aria-label="entry.kind === 'resource' ? getPluginAriaLabel(entry.plugin) : undefined"
-                :aria-current="centerSelectedKeys.includes(entry.key) ? 'page' : undefined"
-                :class="[entry.kind === 'resource' ? 'sidebar-navigation__plugin-resource' : 'sidebar-navigation__plugin-child', { 'sidebar-navigation__plugin-resource--active': entry.kind === 'resource' && entry.plugin.id === activePluginId }]"
-                :data-sidebar-management-page="entry.kind === 'management' ? entry.page.id : undefined"
-                :data-sidebar-plugin-id="entry.kind === 'resource' ? entry.plugin.id : undefined"
-                :data-sidebar-plugin-overview="entry.kind === 'overview' ? entry.plugin.id : undefined"
-                :data-sidebar-plugin-page-owner="entry.kind === 'resource' ? undefined : entry.plugin.id"
-                :data-sidebar-plugin-retry="entry.kind === 'retry' ? entry.plugin.id : undefined"
-                @click="activatePluginNavigationEntry(entry)">
-                <span v-if="entry.kind === 'resource'" class="admin-layout__menu-label sidebar-navigation__plugin-label">
-                  <PluginIcon :refresh-key="pluginsStore.iconRevision" class="sidebar-navigation__plugin-icon" :plugin-id="entry.plugin.id" :icon="entry.plugin.icon" :version="entry.plugin.version" />
-                  <span class="sidebar-navigation__plugin-copy" :title="entry.plugin.name">{{ entry.plugin.name }}</span>
-                  <span v-if="entry.plugin.state" class="sidebar-navigation__state" :data-state="entry.plugin.state" :title="getPluginStateLabel(entry.plugin.state)" aria-hidden="true" />
-                </span>
-                <span v-else-if="entry.kind === 'overview'" class="admin-layout__menu-label"><component :is="resolveMenuIcon('plugins')" class="admin-layout__menu-icon" /><span>{{ t('plugins.panels.overview') }}</span></span>
-                <span v-else-if="entry.kind === 'management'" class="admin-layout__menu-label"><component :is="resolveMenuIcon('plugin-settings')" class="admin-layout__menu-icon" /><span :title="entry.page.label">{{ entry.page.label }}</span></span>
-                <span v-else class="admin-layout__menu-label"><RotateCwIcon aria-hidden="true" /><span>{{ t('plugins.navigation.detailUnavailable') }} · {{ t('plugins.navigation.retry') }}</span></span>
-              </button>
-              <button v-if="entry.kind === 'resource'" type="button" class="sidebar-navigation__disclosure" :aria-busy="isPluginExpansionPending(entry.plugin.id) ? 'true' : undefined" :aria-expanded="isPluginContentVisible(entry.plugin.id)" :aria-label="getPluginDisclosureLabel(entry.plugin)" :data-sidebar-plugin-disclosure="entry.plugin.id" :title="getPluginDisclosureLabel(entry.plugin)" @click="togglePluginExpansion(entry.plugin.id)">
-                <LoaderCircleIcon v-if="isPluginExpansionPending(entry.plugin.id)" class="sidebar-navigation__loading-icon" aria-hidden="true" /><ChevronDownIcon v-else-if="isPluginContentVisible(entry.plugin.id)" aria-hidden="true" /><ChevronRightIcon v-else aria-hidden="true" />
-              </button>
+            <div v-for="{ resource, pages } in pluginNavigationGroups" :key="resource.key" class="sidebar-plugin" :data-active="resource.plugin.id === activePluginId || undefined">
+              <div class="sidebar-navigation__entry sidebar-navigation__entry--resource">
+                <button type="button" class="sidebar-navigation__item sidebar-navigation__plugin-resource" data-nav-item
+                  :class="{ 'sidebar-navigation__plugin-resource--active': resource.plugin.id === activePluginId }"
+                  :aria-expanded="isPluginContentVisible(resource.plugin.id)"
+                  :aria-busy="isPluginExpansionPending(resource.plugin.id) ? 'true' : undefined"
+                  :aria-label="getPluginAriaLabel(resource.plugin)"
+                  :data-sidebar-plugin-id="resource.plugin.id"
+                  @click="activatePluginNavigationEntry(resource)">
+                  <span class="admin-layout__menu-label sidebar-navigation__plugin-label">
+                    <PluginIcon :refresh-key="pluginsStore.iconRevision" class="sidebar-navigation__plugin-icon" :plugin-id="resource.plugin.id" :icon="resource.plugin.icon" :version="resource.plugin.version" />
+                    <span class="sidebar-navigation__plugin-copy" :title="resource.plugin.name">{{ resource.plugin.name }}</span>
+                    <span v-if="resource.plugin.state" class="sidebar-navigation__state" :data-state="resource.plugin.state" :title="getPluginStateLabel(resource.plugin.state)" aria-hidden="true" />
+                  </span>
+                </button>
+                <button type="button" class="sidebar-navigation__disclosure" :aria-busy="isPluginExpansionPending(resource.plugin.id) ? 'true' : undefined" :aria-expanded="isPluginContentVisible(resource.plugin.id)" :aria-label="getPluginDisclosureLabel(resource.plugin)" :data-sidebar-plugin-disclosure="resource.plugin.id" :title="getPluginDisclosureLabel(resource.plugin)" @click="togglePluginExpansion(resource.plugin.id)">
+                  <LoaderCircleIcon v-if="isPluginExpansionPending(resource.plugin.id)" class="sidebar-navigation__loading-icon" aria-hidden="true" /><ChevronRightIcon v-else class="sidebar-navigation__disclosure-icon" :data-open="isPluginContentVisible(resource.plugin.id) || undefined" aria-hidden="true" />
+                </button>
+              </div>
+              <Transition name="sidebar-collapse">
+                <div v-if="pages.length" class="sidebar-collapse" role="group" :aria-label="t('plugins.navigation.pluginPages', { name: resource.plugin.name })">
+                  <div class="sidebar-collapse__inner sidebar-plugin__pages">
+                    <button v-for="(entry, index) in pages" :key="entry.key" type="button" class="sidebar-navigation__item sidebar-navigation__plugin-child" data-nav-item
+                      :style="{ '--reveal-order': index }"
+                      :aria-current="centerSelectedKeys.includes(entry.key) ? 'page' : undefined"
+                      :data-sidebar-management-page="entry.kind === 'management' ? entry.page.id : undefined"
+                      :data-sidebar-plugin-overview="entry.kind === 'overview' ? entry.plugin.id : undefined"
+                      :data-sidebar-plugin-page-owner="entry.plugin.id"
+                      :data-sidebar-plugin-retry="entry.kind === 'retry' ? entry.plugin.id : undefined"
+                      @click="activatePluginNavigationEntry(entry)">
+                      <span v-if="entry.kind === 'overview'" class="admin-layout__menu-label"><component :is="resolveMenuIcon('plugins')" class="admin-layout__menu-icon" /><span>{{ t('plugins.panels.overview') }}</span></span>
+                      <span v-else-if="entry.kind === 'management'" class="admin-layout__menu-label"><component :is="resolveMenuIcon('plugin-settings')" class="admin-layout__menu-icon" /><span :title="entry.page.label">{{ entry.page.label }}</span></span>
+                      <span v-else class="admin-layout__menu-label"><RotateCwIcon aria-hidden="true" /><span>{{ t('plugins.navigation.detailUnavailable') }} · {{ t('plugins.navigation.retry') }}</span></span>
+                    </button>
+                  </div>
+                </div>
+              </Transition>
             </div>
           </section>
           <AppButton v-if="nextCursor" :loading="loading || loadingMore" :disabled="loading || loadingMore" @click="pluginCollection.loadMore().catch(() => undefined)">{{ t('plugins.store.loadMore') }}</AppButton>
@@ -376,13 +402,101 @@ function toggleRootGroup(key: string) {
   font-weight: 700;
 }
 
-.sidebar-navigation :deep(.sidebar-navigation__plugin-child) {
-  padding-inline-start: 40px !important;
-  animation: sidebar-navigation-reveal 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+// The open plugin is one block: its row and its pages share a neutral fill, so the white pill of the current page
+// reads as part of that plugin. Other plugins keep their rows quiet and only show the fill on hover.
+.sidebar-plugin {
+  margin: 2px 4px;
+  border-radius: 22px;
+  transition: background-color var(--motion-content) var(--motion-easing), box-shadow var(--motion-content) var(--motion-easing);
 }
 
-.sidebar-navigation :deep(.sidebar-navigation__plugin-child .admin-layout__menu-icon) {
-  font-size: 13px;
+// Like a segmented control, the open plugin is a recessed groove and its current page the raised pill inside it; the
+// groove is darker than the sidebar in both themes, so it never blends with a hovered row or the selected pill.
+.sidebar-plugin[data-active] {
+  background: var(--surface-soft);
+}
+
+.sidebar-plugin > .sidebar-navigation__entry--resource {
+  margin: 0;
+}
+
+// Pages hang from a thin guide under the plugin icon; their pills start where the plugin name starts.
+.sidebar-plugin__pages {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 2px 6px 6px 30px;
+}
+
+.sidebar-plugin__pages::before {
+  position: absolute;
+  top: 2px;
+  bottom: 22px;
+  left: 22px;
+  width: 1px;
+  background: color-mix(in srgb, var(--chrome-muted) 32%, transparent);
+  content: '';
+}
+
+.sidebar-plugin__pages > .sidebar-navigation__item {
+  width: 100%;
+  min-height: 36px;
+  margin: 0;
+  padding: 7px 12px;
+  font-size: var(--font-size-sm);
+}
+
+.sidebar-plugin__pages .admin-layout__menu-label {
+  gap: 9px;
+}
+
+.sidebar-plugin__pages .admin-layout__menu-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.sidebar-navigation__disclosure-icon {
+  transition: rotate var(--motion-content) var(--motion-easing);
+}
+
+.sidebar-navigation__disclosure-icon[data-open] {
+  rotate: 90deg;
+}
+
+// A list opens by growing its row track from zero, so everything below moves with it, and its pages arrive one after
+// another; closing is quicker and takes the pages along without a stagger. The clip only exists while it moves, so
+// the current page's shadow is never cut at rest.
+.sidebar-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+
+.sidebar-collapse__inner {
+  min-height: 0;
+}
+
+.sidebar-collapse-enter-active,
+.sidebar-collapse-leave-active {
+  overflow: hidden;
+}
+
+.sidebar-collapse-enter-active {
+  transition: grid-template-rows 260ms var(--motion-easing), opacity 200ms var(--motion-easing);
+}
+
+.sidebar-collapse-leave-active {
+  transition: grid-template-rows 200ms cubic-bezier(0.4, 0, 0.2, 1), opacity 120ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.sidebar-collapse-enter-from,
+.sidebar-collapse-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.sidebar-collapse-enter-active .sidebar-navigation__item {
+  animation: sidebar-navigation-reveal 240ms var(--motion-easing) both;
+  animation-delay: calc(min(var(--reveal-order, 0), 6) * 22ms);
 }
 
 .sidebar-navigation__loading-icon {
@@ -478,7 +592,14 @@ function toggleRootGroup(key: string) {
     transition: none;
   }
 
-  .sidebar-navigation :deep(.sidebar-navigation__plugin-child) {
+  .sidebar-collapse-enter-active,
+  .sidebar-collapse-leave-active,
+  .sidebar-plugin,
+  .sidebar-navigation__disclosure-icon {
+    transition: none;
+  }
+
+  .sidebar-collapse-enter-active .sidebar-navigation__item {
     animation: none;
   }
 
@@ -498,6 +619,7 @@ function toggleRootGroup(key: string) {
 .sidebar-navigation__group-title, .sidebar-navigation__group-heading { margin: 0; padding: 12px 12px 6px; color: var(--chrome-muted); font-size: 12px; font-weight: 500; line-height: 1.4; }
 // The group chevron matches the plugin center's chevron in size and right inset, so both sit in one column.
 .sidebar-navigation__group-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 36px; padding-inline-end: 16px; cursor: pointer; }
+.sidebar-navigation__group-heading svg { transition: rotate var(--motion-content) var(--motion-easing); }
 .sidebar-navigation__group-heading .is-collapsed { rotate: -90deg; }
 // Items are quiet text rows; the current page is a white pill lifted by a soft shadow, with its icon in blue.
 .sidebar-navigation__item { display: flex; align-items: center; width: calc(100% - 8px); min-height: 40px; margin: 2px 4px; padding: 8px 12px; border: 1px solid transparent; border-radius: 999px; color: var(--sider-menu-text); font-size: 14px; font-weight: 500; line-height: 1.4; text-align: left; cursor: pointer; transition: background-color var(--motion-fast) var(--motion-easing); }
@@ -510,12 +632,11 @@ function toggleRootGroup(key: string) {
 .sidebar-navigation__entry > .sidebar-navigation__item { flex: 1; min-width: 0; }
 // A plugin row is one pill: the row takes the hover and open-plugin face, and its name and disclosure buttons stay transparent inside it.
 .sidebar-navigation__entry--resource { margin: 2px 4px; border-radius: 999px; transition: background-color var(--motion-fast) var(--motion-easing); }
-.sidebar-navigation__entry--resource:hover, .sidebar-navigation__entry--active { background: var(--sider-menu-hover-bg); }
+.sidebar-navigation__entry--resource:hover { background: var(--sider-menu-hover-bg); }
 .sidebar-navigation__entry--resource > .sidebar-navigation__item, .sidebar-navigation__entry--resource > .sidebar-navigation__item:hover { width: auto; margin: 0; padding-right: 4px; background: transparent; }
-@media (prefers-reduced-motion: reduce) { .sidebar-navigation__item, .sidebar-navigation__entry--resource, .sidebar-navigation__back { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sidebar-navigation__item, .sidebar-navigation__entry--resource, .sidebar-navigation__back, .sidebar-navigation__group-heading svg { transition: none; } }
 @media (forced-colors: active) { .sidebar-navigation__item:is([aria-current=page], [aria-current=true]), .sidebar-navigation__back { border-color: Highlight; box-shadow: none; } }
 .sidebar-navigation__item .admin-layout__menu-label > span { overflow: hidden; text-overflow: ellipsis; }
-.sidebar-navigation__item.sidebar-navigation__plugin-child { padding-inline-start: 38px; }
 .sidebar-navigation__disclosure > svg, .sidebar-navigation__chevron { width: 16px; height: 16px; }
 .sidebar-navigation__back > svg { width: 18px; height: 18px; }
 .sidebar-navigation__item.sidebar-navigation__collapsed-item { width: 40px; height: 40px; justify-content: center; margin: 4px 0; padding: 10px; }

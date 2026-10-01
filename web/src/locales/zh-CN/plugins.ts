@@ -188,6 +188,7 @@ export const plugins = {
     expandPluginPages: '展开 {name} 的页面',
     collapsePluginPages: '收起 {name} 的页面',
     loadingPluginPages: '正在载入 {name} 的页面',
+    pluginPages: '{name} 的页面',
     retry: '重试',
   },
   sections: {
