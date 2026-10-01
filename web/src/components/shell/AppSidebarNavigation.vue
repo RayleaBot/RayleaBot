@@ -234,19 +234,21 @@ function toggleRootGroup(key: string) {
               </div>
               <Transition name="sidebar-collapse">
                 <div v-if="pages.length" class="sidebar-collapse" role="group" :aria-label="t('plugins.navigation.pluginPages', { name: resource.plugin.name })">
-                  <div class="sidebar-collapse__inner sidebar-plugin__pages">
-                    <button v-for="(entry, index) in pages" :key="entry.key" type="button" class="sidebar-navigation__item sidebar-navigation__plugin-child" data-nav-item
-                      :style="{ '--reveal-order': index }"
-                      :aria-current="centerSelectedKeys.includes(entry.key) ? 'page' : undefined"
-                      :data-sidebar-management-page="entry.kind === 'management' ? entry.page.id : undefined"
-                      :data-sidebar-plugin-overview="entry.kind === 'overview' ? entry.plugin.id : undefined"
-                      :data-sidebar-plugin-page-owner="entry.plugin.id"
-                      :data-sidebar-plugin-retry="entry.kind === 'retry' ? entry.plugin.id : undefined"
-                      @click="activatePluginNavigationEntry(entry)">
-                      <span v-if="entry.kind === 'overview'" class="admin-layout__menu-label"><component :is="resolveMenuIcon('plugins')" class="admin-layout__menu-icon" /><span>{{ t('plugins.panels.overview') }}</span></span>
-                      <span v-else-if="entry.kind === 'management'" class="admin-layout__menu-label"><component :is="resolveMenuIcon('plugin-settings')" class="admin-layout__menu-icon" /><span :title="entry.page.label">{{ entry.page.label }}</span></span>
-                      <span v-else class="admin-layout__menu-label"><RotateCwIcon aria-hidden="true" /><span>{{ t('plugins.navigation.detailUnavailable') }} · {{ t('plugins.navigation.retry') }}</span></span>
-                    </button>
+                  <div class="sidebar-collapse__inner">
+                    <div class="sidebar-plugin__pages">
+                      <button v-for="(entry, index) in pages" :key="entry.key" type="button" class="sidebar-navigation__item sidebar-navigation__plugin-child" data-nav-item
+                        :style="{ '--reveal-order': index }"
+                        :aria-current="centerSelectedKeys.includes(entry.key) ? 'page' : undefined"
+                        :data-sidebar-management-page="entry.kind === 'management' ? entry.page.id : undefined"
+                        :data-sidebar-plugin-overview="entry.kind === 'overview' ? entry.plugin.id : undefined"
+                        :data-sidebar-plugin-page-owner="entry.plugin.id"
+                        :data-sidebar-plugin-retry="entry.kind === 'retry' ? entry.plugin.id : undefined"
+                        @click="activatePluginNavigationEntry(entry)">
+                        <span v-if="entry.kind === 'overview'" class="admin-layout__menu-label"><component :is="resolveMenuIcon('plugins')" class="admin-layout__menu-icon" /><span>{{ t('plugins.panels.overview') }}</span></span>
+                        <span v-else-if="entry.kind === 'management'" class="admin-layout__menu-label"><component :is="resolveMenuIcon('plugin-settings')" class="admin-layout__menu-icon" /><span :title="entry.page.label">{{ entry.page.label }}</span></span>
+                        <span v-else class="admin-layout__menu-label"><RotateCwIcon aria-hidden="true" /><span>{{ t('plugins.navigation.detailUnavailable') }} · {{ t('plugins.navigation.retry') }}</span></span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </Transition>
@@ -471,7 +473,11 @@ function toggleRootGroup(key: string) {
   grid-template-rows: 1fr;
 }
 
+// The row that collapses must have no size of its own: padding or a child's margin on it would keep the track open by
+// that much until the list is removed, which then snaps shut. Padding lives on an element inside it, and the inner
+// box keeps its children's margins to itself.
 .sidebar-collapse__inner {
+  display: flow-root;
   min-height: 0;
 }
 
