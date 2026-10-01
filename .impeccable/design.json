@@ -665,6 +665,114 @@
           "#FFFFFF"
         ]
       },
+      "light-chart-series-1": {
+        "role": "data-visualization",
+        "displayName": "浅色图表系列一",
+        "canonical": "#2860D8",
+        "tonalRamp": [
+          "#E8EEFB",
+          "#2860D8"
+        ]
+      },
+      "light-chart-series-1-soft": {
+        "role": "data-visualization",
+        "displayName": "浅色图表系列一填充",
+        "canonical": "#E8EEFB",
+        "tonalRamp": [
+          "#E8EEFB",
+          "#2860D8"
+        ]
+      },
+      "light-chart-series-2": {
+        "role": "data-visualization",
+        "displayName": "浅色图表系列二",
+        "canonical": "#0E8A7E",
+        "tonalRamp": [
+          "#DAF0EC",
+          "#0E8A7E"
+        ]
+      },
+      "light-chart-series-2-soft": {
+        "role": "data-visualization",
+        "displayName": "浅色图表系列二填充",
+        "canonical": "#DAF0EC",
+        "tonalRamp": [
+          "#DAF0EC",
+          "#0E8A7E"
+        ]
+      },
+      "light-chart-series-3": {
+        "role": "data-visualization",
+        "displayName": "浅色图表系列三",
+        "canonical": "#7A4FD0",
+        "tonalRamp": [
+          "#ECE6FA",
+          "#7A4FD0"
+        ]
+      },
+      "light-chart-series-3-soft": {
+        "role": "data-visualization",
+        "displayName": "浅色图表系列三填充",
+        "canonical": "#ECE6FA",
+        "tonalRamp": [
+          "#ECE6FA",
+          "#7A4FD0"
+        ]
+      },
+      "light-chart-series-4": {
+        "role": "data-visualization",
+        "displayName": "浅色图表系列四",
+        "canonical": "#C03F7A",
+        "tonalRamp": [
+          "#FAE1EC",
+          "#C03F7A"
+        ]
+      },
+      "light-chart-series-4-soft": {
+        "role": "data-visualization",
+        "displayName": "浅色图表系列四填充",
+        "canonical": "#FAE1EC",
+        "tonalRamp": [
+          "#FAE1EC",
+          "#C03F7A"
+        ]
+      },
+      "light-chart-other": {
+        "role": "data-visualization",
+        "displayName": "浅色图表其他",
+        "canonical": "#8A8782",
+        "tonalRamp": [
+          "#E7E5E1",
+          "#8A8782"
+        ]
+      },
+      "light-chart-other-soft": {
+        "role": "data-visualization",
+        "displayName": "浅色图表其他填充",
+        "canonical": "#E7E5E1",
+        "tonalRamp": [
+          "#E7E5E1",
+          "#8A8782"
+        ]
+      },
+      "light-chart-muted-fill": {
+        "role": "data-visualization",
+        "displayName": "浅色图表弱化填充",
+        "canonical": "#ECEBE8",
+        "tonalRamp": [
+          "#ECEBE8",
+          "#C9C6C0"
+        ]
+      },
+      "light-chart-muted-line": {
+        "role": "data-visualization",
+        "displayName": "浅色图表弱化线",
+        "canonical": "#C9C6C0",
+        "tonalRamp": [
+          "#ECEBE8",
+          "#C9C6C0"
+        ]
+      },
       "dark-canvas": {
         "role": "neutral",
         "displayName": "暗色页面",
@@ -1126,6 +1234,114 @@
           "#FFFFFF",
           "#F5F5F3",
           "#FFFFFF"
+        ]
+      },
+      "dark-chart-series-1": {
+        "role": "data-visualization",
+        "displayName": "暗色图表系列一",
+        "canonical": "#3567DC",
+        "tonalRamp": [
+          "#1F2A44",
+          "#3567DC"
+        ]
+      },
+      "dark-chart-series-1-soft": {
+        "role": "data-visualization",
+        "displayName": "暗色图表系列一填充",
+        "canonical": "#1F2A44",
+        "tonalRamp": [
+          "#1F2A44",
+          "#3567DC"
+        ]
+      },
+      "dark-chart-series-2": {
+        "role": "data-visualization",
+        "displayName": "暗色图表系列二",
+        "canonical": "#34B3A4",
+        "tonalRamp": [
+          "#13302C",
+          "#34B3A4"
+        ]
+      },
+      "dark-chart-series-2-soft": {
+        "role": "data-visualization",
+        "displayName": "暗色图表系列二填充",
+        "canonical": "#13302C",
+        "tonalRamp": [
+          "#13302C",
+          "#34B3A4"
+        ]
+      },
+      "dark-chart-series-3": {
+        "role": "data-visualization",
+        "displayName": "暗色图表系列三",
+        "canonical": "#9C7CF2",
+        "tonalRamp": [
+          "#29223F",
+          "#9C7CF2"
+        ]
+      },
+      "dark-chart-series-3-soft": {
+        "role": "data-visualization",
+        "displayName": "暗色图表系列三填充",
+        "canonical": "#29223F",
+        "tonalRamp": [
+          "#29223F",
+          "#9C7CF2"
+        ]
+      },
+      "dark-chart-series-4": {
+        "role": "data-visualization",
+        "displayName": "暗色图表系列四",
+        "canonical": "#E2689F",
+        "tonalRamp": [
+          "#3A1E2C",
+          "#E2689F"
+        ]
+      },
+      "dark-chart-series-4-soft": {
+        "role": "data-visualization",
+        "displayName": "暗色图表系列四填充",
+        "canonical": "#3A1E2C",
+        "tonalRamp": [
+          "#3A1E2C",
+          "#E2689F"
+        ]
+      },
+      "dark-chart-other": {
+        "role": "data-visualization",
+        "displayName": "暗色图表其他",
+        "canonical": "#8A8782",
+        "tonalRamp": [
+          "#2A2A27",
+          "#8A8782"
+        ]
+      },
+      "dark-chart-other-soft": {
+        "role": "data-visualization",
+        "displayName": "暗色图表其他填充",
+        "canonical": "#2A2A27",
+        "tonalRamp": [
+          "#2A2A27",
+          "#8A8782"
+        ]
+      },
+      "dark-chart-muted-fill": {
+        "role": "data-visualization",
+        "displayName": "暗色图表弱化填充",
+        "canonical": "#232321",
+        "tonalRamp": [
+          "#232321",
+          "#4A4844"
+        ]
+      },
+      "dark-chart-muted-line": {
+        "role": "data-visualization",
+        "displayName": "暗色图表弱化线",
+        "canonical": "#4A4844",
+        "tonalRamp": [
+          "#232321",
+          "#4A4844"
         ]
       }
     },

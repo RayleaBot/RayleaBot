@@ -278,6 +278,11 @@ const componentFields = {
 
 const shadowFields = ['shadowFloating', 'shadowRaised', 'shadowSurface']
 
+// Data visualization colours stay out of the theme objects shared with the Launcher; the Web reads them as CSS variables.
+const chartFields = ['series1', 'series1Soft', 'series2', 'series2Soft', 'series3', 'series3Soft', 'series4', 'series4Soft', 'other', 'otherSoft', 'mutedFill', 'mutedLine']
+const charts = Object.fromEntries(['light', 'dark'].map((mode) => [mode, Object.fromEntries(chartFields.map((field) => [field, css(`component.${mode}.chart.${field}`)]))]))
+const chartVariable = (field) => `--chart-${field.replace(/([a-z])(\d)/g, '$1-$2').replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`
+
 function resolvedTheme(mode) {
   const output = Object.fromEntries(themeFields.map((field) => [field, css(`semantic.${mode}.color.${field}`)]))
   for (const [field, tokenName] of Object.entries(componentFields)) {
@@ -466,7 +471,8 @@ function renderThemeVariables(mode) {
   --app-bg-card: ${theme.surface};
   --control-surface: ${theme.surfaceRaised};
   --code-surface: ${theme.surfaceSoft};
-  --code-text: ${theme.text};`
+  --code-text: ${theme.text};
+${chartFields.map((field) => `  ${chartVariable(field)}: ${charts[mode][field]};`).join('\n')}`
 }
 
 function renderWebScss() {
@@ -599,6 +605,16 @@ function renderColorMeta() {
       const aliases = { borderControl: 'control-border', brandFill: 'primary', brandFillHover: 'primary-hover', brandFillPressed: 'primary-pressed' }
       const name = aliases[field] ?? field.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
       entries[`${mode}-${name}`] = colorMetaEntry(role, `${mode === 'light' ? '浅色' : '暗色'}${label}`, themes[mode][field], ramp)
+    }
+    const chartLabels = {
+      series1: '图表系列一', series1Soft: '图表系列一填充', series2: '图表系列二', series2Soft: '图表系列二填充',
+      series3: '图表系列三', series3Soft: '图表系列三填充', series4: '图表系列四', series4Soft: '图表系列四填充',
+      other: '图表其他', otherSoft: '图表其他填充', mutedFill: '图表弱化填充', mutedLine: '图表弱化线',
+    }
+    // Each series pairs its fill with its line; the muted pair dims the layers out of focus.
+    const chartRamp = (field) => (field.startsWith('muted') ? ['mutedFill', 'mutedLine'] : [`${field.replace(/Soft$/, '')}Soft`, field.replace(/Soft$/, '')]).map((name) => charts[mode][name])
+    for (const [field, label] of Object.entries(chartLabels)) {
+      entries[`${mode}${chartVariable(field).slice(1)}`] = colorMetaEntry('data-visualization', `${mode === 'light' ? '浅色' : '暗色'}${label}`, charts[mode][field], chartRamp(field))
     }
   }
   return entries
@@ -839,6 +855,10 @@ function validateContrast() {
     for (const field of ['success', 'warning', 'danger', 'info', 'attention']) {
       assertMinimumContrast(`${mode} ${field} text on surface`, themes[mode][field], themes[mode].surface, 4.5)
       assertMinimumContrast(`${mode} ${field} text on canvas`, themes[mode][field], themes[mode].canvas, 4.5)
+    }
+    // Series lines and the merged "其他" layer are graphics that carry meaning inside gray boxes.
+    for (const field of ['series1', 'series2', 'series3', 'series4', 'other']) {
+      assertMinimumContrast(`${mode} chart ${field} on surface`, charts[mode][field], themes[mode].surface, 3)
     }
   }
 }

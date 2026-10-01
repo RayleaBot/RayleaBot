@@ -40,6 +40,18 @@ colors:
   light-danger: "#A92E29"
   light-info: "#2159B8"
   light-info-soft: "#E0E9FB"
+  light-chart-series-1: "#2860D8"
+  light-chart-series-1-soft: "#E8EEFB"
+  light-chart-series-2: "#0E8A7E"
+  light-chart-series-2-soft: "#DAF0EC"
+  light-chart-series-3: "#7A4FD0"
+  light-chart-series-3-soft: "#ECE6FA"
+  light-chart-series-4: "#C03F7A"
+  light-chart-series-4-soft: "#FAE1EC"
+  light-chart-other: "#8A8782"
+  light-chart-other-soft: "#E7E5E1"
+  light-chart-muted-fill: "#ECEBE8"
+  light-chart-muted-line: "#C9C6C0"
   dark-canvas: "#111110"
   dark-surface: "#1C1C1A"
   dark-surface-raised: "#282826"
@@ -67,6 +79,18 @@ colors:
   dark-danger: "#FF8177"
   dark-info: "#88AEFF"
   dark-info-soft: "#1B2A45"
+  dark-chart-series-1: "#3567DC"
+  dark-chart-series-1-soft: "#1F2A44"
+  dark-chart-series-2: "#34B3A4"
+  dark-chart-series-2-soft: "#13302C"
+  dark-chart-series-3: "#9C7CF2"
+  dark-chart-series-3-soft: "#29223F"
+  dark-chart-series-4: "#E2689F"
+  dark-chart-series-4-soft: "#3A1E2C"
+  dark-chart-other: "#8A8782"
+  dark-chart-other-soft: "#2A2A27"
+  dark-chart-muted-fill: "#232321"
+  dark-chart-muted-line: "#4A4844"
 typography:
   headline:
     fontFamily: "'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'PingFang SC', sans-serif"
@@ -189,6 +213,14 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 - **近黑与深灰**：暗色画布、盒子与导航，控件面比盒子亮一级。
 - **中性悬停与焦点**：导航悬停与普通悬停面使用中性角色；键盘焦点使用品牌前景色，字段在现有边界内显示焦点，见 Inputs / Fields。
 - **正文、辅文与边界**：分隔线负责盒子内的分组；控件边界负责输入框等可操作目标，两者不能互换。
+
+### Data visualization
+
+- **系列色**：图表按列表顺序取用 chart-series-1 至 chart-series-4（蓝、青绿、紫、玫红），每个系列一条实线和同色相的平面淡填充；灰色 chart-other 只表示合并后的“其他”。颜色跟随对象的配置顺序固定分配，切换时间段时同一对象不换色。
+- **填充与弱化**：面积是不透明的平面色，不用渐变或透明叠加；指向某一层时，其余各层改用 chart-muted-fill 与 chart-muted-line。
+- **未结束的时段**：最新的桶仍在累计时，最后一段线改为点线，提示框写明“截至”时间，不把未完成的数字读成下降。
+- **事件轨道**：连接中断与服务未运行画在图下方的细轨道上，分别使用 warning 与辅文色；坐标、网格和光标线使用辅文与分隔线角色。
+- **变化标记**：消息量这类不分好坏的数值，与前一时段的变化使用中性胶囊，只用箭头表示方向。
 
 ### Named Rules
 
