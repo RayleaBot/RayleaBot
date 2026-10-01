@@ -61,6 +61,7 @@ export const dashboard = {
   diagnosticsSchedulerDetail: '启用 {enabled} / 总计 {total} / 失败 {failed} / 停用 {disabled}',
   diagnosticsTaskValue: '运行 {running} / 等待 {pending}',
   diagnosticsTaskDetail: '失败 {failed}',
+  diagnosticsTaskDetailInterrupted: '失败 {failed} · 中断 {interrupted}',
   diagnosticsDependencyValue: '已就绪 {ready} / 共 {total}',
   diagnosticsDependencyPending: '{count} 项待准备',
   diagnosticsFilesystemValue: '正常 {ok} / 总计 {total}',

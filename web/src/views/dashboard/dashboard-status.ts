@@ -229,7 +229,10 @@ export function buildDiagnosticsSubsystemItems(snapshot: SystemDiagnosticsRespon
       label: t('dashboard.diagnosticsSubsystems.tasks'),
       status: failureStatus(snapshot.tasks.failed, 'warning'),
       value: t('dashboard.diagnosticsTaskValue', { running: snapshot.tasks.running, pending: snapshot.tasks.pending }),
-      detail: t('dashboard.diagnosticsTaskDetail', { failed: snapshot.tasks.failed }),
+      // Tasks cut off by a stop or restart are not failures; they are named only when there are some.
+      detail: snapshot.tasks.interrupted > 0
+        ? t('dashboard.diagnosticsTaskDetailInterrupted', { failed: snapshot.tasks.failed, interrupted: snapshot.tasks.interrupted })
+        : t('dashboard.diagnosticsTaskDetail', { failed: snapshot.tasks.failed }),
     },
     {
       key: 'dependencies',
