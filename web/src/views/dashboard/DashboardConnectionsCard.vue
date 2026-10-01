@@ -179,7 +179,7 @@ function retryAdapters() {
           <i v-for="layer in layers.order.filter(item => item.total > 0)" :key="layer.key" :style="{ flexGrow: layer.total, background: layerColor(layer.color) }" />
         </div>
         <div v-if="layers && split === 'direction'" class="connections-card__direction-legend">
-          <span v-for="layer in layers.order" :key="layer.key"><i :style="{ background: layerColor(layer.color) }" />{{ names[layer.key] }} {{ total > 0 ? Math.round((layer.total / total) * 100) : 0 }}%</span>
+          <span v-for="layer in layers.order" :key="layer.key"><i :style="{ background: layerColor(layer.color) }" />{{ names[layer.key] }}<template v-if="total > 0"> {{ Math.round((layer.total / total) * 100) }}%</template></span>
         </div>
 
         <ul class="connections-card__rows">
