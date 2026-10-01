@@ -124,8 +124,9 @@ describe('CommandsPage', () => {
     const wrapper = mount(CommandsPage, { global: { plugins: [getActivePinia()!, router] } })
     await flushPromises()
     expect(wrapper.text()).toContain('first-command description')
-    // first-command has no policy entry, so its own declaration is shown translated.
-    expect(wrapper.text()).toContain('声明权限：所有成员')
+    // first-command has no policy entry, so its own declaration is shown translated, once.
+    expect(wrapper.text()).toContain('所有人')
+    expect(wrapper.text()).not.toContain('尚未生效')
     expect(wrapper.text()).not.toContain('later-command')
     expect(wrapper.getComponent(AppCollectionPagination).props('nextCursor')).toBe('1')
     expect(vi.mocked(apiRequest).mock.calls.some(call => call[0].includes('cursor='))).toBe(false)
@@ -243,10 +244,10 @@ describe('CommandsPage', () => {
 
     expect(wrapper.text()).toContain('指令中心')
     expect(wrapper.text()).toContain('指令列表')
-    expect(wrapper.text()).toContain('设置指令')
-    expect(wrapper.text()).toContain('所有成员')
-    expect(wrapper.text()).toContain('声明权限：所有成员')
-    expect(wrapper.text()).toContain('权限来源：指令声明')
+    expect(wrapper.text()).toContain('插件设置中自定义')
+    expect(wrapper.text()).toContain('所有人')
+    // A declared permission is simply the level; only a level that follows the default says so.
+    expect(wrapper.text()).not.toContain('跟随默认权限')
     expect(wrapper.text()).toContain('我的运势')
     expect(wrapper.text()).toContain('今日运势')
     expect(wrapper.text()).toContain('!我的运势')
@@ -261,7 +262,7 @@ describe('CommandsPage', () => {
     expect(router.currentRoute.value.fullPath).toContain('plugin_id=raylea.echo')
     expect(wrapper.text()).toContain('echo')
     expect(wrapper.text()).toContain('复读收到的内容')
-    expect(wrapper.text()).toContain('权限来源：默认权限')
+    expect(wrapper.text()).toContain('跟随默认权限')
     expect(wrapper.text()).not.toContain('查看今日运势')
 
     const pluginLink = wrapper.find('.command-plugin-link')
@@ -327,7 +328,7 @@ describe('CommandsPage', () => {
 
     expect(wrapper.text()).toContain('ops')
     expect(wrapper.text()).toContain('ops-help')
-    expect(wrapper.text()).toContain('所有成员')
+    expect(wrapper.text()).toContain('所有人')
     expect(wrapper.text()).toContain('未就绪')
     expect(wrapper.find('.command-plugin-link').attributes('href')).toBe('/plugins/ops.tools')
   }, 15000)

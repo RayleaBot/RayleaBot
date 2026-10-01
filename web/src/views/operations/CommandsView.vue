@@ -36,11 +36,7 @@ import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
 import { usePluginCollection } from '@/lib/use-plugin-collection'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
-import type {
-  CommandPermissionLevel,
-  CommandPermissionSource,
-  PluginCommandSummary,
-} from '@/types/api'
+import type { PluginCommandSummary } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -135,15 +131,10 @@ function getAliasesText(command: PluginCommandSummary) {
   return aliases.length ? aliases.join('、') : t('display.empty')
 }
 
-// A command outside the effective policy (its plugin is not running) has no permission in force yet;
-// a bare dash there read like "no permission".
-function getEffectivePermissionText(policy: { effective_permission?: CommandPermissionLevel } | null) {
-  return policy?.effective_permission ? getCommandPermissionLabel(policy.effective_permission) : t('commands.permissionInactive')
-}
-
-// Without a loaded policy entry the command's own declaration is the best available answer.
-function getDeclaredPermissionText(command: PluginCommandSummary, policy: { declared_permission?: CommandPermissionLevel | null } | null) {
-  return getCommandPermissionLabel(policy ? policy.declared_permission : command.permission)
+// One line says who may use the command: the effective level from the policy, or the command's own declaration
+// when no policy entry is loaded (its plugin is not running, or the policy did not load).
+function getPermissionText(record: UnifiedCommandRow) {
+  return getCommandPermissionLabel(record.policy?.effective_permission ?? record.command.permission)
 }
 
 function getUsageText(command: PluginCommandSummary) {
@@ -168,10 +159,6 @@ function getStatusColor(status: PluginCommandAvailability) {
     default:
       return 'info'
   }
-}
-
-function getPermissionSourceLabel(source: CommandPermissionSource) {
-  return t(`commands.permissionSource.${source}`)
 }
 
 function getCommandSourceLabel(source: PluginCommandSummary['trigger']['type']) {
@@ -288,6 +275,7 @@ onMounted(() => {
               <AppTag :tone="record.conflicted ? 'warning' : 'neutral'" class="command-name-tag" :aria-label="t('commands.aria.command', { name: record.command.name })">
                 {{ record.command.name }}
               </AppTag>
+              <AppTag v-if="record.conflicted" tone="warning" class="command-conflict-tag">{{ t('plugins.commandConflictBadge') }}</AppTag>
             </template>
 
             <template v-else-if="column.key === 'aliases'">
@@ -310,13 +298,8 @@ onMounted(() => {
 
             <template v-else-if="column.key === 'permission'">
               <div class="command-permission-cell">
-                <span :class="{ 'command-permission-cell__inactive': !record.policy?.effective_permission }">{{ getEffectivePermissionText(record.policy) }}</span>
-                <small>
-                  {{ t('commands.fields.declaredPermission') }}：{{ getDeclaredPermissionText(record.command, record.policy) }}
-                </small>
-                <small v-if="record.policy">
-                  {{ t('commands.fields.permissionSource') }}：{{ getPermissionSourceLabel(record.policy.permission_source) }}
-                </small>
+                <span>{{ getPermissionText(record) }}</span>
+                <small v-if="record.policy?.permission_source === 'default_level'">{{ t('commands.permissionDefault') }}</small>
               </div>
             </template>
 
@@ -406,8 +389,7 @@ onMounted(() => {
   color: var(--muted);
 }
 
-.command-plugin-cell small,
-.command-permission-cell__inactive {
+.command-plugin-cell small {
   color: var(--muted);
 }
 

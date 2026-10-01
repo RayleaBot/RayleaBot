@@ -281,9 +281,9 @@ export const plugins = {
   commandUsage: '用法',
   commandConflictBadge: '指令冲突',
   commandTriggerLabel: {
-    exact: '固定指令',
-    setting: '设置指令',
-    pattern: '规则指令',
+    exact: '固定触发词',
+    setting: '插件设置中自定义',
+    pattern: '按规则匹配',
   },
   commandOverflow: '还有 {count} 个',
   trustLabels: {

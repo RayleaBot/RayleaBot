@@ -407,7 +407,7 @@ describe('PluginDetailPage', () => {
     expect(project.text()).not.toContain('assets/')
    expect(wrapper.text()).toContain('message.group')
     expect(wrapper.text()).toContain('查看今日运势')
-    expect(wrapper.text()).toContain('所有成员')
+    expect(wrapper.text()).toContain('所有人')
     expect(wrapper.text()).toContain('#我的运势')
     expect(wrapper.text()).toContain('今日运势')
     expect(wrapper.text()).toContain('worker ready')
