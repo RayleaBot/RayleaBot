@@ -75,6 +75,15 @@ func (r *ReleaseFeed) getSnapshot(force bool, goos, goarch string) ReleaseCheckS
 	return r.cached
 }
 
+// InstalledVersion reads the version from build_info.json, or returns "" for a build without one.
+func (r *ReleaseFeed) InstalledVersion() string {
+	info, err := readBuildInfoForPlatform(r.basePath, runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		return ""
+	}
+	return info.Version
+}
+
 func parseReleaseCheck(payload string) (releaseCheck, error) {
 	var result releaseCheck
 	if err := json.Unmarshal([]byte(payload), &result); err != nil {

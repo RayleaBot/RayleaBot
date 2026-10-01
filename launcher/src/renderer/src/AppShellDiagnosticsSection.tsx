@@ -4,12 +4,14 @@ import {
   DocumentText20Regular,
   FolderOpen20Regular,
   Globe20Regular,
+  Info20Regular,
   Status20Regular,
   Warning20Regular,
 } from "@fluentui/react-icons";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 
+import { uncapturedOutputText } from "./AppShell.copy";
 import { serviceStateConfig } from "./AppShell.shared";
 import { Disclosure } from "./Disclosure";
 
@@ -27,9 +29,10 @@ export function AppShellDiagnosticsSection({
   const presentation = deriveLauncherPresentation(snapshot);
   const serviceState = serviceStateConfig[presentation.state];
   const hasRecentStderr = snapshot.launcher.recentStderr.length > 0;
+  const outputUncaptured = !hasRecentStderr && snapshot.launcher.processOwnership === "external";
   const baseUrl = snapshot.launcher.endpoint.baseUrl;
   const openLogs = (
-    <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开完整日志</Button>
+    <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开日志目录</Button>
   );
 
   return (
@@ -42,12 +45,12 @@ export function AppShellDiagnosticsSection({
             {serviceState?.label ?? "未知"}
           </dd>
         </div>
-        <div className="overview-strip__item" data-state={hasRecentStderr ? "danger" : "success"}>
+        <div className="overview-strip__item" data-state={hasRecentStderr ? "danger" : outputUncaptured ? undefined : "success"}>
           <dt><DocumentText20Regular aria-hidden="true" />日志状态</dt>
-          <dd>{hasRecentStderr ? "发现异常日志" : "未发现异常日志"}</dd>
+          <dd>{hasRecentStderr ? "发现异常输出" : outputUncaptured ? "未捕获服务输出" : "未发现异常输出"}</dd>
         </div>
         <div className="overview-strip__item">
-          <dt><Globe20Regular aria-hidden="true" />本地端点</dt>
+          <dt><Globe20Regular aria-hidden="true" />管理界面地址</dt>
           <dd><code title={baseUrl}>{baseUrl}</code></dd>
         </div>
       </dl>
@@ -57,7 +60,7 @@ export function AppShellDiagnosticsSection({
           <div className="diagnostics-log__heading">
             <div className="diagnostics-log__title">
               <Warning20Regular aria-hidden="true" />
-              <h3 id="diagnostics-log-title">最近异常输出</h3>
+              <h3 id="diagnostics-log-title">异常输出</h3>
               <span className="status-label" data-state="danger">需要检查</span>
             </div>
             {openLogs}
@@ -65,13 +68,22 @@ export function AppShellDiagnosticsSection({
           <pre className="log-surface diagnostics-log__surface">{snapshot.launcher.recentStderr.join("\n")}</pre>
         </section>
       ) : (
-        <div className="diagnostics-empty content-group">
+        <div className="diagnostics-empty content-group" data-alert={outputUncaptured ? "unknown" : "none"}>
           <div className="diagnostics-empty__status" role="status">
-            <span className="diagnostics-empty__icon" aria-hidden="true"><CheckmarkCircle20Regular /></span>
-            <div>
-              <strong>当前没有新的异常日志</strong>
-              <span>需要完整上下文时可以打开日志目录，或展开下方技术详情。</span>
-            </div>
+            <span className="diagnostics-empty__icon" aria-hidden="true">
+              {outputUncaptured ? <Info20Regular /> : <CheckmarkCircle20Regular />}
+            </span>
+            {outputUncaptured ? (
+              <div>
+                <strong>未捕获服务输出</strong>
+                <span>{uncapturedOutputText}</span>
+              </div>
+            ) : (
+              <div>
+                <strong>当前没有新的异常输出</strong>
+                <span>需要完整上下文时可以打开日志目录，或展开下方技术详情。</span>
+              </div>
+            )}
           </div>
           {openLogs}
         </div>

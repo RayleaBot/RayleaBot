@@ -21,9 +21,9 @@ type ActionConfirmDialogProps = {
 
 const actionCopy = {
   "reset-admin": {
-    title: "重置管理员凭据",
-    lead: "确认清除本地管理员凭据和现有会话？",
-    detail: "服务会停止并重置管理员状态，随后回到首次设置流程。配置、数据和已安装插件不会被删除。",
+    title: "重置管理员账号",
+    lead: "确认重置管理员账号？",
+    detail: "清除管理员账号和登录会话，随后重启服务并打开管理界面重新创建管理员；配置、数据和已安装插件保留。",
     confirm: "确认重置",
     icon: <Delete24Filled />,
     tone: "danger",

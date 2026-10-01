@@ -1,5 +1,7 @@
 import { Button } from "@fluentui/react-components";
+import type { LauncherDiagnosticIssue } from "@shared/launcher-models";
 
+import { formatRuntimeResource } from "./AppShell.copy";
 import { severityConfig } from "./AppShell.shared";
 
 type RailCheck = {
@@ -10,15 +12,15 @@ type RailCheck = {
 };
 
 type AppShellStatusRailProps = {
-  canPrepareRuntime: boolean;
   checks: RailCheck[];
-  onOpenTasks: () => void;
+  runtimeResources: NonNullable<LauncherDiagnosticIssue["runtime_resources"]>;
+  onOpenWeb: () => void;
 };
 
 export function AppShellStatusRail({
-  canPrepareRuntime,
   checks,
-  onOpenTasks,
+  runtimeResources,
+  onOpenWeb,
 }: AppShellStatusRailProps) {
   const issueTone = checks.some((item) => item.severity === "error") ? "danger" : "warning";
 
@@ -33,11 +35,7 @@ export function AppShellStatusRail({
               <span className="attention-list__icon">{severityConfig[item.severity as keyof typeof severityConfig]?.icon}</span>
               <div>
                 <strong>{item.title}</strong>
-                <p>
-                  {item.code === "os.long_paths_unknown" && item.severity === "warning"
-                    ? "无法确认长路径支持状态。若资源展开遇到限制，请手动检查系统长路径设置。"
-                    : item.summary}
-                </p>
+                <p>{item.summary}</p>
               </div>
             </div>
           ))}
@@ -45,12 +43,15 @@ export function AppShellStatusRail({
         </section>
       )}
 
-      {canPrepareRuntime ? (
+      {runtimeResources.length > 0 ? (
         <section className="attention-panel content-group" data-tone="attention">
           <h3>运行环境准备</h3>
-          <p>检测到可由启动器准备的运行环境项。</p>
+          <p>以下项目可在管理界面的系统状态页准备。</p>
+          <ul className="attention-panel__items">
+            {runtimeResources.map((resource) => <li key={resource}>{formatRuntimeResource(resource)}</li>)}
+          </ul>
           <div className="button-row button-row--stackable">
-            <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onOpenTasks}>准备运行环境</Button>
+            <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onOpenWeb}>在管理界面准备</Button>
           </div>
         </section>
       ) : null}

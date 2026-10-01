@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -51,10 +52,9 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 			lifecycle = "running"
 			ownership = "launcher_managed"
 		}
-		hint := "服务尚未启动。"
-		if inspection.CanBootstrapUserConfig {
-			hint = "启动服务时会先生成 config/user.yaml。"
-		} else if issue := primaryEnvironmentIssue(inspection.PreflightChecks); issue != nil {
+		// A missing user configuration is generated on start, so only a blocking issue needs a hint here.
+		hint := ""
+		if issue := primaryEnvironmentIssue(inspection.PreflightChecks); issue != nil && inspection.HasBlockingIssues {
 			hint = issue.Summary + " " + issue.Remediation
 		}
 		c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
@@ -93,12 +93,12 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 		return nil
 	}
 	var systemStatus *ServerSystemStatusResponse
-	statusError := ""
+	statusError, statusHint := "", ""
 	if status := readiness.Status; status == "ready" || status == "degraded" {
 		if value, statusErr := c.management.GetLauncherStatus(ctx, operation.endpoint); statusErr == nil {
 			systemStatus = value
 		} else {
-			statusError = statusErr.Error()
+			statusHint, statusError = describeLauncherStatusError(statusErr, c.process.IsRunning())
 		}
 	}
 	lifecycle := lifecycleFor(c.process.IsRunning())
@@ -109,9 +109,19 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 	c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
 		health: &ServerLivenessStatusResponse{Status: "ok"}, readiness: readiness, systemStatus: systemStatus,
 		processLifecycle: lifecycle, processOwnership: ownershipFor(c.process.IsRunning(), true),
-		lastLocalError: statusError,
+		statusHint: statusHint, lastLocalError: statusError,
 	}))
 	return nil
+}
+
+// A service started outside this launcher does not hold its control token, so the launcher endpoints refuse it.
+// That is expected rather than a fault: the service keeps running and is stopped from the management UI.
+func describeLauncherStatusError(err error, launcherManaged bool) (hint, lastError string) {
+	var serverErr *ServerError
+	if !launcherManaged && errors.As(err, &serverErr) && serverErr.StatusCode == http.StatusForbidden {
+		return "这个服务不是由启动器启动的，启动器无法停止它；需要停止时请在管理界面停止服务。", ""
+	}
+	return "", err.Error()
 }
 
 func (c *Coordinator) Start() error {
@@ -145,7 +155,7 @@ func (c *Coordinator) startLocked(startupContext context.Context) error {
 		operation, _ = c.operationContext()
 		inspection = InspectEnvironment(operation.resolvedSettings)
 		if inspection.CanBootstrapUserConfig {
-			c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{processLifecycle: "stopped", processOwnership: "none", statusHint: "无法生成用户配置。", lastLocalError: "配置初始化命令已完成，但 config/user.yaml 仍未生成。"}))
+			c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{processLifecycle: "stopped", processOwnership: "none", statusHint: "无法生成用户配置。", lastLocalError: "配置初始化命令已完成，但仍未生成用户配置。"}))
 			return nil
 		}
 	}
@@ -364,21 +374,21 @@ func (c *Coordinator) ResetAdmin() error {
 		if managed {
 			ownership = "launcher_managed"
 		}
-		c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{processLifecycle: "stopping", processOwnership: ownership, statusHint: "正在停止服务以执行管理员重置。"}))
+		c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{processLifecycle: "stopping", processOwnership: ownership, statusHint: "正在停止服务以重置管理员账号。"}))
 		if managed {
 			if err := c.process.ForceKill(); err != nil {
 				return err
 			}
 		} else {
 			if !isLoopbackHost(operation.endpoint.Host) {
-				return errors.New("无法重置非本机服务的管理员凭据")
+				return errors.New("无法重置非本机服务的管理员账号")
 			}
 			stopped, stopErr := stopEndpointProcess(operation.endpoint)
 			if stopErr != nil {
 				return stopErr
 			}
 			if !stopped {
-				return errors.New("无法确认现有服务进程，管理员凭据未重置")
+				return errors.New("无法确认现有服务进程，管理员账号未重置")
 			}
 		}
 	}
@@ -387,7 +397,7 @@ func (c *Coordinator) ResetAdmin() error {
 	}
 	startupContext, finishStartup, allowed := c.startups.begin()
 	if !allowed {
-		return fmt.Errorf("管理员凭据已重置，但服务重启被阻止: %w", errStartupBlocked)
+		return fmt.Errorf("管理员账号已重置，但服务重启被阻止: %w", errStartupBlocked)
 	}
 	defer finishStartup()
 	if err := c.startLocked(startupContext); err != nil {
@@ -408,7 +418,7 @@ func (c *Coordinator) ResetAdmin() error {
 			return nil
 		}
 	}
-	return errors.New("管理员凭据已重置，但服务未在预期时间内进入 setup_required 状态")
+	return errors.New("管理员账号已重置，但服务未在预期时间内进入初始化流程")
 }
 
 func waitForStartup(ctx context.Context, duration time.Duration) bool {

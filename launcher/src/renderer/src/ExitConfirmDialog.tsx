@@ -51,7 +51,7 @@ export const ExitConfirmDialog = React.memo(function ExitConfirmDialog({ open, o
         </DialogTitle>
         <DialogContent className="launcher-dialog__content">
           <p className="launcher-dialog__detail">
-            服务可以留在系统托盘中继续运行，也可以结束启动器窗口与托盘进程。
+            启动器可以留在托盘，服务继续运行；完全退出时，由启动器启动的服务会一并停止。
           </p>
           <Checkbox
             className="launcher-dialog__remember"
@@ -65,7 +65,7 @@ export const ExitConfirmDialog = React.memo(function ExitConfirmDialog({ open, o
                 <span className="launcher-tile__icon" aria-hidden="true"><Subtract20Regular /></span>
                 <span className="launcher-tile__copy">
                   <strong>隐藏到托盘</strong>
-                  <span>关闭主窗口，保留后台服务和托盘入口。</span>
+                  <span>关闭窗口后启动器留在托盘，服务继续运行。</span>
                 </span>
                 <ChevronRight16Regular className="launcher-tile__chevron" aria-hidden="true" />
               </span>
@@ -75,7 +75,7 @@ export const ExitConfirmDialog = React.memo(function ExitConfirmDialog({ open, o
                 <span className="launcher-tile__icon" aria-hidden="true"><SignOut20Regular /></span>
                 <span className="launcher-tile__copy">
                   <strong>完全退出</strong>
-                  <span>结束启动器窗口与托盘进程。</span>
+                  <span>关闭启动器；由启动器启动的服务会一并停止。</span>
                 </span>
                 <ChevronRight16Regular className="launcher-tile__chevron" aria-hidden="true" />
               </span>

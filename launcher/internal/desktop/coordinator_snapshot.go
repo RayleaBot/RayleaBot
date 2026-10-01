@@ -9,7 +9,7 @@ func (c *Coordinator) buildSnapshot(operation operationContext, inspection Envir
 		warning := EnvironmentCheckResult{
 			Scope: "advisory", Code: "config.endpoint_fallback", Title: "服务监听配置", Severity: "warning",
 			Summary: operation.endpointWarning, Detail: operation.endpointWarning,
-			Remediation: "请检查 config/user.yaml 中的 server.host 与 server.port。",
+			Remediation: "请检查配置文件中的 server.host 与 server.port。",
 		}
 		inspection.Checks = append(append([]EnvironmentCheckResult(nil), inspection.Checks...), warning)
 		inspection.AdvisoryChecks = append(append([]EnvironmentCheckResult(nil), inspection.AdvisoryChecks...), warning)

@@ -9,6 +9,7 @@ import {
   formatProcessOwnership,
   formatReadinessStatus,
   formatSystemStatus,
+  uncapturedOutputText,
 } from "./AppShell.copy";
 
 export const initialSnapshot: LauncherSnapshot = {
@@ -69,24 +70,26 @@ export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
     .map((item) => `- ${formatReadinessIssue(item)}`)
     .join("\n");
   const checks = snapshot.launcher.environmentChecks
-    .map(
-      (item) =>
-        `- ${formatEnvironmentScope(item.scope)}：${item.title}，${item.summary}（${item.detail}${item.remediation ? `；${item.remediation}` : ""}）`,
-    )
+    .map((item) => {
+      const note = [item.detail, item.remediation].filter(Boolean).join("；");
+      return `- ${formatEnvironmentScope(item.scope)}：${item.title}，${item.summary}${note ? `（${note}）` : ""}`;
+    })
     .join("\n");
   const recentErrors =
     snapshot.launcher.recentStderr.length
       ? snapshot.launcher.recentStderr.join("\n")
-      : "未发现新的错误日志。";
+      : snapshot.launcher.processOwnership === "external"
+        ? uncapturedOutputText
+        : "未发现新的异常输出。";
 
   return [
     `状态摘要：${presentation.label}`,
     `状态说明：${presentation.detail}`,
-    `本地端点：${snapshot.launcher.endpoint.baseUrl}`,
+    `管理界面地址：${snapshot.launcher.endpoint.baseUrl}`,
     `安装目录：${snapshot.launcher.settings.installationRoot || "未设置"}`,
-    `服务端：${snapshot.launcher.resolvedSettings.serverExecutablePath || "未设置"}`,
+    `服务端程序：${snapshot.launcher.resolvedSettings.serverExecutablePath || "未设置"}`,
     `配置文件：${snapshot.launcher.resolvedSettings.configPath || "未设置"}`,
-    `进程工作目录：${snapshot.launcher.resolvedSettings.workdir || "未设置"}`,
+    `工作目录：${snapshot.launcher.resolvedSettings.workdir || "未设置"}`,
     "服务状态：",
     [
       `服务连接：${formatHealthStatus(snapshot.server.health?.status)}`,
@@ -102,17 +105,26 @@ export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
     "启动器状态：",
     [
       `进程状态：${formatProcessLifecycle(snapshot.launcher.processLifecycle)}`,
-      `进程来源：${formatProcessOwnership(snapshot.launcher.processOwnership)}`,
+      `启动方式：${formatProcessOwnership(snapshot.launcher.processOwnership)}`,
       `状态提示：${snapshot.launcher.statusHint || "—"}`,
       `启动器错误：${snapshot.launcher.lastLocalError || "—"}`,
     ].join("\n"),
     "环境检查：",
     checks || "- 没有需要显示的检查项。",
-    "最近错误日志：",
+    "异常输出：",
     recentErrors,
   ].join("\n");
 }
 
-export function describeLauncherError(_error: unknown, fallback: string) {
-  return fallback;
+/**
+ * Wails rejects a failed desktop call with the Go error's JSON as `cause`. The Go side sends a BoundaryError
+ * as its code and readable message; any other error keeps the generic text, since it can carry internal details.
+ */
+export function describeLauncherError(error: unknown, fallback: string) {
+  const cause = error instanceof Error ? error.cause : undefined;
+  if (typeof cause !== "object" || cause === null) {
+    return fallback;
+  }
+  const { code, message } = cause as { code?: unknown; message?: unknown };
+  return typeof code === "string" && code && typeof message === "string" && message.trim() ? message.trim() : fallback;
 }

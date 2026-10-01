@@ -27,7 +27,6 @@ type AppShellServiceControlProps = {
   onOpenWeb: () => void;
   onStart: () => void;
   onStop: () => void;
-  primaryActionLabel: string;
   showRunningActions: boolean;
   snapshot: {
     serviceDetail: string;
@@ -65,7 +64,6 @@ export function AppShellServiceControl({
   onOpenWeb,
   onStart,
   onStop,
-  primaryActionLabel,
   showRunningActions,
   snapshot,
   startDisabled,
@@ -142,7 +140,7 @@ export function AppShellServiceControl({
           disabled={primaryDisabled}
           icon={showRunningActions ? <Globe20Regular /> : <Play20Regular />}
         >
-          {showRunningActions ? "管理界面" : primaryActionLabel}
+          {showRunningActions ? "管理界面" : "启动服务"}
         </Button>
         {note ? (
           <p id={noteId} className="operation-status" aria-live="polite">

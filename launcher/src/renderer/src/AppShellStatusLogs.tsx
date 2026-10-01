@@ -1,31 +1,33 @@
 import { Button } from "@fluentui/react-components";
-import { CheckmarkCircle20Regular, FolderOpen20Regular } from "@fluentui/react-icons";
+import { CheckmarkCircle20Regular, FolderOpen20Regular, Info20Regular } from "@fluentui/react-icons";
+
+import { uncapturedOutputText } from "./AppShell.copy";
 
 type AppShellStatusLogsProps = {
-  hasRecentStderr: boolean;
+  externalService: boolean;
   logs: string[];
   onOpenLogs: () => void;
 };
 
 export function AppShellStatusLogs({
-  hasRecentStderr,
+  externalService,
   logs,
   onOpenLogs,
 }: AppShellStatusLogsProps) {
   const openLogs = (
-    <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开完整日志</Button>
+    <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开日志目录</Button>
   );
 
-  if (!hasRecentStderr) {
+  if (logs.length === 0) {
     return (
-      <section className="status-log-row content-group" data-alert="none" aria-labelledby="status-log-title">
+      <section className="status-log-row content-group" data-alert={externalService ? "unknown" : "none"} aria-labelledby="status-log-title">
         <div className="status-log-row__status" role="status">
           <span className="status-log-row__icon" aria-hidden="true">
-            <CheckmarkCircle20Regular />
+            {externalService ? <Info20Regular /> : <CheckmarkCircle20Regular />}
           </span>
           <div>
             <h3 id="status-log-title">异常输出</h3>
-            <span>当前没有新的异常日志。</span>
+            <span>{externalService ? uncapturedOutputText : "当前没有新的异常输出。"}</span>
           </div>
         </div>
         {openLogs}

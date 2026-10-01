@@ -1,5 +1,4 @@
 import {
-  Folder20Regular,
   FolderOpen20Regular,
   Globe20Regular,
   NumberSymbol20Regular,
@@ -38,6 +37,8 @@ function isSameDirectoryPath(left: string, right: string) {
   return normalizedLeft === normalizedRight;
 }
 
+// The installation directory is a fixed setting shown in preferences. A work directory elsewhere is repeated here
+// because the service's logs are written there.
 export function AppShellStatusSummary({ resolvedSettings, snapshot }: AppShellStatusSummaryProps) {
   const installationRoot = snapshot.launcher.settings.installationRoot;
   const workdir = resolvedSettings.workdir;
@@ -49,8 +50,7 @@ export function AppShellStatusSummary({ resolvedSettings, snapshot }: AppShellSt
       <h3 id="status-details-title" className="workspace-group__title">运行详情</h3>
       <dl className="detail-list content-group">
         <DetailRow icon={<NumberSymbol20Regular />} label="进程 ID" value={String(snapshot.launcher.processId ?? "—")} />
-        <DetailRow icon={<Globe20Regular />} label="服务地址" value={baseUrl} title={baseUrl} />
-        <DetailRow icon={<Folder20Regular />} label="安装目录" value={installationRoot || "—"} title={installationRoot || undefined} />
+        <DetailRow icon={<Globe20Regular />} label="管理界面地址" value={baseUrl} title={baseUrl} />
         {showWorkdir ? (
           <DetailRow icon={<FolderOpen20Regular />} label="工作目录" value={workdir} title={workdir} />
         ) : null}

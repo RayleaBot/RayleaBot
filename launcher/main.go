@@ -99,11 +99,12 @@ func main() {
 	host := &appHost{}
 	service := desktop.NewService(basePath, consumeEnvironment("RAYLEA_LAUNCHER_CONTROL_TOKEN"), consumePIDEnvironment("RAYLEA_DEV_SERVER_WATCHER_PID"), host)
 	app := application.New(application.Options{
-		Name:        "RayleaLauncher",
-		Description: "RayleaBot 桌面启动器",
-		Logger:      logger,
-		Icon:        icon,
-		Services:    []application.Service{application.NewService(service)},
+		Name:         "RayleaLauncher",
+		Description:  "RayleaBot 桌面启动器",
+		Logger:       logger,
+		Icon:         icon,
+		Services:     []application.Service{application.NewService(service)},
+		MarshalError: desktop.MarshalBridgeError,
 		Assets: application.AssetOptions{
 			Handler:        application.AssetFileServerFS(assetFS),
 			Middleware:     frontend.SecurityMiddleware(devServerURL),

@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 )
 
@@ -14,6 +15,21 @@ type BoundaryError struct {
 
 func (e *BoundaryError) Error() string { return e.Code + ": " + e.Message }
 func (e *BoundaryError) Unwrap() error { return e.Cause }
+
+// MarshalBridgeError gives the renderer the code and readable message of the first BoundaryError in err,
+// leaving out its cause. Other errors return nil and keep Wails' default; the renderer shows generic text
+// for them because their text can carry internal details.
+func MarshalBridgeError(err error) []byte {
+	var boundary *BoundaryError
+	if !errors.As(err, &boundary) {
+		return nil
+	}
+	payload, _ := json.Marshal(struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}{boundary.Code, boundary.Message})
+	return payload
+}
 
 // decodeServerResponse reads a bounded response from the Server shipped in the
 // same package. Unknown fields are ignored; only malformed JSON is rejected.

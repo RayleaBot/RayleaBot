@@ -11,18 +11,21 @@ export type LauncherPresentationState =
   | "starting"
   | "running"
   | "degraded"
+  | "unhealthy"
   | "stopping"
   | "failed";
+
+type RuntimeResource = NonNullable<LauncherDiagnosticIssue["runtime_resources"]>[number];
 
 export interface LauncherPresentation {
   state: LauncherPresentationState;
   label: string;
   detail: string;
-  primaryActionLabel: string;
   canOpenWebUi: boolean;
   canStopService: boolean;
-  canRunRuntimeActions: boolean;
   canRunServiceAction: boolean;
+  /** Resources the management UI's status page can prepare, from the service's readiness issues. */
+  preparableRuntimeResources: RuntimeResource[];
 }
 
 const stateLabels: Record<LauncherPresentationState, string> = {
@@ -30,6 +33,7 @@ const stateLabels: Record<LauncherPresentationState, string> = {
   starting: "启动中",
   running: "运行中",
   degraded: "运行条件受限",
+  unhealthy: "运行异常",
   stopping: "停止中",
   failed: "启动失败",
 };
@@ -40,10 +44,6 @@ function firstReadinessIssue(readiness: LauncherReadinessSnapshot | null) {
 
 export function isBlockingEnvironmentIssue(check: EnvironmentCheckResult) {
   return check.scope === "preflight" && check.severity === "error";
-}
-
-function hasBootstrapConfigAvailable(checks: EnvironmentCheckResult[]) {
-  return checks.some((item) => item.code === "config.bootstrap_available");
 }
 
 function getPrimaryEnvironmentIssue(checks: EnvironmentCheckResult[]) {
@@ -66,12 +66,6 @@ function detailFromReadiness(readiness: LauncherReadinessSnapshot, fallback: str
   return readiness.reason?.trim() || firstReadinessIssue(readiness)?.summary || fallback;
 }
 
-function startingDetail(hasBootstrapConfig: boolean) {
-  return hasBootstrapConfig
-    ? "已生成首份用户配置，正在准备运行环境并等待服务就绪。"
-    : "正在准备运行环境并等待服务就绪。";
-}
-
 function runningDetail(readiness: LauncherReadinessSnapshot, ownership: LauncherProcessOwnership) {
   return detailFromReadiness(
     readiness,
@@ -85,12 +79,12 @@ function degradedDetail(readiness: LauncherReadinessSnapshot, ownership: Launche
   return detailFromReadiness(
     readiness,
     ownership === "external"
-      ? "检测到现有服务，管理面可用，但当前仍有运行条件未满足。"
-      : "管理面可用，但当前仍有运行条件未满足。",
+      ? "检测到现有服务，可以使用，但部分运行条件未满足。"
+      : "服务可以使用，但部分运行条件未满足。",
   );
 }
 
-function failedDetail(readiness: LauncherReadinessSnapshot) {
+function unhealthyDetail(readiness: LauncherReadinessSnapshot) {
   return detailFromReadiness(readiness, "服务已运行，但尚未达到就绪状态。");
 }
 
@@ -103,14 +97,13 @@ function derivePresentationState(snapshot: LauncherSnapshot): Pick<LauncherPrese
     processOwnership,
     statusHint,
   } = snapshot.launcher;
-  const bootstrapConfigAvailable = hasBootstrapConfigAvailable(preflightChecks);
   const blockingIssue = preflightChecks.some(isBlockingEnvironmentIssue);
   const localHint = statusHint.trim();
 
   if (processLifecycle === "starting") {
     return {
       state: "starting",
-      detail: localHint || startingDetail(bootstrapConfigAvailable),
+      detail: localHint || "正在准备运行环境并等待服务就绪。",
     };
   }
 
@@ -121,6 +114,7 @@ function derivePresentationState(snapshot: LauncherSnapshot): Pick<LauncherPrese
     };
   }
 
+  // A reachable service or a live process has started, so its faults are running faults, not failed starts.
   if (health && readiness) {
     if (systemStatus?.status === "shutting_down") {
       return {
@@ -129,42 +123,36 @@ function derivePresentationState(snapshot: LauncherSnapshot): Pick<LauncherPrese
       };
     }
 
+    // A hint here explains a service the Launcher cannot control, such as one started by another program.
     switch (readiness.status) {
       case "ready":
-        return { state: "running", detail: runningDetail(readiness, processOwnership) };
+        return { state: "running", detail: localHint || runningDetail(readiness, processOwnership) };
       case "degraded":
-        return { state: "degraded", detail: degradedDetail(readiness, processOwnership) };
+        return { state: "degraded", detail: localHint || degradedDetail(readiness, processOwnership) };
       case "setup_required":
         return {
           state: "running",
-          detail: processOwnership === "external"
+          detail: localHint || (processOwnership === "external"
             ? "检测到现有服务。可以直接打开管理界面，或确认后停止它。"
-            : "服务正在运行。",
+            : "服务正在运行。"),
         };
       case "failed":
       default:
-        return { state: "failed", detail: failedDetail(readiness) };
+        return { state: "unhealthy", detail: unhealthyDetail(readiness) };
     }
   }
 
   if (health) {
     return {
-      state: "failed",
-      detail: localHint || "服务存活，但无法读取正式就绪状态。",
+      state: "unhealthy",
+      detail: localHint || "服务正在运行，但无法读取就绪状态。",
     };
   }
 
   if (processLifecycle === "running") {
     return {
-      state: "failed",
-      detail: localHint || "子进程仍在运行，但健康检查失败。",
-    };
-  }
-
-  if (bootstrapConfigAvailable) {
-    return {
-      state: "stopped",
-      detail: localHint || "服务尚未启动。Launcher 会在启动服务前按内嵌默认值生成首份用户配置。",
+      state: "unhealthy",
+      detail: localHint || "服务进程仍在运行，但健康检查失败。",
     };
   }
 
@@ -179,16 +167,6 @@ function derivePresentationState(snapshot: LauncherSnapshot): Pick<LauncherPrese
     state: lastLocalError.trim() ? "failed" : "stopped",
     detail: localHint || (lastLocalError.trim() ? lastLocalError.trim() : "服务尚未启动。"),
   };
-}
-
-function primaryActionLabel(state: LauncherPresentationState, ownership: LauncherProcessOwnership) {
-  if ((state === "running" || state === "degraded") && ownership === "external") {
-    return "检测到现有服务";
-  }
-  if ((state === "running" || state === "degraded") && ownership === "launcher_managed") {
-    return "重启服务";
-  }
-  return "启动 RayleaBot";
 }
 
 export function getLauncherStateLabel(state: LauncherPresentationState) {
@@ -212,23 +190,28 @@ export function formatReadinessIssue(issue: LauncherDiagnosticIssue) {
   return `${issue.code}：${issue.summary}${issue.remediation ? `（${issue.remediation}）` : ""}`;
 }
 
+// The management UI's status page offers preparation for the runtime resources of the readiness issues it
+// lists, so the Launcher points there only for the same resources and never infers them from local checks.
+function preparableRuntimeResources(readiness: LauncherReadinessSnapshot | null): RuntimeResource[] {
+  const issues = (readiness?.issues ?? []).filter((issue) => issue.severity === "error" || issue.severity === "warning");
+  return [...new Set(issues.flatMap((issue) => issue.runtime_resources ?? []))];
+}
+
 export function deriveLauncherPresentation(snapshot: LauncherSnapshot): LauncherPresentation {
   const { state, detail } = derivePresentationState(snapshot);
   const setupRequired = snapshot.server.readiness?.status === "setup_required";
   const canOpenWebUi = state === "running" || state === "degraded";
   const canStopService =
-    (state === "running" || state === "degraded" || state === "failed")
+    (state === "running" || state === "degraded" || state === "unhealthy" || state === "failed")
     && snapshot.launcher.processOwnership !== "none";
-  const canRunRuntimeActions = !setupRequired && (state === "running" || state === "degraded");
 
   return {
     state,
     label: getLauncherStateLabel(state),
     detail,
-    primaryActionLabel: primaryActionLabel(state, snapshot.launcher.processOwnership),
     canOpenWebUi,
     canStopService,
-    canRunRuntimeActions,
     canRunServiceAction: state !== "starting" && state !== "stopping",
+    preparableRuntimeResources: canOpenWebUi && !setupRequired ? preparableRuntimeResources(snapshot.server.readiness) : [],
   };
 }

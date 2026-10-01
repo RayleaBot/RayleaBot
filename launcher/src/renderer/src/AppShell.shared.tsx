@@ -15,7 +15,7 @@ import {
 import type { ReactNode } from "react";
 
 import { getLauncherStateLabel, type LauncherPresentationState } from "@shared/launcher-presentation";
-import type { LauncherSettings } from "@shared/launcher-models";
+import type { LauncherSettings, ReleaseCheckSnapshot } from "@shared/launcher-models";
 
 export type SectionId = "status" | "environment" | "diagnostics" | "settings" | "about";
 export type LauncherVisualTone = "neutral" | "info" | "success" | "attention" | "warning" | "danger";
@@ -25,6 +25,7 @@ export const serviceStateConfig: Record<LauncherPresentationState, { label: stri
   starting: { label: getLauncherStateLabel("starting"), tone: "info" },
   running: { label: getLauncherStateLabel("running"), tone: "success" },
   degraded: { label: getLauncherStateLabel("degraded"), tone: "warning" },
+  unhealthy: { label: getLauncherStateLabel("unhealthy"), tone: "danger" },
   stopping: { label: getLauncherStateLabel("stopping"), tone: "info" },
   failed: { label: getLauncherStateLabel("failed"), tone: "danger" },
 };
@@ -35,6 +36,7 @@ export const serviceStateGlyphs: Record<LauncherPresentationState, ReactNode> = 
   starting: <ArrowSync24Filled />,
   running: <Checkmark24Filled />,
   degraded: <Important24Filled />,
+  unhealthy: <Dismiss24Filled />,
   stopping: <ArrowSync24Filled />,
   failed: <Dismiss24Filled />,
 };
@@ -92,10 +94,10 @@ export const busyActionLabels: Record<string, string> = {
   "check-updates": "正在检查更新",
   "apply-update": "正在开始更新",
   "open-repository-page": "正在打开 GitHub",
-  "open-release-page": "正在打开版本页面",
+  "open-release-page": "正在打开发布页",
   "open-logs": "正在打开日志目录",
   "choose-path": "正在选择路径",
-  "reset-admin": "正在重置本地凭据",
+  "reset-admin": "正在重置管理员账号",
 };
 
 export const closeBehaviorOptions: Array<{
@@ -104,12 +106,13 @@ export const closeBehaviorOptions: Array<{
   detail: string;
 }> = [
   { value: "ask_every_time", label: "每次询问", detail: "每次关闭窗口时都显示确认选项。" },
-  { value: "hide_to_tray", label: "系统托盘", detail: "关闭主窗口后保留托盘入口和后台状态。" },
-  { value: "exit_application", label: "完全退出", detail: "直接结束启动器窗口与托盘进程。" },
+  { value: "hide_to_tray", label: "隐藏到托盘", detail: "关闭窗口后启动器留在托盘，服务继续运行。" },
+  { value: "exit_application", label: "完全退出", detail: "关闭窗口时退出启动器；由启动器启动的服务会一并停止。" },
 ];
 
-export function formatReleaseVersion(currentVersion: string): string {
-  return currentVersion.trim() || "开发";
+/** A build without build_info.json has no version; while the first check runs the version may still arrive. */
+export function formatReleaseVersion({ currentVersion, status }: Pick<ReleaseCheckSnapshot, "currentVersion" | "status">): string {
+  return currentVersion.trim() || (status === "checking" ? "读取中" : "开发");
 }
 
 const runtimePreparationPrefixes = ["deps.", "chromium.", "ffmpeg."];

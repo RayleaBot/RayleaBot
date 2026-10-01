@@ -197,7 +197,6 @@ export function App() {
       onStart={handlePrimaryServiceAction}
       onStop={() => runAction("stop", () => window.rayleaLauncher.stop())}
       onOpenWeb={() => runAction("open-web", () => window.rayleaLauncher.openWebUi())}
-      onOpenTasks={() => runAction("open-web", () => window.rayleaLauncher.openWebUi("/logs?source=tasks"))}
       onApplyUpdate={() => setConfirmedAction("apply-update")}
       onCheckForUpdates={() => runAction("check-updates", () => window.rayleaLauncher.checkForUpdates())}
       onOpenReleasePage={() => runAction("open-release-page", () => window.rayleaLauncher.openReleasePage())}

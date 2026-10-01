@@ -101,8 +101,11 @@ func trayState(snapshot LauncherSnapshot) TrayMenuState {
 		case "degraded":
 			state = "运行条件受限"
 		default:
-			state = "启动失败"
+			state = "运行异常"
 		}
+	} else if snapshot.Server.Health != nil || snapshot.Launcher.ProcessLifecycle == "running" {
+		// A reachable service or a live process has started; only a start that left nothing running failed.
+		state = "运行异常"
 	} else if snapshot.Launcher.LastLocalError != "" {
 		state = "启动失败"
 	}

@@ -147,6 +147,15 @@ func (m *ManagementClient) request(ctx context.Context, method string, endpoint 
 	return m.client.Do(request)
 }
 
+// ServerError is the error envelope a management endpoint answered with. Callers branch on StatusCode and Code;
+// Message is for people.
+type ServerError struct {
+	StatusCode    int
+	Code, Message string
+}
+
+func (e *ServerError) Error() string { return e.Code + ": " + e.Message }
+
 func responseError(response *http.Response) error {
 	payload, _ := io.ReadAll(io.LimitReader(response.Body, 64<<10))
 	var envelope struct {
@@ -156,7 +165,7 @@ func responseError(response *http.Response) error {
 		} `json:"error"`
 	}
 	if json.Unmarshal(payload, &envelope) == nil && strings.TrimSpace(envelope.Error.Message) != "" {
-		return fmt.Errorf("%s: %s", envelope.Error.Code, envelope.Error.Message)
+		return &ServerError{StatusCode: response.StatusCode, Code: envelope.Error.Code, Message: envelope.Error.Message}
 	}
 	detail := strings.TrimSpace(string(payload))
 	if detail == "" {

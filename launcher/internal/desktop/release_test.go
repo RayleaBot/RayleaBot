@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -39,6 +40,35 @@ func TestBuildInfoSupportsAllDesktopPlatformsWithoutUpdater(t *testing.T) {
 		})
 	}
 }
+
+type releaseRecordingHost struct {
+	testServiceHost
+	releases []ReleaseCheckSnapshot
+}
+
+func (h *releaseRecordingHost) Emit(_ string, data any) {
+	if snapshot, ok := data.(LauncherSnapshot); ok {
+		h.releases = append(h.releases, snapshot.Launcher.ReleaseCheck)
+	}
+}
+
+func TestReleaseCheckShowsInstalledVersionBeforeTheCheckFinishes(t *testing.T) {
+	artifactID := launcherArtifactID(runtime.GOOS, runtime.GOARCH)
+	if artifactID == "" {
+		t.Skip("no release artifact for this platform")
+	}
+	root := t.TempDir()
+	data, _ := json.Marshal(buildInfo{Version: "1.2.3", ArtifactID: artifactID})
+	writeTestFile(t, filepath.Join(root, "build_info.json"), string(data))
+	host := &releaseRecordingHost{}
+
+	NewCoordinator(root, "", 0, host).refreshRelease(true)
+
+	if len(host.releases) == 0 || host.releases[0].Status != ReleaseChecking || host.releases[0].CurrentVersion != "1.2.3" {
+		t.Fatalf("release states = %#v, want the installed version while checking", host.releases)
+	}
+}
+
 func TestDevelopmentBuildOffersReleasePage(t *testing.T) {
 	snapshot := NewReleaseFeed(t.TempDir()).GetSnapshot(true)
 	if snapshot.Status != "disabled" || snapshot.ReleasePageURL == "" {

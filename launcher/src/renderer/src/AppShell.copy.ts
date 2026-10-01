@@ -1,5 +1,6 @@
 import type {
   EnvironmentCheckScope,
+  LauncherDiagnosticIssue,
   LauncherProcessLifecycle,
   LauncherProcessOwnership,
   LauncherReadinessSnapshot,
@@ -9,7 +10,7 @@ import type {
 
 const readinessStatusLabels: Record<LauncherReadinessSnapshot["status"], string> = {
   ready: "已就绪",
-  degraded: "部分功能受限",
+  degraded: "运行条件受限",
   setup_required: "运行中",
   failed: "未就绪",
 };
@@ -24,7 +25,7 @@ const processLifecycleLabels: Record<LauncherProcessLifecycle, string> = {
 const processOwnershipLabels: Record<LauncherProcessOwnership, string> = {
   none: "无运行进程",
   launcher_managed: "由启动器启动",
-  external: "外部服务",
+  external: "现有服务",
 };
 
 const environmentScopeLabels: Record<EnvironmentCheckScope, string> = {
@@ -32,34 +33,37 @@ const environmentScopeLabels: Record<EnvironmentCheckScope, string> = {
   advisory: "运行建议",
 };
 
-const diagnosticCheckNameLabels: Record<string, string> = {
-  adapter: "消息连接",
+// Readiness check names and states use the management UI's terms.
+const diagnosticCheckNameLabels: Record<keyof NonNullable<LauncherReadinessSnapshot["checks"]>, string> = {
   config: "配置",
   database: "数据库",
-  dependencies: "运行依赖",
-  filesystem: "文件系统",
-  plugins: "插件",
-  render: "图片渲染",
   runtime: "运行环境",
-  scheduler: "定时任务",
-  tasks: "任务队列",
+  render: "图片生成",
 };
 
 const diagnosticCheckValueLabels: Record<string, string> = {
   cached: "已缓存",
-  degraded: "部分功能受限",
-  failed: "未就绪",
+  degraded: "运行条件受限",
+  failed: "失败",
   metadata_incomplete: "元数据不完整",
   missing: "缺失",
-  ok: "正常",
+  ok: "通过",
   on_demand: "按需准备",
   ready: "已就绪",
-  resource_missing: "资源缺失",
+  resource_missing: "缺少运行资源",
   setup_required: "运行中",
   unavailable: "不可用",
   unreadable: "无法读取",
   unknown: "未知",
 };
+
+const runtimeResourceLabels: Record<NonNullable<LauncherDiagnosticIssue["runtime_resources"]>[number], string> = {
+  chromium: "图片渲染 Chromium",
+  ffmpeg: "媒体工具 FFmpeg",
+};
+
+/** The Launcher reads only the output of a service it started itself. */
+export const uncapturedOutputText = "启动器未捕获该服务的输出，请在管理界面的实时日志查看。";
 
 export function formatHealthStatus(status: LivenessStatusResponse["status"] | null | undefined): string {
   return status === "ok" ? "可连接" : "不可用";
@@ -92,9 +96,13 @@ export function formatEnvironmentScope(value: EnvironmentCheckScope): string {
 }
 
 export function formatDiagnosticCheckName(value: string): string {
-  return diagnosticCheckNameLabels[value] ?? value;
+  return diagnosticCheckNameLabels[value as keyof typeof diagnosticCheckNameLabels] ?? value;
 }
 
 export function formatDiagnosticCheckValue(value: string): string {
   return diagnosticCheckValueLabels[value] ?? value;
+}
+
+export function formatRuntimeResource(value: keyof typeof runtimeResourceLabels): string {
+  return runtimeResourceLabels[value] ?? value;
 }

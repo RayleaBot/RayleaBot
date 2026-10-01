@@ -49,18 +49,7 @@ func (s *Service) ServiceShutdown() error {
 }
 
 func (s *Service) GetPlatform() string {
-	platform := runtime.GOOS
-	if runtime.GOOS == "windows" {
-		platform = "win32"
-	}
-	architecture := runtime.GOARCH
-	switch architecture {
-	case "amd64":
-		architecture = "x64"
-	case "386":
-		architecture = "ia32"
-	}
-	return platform + "-" + architecture
+	return platformLabel(runtime.GOOS, runtime.GOARCH)
 }
 
 func (s *Service) GetSnapshot() (LauncherSnapshot, error) {
@@ -204,7 +193,7 @@ func (s *Service) ChooseServerExecutable() (*string, error) {
 	if runtime.GOOS == "windows" {
 		pattern = "*.exe"
 	}
-	return optionalSelection(host.ChooseFile("选择 raylea-server", filepath.Dir(current), "RayleaBot Server", pattern))
+	return optionalSelection(host.ChooseFile("选择服务端程序", filepath.Dir(current), "服务端程序", pattern))
 }
 
 func (s *Service) ChooseConfigFile() (*string, error) {

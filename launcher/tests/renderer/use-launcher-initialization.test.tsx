@@ -167,6 +167,28 @@ describe("useLauncherInitialization", () => {
     });
   });
 
+  test("shows the readable message of a desktop boundary error", async () => {
+    const message = "启动器设置文件损坏，原文件已保留。请检查 data/launcher.json。";
+    installDesktopApi({
+      getPlatform: vi.fn(async () => "Windows x64"),
+      getSnapshot: vi.fn(async () => blankSnapshot),
+      // Wails rejects with the Go error text and carries the marshalled BoundaryError as the cause.
+      initialize: vi.fn(async () => {
+        throw new Error(`launcher.settings_invalid: ${message}`, { cause: { code: "launcher.settings_invalid", message } });
+      }),
+      isMaximized: vi.fn(async () => false),
+      onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
+    } as unknown as LauncherDesktopApi);
+
+    const { result } = renderHook(() => useLauncherInitialization());
+
+    await waitFor(() => {
+      expect(result.current.initializing).toBe(false);
+      expect(result.current.snapshot.launcher.lastLocalError).toBe(message);
+    });
+  });
+
   test("handles maximize-state lookup failures without an unhandled rejection", async () => {
     installDesktopApi({
       getPlatform: vi.fn(async () => "win32-x64"),

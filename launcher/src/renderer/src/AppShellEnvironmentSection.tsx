@@ -23,8 +23,6 @@ type EnvironmentSectionProps = {
 
 type ReadinessTone = "neutral" | "success" | "warning" | "danger";
 
-const coreEnvironmentPrefixes = ["server.", "config.", "workdir."];
-
 const readinessIcons: Record<ReadinessTone, ReactNode> = {
   neutral: <QuestionCircle20Regular />,
   success: <CheckmarkCircle20Regular />,
@@ -42,20 +40,13 @@ export function AppShellEnvironmentSection({
     warnings: [],
     ready: [],
   };
-  const categorizedChecks: Record<"core" | "runtimes" | "others", typeof checks> = {
-    core: [],
+  const categorizedChecks: Record<"installation" | "runtimes", typeof checks> = {
+    installation: [],
     runtimes: [],
-    others: [],
   };
   for (const item of checks) {
     groupedChecks[item.severity === "error" ? "blocking" : item.severity === "warning" ? "warnings" : "ready"].push(item);
-    if (coreEnvironmentPrefixes.some((prefix) => item.code.startsWith(prefix))) {
-      categorizedChecks.core.push(item);
-    } else if (isRuntimePreparationIssue(item.code)) {
-      categorizedChecks.runtimes.push(item);
-    } else {
-      categorizedChecks.others.push(item);
-    }
+    categorizedChecks[isRuntimePreparationIssue(item.code) ? "runtimes" : "installation"].push(item);
   }
   const checksUnavailable = snapshot.launcher.preflightChecks.length === 0;
   const summaryLabel = getEnvironmentSummaryLabel(snapshot.launcher.preflightChecks);
@@ -66,12 +57,11 @@ export function AppShellEnvironmentSection({
     : checks.some(isBlockingEnvironmentIssue)
       ? { tone: "danger", label: summaryLabel, detail: "存在阻塞项，启动前需要先解决。" }
       : groupedChecks.warnings.length > 0
-        ? { tone: "warning", label: summaryLabel, detail: "核心能力可用，建议先检查告警项。" }
-        : { tone: "success", label: summaryLabel, detail: "当前未发现阻塞或告警项。" };
+        ? { tone: "warning", label: summaryLabel, detail: "核心能力可用，建议先检查警告项。" }
+        : { tone: "success", label: summaryLabel, detail: "当前未发现阻塞或警告项。" };
   const categories = [
-    { key: "core", title: "系统核心", data: categorizedChecks.core },
+    { key: "installation", title: "安装与配置", data: categorizedChecks.installation },
     { key: "runtimes", title: "运行环境", data: categorizedChecks.runtimes },
-    { key: "others", title: "环境特性", data: categorizedChecks.others },
   ].filter((section) => section.data.length > 0);
   const totalChecks = checks.length;
   const allChecksReady = groupedChecks.blocking.length === 0 && groupedChecks.warnings.length === 0;
@@ -156,12 +146,12 @@ export function AppShellEnvironmentSection({
         <dl className="detail-list detail-list--wrap content-group">
           <DetailRow icon={<Desktop20Regular />} label="平台" value={platformLabel || "—"} />
           {releaseCheck.currentVersion ? (
-            <DetailRow icon={<Tag20Regular />} label="核心版本" value={releaseCheck.currentVersion} mono={false} />
+            <DetailRow icon={<Tag20Regular />} label="RayleaBot 版本" value={releaseCheck.currentVersion} mono={false} />
           ) : null}
           {settings.installationRoot ? (
-            <DetailRow icon={<Folder20Regular />} label="安装路径" value={settings.installationRoot} />
+            <DetailRow icon={<Folder20Regular />} label="安装目录" value={settings.installationRoot} />
           ) : null}
-          <DetailRow icon={<Globe20Regular />} label="服务地址" value={endpoint.baseUrl} />
+          <DetailRow icon={<Globe20Regular />} label="管理界面地址" value={endpoint.baseUrl} />
         </dl>
       </section>
     </div>

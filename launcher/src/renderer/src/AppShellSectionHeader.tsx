@@ -1,16 +1,16 @@
 import { Button } from "@fluentui/react-components";
 import {
   ArrowClockwise20Regular,
-  ArrowDownload20Regular,
   Dismiss20Regular,
   Edit20Regular,
+  Globe20Regular,
   Save20Regular,
 } from "@fluentui/react-icons";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import type { ReactNode } from "react";
 
-import { busyActionLabels, isRuntimePreparationIssue, sectionContent } from "./AppShell.shared";
+import { busyActionLabels, sectionContent } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
 
 type AppShellSectionHeaderProps = {
@@ -20,7 +20,7 @@ type AppShellSectionHeaderProps = {
   controlsDisabled: boolean;
   editingSettings: boolean;
   onRefresh: () => void;
-  onOpenTasks: () => void;
+  onOpenWeb: () => void;
   onBeginEdit: () => void;
   onCancelEdit: () => void;
   onSaveSettings: () => void;
@@ -40,7 +40,7 @@ function getSectionHeaderBadges(
     return null;
   }
   if (renderedSection === "diagnostics") {
-    return hasRecentStderr ? <span className="status-chip" data-tone="danger">发现异常日志</span> : null;
+    return hasRecentStderr ? <span className="status-chip" data-tone="danger">发现异常输出</span> : null;
   }
   if (renderedSection === "about") {
     return null;
@@ -79,12 +79,12 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
         {canPrepareRuntime ? (
           <Button
             appearance="primary"
-            onClick={props.onOpenTasks}
-            icon={<ArrowDownload20Regular />}
+            onClick={props.onOpenWeb}
+            icon={<Globe20Regular />}
             className="launcher-button"
             data-emphasis="prominent"
           >
-            准备运行环境
+            在管理界面准备
           </Button>
         ) : null}
       </>
@@ -131,7 +131,7 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
       data-emphasis="regular"
       disabled={props.controlsDisabled}
     >
-      编辑配置
+      编辑设置
     </Button>
   );
 }
@@ -140,9 +140,7 @@ export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
   const sectionMeta = sectionContent[props.renderedSection];
   const presentation = deriveLauncherPresentation(props.snapshot);
   const hasRecentStderr = props.snapshot.launcher.recentStderr.length > 0;
-  const canPrepareRuntime = presentation.canRunRuntimeActions
-    && !props.controlsDisabled
-    && props.snapshot.launcher.preflightChecks.some((item) => item.severity !== "ok" && isRuntimePreparationIssue(item.code));
+  const canPrepareRuntime = presentation.preparableRuntimeResources.length > 0 && !props.controlsDisabled;
 
   return (
     <header className="section-header">

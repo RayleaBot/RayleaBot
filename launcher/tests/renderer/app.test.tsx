@@ -135,6 +135,7 @@ describe("App", () => {
 
     render(<App />);
 
+    fireEvent.click(await screen.findByRole("button", { name: "偏好设置" }));
     await waitFor(() => {
       expect(screen.getAllByText(TEST_INSTALLATION_ROOT).length).toBeGreaterThan(0);
     });
@@ -233,7 +234,7 @@ describe("App", () => {
     const managementButton = await screen.findByRole("button", { name: "管理界面" });
     expect(managementButton).not.toBeDisabled();
     expect(screen.queryByRole("button", { name: "检测到现有服务" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "启动 RayleaBot" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "启动服务" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重启服务" })).toBeDisabled();
   });
 
@@ -349,7 +350,7 @@ describe("App", () => {
     expect(screen.queryByText("setup.required")).not.toBeInTheDocument();
     expect(screen.queryByText("请先完成管理员初始化，然后再使用管理入口。")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "打开初始化" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "准备运行环境" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "在管理界面准备" })).not.toBeInTheDocument();
 
     const diagnosticsSummary = buildDiagnosticsSummary(setupRequiredSnapshot);
     expect(diagnosticsSummary).not.toContain("管理员初始化");
@@ -402,15 +403,11 @@ describe("App", () => {
 
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getAllByText(TEST_INSTALLATION_ROOT).length).toBeGreaterThan(0);
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "偏好设置" }));
+    fireEvent.click(await screen.findByRole("button", { name: "偏好设置" }));
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "偏好设置" })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole("button", { name: "编辑配置" }));
+    fireEvent.click(screen.getByRole("button", { name: "编辑设置" }));
 
     const installInput = screen.getByRole("textbox", { name: "安装目录" });
     fireEvent.change(installInput, { target: { value: "D:\\RayleaPortable" } });
@@ -466,7 +463,7 @@ describe("App", () => {
     } as LauncherDesktopApi);
 
     render(<App />);
-    await screen.findByText(TEST_INSTALLATION_ROOT);
+    await screen.findByText("运行详情");
     fireEvent.click(await screen.findByRole("button", { name: "取消" }));
 
     await waitFor(() => {
@@ -529,7 +526,7 @@ describe("App", () => {
     });
 
     render(<App />);
-    await screen.findByText(TEST_INSTALLATION_ROOT);
+    await screen.findByText("运行详情");
 
     const externalStopDialog = await screen.findByRole("dialog", { name: "停止现有服务" });
     fireEvent.keyDown(externalStopDialog, { key: "Escape", code: "Escape" });

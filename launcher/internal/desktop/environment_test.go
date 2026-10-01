@@ -33,6 +33,12 @@ func TestInspectEnvironmentAllowsConfigBootstrapAndPreparedChromium(t *testing.T
 	if !inspection.CanBootstrapUserConfig {
 		t.Fatal("CanBootstrapUserConfig = false")
 	}
+	// The configuration is generated on start, so the first run reports nothing to handle.
+	for _, check := range inspection.Checks {
+		if check.Severity != CheckOK {
+			t.Fatalf("first-run check %s severity = %q", check.Code, check.Severity)
+		}
+	}
 	if !hasCheck(inspection.Checks, "chromium.ready") {
 		t.Fatalf("chromium.ready missing; checks = %#v", inspection.Checks)
 	}
@@ -73,8 +79,8 @@ func TestInspectChromiumStateDistinguishesInterruptedExtraction(t *testing.T) {
 	}
 
 	check := inspectChromiumState(root, resource, func() string { return "" })
-	if check.Code != "chromium.extract_incomplete" {
-		t.Fatalf("interrupted extraction check = %#v", check)
+	if check.Code != "chromium.extract_incomplete" || check.Severity != CheckOK {
+		t.Fatalf("interrupted extraction check = %#v, want a passing check the service prepares on start", check)
 	}
 }
 
@@ -86,8 +92,8 @@ func TestInspectFFmpegStateRequiresBothEntrypoints(t *testing.T) {
 	}
 	writeTestFile(t, filepath.Join(root, ".deps", "store", resource.ID, resource.Version, "bin", "ffmpeg"), "ffmpeg")
 	check := inspectFFmpegState(root, resource)
-	if check.Code != "ffmpeg.entrypoint_missing" {
-		t.Fatalf("ffmpeg state = %#v", check)
+	if check.Code != "ffmpeg.entrypoint_missing" || check.Severity != CheckOK {
+		t.Fatalf("ffmpeg state = %#v, want a passing check the service prepares on start", check)
 	}
 }
 

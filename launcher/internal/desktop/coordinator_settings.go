@@ -79,7 +79,7 @@ func (c *Coordinator) OpenReleasePage() error {
 	snapshot := c.Snapshot()
 	page := snapshot.Launcher.ReleaseCheck.ReleasePageURL
 	if page == "" {
-		snapshot.Launcher.StatusHint = "没有可打开的版本页面。"
+		snapshot.Launcher.StatusHint = "没有可打开的发布页。"
 		c.publish(snapshot)
 		return nil
 	}

@@ -183,7 +183,7 @@ func (p *ProcessController) wait(command *exec.Cmd) {
 		if lastStructuredError != "" {
 			detail += "。最近错误：" + lastStructuredError
 		} else {
-			detail += "。未捕获到结构化错误，请打开完整日志查看退出前输出"
+			detail += "。未捕获到结构化错误，请在日志目录查看退出前输出"
 		}
 		p.recordDiagnostic(detail)
 	}

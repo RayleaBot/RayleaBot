@@ -1,7 +1,9 @@
 package desktop
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -85,20 +87,77 @@ func TestTrayStateKeepsStopActionForUnhealthyManagedProcess(t *testing.T) {
 	}
 }
 
-func TestGetPlatformPreservesDesktopPlatformAndArchitecture(t *testing.T) {
-	platform := runtime.GOOS
-	if platform == "windows" {
-		platform = "win32"
+func TestTrayStateSeparatesRunningFaultsFromFailedStarts(t *testing.T) {
+	notReady := defaultSnapshot()
+	notReady.Server.Health = &ServerLivenessStatusResponse{Status: "ok"}
+	notReady.Server.Readiness = &ServerReadinessStatusResponse{Status: "failed"}
+	notReady.Launcher.ProcessLifecycle = "running"
+	unhealthyProcess := defaultSnapshot()
+	unhealthyProcess.Launcher.ProcessLifecycle = "running"
+	unhealthyProcess.Launcher.ProcessOwnership = "launcher_managed"
+	unhealthyProcess.Launcher.LastLocalError = "健康检查失败。"
+	failedStart := defaultSnapshot()
+	failedStart.Launcher.LastLocalError = "服务进程在通过健康检查前退出。"
+
+	for name, test := range map[string]struct {
+		snapshot LauncherSnapshot
+		want     string
+	}{
+		"reachable but not ready": {notReady, "运行异常"},
+		"process without health":  {unhealthyProcess, "运行异常"},
+		"nothing left running":    {failedStart, "启动失败"},
+	} {
+		if got := trayState(test.snapshot).TrayStatusSummary; got != test.want {
+			t.Errorf("%s: tray status = %q, want %q", name, got, test.want)
+		}
 	}
-	architecture := runtime.GOARCH
-	if architecture == "amd64" {
-		architecture = "x64"
-	} else if architecture == "386" {
-		architecture = "ia32"
+}
+
+func TestPlatformLabelNamesReleasePlatforms(t *testing.T) {
+	for _, test := range []struct{ goos, goarch, want string }{
+		{"windows", "amd64", "Windows x64"},
+		{"linux", "amd64", "Linux x64"},
+		{"darwin", "arm64", "macOS（Apple 芯片）"},
+	} {
+		if got := platformLabel(test.goos, test.goarch); got != test.want {
+			t.Errorf("platformLabel(%q, %q) = %q, want %q", test.goos, test.goarch, got, test.want)
+		}
 	}
-	want := platform + "-" + architecture
-	if got := (&Service{}).GetPlatform(); got != want {
-		t.Fatalf("GetPlatform() = %q, want %q", got, want)
+}
+
+func TestBridgeErrorsCarryOnlyBoundaryCodeAndMessage(t *testing.T) {
+	boundary := &BoundaryError{Code: "launcher.process_stop_failed", Message: "无法确认服务进程已停止。", Cause: errors.New(`open C:\internal\path`)}
+	for name, err := range map[string]error{
+		"direct":  boundary,
+		"joined":  errors.Join(boundary, errors.New("kill failed")),
+		"wrapped": fmt.Errorf("服务启动超时且无法终止服务进程：%w", boundary),
+	} {
+		raw := MarshalBridgeError(err)
+		var payload struct{ Code, Message string }
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			t.Fatalf("%s: decode bridge error: %v", name, err)
+		}
+		if payload.Code != boundary.Code || payload.Message != boundary.Message || strings.Contains(string(raw), "internal") {
+			t.Errorf("%s: bridge error = %s", name, raw)
+		}
+	}
+	if payload := MarshalBridgeError(errors.New("plain")); payload != nil {
+		t.Fatalf("plain error marshalled as %s, want the Wails default", payload)
+	}
+}
+
+func TestExternalServiceWithoutControlTokenIsNotAFault(t *testing.T) {
+	refused := fmt.Errorf("read launcher status: %w", &ServerError{StatusCode: http.StatusForbidden, Code: "launcher.control_required", Message: "control token required"})
+	if hint, lastError := describeLauncherStatusError(refused, false); hint == "" || lastError != "" {
+		t.Fatalf("external refusal = (%q, %q), want a hint and no error", hint, lastError)
+	}
+	// The launcher's own process always holds the token, so a refusal there is a real fault.
+	if hint, lastError := describeLauncherStatusError(refused, true); hint != "" || !strings.Contains(lastError, "control token required") {
+		t.Fatalf("managed refusal = (%q, %q), want the error", hint, lastError)
+	}
+	failed := &ServerError{StatusCode: http.StatusInternalServerError, Code: "platform.internal_error", Message: "boom"}
+	if hint, lastError := describeLauncherStatusError(failed, false); hint != "" || lastError == "" {
+		t.Fatalf("external server failure = (%q, %q), want the error", hint, lastError)
 	}
 }
 

@@ -41,7 +41,6 @@ type PathFieldProps = {
   icon: ReactNode;
   label: string;
   value: string;
-  chooseLabel: string;
   disabled: boolean;
   onChange: (value: string) => void;
   onChoose: () => void;
@@ -51,7 +50,7 @@ function displayPath(value: string) {
   return value.trim() || "未设置";
 }
 
-function PathField({ icon, label, value, chooseLabel, disabled, onChange, onChoose }: PathFieldProps) {
+function PathField({ icon, label, value, disabled, onChange, onChoose }: PathFieldProps) {
   return (
     <div className="field-row">
       <span className="field-row__label">
@@ -60,7 +59,7 @@ function PathField({ icon, label, value, chooseLabel, disabled, onChange, onChoo
       </span>
       <div className="field-row__control">
         <Input aria-label={label} value={value} disabled={disabled} className="settings-input settings-input--path" onChange={(_, data) => onChange(data.value)} />
-        <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onChoose} disabled={disabled} icon={<FolderOpen20Regular />}>{chooseLabel}</Button>
+        <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onChoose} disabled={disabled} icon={<FolderOpen20Regular />}>浏览</Button>
       </div>
     </div>
   );
@@ -108,17 +107,17 @@ export function AppShellSettingsSection({
 
         {editingSettings ? (
           <div className="field-list content-group">
-            <PathField icon={<Folder20Regular />} label="安装目录" value={settingsDraft.installationRoot} chooseLabel="浏览" disabled={controlsDisabled} onChange={onUpdateInstallationRoot} onChoose={onChooseInstallationRoot} />
-            <PathField icon={<Server20Regular />} label="服务端程序" value={serverExecutablePath} chooseLabel="浏览" disabled={controlsDisabled} onChange={(value) => onUpdateAdvancedOverride("serverExecutablePath", value)} onChoose={onChooseServer} />
-            <PathField icon={<DocumentSettings20Regular />} label="配置文件" value={configPath} chooseLabel="浏览" disabled={controlsDisabled} onChange={(value) => onUpdateAdvancedOverride("configPath", value)} onChoose={onChooseConfig} />
-            <PathField icon={<FolderOpen20Regular />} label="进程工作目录" value={workdir} chooseLabel="选择" disabled={controlsDisabled} onChange={(value) => onUpdateAdvancedOverride("workdir", value)} onChoose={onChooseWorkdir} />
+            <PathField icon={<Folder20Regular />} label="安装目录" value={settingsDraft.installationRoot} disabled={controlsDisabled} onChange={onUpdateInstallationRoot} onChoose={onChooseInstallationRoot} />
+            <PathField icon={<Server20Regular />} label="服务端程序" value={serverExecutablePath} disabled={controlsDisabled} onChange={(value) => onUpdateAdvancedOverride("serverExecutablePath", value)} onChoose={onChooseServer} />
+            <PathField icon={<DocumentSettings20Regular />} label="配置文件" value={configPath} disabled={controlsDisabled} onChange={(value) => onUpdateAdvancedOverride("configPath", value)} onChoose={onChooseConfig} />
+            <PathField icon={<FolderOpen20Regular />} label="工作目录" value={workdir} disabled={controlsDisabled} onChange={(value) => onUpdateAdvancedOverride("workdir", value)} onChoose={onChooseWorkdir} />
           </div>
         ) : (
           <dl className="detail-list detail-list--wrap content-group">
             <DetailRow icon={<Folder20Regular />} label="安装目录" value={displayPath(settingsDraft.installationRoot)} title={settingsDraft.installationRoot || undefined} />
             <DetailRow icon={<Server20Regular />} label="服务端程序" value={displayPath(serverExecutablePath)} title={serverExecutablePath || undefined} />
             <DetailRow icon={<DocumentSettings20Regular />} label="配置文件" value={displayPath(configPath)} title={configPath || undefined} />
-            <DetailRow icon={<FolderOpen20Regular />} label="进程工作目录" value={displayPath(workdir)} title={workdir || undefined} />
+            <DetailRow icon={<FolderOpen20Regular />} label="工作目录" value={displayPath(workdir)} title={workdir || undefined} />
           </dl>
         )}
       </section>
@@ -126,7 +125,7 @@ export function AppShellSettingsSection({
       <section className="workspace-group" aria-labelledby="settings-close-title">
         <div className="workspace-group__header">
           <h3 id="settings-close-title" className="workspace-group__title">关闭行为</h3>
-          <p className="workspace-group__description">关闭窗口时采用的默认动作，托盘模式会保留后台入口。</p>
+          <p className="workspace-group__description">关闭窗口时采用的默认动作。</p>
         </div>
 
         {editingSettings ? (
@@ -160,15 +159,15 @@ export function AppShellSettingsSection({
       <section className="workspace-group" aria-labelledby="settings-maintenance-title">
         <div className="workspace-group__header">
           <h3 id="settings-maintenance-title" className="workspace-group__title">维护操作</h3>
-          <p className="workspace-group__description">用于重置本地凭据或结束启动器进程。</p>
+          <p className="workspace-group__description">用于重置管理员账号或退出启动器。</p>
         </div>
 
         <div className="action-list content-group">
           <div className="action-row" data-tone="danger">
             <span className="action-row__icon" aria-hidden="true"><KeyReset20Regular /></span>
             <div className="action-row__copy">
-              <strong>重置凭据</strong>
-              <span>清除本地管理凭据，下次启动时重新完成初始化。</span>
+              <strong>重置管理员账号</strong>
+              <span>清除管理员账号和登录会话，随后重启服务并打开管理界面重新创建管理员；配置、数据和已安装插件保留。</span>
             </div>
             <Button appearance="secondary" className="launcher-button launcher-button--danger" data-emphasis="regular" onClick={onResetAdmin} disabled={resetDisabled}>立即重置</Button>
           </div>
@@ -176,7 +175,7 @@ export function AppShellSettingsSection({
             <span className="action-row__icon" aria-hidden="true"><SignOut20Regular /></span>
             <div className="action-row__copy">
               <strong>退出启动器</strong>
-              <span>关闭启动器窗口和托盘入口。</span>
+              <span>关闭启动器；由启动器启动的服务会一并停止。</span>
             </div>
             <Button appearance="secondary" className="launcher-button launcher-button--danger" data-emphasis="regular" onClick={onExit} disabled={controlsDisabled}>退出启动器</Button>
           </div>

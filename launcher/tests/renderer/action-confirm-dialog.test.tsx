@@ -8,7 +8,7 @@ describe("ActionConfirmDialog", () => {
     const onConfirm = vi.fn();
     render(<ActionConfirmDialog action="reset-admin" onCancel={vi.fn()} onConfirm={onConfirm} />);
 
-    expect(screen.getByRole("dialog")).toHaveTextContent("现有会话");
+    expect(screen.getByRole("dialog")).toHaveTextContent("登录会话");
     expect(onConfirm).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "确认重置" }));
     expect(onConfirm).toHaveBeenCalledWith("reset-admin");

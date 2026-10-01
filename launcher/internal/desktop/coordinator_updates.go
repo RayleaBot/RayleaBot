@@ -15,6 +15,10 @@ func (c *Coordinator) refreshRelease(force bool) {
 	current := c.Snapshot().Launcher.ReleaseCheck
 	current.Status, current.Summary = "checking", "正在检查更新。"
 	current.CanCheck = false
+	if current.CurrentVersion == "" {
+		// The update check can wait on the network, while the installed version is already on disk.
+		current.CurrentVersion = c.release.InstalledVersion()
+	}
 	c.publishRelease(current)
 	c.publishRelease(c.release.GetSnapshot(force))
 }
@@ -59,7 +63,7 @@ func (c *Coordinator) ApplyUpdate() bool {
 		return fail("launcher.update_apply_failed", "安装更新失败。", "请确认服务已停止后重试，或从发布页下载完整包解压覆盖安装目录。")
 	}
 	if err := startDetachedLauncher(c.release.basePath, runtime.GOOS, os.Getpid()); err != nil {
-		return fail("launcher.update_relaunch_failed", "更新已安装。", "请手动重新打开启动器。")
+		return fail("launcher.update_relaunch_failed", "更新已安装，但启动器未能自动重启。", "请手动重新打开启动器。")
 	}
 	return true
 }

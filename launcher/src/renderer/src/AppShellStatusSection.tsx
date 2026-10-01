@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherResolvedSettings, LauncherSnapshot } from "@shared/launcher-models";
 
-import { busyActionLabels, isRuntimePreparationIssue, sortChecks } from "./AppShell.shared";
+import { formatDiagnosticCheckName, formatDiagnosticCheckValue } from "./AppShell.copy";
+import { busyActionLabels, sortChecks } from "./AppShell.shared";
 import { AppShellServiceControl } from "./AppShellServiceControl";
 import { AppShellStatusLogs } from "./AppShellStatusLogs";
 import { AppShellStatusRail } from "./AppShellStatusRail";
@@ -17,7 +18,6 @@ type StatusSectionProps = {
   onStart: () => void;
   onStop: () => void;
   onOpenWeb: () => void;
-  onOpenTasks: () => void;
   onOpenLogs: () => void;
 };
 
@@ -29,7 +29,6 @@ export function AppShellStatusSection({
   onStart,
   onStop,
   onOpenWeb,
-  onOpenTasks,
   onOpenLogs,
 }: StatusSectionProps) {
   const presentation = useMemo(() => deriveLauncherPresentation(snapshot), [snapshot]);
@@ -40,7 +39,6 @@ export function AppShellStatusSection({
   const nonOkChecks = useMemo(() => checks.filter((item) => item.severity !== "ok"), [checks]);
   const readinessIssues = setupRequired ? [] : readiness?.issues ?? [];
   const readinessReason = setupRequired ? "" : readiness?.reason?.trim() ?? "";
-  const readinessReasonCodes = setupRequired ? [] : readiness?.reason_codes ?? [];
   const nonOkReadinessChecks = useMemo(
     () => setupRequired
       ? []
@@ -51,51 +49,42 @@ export function AppShellStatusSection({
     () => readinessIssues.filter((issue) => issue.remediation).slice(0, 3),
     [readinessIssues],
   );
-  const primaryReadinessIssue = setupRequired ? null : readinessIssues[0] ?? null;
-  const primaryEnvironmentIssue = nonOkChecks[0] ?? null;
-  const hasRecentStderr = snapshot.launcher.recentStderr.length > 0;
+  const primaryReadinessIssue = readinessIssues[0] ?? null;
+  const localError = snapshot.launcher.lastLocalError.trim();
+  const statusHint = snapshot.launcher.statusHint.trim();
+  const serviceFault = presentation.state === "failed" || presentation.state === "unhealthy";
   const statusAlert =
-    snapshot.launcher.lastLocalError
+    localError
       ? "error"
       : primaryReadinessIssue
         ? primaryReadinessIssue.severity === "error" ? "error" : "warning"
         : readinessReason
-          ? presentation.state === "failed" ? "error" : "warning"
+          ? serviceFault ? "error" : "warning"
           : nonOkChecks.length > 0
             ? "warning"
           : "none";
-  const statusReasonText =
-    runtimePrepare?.active
-      ? (runtimePrepare.summary || "正在准备运行环境。")
-      : readinessReason
-    || primaryReadinessIssue?.summary
-    || (presentation.state === "degraded" || presentation.state === "failed"
-      ? presentation.detail
-      : primaryEnvironmentIssue
-        ? `${primaryEnvironmentIssue.title}：${primaryEnvironmentIssue.summary}`
-        : presentation.detail);
+  const statusReasonText = readinessReason || primaryReadinessIssue?.summary || presentation.detail;
+  // A local error with a hint describes a failed Launcher operation, so the hint replaces the state description.
+  // An error without one, such as a system status the Launcher may not read, keeps the description and is
+  // shown as the cause below.
   const serviceControlDetail =
     runtimePrepare?.active
       ? "运行环境准备中。"
-      : snapshot.launcher.lastLocalError
-      ? "启动器检测到本地异常。"
-      : presentation.state === "degraded"
-        ? "服务可运行，部分能力受限。"
-        : presentation.state === "failed"
+      : localError && statusHint
+        ? statusHint
+        : presentation.state === "degraded"
+          ? "服务可以使用，但部分运行条件未满足。"
+          : presentation.state === "unhealthy" && readiness
             ? "服务未通过就绪检查。"
             : presentation.detail;
-  const hasReadinessDiagnostics = !runtimePrepare?.active && Boolean(
-    readinessReasonCodes.length
-      || remediationIssues.length
-      || nonOkReadinessChecks.length,
-  );
+  const hasReadinessDiagnostics = !runtimePrepare?.active && (remediationIssues.length > 0 || nonOkReadinessChecks.length > 0);
   const canOpenWebUi = presentation.canOpenWebUi;
-  const canPrepareRuntime = presentation.canRunRuntimeActions && !controlsDisabled && nonOkChecks.some((item) => isRuntimePreparationIssue(item.code));
-  const showStatusRail = nonOkChecks.length > 0 || canPrepareRuntime;
+  const preparableResources = controlsDisabled ? [] : presentation.preparableRuntimeResources;
+  const showStatusRail = nonOkChecks.length > 0 || preparableResources.length > 0;
+  const externalService = snapshot.launcher.processOwnership === "external";
   const startDisabled =
     controlsDisabled
-    || ((presentation.state === "running" || presentation.state === "degraded")
-      && snapshot.launcher.processOwnership === "external")
+    || ((presentation.state === "running" || presentation.state === "degraded") && externalService)
     || presentation.state === "starting"
     || presentation.state === "stopping";
   const stopDisabled =
@@ -108,22 +97,16 @@ export function AppShellStatusSection({
   const showRunningActions = canOpenWebUi || busyAction === "restart";
   const serviceAttention = (() => {
     if (runtimePrepare?.active) {
-      return { label: "准备进度", text: statusReasonText, tone: "attention" as const };
+      return { label: "准备进度", text: runtimePrepare.summary || "正在准备运行环境。", tone: "attention" as const };
     }
-    if (snapshot.launcher.lastLocalError || presentation.state === "failed") {
-      return { label: "当前限制", text: statusReasonText, tone: "danger" as const };
-    }
-    if (presentation.state === "degraded") {
-      return { label: "当前限制", text: statusReasonText, tone: "warning" as const };
-    }
-    if (readinessReason || primaryReadinessIssue) {
-      return {
-        label: "当前限制",
-        text: statusReasonText,
-        tone: statusAlert === "error" ? "danger" as const : "warning" as const,
-      };
-    }
-    return null;
+    const note = localError
+      ? { label: "失败原因", text: localError, tone: "danger" as const }
+      : serviceFault
+        ? { label: "失败原因", text: statusReasonText, tone: "danger" as const }
+        : presentation.state === "degraded"
+          ? { label: "当前限制", text: statusReasonText, tone: "warning" as const }
+          : null;
+    return note && note.text !== serviceControlDetail ? note : null;
   })();
 
   return (
@@ -133,11 +116,10 @@ export function AppShellStatusSection({
         busyLabel={busyLabel}
         canOpenWebUi={canOpenWebUi}
         controlsDisabled={controlsDisabled}
-        externalService={snapshot.launcher.processOwnership === "external"}
+        externalService={externalService}
         onOpenWeb={onOpenWeb}
         onStart={onStart}
         onStop={onStop}
-        primaryActionLabel={presentation.primaryActionLabel}
         showRunningActions={showRunningActions}
         snapshot={{
           serviceDetail: serviceControlDetail,
@@ -155,20 +137,9 @@ export function AppShellStatusSection({
             <section className="service-diagnostics content-group">
               <h3>服务诊断</h3>
 
-              {readinessReasonCodes.length > 0 ? (
-                <div className="status-diagnostics-block">
-                  <span className="status-label">原因代码</span>
-                  <div className="status-diagnostics-codes">
-                    {readinessReasonCodes.map((code) => (
-                      <code key={code} className="status-chip status-chip--muted mono">{code}</code>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
               {remediationIssues.length > 0 ? (
                 <div className="status-diagnostics-block">
-                  <span className="status-label">处理方式</span>
+                  <span className="status-label">问题与处理方式</span>
                   <div className="status-diagnostics-list">
                     {remediationIssues.map((issue) => (
                       <div
@@ -176,12 +147,12 @@ export function AppShellStatusSection({
                         className={`status-diagnostics-item status-diagnostics-item--${issue.severity}`}
                       >
                         <div className="status-diagnostics-item__header">
-                          <span className="status-diagnostics-item__summary">{issue.remediation}</span>
+                          <span className="status-diagnostics-item__summary">{issue.summary}</span>
                           <span className={`status-pill status-pill--${issue.severity === "error" ? "error" : "warning"}`}>
                             {issue.severity === "error" ? "阻塞" : "警告"}
                           </span>
                         </div>
-                        <code className="status-diagnostics-item__code mono">{issue.code}</code>
+                        <p className="status-diagnostics-item__remedy">处理方式：{issue.remediation}</p>
                       </div>
                     ))}
                   </div>
@@ -194,8 +165,8 @@ export function AppShellStatusSection({
                   <div className="status-diagnostics-checks">
                     {nonOkReadinessChecks.map(([name, value]) => (
                       <div key={`${name}-${value}`} className="status-diagnostics-check">
-                        <span className="status-diagnostics-check__name">{name}</span>
-                        <span className="status-diagnostics-check__value mono">{value}</span>
+                        <span className="status-diagnostics-check__name">{formatDiagnosticCheckName(name)}</span>
+                        <span className="status-diagnostics-check__value">{formatDiagnosticCheckValue(value)}</span>
                       </div>
                     ))}
                   </div>
@@ -209,15 +180,15 @@ export function AppShellStatusSection({
 
         {showStatusRail ? (
           <AppShellStatusRail
-            canPrepareRuntime={canPrepareRuntime}
             checks={nonOkChecks}
-            onOpenTasks={onOpenTasks}
+            runtimeResources={preparableResources}
+            onOpenWeb={onOpenWeb}
           />
         ) : null}
       </div>
 
       <AppShellStatusLogs
-        hasRecentStderr={hasRecentStderr}
+        externalService={externalService}
         logs={snapshot.launcher.recentStderr}
         onOpenLogs={onOpenLogs}
       />

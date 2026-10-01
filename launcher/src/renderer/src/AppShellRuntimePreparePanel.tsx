@@ -18,16 +18,16 @@ const statusLabels: Record<string, string> = {
 
 const stageLabels: Record<string, string> = {
   inspect: "检查",
-  lock: "准备锁",
-  probe: "测试来源",
+  lock: "等待其他准备完成",
+  probe: "选择下载源",
   download: "下载",
   verify: "校验",
   cleanup: "清理",
   extract: "解压",
   activate: "启用",
   complete: "完成",
-  manifest: "清单",
-  entrypoint: "入口文件",
+  manifest: "读取资源清单",
+  entrypoint: "检查程序文件",
 };
 
 function progressValue(item: RuntimePrepareResourceProgress) {
@@ -80,7 +80,7 @@ function RuntimePrepareResourceItem({ item }: { item: RuntimePrepareResourceProg
       </div>
       <div className="runtime-prepare-details">
         {item.sourceUrl ? (
-          <div><span>来源</span><code title={item.sourceUrl}>{item.sourceLabel ? `${item.sourceLabel} · ${item.sourceUrl}` : item.sourceUrl}</code></div>
+          <div><span>下载来源</span><code title={item.sourceUrl}>{item.sourceLabel ? `${item.sourceLabel} · ${item.sourceUrl}` : item.sourceUrl}</code></div>
         ) : null}
         {item.archivePath ? (
           <div><span>下载位置</span><code title={item.archivePath}>{item.archivePath}</code></div>

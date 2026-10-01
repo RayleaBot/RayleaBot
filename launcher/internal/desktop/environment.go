@@ -43,19 +43,19 @@ func inspectEnvironmentPassive(settings LauncherResolvedSettings, previouslyWrit
 func inspectEnvironment(settings LauncherResolvedSettings, probeWorkdir bool, previouslyWritable bool) EnvironmentInspection {
 	checks := []EnvironmentCheckResult{
 		checkPath("launcher.installation_root", "launcher.installation_root_missing", "安装目录", pathExists(settings.InstallationRoot), "安装目录可用。", "安装目录不存在或无法访问。", "请选择有效的 RayleaBot 安装目录。", true),
-		checkPath("launcher.settings", "launcher.settings_invalid", "启动器设置", settings.ServerExecutablePath != "" && settings.ConfigPath != "" && settings.Workdir != "", "启动器设置已解析。", "服务端、配置或工作目录未能解析。", "请检查安装目录和高级路径覆盖。", true),
-		checkPath("server.executable", "server.executable_missing", "服务端可执行文件", regularFile(settings.ServerExecutablePath), "已找到 raylea-server。", fmt.Sprintf("未找到服务端可执行文件：%s", settings.ServerExecutablePath), "请选择有效的 raylea-server 可执行文件。", true),
+		checkPath("launcher.settings", "launcher.settings_invalid", "启动器设置", settings.ServerExecutablePath != "" && settings.ConfigPath != "" && settings.Workdir != "", "启动器设置已解析。", "服务端程序、配置文件或工作目录未能解析。", "请在偏好设置中检查路径设置。", true),
+		checkPath("server.executable", "server.executable_missing", "服务端程序", regularFile(settings.ServerExecutablePath), "已找到服务端程序。", fmt.Sprintf("未找到服务端程序：%s", settings.ServerExecutablePath), "请选择有效的服务端程序。", true),
 	}
 
 	userConfigExists := regularFile(settings.ConfigPath)
 	switch {
 	case userConfigExists:
-		checks = append(checks, okCheck("config.file", "用户配置", "config/user.yaml 可用。"))
+		checks = append(checks, okCheck("config.file", "用户配置", "用户配置可用。"))
 	case !pathExists(settings.ConfigPath) && regularFile(settings.ServerExecutablePath):
+		// The Launcher generates the file before it starts the service, so a missing file needs no action.
 		checks = append(checks, EnvironmentCheckResult{
-			Scope: "preflight", Code: "config.bootstrap_available", Title: "用户配置", Severity: "warning",
-			Summary: "首次启动时将自动生成用户配置。", Detail: fmt.Sprintf("尚未找到 %s", settings.ConfigPath),
-			Remediation: "启动服务时会按内嵌默认值生成 config/user.yaml。",
+			Scope: "preflight", Code: "config.bootstrap_available", Title: "用户配置", Severity: "ok",
+			Summary: "尚未生成，启动服务时自动生成。", Detail: fmt.Sprintf("尚未找到 %s", settings.ConfigPath),
 		})
 	default:
 		checks = append(checks, EnvironmentCheckResult{
@@ -87,7 +87,7 @@ func inspectRuntimeManifest(root string) []EnvironmentCheckResult {
 	if err != nil {
 		checks := []EnvironmentCheckResult{{
 			Scope: "preflight", Code: "deps.manifest_missing", Title: "运行环境清单", Severity: "warning",
-			Summary: ".deps/manifest.json 未找到。", Detail: fmt.Sprintf("检查路径：%s", manifestPath), Remediation: "请恢复运行环境清单。",
+			Summary: "未找到运行环境清单。", Detail: fmt.Sprintf("检查路径：%s", manifestPath), Remediation: "请恢复当前版本附带的运行环境清单。",
 		}}
 		if browser := findSystemChromium(); browser != "" {
 			checks = append(checks, chromiumReadyCheck(browser))
@@ -99,11 +99,12 @@ func inspectRuntimeManifest(root string) []EnvironmentCheckResult {
 	if json.Unmarshal(payload, &manifest) != nil {
 		return []EnvironmentCheckResult{{
 			Scope: "preflight", Code: "deps.manifest_invalid", Title: "运行环境清单", Severity: "warning",
-			Summary: ".deps/manifest.json 内容无效。", Detail: fmt.Sprintf("检查路径：%s", manifestPath), Remediation: "请恢复 manifest_version 5 的运行环境清单。",
+			Summary: "运行环境清单内容无效。", Detail: fmt.Sprintf("检查路径：%s", manifestPath), Remediation: "请恢复当前版本附带的运行环境清单。",
 		}}
 	}
 
 	platform := manifestPlatform()
+	platformName := platformLabel(runtime.GOOS, runtime.GOARCH)
 	var chromium *depsResource
 	var ffmpeg *depsResource
 	foundPlatform := false
@@ -120,11 +121,11 @@ func inspectRuntimeManifest(root string) []EnvironmentCheckResult {
 	}
 	checks := []EnvironmentCheckResult{}
 	if foundPlatform {
-		checks = append(checks, okCheck("deps.manifest", "运行环境清单", fmt.Sprintf("已包含当前平台资源：%s", platform)))
+		checks = append(checks, okCheck("deps.manifest", "运行环境清单", fmt.Sprintf("已包含当前平台资源：%s", platformName)))
 	} else {
 		checks = append(checks, EnvironmentCheckResult{
 			Scope: "preflight", Code: "deps.manifest_platform_missing", Title: "运行环境清单", Severity: "warning",
-			Summary: "运行环境清单缺少当前平台资源。", Detail: fmt.Sprintf("平台：%s", platform), Remediation: "请恢复当前平台的运行环境资源。",
+			Summary: "运行环境清单缺少当前平台资源。", Detail: fmt.Sprintf("平台：%s", platformName), Remediation: "请恢复当前平台的运行环境资源。",
 		})
 	}
 	if chromium == nil {
@@ -133,13 +134,13 @@ func inspectRuntimeManifest(root string) []EnvironmentCheckResult {
 		} else {
 			checks = append(checks, EnvironmentCheckResult{
 				Scope: "preflight", Code: "chromium.resource_missing", Title: "图片渲染 Chromium", Severity: "warning",
-				Summary: "清单中未配置 Chromium。", Remediation: "恢复 Chromium 运行时资源，或安装可用的 Chrome、Edge 或 Chromium。",
+				Summary: "运行环境清单中没有 Chromium。", Remediation: "请恢复当前版本附带的运行环境清单，或安装 Chrome、Edge 或 Chromium。",
 			})
 		}
 	} else if !resourceMetadataComplete(*chromium) {
 		checks = append(checks, EnvironmentCheckResult{
 			Scope: "preflight", Code: "chromium.metadata_incomplete", Title: "图片渲染 Chromium", Severity: "warning",
-			Summary: "Chromium 资源元数据不完整。", Remediation: "请恢复来源、校验值、压缩格式和 browser 入口。",
+			Summary: "运行环境清单中的 Chromium 信息不完整。", Remediation: "请恢复当前版本附带的运行环境清单。",
 		})
 	} else {
 		checks = append(checks, inspectChromiumState(root, *chromium, findSystemChromium))
@@ -147,12 +148,12 @@ func inspectRuntimeManifest(root string) []EnvironmentCheckResult {
 	if ffmpeg == nil {
 		checks = append(checks, EnvironmentCheckResult{
 			Scope: "preflight", Code: "ffmpeg.resource_missing", Title: "媒体工具 FFmpeg", Severity: "warning",
-			Summary: "清单中未配置 FFmpeg。", Remediation: "请恢复当前平台的 FFmpeg / FFprobe 运行时资源。",
+			Summary: "运行环境清单中没有 FFmpeg。", Remediation: "请恢复当前版本附带的运行环境清单。",
 		})
 	} else if !resourceMetadataComplete(*ffmpeg) {
 		checks = append(checks, EnvironmentCheckResult{
 			Scope: "preflight", Code: "ffmpeg.metadata_incomplete", Title: "媒体工具 FFmpeg", Severity: "warning",
-			Summary: "FFmpeg 资源元数据不完整。", Remediation: "请恢复来源、校验值、压缩格式和 ffmpeg / ffprobe 入口。",
+			Summary: "运行环境清单中的 FFmpeg 信息不完整。", Remediation: "请恢复当前版本附带的运行环境清单。",
 		})
 	} else {
 		checks = append(checks, inspectFFmpegState(root, *ffmpeg))
@@ -170,27 +171,8 @@ func inspectChromiumState(root string, chromium depsResource, findBrowser func()
 	if browser := findBrowser(); browser != "" {
 		return chromiumReadyCheck(browser)
 	}
-	code := "chromium.not_ready"
-	summary := "Chromium 尚未准备。"
-	detail := fmt.Sprintf("运行时目录：%s", storeRoot)
-	archivePath := filepath.Join(root, "cache", "downloads", "runtime", chromium.ID+"-"+chromium.Version+runtimeArchiveSuffix(chromium.ArchiveFormat))
-	tempRoots := findRuntimeTempRoots(filepath.Dir(storeRoot), chromium.ID, chromium.Version)
-	switch {
-	case len(tempRoots) > 0 && !pathExists(storeRoot):
-		code = "chromium.extract_incomplete"
-		summary = "Chromium 上次解压未完成。"
-		detail = fmt.Sprintf("下载位置：%s。解压位置：%s。临时目录：%s", archivePath, storeRoot, strings.Join(tempRoots, "、"))
-	case pathExists(storeRoot):
-		code = "chromium.entrypoint_missing"
-		summary = "Chromium 已解压，但入口文件缺失。"
-	case regularFile(archivePath):
-		summary = "Chromium 已下载，尚未解压。"
-		detail = fmt.Sprintf("下载位置：%s。解压位置：%s", archivePath, storeRoot)
-	}
-	return EnvironmentCheckResult{
-		Scope: "preflight", Code: code, Title: "图片渲染 Chromium", Severity: "warning",
-		Summary: summary, Detail: detail, Remediation: "启动服务后由运行环境任务重新准备 Chromium。",
-	}
+	code, summary, detail := pendingRuntimeState(root, chromium, storeRoot)
+	return EnvironmentCheckResult{Scope: "preflight", Code: "chromium." + code, Title: "图片渲染 Chromium", Severity: "ok", Summary: summary, Detail: detail}
 }
 
 func inspectFFmpegState(root string, ffmpeg depsResource) EnvironmentCheckResult {
@@ -214,26 +196,24 @@ func inspectFFmpegState(root string, ffmpeg depsResource) EnvironmentCheckResult
 	if ready {
 		return EnvironmentCheckResult{Scope: "preflight", Code: "ffmpeg.ready", Title: "媒体工具 FFmpeg", Severity: "ok", Summary: "已找到 FFmpeg 与 FFprobe。", Detail: strings.Join(paths, "；")}
 	}
-	code := "ffmpeg.not_ready"
-	summary := "FFmpeg 尚未准备。"
-	detail := fmt.Sprintf("运行时目录：%s", storeRoot)
-	archivePath := filepath.Join(root, "cache", "downloads", "runtime", ffmpeg.ID+"-"+ffmpeg.Version+runtimeArchiveSuffix(ffmpeg.ArchiveFormat))
-	tempRoots := findRuntimeTempRoots(filepath.Dir(storeRoot), ffmpeg.ID, ffmpeg.Version)
+	code, summary, detail := pendingRuntimeState(root, ffmpeg, storeRoot)
+	return EnvironmentCheckResult{Scope: "preflight", Code: "ffmpeg." + code, Title: "媒体工具 FFmpeg", Severity: "ok", Summary: summary, Detail: detail}
+}
+
+// pendingRuntimeState describes a declared resource that is not prepared yet. The service prepares it each
+// time it starts, so these states pass the preflight; the code suffix keeps the exact state for diagnostics.
+func pendingRuntimeState(root string, resource depsResource, storeRoot string) (code, summary, detail string) {
+	archivePath := filepath.Join(root, "cache", "downloads", "runtime", resource.ID+"-"+resource.Version+runtimeArchiveSuffix(resource.ArchiveFormat))
+	tempRoots := findRuntimeTempRoots(filepath.Dir(storeRoot), resource.ID, resource.Version)
 	switch {
 	case len(tempRoots) > 0 && !pathExists(storeRoot):
-		code = "ffmpeg.extract_incomplete"
-		summary = "FFmpeg 上次解压未完成。"
-		detail = fmt.Sprintf("下载位置：%s。解压位置：%s。临时目录：%s", archivePath, storeRoot, strings.Join(tempRoots, "、"))
+		return "extract_incomplete", "上次解压未完成，启动服务时自动重新准备。", fmt.Sprintf("下载位置：%s。解压位置：%s。临时目录：%s", archivePath, storeRoot, strings.Join(tempRoots, "、"))
 	case pathExists(storeRoot):
-		code = "ffmpeg.entrypoint_missing"
-		summary = "FFmpeg 已解压，但 ffmpeg 或 ffprobe 入口缺失。"
+		return "entrypoint_missing", "文件不完整，启动服务时自动重新准备。", fmt.Sprintf("运行时目录：%s", storeRoot)
 	case regularFile(archivePath):
-		summary = "FFmpeg 已下载，尚未解压。"
-		detail = fmt.Sprintf("下载位置：%s。解压位置：%s", archivePath, storeRoot)
-	}
-	return EnvironmentCheckResult{
-		Scope: "preflight", Code: code, Title: "媒体工具 FFmpeg", Severity: "warning",
-		Summary: summary, Detail: detail, Remediation: "启动服务后由运行环境任务重新准备 FFmpeg。",
+		return "not_ready", "已下载，启动服务时自动解压。", fmt.Sprintf("下载位置：%s。解压位置：%s", archivePath, storeRoot)
+	default:
+		return "not_ready", "尚未准备，启动服务时自动准备。", fmt.Sprintf("运行时目录：%s", storeRoot)
 	}
 }
 
@@ -307,6 +287,32 @@ func manifestPlatform() string {
 		arch = "x64"
 	}
 	return platform + "-" + arch
+}
+
+// platformLabel names the platform for display only; manifestPlatform stays the identifier resources match.
+func platformLabel(goos, goarch string) string {
+	if goos == "darwin" && goarch == "arm64" {
+		return "macOS（Apple 芯片）"
+	}
+	system := goos
+	switch goos {
+	case "windows":
+		system = "Windows"
+	case "linux":
+		system = "Linux"
+	case "darwin":
+		system = "macOS"
+	}
+	architecture := goarch
+	switch goarch {
+	case "amd64":
+		architecture = "x64"
+	case "386":
+		architecture = "x86"
+	case "arm64":
+		architecture = "ARM64"
+	}
+	return system + " " + architecture
 }
 
 func findSystemChromium() string {

@@ -1,6 +1,5 @@
 import { Button, MessageBar, MessageBarBody, MessageBarTitle } from "@fluentui/react-components";
 import {
-  AppGeneric20Regular,
   ArrowClockwise20Regular,
   ArrowDownload20Regular,
   Certificate20Regular,
@@ -23,6 +22,10 @@ type AppShellAboutSectionProps = {
   onOpenRepositoryPage: () => void;
 };
 
+// Update failures share the failed status; the error code tells a failed check from a failed installation.
+const checkFailureCodes = new Set(["launcher.update_check_failed", "launcher.update_response_invalid"]);
+
+// The version line names the state only; the error bar below carries the failure details.
 function buildVersionHint(releaseCheck: LauncherSnapshot["launcher"]["releaseCheck"]) {
   const latestVersion = releaseCheck.latestVersion.trim();
   switch (releaseCheck.status) {
@@ -30,10 +33,15 @@ function buildVersionHint(releaseCheck: LauncherSnapshot["launcher"]["releaseChe
       return "正在检查更新";
     case "updating":
       return releaseCheck.summary || "正在更新";
+    case "up_to_date":
+      return "已是最新";
     case "update_available":
       return latestVersion ? `有新版本 ${latestVersion}` : "有新版本";
     case "failed":
-      return releaseCheck.summary || releaseCheck.errorCode || releaseCheck.detail || "更新检查没有返回错误信息";
+      if (releaseCheck.errorCode === "launcher.update_relaunch_failed") {
+        return "待重新打开";
+      }
+      return checkFailureCodes.has(releaseCheck.errorCode) ? "检查失败" : "更新失败";
     default:
       return "";
   }
@@ -48,7 +56,7 @@ export function AppShellAboutSection({
   onOpenRepositoryPage,
 }: AppShellAboutSectionProps) {
   const releaseCheck = snapshot.launcher.releaseCheck;
-  const currentVersion = formatReleaseVersion(releaseCheck.currentVersion);
+  const currentVersion = formatReleaseVersion(releaseCheck);
   const versionHint = buildVersionHint(releaseCheck);
   const updating = releaseCheck.status === "updating";
   const canApplyUpdate = releaseCheck.updateAvailable && !updating && releaseCheck.status !== "checking";
@@ -105,8 +113,7 @@ export function AppShellAboutSection({
       </section>
 
       <dl className="detail-list detail-list--wrap content-group">
-        <DetailRow icon={<AppGeneric20Regular />} label="程序" value="RayleaLauncher" mono={false} />
-        <DetailRow icon={<Tag20Regular />} label="版本">
+        <DetailRow icon={<Tag20Regular />} label="RayleaBot 版本">
           <span className="version-value" data-status={releaseCheck.status}>
             <span>{currentVersion}</span>
             {versionHint ? <span>{versionHint}</span> : null}

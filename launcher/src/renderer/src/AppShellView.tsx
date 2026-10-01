@@ -32,7 +32,6 @@ export type AppShellViewProps = {
   onStart: () => void;
   onStop: () => void;
   onOpenWeb: () => void;
-  onOpenTasks: () => void;
   onApplyUpdate: () => void;
   onCheckForUpdates: () => void;
   onOpenReleasePage: () => void;
@@ -68,7 +67,6 @@ export function AppShellView({
   onStart,
   onStop,
   onOpenWeb,
-  onOpenTasks,
   onApplyUpdate,
   onCheckForUpdates,
   onOpenReleasePage,
@@ -109,7 +107,7 @@ export function AppShellView({
             controlsDisabled={controlsDisabled}
             editingSettings={editingSettings}
             onRefresh={onRefresh}
-            onOpenTasks={onOpenTasks}
+            onOpenWeb={onOpenWeb}
             onBeginEdit={onBeginEdit}
             onCancelEdit={onCancelEdit}
             onSaveSettings={onSaveSettings}
@@ -125,7 +123,6 @@ export function AppShellView({
                 onStart={onStart}
                 onStop={onStop}
                 onOpenWeb={onOpenWeb}
-                onOpenTasks={onOpenTasks}
                 onOpenLogs={onOpenLogs}
               />
             )}

@@ -796,6 +796,14 @@
   font-size: 13px;
 }
 
+.attention-panel__items {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+  font-weight: 500;
+}
+
 .attention-list {
   display: grid;
   gap: 12px;
@@ -844,10 +852,6 @@
   background: none;
 }
 
-.service-diagnostics .status-chip {
-  color: var(--color-text);
-}
-
 .service-diagnostics .status-pill {
   display: inline-flex;
   min-height: 22px;
@@ -874,12 +878,6 @@
   gap: 8px;
 }
 
-.status-diagnostics-codes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .status-diagnostics-list,
 .status-diagnostics-checks {
   display: grid;
@@ -903,9 +901,14 @@
   gap: 12px;
 }
 
-.status-diagnostics-item__code,
+.status-diagnostics-item__remedy,
 .status-diagnostics-check__value {
   color: var(--color-text-muted);
+}
+
+.status-diagnostics-item__remedy {
+  margin-top: 4px;
+  font-size: 13px;
 }
 
 .runtime-prepare-panel.content-group {
@@ -1233,6 +1236,13 @@
   color: var(--color-success);
   border-radius: 50%;
   background: var(--color-success-soft);
+}
+
+/* The Launcher captures no output from a service another process started, so the icon makes no health claim. */
+.status-log-row[data-alert="unknown"] .status-log-row__icon,
+.diagnostics-empty[data-alert="unknown"] .diagnostics-empty__icon {
+  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
 }
 
 .diagnostics-empty__status > div {
