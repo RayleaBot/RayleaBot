@@ -9,6 +9,7 @@ import AppStatusTag from '@/components/AppStatusTag.vue'
 import AppTag from '@/components/AppTag.vue'
 import PluginCommandsPanel from '@/components/plugins/PluginCommandsPanel.vue'
 import { t } from '@/i18n'
+import { getPluginCommandPrefixes } from '@/lib/command-usage'
 import { getPluginInstallMethodLabel, getPluginStateLabel, getPluginTrustLabel } from '@/lib/display'
 import { buildPluginDetailLocation } from '@/lib/management-links'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
@@ -49,6 +50,7 @@ function openDetail(pluginId: string) {
           stacked
           :commands="plugin.commands"
           :command-conflicts="plugin.command_conflicts"
+          :command-prefixes="getPluginCommandPrefixes(plugin)"
         />
       </AppCard>
     </template>

@@ -25,7 +25,12 @@ export interface MenuPreviewContext {
   defaultPermission?: string | null
 }
 
-type MenuPreviewPlugin = Pick<PluginSummary, 'id' | 'name' | 'version' | 'description' | 'help' | 'commands' | 'command_groups'>
+type MenuPreviewPlugin = Pick<PluginSummary, 'id' | 'name' | 'version' | 'description' | 'help' | 'commands' | 'command_groups' | 'command_prefixes' | 'dedicated_command_prefixes'>
+
+// Every prefix that addresses the plugin, the dedicated ones marked, as the menu the bot sends lists them.
+export function buildPrefixChips(plugin: Pick<PluginSummary, 'command_prefixes' | 'dedicated_command_prefixes'>) {
+  return plugin.command_prefixes.map(text => ({ text, dedicated: plugin.dedicated_command_prefixes.includes(text) }))
+}
 
 // The menu lists every enabled plugin with a valid manifest that has commands or help to show, running or not.
 export function isMenuPreviewPlugin(plugin: Pick<PluginSummary, 'state' | 'help' | 'commands'>) {
@@ -70,10 +75,12 @@ export function renderMenuPreviewFooter(template?: string, plugin?: Pick<PluginS
     .replaceAll('{{plugin_version}}', version && version !== '0.0.0-dev' ? version : developmentVersion)
 }
 
+// A plugin with dedicated prefixes is addressed differently from the rest, so its card lists them.
 export function buildRootMenuItems(plugins: readonly MenuPreviewPlugin[]) {
   return plugins.map((plugin) => ({
     name: plugin.name || plugin.id,
     description: plugin.description?.trim() || plugin.help?.summary?.trim() || rootItemFallbackDescription,
+    ...(plugin.dedicated_command_prefixes.length > 0 ? { prefix_chips: buildPrefixChips(plugin) } : {}),
   }))
 }
 
@@ -111,6 +118,7 @@ function buildCommandPreviewItem(command: PluginCommandSummary, context: MenuPre
   return {
     name: command.effective_names[0] || command.name,
     ...commandUsageFields(command, context.prefixes),
+    ...(context.prefixes[0] ? { primary_prefix: context.prefixes[0] } : {}),
     description: command.description || command.name,
     permission: normalizeCommandPermission(String(command.permission ?? '').trim() || context.defaultPermission),
   }

@@ -26,6 +26,7 @@ function config(): ConfigDocument {
 function plugin(): PluginSummary {
   return {
     id: 'subscription-hub', name: '订阅与解析', version: '1.0.0', role: 'community', state: 'running',
+    command_prefixes: ['/', '*'], dedicated_command_prefixes: [],
     commands: [
       {
         id: 'status', name: '订阅状态', effective_names: ['订阅状态'], description: '查看订阅状态', usage: '/订阅状态',
@@ -119,6 +120,20 @@ describe('MenuCenterView', () => {
       trigger_type: 'pattern', usage: '<角色名>攻略',
       usage_parts: [{ kind: 'required', text: '角色名' }, { kind: 'literal', text: '攻略' }],
     })
+  })
+
+  // The bot's page for one plugin uses the prefixes that address that plugin, not the menu's own prefixes.
+  it('previews a plugin page with the plugin\'s own prefixes', async () => {
+    const item = plugin()
+    item.command_prefixes = ['*', '星铁']
+    item.dedicated_command_prefixes = ['*', '星铁']
+
+    const data = pluginPreviewData(await mountPage(item))
+    expect(data).toMatchObject({
+      command_prefixes: ['*', '星铁'],
+      prefix_chips: [{ text: '*', dedicated: true }, { text: '星铁', dedicated: true }],
+    })
+    expect(data.groups[0]!.items[0]).toMatchObject({ command_prefixes: ['*', '星铁'], primary_prefix: '*' })
   })
 
   it('projects exact, setting and pattern command details', async () => {

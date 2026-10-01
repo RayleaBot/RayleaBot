@@ -12,11 +12,11 @@ const MAX_VISIBLE_ALIASES = 12
 const props = withDefaults(defineProps<{
   commands: PluginCommandSummary[]
   commandConflicts?: string[]
-  commandPrefix?: string
+  commandPrefixes?: readonly string[]
   stacked?: boolean
 }>(), {
   commandConflicts: () => [],
-  commandPrefix: '/',
+  commandPrefixes: () => ['/'],
   stacked: false,
 })
 
@@ -42,7 +42,7 @@ function getVisibleCommandAliases(command: PluginCommandSummary) {
 }
 
 function getUsageText(command: PluginCommandSummary) {
-  return formatCommandUsage(command, props.commandPrefix) || t('display.empty')
+  return formatCommandUsage(command, props.commandPrefixes) || t('display.empty')
 }
 
 function getTriggerText(command: PluginCommandSummary) {

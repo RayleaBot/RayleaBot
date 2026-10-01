@@ -140,21 +140,38 @@ function renderTitleArea(data: PreviewRecord) {
   return `<div class="page-header__title-area">
         <h1>${escapeHtml(value(data.title))}</h1>
         ${optionalElement('p', 'subtitle', data.subtitle)}
-        ${renderCommandPrefixes(data.command_prefixes)}
+        ${renderCommandPrefixes(data.prefix_chips, data.command_prefixes)}
       </div>`
 }
 
-function renderCommandPrefixes(input: unknown) {
-  const prefixes = stringList(input)
-  if (prefixes.length === 0) {
+// As in the template: prefix chips mark dedicated prefixes; without chips the plain prefix list is shown.
+function renderCommandPrefixes(chipsInput: unknown, prefixesInput: unknown, className = 'command-prefixes', label = '可用指令前缀') {
+  const chips = prefixChips(chipsInput)
+  const values = chips.length > 0
+    ? chips.map(chip => chip.dedicated
+      ? `<code class="command-prefixes__dedicated" aria-label="专属前缀 ${escapeAttribute(chip.text)}">${escapeHtml(chip.text)}</code>`
+      : `<code>${escapeHtml(chip.text)}</code>`).join('')
+    : stringList(prefixesInput).map((prefix) => `<code>${escapeHtml(prefix)}</code>`).join('')
+  if (!values) {
     return ''
   }
-  return `<div class="command-prefixes" aria-label="可用指令前缀">
+  return `<div class="${className}" aria-label="${label}">
         <span class="command-prefixes__label">前缀</span>
         <span class="command-prefixes__values">
-          ${prefixes.map((prefix) => `<code>${escapeHtml(prefix)}</code>`).join('')}
+          ${values}
         </span>
       </div>`
+}
+
+function prefixChips(input: unknown) {
+  if (!Array.isArray(input)) {
+    return []
+  }
+  return input.flatMap((item) => {
+    const payload = record(item)
+    const text = value(payload.text)
+    return text ? [{ text, dedicated: payload.dedicated === true }] : []
+  })
 }
 
 function renderCommandGuide(data: PreviewRecord) {
@@ -186,6 +203,7 @@ function renderCell(item: unknown) {
           ${permission}
         </div>
         ${optionalElement('p', 'description', payload.description)}
+        ${renderCommandPrefixes(payload.prefix_chips, [], 'command-prefixes command-prefixes--cell', '该插件的指令前缀')}
         ${renderCommandUsage(payload)}
       </article>`
 }
@@ -210,8 +228,12 @@ function renderCommandUsage(payload: PreviewRecord) {
       : usageArgs
         ? `<span class="command-usage__args">${escapeHtml(usageArgs)}</span>`
         : ''}`
+  const primaryPrefix = value(payload.primary_prefix)
+  const lead = primaryPrefix
+    ? `<span class="command-usage__lead">${escapeHtml(primaryPrefix)}</span>`
+    : '<span class="command-prefix-cue" aria-label="需添加上方任一前缀">前缀</span>'
   return `<div class="command-usage" aria-label="指令示意">
-        <code><span class="command-prefix-cue" aria-label="需添加上方任一前缀">前缀</span>${content}</code>
+        <code>${lead}${content}</code>
       </div>`
 }
 

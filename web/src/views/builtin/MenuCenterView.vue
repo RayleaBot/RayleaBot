@@ -18,6 +18,7 @@ import { t } from '@/i18n'
 import {
   buildMenuTriggerExamples,
   buildPluginMenuGroups,
+  buildPrefixChips,
   buildRootMenuItems,
   defaultMenuCommands,
   isMenuPreviewPlugin,
@@ -99,11 +100,13 @@ const selectedPluginPreviewData = computed(() => {
       render_footer: renderMenuPreviewFooter(footerTemplate.value),
     }
   }
+  // A plugin's own menu page shows and uses the prefixes that address that plugin, not the menu's.
   return {
     title: plugin.name || plugin.id,
     subtitle: plugin.description?.trim() ?? '',
-    command_prefixes: effectiveMenuPrefixes.value,
-    groups: buildPluginMenuGroups(plugin, previewContext.value),
+    command_prefixes: plugin.command_prefixes,
+    prefix_chips: buildPrefixChips(plugin),
+    groups: buildPluginMenuGroups(plugin, { ...previewContext.value, prefixes: plugin.command_prefixes }),
     render_footer: renderMenuPreviewFooter(footerTemplate.value, plugin),
   }
 })

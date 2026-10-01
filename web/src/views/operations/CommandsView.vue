@@ -16,7 +16,7 @@ import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import { useToastFeedback } from '@/adapter/feedback'
-import { formatCommandUsage, getPrimaryCommandPrefix } from '@/lib/command-usage'
+import { formatCommandUsage, getPluginCommandPrefixes } from '@/lib/command-usage'
 import {
   areLocationQueriesEqual,
   buildCommandsLocation,
@@ -57,12 +57,16 @@ const selectedPlugins = computed(() => {
   return selectedPluginIds.value.flatMap(id => known.has(id) ? [known.get(id)!] : [])
 })
 
-const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
 const pluginsWithCommands = computed(() => (
   [...(selectedPluginIds.value.length ? selectedPlugins.value : items.value)]
     .filter((plugin) => (plugin.commands?.length ?? 0) > 0)
     .sort((left, right) => compareByLabel(left.name, right.name) || compareByLabel(left.id, right.id))
 ))
+// Each row's usage starts with its own plugin's prefix; rows known only from the policy use the global ones.
+const commandPrefixesByPlugin = computed(() => new Map(pluginsWithCommands.value.map(plugin => [
+  plugin.id,
+  getPluginCommandPrefixes(plugin, configDocument.value?.command?.prefixes),
+])))
 const commandRows = computed(() => {
   const selectedIds = new Set(selectedPluginIds.value)
   const visibleIds = new Set(pluginsWithCommands.value.map(plugin => plugin.id))
@@ -137,8 +141,9 @@ function getPermissionText(record: UnifiedCommandRow) {
   return getCommandPermissionLabel(record.policy?.effective_permission ?? record.command.permission)
 }
 
-function getUsageText(command: PluginCommandSummary) {
-  return formatCommandUsage(command, commandPrefix.value) || t('display.empty')
+function getUsageText(record: UnifiedCommandRow) {
+  const prefixes = commandPrefixesByPlugin.value.get(record.pluginId) ?? getPluginCommandPrefixes(null, configDocument.value?.command?.prefixes)
+  return formatCommandUsage(record.command, prefixes) || t('display.empty')
 }
 
 function getStatusLabel(status: PluginCommandAvailability) {
@@ -293,7 +298,7 @@ onMounted(() => {
             </template>
 
             <template v-else-if="column.key === 'usage'">
-              <span>{{ getUsageText(record.command) }}</span>
+              <span>{{ getUsageText(record) }}</span>
             </template>
 
             <template v-else-if="column.key === 'permission'">

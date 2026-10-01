@@ -8,7 +8,7 @@ function command(id: string): PluginCommandSummary {
 }
 
 function plugin(overrides: Partial<PluginSummary> = {}): PluginSummary {
-  return { id: 'weather', name: 'Weather', role: 'community', state: 'running', commands: [command('weather')], command_groups: [], help: {}, ...overrides }
+  return { id: 'weather', name: 'Weather', role: 'community', state: 'running', commands: [command('weather')], command_groups: [], command_prefixes: ['/'], dedicated_command_prefixes: [], help: {}, ...overrides }
 }
 
 // The preview stands in for the menu the bot sends, so it follows the server's rules rather than its own.
@@ -28,6 +28,15 @@ describe('menu preview', () => {
       plugin({ help: { summary: '天气菜单' } }),
       plugin(),
     ]).map(item => item.description)).toEqual(['查询天气', '天气菜单', '可用插件菜单'])
+  })
+
+  it('marks the prefixes of a plugin with dedicated ones on its card and starts its usages with its first prefix', () => {
+    const starRail = plugin({ id: 'raylea.starrail', name: '崩坏：星穹铁道', command_prefixes: ['sr', '/'], dedicated_command_prefixes: ['sr'] })
+    const [weatherCard, starRailCard] = buildRootMenuItems([plugin(), starRail])
+
+    expect(weatherCard).not.toHaveProperty('prefix_chips')
+    expect(starRailCard).toMatchObject({ prefix_chips: [{ text: 'sr', dedicated: true }, { text: '/', dedicated: false }] })
+    expect(buildPluginMenuGroups(starRail, { prefixes: starRail.command_prefixes })[0]!.items[0]).toMatchObject({ primary_prefix: 'sr' })
   })
 
   it('puts commands outside every group first under their own title', () => {

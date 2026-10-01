@@ -21,7 +21,7 @@ import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.
 import PluginPowerButton from '@/components/plugins/PluginPowerButton.vue'
 import PluginCommandsPanel from '@/components/plugins/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
-import { getPrimaryCommandPrefix } from '@/lib/command-usage'
+import { getPluginCommandPrefixes } from '@/lib/command-usage'
 import { canTogglePluginPower, getPluginReloadBlocker } from '@/lib/plugin-lifecycle'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
@@ -73,7 +73,7 @@ const detailTabs = computed<{ value: DetailTab; label: string }[]>(() => [
 // The overview tab uses the sidebar's overview icon, the commands tab the command center's.
 const detailTabIcons: Record<DetailTab, Component> = { summary: BlocksIcon, commands: TerminalIcon, console: ScrollTextIcon }
 const consoleFrameCount = computed(() => pluginConsoleStore.getConsole(pluginId.value).length)
-const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
+const commandPrefixes = computed(() => getPluginCommandPrefixes(currentPlugin.value, configDocument.value?.command?.prefixes))
 const pluginDisplayName = computed(() => (
   currentPlugin.value?.name?.trim() || pluginsStore.getPluginDisplayName(pluginId.value)
 ))
@@ -196,7 +196,7 @@ function returnToPluginList() {
             <PluginCommandsPanel
               :commands="currentPlugin?.commands ?? []"
               :command-conflicts="currentPlugin?.command_conflicts ?? []"
-              :command-prefix="commandPrefix"
+              :command-prefixes="commandPrefixes"
             />
           </div>
         </template>

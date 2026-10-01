@@ -138,6 +138,35 @@ describe('CommandsPage', () => {
     expect(vi.mocked(apiRequest).mock.calls.some(call => call[0].includes('cursor='))).toBe(false)
   })
 
+  // Star Rail answers only to its own prefixes, so /体力 would never trigger; each usage starts with its plugin's prefix.
+  it('starts each usage with the first prefix of its own plugin', async () => {
+    const router = createRouter({ history: createMemoryHistory(), routes: [
+      { path: '/commands', name: 'commands', component: CommandsPage },
+      { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div />' } },
+    ] })
+    await router.push('/commands')
+    await router.isReady()
+    const configStore = useConfigStore()
+    configStore.document = createFixtureConfig(['!'])
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    const governance = useGovernanceStore()
+    governance.commandPolicy = { default_level: 'everyone', cooldown: { user_command_rate_limit: '10/60s', group_command_rate_limit: '30/60s', cooldown_reply: true }, commands: [] }
+    vi.spyOn(governance, 'fetchCommandPolicy').mockResolvedValue(governance.commandPolicy)
+    const makePlugin = (id: string, name: string, prefixes: string[], dedicated: string[]) => ({
+      id, name: id, role: 'community', state: 'running', command_groups: [], command_conflicts: [], help: {},
+      command_prefixes: prefixes, dedicated_command_prefixes: dedicated,
+      commands: [{ id: name, name, effective_names: [name], description: name + ' 说明', usage: '#' + name, permission: 'everyone', trigger: { type: 'exact', names: [name] } }],
+    })
+    vi.mocked(apiRequest).mockResolvedValue({ items: [makePlugin('raylea.starrail', '体力', ['*', '星铁'], ['*', '星铁']), makePlugin('raylea.echo', 'echo', ['!'], [])], total: 2 } as never)
+
+    const wrapper = mount(CommandsPage, { global: { plugins: [getActivePinia()!, router] } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('*体力')
+    expect(wrapper.text()).not.toContain('!体力')
+    expect(wrapper.text()).toContain('!echo')
+  })
+
   it('renders a filtered command list with command and policy details', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
