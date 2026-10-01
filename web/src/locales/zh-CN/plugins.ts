@@ -261,6 +261,8 @@ export const plugins = {
     commands: '当前没有插件指令',
     console: '等待插件输出',
     consoleDisabled: '插件已停用，启用后在此显示实时输出。',
+    consoleInvalid: '清单异常，插件不会启动，因此没有输出。',
+    consoleFailed: '插件进程没有在运行，重载后在此显示实时输出。',
     filteredTitle: '没有符合条件的插件',
     filteredDescription: '调整搜索词或筛选条件，或清除全部筛选。',
     clearFilters: '清除筛选',
@@ -293,7 +295,7 @@ export const plugins = {
     jumpToLatest: '滚动到最新',
     streams: {
       stdout: '标准输出',
-      stderr: '错误输出',
+      stderr: '插件输出',
       system: '系统',
       outbound: '外发',
     },

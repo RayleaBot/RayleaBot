@@ -21,9 +21,9 @@ export function getConsoleStreamLabel(stream: ConsoleFrame['stream']) {
   return t(`plugins.console.streams.${stream}`)
 }
 
-// Only the streams that signal trouble carry a status tone; output and sent messages are plain categories.
+// stderr is where a plugin writes its own log, ordinary lines included, so it is plain output like sent messages;
+// only the platform's system notes carry a status tone.
 export function getConsoleStreamTone(stream: ConsoleFrame['stream']): StatusTone {
-  if (stream === 'stderr') return 'danger'
   if (stream === 'system') return 'warning'
   return 'neutral'
 }

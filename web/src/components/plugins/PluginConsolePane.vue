@@ -39,7 +39,12 @@ const socketStore = useSocketStore()
 const frames = computed(() => pluginConsoleStore.getConsole(props.pluginId))
 const snapshot = computed(() => socketStore.snapshots.pluginConsole)
 const connectionTone = computed(() => getConsoleConnectionTone(snapshot.value.status))
-const emptyText = computed(() => (props.pluginState === 'disabled' ? t('plugins.empty.consoleDisabled') : t('plugins.empty.console')))
+const emptyText = computed(() => {
+  if (props.pluginState === 'disabled') return t('plugins.empty.consoleDisabled')
+  if (props.pluginState === 'invalid') return t('plugins.empty.consoleInvalid')
+  if (props.pluginState === 'failed') return t('plugins.empty.consoleFailed')
+  return t('plugins.empty.console')
+})
 const viewportRef = ref<{ scrollToBottom: () => void } | null>(null)
 const followBottom = ref(true)
 // Output that arrived while following is paused, counted on the jump button as on the live log page.

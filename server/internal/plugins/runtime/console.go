@@ -13,7 +13,7 @@ import (
 const (
 	defaultConsoleChunkBytes     = 4096
 	defaultStderrRateLimitPerSec = 262144
-	stderrTruncatedSystemMessage = "[系统] stderr 输出超过速率限制，后续内容已截断"
+	stderrTruncatedSystemMessage = "插件输出超过速率限制，后续内容已截断。"
 )
 
 type stderrLimiter struct {
