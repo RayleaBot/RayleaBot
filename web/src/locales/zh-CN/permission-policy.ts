@@ -13,7 +13,7 @@ export const permissionPolicy = {
     defaultLevel: '默认权限级别',
   },
   hints: {
-    superAdmins: '输入 OneBot QQ 号后按 Enter 添加。超级管理员可执行最高权限指令，并跳过黑白名单与冷却拦截。此列表不授权 QQ 官方 openid。',
+    superAdmins: '输入 OneBot QQ 号后按 Enter 添加。超级管理员可执行最高权限指令，并跳过黑白名单与冷却拦截。只对 OneBot 连接生效，QQ 官方机器人的用户不能在这里设为超级管理员。',
     defaultLevel: '未单独声明权限的指令使用此级别。',
   },
   placeholders: {
