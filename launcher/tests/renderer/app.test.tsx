@@ -55,14 +55,13 @@ const setupRequiredSnapshot = createLauncherSnapshot({
     health: { status: "ok" },
     readiness: {
       status: "setup_required",
-      reason: "管理员初始化尚未完成。",
+      reason: "需要先完成管理员初始化",
       reason_codes: ["setup.required"],
-      checks: { config: "setup_required" },
       issues: [
         {
           code: "setup.required",
           severity: "error",
-          summary: "Initial admin setup is required",
+          summary: "需要先完成管理员初始化",
           remediation: "请先完成管理员初始化，然后再使用管理入口。",
         },
       ],
@@ -344,7 +343,7 @@ describe("App", () => {
     await waitFor(() => expect(openWebUi).toHaveBeenCalledOnce());
     expect(screen.getAllByText("待初始化").length).toBeGreaterThan(0);
     expect(screen.queryByText("运行中")).not.toBeInTheDocument();
-    expect(screen.queryByText("管理员初始化尚未完成。")).not.toBeInTheDocument();
+    expect(screen.queryByText("需要先完成管理员初始化")).not.toBeInTheDocument();
     expect(screen.queryByText("需要设置")).not.toBeInTheDocument();
     expect(screen.queryByText("需要处理")).not.toBeInTheDocument();
     expect(screen.queryByText("服务诊断")).not.toBeInTheDocument();

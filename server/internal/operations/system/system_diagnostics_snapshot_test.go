@@ -1,10 +1,12 @@
 package system
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 )
 
@@ -56,6 +58,49 @@ func TestDiagnosticProjectionsExposeUserAndInternalFields(t *testing.T) {
 			items := project([]health.DiagnosticIssue{source})
 			if len(items) != 1 || items[0].UserMessage != source.Summary || items[0].InternalReason != source.Code {
 				t.Fatalf("diagnostic projection = %#v", items)
+			}
+		})
+	}
+}
+
+func TestDiagnosticsUsesOneFFmpegIssue(t *testing.T) {
+	t.Parallel()
+	for _, bootstrapped := range []bool{true, false} {
+		name := "readiness issue"
+		if !bootstrapped {
+			name = "dependency fallback before setup"
+		}
+		t.Run(name, func(t *testing.T) {
+			app := newTestAppState(config.Config{}, nil)
+			service, err := New(Deps{
+				CurrentConfig:  app.state.CurrentConfig,
+				CurrentSummary: func() config.Summary { return config.Summary{} },
+				Plugins:        app.pluginStack.Plugins,
+				RepoRoot:       t.TempDir(),
+				Auth:           readinessAuthState(bootstrapped),
+				Storage:        openReadinessStore(t),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			startup := startupFailureIssue("ffmpeg", errors.New("fixture failure"))
+			service.setStartupRuntimeState("ffmpeg", StartupRuntimePhaseFailed, &startup)
+			snapshot := service.DiagnosticsSnapshot(context.Background())
+			count := 0
+			for _, issue := range snapshot.Issues {
+				if !containsRuntimeKind(issue.RuntimeResources, "ffmpeg") {
+					continue
+				}
+				count++
+				if bootstrapped && (issue.Code != startup.Code || issue.Summary != startup.Summary || issue.Remediation != startup.Remediation) {
+					t.Fatalf("diagnostics discarded the preparation failure: %#v", issue)
+				}
+				if !bootstrapped && issue.Code != "dependency.ffmpeg" {
+					t.Fatalf("missing dependency fallback: %#v", issue)
+				}
+			}
+			if count != 1 {
+				t.Fatalf("FFmpeg issue count = %d, want 1: %#v", count, snapshot.Issues)
 			}
 		})
 	}

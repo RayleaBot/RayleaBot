@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"reflect"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
@@ -62,9 +63,14 @@ func newStartupRuntimeStates(requiredKinds []string) map[string]StartupRuntimeSt
 }
 
 func (s *Service) resetStartupRuntimeStates(requiredKinds []string) {
+	states := newStartupRuntimeStates(requiredKinds)
 	s.startupMu.Lock()
-	defer s.startupMu.Unlock()
-	s.startupRuntimes = newStartupRuntimeStates(requiredKinds)
+	changed := !reflect.DeepEqual(s.startupRuntimes, states)
+	s.startupRuntimes = states
+	s.startupMu.Unlock()
+	if changed {
+		s.PublishStatusSnapshot()
+	}
 }
 
 func (s *Service) setStartupRuntimeState(kind string, phase StartupRuntimePhase, issue *health.DiagnosticIssue) {
@@ -72,7 +78,6 @@ func (s *Service) setStartupRuntimeState(kind string, phase StartupRuntimePhase,
 		return
 	}
 	s.startupMu.Lock()
-	defer s.startupMu.Unlock()
 	if s.startupRuntimes == nil {
 		s.startupRuntimes = newStartupRuntimeStates(nil)
 	}
@@ -82,9 +87,13 @@ func (s *Service) setStartupRuntimeState(kind string, phase StartupRuntimePhase,
 		copied.RuntimeResources = append([]string(nil), issue.RuntimeResources...)
 		issueCopy = &copied
 	}
-	s.startupRuntimes[kind] = StartupRuntimeState{
-		Phase: phase,
-		Issue: issueCopy,
+	state := StartupRuntimeState{Phase: phase, Issue: issueCopy}
+	changed := !reflect.DeepEqual(s.startupRuntimes[kind], state)
+	s.startupRuntimes[kind] = state
+	s.startupMu.Unlock()
+	// 快照会回读运行资源状态，发布前必须释放状态锁。
+	if changed {
+		s.PublishStatusSnapshot()
 	}
 }
 
@@ -200,10 +209,10 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 			continue
 		}
 		if inspection.PreparedStorePresent {
-			s.setStartupRuntimeState(kind, StartupRuntimePhaseReady, nil)
 			if kind == "chromium" && s.renderer != nil && strings.TrimSpace(inspection.SystemBrowserPath) != "" {
 				s.renderer.RefreshBrowserPath(inspection.SystemBrowserPath)
 			}
+			s.setStartupRuntimeState(kind, StartupRuntimePhaseReady, nil)
 			continue
 		}
 
@@ -230,10 +239,10 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 			continue
 		}
 
-		s.setStartupRuntimeState(kind, StartupRuntimePhaseReady, nil)
 		if kind == "chromium" && s.renderer != nil && report.PreparedEntrypoint != "" {
 			s.renderer.RefreshBrowserPath(report.PreparedEntrypoint)
 		}
+		s.setStartupRuntimeState(kind, StartupRuntimePhaseReady, nil)
 		if s.currentLogger() != nil {
 			s.currentLogger().Info(
 				"运行环境准备完成",

@@ -21,12 +21,15 @@ func (s *Service) SubmitRuntimeBootstrapTask(resources []string) (string, error)
 	return s.taskExecutor.Submit("runtime.bootstrap", "准备运行环境", func(ctx context.Context, progress tasks.ProgressReporter) (*tasks.ResultSummary, error) {
 		results := make([]any, 0, len(resources))
 		for index, kind := range resources {
+			s.setStartupRuntimeState(kind, StartupRuntimePhasePending, nil)
 			progress.Update((index*100)/len(resources), "正在准备 "+deps.ManagedResourceLabel(kind))
 			report, err := s.prepareRuntime(ctx, s.repoRootPath(), kind, func(event deps.PrepareProgress) {
 				percent, summary := managedRuntimeTaskProgress(len(resources), index, event)
 				progress.Update(percent, summary)
 			})
 			if err != nil {
+				issue := startupFailureIssue(kind, err)
+				s.setStartupRuntimeState(kind, StartupRuntimePhaseFailed, &issue)
 				var bootstrapErr *deps.BootstrapError
 				if errors.As(err, &bootstrapErr) {
 					return nil, &tasks.TaskError{
@@ -40,6 +43,7 @@ func (s *Service) SubmitRuntimeBootstrapTask(resources []string) (string, error)
 			if kind == "chromium" && s.renderer != nil && report.PreparedEntrypoint != "" {
 				s.renderer.RefreshBrowserPath(report.PreparedEntrypoint)
 			}
+			s.setStartupRuntimeState(kind, StartupRuntimePhaseReady, nil)
 			results = append(results, map[string]any{
 				"kind":                report.Kind,
 				"archive_path":        report.ArchivePath,

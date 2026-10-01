@@ -121,3 +121,89 @@ func containsIssueCode(issues []health.DiagnosticIssue, code string) bool {
 	}
 	return false
 }
+
+type readinessStatusPublisher func()
+
+func (publish readinessStatusPublisher) PublishSnapshot() { publish() }
+
+func TestRuntimeBootstrapPublishesSharedReadinessState(t *testing.T) {
+	t.Parallel()
+	for _, fail := range []bool{false, true} {
+		name := "success"
+		if fail {
+			name = "failure"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			store := openReadinessStore(t)
+			registry := tasks.NewRegistry()
+			executor := tasks.NewExecutor(registry, 5*time.Second)
+			t.Cleanup(func() { _ = executor.Close() })
+			release := make(chan struct{})
+			reports := make(chan ReadinessReport, 8)
+			var service *Service
+			var err error
+			service, err = New(Deps{
+				CurrentConfig:  func() config.Config { return config.Config{} },
+				CurrentSummary: func() config.Summary { return config.Summary{} },
+				Plugins:        plugincatalog.New(nil),
+				Auth:           readinessAuthState(true),
+				Storage:        store,
+				TaskExecutor:   executor,
+				StatusPublisher: readinessStatusPublisher(func() {
+					reports <- service.CurrentReadiness()
+				}),
+				PrepareRuntime: func(ctx context.Context, _ string, kind string, _ deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
+					select {
+					case <-release:
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					}
+					if fail {
+						return nil, errors.New("fixture preparation failure")
+					}
+					return &deps.PrepareReport{Kind: kind}, nil
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			issue := startupFailureIssue("ffmpeg", errors.New("fixture startup failure"))
+			service.setStartupRuntimeState("ffmpeg", StartupRuntimePhaseFailed, &issue)
+			<-reports
+			taskID, err := service.SubmitRuntimeBootstrapTask([]string{"ffmpeg"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case report := <-reports:
+				if report.Checks["runtime"] != "preparing" || report.Status != "ready" || len(report.Issues) != 0 {
+					t.Fatalf("preparation did not clear prior failure: %#v", report)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("preparation start was not published")
+			}
+			close(release)
+			wantTask, wantPhase, wantCheck := tasks.StatusSucceeded, StartupRuntimePhaseReady, "ok"
+			if fail {
+				wantTask, wantPhase, wantCheck = tasks.StatusFailed, StartupRuntimePhaseFailed, "resource_missing"
+			}
+			testutil.WaitTask(t, registry, taskID, wantTask)
+			select {
+			case report := <-reports:
+				if report.Checks["runtime"] != wantCheck {
+					t.Fatalf("terminal preparation report = %#v", report)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("preparation completion was not published")
+			}
+			state, ok := service.StartupRuntimeState("ffmpeg")
+			if !ok || state.Phase != wantPhase {
+				t.Fatalf("shared startup state = %#v", state)
+			}
+			if fail && (state.Issue == nil || len(state.Issue.RuntimeResources) != 1 || state.Issue.RuntimeResources[0] != "ffmpeg") {
+				t.Fatalf("failed task lost actionable resource: %#v", state)
+			}
+		})
+	}
+}

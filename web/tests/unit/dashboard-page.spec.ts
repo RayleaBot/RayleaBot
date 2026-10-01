@@ -92,7 +92,7 @@ describe('DashboardPage', () => {
     const { systemStore: store } = mockDashboardRefreshes()
     store.readiness = {
       status: 'degraded',
-      checks: { config: 'ok', render: 'resource_missing' },
+      checks: { database: 'ok', runtime: 'preparing', render: 'resource_missing' },
       issues: [{ code: 'platform.resource_missing', runtime_resources: ['chromium'], severity: 'warning', summary: '浏览器运行资源缺失', remediation: '准备运行环境后重试。' }],
     }
     const prepare = vi.spyOn(store, 'bootstrapManagedRuntime').mockResolvedValue({ task_id: 'fixture-runtime-task' })

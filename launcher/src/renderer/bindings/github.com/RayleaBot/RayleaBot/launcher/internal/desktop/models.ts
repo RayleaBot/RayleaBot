@@ -236,7 +236,6 @@ export interface ServerReadinessStatusResponse {
 }
 
 export interface ServerReadinessStatusResponseChecks {
-    "config"?: string;
     "database"?: string;
     "runtime"?: string;
     "render"?: string;

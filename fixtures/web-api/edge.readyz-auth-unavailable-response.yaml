@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: 管理认证不可用时不报告未执行的数据库和资源检查。
+request:
+  method: GET
+  path: /readyz
+response:
+  status: 503
+  body:
+    status: failed
+    reason: 管理认证服务不可用
+    issues:
+      - code: auth.unavailable
+        severity: error
+        summary: 管理认证服务不可用
+        remediation: 请检查服务日志，确认认证服务已完成初始化。
+expect:
+  valid: true

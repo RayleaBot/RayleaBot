@@ -44,8 +44,10 @@
 | 进程不可达 | 连接失败 | 无响应体 |
 
 - `/healthz` 只反映进程是否存活，适合 Launcher、`systemd`、Docker 和 LXC。
-- `/readyz` 反映本地控制面、初始化状态和关键资源是否就绪。
-- OneBot11 外部链路暂时不可用时，可返回 `degraded`，不与本地启动失败混淆。
+- `/readyz` 反映管理认证、管理员初始化、SQLite 存活、FFmpeg 准备状态和渲染资源状态，只返回本次实际执行的检查；认证不可用或尚未初始化时省略 `checks`。
+- `database` 每次通过已打开的连接执行最长 1 秒的 SQLite 存活探测，失败时为 `unavailable`，整体状态为 `failed`。
+- `runtime` 读取启动与手动准备共用的 FFmpeg 内存状态：`ok`、`preparing` 或 `resource_missing`。准备中不产生问题、不降低整体状态；失败时携带可准备资源 `runtime_resources: [ffmpeg]`。Chromium 与模板资源由 `render` 检查。
+- 运行或渲染资源缺失时为 `degraded`；数据库失败优先，资源问题不能将 `failed` 降为 `degraded`。外部聊天连接状态由协议快照报告，不参与服务就绪判断。
 - 健康接口返回 JSON，至少包含 `status`，可附带 `reason`、`reason_codes` 和 `checks`。
 - `starting`、`running`、`stopping`、`stopped` 是管理 WebSocket `service_status` 的展示词，不是健康探针 wire 值；该展示词集还可使用 `degraded`、`setup_required` 和 `failed`。
 

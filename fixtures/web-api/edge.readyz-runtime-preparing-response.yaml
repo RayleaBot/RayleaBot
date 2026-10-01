@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: FFmpeg 准备中不产生问题，也不降低整体就绪状态。
+request:
+  method: GET
+  path: /readyz
+response:
+  status: 200
+  body:
+    status: ready
+    checks:
+      database: ok
+      runtime: preparing
+      render: ok
+expect:
+  valid: true

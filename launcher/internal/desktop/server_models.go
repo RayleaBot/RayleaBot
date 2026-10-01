@@ -52,7 +52,6 @@ type ServerSystemStatusResponse struct {
 }
 
 type ServerReadinessStatusResponseChecks struct {
-	Config   string `json:"config,omitempty"`
 	Database string `json:"database,omitempty"`
 	Runtime  string `json:"runtime,omitempty"`
 	Render   string `json:"render,omitempty"`

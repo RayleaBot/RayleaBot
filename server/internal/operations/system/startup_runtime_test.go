@@ -151,3 +151,45 @@ func TestStartupRequiredRuntimeKindsKeepsFFmpegWhenBrowserPathConfigured(t *test
 		t.Fatalf("startupRequiredRuntimeKinds() = %#v, want FFmpeg", got)
 	}
 }
+
+func TestStartupRuntimeChangesPublishReadableSnapshots(t *testing.T) {
+	t.Parallel()
+	states := make(chan StartupRuntimeState, 8)
+	var service *Service
+	service = &Service{
+		startupRuntimes: newStartupRuntimeStates(nil),
+		statusPublisher: readinessStatusPublisher(func() {
+			state, _ := service.StartupRuntimeState("ffmpeg")
+			states <- state
+		}),
+	}
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		service.resetStartupRuntimeStates([]string{"ffmpeg"})
+		service.resetStartupRuntimeStates([]string{"ffmpeg"})
+		service.setStartupRuntimeState("ffmpeg", StartupRuntimePhasePending, nil)
+		service.setStartupRuntimeState("ffmpeg", StartupRuntimePhaseReady, nil)
+		service.setStartupRuntimeState("ffmpeg", StartupRuntimePhaseReady, nil)
+	}()
+	select {
+	case <-finished:
+	case <-time.After(2 * time.Second):
+		t.Fatal("runtime publication blocked while reading the shared state")
+	}
+	for _, want := range []StartupRuntimePhase{StartupRuntimePhasePending, StartupRuntimePhaseReady} {
+		select {
+		case state := <-states:
+			if state.Phase != want {
+				t.Fatalf("published phase = %q, want %q", state.Phase, want)
+			}
+		default:
+			t.Fatalf("phase %q was not published", want)
+		}
+	}
+	select {
+	case state := <-states:
+		t.Fatalf("unchanged runtime state was published: %#v", state)
+	default:
+	}
+}

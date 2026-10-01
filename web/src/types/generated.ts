@@ -1481,16 +1481,29 @@ export interface components {
             /** @constant */
             status: "ok";
         };
+        /** @description 数据库不可用时为 failed；运行或渲染资源缺失时为 degraded，不能覆盖 failed；reason 使用首要问题摘要，资源问题的 reason_codes 包含 platform.resource_missing。 */
         ReadinessStatusResponse: {
             /** @enum {string} */
             status: "ready" | "degraded" | "setup_required" | "failed";
             reason?: string;
             reason_codes?: string[];
+            /** @description 仅返回本次实际评估的检查；管理认证不可用或管理员尚未初始化时省略。 */
             checks?: {
-                config?: string;
-                database?: string;
-                runtime?: string;
-                render?: string;
+                /**
+                 * @description 通过已打开的 SQLite 连接执行最长 1 秒的存活探测；不可用时整体状态为 failed。
+                 * @enum {string}
+                 */
+                database?: "ok" | "unavailable";
+                /**
+                 * @description 服务托管的 FFmpeg 准备状态，读取启动与手动准备共用的内存状态；已准备或不需要时为 ok，准备中为 preparing 且不改变整体状态，失败或缺失时为 resource_missing。
+                 * @enum {string}
+                 */
+                runtime?: "ok" | "preparing" | "resource_missing";
+                /**
+                 * @description 图片渲染及 Chromium 资源诊断；存在渲染问题时为 resource_missing。
+                 * @enum {string}
+                 */
+                render?: "ok" | "resource_missing";
             };
             issues?: components["schemas"]["DiagnosticIssue"][];
         };

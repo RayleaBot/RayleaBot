@@ -1,7 +1,9 @@
 package system
 
 import (
+	"context"
 	"strings"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
@@ -11,15 +13,12 @@ func (s *Service) CurrentReadiness() ReadinessReport {
 	if s.auth == nil {
 		return normalizeReadinessReport(ReadinessReport{
 			Status: "failed",
-			Reason: "Management auth service is unavailable",
-			Checks: map[string]string{
-				"config": "ok", "database": "unknown", "runtime": "unknown", "render": "unknown",
-			},
+			Reason: "管理认证服务不可用",
 			Issues: []health.DiagnosticIssue{
 				{
 					Code:        errorcodes.DiagnosticAuthUnavailable,
 					Severity:    "error",
-					Summary:     "Management auth service is unavailable",
+					Summary:     "管理认证服务不可用",
 					Remediation: "请检查服务日志，确认认证服务已完成初始化。",
 				},
 			},
@@ -28,15 +27,12 @@ func (s *Service) CurrentReadiness() ReadinessReport {
 	if !s.auth.IsBootstrapped() {
 		return normalizeReadinessReport(ReadinessReport{
 			Status: "setup_required",
-			Reason: "Initial admin setup is required",
-			Checks: map[string]string{
-				"config": "ok",
-			},
+			Reason: "需要先完成管理员初始化",
 			Issues: []health.DiagnosticIssue{
 				{
 					Code:        errorcodes.DiagnosticSetupRequired,
 					Severity:    "error",
-					Summary:     "Initial admin setup is required",
+					Summary:     "需要先完成管理员初始化",
 					Remediation: "请先完成管理员初始化，然后再使用管理入口。",
 				},
 			},
@@ -45,28 +41,62 @@ func (s *Service) CurrentReadiness() ReadinessReport {
 	report := ReadinessReport{
 		Status: "ready",
 		Checks: map[string]string{
-			"config":   "ok",
 			"database": "ok",
 			"runtime":  "ok",
 			"render":   "ok",
 		},
 	}
+	if !s.databaseAvailable() {
+		report.Checks["database"] = "unavailable"
+		report.Status = "failed"
+		report.Reason = "数据库不可用"
+		report.ReasonCodes = []string{errorcodes.DiagnosticDatabasePingFailed}
+		report.Issues = append(report.Issues, health.DiagnosticIssue{
+			Code:        errorcodes.DiagnosticDatabasePingFailed,
+			Severity:    "error",
+			Summary:     "数据库不可用",
+			Remediation: "请检查数据库文件、磁盘空间与文件权限，然后重启服务。",
+		})
+	}
+
+	runtimeState, ok := s.startupRuntimeState("ffmpeg")
+	switch {
+	case ok && (runtimeState.Phase == StartupRuntimePhaseReady || runtimeState.Phase == StartupRuntimePhaseNotRequired):
+	case ok && runtimeState.Phase == StartupRuntimePhasePending:
+		report.Checks["runtime"] = "preparing"
+	default:
+		report.Checks["runtime"] = "resource_missing"
+		issue := runtimeState.Issue
+		if issue == nil {
+			missing := startupFailureIssue("ffmpeg", nil)
+			issue = &missing
+		}
+		report.Issues = append(report.Issues, *issue)
+	}
+
 	renderIssues := s.renderDiagnostics()
 	if len(renderIssues) > 0 {
 		report.Checks["render"] = "resource_missing"
 		report.Issues = append(report.Issues, renderIssues...)
 	}
-
-	if report.Status == "ready" && len(renderIssues) > 0 {
-		reason := "运行环境需要处理"
-		if len(renderIssues) > 0 {
-			reason = renderIssues[0].Summary
+	if report.Checks["runtime"] == "resource_missing" || len(renderIssues) > 0 {
+		report.ReasonCodes = append(report.ReasonCodes, errorcodes.PlatformResourceMissing)
+		if report.Status != "failed" {
+			report.Status = "degraded"
+			report.Reason = report.Issues[0].Summary
 		}
-		report.Status = "degraded"
-		report.Reason = reason
-		report.ReasonCodes = []string{errorcodes.PlatformResourceMissing}
 	}
 	return normalizeReadinessReport(report)
+}
+
+func (s *Service) databaseAvailable() bool {
+	if s.storage == nil || s.storage.Read == nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	var result int
+	return s.storage.Read.QueryRowContext(ctx, "SELECT 1").Scan(&result) == nil && result == 1
 }
 
 func normalizeReadinessReport(report ReadinessReport) ReadinessReport {

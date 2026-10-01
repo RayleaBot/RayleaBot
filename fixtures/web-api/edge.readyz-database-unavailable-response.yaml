@@ -1,0 +1,24 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: 数据库探测失败时保留资源检查，并以 failed 报告数据库问题。
+request:
+  method: GET
+  path: /readyz
+response:
+  status: 503
+  body:
+    status: failed
+    reason: 数据库不可用
+    reason_codes:
+      - database.ping_failed
+    checks:
+      database: unavailable
+      runtime: ok
+      render: ok
+    issues:
+      - code: database.ping_failed
+        severity: error
+        summary: 数据库不可用
+        remediation: 请检查数据库文件、磁盘空间与文件权限，然后重启服务。
+expect:
+  valid: true

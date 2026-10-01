@@ -24,7 +24,6 @@ response:
       reason_codes:
         - platform.resource_missing
       checks:
-        config: ok
         database: ok
         runtime: ok
         render: resource_missing

@@ -32,7 +32,13 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
 	issues := append([]health.DiagnosticIssue{}, readiness.Issues...)
 	issues = append(issues, render.Issues...)
 	issues = append(issues, databaseIssues...)
-	issues = append(issues, dependencyIssues...)
+	for _, issue := range dependencyIssues {
+		// FFmpeg 准备失败优先使用 readiness 中保留的原因和修复指引。
+		if issue.Code == "dependency.ffmpeg" && readiness.Checks["runtime"] == "resource_missing" {
+			continue
+		}
+		issues = append(issues, issue)
+	}
 	issues = append(issues, logIssues...)
 
 	return DiagnosticsSnapshot{

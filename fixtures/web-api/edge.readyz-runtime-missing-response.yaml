@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: edge
-description: 渲染资源缺失时报告 degraded 与实际检查结果。
+description: 仅 FFmpeg 准备失败也会报告可处理的运行资源问题。
 request:
   method: GET
   path: /readyz
@@ -8,17 +8,18 @@ response:
   status: 200
   body:
     status: degraded
-    reason: 浏览器运行资源缺失
+    reason: FFmpeg 媒体工具准备失败。
     reason_codes:
       - platform.resource_missing
     checks:
       database: ok
-      runtime: ok
-      render: resource_missing
+      runtime: resource_missing
+      render: ok
     issues:
       - code: platform.resource_missing
         severity: warning
-        summary: 浏览器运行资源缺失
-        remediation: 运行运行时准备任务。
+        summary: FFmpeg 媒体工具准备失败。
+        remediation: 请重新准备 FFmpeg 运行环境。
+        runtime_resources: [ffmpeg]
 expect:
   valid: true
