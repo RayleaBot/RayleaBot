@@ -8,6 +8,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/qqofficial"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 func TestAdapterSnapshotsShareCollectionOrderAndInstanceDetails(t *testing.T) {
@@ -71,6 +72,32 @@ func (stubQQStatus) SetEnabled(bool)                     {}
 type adapterConfigSource struct{ cfg config.Config }
 
 func (s adapterConfigSource) CurrentConfig() config.Config { return s.cfg }
+
+func TestOneBotErrorSummaryLeadsWithWhatWentWrong(t *testing.T) {
+	t.Parallel()
+	instance := config.AdapterInstance{ID: "onebot11", Type: "onebot11", Enabled: true}
+	configured := onebot11.TransportSnapshot{Configured: true}
+	detail := "dial tcp 127.0.0.1:2659: connectex: connection refused"
+	cases := []struct {
+		name  string
+		state onebot11.State
+		code  string
+		want  string
+	}{
+		{"dial failed", onebot11.StateReconnecting, errorcodes.AdapterTransportForwardWsConnectionFailed, "连接失败，正在重试：" + detail},
+		{"session lost", onebot11.StateReconnecting, errorcodes.AdapterTransportForwardWsSessionLost, "连接中断，正在重连：" + detail},
+		{"auth failed", onebot11.StateAuthFailed, errorcodes.AdapterTransportForwardWsConnectionFailed, "鉴权失败：" + detail},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			snapshot := onebot11.Snapshot{State: tc.state, ForwardWS: configured, LastErrorCode: tc.code, LastErrorMessage: detail}
+			if got := oneBot11Summary(instance, snapshot); got != tc.want {
+				t.Fatalf("summary = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
 
 func TestAdaptersOffersEveryProtocolWhenNothingIsConfigured(t *testing.T) {
 	t.Parallel()

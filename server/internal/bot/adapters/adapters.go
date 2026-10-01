@@ -7,6 +7,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/qqofficial"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 type Status struct {
@@ -239,9 +240,26 @@ func oneBot11Summary(instance config.AdapterInstance, snapshot onebot11.Snapshot
 	case snapshot.State == onebot11.StateConnected:
 		return "已连接。"
 	case snapshot.LastErrorMessage != "":
-		return snapshot.LastErrorMessage
+		return oneBot11ErrorSummary(snapshot)
 	default:
 		return "等待连接。"
+	}
+}
+
+// As in the QQ official summaries, an error first says what went wrong in plain words; the transport's own
+// message follows as the detail.
+func oneBot11ErrorSummary(snapshot onebot11.Snapshot) string {
+	detail := snapshot.LastErrorMessage
+	switch snapshot.State {
+	case onebot11.StateAuthFailed:
+		return "鉴权失败：" + detail
+	case onebot11.StateReconnecting:
+		if snapshot.LastErrorCode == errorcodes.AdapterTransportForwardWsConnectionFailed {
+			return "连接失败，正在重试：" + detail
+		}
+		return "连接中断，正在重连：" + detail
+	default:
+		return "连接出错：" + detail
 	}
 }
 
