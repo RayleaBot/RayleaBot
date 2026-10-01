@@ -1,14 +1,75 @@
 package desktop
 
 import (
+	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
+	"time"
 )
 
 type shutdownFixture struct {
 	running, remains bool
 	kills            int
 	err              error
+}
+
+type gracefulShutdownProcess struct {
+	running atomic.Bool
+	killed  bool
+}
+
+func (p *gracefulShutdownProcess) IsRunning() bool { return p.running.Load() }
+func (p *gracefulShutdownProcess) ForceKill() error {
+	p.killed = true
+	p.running.Store(false)
+	return nil
+}
+
+func TestExitWaitsForServerCleanupWithoutDelayingCompletedShutdown(t *testing.T) {
+	for _, cleanup := range []time.Duration{0, 5 * time.Second} {
+		t.Run(cleanup.String(), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				process := &gracefulShutdownProcess{}
+				process.running.Store(true)
+				started := time.Now()
+				err := stopManagedProcess(process, func() error {
+					if cleanup == 0 {
+						process.running.Store(false)
+						return nil
+					}
+					ctx, finish := context.WithTimeout(t.Context(), cleanup)
+					go func() {
+						defer finish()
+						<-ctx.Done()
+						process.running.Store(false)
+					}()
+					return nil
+				}, shutdownGracePeriod)
+				if err != nil || process.killed {
+					t.Fatalf("server cleanup was interrupted: killed=%v, err=%v", process.killed, err)
+				}
+				if elapsed := time.Since(started); elapsed > cleanup+processExitPoll {
+					t.Fatalf("waited %s for %s cleanup", elapsed, cleanup)
+				}
+			})
+		})
+	}
+}
+
+func TestExitStillKillsServerAfterGraceDeadline(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		process := &gracefulShutdownProcess{}
+		process.running.Store(true)
+		started := time.Now()
+		if err := stopManagedProcess(process, func() error { return nil }, shutdownGracePeriod); err != nil {
+			t.Fatal(err)
+		}
+		if !process.killed || time.Since(started) != shutdownGracePeriod {
+			t.Fatalf("kill fallback: killed=%v, elapsed=%s", process.killed, time.Since(started))
+		}
+	})
 }
 
 func (p *shutdownFixture) IsRunning() bool  { return p.running }

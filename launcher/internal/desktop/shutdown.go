@@ -5,7 +5,9 @@ import (
 	"time"
 )
 
-const shutdownGracePeriod = 4 * time.Second
+// Server drains HTTP, dispatch, plugins and adapters with separate grace
+// budgets. Let those phases finish before the exit fallback kills the process.
+const shutdownGracePeriod = 30 * time.Second
 const stopGracePeriod = 5 * time.Second
 const processKillWait = 2 * time.Second
 const processExitPoll = 50 * time.Millisecond

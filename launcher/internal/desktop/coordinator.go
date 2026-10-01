@@ -131,7 +131,7 @@ func (c *Coordinator) Shutdown() error {
 		if !c.quickHealthy(operation.endpoint) {
 			return nil
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), shutdownGracePeriod)
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownRequestTimeout)
 		defer cancel()
 		return c.management.Shutdown(ctx, operation.endpoint)
 	}, shutdownGracePeriod)
