@@ -52,7 +52,16 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 		return nil, func() {}, nil
 	}
 
-	workspace, err := os.MkdirTemp("", "rayleabot-render-resources-*")
+	var err error
+	if !filepath.IsAbs(deps.RenderResourceRoot) {
+		err = errors.New("render resource root must be absolute")
+	} else {
+		err = os.MkdirAll(deps.RenderResourceRoot, 0o700)
+	}
+	if err != nil {
+		return nil, func() {}, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "render.image resource workspace is unavailable", Err: err}
+	}
+	workspace, err := os.MkdirTemp(deps.RenderResourceRoot, "rayleabot-render-resources-*")
 	if err != nil {
 		return nil, func() {}, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "render.image resource workspace is unavailable", Err: err}
 	}

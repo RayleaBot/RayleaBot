@@ -277,6 +277,15 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	if info, err := os.Stat(cacheDir); err != nil || !info.IsDir() {
 		t.Fatalf("plugin cache directory was not created: %v", err)
 	}
+	tempDir := filepath.Join(cacheDir, "tmp")
+	for _, name := range []string{"TMP", "TEMP", "TMPDIR"} {
+		if !slices.Contains(spec.Env, name+"="+tempDir) {
+			t.Fatalf("plugin temporary directory is not injected for %s", name)
+		}
+	}
+	if info, err := os.Stat(tempDir); err != nil || !info.IsDir() {
+		t.Fatalf("plugin temporary directory was not created: %v", err)
+	}
 	if !reflect.DeepEqual(payload.SuperAdmins, []string{"10001", "10002"}) {
 		t.Fatalf("super_admins = %#v, want canonical values", payload.SuperAdmins)
 	}
@@ -295,6 +304,9 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	}
 	if restarted.Timezone != "America/Los_Angeles" {
 		t.Fatalf("restarted plugin timezone = %q", restarted.Timezone)
+	}
+	if err := os.Remove(tempDir); err != nil {
+		t.Fatal(err)
 	}
 	if err := os.Remove(cacheDir); err != nil {
 		t.Fatal(err)

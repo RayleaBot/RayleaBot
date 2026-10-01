@@ -90,6 +90,7 @@
   - 未知或已停用实例不出现在身份列表中；空列表清除旧身份。身份包含 `source_adapter`、`source_protocol`、`id`，不跨实例合并。连接可用性仍由 adapter 动作的正式结果表达
   - `logger.write`、`storage.kv` 和 `config.write` 是按插件命名空间隔离的私有动作；插件数据目录经环境变量 `RAYLEABOT_PLUGIN_DATA_DIR` 传入，由插件直接读写；插件包目录经 `RAYLEABOT_PLUGIN_PACKAGE_DIR` 传入，只读
   - 插件可重建缓存目录经 `RAYLEABOT_PLUGIN_CACHE_DIR` 传入，固定为运行根目录下 `cache/plugins/<plugin_id>/` 的绝对路径，宿主在启动前创建；插件下载与媒体中间文件放在该目录内，清理由插件负责，不随业务数据备份。
+  - 插件进程的 `TMP`、`TEMP` 和 `TMPDIR` 统一指向上述缓存目录中的 `tmp/`，宿主在启动前创建，插件及其子进程通过系统临时目录 API 生成的文件也保存在项目内。
     - `storage.kv set` 的 `ttl_seconds` 定义有效期限；省略表示永久覆盖并清除旧期限。写入在事务内检查有效全局配额，返回可选的 `expires_at_ms`。`x-action-result-schemas` 中的 KV 结果按请求 operation 关联校验。
     - `scheduler.create.log_label` 用于定时任务管理日志展示。
     - `secret.read`、`secret.write` 和 `secret.delete` 只在调用插件自己的 secret 命名空间内读取、覆盖或删除；值保存在宿主本地 secret store，读取结果仅返回调用插件。

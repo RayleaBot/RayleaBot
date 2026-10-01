@@ -82,6 +82,13 @@ func TestManagedBrowserProfileAndProcessLifetime(t *testing.T) {
 	}
 	root := t.TempDir()
 	manager := newTestManager(t, Options{ConfiguredBrowserPath: path, ProfileRoot: root})
+	blocked := filepath.Join(root, "blocked-system-temp")
+	if err := os.WriteFile(blocked, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"TMP", "TEMP", "TMPDIR"} {
+		t.Setenv(key, blocked)
+	}
 	owner := make(chan struct{})
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
@@ -92,6 +99,13 @@ func TestManagedBrowserProfileAndProcessLifetime(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "fixture", "login")); err != nil {
 		t.Fatalf("persistent headless profile: %v", err)
 	}
+	workspaces, err := os.ReadDir(manager.options.TempRoot)
+	if err != nil || len(workspaces) != 1 {
+		t.Fatalf("browser workspace was not created under the configured cache: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(manager.options.TempRoot, workspaces[0].Name(), "browser.log")); err != nil {
+		t.Fatalf("browser log is not in its workspace: %v", err)
+	}
 	manager.mu.Lock()
 	entry := manager.sessions[info.ID]
 	manager.mu.Unlock()
@@ -100,6 +114,9 @@ func TestManagedBrowserProfileAndProcessLifetime(t *testing.T) {
 	case <-entry.done:
 	case <-time.After(15 * time.Second):
 		t.Fatal("browser cleanup did not complete")
+	}
+	if entries, err := os.ReadDir(manager.options.TempRoot); err != nil || len(entries) != 0 {
+		t.Fatalf("browser workspace survived session cleanup: entries=%d error=%v", len(entries), err)
 	}
 	endpoint := "http://" + strings.Split(strings.TrimPrefix(info.DebuggerURL, "ws://"), "/")[0] + "/json/version"
 	client := http.Client{Timeout: time.Second}

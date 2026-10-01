@@ -40,6 +40,7 @@ func edgeTestRunner(t *testing.T) (*chromiumRunner, string) {
 	// actual browser process and its DevTools output pipe.
 	runner := NewChromiumRunner(ChromiumOptions{
 		BrowserPath: executable,
+		TempRoot:    root,
 		BrowserArgs: []string{"--edge-skip-compat-layer-relaunch=false"},
 	})
 	t.Cleanup(func() {

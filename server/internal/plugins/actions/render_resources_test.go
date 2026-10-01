@@ -35,7 +35,7 @@ func TestPrefetchRenderImageResourcesUsesRefererAndFallbackURL(t *testing.T) {
 	}))
 	defer server.Close()
 
-	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{}, ActionRequest{
+	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{RenderResourceRoot: t.TempDir()}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-request",
 		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{
@@ -84,7 +84,7 @@ func TestPrefetchRenderImageResourcesAllowsPrivateHost(t *testing.T) {
 	}))
 	defer server.Close()
 
-	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{}, ActionRequest{
+	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{RenderResourceRoot: t.TempDir()}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-suffix",
 		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{
@@ -110,7 +110,7 @@ func TestPrefetchRenderImageResourcesRejectsNonHTTPSRedirect(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{}, ActionRequest{
+	_, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{RenderResourceRoot: t.TempDir()}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-redirect-scope",
 		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{
@@ -136,7 +136,7 @@ func TestPrefetchRenderImageResourcesReadsCallerDataDirectory(t *testing.T) {
 	writeResourceFixture(t, filepath.Join(root, "plugin.other", "face.png"), content)
 	linked := os.Symlink(filepath.Join(root, "plugin.other"), filepath.Join(root, "plugin.render", "other")) == nil
 
-	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{PluginDataRoot: root}, ActionRequest{
+	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{PluginDataRoot: root, RenderResourceRoot: t.TempDir()}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-local",
 		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{
@@ -175,7 +175,7 @@ func TestPrefetchRenderImageResourcesFallsBackToThePluginPackage(t *testing.T) {
 	writeResourceFixture(t, filepath.Join(packageRoot, "assets", "source", "synced.png"), png("shipped in the package"))
 	writeResourceFixture(t, filepath.Join(packageRoot, "assets", "source", "shipped.png"), png("only in the package"))
 
-	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{PluginDataRoot: dataRoot, Plugins: packageCatalog{{PluginID: "plugin.other", PackageRootPath: dataRoot}, {PluginID: "plugin.render", PackageRootPath: packageRoot}}}, ActionRequest{
+	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{PluginDataRoot: dataRoot, RenderResourceRoot: t.TempDir(), Plugins: packageCatalog{{PluginID: "plugin.other", PackageRootPath: dataRoot}, {PluginID: "plugin.render", PackageRootPath: packageRoot}}}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-package",
 		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{
@@ -206,5 +206,38 @@ func writeResourceFixture(t *testing.T, path string, content []byte) {
 	}
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPrefetchRenderResourcesAvoidsSystemTemp(t *testing.T) {
+	root := t.TempDir()
+	blocked := filepath.Join(root, "blocked-system-temp")
+	writeResourceFixture(t, blocked, []byte("not a directory"))
+	dataRoot := filepath.Join(root, "data", "plugins")
+	content := append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte("fixture")...)
+	writeResourceFixture(t, filepath.Join(dataRoot, "fixture", "cover.png"), content)
+	for _, key := range []string{"TMP", "TEMP", "TMPDIR"} {
+		t.Setenv(key, blocked)
+	}
+	cacheRoot := filepath.Join(root, "cache", "render", "resources")
+	request := ActionRequest{PluginID: "fixture", Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{ID: "cover", Path: "cover.png"}}}}
+	resources, cleanup, err := prefetchRenderImageResources(t.Context(), Deps{PluginDataRoot: dataRoot, RenderResourceRoot: cacheRoot}, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	if len(resources) != 1 || filepath.Dir(filepath.Dir(resources[0].Path)) != cacheRoot {
+		t.Fatalf("resources did not use the project cache: %#v", resources)
+	}
+	workspace := filepath.Dir(resources[0].Path)
+	cleanup()
+	if _, err := os.Stat(workspace); !os.IsNotExist(err) {
+		t.Fatalf("resource workspace survived cleanup: %v", err)
+	}
+	_, cleanup, err = prefetchRenderImageResources(t.Context(), Deps{RenderResourceRoot: blocked}, request)
+	cleanup()
+	var failure *plugins.Error
+	if !errors.As(err, &failure) || failure.Code != "plugin.internal_error" {
+		t.Fatalf("unavailable project cache did not fail explicitly: %v", err)
 	}
 }

@@ -105,7 +105,7 @@ func TestChromiumStartupUsesCallerBudgetBeyondTwentySeconds(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	t.Setenv(browserBudgetHelperEnvironment, server.URL)
-	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: os.Args[0]})
+	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: os.Args[0], TempRoot: t.TempDir()})
 	ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
 	t.Cleanup(func() {
 		cancel()

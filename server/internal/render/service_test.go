@@ -186,7 +186,8 @@ func TestNewServiceClosesRunnerWhenInitializationFails(t *testing.T) {
 func TestRefreshBrowserPathReplacesAndClosesDefaultChromiumRunner(t *testing.T) {
 	t.Parallel()
 
-	oldChromiumRunner := NewChromiumRunner(ChromiumOptions{BrowserPath: "old-browser"})
+	tempRoot := t.TempDir()
+	oldChromiumRunner := NewChromiumRunner(ChromiumOptions{BrowserPath: "old-browser", TempRoot: tempRoot})
 	service := &Service{
 		browserArgs: []string{"--disable-dev-shm-usage"},
 		worker: NewWorker(WorkerConfig{
@@ -206,6 +207,9 @@ func TestRefreshBrowserPathReplacesAndClosesDefaultChromiumRunner(t *testing.T) 
 	if !IsChromiumRunner(currentRunner) {
 		t.Fatalf("expected chromium runner, got %T", currentRunner)
 	}
+	if currentRunner.(*chromiumRunner).tempRoot != tempRoot {
+		t.Fatal("browser refresh lost the configured temporary root")
+	}
 }
 
 func TestRefreshBrowserPathKeepsInjectedRunner(t *testing.T) {
@@ -221,6 +225,20 @@ func TestRefreshBrowserPathKeepsInjectedRunner(t *testing.T) {
 	}
 	if runner.closeCount() != 0 {
 		t.Fatalf("injected runner close count = %d, want 0", runner.closeCount())
+	}
+}
+
+func TestDefaultRunnerUsesProjectCache(t *testing.T) {
+	root := t.TempDir()
+	output := filepath.Join(root, "data", "render")
+	service, err := NewService(Options{RepoRoot: root, OutputRoot: output, Store: openRenderTestStore(t)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = service.Close() })
+	runner, ok := service.currentRunner().(*chromiumRunner)
+	if !ok || runner.tempRoot != filepath.Join(root, "cache", "render") || service.outputRoot != output {
+		t.Fatalf("render cache or final image directory is incorrect: %#v", runner)
 	}
 }
 

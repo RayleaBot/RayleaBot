@@ -30,6 +30,7 @@ func buildBrowserManager(deps browserWiringDeps) *browser.Manager {
 		ConfiguredBrowserPath: deps.Config.Render.BrowserPath,
 		LaunchConfig:          launchConfig,
 		ProfileRoot:           pluginBrowserProfileRoot(deps.RepoRoot),
+		TempRoot:              filepath.Join(deps.RepoRoot, "cache", "browser"),
 		Logger:                deps.Logger,
 	})
 }

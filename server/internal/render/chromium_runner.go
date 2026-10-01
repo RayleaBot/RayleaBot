@@ -145,12 +145,15 @@ type ChromiumOptions struct {
 	BrowserPath    string
 	BrowserArgs    []string
 	CombinedOutput io.Writer
+	// TempRoot is the absolute cache directory for render and browser files.
+	TempRoot string
 }
 
 type chromiumRunner struct {
 	browserPath    string
 	browserArgs    []string
 	combinedOutput io.Writer
+	tempRoot       string
 	captureGate    chan struct{}
 
 	mu              sync.Mutex
@@ -171,6 +174,7 @@ func NewChromiumRunner(options ChromiumOptions) *chromiumRunner {
 		browserPath:    strings.TrimSpace(options.BrowserPath),
 		browserArgs:    append([]string(nil), options.BrowserArgs...),
 		combinedOutput: options.CombinedOutput,
+		tempRoot:       options.TempRoot,
 		captureGate:    make(chan struct{}, 1),
 	}
 }
@@ -180,8 +184,14 @@ func IsChromiumRunner(runner Runner) bool {
 	return ok
 }
 
-func writeTemporaryRenderDocument(html, baseURL string, resources []RenderResource) (string, map[string]string, func(), error) {
-	dir, err := os.MkdirTemp("", "rayleabot-render-*")
+func writeTemporaryRenderDocument(tempRoot, html, baseURL string, resources []RenderResource) (string, map[string]string, func(), error) {
+	if !filepath.IsAbs(tempRoot) {
+		return "", nil, nil, errors.New("render temporary root must be absolute")
+	}
+	if err := os.MkdirAll(tempRoot, 0o700); err != nil {
+		return "", nil, nil, err
+	}
+	dir, err := os.MkdirTemp(tempRoot, "rayleabot-render-*")
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -348,7 +358,7 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		deviceScaleFactor = 1
 	}
 
-	renderURL, resourceURLs, cleanup, err := writeTemporaryRenderDocument(doc.HTML, doc.BaseURL, doc.Resources)
+	renderURL, resourceURLs, cleanup, err := writeTemporaryRenderDocument(r.tempRoot, doc.HTML, doc.BaseURL, doc.Resources)
 	if err != nil {
 		cancelTab()
 		return nil, err
@@ -458,6 +468,12 @@ func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, e
 	if r.browserCtx != nil {
 		return r.browserCtx, nil
 	}
+	if !filepath.IsAbs(r.tempRoot) {
+		return nil, errors.New("render temporary root must be absolute")
+	}
+	if err := os.MkdirAll(r.tempRoot, 0o700); err != nil {
+		return nil, fmt.Errorf("create render temporary root: %w", err)
+	}
 
 	allocatorOptions := append([]chromedp.ExecAllocatorOption{}, chromedp.DefaultExecAllocatorOptions[:]...)
 	allocatorOptions = append(allocatorOptions,
@@ -465,6 +481,7 @@ func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, e
 		chromedp.NoFirstRun,
 		chromedp.Headless,
 		chromedp.DisableGPU,
+		chromedp.Env("TMP="+r.tempRoot, "TEMP="+r.tempRoot, "TMPDIR="+r.tempRoot),
 	)
 	if r.browserPath != "" {
 		allocatorOptions = append(allocatorOptions, chromedp.ExecPath(r.browserPath))
@@ -492,7 +509,7 @@ func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, e
 		}
 	}
 	if !hasUserDataDir(r.browserArgs) {
-		profileDir, err := os.MkdirTemp("", "rayleabot-chromium-")
+		profileDir, err := os.MkdirTemp(r.tempRoot, "rayleabot-chromium-")
 		if err != nil {
 			return nil, fmt.Errorf("create browser profile: %w", err)
 		}

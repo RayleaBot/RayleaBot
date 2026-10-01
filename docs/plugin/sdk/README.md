@@ -59,6 +59,8 @@ artifact、manifest 与运行时协议分别从对应契约生成版本常量，
 
 可重建缓存、下载与媒体中间文件写入 `RAYLEABOT_PLUGIN_CACHE_DIR`。该绝对路径指向运行根目录的 `cache/plugins/<plugin_id>/`，进程启动前已创建，不随业务数据备份；插件负责清理。
 
+宿主同时把 `TMP`、`TEMP`、`TMPDIR` 设置为该缓存目录内的 `tmp/`，插件及其子进程调用系统临时目录 API 时使用此目录。
+
 需要音视频处理的插件使用宿主环境变量：
 
 - `RAYLEABOT_FFMPEG_PATH`

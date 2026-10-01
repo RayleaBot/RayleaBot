@@ -91,6 +91,12 @@ func main() {
 		_ = os.Setenv("FRONTEND_DEVSERVER_URL", devServerURL)
 	}
 	basePath := desktop.DiscoverBasePath()
+	webviewDataPath := filepath.Join(basePath, "cache", "launcher", "webview2")
+	if runtime.GOOS == "windows" {
+		if err := os.MkdirAll(webviewDataPath, 0o700); err != nil {
+			log.Fatal(err)
+		}
+	}
 	assetFS, err := fs.Sub(frontend.Assets, "dist")
 	if err != nil {
 		log.Fatal(err)
@@ -113,6 +119,7 @@ func main() {
 		},
 		Windows: application.WindowsOptions{
 			DisableQuitOnLastWindowClosed: true,
+			WebviewUserDataPath:           webviewDataPath,
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: false,

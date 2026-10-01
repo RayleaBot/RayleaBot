@@ -47,6 +47,7 @@ type Options struct {
 	// The provider must support concurrent reads and return a stable snapshot.
 	LaunchConfig func() (string, []string)
 	ProfileRoot  string
+	TempRoot     string
 	Logger       *slog.Logger
 	SessionTTL   time.Duration
 }

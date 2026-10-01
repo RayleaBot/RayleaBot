@@ -37,7 +37,7 @@ func launchLocalBrowser(ctx context.Context, options Options, pluginID, profile 
 	if path == "" {
 		return "", nil, fmt.Errorf("%w: Chromium executable is missing", ErrUnavailable)
 	}
-	var tempProfile, logPath string
+	var workspace string
 	var logFile *os.File
 	var stopped <-chan struct{}
 	var terminate func()
@@ -58,13 +58,8 @@ func launchLocalBrowser(ctx context.Context, options Options, pluginID, profile 
 			errs = append(errs, logFile.Close())
 			logFile = nil
 		}
-		if logPath != "" {
-			if e := os.Remove(logPath); e != nil && !errors.Is(e, os.ErrNotExist) {
-				errs = append(errs, e)
-			}
-		}
-		if tempProfile != "" {
-			errs = append(errs, os.RemoveAll(tempProfile))
+		if workspace != "" {
+			errs = append(errs, os.RemoveAll(workspace))
 		}
 		return errors.Join(errs...)
 	}
@@ -77,6 +72,16 @@ func launchLocalBrowser(ctx context.Context, options Options, pluginID, profile 
 			}
 		}
 	}()
+	if !filepath.IsAbs(options.TempRoot) {
+		return "", cleanup, fmt.Errorf("%w: browser temporary root must be absolute", ErrUnavailable)
+	}
+	if err = os.MkdirAll(options.TempRoot, 0o700); err != nil {
+		return "", cleanup, fmt.Errorf("%w: browser temporary root is unavailable", ErrUnavailable)
+	}
+	workspace, err = os.MkdirTemp(options.TempRoot, "session-")
+	if err != nil {
+		return "", cleanup, fmt.Errorf("%w: browser workspace is unavailable", ErrUnavailable)
+	}
 	userDataDir := ""
 	if attempt.useProfile {
 		userDataDir = filepath.Join(options.ProfileRoot, pluginID, profile)
@@ -84,22 +89,21 @@ func launchLocalBrowser(ctx context.Context, options Options, pluginID, profile 
 			return "", cleanup, fmt.Errorf("%w: browser profile directory is unavailable", ErrUnavailable)
 		}
 	} else {
-		tempProfile, err = os.MkdirTemp("", "rayleabot-browser-")
-		if err != nil {
+		userDataDir = filepath.Join(workspace, "profile")
+		if err = os.Mkdir(userDataDir, 0o700); err != nil {
 			return "", cleanup, fmt.Errorf("%w: temporary browser profile directory is unavailable", ErrUnavailable)
 		}
-		userDataDir = tempProfile
 	}
 	port, err := reserveBrowserPort()
 	if err != nil {
 		return "", cleanup, fmt.Errorf("%w: browser debugging port is unavailable", ErrUnavailable)
 	}
-	logFile, err = os.CreateTemp("", "rayleabot-plugin-browser-*.log")
+	logFile, err = os.OpenFile(filepath.Join(workspace, "browser.log"), os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o600)
 	if err != nil {
 		return "", cleanup, fmt.Errorf("%w: browser log file is unavailable", ErrUnavailable)
 	}
-	logPath = logFile.Name()
 	command := exec.Command(path, browserLaunchArgs(attempt, attempt.browserArgs, userDataDir, port)...)
+	command.Env = append(os.Environ(), "TMP="+workspace, "TEMP="+workspace, "TMPDIR="+workspace)
 	command.Stderr, command.Stdout = logFile, logFile
 	terminate, err = startBrowserProcess(command)
 	if err != nil {

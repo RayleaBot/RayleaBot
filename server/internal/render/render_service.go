@@ -214,6 +214,7 @@ func NewService(options Options) (*Service, error) {
 		runner = NewChromiumRunner(ChromiumOptions{
 			BrowserPath: browserPath,
 			BrowserArgs: options.BrowserArgs,
+			TempRoot:    filepath.Join(repoRoot, "cache", "render"),
 		})
 	}
 

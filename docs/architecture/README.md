@@ -162,7 +162,11 @@ Web 和 Launcher 只保存可丢弃的临时视图，不能反向覆盖服务端
 | `data/plugins/<plugin_id>/` | 插件进程 | 插件数据目录，经 `RAYLEABOT_PLUGIN_DATA_DIR` 传入；artifact 升级不覆盖 |
 | `plugins/installed/` | Plugin Catalog | 经校验的插件 artifact、后端二进制与管理页资源 |
 | `templates/` | Render Service | 模板版本与资源 |
+| `data/render/` | Render Service | 最终图片及 artifact 索引；实际位置跟随数据库所在目录 |
 | `cache/` | 各自归属 | 可重建缓存，不影响正确性 |
+| `cache/render/` | Render Service 与渲染动作 | 预取资源、临时 HTML 与 Chromium 临时文件；请求文件在渲染后清理，自建 profile 在浏览器关闭后清理 |
+| `cache/browser/` | Browser Manager | 本地浏览器会话的临时 profile、进程临时文件与启动日志；会话关闭后清理 |
+| `cache/launcher/webview2/` | Launcher | Windows WebView2 页面缓存与浏览器资料，开发二进制更名时复用同一目录 |
 | `logs/` | Logging | 结构化日志与诊断输出 |
 | `.deps/` | Deps Service | Chromium 与 FFmpeg / FFprobe 受控资源 |
 

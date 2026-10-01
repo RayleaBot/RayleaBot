@@ -248,12 +248,14 @@ func (c *Controller) buildStartInputs(ctx context.Context, pluginID string) (plu
 	}
 	cacheDir, err := filepath.Abs(filepath.Join(c.repoRoot, "cache", "plugins", pluginID))
 	if err == nil {
-		err = os.MkdirAll(cacheDir, 0o755)
+		err = os.MkdirAll(filepath.Join(cacheDir, "tmp"), 0o700)
 	}
 	if err != nil {
 		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, fmt.Errorf("prepare plugin cache directory: %w", err)
 	}
 	spec.Env = append(spec.Env, "RAYLEABOT_PLUGIN_DATA_DIR="+dataDir, "RAYLEABOT_PLUGIN_PACKAGE_DIR="+spec.WorkDir, "RAYLEABOT_PLUGIN_CACHE_DIR="+cacheDir)
+	tempDir := filepath.Join(cacheDir, "tmp")
+	spec.Env = append(spec.Env, "TMP="+tempDir, "TEMP="+tempDir, "TMPDIR="+tempDir)
 
 	settings, err := c.settings.Read(ctx, pluginID)
 	if err != nil {

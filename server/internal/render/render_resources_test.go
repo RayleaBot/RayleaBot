@@ -38,7 +38,9 @@ func TestWriteTemporaryRenderDocumentMaterializesAndCleansResources(t *testing.T
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(content)
+	tempRoot := filepath.Join(t.TempDir(), "cache", "render")
 	renderURL, resourceURLs, cleanup, err := writeTemporaryRenderDocument(
+		tempRoot,
 		`<html><body><img data-render-resource="media-0"></body></html>`,
 		"",
 		[]RenderResource{{
@@ -54,6 +56,10 @@ func TestWriteTemporaryRenderDocumentMaterializesAndCleansResources(t *testing.T
 		t.Fatal(err)
 	}
 	documentPath := windowsFileURLPath(parsedDocument)
+	if filepath.Dir(filepath.Dir(documentPath)) != tempRoot {
+		cleanup()
+		t.Fatalf("render document escaped the configured cache: %s", documentPath)
+	}
 	parsedResource, err := url.Parse(resourceURLs["media-0"])
 	if err != nil {
 		cleanup()

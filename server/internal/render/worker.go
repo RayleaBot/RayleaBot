@@ -198,6 +198,7 @@ func (w *Worker) RefreshChromiumRunner(browserPath string, browserArgs []string)
 	w.runner = NewChromiumRunner(ChromiumOptions{
 		BrowserPath: browserPath,
 		BrowserArgs: append([]string(nil), browserArgs...),
+		TempRoot:    oldRunner.(*chromiumRunner).tempRoot,
 	})
 	w.mu.Unlock()
 	_ = closeRunner(oldRunner)

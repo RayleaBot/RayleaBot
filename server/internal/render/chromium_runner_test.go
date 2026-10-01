@@ -1,8 +1,10 @@
 package render
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"image/png"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -26,14 +28,18 @@ import (
 func newTestChromiumRunner(t *testing.T, browserArgs ...string) *chromiumRunner {
 	t.Helper()
 	repoRoot := filepath.Join("..", "..", "..")
-	browserPath, err := deps.NewManager(repoRoot).ResolvePreparedEntrypoint("chromium", "browser")
-	if err != nil {
-		t.Skipf("managed chromium is not prepared: %v", err)
+	browserPath := strings.TrimSpace(os.Getenv("RAYLEA_TEST_BROWSER_PATH"))
+	if browserPath == "" {
+		var err error
+		browserPath, err = deps.NewManager(repoRoot).ResolvePreparedEntrypoint("chromium", "browser")
+		if err != nil {
+			t.Skipf("managed chromium is not prepared: %v", err)
+		}
 	}
 
 	logTestBrowserVersion(t, browserPath)
 	output := &testBrowserOutput{}
-	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath, BrowserArgs: browserArgs, CombinedOutput: output})
+	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath, BrowserArgs: browserArgs, CombinedOutput: output, TempRoot: t.TempDir()})
 	t.Cleanup(func() {
 		if err := runner.Close(); err != nil {
 			t.Errorf("close test Chromium runner: %v", err)
@@ -247,5 +253,57 @@ func TestChromiumRunnerLeavesOperatorProfileOwnedByCaller(t *testing.T) {
 	}
 	if info, err := os.Stat(profile); err != nil || !info.IsDir() {
 		t.Fatalf("operator profile removed: %v", err)
+	}
+}
+
+func TestChromiumRunnerUsesCacheWithUnavailableSystemTemp(t *testing.T) {
+	runner := newTestChromiumRunner(t)
+	blocked := filepath.Join(t.TempDir(), "blocked-system-temp")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"TMP", "TEMP", "TMPDIR"} {
+		t.Setenv(key, blocked)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	content, err := runner.Render(ctx, Document{Width: 48, Height: 32, Output: "png", HTML: "<!doctype html><html><body style='margin:0;background:#267'>cache</body></html>"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := png.Decode(bytes.NewReader(content))
+	if err != nil || img.Bounds().Dx() != 48 || img.Bounds().Dy() != 32 {
+		t.Fatalf("invalid rendered PNG: %v", err)
+	}
+	profile := runner.profileDir
+	if filepath.Dir(profile) != runner.tempRoot {
+		t.Fatalf("browser profile escaped cache: %q", profile)
+	}
+	for _, key := range []string{"TMP", "TEMP", "TMPDIR"} {
+		value := ""
+		for _, item := range runner.command.Env {
+			name, candidate, _ := strings.Cut(item, "=")
+			if strings.EqualFold(name, key) {
+				value = candidate
+			}
+		}
+		if value != runner.tempRoot {
+			t.Fatalf("browser %s did not use the project cache: %q", key, value)
+		}
+	}
+	entries, err := os.ReadDir(runner.tempRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "rayleabot-render-") {
+			t.Fatalf("render workspace survived successful capture: %s", entry.Name())
+		}
+	}
+	if err := runner.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(profile); !os.IsNotExist(err) {
+		t.Fatalf("browser profile survived cleanup: %v", err)
 	}
 }

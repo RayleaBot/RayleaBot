@@ -115,6 +115,7 @@ func buildLocalActionService(
 		MessageSender:        localaction.OutboundMessageSender(eventStack.Dispatcher),
 		Renderer:             localaction.RendererFromService(renderer),
 		PluginDataRoot:       pluginDataRoot(platform),
+		RenderResourceRoot:   filepath.Join(runtimeState.RepoRoot(), "cache", "render", "resources"),
 		ResolveOneBotAdapter: eventStack.ResolveOneBotAdapter,
 		Governance:           governanceService,
 	})
