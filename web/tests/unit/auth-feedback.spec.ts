@@ -13,7 +13,7 @@ function apiError(code: string) {
 
 describe('authentication feedback', () => {
   it.each([
-    ['denied credentials', apiError('permission.denied'), '管理员账号和密码'],
+    ['denied credentials', apiError('permission.denied'), '用户名和密码'],
     ['invalid request', apiError('platform.invalid_request'), '检查输入'],
     ['unknown API error', apiError('platform.unknown'), '稍后重试'],
     ['network error', new TypeError('Failed to fetch'), '服务已经启动'],
@@ -37,9 +37,9 @@ describe('authentication feedback', () => {
   })
 
   it.each([
-    ['denied status', apiError('permission.denied'), '管理界面状态'],
+    ['denied status', apiError('permission.denied'), '服务状态'],
     ['invalid request', apiError('platform.invalid_request'), '暂时不可用'],
-    ['unknown API error', apiError('platform.unknown'), '管理界面状态'],
+    ['unknown API error', apiError('platform.unknown'), '服务状态'],
     ['network error', new TypeError('Failed to fetch'), '服务已经启动'],
   ] as const)('classifies bootstrap %s', (_label, error, expectedGuidance) => {
     const message = toBootstrapStatusMessage(error)

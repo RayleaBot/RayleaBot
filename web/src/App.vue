@@ -1,15 +1,23 @@
 <script setup lang="ts">
-import { watchEffect } from 'vue'
+import { watch, watchEffect } from 'vue'
 
 import AppSpinner from '@/components/AppSpinner.vue'
 import AppToastHost from '@/components/AppToastHost.vue'
 import { t } from '@/i18n'
 import { resolvePreferenceCssVariables } from '@/preferences/app'
 import { useAppAvailabilityStore } from '@/stores/app-availability'
+import { useSystemStore } from '@/stores/system'
 import { useUiShellStore } from '@/stores/ui-shell'
 
 const uiShellStore = useUiShellStore()
 const availabilityStore = useAppAvailabilityStore()
+const systemStore = useSystemStore()
+
+// After a requested shutdown the lost connection is expected and nothing will bring it back by itself; once the
+// service answers again, a later interruption is an ordinary one.
+watch(() => availabilityStore.isConnectionInterrupted, (interrupted) => {
+  if (!interrupted) systemStore.shutdownRequested = false
+})
 
 watchEffect(() => {
   if (typeof document === 'undefined') {
@@ -44,8 +52,8 @@ watchEffect(() => {
         aria-live="polite"
         data-testid="connection-reconnect-notice"
       >
-        <AppSpinner />
-        <span>{{ t('app.connectionInterrupted') }}</span>
+        <AppSpinner v-if="!systemStore.shutdownRequested" />
+        <span>{{ systemStore.shutdownRequested ? t('app.serviceStopped') : t('app.connectionInterrupted') }}</span>
       </div>
     </Transition>
 

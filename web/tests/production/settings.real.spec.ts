@@ -16,8 +16,8 @@ test('a fresh Server enforces cookie CSRF and persists plugin settings through t
 
   await page.goto('/plugins/settings')
   await expect(page).toHaveURL(/\/login\?redirect=/)
-  await page.getByLabel('管理员账号', { exact: true }).fill('admin')
-  await page.getByLabel('管理员密码', { exact: true }).fill('fixture-only-secret')
+  await page.getByLabel('用户名', { exact: true }).fill('admin')
+  await page.getByLabel('密码', { exact: true }).fill('fixture-only-secret')
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await expect(page).toHaveURL(/\/plugins\/settings$/)
   await expect(page.getByRole('heading', { name: '全局插件设置', level: 1 })).toBeVisible()

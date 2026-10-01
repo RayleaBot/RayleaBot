@@ -11,7 +11,7 @@ function mountForm(options?: { pending?: boolean, feedback?: { level: 'error' | 
       pending: options?.pending ?? false,
       secretAutocomplete: 'current-password' as const,
       submitLabel: '登录',
-      subtitle: '使用管理员账号和密码进入管理界面。',
+      subtitle: '使用管理员的用户名和密码进入管理界面。',
       title: '登录',
     },
   })

@@ -24,8 +24,8 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   }
   expect((await request.put('/api/governance/whitelist/state', { headers: authHeaders, data: { enabled: true } })).status()).toBe(200)
   await page.goto('/login')
-  await page.getByLabel('管理员账号', { exact: true }).fill('admin')
-  await page.getByLabel('管理员密码').fill('fixture-only-secret')
+  await page.getByLabel('用户名', { exact: true }).fill('admin')
+  await page.getByLabel('密码', { exact: true }).fill('fixture-only-secret')
   await page.getByRole('button', { name: /登\s*录/ }).click()
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 
