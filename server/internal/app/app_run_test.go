@@ -51,8 +51,10 @@ func TestRunSupervisorPreservesFirstFailure(t *testing.T) {
 			case <-time.After(3 * time.Second):
 				t.Fatal("task failure did not cancel the blocked peer")
 			}
-			if err := supervisor.Wait(); !errors.Is(err, firstErr) || errors.Is(err, laterErr) {
-				t.Fatalf("Wait() = %v, want first failure", err)
+			for range 2 {
+				if err := supervisor.Wait(); !errors.Is(err, firstErr) || errors.Is(err, laterErr) {
+					t.Fatalf("Wait() = %v, want first failure", err)
+				}
 			}
 		})
 	}

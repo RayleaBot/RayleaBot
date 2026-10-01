@@ -40,9 +40,10 @@
 - `error-codes.yaml`
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
-  - 当前已固定的管理 HTTP 接口
+  - 当前已固定的管理 HTTP 接口（契约修订 0.5.5）。
+  - 诊断任务摘要必含 `interrupted`（非负整数），统计关闭或重启中断的任务；`failed` 仅统计失败，取消不计入这两类。调度 `last_error` 不包含计划取消，取消仍更新最近运行信息并计入 `stats.other`，保留已有真实错误。
   - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot、OneBot target / identity resolution、plugin lifecycle、插件商店、可信代码确认与安装、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system、scheduler、recovery、runtime bootstrap、render templates 以及更新状态与检查入口
-  - `GET /api/launcher/status` 返回 `shutdown_budget_seconds`，Launcher 强制结束前至少等待该秒数；预算涵盖 HTTP、停止公告、消息排空、插件宽限期与强杀等待、适配器及共享浏览器。
+  - `GET /api/launcher/status` 返回 `shutdown_budget_seconds`，Launcher 强制结束前至少等待该秒数；预算涵盖 HTTP、停止公告、后台工作、消息排空、插件宽限期与强杀等待、适配器、任务执行器、共享浏览器与渲染及持久化收尾。
   - 插件管理动作未进入执行时返回 HTTP 409 / `plugin.not_running`，`details` 固定包含 `plugin_id` 与公开 `state`；已尝试的动作失败仍为 HTTP 502 / `plugin.management_action_failed`。
   - `POST /api/launcher/shutdown` 可选 `intent: stop | restart | update`，省略为 `stop`；首次优雅关闭请求固定停机意图。`POST /api/system/shutdown` 始终为 `stop`。
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
@@ -88,6 +89,7 @@
   - `init.bots` 提供按适配器实例区分的身份列表；`bot.identities.changed` 通过 `payload.bots` 替换整个列表
   - 未知或已停用实例不出现在身份列表中；空列表清除旧身份。身份包含 `source_adapter`、`source_protocol`、`id`，不跨实例合并。连接可用性仍由 adapter 动作的正式结果表达
   - `logger.write`、`storage.kv` 和 `config.write` 是按插件命名空间隔离的私有动作；插件数据目录经环境变量 `RAYLEABOT_PLUGIN_DATA_DIR` 传入，由插件直接读写；插件包目录经 `RAYLEABOT_PLUGIN_PACKAGE_DIR` 传入，只读
+  - 插件可重建缓存目录经 `RAYLEABOT_PLUGIN_CACHE_DIR` 传入，固定为运行根目录下 `cache/plugins/<plugin_id>/` 的绝对路径，宿主在启动前创建；插件下载与媒体中间文件放在该目录内，清理由插件负责，不随业务数据备份。
     - `storage.kv set` 的 `ttl_seconds` 定义有效期限；省略表示永久覆盖并清除旧期限。写入在事务内检查有效全局配额，返回可选的 `expires_at_ms`。`x-action-result-schemas` 中的 KV 结果按请求 operation 关联校验。
     - `scheduler.create.log_label` 用于定时任务管理日志展示。
     - `secret.read`、`secret.write` 和 `secret.delete` 只在调用插件自己的 secret 命名空间内读取、覆盖或删除；值保存在宿主本地 secret store，读取结果仅返回调用插件。
@@ -108,6 +110,7 @@
   - `release_manifest.v2.json` 与 `build_info.json` 的正式字段结构
   - 发布脚本按 schema 严格生成与校验；读取端忽略未知字段，只校验实际使用的字段，插件格式版本仅供展示
 - `cli-commands.yaml`
+  - 服务端进程退出码：`0` 为优雅关闭（清理错误只记录日志），`1` 为启动失败或致命运行错误，`2` 保留 Go runtime panic；CLI 子命令使用各自约定。
   - `config init / normalize / validate`、`reset-admin`、`backup`、`restore <backup-path>`、`doctor`、`cleanup`、`plugin dev-sync`、`version --json`、`update check --json`、`update download`、`update apply` 的正式命令模型
 
 ## 当前延后到后续版本的边界

@@ -145,6 +145,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	// closing it as an App; stages that have not run leave their zero value.
 	cleanupPartialBuild := func(cause error) error {
 		partial := &App{
+			state:       buildState.core,
 			platform:    platformState,
 			pluginStack: pluginState,
 			renderStack: renderState,

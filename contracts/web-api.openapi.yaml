@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RayleaBot Web API
-  version: 0.5.4
+  version: 0.5.5
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
@@ -2515,8 +2515,9 @@ components:
           description: >
             Required for GET /api/launcher/status. The maximum graceful shutdown
             budget in seconds, rounded up, for the current server configuration.
-            Covers HTTP shutdown, stop announcement, dispatch drain, plugin grace
-            and forced termination wait, adapters and shared browser cleanup.
+            Covers HTTP shutdown, stop announcement, background workers, dispatch drain,
+            plugin grace and forced termination wait, adapters, task execution,
+            shared browser and render cleanup, and persistence finalization.
             Launchers must wait at least this budget before force-killing.
         uptime_seconds:
           type: integer
@@ -2709,8 +2710,9 @@ components:
 
     SystemDiagnosticsTaskSummary:
       type: object
+      description: failed 仅统计 status=failed；interrupted 统计因关闭或重启中断的任务；已取消的任务不计入两者。
       additionalProperties: false
-      required: [pending, running, failed]
+      required: [pending, running, failed, interrupted]
       properties:
         pending:
           type: integer
@@ -2719,6 +2721,9 @@ components:
           type: integer
           minimum: 0
         failed:
+          type: integer
+          minimum: 0
+        interrupted:
           type: integer
           minimum: 0
 
@@ -3467,6 +3472,7 @@ components:
 
     SchedulerJobLastError:
       type: object
+      description: last_error 不包含计划取消；取消的运行仍更新最近运行信息并计入 stats.other，不覆盖已有的真实错误。
       additionalProperties: false
       required: [code, message, at]
       properties:

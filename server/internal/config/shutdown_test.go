@@ -9,7 +9,7 @@ func TestShutdownBudgetUsesConfiguredGrace(t *testing.T) {
 	for _, tc := range []struct {
 		grace int
 		want  int64
-	}{{0, 42}, {1, 24}, {10, 42}, {60, 142}} {
+	}{{0, 57}, {1, 39}, {10, 57}, {60, 157}} {
 		budgets := (RuntimeConfig{ShutdownGraceSeconds: tc.grace}).ShutdownBudgets()
 		if got := budgets.TotalSeconds(); got != tc.want {
 			t.Fatalf("grace=%d total=%d want=%d", tc.grace, got, tc.want)

@@ -128,3 +128,13 @@ func assertPathAbsent(t *testing.T, path string) {
 		t.Fatalf("unexpected runtime path %s: %v", path, err)
 	}
 }
+
+func TestInvalidServerFlagsExitOne(t *testing.T) {
+	for _, args := range [][]string{{"-unknown-server-option"}, {"-config"}} {
+		output, err := runMainSubprocess(t, startupFixture(t), args...)
+		var exitError *exec.ExitError
+		if !errors.As(err, &exitError) || exitError.ExitCode() != 1 {
+			t.Fatalf("args=%v exit=%v, want 1: %s", args, err, output)
+		}
+	}
+}

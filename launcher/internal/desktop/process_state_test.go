@@ -20,7 +20,7 @@ func TestProcessExitFixture(t *testing.T) {
 
 func TestProcessExitRecordsPlanAndCodeWithoutReadingLogs(t *testing.T) {
 	for _, planned := range []bool{false, true} {
-		for _, code := range []int{0, 7} {
+		for _, code := range []int{0, 1, 2, 7} {
 			t.Run(fmt.Sprintf("planned=%v/code=%d", planned, code), func(t *testing.T) {
 				command := exec.Command(os.Args[0], "-test.run=^TestProcessExitFixture$")
 				command.Env = replaceEnvironmentValues(os.Environ(), map[string]string{"RAYLEA_EXIT_TEST_CODE": strconv.Itoa(code)})
@@ -35,8 +35,9 @@ func TestProcessExitRecordsPlanAndCodeWithoutReadingLogs(t *testing.T) {
 				}
 				p.wait(command)
 				running, stopping, exit := p.State()
+				wantPlanned := planned || code == 0
 				kind := ExitUnexpected
-				if planned {
+				if wantPlanned {
 					kind = ExitPlanned
 				}
 				if running || stopping || exit == nil || exit.Kind != kind || exit.ExitCode != code {
@@ -46,14 +47,14 @@ func TestProcessExitRecordsPlanAndCodeWithoutReadingLogs(t *testing.T) {
 				c.process = p
 				snapshot := c.buildSnapshot(operationContext{}, EnvironmentInspection{}, snapshotOptions{processOwnership: OwnershipNone})
 				c.publish(snapshot)
-				if planned && snapshot.Launcher.LastLocalError != "" {
+				if wantPlanned && snapshot.Launcher.LastLocalError != "" {
 					t.Fatal("planned exit reported as a crash")
 				}
-				if !planned && snapshot.Launcher.LastLocalError == "" {
+				if !wantPlanned && snapshot.Launcher.LastLocalError == "" {
 					t.Fatal("unexpected exit hidden")
 				}
 				wantTray := "异常退出"
-				if planned {
+				if wantPlanned {
 					wantTray = "已停止"
 				}
 				if got := trayState(snapshot).TrayStatusSummary; got != wantTray {

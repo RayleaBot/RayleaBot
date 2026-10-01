@@ -1197,7 +1197,7 @@ export interface components {
             failed_plugins?: number;
             /** @description Current database schema migration version. */
             db_schema_version?: string;
-            /** @description Required for GET /api/launcher/status. The maximum graceful shutdown budget in seconds, rounded up, for the current server configuration. Covers HTTP shutdown, stop announcement, dispatch drain, plugin grace and forced termination wait, adapters and shared browser cleanup. Launchers must wait at least this budget before force-killing. */
+            /** @description Required for GET /api/launcher/status. The maximum graceful shutdown budget in seconds, rounded up, for the current server configuration. Covers HTTP shutdown, stop announcement, background workers, dispatch drain, plugin grace and forced termination wait, adapters, task execution, shared browser and render cleanup, and persistence finalization. Launchers must wait at least this budget before force-killing. */
             shutdown_budget_seconds?: number;
             uptime_seconds?: number;
             health?: components["schemas"]["ReadinessStatusResponse"];
@@ -1272,10 +1272,12 @@ export interface components {
             running: number;
             failed: number;
         };
+        /** @description failed 仅统计 status=failed；interrupted 统计因关闭或重启中断的任务；已取消的任务不计入两者。 */
         SystemDiagnosticsTaskSummary: {
             pending: number;
             running: number;
             failed: number;
+            interrupted: number;
         };
         SystemDiagnosticsDependency: {
             /** @enum {string} */
@@ -1614,6 +1616,7 @@ export interface components {
             plugin_id: string;
             triggered: boolean;
         };
+        /** @description last_error 不包含计划取消；取消的运行仍更新最近运行信息并计入 stats.other，不覆盖已有的真实错误。 */
         SchedulerJobLastError: {
             code: string;
             message: string;

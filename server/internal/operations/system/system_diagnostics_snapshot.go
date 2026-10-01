@@ -148,6 +148,8 @@ func (s *Service) diagnosticsTasks() DiagnosticsTaskSummary {
 			result.Running++
 		case tasks.StatusFailed:
 			result.Failed++
+		case tasks.StatusInterrupted:
+			result.Interrupted++
 		}
 	}
 	return result

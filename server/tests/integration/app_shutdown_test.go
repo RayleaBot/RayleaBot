@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"path/filepath"
 	"strings"
@@ -117,3 +118,37 @@ type failingRetentionRepository struct {
 func (repository *failingRetentionRepository) PruneOlderThan(context.Context, time.Time) error {
 	return repository.err
 }
+
+func TestAppRunGracefulCancellationIgnoresCleanupFailure(t *testing.T) {
+	for _, cleanupFailure := range []bool{false, true} {
+		t.Run(fmt.Sprint(cleanupFailure), func(t *testing.T) {
+			options, databasePath := shutdownTestOptions(t, 8080)
+			runner := &shutdownFailingCloseRunner{}
+			if cleanupFailure {
+				runner.err = errors.New("fixture cleanup failure")
+			}
+			options.RenderRunner = runner
+			application, err := app.New(options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = application.Close() })
+			ctx, cancel := context.WithCancel(t.Context())
+			cancel()
+			if err := application.Run(ctx); err != nil {
+				t.Fatalf("graceful shutdown became fatal: %v", err)
+			}
+			if err := application.Close(); !errors.Is(err, runner.err) {
+				t.Fatalf("cleanup result = %v, want %v", err, runner.err)
+			}
+			assertShutdownReleasesPersistentResources(t, options.ConfigPath, databasePath)
+		})
+	}
+}
+
+type shutdownFailingCloseRunner struct {
+	shutdownTestRunner
+	err error
+}
+
+func (r *shutdownFailingCloseRunner) Close() error { return r.err }

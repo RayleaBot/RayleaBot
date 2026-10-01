@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -32,7 +33,13 @@ func main() {
 
 	flag.StringVar(&configPath, "config", runtimepaths.DefaultConfigPath, "path to config/user.yaml (default uses the RayleaBot root)")
 	flag.StringVar(&schemaPath, "config-schema", config.ConfigUserSchemaID, "path to config.user.schema.json or builtin schema id")
-	flag.Parse()
+	flag.CommandLine.Init(os.Args[0], flag.ContinueOnError)
+	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return
+		}
+		os.Exit(1)
+	}
 
 	explicitConfig := false
 	flag.Visit(func(option *flag.Flag) {

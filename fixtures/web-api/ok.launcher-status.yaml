@@ -9,7 +9,7 @@ request:
 response:
   status: 200
   body:
-    shutdown_budget_seconds: 42
+    shutdown_budget_seconds: 57
     status: running
     adapters:
       - id: onebot11

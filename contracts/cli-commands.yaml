@@ -47,6 +47,13 @@ x-startup-config:
     release: 同时包含普通文件 build_info.json 和 .deps/manifest.json。
   resolved: 配置路径在入口转换为绝对路径；相对数据库路径仍以配置文件所在 config 目录的父目录为基准。
 
+x-server-run:
+  scope: 不带子命令的服务端进程运行；CLI 子命令仍使用各命令的退出码。
+  exit_codes:
+    0: 优雅关闭流程已完成，无论由 Launcher、管理 API 还是操作系统信号发起；非致命清理错误记录带错误码的日志，不改变退出码。
+    1: 启动失败或致命运行错误。
+    2: Go runtime panic，保留 Go 运行时的退出码。
+
 x-plugin-builder-development:
   command: raylea-plugin build-go
   inspect: raylea-plugin inspect --plugin includes backend_package for Go projects, resolved using the same entrypoint rules as build-go; non-Go projects omit it.

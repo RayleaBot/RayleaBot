@@ -90,9 +90,10 @@ type DiagnosticsScheduler struct {
 }
 
 type DiagnosticsTaskSummary struct {
-	Pending int `json:"pending"`
-	Running int `json:"running"`
-	Failed  int `json:"failed"`
+	Interrupted int `json:"interrupted"`
+	Pending     int `json:"pending"`
+	Running     int `json:"running"`
+	Failed      int `json:"failed"`
 }
 
 type DiagnosticsDependency struct {

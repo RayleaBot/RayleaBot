@@ -108,7 +108,7 @@ func TestDiagnosticsExcludesInterruptedAndCancelledTasksFromFailures(t *testing.
 	}
 	s := &Service{taskExecutor: executor}
 	got := s.diagnosticsTasks()
-	if got.Pending != 1 || got.Running != 1 || got.Failed != 1 {
+	if got.Pending != 1 || got.Running != 1 || got.Failed != 1 || got.Interrupted != 1 {
 		t.Fatalf("summary = %#v", got)
 	}
 }

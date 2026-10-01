@@ -1,12 +1,14 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -82,7 +84,11 @@ func TestStopRuntimeManagersReclaimsProcessesAfterDrainTimeout(t *testing.T) {
 	dispatcher.DispatchToPlugin(t.Context(), "fixture", chatevent.Event{EventID: "fixture"})
 	<-delivery.started
 	done := make(chan error, 1)
-	go func() { done <- application.stopRuntimeManagers(50 * time.Millisecond) }()
+	go func() {
+		drainErr, _ := runShutdownPhase(50*time.Millisecond, application.drainEvents)
+		stopErr, _ := runShutdownPhase(time.Second, application.stopRuntimeManagers)
+		done <- errors.Join(drainErr, stopErr)
+	}()
 	select {
 	case err := <-done:
 		if !errors.Is(err, context.DeadlineExceeded) {
@@ -179,7 +185,9 @@ func TestAppCloseRetainsTaskAndCloserErrorsAndReleasesRemainingResources(t *test
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = renderer.Close() })
+	var logs bytes.Buffer
 	application := &App{
+		state:    &appRuntimeState{Logger: slog.New(slog.NewJSONHandler(&logs, nil))},
 		platform: PlatformState{Storage: store}, renderStack: appRenderState{Renderer: renderer}, configLifecycleLock: lock,
 	}
 	supervisor := newRunSupervisor(t.Context())
@@ -200,6 +208,9 @@ func TestAppCloseRetainsTaskAndCloserErrorsAndReleasesRemainingResources(t *test
 		if err := <-results; !errors.Is(err, taskErr) || !errors.Is(err, renderErr) {
 			t.Fatalf("Close() = %v, want task and render errors", err)
 		}
+	}
+	if !strings.Contains(logs.String(), `"error_code":"platform.internal_error"`) {
+		t.Fatalf("cleanup logs lack error code: %s", logs.String())
 	}
 	if runner.closes.Load() != 1 {
 		t.Fatalf("runner closed %d times, want 1", runner.closes.Load())

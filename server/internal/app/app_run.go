@@ -20,15 +20,18 @@ import (
 )
 
 type appProcessState struct {
-	router         http.Handler
-	server         *http.Server
-	shutdownIntent atomic.Pointer[systemsvc.StopIntent]
-	runCancelMu    sync.Mutex
-	runCancel      context.CancelFunc
-	runWait        func() error
-	shutdownOnce   sync.Once
-	closeOnce      sync.Once
-	closeErr       error
+	router           http.Handler
+	server           *http.Server
+	shutdownIntent   atomic.Pointer[systemsvc.StopIntent]
+	runCancelMu      sync.Mutex
+	runCancel        context.CancelFunc
+	runWait          func() error
+	shutdownBudgets  config.ShutdownBudgets
+	announcementDone <-chan struct{}
+	announcementErr  error
+	shutdownOnce     sync.Once
+	closeOnce        sync.Once
+	closeErr         error
 }
 
 type appRuntimeState struct {
@@ -112,7 +115,7 @@ func (a *App) Run(ctx context.Context) error {
 	a.services.System.AutoPrepareRuntimeEnvironments(runCtx)
 	if err := runCtx.Err(); err != nil {
 		close(started)
-		return a.Close()
+		return a.finishRun(supervisor)
 	}
 	if a.services.PluginLifecycle != nil {
 		supervisor.Go(func(ctx context.Context) error {
@@ -149,7 +152,7 @@ func (a *App) Run(ctx context.Context) error {
 	<-runCtx.Done()
 	serverURL := httpapi.DisplayServerURL(a.process.server.Addr)
 	a.state.Logger.Info("服务正在关闭", "component", "app", "listen_addr", a.process.server.Addr, "url", serverURL)
-	return a.Close()
+	return a.finishRun(supervisor)
 }
 
 func (a *App) setRunSupervisor(supervisor *runSupervisor, started <-chan struct{}) bool {
@@ -177,22 +180,31 @@ func (a *App) clearRunCancel() {
 func (a *App) requestShutdown(intent systemsvc.StopIntent) {
 	a.process.shutdownOnce.Do(func() {
 		a.process.shutdownIntent.Store(&intent)
-		ctx, cancelDrain := context.WithTimeout(context.Background(), time.Second)
-		defer cancelDrain()
-		if a.services.System != nil {
-			a.services.System.PublishStatusSnapshot()
+		var runtimeConfig config.RuntimeConfig
+		if a.state != nil {
+			runtimeConfig = a.state.CurrentConfig().Runtime
 		}
-		if a.services.EventIngress != nil {
-			a.services.EventIngress.StopAdmission()
+		a.process.shutdownBudgets = runtimeConfig.ShutdownBudgets()
+		a.process.announcementErr, a.process.announcementDone = runShutdownPhase(a.process.shutdownBudgets.Announcement, func(ctx context.Context) error {
+			if a.services.System != nil {
+				a.services.System.PublishStatusSnapshot()
+			}
+			if a.services.EventIngress != nil {
+				a.services.EventIngress.StopAdmission()
+			}
+			var streams sync.WaitGroup
+			for _, shutdown := range []func(context.Context){a.shutdownLogsStream, a.shutdownConsoleStream} {
+				streams.Go(func() { shutdown(ctx) })
+			}
+			if a.httpHandlers.EventsWS != nil {
+				a.httpHandlers.EventsWS.Shutdown(ctx)
+			}
+			streams.Wait()
+			return nil
+		})
+		if a.process.announcementErr != nil {
+			a.logShutdownError("announce shutdown", a.process.announcementErr)
 		}
-		var streams sync.WaitGroup
-		for _, shutdown := range []func(context.Context){a.shutdownLogsStream, a.shutdownConsoleStream} {
-			streams.Go(func() { shutdown(ctx) })
-		}
-		if a.httpHandlers.EventsWS != nil {
-			a.httpHandlers.EventsWS.Shutdown(ctx)
-		}
-		streams.Wait()
 		// Publish and finish the bounded event writes before canceling workers
 		// whose teardown can close event sources or the HTTP server.
 		a.process.runCancelMu.Lock()
@@ -229,7 +241,8 @@ func (a *App) Handler() http.Handler {
 type runSupervisor struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
-	errCh   chan error
+	errMu   sync.Mutex
+	err     error
 	errOnce sync.Once
 	workers sync.WaitGroup
 }
@@ -239,7 +252,6 @@ func newRunSupervisor(parent context.Context) *runSupervisor {
 	return &runSupervisor{
 		ctx:    ctx,
 		cancel: cancel,
-		errCh:  make(chan error, 1),
 	}
 }
 
@@ -281,19 +293,30 @@ func (s *runSupervisor) report(err error) {
 		return
 	}
 	s.errOnce.Do(func() {
-		s.errCh <- err
+		s.errMu.Lock()
+		s.err = err
+		s.errMu.Unlock()
 	})
 	s.Cancel()
 }
 
 func (s *runSupervisor) Wait() error {
 	s.workers.Wait()
-	select {
-	case err := <-s.errCh:
-		return err
-	default:
-		return nil
-	}
+	return s.Err()
+}
+
+// Err remains available after a bounded cleanup wait, including repeated reads.
+func (s *runSupervisor) Err() error {
+	s.errMu.Lock()
+	defer s.errMu.Unlock()
+	return s.err
+}
+
+func (a *App) finishRun(supervisor *runSupervisor) error {
+	// Close reports each cleanup failure with a code. Only a fatal worker error
+	// determines the process exit status after a requested shutdown.
+	_ = a.Close()
+	return supervisor.Err()
 }
 
 func (s *appRuntimeState) redactString(value string) string {

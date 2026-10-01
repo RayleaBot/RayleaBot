@@ -51,6 +51,7 @@ response:
       pending: 0
       running: 0
       failed: 0
+      interrupted: 2
     dependencies:
       - kind: chromium
         status: ready

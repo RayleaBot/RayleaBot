@@ -166,14 +166,14 @@ func (p *ProcessController) wait(command *exec.Cmd) {
 	planned := false
 	p.mu.Lock()
 	if p.cmd == command {
-		planned = p.stopping
-		kind := ExitUnexpected
-		if planned {
-			kind = ExitPlanned
-		}
 		code := -1
 		if command.ProcessState != nil {
 			code = command.ProcessState.ExitCode()
+		}
+		planned = p.stopping || code == 0
+		kind := ExitUnexpected
+		if planned {
+			kind = ExitPlanned
 		}
 		p.lastExit = &LauncherProcessExit{Kind: kind, ExitCode: code}
 		p.stopping = false

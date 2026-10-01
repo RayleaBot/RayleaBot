@@ -5,7 +5,7 @@ import "time"
 // ShutdownBudgets defines phase limits for shutdown orchestration and Launcher status.
 // Plugin managers stop concurrently, so their count does not multiply Grace.
 type ShutdownBudgets struct {
-	HTTP, Announcement, DispatchDrain, PluginGrace, KillWait, Adapters, Browser time.Duration
+	HTTP, Announcement, Workers, DispatchDrain, PluginGrace, KillWait, Adapters, Tasks, Browser, Finalize time.Duration
 }
 
 const PluginKillWait = 500 * time.Millisecond
@@ -28,11 +28,12 @@ func (c RuntimeConfig) ShutdownBudgets() ShutdownBudgets {
 	grace := c.PluginShutdownGrace()
 	return ShutdownBudgets{HTTP: 5 * time.Second, Announcement: time.Second,
 		DispatchDrain: grace, PluginGrace: grace, KillWait: PluginKillWait,
-		Adapters: 5 * time.Second, Browser: 10 * time.Second}
+		Workers: 5 * time.Second, Adapters: 5 * time.Second, Tasks: 5 * time.Second,
+		Browser: 10 * time.Second, Finalize: 5 * time.Second}
 }
 
 func (b ShutdownBudgets) TotalSeconds() int64 {
-	total := b.HTTP + b.Announcement + b.DispatchDrain + b.PluginGrace + b.KillWait + b.Adapters + b.Browser
+	total := b.HTTP + b.Announcement + b.Workers + b.DispatchDrain + b.PluginGrace + b.KillWait + b.Adapters + b.Tasks + b.Browser + b.Finalize
 	seconds := int64(total / time.Second)
 	if total%time.Second != 0 {
 		seconds++
