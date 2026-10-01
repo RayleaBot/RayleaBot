@@ -141,6 +141,15 @@ type Runner interface {
 	Render(ctx context.Context, doc Document) ([]byte, error)
 }
 
+type phaseError struct {
+	phase string
+	err   error
+}
+
+func (e *phaseError) Error() string          { return e.err.Error() }
+func (e *phaseError) Unwrap() error          { return e.err }
+func (e *phaseError) RenderingPhase() string { return e.phase }
+
 type ChromiumOptions struct {
 	BrowserPath    string
 	BrowserArgs    []string
@@ -337,7 +346,13 @@ func htmlWithBaseURL(html, baseURL string) string {
 	return baseElement + html
 }
 
-func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, error) {
+func (r *chromiumRunner) Render(ctx context.Context, doc Document) (_ []byte, renderErr error) {
+	phase := "browser_startup"
+	defer func() {
+		if renderErr != nil {
+			renderErr = &phaseError{phase: phase, err: renderErr}
+		}
+	}()
 	browserCtx, err := r.browserContext(ctx)
 	if err != nil {
 		return nil, err
@@ -358,6 +373,7 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		deviceScaleFactor = 1
 	}
 
+	phase = "document_prepare"
 	renderURL, resourceURLs, cleanup, err := writeTemporaryRenderDocument(r.tempRoot, doc.HTML, doc.BaseURL, doc.Resources)
 	if err != nil {
 		cancelTab()
@@ -372,8 +388,15 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 
 	var content []byte
 	var measuredHeight, measuredWidth float64
+	encodedURL, _ := json.Marshal(renderURL)
 	awaitPromise := func(params *cdpruntime.EvaluateParams) *cdpruntime.EvaluateParams {
 		return params.WithAwaitPromise(true)
+	}
+	inPhase := func(name string, action chromedp.Action) chromedp.Action {
+		return chromedp.ActionFunc(func(ctx context.Context) error {
+			phase = name
+			return action.Do(ctx)
+		})
 	}
 
 	actions := []chromedp.Action{
@@ -381,16 +404,29 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		// concurrent render tab is in the browser's foreground.
 		emulation.SetFocusEmulationEnabled(true),
 		emulation.SetDeviceMetricsOverride(int64(doc.Width), int64(doc.Height), deviceScaleFactor, false),
-		chromedp.Navigate(renderURL),
+		inPhase("navigation", chromedp.ActionFunc(func(ctx context.Context) error {
+			_, _, errorText, _, err := page.Navigate(renderURL).Do(ctx)
+			if err != nil {
+				return err
+			}
+			if errorText != "" {
+				return fmt.Errorf("page load error: %s", errorText)
+			}
+			return nil
+		})),
+		chromedp.Poll("document.location.href === "+string(encodedURL)+" && document.readyState !== 'loading'", nil, chromedp.WithPollingInterval(10*time.Millisecond)),
 		chromedp.WaitReady("body"),
 	}
+	// Bind prefetched images before waiting for load: the original remote URL
+	// may never complete even though its local replacement is ready.
 	if bindResources != "" {
-		actions = append(actions, chromedp.Evaluate(bindResources, nil, awaitPromise))
+		actions = append(actions, inPhase("resource_decode", chromedp.Evaluate(bindResources, nil, awaitPromise)))
 	}
-	actions = append(actions, chromedp.Evaluate(waitForLocalAssetsExpression, nil, awaitPromise))
+	actions = append(actions, inPhase("page_load", chromedp.Poll("document.readyState === 'complete'", nil, chromedp.WithPollingInterval(10*time.Millisecond))))
+	actions = append(actions, inPhase("local_assets", chromedp.Evaluate(waitForLocalAssetsExpression, nil, awaitPromise)))
 	if doc.FitWidth {
 		actions = append(actions,
-			chromedp.Evaluate(fitDocumentWidthExpression, &measuredWidth),
+			inPhase("layout", chromedp.Evaluate(fitDocumentWidthExpression, &measuredWidth)),
 			chromedp.ActionFunc(func(ctx context.Context) error {
 				width := min(max(int(math.Ceil(measuredWidth)), 1), doc.Width)
 				if width == doc.Width {
@@ -403,7 +439,7 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 	}
 	if doc.AutoHeight {
 		actions = append(actions,
-			chromedp.Evaluate(adaptiveDocumentHeightExpression, &measuredHeight),
+			inPhase("layout", chromedp.Evaluate(adaptiveDocumentHeightExpression, &measuredHeight)),
 			chromedp.ActionFunc(func(ctx context.Context) error {
 				nextHeight := int64(math.Ceil(measuredHeight))
 				if nextHeight < 1 {
@@ -417,6 +453,7 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		)
 	}
 	actions = append(actions, chromedp.ActionFunc(func(ctx context.Context) error {
+		phase = "capture"
 		var err error
 		content, err = r.captureScreenshot(ctx, doc.Output)
 		return err

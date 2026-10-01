@@ -104,6 +104,10 @@ func logRenderImageFailure(deps Deps, req ActionRequest, phase, template string,
 	if cause != "" && cause != message {
 		attrs = append(attrs, "cause", cause)
 	}
+	var staged interface{ RenderingPhase() string }
+	if errors.As(err, &staged) {
+		attrs = append(attrs, "render_stage", staged.RenderingPhase())
+	}
 	var renderErr *RenderTemplateError
 	if errors.As(err, &renderErr) && strings.TrimSpace(renderErr.Code) != "" {
 		attrs = append(attrs, "error_code", renderErr.Code)
