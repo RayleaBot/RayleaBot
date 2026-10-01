@@ -48,11 +48,12 @@ watchEffect(() => {
       <div
         v-if="availabilityStore.isConnectionInterrupted"
         class="connection-notice"
+        :data-state="systemStore.shutdownRequested ? 'stopped' : 'retrying'"
         role="status"
         aria-live="polite"
         data-testid="connection-reconnect-notice"
       >
-        <AppSpinner v-if="!systemStore.shutdownRequested" />
+        <span class="connection-notice__signal" aria-hidden="true" />
         <span>{{ systemStore.shutdownRequested ? t('app.serviceStopped') : t('app.connectionInterrupted') }}</span>
       </div>
     </Transition>
@@ -75,47 +76,113 @@ watchEffect(() => {
   background: var(--app-background);
 }
 
+// A status pill in the toast family: raised surface, hairline edge and the floating shadow.
 .connection-notice {
+  --notice-tone: var(--warning);
+  --notice-tone-soft: var(--surface-warning);
+
   position: fixed;
   z-index: 1100;
-  top: max(12px, env(safe-area-inset-top));
+  top: max(14px, env(safe-area-inset-top));
   left: 50%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: min(440px, calc(100vw - 32px));
-  padding: 8px 14px;
-  border: 1px solid color-mix(in srgb, var(--warning) 36%, var(--border));
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-warning) 94%, transparent);
+  gap: 10px;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 6px 16px 6px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-raised);
   box-shadow: var(--shadow-floating);
   color: var(--text);
   font-size: 13px;
+  font-weight: 500;
   line-height: 1.5;
   transform: translateX(-50%);
 }
 
-.connection-notice :deep(.app-loading__icon) {
-  background-color: var(--warning);
+.connection-notice[data-state='stopped'] {
+  --notice-tone: var(--muted);
+  --notice-tone-soft: var(--surface-soft);
 }
 
-.connection-notice-enter-active,
+.connection-notice__signal {
+  position: relative;
+  z-index: 0;
+  display: grid;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--notice-tone-soft);
+}
+
+.connection-notice__signal::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--notice-tone);
+  content: '';
+}
+
+// While the page retries, a soft disc keeps spreading out from behind the dot; a stopped service keeps the dot still.
+.connection-notice[data-state='retrying'] .connection-notice__signal::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--notice-tone-soft);
+  animation: connection-notice-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  content: '';
+}
+
+@keyframes connection-notice-ping {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+.connection-notice-enter-active {
+  transition:
+    opacity 220ms var(--motion-easing),
+    transform 220ms var(--motion-easing);
+}
+
 .connection-notice-leave-active {
   transition:
-    opacity 180ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 160ms cubic-bezier(0.4, 0, 1, 1),
+    transform 160ms cubic-bezier(0.4, 0, 1, 1);
 }
 
 .connection-notice-enter-from,
 .connection-notice-leave-to {
   opacity: 0;
-  transform: translate(-50%, -8px);
+  transform: translate(-50%, -10px) scale(0.96);
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
   .connection-notice-enter-active,
   .connection-notice-leave-active {
     transition: none;
+  }
+
+  .connection-notice[data-state='retrying'] .connection-notice__signal::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+@media (forced-colors: active) {
+  .connection-notice {
+    border-color: CanvasText;
+    box-shadow: none;
   }
 }
 </style>
