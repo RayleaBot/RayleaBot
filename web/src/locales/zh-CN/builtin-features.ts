@@ -1,6 +1,7 @@
 export const builtinFeatures = {
   menuCenter: {
     title: '菜单中心',
+    settings: '菜单设置',
     save: '保存',
     unsaved: '有未保存更改',
     saved: '保存完成',

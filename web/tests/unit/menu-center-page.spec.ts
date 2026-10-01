@@ -50,7 +50,8 @@ function plugin(): PluginSummary {
   }
 }
 
-async function mountPage(item: PluginSummary = plugin()) {
+// attachTo puts the page in the document, so visibility reflects its styles.
+async function mountPage(item: PluginSummary = plugin(), attachTo?: HTMLElement) {
   const configStore = useConfigStore()
   const pluginsStore = usePluginsStore()
   configStore.document = config()
@@ -58,7 +59,7 @@ async function mountPage(item: PluginSummary = plugin()) {
   vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
   pluginsStore.rememberSummaries([item])
   vi.mocked(apiRequest).mockResolvedValue({ items: [item], total: 1 })
-  const wrapper = mount(MenuCenterView, { global: { plugins: [getActivePinia()!] } })
+  const wrapper = mount(MenuCenterView, { attachTo, global: { plugins: [getActivePinia()!] } })
   await flushPromises()
   return wrapper
 }
@@ -190,6 +191,26 @@ describe('MenuCenterView', () => {
     expect(saveSpy.mock.calls[0][0]).toMatchObject({
       builtin_features: { menu: { commands: ['menu', '菜单'], prefixes: ['#', '*'] } },
     })
+  })
+
+  // The settings float over the preview; rolling them up must not drop the draft or hide that it is unsaved.
+  it('rolls the settings window up from its title bar and keeps the unsaved draft', async () => {
+    const wrapper = await mountPage(plugin(), document.body)
+    const toggle = wrapper.get('[data-testid="menu-center-settings-toggle"]')
+    const body = wrapper.get(`[id="${toggle.attributes('aria-controls')}"]`)
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(body.isVisible()).toBe(true)
+
+    await wrapper.getComponent('[data-testid="menu-center-commands"]').vm.$emit('update:modelValue', ['menu'])
+    await toggle.trigger('click')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(body.isVisible()).toBe(false)
+    expect(toggle.text()).toContain('有未保存更改')
+
+    await toggle.trigger('click')
+    expect(body.isVisible()).toBe(true)
+    expect(wrapper.getComponent('[data-testid="menu-center-commands"]').props('modelValue')).toEqual(['menu'])
+    expect(wrapper.get('[data-testid="menu-center-save"]').attributes('disabled')).toBeUndefined()
   })
 
   it('keeps native preview scaling bounded', () => {

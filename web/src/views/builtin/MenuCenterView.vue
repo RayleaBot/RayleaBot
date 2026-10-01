@@ -6,9 +6,9 @@ import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppTag from '@/components/AppTag.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppButton from '@/components/AppButton.vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, useId, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { SaveIcon } from '@lucide/vue'
+import { ChevronDownIcon, SaveIcon, SlidersHorizontalIcon } from '@lucide/vue'
 
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import NativeTemplatePreviewFrame from '@/components/templates/NativeTemplatePreviewFrame.vue'
@@ -40,6 +40,8 @@ const draftCommands = ref<string[]>([])
 const draftPrefixes = ref<string[]>([])
 const selectedPluginId = ref<string>('')
 const activeTab = ref<'root' | 'plugin'>('root')
+const settingsCollapsed = ref(false)
+const settingsId = useId()
 
 const pageError = computed(() => configError.value ?? pluginsError.value)
 const loading = computed(() => configLoading.value || pluginsLoading.value)
@@ -178,51 +180,74 @@ async function save() {
     />
 
     <div v-else class="menu-center-layout">
-      <div class="menu-center-float-panel">
-        <div class="menu-center-float-panel__body">
-          <div class="menu-center-float-panel__field">
-            <label class="menu-center-float-panel__label">{{ t('builtinFeatures.menuCenter.commands.label') }}</label>
-            <AppTagsInput
-              v-model="draftCommands" :aria-label="t('builtinFeatures.menuCenter.commands.label')"
+      <section class="menu-center-float-panel" :aria-labelledby="`${settingsId}-title`" data-testid="menu-center-settings">
+        <h2 class="menu-center-float-panel__heading">
+          <button
+            type="button"
+            class="menu-center-float-panel__toggle"
+            :aria-expanded="!settingsCollapsed"
+            :aria-controls="`${settingsId}-body`"
+            data-testid="menu-center-settings-toggle"
+            @click="settingsCollapsed = !settingsCollapsed"
+          >
+            <SlidersHorizontalIcon class="menu-center-float-panel__icon" aria-hidden="true" />
+            <span :id="`${settingsId}-title`">{{ t('builtinFeatures.menuCenter.settings') }}</span>
+            <AppTag v-if="hasUnsavedChanges" class="menu-center-unsaved-tag">
+              {{ t('builtinFeatures.menuCenter.unsaved') }}
+            </AppTag>
+            <ChevronDownIcon class="menu-center-float-panel__chevron" aria-hidden="true" />
+          </button>
+        </h2>
 
-              :separators="[',', '，', ' ']"
-              :placeholder="t('builtinFeatures.menuCenter.commands.placeholder')"
-              data-testid="menu-center-commands"
-              class="menu-center-float-panel__select"
-            />
-          </div>
+        <Transition name="menu-center-settings">
+          <div v-show="!settingsCollapsed" :id="`${settingsId}-body`" class="menu-center-float-panel__collapse">
+            <div class="menu-center-float-panel__inner">
+              <div class="menu-center-float-panel__content">
+                <div class="menu-center-float-panel__body">
+                  <div class="menu-center-float-panel__field">
+                    <label class="menu-center-float-panel__label">{{ t('builtinFeatures.menuCenter.commands.label') }}</label>
+                    <AppTagsInput
+                      v-model="draftCommands" :aria-label="t('builtinFeatures.menuCenter.commands.label')"
 
-          <div class="menu-center-float-panel__field">
-            <label class="menu-center-float-panel__label">{{ t('builtinFeatures.menuCenter.prefixes.label') }}</label>
-            <AppTagsInput
-              v-model="draftPrefixes" :aria-label="t('builtinFeatures.menuCenter.prefixes.label')"
+                      :separators="[',', '，', ' ']"
+                      :placeholder="t('builtinFeatures.menuCenter.commands.placeholder')"
+                      data-testid="menu-center-commands"
+                      class="menu-center-float-panel__select"
+                    />
+                  </div>
 
-              :separators="[',', '，', ' ']"
-              :placeholder="t('builtinFeatures.menuCenter.prefixes.placeholder')"
-              data-testid="menu-center-prefixes"
-              class="menu-center-float-panel__select"
-            />
-            <div v-if="draftPrefixes.length === 0" class="menu-center-field-note" data-testid="menu-center-inherited-prefixes">
-              {{ t('builtinFeatures.menuCenter.prefixes.inherited', { prefixes: inheritedPrefixLabel }) }}
+                  <div class="menu-center-float-panel__field">
+                    <label class="menu-center-float-panel__label">{{ t('builtinFeatures.menuCenter.prefixes.label') }}</label>
+                    <AppTagsInput
+                      v-model="draftPrefixes" :aria-label="t('builtinFeatures.menuCenter.prefixes.label')"
+
+                      :separators="[',', '，', ' ']"
+                      :placeholder="t('builtinFeatures.menuCenter.prefixes.placeholder')"
+                      data-testid="menu-center-prefixes"
+                      class="menu-center-float-panel__select"
+                    />
+                    <div v-if="draftPrefixes.length === 0" class="menu-center-field-note" data-testid="menu-center-inherited-prefixes">
+                      {{ t('builtinFeatures.menuCenter.prefixes.inherited', { prefixes: inheritedPrefixLabel }) }}
+                    </div>
+                  </div>
+                </div>
+                <div class="menu-center-actions">
+                  <AppButton
+                    variant="default"
+                    :disabled="!hasUnsavedChanges"
+                    :loading="saving"
+                    data-testid="menu-center-save"
+                    @click="save"
+                  >
+                    <template #icon><SaveIcon /></template>
+                    {{ t('builtinFeatures.menuCenter.save') }}
+                  </AppButton>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="menu-center-actions">
-          <AppTag v-if="hasUnsavedChanges" class="menu-center-unsaved-tag">
-            {{ t('builtinFeatures.menuCenter.unsaved') }}
-          </AppTag>
-          <AppButton
-            variant="default"
-            :disabled="!hasUnsavedChanges"
-            :loading="saving"
-            data-testid="menu-center-save"
-            @click="save"
-          >
-            <template #icon><SaveIcon /></template>
-            {{ t('builtinFeatures.menuCenter.save') }}
-          </AppButton>
-        </div>
-      </div>
+        </Transition>
+      </section>
 
       <div class="menu-preview-area">
         <AppTabs v-model="activeTab" class="menu-center-tabs" keep-alive :items="[{ value: 'root', label: t('builtinFeatures.menuCenter.preview.rootTitle') }, { value: 'plugin', label: t('builtinFeatures.menuCenter.preview.pluginTitle') }]">
@@ -242,7 +267,7 @@ async function save() {
 
           <template #root>
             <div class="menu-preview-card">
-              <p v-if="nextCursor" role="status">{{ t('builtinFeatures.menuCenter.preview.partial') }}</p>
+              <p v-if="nextCursor" class="menu-preview-partial" role="status">{{ t('builtinFeatures.menuCenter.preview.partial') }}</p>
               <AppCollectionPagination :loaded="sortedItems.length" :total="total" :next-cursor="nextCursor" :loading="pluginsLoading || loadingMore" @more="pluginCollection.loadMore().catch(() => undefined)" />
               <NativeTemplatePreviewFrame
                 template-id="help.menu"
@@ -277,27 +302,22 @@ async function save() {
 <style scoped lang="scss">
 .menu-center-actions {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
+  justify-content: flex-end;
   margin-top: var(--space-md);
   padding-top: var(--space-sm);
   border-top: 1px solid var(--border);
 }
 
-.menu-center-actions .app-button {
-  margin-inline-start: auto;
-}
-
 .menu-center-layout {
-  --menu-center-panel-width: 320px;
-  --menu-center-panel-inset: var(--space-md);
+  --menu-center-panel-width: 352px;
   --menu-center-preview-max-width: 1040px;
-  --menu-center-preview-top-space: 0px;
+  // The settings window lines up with the top of the stage: below the AppTabs row (44px triggers over a 1px rule)
+  // and the gap under it.
+  --menu-center-stage-top: calc(var(--space-lg) + 45px + var(--space-md));
 
-  display: grid;
-  grid-template-columns: var(--menu-center-panel-width) minmax(0, 1fr);
-  gap: var(--space-lg);
+  position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   flex: 1 1 auto;
   padding: var(--space-lg);
@@ -309,14 +329,72 @@ async function save() {
   --control-fill-hover: color-mix(in srgb, var(--surface-raised) 97%, var(--text));
 }
 
-// The command fields and the preview sit directly on the menu center box.
+// The settings float over the box like the other floating surfaces, so the preview can take the middle of the whole
+// box. On narrow windows the open window may cover the stage's left edge; its title bar rolls it up.
 .menu-center-float-panel {
+  position: absolute;
+  z-index: 1;
+  top: var(--menu-center-stage-top);
+  left: var(--space-lg);
+  width: var(--menu-center-panel-width);
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-floating);
+}
+
+.menu-center-float-panel__heading {
+  margin: 0;
+  font: inherit;
+}
+
+.menu-center-float-panel__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   width: 100%;
-  align-self: start;
-  padding: 0;
+  min-height: 40px;
+  padding: 0 10px 0 12px;
   border: 0;
+  border-radius: var(--radius-md);
   background: transparent;
-  box-shadow: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--motion-easing);
+}
+
+.menu-center-float-panel__toggle:hover {
+  background: var(--nav-hover);
+}
+
+.menu-center-float-panel__toggle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.menu-center-float-panel__icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.menu-center-float-panel__chevron {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-inline-start: auto;
+  color: var(--muted);
+  transition: transform var(--motion-content) var(--motion-easing);
+}
+
+.menu-center-float-panel__toggle[aria-expanded="true"] .menu-center-float-panel__chevron {
+  transform: rotate(180deg);
 }
 
 .menu-center-unsaved-tag {
@@ -324,7 +402,43 @@ async function save() {
   background: var(--surface-attention);
   border-color: var(--border-attention);
   font-size: 13px;
+  font-weight: 400;
   margin: 0;
+}
+
+// The row that rolls up has no size of its own, or the track would stay open by that much and then snap shut;
+// the padding lives on the content inside it.
+.menu-center-float-panel__collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+
+.menu-center-float-panel__inner {
+  display: flow-root;
+  min-height: 0;
+}
+
+.menu-center-float-panel__content {
+  padding: var(--space-sm) 12px 12px;
+}
+
+.menu-center-settings-enter-active,
+.menu-center-settings-leave-active {
+  overflow: hidden;
+}
+
+.menu-center-settings-enter-active {
+  transition: grid-template-rows 260ms var(--motion-easing), opacity 200ms var(--motion-easing);
+}
+
+.menu-center-settings-leave-active {
+  transition: grid-template-rows 200ms cubic-bezier(0.4, 0, 0.2, 1), opacity 120ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.menu-center-settings-enter-from,
+.menu-center-settings-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
 }
 
 .menu-center-float-panel__body {
@@ -356,7 +470,7 @@ async function save() {
   line-height: 1.5;
 }
 
-// The tabs and the full-height preview stage form one column centered in the space beside the fields.
+// The tabs and the full-height preview stage form one column centered in the whole box.
 .menu-preview-area {
   min-width: 0;
   flex: 1 1 auto;
@@ -364,7 +478,6 @@ async function save() {
   flex-direction: column;
   align-items: center;
   min-height: 0;
-  padding-top: var(--menu-center-preview-top-space);
 }
 
 .menu-center-tabs {
@@ -420,6 +533,14 @@ async function save() {
   box-shadow: none;
 }
 
+// The settings window may cover the stage's left edge, so the partial-preview notice and paging sit in the middle.
+.menu-preview-partial {
+  text-align: center;
+}
+
+.menu-preview-card :deep(.collection-pagination) {
+  justify-content: center;
+}
 
 .menu-preview-empty {
   flex: 1 1 auto;
@@ -427,5 +548,21 @@ async function save() {
   align-items: center;
   justify-content: center;
   min-height: 320px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-center-float-panel__toggle,
+  .menu-center-float-panel__chevron,
+  .menu-center-settings-enter-active,
+  .menu-center-settings-leave-active {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .menu-center-float-panel {
+    border-color: CanvasText;
+    box-shadow: none;
+  }
 }
 </style>
