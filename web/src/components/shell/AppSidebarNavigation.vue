@@ -5,8 +5,8 @@ import AppDropdownItem from '@/components/AppDropdownItem.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
-import { computed, nextTick, ref, watch } from 'vue'
-import { useRoute, type RouteLocationRaw } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 
 import { resolveMenuIcon } from '@/access/icons'
 import type { AppMenuItem } from '@/access/menu'
@@ -25,6 +25,7 @@ import {
   readPluginManagementPage,
 } from '@/lib/management-links'
 import { t } from '@/i18n'
+import { prefetchRouteLocation } from '@/router/prefetch'
 import { usePluginsStore } from '@/stores/plugins'
 import {
   useSidebarPluginNavigation,
@@ -50,6 +51,7 @@ const emit = defineEmits<{
 }>()
 
 const route = useRoute()
+const router = useRouter()
 const pluginsStore = usePluginsStore()
 const activePluginId = computed(() => route.name === 'plugin-detail'
   ? String(route.params.id ?? '')
@@ -62,6 +64,7 @@ const {
   isPluginContentVisible,
   isPluginExpansionPending,
   navigationPlugins,
+  prefetchPluginPages,
   pluginCollection,
   pluginFilter,
   pluginNavigationEntries,
@@ -126,6 +129,28 @@ function enterPluginCenter() {
   if (!isPluginWorkspaceRoute(route.name)) emit('navigate', '/plugins')
   void focusAfterScopeChange('[data-sidebar-scope-back="plugin-center"]')
 }
+
+// The first open of a plugin used to wait for its pages and then start the expansion in the same frames as the
+// plugin's page rendering its data, so the expansion stalled and jumped. Pointing at a plugin for a moment, or focusing
+// it, reads the pages ahead of the click, and the expansion starts at once like any later open.
+const pluginPrefetchDelayMs = 60
+let pluginPrefetchTimer: ReturnType<typeof setTimeout> | undefined
+
+function prefetchPlugin(pluginId: string) {
+  prefetchPluginPages(pluginId)
+  prefetchRouteLocation(router, buildPluginDetailLocation(pluginId))
+}
+
+function prefetchPluginSoon(pluginId: string) {
+  clearTimeout(pluginPrefetchTimer)
+  pluginPrefetchTimer = setTimeout(() => prefetchPlugin(pluginId), pluginPrefetchDelayMs)
+}
+
+function cancelPluginPrefetch() {
+  clearTimeout(pluginPrefetchTimer)
+}
+
+onBeforeUnmount(cancelPluginPrefetch)
 
 // A plugin row opens that plugin with its pages. The plugin already shown has nowhere to go, so its row opens or closes
 // its pages instead, the same as its arrow.
@@ -219,7 +244,12 @@ function toggleRootGroup(key: string) {
           <section class="sidebar-navigation__group">
             <h3 class="sidebar-navigation__group-title">{{ t('plugins.navigation.groups.installed') }}</h3>
             <div v-for="{ resource, pages } in pluginNavigationGroups" :key="resource.key" class="sidebar-plugin" :data-active="resource.plugin.id === activePluginId || undefined">
-              <div class="sidebar-navigation__entry sidebar-navigation__entry--resource">
+              <div
+                class="sidebar-navigation__entry sidebar-navigation__entry--resource"
+                @pointerenter="prefetchPluginSoon(resource.plugin.id)"
+                @pointerleave="cancelPluginPrefetch"
+                @focusin="prefetchPlugin(resource.plugin.id)"
+              >
                 <button type="button" class="sidebar-navigation__item sidebar-navigation__plugin-resource" data-nav-item
                   :class="{ 'sidebar-navigation__plugin-resource--active': resource.plugin.id === activePluginId }"
                   :aria-expanded="isPluginContentVisible(resource.plugin.id)"

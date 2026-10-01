@@ -140,6 +140,11 @@ export function useSidebarPluginNavigation(options: {
     void pluginsStore.ensureDetail(pluginId).catch(() => undefined)
   }
 
+  // Reads a plugin's pages before it is opened. Its row stays as it is: without the expansion there is no spinner.
+  function prefetchPluginPages(pluginId: string) {
+    if (!getPluginDetail(pluginId)) void pluginsStore.ensureDetail(pluginId).catch(() => undefined)
+  }
+
   function togglePluginExpansion(pluginId: string) {
     if (expandedPluginIds.value.has(pluginId)) {
       const nextExpandedPluginIds = new Set(expandedPluginIds.value)
@@ -212,6 +217,7 @@ export function useSidebarPluginNavigation(options: {
     getPluginDisclosureLabel,
     isPluginContentVisible,
     isPluginExpansionPending,
+    prefetchPluginPages,
     navigationPlugins,
     pluginCollection,
     pluginFilter,

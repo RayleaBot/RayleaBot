@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import { lazyRouteComponents, prefetchRouteComponents } from '@/router/prefetch'
+import { lazyRouteComponents, prefetchRouteComponents, prefetchRouteLocation } from '@/router/prefetch'
 
 const Page = { template: '<div />' }
 
@@ -25,6 +25,14 @@ describe('route prefetch', () => {
   it('collects lazy page loaders and skips development pages', () => {
     const loaders = [vi.fn(), vi.fn(), vi.fn()].map(fn => fn.mockResolvedValue(Page))
     expect(lazyRouteComponents(createFixtureRouter(loaders))).toEqual([loaders[0], loaders[1]])
+  })
+
+  // A link the user is about to follow loads its page right away instead of waiting for its idle turn.
+  it('loads only the page a location resolves to', () => {
+    const loaders = [vi.fn(), vi.fn(), vi.fn()].map(fn => fn.mockResolvedValue(Page))
+    prefetchRouteLocation(createFixtureRouter(loaders), '/b')
+    expect(loaders[1]).toHaveBeenCalledTimes(1)
+    expect(loaders[0]).not.toHaveBeenCalled()
   })
 
   it('loads one page per idle turn after the start delay', async () => {

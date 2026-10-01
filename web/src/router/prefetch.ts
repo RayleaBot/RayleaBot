@@ -1,4 +1,4 @@
-import type { RouteComponent, Router } from 'vue-router'
+import type { RouteComponent, RouteLocationRaw, Router } from 'vue-router'
 
 type LazyRouteComponent = () => Promise<RouteComponent>
 
@@ -33,6 +33,15 @@ export function lazyRouteComponents(router: Router): LazyRouteComponent[] {
     }
   }
   return [...loaders]
+}
+
+/** Starts loading the lazy page components a location resolves to, for a link the user is about to follow. */
+export function prefetchRouteLocation(router: Router, location: RouteLocationRaw) {
+  for (const record of router.resolve(location).matched) {
+    for (const component of Object.values(record.components ?? {})) {
+      if (typeof component === 'function') void (component as LazyRouteComponent)().catch(() => undefined)
+    }
+  }
 }
 
 /**
