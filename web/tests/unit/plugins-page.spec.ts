@@ -308,7 +308,7 @@ describe('PluginsPage', () => {
     expect(wrapper.findAll('.plugin-card__meta .app-tag').filter(tag => tag.text() === '未验证来源')).toHaveLength(1)
     expect(wrapper.find('.plugins-grid').text()).not.toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
-    expect(wrapper.text()).toContain('1 个命令冲突')
+    expect(wrapper.text()).toContain('1 个指令冲突')
     expect(wrapper.find('.plugins-grid').text()).not.toContain('我的运势')
     expect(wrapper.text()).not.toContain('fortune')
     expect(wrapper.text()).not.toContain('显示状态')
@@ -316,7 +316,7 @@ describe('PluginsPage', () => {
     expect(wrapper.find('.plugins-grid').exists()).toBe(true)
     expect(wrapper.find('.plugin-card__meta').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('订阅状态')
-    expect(wrapper.get('.plugin-card__meta').text()).toContain('1 个命令冲突')
+    expect(wrapper.get('.plugin-card__meta').text()).toContain('1 个指令冲突')
 
     await wrapper.get('[data-testid="plugin-manage-button-weather"]').trigger('click')
     await flushPromises()

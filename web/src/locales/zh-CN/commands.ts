@@ -14,7 +14,7 @@ export const commands = {
     description: '当前没有可展示的插件指令。',
   },
   fields: {
-    command: '命令',
+    command: '指令',
     aliases: '别名',
     description: '说明',
     usage: '用法',
@@ -47,7 +47,7 @@ export const commands = {
   permissionDefault: '跟随默认权限',
   permissionInactive: '尚未生效',
   permissionSource: {
-    declared: '命令声明',
+    declared: '指令声明',
     default_level: '默认权限',
   },
   commandSource: {

@@ -96,18 +96,18 @@ export const plugins = {
   sourceType: '来源类型',
   settings: {
     title: '全局插件设置',
-    subtitle: '设置所有插件共用的命令前缀，以及插件图片底部的说明文字。',
+    subtitle: '设置所有插件共用的指令前缀，以及插件图片底部的说明文字。',
     sections: {
-      command: '命令入口',
+      command: '指令入口',
       render: '模板说明',
     },
     hints: {
-      commandPrefixes: '输入前缀后按 Enter 添加，聊天消息以这些前缀开头时进入命令解析。',
+      commandPrefixes: '输入前缀后按 Enter 添加，聊天消息以这些前缀开头时进入指令解析。',
       renderFooterTemplate: '可使用 {placeholders} 占位符。',
     },
     resetDefault: '恢复默认',
     placeholders: {
-      commandPrefixes: '输入命令前缀',
+      commandPrefixes: '输入指令前缀',
     },
   },
   localZip: '本地 ZIP 包',
@@ -126,7 +126,7 @@ export const plugins = {
     role: '发布方',
     trust: '可信度',
     source: '插件源',
-    conflicts: '命令冲突',
+    conflicts: '指令冲突',
     state: '状态',
     sourceRoot: '安装目录',
     sourceRef: '安装方式',
@@ -271,7 +271,7 @@ export const plugins = {
   commandAliases: '别名',
   commandPermission: '权限：{permission}',
   commandUsage: '用法',
-  commandConflictBadge: '命令冲突',
+  commandConflictBadge: '指令冲突',
   commandTriggerLabel: {
     exact: '固定指令',
     setting: '设置指令',
@@ -327,7 +327,7 @@ export const plugins = {
     entryPath: '入口路径',
   },
   health: {
-    commandConflicts: '{count} 个命令冲突',
+    commandConflicts: '{count} 个指令冲突',
     unverifiedSource: '未验证来源',
     enabledButStopped: '已启用未运行',
     runtimeIssue: '运行异常',

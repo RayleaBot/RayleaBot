@@ -246,7 +246,7 @@ describe('CommandsPage', () => {
     expect(wrapper.text()).toContain('设置指令')
     expect(wrapper.text()).toContain('所有成员')
     expect(wrapper.text()).toContain('声明权限：所有成员')
-    expect(wrapper.text()).toContain('权限来源：命令声明')
+    expect(wrapper.text()).toContain('权限来源：指令声明')
     expect(wrapper.text()).toContain('我的运势')
     expect(wrapper.text()).toContain('今日运势')
     expect(wrapper.text()).toContain('!我的运势')

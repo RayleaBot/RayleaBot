@@ -14,7 +14,7 @@ export const accessLists = {
   cards: {
     whitelistTitle: '白名单',
     whitelistHelp: '白名单说明',
-    whitelistDescription: '命中白名单的用户或群会进入命令分发，命令权限与冷却继续生效。',
+    whitelistDescription: '命中白名单的用户或群会进入指令分发，指令权限与冷却继续生效。',
     blacklistTitle: '黑名单',
     blacklistHelp: '黑名单说明',
     blacklistDescription: '命中黑名单的用户或群会被拦截；命中白名单时，仍会继续走权限和冷却检查。',
@@ -61,9 +61,9 @@ export const accessLists = {
   whitelist: {
     enableLabel: '启用白名单',
     emptyWarningTitle: '白名单已启用且当前为空',
-    emptyWarningDescription: '除超级管理员外，所有命令都会被挡下。请尽快补充条目，或先关闭白名单。',
+    emptyWarningDescription: '除超级管理员外，所有指令都会被挡下。请尽快补充条目，或先关闭白名单。',
     enableConfirmTitle: '确认启用空白名单',
-    enableConfirmDescription: '当前没有任何白名单条目。启用后，除超级管理员外，所有命令都会被挡下。',
+    enableConfirmDescription: '当前没有任何白名单条目。启用后，除超级管理员外，所有指令都会被挡下。',
     enableConfirmAction: '确认启用',
   },
   feedback: {

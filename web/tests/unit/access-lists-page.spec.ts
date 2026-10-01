@@ -506,9 +506,9 @@ describe('AccessListsPage', () => {
     await flushPromises()
 
     const emptyWarning = wrapper.get('[data-testid="access-lists-whitelist-empty-warning"]')
-    expect(emptyWarning.text()).toContain('所有命令都会被挡下')
+    expect(emptyWarning.text()).toContain('所有指令都会被挡下')
     // The page keeps the risk in view, so it is not repeated as a toast.
-    expect(toastMessages().some((message) => message.includes('所有命令都会被挡下'))).toBe(false)
+    expect(toastMessages().some((message) => message.includes('所有指令都会被挡下'))).toBe(false)
   }, 15000)
 
   it('copies the target id and keeps the existing success feedback', async () => {
