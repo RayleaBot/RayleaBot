@@ -38,7 +38,7 @@ export type LauncherReadinessSnapshot = {
   status: "ready" | "degraded" | "setup_required" | "failed";
   reason?: string;
   reason_codes?: string[];
-  checks?: { config?: string; database?: string; runtime?: string; render?: string };
+  checks?: { database?: "ok" | "unavailable"; runtime?: "ok" | "preparing" | "resource_missing"; render?: "ok" | "resource_missing" };
   issues?: LauncherDiagnosticIssue[];
 };
 export type LauncherAdapterStatus = {

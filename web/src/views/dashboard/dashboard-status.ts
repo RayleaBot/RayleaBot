@@ -86,8 +86,8 @@ export function describeEventTone(payload: EventsPayload): StatusRowTone {
   return 'muted'
 }
 
-const knownCheckNames = new Set(['config', 'database', 'runtime', 'render', 'adapter', 'plugins', 'scheduler'])
-const knownCheckStates = new Set(['ok', 'passed', 'ready', 'error', 'failed', 'unavailable', 'resource_missing', 'not_configured', 'skipped'])
+const knownCheckNames = new Set(['database', 'runtime', 'render'])
+const knownCheckStates = new Set(['ok', 'unavailable', 'preparing', 'resource_missing'])
 
 // Readiness and diagnostics can report the same issue more than once.
 export function dedupeIssues<T extends Pick<DiagnosticIssue, 'code' | 'severity' | 'summary' | 'remediation'>>(issues: readonly T[] = []) {
@@ -102,10 +102,11 @@ export function dedupeIssues<T extends Pick<DiagnosticIssue, 'code' | 'severity'
 
 export function buildReadinessCheckItems(checks: ReadinessStatusResponse['checks'] = {}) {
   return Object.entries(checks as Record<string, unknown>).map(([key, value]) => {
+    // A resource still being prepared is neither a pass nor a problem yet.
     let status: StatusType = 'muted'
-    if (value === 'ok' || value === 'passed' || value === 'ready') status = 'success'
-    else if (value === 'error' || value === 'failed' || value === 'unavailable') status = 'danger'
-    else if (value) status = 'warning'
+    if (value === 'ok') status = 'success'
+    else if (value === 'unavailable') status = 'danger'
+    else if (value && value !== 'preparing') status = 'warning'
     return {
       key,
       value,

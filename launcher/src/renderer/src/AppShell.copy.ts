@@ -35,9 +35,8 @@ const environmentScopeLabels: Record<EnvironmentCheckScope, string> = {
 
 // Readiness check names and states use the management UI's terms.
 const diagnosticCheckNameLabels: Record<keyof NonNullable<LauncherReadinessSnapshot["checks"]>, string> = {
-  config: "配置",
   database: "数据库",
-  runtime: "运行环境",
+  runtime: "FFmpeg 媒体工具",
   render: "图片生成",
 };
 
@@ -49,6 +48,7 @@ const diagnosticCheckValueLabels: Record<string, string> = {
   missing: "缺失",
   ok: "通过",
   on_demand: "按需准备",
+  preparing: "准备中",
   ready: "已就绪",
   resource_missing: "缺少运行资源",
   setup_required: "待初始化",

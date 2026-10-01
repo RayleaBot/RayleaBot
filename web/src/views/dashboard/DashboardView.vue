@@ -9,9 +9,9 @@ import {
   CircleCheckIcon,
   CircleMinusIcon,
   CircleXIcon,
-  CpuIcon,
   DatabaseIcon,
   FileDownIcon,
+  FilmIcon,
   FolderCheckIcon,
   ImageIcon,
   ListChecksIcon,
@@ -22,7 +22,6 @@ import {
   RadioTowerIcon,
   RefreshCwIcon,
   ServerIcon,
-  SlidersHorizontalIcon,
   TriangleAlertIcon,
 } from '@lucide/vue'
 
@@ -87,12 +86,11 @@ const update = useUpdateStatus()
 // Connections have their own box and plugins stay in the plugin center, so the checks leave them out.
 const hiddenCheckKeys = new Set(['adapter', 'plugins'])
 const checkIcons: Record<string, Component> = {
-  config: SlidersHorizontalIcon,
   database: DatabaseIcon,
   dependencies: PackageCheckIcon,
   filesystem: FolderCheckIcon,
   render: ImageIcon,
-  runtime: CpuIcon,
+  runtime: FilmIcon,
   scheduler: CalendarClockIcon,
   system: ServerIcon,
   tasks: ListChecksIcon,
