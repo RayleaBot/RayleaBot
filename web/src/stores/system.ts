@@ -22,6 +22,7 @@ export const useSystemStore = defineStore('system', () => {
   const system = ref<SystemStatusResponse | null>(null)
   const loading = ref(false)
   const shutdownPending = ref(false)
+  // Set once a stop is expected: this page asked for it, or the service announced that it is stopping.
   const shutdownRequested = ref(false)
   const backupPending = ref(false)
   const diagnosticsPending = ref(false)
@@ -82,6 +83,12 @@ export const useSystemStore = defineStore('system', () => {
   }
 
   function applyEvent(timestamp: string, payload: EventsPayload) {
+    // Whoever stops the service, the Launcher included, it reports stopping before it closes the stream, so the
+    // disconnect that follows is expected rather than a lost connection.
+    if ('service_status' in payload && (payload.service_status === 'stopping' || payload.service_status === 'stopped')) {
+      shutdownRequested.value = true
+    }
+
     const summary = formatDashboardEventSummary(payload)
     if (!summary) {
       return
