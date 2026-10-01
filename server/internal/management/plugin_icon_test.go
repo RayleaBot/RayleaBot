@@ -95,7 +95,7 @@ func TestPluginIconRouteRequiresSession(t *testing.T) {
 	}
 	router := chi.NewRouter()
 	RegisterRoutes(router, RouteDeps{ProtectedRoutes: []ProtectedRouteModule{ProtectedRouteFunc(func(r chi.Router) {
-		registerPluginReadRoutes(r, plugincatalog.New(nil))
+		registerPluginReadRoutes(r, plugincatalog.New(nil), testPluginConfig)
 	})}}, RequireAuthWithConfig(manager, nil))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/plugins/icon-test/icon", nil))

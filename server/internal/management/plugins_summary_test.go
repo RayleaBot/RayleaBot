@@ -26,7 +26,7 @@ func TestListHandler_ReturnsPluginMetadata(t *testing.T) {
 		RuntimeState:      "running",
 	}})
 	router := chi.NewRouter()
-	router.Get("/api/plugins", newListHandler(catalog))
+	router.Get("/api/plugins", newListHandler(catalog, testPluginConfig))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/plugins", nil)
 	rec := httptest.NewRecorder()

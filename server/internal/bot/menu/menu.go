@@ -335,7 +335,8 @@ type commandPrefixView struct {
 }
 
 func pluginPrefixView(prefixes plugins.CommandPrefixes, cfg config.Config) commandPrefixView {
-	return commandPrefixView{all: prefixes.EffectivePrefixes(cfg.CommandPrefixes()), dedicated: append([]string(nil), prefixes.Dedicated...)}
+	view := plugins.BuildCommandPrefixView(prefixes, cfg.CommandPrefixes())
+	return commandPrefixView{all: view.All, dedicated: view.Dedicated}
 }
 
 // chips lists every prefix once, marking the dedicated ones so the template can

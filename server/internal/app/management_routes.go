@@ -84,10 +84,11 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 	consoleWS := managementapi.NewConsoleHandler(platformState.Console, pluginState.Plugins)
 	configHandler := managementapi.NewConfigHandlers(configService)
 	pluginRoutes, err := managementapi.NewPluginRoutes(managementapi.PluginRouteDeps{
-		Catalog:     pluginState.Plugins,
-		Installer:   pluginState.PluginInstaller,
-		Uninstaller: pluginState.PluginUninstaller,
-		Lifecycle:   services.PluginLifecycle,
+		Catalog:       pluginState.Plugins,
+		Installer:     pluginState.PluginInstaller,
+		Uninstaller:   pluginState.PluginUninstaller,
+		Lifecycle:     services.PluginLifecycle,
+		CurrentConfig: runtimeState.CurrentConfig,
 	})
 	if err != nil {
 		return managementRouteState{}, err

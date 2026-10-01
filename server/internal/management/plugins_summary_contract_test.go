@@ -80,10 +80,13 @@ func TestPluginSummaryAndDetailKeepEmptyWireCollections(t *testing.T) {
 		} else {
 			value = body["plugin"].(map[string]any)
 		}
-		for _, field := range []string{"commands", "command_groups", "command_conflicts"} {
+		for _, field := range []string{"commands", "command_groups", "command_conflicts", "dedicated_command_prefixes"} {
 			if array, ok := value[field].([]any); !ok || len(array) != 0 {
 				t.Fatalf("%s %s did not serialize an empty array: %#v", path, field, value[field])
 			}
+		}
+		if prefixes, ok := value["command_prefixes"].([]any); !ok || len(prefixes) != 1 || prefixes[0] != "/" {
+			t.Fatalf("%s 缺少默认通用前缀：%#v", path, value["command_prefixes"])
 		}
 		if value["priority"] != float64(0) || value["block"] != false {
 			t.Fatalf("%s default message policy = %#v", path, value)

@@ -27,6 +27,8 @@ response:
         level: unverified
       webhooks: []
       commands: []
+      command_prefixes: ["/"]
+      dedicated_command_prefixes: []
       command_groups: []
       help: {}
       command_conflicts: []

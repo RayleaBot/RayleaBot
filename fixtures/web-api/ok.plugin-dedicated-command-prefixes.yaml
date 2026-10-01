@@ -1,0 +1,35 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: 插件拒绝通用前缀时，只返回当前生效的专属前缀。
+request:
+  method: GET
+  path: /api/plugins/starrail
+response:
+  status: 200
+  body:
+    plugin:
+      id: starrail
+      name: 星铁
+      role: official
+      state: running
+      commands:
+        - id: stamina
+          name: 体力
+          effective_names: [体力]
+          description: 查询开拓力
+          usage: 体力
+          permission: everyone
+          trigger:
+            type: exact
+            names: [体力]
+      command_groups: []
+      command_prefixes: ["*", "＊", "星铁", "sr"]
+      dedicated_command_prefixes: ["*", "＊", "星铁", "sr"]
+      help: {}
+      command_conflicts: []
+      webhooks: []
+expect:
+  valid: true
+  notes:
+    - 此例的宿主通用前缀为 /，插件声明 accept_global 为 false，两个数组均不追加 /。
+    - 展示保留声明或设置顺序，首项用于生成 *体力；实际匹配仍按最长前缀优先。

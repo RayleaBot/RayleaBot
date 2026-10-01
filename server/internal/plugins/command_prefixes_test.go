@@ -93,3 +93,30 @@ func TestCommandConflictsFollowPrefixReach(t *testing.T) {
 		t.Fatalf("conflicts = %v, want %v", conflicts, want)
 	}
 }
+
+func TestCommandPrefixViewKeepsOrderAndOwnsSlices(t *testing.T) {
+	prefixes := CommandPrefixes{Dedicated: []string{"*", "星铁", "/"}}
+	global := []string{"/", "!"}
+	view := BuildCommandPrefixView(prefixes, global)
+	if !reflect.DeepEqual(view.All, []string{"*", "星铁", "/", "!"}) || !reflect.DeepEqual(view.Dedicated, prefixes.Dedicated) {
+		t.Fatalf("前缀视图 = %+v", view)
+	}
+	view.All[0], view.Dedicated[1] = "changed-all", "changed-dedicated"
+	if !reflect.DeepEqual(prefixes.Dedicated, []string{"*", "星铁", "/"}) || !reflect.DeepEqual(global, []string{"/", "!"}) {
+		t.Fatalf("视图修改影响来源：prefixes=%+v global=%v", prefixes, global)
+	}
+	if view.Dedicated[0] != "*" || view.All[1] != "星铁" {
+		t.Fatalf("视图切片共享了可变数据：%+v", view)
+	}
+}
+
+func TestCommandPrefixViewEmptyCollections(t *testing.T) {
+	view := BuildCommandPrefixView(CommandPrefixes{}, []string{"/"})
+	if !reflect.DeepEqual(view.All, []string{"/"}) || !reflect.DeepEqual(view.Dedicated, []string{}) {
+		t.Fatalf("仅通用前缀视图 = %+v", view)
+	}
+	view = BuildCommandPrefixView(CommandPrefixes{IgnoreGlobal: true}, []string{"/"})
+	if !reflect.DeepEqual(view.All, []string{}) || !reflect.DeepEqual(view.Dedicated, []string{}) {
+		t.Fatalf("无可用前缀时应返回空数组：%+v", view)
+	}
+}

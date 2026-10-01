@@ -31,7 +31,7 @@ func TestDesiredStateHandlersDelegateToLifecycle(t *testing.T) {
 				result.DesiredState, result.RuntimeState = "enabled", "starting"
 				controller := &stubDesiredStateController{enableResult: result, disableResult: result, enableErr: tc.err, disableErr: tc.err}
 				router := chi.NewRouter()
-				registerPluginLifecycleRoutes(router, catalog, controller, nil)
+				registerPluginLifecycleRoutes(router, catalog, controller, nil, testPluginConfig)
 				rec := httptest.NewRecorder()
 				router.ServeHTTP(rec, httptest.NewRequest("POST", "/api/plugins/fixture/"+action, nil))
 				if rec.Code != tc.status {
@@ -62,7 +62,7 @@ func TestDesiredStateHandlersDelegateToLifecycle(t *testing.T) {
 func TestPluginRoutesRejectMissingLifecycleDuringAssembly(t *testing.T) {
 	t.Parallel()
 	routes, err := NewPluginRoutes(PluginRouteDeps{
-		Catalog: plugincatalog.New(nil), Installer: testInstallCoordinator{}, Uninstaller: &stubUninstallCoordinator{},
+		Catalog: plugincatalog.New(nil), Installer: testInstallCoordinator{}, Uninstaller: &stubUninstallCoordinator{}, CurrentConfig: testPluginConfig,
 	})
 	if err == nil || routes != nil {
 		t.Fatal("incomplete plugin routes must fail assembly")

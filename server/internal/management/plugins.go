@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -16,10 +17,11 @@ import (
 )
 
 type PluginRouteDeps struct {
-	Catalog     *plugincatalog.Catalog
-	Installer   plugins.InstallCoordinator
-	Uninstaller plugins.UninstallCoordinator
-	Lifecycle   *pluginservice.Controller
+	Catalog       *plugincatalog.Catalog
+	Installer     plugins.InstallCoordinator
+	Uninstaller   plugins.UninstallCoordinator
+	Lifecycle     *pluginservice.Controller
+	CurrentConfig func() config.Config
 }
 
 const (
@@ -53,42 +55,42 @@ type UninstallCoordinator interface {
 type pluginRoutes struct{ deps PluginRouteDeps }
 
 func NewPluginRoutes(deps PluginRouteDeps) (ProtectedRouteModule, error) {
-	if deps.Catalog == nil || deps.Lifecycle == nil || deps.Installer == nil || deps.Uninstaller == nil {
-		return nil, errors.New("plugin routes require catalog, lifecycle, installer and uninstaller")
+	if deps.Catalog == nil || deps.Lifecycle == nil || deps.Installer == nil || deps.Uninstaller == nil || deps.CurrentConfig == nil {
+		return nil, errors.New("插件路由需要目录、生命周期、安装、卸载与当前配置依赖")
 	}
 	return pluginRoutes{deps: deps}, nil
 }
 
 func (routes pluginRoutes) RegisterProtectedRoutes(router chi.Router) {
 	deps := routes.deps
-	registerPluginReadRoutes(router, deps.Catalog)
+	registerPluginReadRoutes(router, deps.Catalog, deps.CurrentConfig)
 	registerPluginInstallRoutes(router, deps.Catalog, deps.Installer)
-	registerPluginLifecycleRoutes(router, deps.Catalog, deps.Lifecycle, deps.Uninstaller)
-	registerPluginDeadLetterRoutes(router, deps.Catalog, deps.Lifecycle)
+	registerPluginLifecycleRoutes(router, deps.Catalog, deps.Lifecycle, deps.Uninstaller, deps.CurrentConfig)
+	registerPluginDeadLetterRoutes(router, deps.Catalog, deps.Lifecycle, deps.CurrentConfig)
 }
 
-func registerPluginReadRoutes(router chi.Router, catalog plugins.CatalogView) {
-	router.Get("/api/plugins", newListHandler(catalog))
+func registerPluginReadRoutes(router chi.Router, catalog plugins.CatalogView, currentConfig func() config.Config) {
+	router.Get("/api/plugins", newListHandler(catalog, currentConfig))
 	router.Get("/api/plugins/{plugin_id}/icon", newPluginIconHandler(catalog))
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, currentConfig))
 }
 
 func registerPluginInstallRoutes(router chi.Router, catalog plugins.CatalogView, installer plugins.InstallCoordinator) {
 	router.Post("/api/plugins/install", newInstallHandler(installer))
 }
 
-func registerPluginLifecycleRoutes(router chi.Router, catalog plugins.CatalogView, controller DesiredStateController, uninstaller UninstallCoordinator) {
-	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, controller))
-	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, controller))
-	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller))
+func registerPluginLifecycleRoutes(router chi.Router, catalog plugins.CatalogView, controller DesiredStateController, uninstaller UninstallCoordinator, currentConfig func() config.Config) {
+	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, controller, currentConfig))
+	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, controller, currentConfig))
+	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller, currentConfig))
 	router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(uninstaller))
 }
 
-func registerPluginDeadLetterRoutes(router chi.Router, catalog plugins.CatalogView, controller DesiredStateController) {
-	router.Post("/api/plugins/{plugin_id}/recover", newDeadLetterRecoverHandler(catalog, controller))
+func registerPluginDeadLetterRoutes(router chi.Router, catalog plugins.CatalogView, controller DesiredStateController, currentConfig func() config.Config) {
+	router.Post("/api/plugins/{plugin_id}/recover", newDeadLetterRecoverHandler(catalog, controller, currentConfig))
 }
 
-func newListHandler(catalog plugins.CatalogView) http.HandlerFunc {
+func newListHandler(catalog plugins.CatalogView, currentConfig func() config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		query, ok := readCollectionQuery(w, r)
 		if !ok {
@@ -105,15 +107,16 @@ func newListHandler(catalog plugins.CatalogView) http.HandlerFunc {
 		snapshots := catalog.List()
 		conflicts := plugins.DetectCommandConflicts(snapshots)
 		page, meta := plugins.ListPage(snapshots, conflicts, plugins.ListFilter{State: state, Source: source}, query)
+		global := currentConfig().CommandPrefixes()
 		items := make([]SummaryResponse, 0, len(page))
 		for _, snapshot := range page {
-			items = append(items, toSummary(snapshot, conflicts[snapshot.PluginID]))
+			items = append(items, toSummary(snapshot, conflicts[snapshot.PluginID], global))
 		}
 		httpapi.WriteJSON(w, http.StatusOK, ListResponse{Metadata: meta, Items: items})
 	}
 }
 
-func newDetailHandler(catalog plugins.CatalogView) http.HandlerFunc {
+func newDetailHandler(catalog plugins.CatalogView, currentConfig func() config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
@@ -132,7 +135,7 @@ func newDetailHandler(catalog plugins.CatalogView) http.HandlerFunc {
 			return
 		}
 
-		httpapi.WriteJSON(w, http.StatusOK, buildDetail(catalog, snapshot))
+		httpapi.WriteJSON(w, http.StatusOK, buildDetail(catalog, snapshot, currentConfig().CommandPrefixes()))
 	}
 }
 
@@ -195,15 +198,15 @@ func writePluginInstallError(w http.ResponseWriter, r *http.Request, err error) 
 	}
 }
 
-func newEnableHandler(catalog plugins.CatalogView, controller DesiredStateController) http.HandlerFunc {
-	return newDesiredStateHandler(catalog, controller.Enable)
+func newEnableHandler(catalog plugins.CatalogView, controller DesiredStateController, currentConfig func() config.Config) http.HandlerFunc {
+	return newDesiredStateHandler(catalog, controller.Enable, currentConfig)
 }
 
-func newDisableHandler(catalog plugins.CatalogView, controller DesiredStateController) http.HandlerFunc {
-	return newDesiredStateHandler(catalog, controller.Disable)
+func newDisableHandler(catalog plugins.CatalogView, controller DesiredStateController, currentConfig func() config.Config) http.HandlerFunc {
+	return newDesiredStateHandler(catalog, controller.Disable, currentConfig)
 }
 
-func newDesiredStateHandler(catalog plugins.CatalogView, action desiredStateAction) http.HandlerFunc {
+func newDesiredStateHandler(catalog plugins.CatalogView, action desiredStateAction, currentConfig func() config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, err := action(r.Context(), pluginID)
@@ -211,11 +214,11 @@ func newDesiredStateHandler(catalog plugins.CatalogView, action desiredStateActi
 			writeDesiredStateError(w, r, pluginID, err)
 			return
 		}
-		writePluginDetailResponse(w, catalog, snapshot)
+		writePluginDetailResponse(w, catalog, snapshot, currentConfig)
 	}
 }
 
-func newReloadHandler(catalog plugins.CatalogView, controller DesiredStateController) http.HandlerFunc {
+func newReloadHandler(catalog plugins.CatalogView, controller DesiredStateController, currentConfig func() config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller == nil {
@@ -224,14 +227,14 @@ func newReloadHandler(catalog plugins.CatalogView, controller DesiredStateContro
 		}
 		snapshot, err := controller.Reload(r.Context(), pluginID)
 		if err == nil {
-			writePluginDetailResponse(w, catalog, snapshot)
+			writePluginDetailResponse(w, catalog, snapshot, currentConfig)
 			return
 		}
 		writeDesiredStateError(w, r, pluginID, err)
 	}
 }
 
-func newDeadLetterRecoverHandler(catalog plugins.CatalogView, controller DesiredStateController) http.HandlerFunc {
+func newDeadLetterRecoverHandler(catalog plugins.CatalogView, controller DesiredStateController, currentConfig func() config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller == nil {
@@ -240,15 +243,15 @@ func newDeadLetterRecoverHandler(catalog plugins.CatalogView, controller Desired
 		}
 		snapshot, err := controller.RecoverFromDeadLetter(r.Context(), pluginID)
 		if err == nil {
-			writePluginDetailResponse(w, catalog, snapshot)
+			writePluginDetailResponse(w, catalog, snapshot, currentConfig)
 			return
 		}
 		writeDesiredStateError(w, r, pluginID, err)
 	}
 }
 
-func writePluginDetailResponse(w http.ResponseWriter, catalog plugins.CatalogView, snapshot plugins.Snapshot) {
-	httpapi.WriteJSON(w, http.StatusOK, buildDetail(catalog, snapshot))
+func writePluginDetailResponse(w http.ResponseWriter, catalog plugins.CatalogView, snapshot plugins.Snapshot, currentConfig func() config.Config) {
+	httpapi.WriteJSON(w, http.StatusOK, buildDetail(catalog, snapshot, currentConfig().CommandPrefixes()))
 }
 
 func newUninstallHandler(coordinator UninstallCoordinator) http.HandlerFunc {

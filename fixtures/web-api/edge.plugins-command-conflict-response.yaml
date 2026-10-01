@@ -35,6 +35,8 @@ response:
           names:
           - weather
           - tq
+      command_prefixes: ["/"]
+      dedicated_command_prefixes: []
       command_groups:
       - id: query
         title: 查询
@@ -65,6 +67,8 @@ response:
           type: exact
           names:
           - weather-admin
+      command_prefixes: ["/"]
+      dedicated_command_prefixes: []
       command_groups:
       - id: admin
         title: 管理

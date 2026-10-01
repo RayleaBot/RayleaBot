@@ -13,6 +13,8 @@ response:
       role: community
       state: paused
       commands: []
+      command_prefixes: ["/"]
+      dedicated_command_prefixes: []
       command_groups: []
       help: {}
     total: 1

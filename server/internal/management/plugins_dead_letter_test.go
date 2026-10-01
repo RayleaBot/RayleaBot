@@ -36,7 +36,7 @@ func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
 		},
 	}
 	router := chi.NewRouter()
-	registerPluginDeadLetterRoutes(router, catalog, controller)
+	registerPluginDeadLetterRoutes(router, catalog, controller, testPluginConfig)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/recover", nil)
 	rec := httptest.NewRecorder()
@@ -74,7 +74,7 @@ func TestRecoverFromDeadLetterHandler_NotRecoverable(t *testing.T) {
 		recoverErr: plugins.ErrPluginNotInDeadLetter,
 	}
 	router := chi.NewRouter()
-	registerPluginDeadLetterRoutes(router, catalog, controller)
+	registerPluginDeadLetterRoutes(router, catalog, controller, testPluginConfig)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/weather/recover", nil)
 	rec := httptest.NewRecorder()
@@ -102,7 +102,7 @@ func TestRecoverFromDeadLetterHandler_NotFound(t *testing.T) {
 		recoverErr: plugins.ErrPluginNotFound,
 	}
 	router := chi.NewRouter()
-	registerPluginDeadLetterRoutes(router, catalog, controller)
+	registerPluginDeadLetterRoutes(router, catalog, controller, testPluginConfig)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/missing/recover", nil)
 	rec := httptest.NewRecorder()

@@ -1792,6 +1792,10 @@ export interface components {
             trust?: components["schemas"]["PluginTrustSummary"];
             commands: components["schemas"]["PluginCommandSummary"][];
             command_groups: components["schemas"]["command_group"][];
+            /** @description 对本插件生效的命令前缀：生效的专属前缀在前，保留声明或设置覆盖后的顺序； 接受通用前缀时，再按宿主当前配置顺序追加通用前缀并去重。 第一项用于用法示例；这是展示顺序，实际匹配在各类前缀内按最长优先。 专属前缀可单独使用，也可紧跟通用前缀，但本数组不枚举这些组合。 仅在没有生效专属前缀且没有可接受的通用前缀时为空； 正常有效清单与配置下不会为空：宿主通用前缀缺省为 /， accept_global 为 false 且设置覆盖不含有效前缀时保留声明的 dedicated。 插件停用、运行失败或没有命令不会单独清空此数组。 每次读取反映当前生效的插件设置与宿主配置，不使用进程启动时的 init 快照。 */
+            command_prefixes: string[];
+            /** @description 本插件生效的专属命令前缀，保留声明或设置覆盖后的顺序， 是 command_prefixes 的有序子集，用于标记专属前缀。 未声明 command_prefixes，或接受通用前缀且设置覆盖清空了专属前缀时为空； 拒绝通用前缀时，无有效前缀的设置覆盖保留声明的 dedicated。 */
+            dedicated_command_prefixes: string[];
             help: components["schemas"]["help"];
             command_conflicts?: string[];
         };

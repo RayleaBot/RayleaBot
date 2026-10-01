@@ -54,7 +54,7 @@ func TestDetailHandlerReturnsSingleManagementUIEntry(t *testing.T) {
 func requestPluginDetail(t *testing.T, catalog plugins.CatalogView, pluginID string) DetailResponse {
 	t.Helper()
 	router := chi.NewRouter()
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
+	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog, testPluginConfig))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/plugins/"+pluginID, nil))
 	if recorder.Code != http.StatusOK {

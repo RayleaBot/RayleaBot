@@ -5,16 +5,19 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/go-chi/chi/v5"
 )
 
+func testPluginConfig() config.Config { return config.Config{} }
+
 func pluginRouter(t *testing.T, catalog *plugincatalog.Catalog) *chi.Mux {
 	t.Helper()
 
 	router := chi.NewRouter()
-	registerPluginReadRoutes(router, catalog)
+	registerPluginReadRoutes(router, catalog, testPluginConfig)
 	return router
 }
 
@@ -22,9 +25,9 @@ func pluginRouterWithController(t *testing.T, catalog *plugincatalog.Catalog, co
 	t.Helper()
 
 	router := chi.NewRouter()
-	registerPluginReadRoutes(router, catalog)
+	registerPluginReadRoutes(router, catalog, testPluginConfig)
 	if controller != nil {
-		registerPluginLifecycleRoutes(router, catalog, controller, uninstaller)
+		registerPluginLifecycleRoutes(router, catalog, controller, uninstaller, testPluginConfig)
 	} else {
 		router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(uninstaller))
 	}

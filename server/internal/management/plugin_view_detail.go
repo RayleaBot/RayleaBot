@@ -102,8 +102,8 @@ func buildPluginManagementUI(snapshot plugins.Snapshot) *ManagementUIResponse {
 	return response
 }
 
-func buildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot) DetailResponse {
-	summary := buildSummary(catalog, snapshot)
+func buildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot, global []string) DetailResponse {
+	summary := buildSummary(catalog, snapshot, global)
 	return DetailResponse{
 		Plugin: DetailPluginResponse{
 			SummaryResponse: summary,

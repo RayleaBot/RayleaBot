@@ -37,6 +37,8 @@ response:
           - weather
           - tq
           - 天气
+      command_prefixes: ["/"]
+      dedicated_command_prefixes: []
       command_groups:
       - id: query
         title: 查询
@@ -74,6 +76,8 @@ response:
           names:
           - fortune
           - 运势
+      command_prefixes: ["/"]
+      dedicated_command_prefixes: []
       command_groups:
       - id: fortune
         title: 运势

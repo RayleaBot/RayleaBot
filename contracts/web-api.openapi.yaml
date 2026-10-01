@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RayleaBot Web API
-  version: 0.5.0
+  version: 0.5.1
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
@@ -19,6 +19,7 @@ info:
     fields in closed objects, and oversized bodies return HTTP 400 with
     platform.invalid_request after the route's authentication checks.
 x-fixtures:
+  - fixtures/web-api/ok.plugin-dedicated-command-prefixes.yaml
   - fixtures/web-api/ok.plugin-message-policy.yaml
   - fixtures/web-api/ok.log-detail-response.outbound-qqofficial.yaml
   - fixtures/web-api/ok.log-detail-response.outbound-onebot11.yaml
@@ -3833,6 +3834,8 @@ components:
       - state
       - commands
       - command_groups
+      - command_prefixes
+      - dedicated_command_prefixes
       - help
       properties:
         priority:
@@ -3870,6 +3873,33 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PluginCommandGroup'
+        command_prefixes:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+          description: >-
+            对本插件生效的命令前缀：生效的专属前缀在前，保留声明或设置覆盖后的顺序；
+            接受通用前缀时，再按宿主当前配置顺序追加通用前缀并去重。
+            第一项用于用法示例；这是展示顺序，实际匹配在各类前缀内按最长优先。
+            专属前缀可单独使用，也可紧跟通用前缀，但本数组不枚举这些组合。
+            仅在没有生效专属前缀且没有可接受的通用前缀时为空；
+            正常有效清单与配置下不会为空：宿主通用前缀缺省为 /，
+            accept_global 为 false 且设置覆盖不含有效前缀时保留声明的 dedicated。
+            插件停用、运行失败或没有命令不会单独清空此数组。
+            每次读取反映当前生效的插件设置与宿主配置，不使用进程启动时的 init 快照。
+        dedicated_command_prefixes:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+          description: >-
+            本插件生效的专属命令前缀，保留声明或设置覆盖后的顺序，
+            是 command_prefixes 的有序子集，用于标记专属前缀。
+            未声明 command_prefixes，或接受通用前缀且设置覆盖清空了专属前缀时为空；
+            拒绝通用前缀时，无有效前缀的设置覆盖保留声明的 dedicated。
         help:
           $ref: '#/components/schemas/PluginHelp'
         command_conflicts:

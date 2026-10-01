@@ -54,10 +54,10 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			ProtectedRouteFunc(func(r chi.Router) {
 				catalog := plugincatalog.New(nil)
 				controller := &stubDesiredStateController{}
-				registerPluginReadRoutes(r, catalog)
+				registerPluginReadRoutes(r, catalog, testPluginConfig)
 				registerPluginInstallRoutes(r, catalog, nil)
-				registerPluginLifecycleRoutes(r, catalog, controller, nil)
-				registerPluginDeadLetterRoutes(r, catalog, controller)
+				registerPluginLifecycleRoutes(r, catalog, controller, nil, testPluginConfig)
+				registerPluginDeadLetterRoutes(r, catalog, controller, testPluginConfig)
 			}),
 			PluginStoreRoutes{Service: emptyPluginStoreService{}},
 		},

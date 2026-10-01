@@ -9,9 +9,11 @@ import (
 
 type SummaryResponse struct {
 	plugins.Summary
-	Commands      []CommandResponse      `json:"commands"`
-	CommandGroups []CommandGroupResponse `json:"command_groups"`
-	Help          plugins.HelpView       `json:"help"`
+	Commands                 []CommandResponse      `json:"commands"`
+	CommandGroups            []CommandGroupResponse `json:"command_groups"`
+	CommandPrefixes          []string               `json:"command_prefixes"`
+	DedicatedCommandPrefixes []string               `json:"dedicated_command_prefixes"`
+	Help                     plugins.HelpView       `json:"help"`
 }
 
 type CommandResponse struct {
@@ -42,21 +44,24 @@ type ListResponse struct {
 	Items []SummaryResponse `json:"items"`
 }
 
-func buildSummary(catalog plugins.CatalogView, snapshot plugins.Snapshot) SummaryResponse {
+func buildSummary(catalog plugins.CatalogView, snapshot plugins.Snapshot, global []string) SummaryResponse {
 	if catalog == nil {
-		return toSummary(snapshot, nil)
+		return toSummary(snapshot, nil, global)
 	}
 	conflicts := plugins.DetectCommandConflicts(catalog.List())
-	return toSummary(snapshot, conflicts[snapshot.PluginID])
+	return toSummary(snapshot, conflicts[snapshot.PluginID], global)
 }
 
-func toSummary(snapshot plugins.Snapshot, conflicts []string) SummaryResponse {
+func toSummary(snapshot plugins.Snapshot, conflicts []string, global []string) SummaryResponse {
 	view := plugins.BuildSummaryView(snapshot, conflicts)
+	prefixes := plugins.BuildCommandPrefixView(snapshot.CommandPrefixes, global)
 	return SummaryResponse{
-		Summary:       view.Summary,
-		Commands:      toCommandResponses(view.Commands),
-		CommandGroups: toCommandGroupResponses(view.CommandGroups),
-		Help:          toHelpResponse(view.Help),
+		Summary:                  view.Summary,
+		Commands:                 toCommandResponses(view.Commands),
+		CommandGroups:            toCommandGroupResponses(view.CommandGroups),
+		CommandPrefixes:          prefixes.All,
+		DedicatedCommandPrefixes: prefixes.Dedicated,
+		Help:                     toHelpResponse(view.Help),
 	}
 }
 
