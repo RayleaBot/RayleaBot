@@ -11,7 +11,7 @@ import (
 )
 
 // currentSchemaVersion identifies the structure in schema.sql.
-const currentSchemaVersion = "000003"
+const currentSchemaVersion = "000004"
 
 // schemaMigration runs sql, then apply when set, in one transaction.
 type schemaMigration struct {
@@ -25,6 +25,7 @@ func schemaMigrations() []schemaMigration {
 ALTER TABLE plugin_kv ADD COLUMN expires_at_ms INTEGER;
 CREATE INDEX idx_plugin_kv_expiry ON plugin_kv(expires_at_ms) WHERE expires_at_ms IS NOT NULL;`},
 		{from: "000002", to: "000003", apply: decryptLegacySecrets},
+		{from: "000003", to: "000004", sql: messageStatsSchema},
 	}
 }
 

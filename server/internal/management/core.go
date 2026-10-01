@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/messagestats"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
@@ -24,6 +25,7 @@ const (
 )
 
 type CoreHandlers struct {
+	messageStats         MessageStatsService
 	currentConfig        func() config.Config
 	auth                 coreAuthService
 	system               coreSystemService
@@ -32,6 +34,7 @@ type CoreHandlers struct {
 }
 
 type CoreDeps struct {
+	MessageStats         MessageStatsService
 	CurrentConfig        func() config.Config
 	Auth                 coreAuthService
 	System               coreSystemService
@@ -44,6 +47,7 @@ func NewCoreHandlers(deps CoreDeps) *CoreHandlers {
 		deps.CurrentConfig = func() config.Config { return config.Config{} }
 	}
 	return &CoreHandlers{
+		messageStats:         deps.MessageStats,
 		currentConfig:        deps.CurrentConfig,
 		auth:                 deps.Auth,
 		system:               deps.System,
@@ -61,6 +65,7 @@ func (h *CoreHandlers) RegisterPublicRoutes(router chi.Router) {
 func (h *CoreHandlers) RegisterProtectedRoutes(router chi.Router) {
 	router.Delete("/api/session", h.HandleSessionLogout())
 	router.Get("/api/system/status", h.HandleSystemStatus())
+	router.Get("/api/system/message-stats", h.HandleMessageStats())
 	router.Post("/api/system/shutdown", h.HandleSystemShutdown())
 }
 
@@ -71,6 +76,10 @@ type coreAuthService interface {
 
 type coreSystemService interface {
 	StatusSnapshot() systemsvc.StatusSnapshot
+}
+
+type MessageStatsService interface {
+	Query(context.Context, messagestats.Query) (messagestats.Response, error)
 }
 
 type coreSetupStatusResponse struct {

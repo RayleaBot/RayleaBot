@@ -65,6 +65,7 @@ func (c *Client) Reload(qq config.QQOfficialConfig) bool {
 
 	// A resumed session carries the intents and identity of the connection that
 	// opened it, so the next attempt has to identify afresh.
+	c.setState(StateConnecting, "")
 	c.wakeConnectionLoop()
 	return true
 }

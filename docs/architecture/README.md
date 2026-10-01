@@ -50,6 +50,7 @@ flowchart TB
 | Adapter | OneBot11 与 QQ 官方的实例启停、transport、鉴权、归一化和动作转换 | 业务持久化和插件治理 |
 | Chat Policy Ingress | 元数据补齐、按插件生效前缀的命令解析与目标确定、黑白名单、命令权限、冷却和 reply target | 插件进程管理或治理数据突变 |
 | Bridge | 统一事件结构校验与观测 | 平台内部事件的重复转发层 |
+| Message Statistics | 入口收信、确认发送的小时计数，连接离线与服务运行记录，按有效时区生成查询视图 | 从日志反推计数或让客户端累计业务状态 |
 | Dispatcher | 按 Ingress 确定的命令目标或事件订阅选择插件、按会话 lane 排队、优先级分层和出站动作执行 | 直接访问插件私有存储；脱离前缀按命令名重新匹配 |
 | Runtime Manager | 插件子进程、JSONL、握手、保活、事件 session、本地动作 RPC，以及插件间服务调用的路由与期限 | 直接执行平台能力；解释服务的业务参数或决定调用许可 |
 | Plugin Lifecycle Controller | 发现、启停、重载、崩溃恢复，以及安装与卸载事务协调 | 绕过按插件串行的操作门 |
@@ -140,6 +141,7 @@ Scheduler 以插件 ID、任务 ID 和 revision 维护单一 mutation path，只
 | --- | --- | --- | --- |
 | 对外接口与发布元数据 | `contracts/` | schema、OpenAPI、WebSocket、errors、CLI、fixtures | 所有实现与文档 |
 | 服务生命周期与运行状态 | App / domain services | SQLite、配置快照、受保护内存状态 | API、CLI、Launcher |
+| 消息统计与中断历史 | Message Statistics | SQLite 小时计数、最近收信时间、运行与离线区间，以及锁保护的待写增量；不自动清理 | 管理 API |
 | 聊天适配器连接与事件 | Adapter / Event Pipeline | 按实例隔离的 adapter snapshot 与统一事件 | Dispatcher、协议管理面 |
 | 插件声明、启用意图与管理投影 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源与用户意图 | Lifecycle、管理面 |
 | 插件进程与事件 session | Runtime Manager / Registry | 当前、待发布及退出中的 runtime snapshot；未完成的服务调用登记在调用方与提供者各自的事件 session 上；后台事件的期限与结束 | Lifecycle；Dispatcher 读取投递就绪状态与后台事件的结束 |

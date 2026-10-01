@@ -53,6 +53,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		SetupToken:    managementapi.NewOneTimeToken(deps.SetupToken),
 	})
 	managementHandler := managementapi.NewCoreHandlers(managementapi.CoreDeps{
+		MessageStats:         platformState.MessageStats,
 		Auth:                 platformState.Auth,
 		System:               services.System,
 		RequestShutdown:      deps.RequestShutdown,

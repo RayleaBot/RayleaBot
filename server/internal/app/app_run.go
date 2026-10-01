@@ -355,4 +355,5 @@ func configureAppRuntimeCallbacks(application *App) {
 		// reaches the management surface through the adapters listing.
 		client.SetStateHandler(publishAdapterState)
 	}
+	protocolService.PublishSnapshot()
 }

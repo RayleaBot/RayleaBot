@@ -1,0 +1,243 @@
+package messagestats
+
+import (
+	"context"
+	"database/sql"
+	"maps"
+	"sort"
+	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
+)
+
+type Counts struct {
+	Received int64 `json:"received"`
+	Sent     int64 `json:"sent"`
+}
+
+func (c *Counts) add(other Counts) { c.Received += other.Received; c.Sent += other.Sent }
+
+type Connection struct {
+	AdapterID      string     `json:"adapter_id"`
+	Protocol       string     `json:"protocol"`
+	Configured     bool       `json:"configured"`
+	Received       []int64    `json:"received"`
+	Sent           []int64    `json:"sent"`
+	Totals         Counts     `json:"totals"`
+	Previous       *Counts    `json:"previous,omitempty"`
+	LastReceivedAt *time.Time `json:"last_received_at,omitempty"`
+}
+type Incident struct {
+	Kind      string     `json:"kind"`
+	AdapterID string     `json:"adapter_id,omitempty"`
+	StartedAt time.Time  `json:"started_at"`
+	EndedAt   *time.Time `json:"ended_at,omitempty"`
+}
+type Response struct {
+	Granularity        string       `json:"granularity"`
+	Timezone           string       `json:"timezone"`
+	StartAt            time.Time    `json:"start_at"`
+	EndAt              time.Time    `json:"end_at"`
+	AsOf               time.Time    `json:"as_of"`
+	TrackingStartedAt  time.Time    `json:"tracking_started_at"`
+	Buckets            []time.Time  `json:"buckets"`
+	Totals             Counts       `json:"totals"`
+	Previous           *Counts      `json:"previous,omitempty"`
+	Connections        []Connection `json:"connections"`
+	Incidents          []Incident   `json:"incidents"`
+	IncidentsTruncated bool         `json:"incidents_truncated"`
+}
+
+func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
+	r, err := align(query, s.location)
+	if err != nil {
+		return Response{}, err
+	}
+	s.ioMu.Lock()
+	defer s.ioMu.Unlock()
+	now := s.timeNow()
+	length := r.end.Sub(r.start)
+	previousStart := r.start.Add(-length)
+	hasPrevious := !previousStart.Before(s.tracking)
+	from := r.start
+	if hasPrevious {
+		from = previousStart
+	}
+	through := minTime(r.end, now)
+	endSecond := through.Unix()
+	if through.Nanosecond() != 0 {
+		endSecond++
+	}
+	q := sqlcgen.New(s.store.Read)
+	rows, err := q.ListMessageStatsHours(ctx, sqlcgen.ListMessageStatsHoursParams{StartHour: from.Unix(), EndHour: endSecond})
+	if err != nil {
+		return Response{}, err
+	}
+	metadata, err := q.ListMessageStatsAdapters(ctx)
+	if err != nil {
+		return Response{}, err
+	}
+	offline, err := q.ListMessageStatsOffline(ctx, sqlcgen.ListMessageStatsOfflineParams{AsOfMs: now.UnixMilli(), CurrentRunID: s.runID, StartMs: sql.NullInt64{Int64: r.start.UnixMilli(), Valid: true}})
+	if err != nil {
+		return Response{}, err
+	}
+	stops, err := q.ListMessageStatsStops(ctx, sqlcgen.ListMessageStatsStopsParams{AsOfMs: sql.NullInt64{Int64: now.UnixMilli(), Valid: true}, StartMs: r.start.UnixMilli()})
+	if err != nil {
+		return Response{}, err
+	}
+	s.mu.Lock()
+	now = s.timeNow()
+	pending, pendingMetadata := maps.Clone(s.pending), maps.Clone(s.metadata)
+	intervals := s.openOffline(now)
+	s.mu.Unlock()
+
+	view := Response{Granularity: r.granularity, Timezone: s.location.String(), StartAt: r.start, EndAt: r.end, AsOf: now, TrackingStartedAt: s.tracking,
+		Buckets: []time.Time{}, Connections: []Connection{}, Incidents: []Incident{}}
+	first := floor(s.tracking, r.granularity, s.location)
+	bucketIndex := make(map[int64]int)
+	for _, b := range r.buckets {
+		if !b.Before(first) && b.Before(now) {
+			bucketIndex[b.Unix()] = len(view.Buckets)
+			view.Buckets = append(view.Buckets, b)
+		}
+	}
+	previousEnd := minTime(r.end, now).Add(-length)
+	if hasPrevious {
+		view.Previous = &Counts{}
+	}
+	counts := make(map[hourKey]Counts, len(rows)+len(pending))
+	for _, row := range rows {
+		counts[hourKey{row.HourStart, row.AdapterID}] = Counts{row.Received, row.Sent}
+	}
+	for key, value := range pending {
+		total := counts[key]
+		total.add(value)
+		counts[key] = total
+	}
+	connections := make(map[string]*Connection)
+	connection := func(id string) *Connection {
+		if c, ok := connections[id]; ok {
+			return c
+		}
+		c := &Connection{AdapterID: id, Received: make([]int64, len(view.Buckets)), Sent: make([]int64, len(view.Buckets))}
+		if hasPrevious {
+			c.Previous = &Counts{}
+		}
+		connections[id] = c
+		return c
+	}
+	for key, value := range counts {
+		hour := time.Unix(key.start, 0).UTC()
+		bucket := floor(hour, r.granularity, s.location)
+		index, inRange := bucketIndex[bucket.Unix()]
+		inPrevious := hasPrevious && !hour.Before(previousStart) && hour.Before(previousEnd)
+		if !inRange && !inPrevious {
+			continue
+		}
+		c := connection(key.adapter)
+		if inRange {
+			c.Received[index] += value.Received
+			c.Sent[index] += value.Sent
+			c.Totals.add(value)
+			view.Totals.add(value)
+		}
+		if inPrevious {
+			c.Previous.add(value)
+			view.Previous.add(value)
+		}
+	}
+	cfg := s.config()
+	for _, a := range cfg.Adapters {
+		c := connection(a.ID)
+		c.Protocol, c.Configured = a.Type, true
+	}
+	setMetadata := func(id, protocol string, last sql.NullInt64) {
+		c, ok := connections[id]
+		if !ok {
+			return
+		}
+		if !c.Configured {
+			c.Protocol = protocol
+		}
+		if last.Valid {
+			at := time.UnixMilli(last.Int64).UTC()
+			if c.LastReceivedAt == nil || at.After(*c.LastReceivedAt) {
+				c.LastReceivedAt = &at
+			}
+		}
+	}
+	for _, meta := range metadata {
+		setMetadata(meta.AdapterID, meta.Protocol, meta.LastReceivedAtMs)
+	}
+	for _, meta := range pendingMetadata {
+		setMetadata(meta.AdapterID, meta.Protocol, meta.LastReceivedAtMs)
+	}
+	for _, a := range cfg.Adapters {
+		if c, ok := connections[a.ID]; ok {
+			view.Connections = append(view.Connections, *c)
+			delete(connections, a.ID)
+		}
+	}
+	ids := make([]string, 0, len(connections))
+	for id := range connections {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		view.Connections = append(view.Connections, *connections[id])
+	}
+	view.Incidents, view.IncidentsTruncated = s.incidents(offline, stops, intervals, r.start, now)
+	return view, nil
+}
+
+func (s *Service) incidents(rows []sqlcgen.MessageStatsOffline, stops []sqlcgen.ListMessageStatsStopsRow, intervals map[offlineKey]sql.NullInt64, start, now time.Time) ([]Incident, bool) {
+	for _, row := range rows {
+		key := offlineKey{row.RunID, row.AdapterID, row.StartedAtMs}
+		if _, exists := intervals[key]; !exists {
+			intervals[key] = row.EndedAtMs
+		}
+	}
+	items := make([]Incident, 0, len(intervals))
+	for key, end := range intervals {
+		at := time.UnixMilli(key.start).UTC()
+		through := now
+		if end.Valid {
+			through = time.UnixMilli(end.Int64).UTC()
+		}
+		if at.Before(s.tracking) || !at.Before(now) || !through.After(start) || through.Sub(at) < 30*time.Second {
+			continue
+		}
+		incident := Incident{Kind: "adapter_offline", AdapterID: key.adapter, StartedAt: at}
+		if end.Valid {
+			incident.EndedAt = &through
+		}
+		items = append(items, incident)
+	}
+	for _, stop := range stops {
+		at, end := time.UnixMilli(stop.StartedAtMs.Int64).UTC(), time.UnixMilli(stop.EndedAtMs).UTC()
+		if !at.Before(s.tracking) {
+			items = append(items, Incident{Kind: "server_stopped", StartedAt: at, EndedAt: &end})
+		}
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if !items[i].StartedAt.Equal(items[j].StartedAt) {
+			return items[i].StartedAt.Before(items[j].StartedAt)
+		}
+		if items[i].Kind != items[j].Kind {
+			return items[i].Kind < items[j].Kind
+		}
+		return items[i].AdapterID < items[j].AdapterID
+	})
+	truncated := len(items) > 1000
+	if truncated {
+		items = items[len(items)-1000:]
+	}
+	return items, truncated
+}
+
+func minTime(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+	return b
+}

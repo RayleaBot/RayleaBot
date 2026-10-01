@@ -18,6 +18,7 @@ import (
 const dispatcherRuntimeFlushInterval = 10 * time.Second
 
 type eventDeps struct {
+	MessageSent    func(string, string)
 	Config         config.Config
 	CurrentConfig  func() config.Config
 	Logger         *slog.Logger
@@ -25,6 +26,7 @@ type eventDeps struct {
 }
 
 type EventState struct {
+	MessageSent func(string, string)
 	// Adapter objects live for the application lifetime. Their instance switch
 	// gates transports and routing, so toggling it does not mutate these maps.
 	OneBotShells    map[string]*onebot11.Shell
@@ -40,6 +42,9 @@ type EventState struct {
 }
 
 func buildEvents(deps eventDeps) EventState {
+	if deps.MessageSent == nil {
+		deps.MessageSent = func(string, string) {}
+	}
 	// Adapters are built from the configured instances and keyed by instance id.
 	// Several instances may share a protocol, so routing keys on the id.
 	senders := make(map[string]outbound.ActionSender, len(deps.Config.Adapters))
@@ -90,7 +95,7 @@ func buildEvents(deps eventDeps) EventState {
 		}
 	}
 
-	outboundSender := outbound.NewRouter(senders, protocols, currentConfig)
+	outboundSender := outbound.NewRouter(senders, protocols, currentConfig, deps.MessageSent)
 
 	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(
@@ -118,6 +123,7 @@ func buildEvents(deps eventDeps) EventState {
 	eventDispatcher.StartObservabilityFlush(dispatcherRuntimeFlushInterval)
 
 	return EventState{
+		MessageSent:     deps.MessageSent,
 		OneBotShells:    oneBotShells,
 		BotIdentity:     identity,
 		QQOfficial:      qqClients,

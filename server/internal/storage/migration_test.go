@@ -44,7 +44,7 @@ func TestOpenMigratesLegacyAndPreservesBusinessData(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	metadata, err := store.SchemaMetadata(t.Context())
-	if err != nil || metadata.Version != "000003" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
+	if err != nil || metadata.Version != "000004" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
 		t.Fatalf("metadata changed: %#v %v", metadata, err)
 	}
 	var value string
@@ -131,7 +131,7 @@ func TestMigrationUnknownVersionDoesNotWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = db.Close() }()
-	if _, err := db.Exec("UPDATE schema_metadata SET version='000004'"); err != nil {
+	if _, err := db.Exec("UPDATE schema_metadata SET version='999999'"); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {

@@ -1,11 +1,13 @@
 package app
 
 import (
+	"errors"
 	"log/slog"
 	"time"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/governance"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/messagestats"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	permissionsqlite "github.com/RayleaBot/RayleaBot/server/internal/bot/permission/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/chatpolicy"
@@ -73,6 +75,9 @@ func (fn statusPublisherFunc) PublishSnapshot() {
 func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	runtimeState := deps.Runtime
 	platform := deps.Platform
+	if platform.MessageStats == nil {
+		return serviceBuildResult{}, errors.New("message statistics service is required")
+	}
 	pluginStack := deps.Plugins
 	eventStack := deps.Events
 	renderer := deps.Renderer
@@ -106,6 +111,14 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		qqStatus[id] = client
 	}
 	protocolService, err := adapterservice.NewService(runtimeState, adapterservice.Instances{
+		Observe: func(view adapterservice.AdaptersView) {
+			items := make([]messagestats.Adapter, 0, len(view.Adapters))
+			for _, a := range view.Adapters {
+				items = append(items, messagestats.Adapter{ID: a.ID, Enabled: a.Enabled, Connected: a.State == "connected"})
+			}
+			platform.MessageStats.ObserveAdapters(items)
+		},
+		Reloaded:   platform.MessageStats.ReloadAdapter,
 		OneBot11:   eventStack.OneBotShells,
 		QQOfficial: qqStatus,
 	})
@@ -151,6 +164,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		return serviceBuildResult{}, err
 	}
 	eventIngress := chatpolicy.NewIngress(chatpolicy.IngressDeps{
+		MessageReceived:  platform.MessageStats.Received,
 		CurrentConfig:    runtimeState.CurrentConfig,
 		Logger:           runtimeState.RuntimeLogger(),
 		Plugins:          pluginStack.Plugins,

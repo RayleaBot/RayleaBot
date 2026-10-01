@@ -6,6 +6,7 @@
 
 - 配置校验与热更新、SQLite 持久化、管理认证、secret store 与日志。
 - OneBot11 和 QQ 官方适配器实例、统一聊天事件、命令治理与出站消息。
+- 按适配器实例统计收到与确认发出的消息，提供小时或本地自然日趋势、前期比较及连接/服务中断时段。
 - 插件 artifact 安装、商店来源、生命周期、JSONL 协议、私有存储与宿主动作。
 - 调度、模板渲染、插件浏览器会话、运行资源准备、备份恢复和版本检查。
 - HTTP/WebSocket 管理面、Launcher 本机控制与离线 CLI。
@@ -19,6 +20,10 @@
 聊天事件、消息段和出站消息命令归 `internal/bot/chatevent`；插件声明与执行结果归 `internal/plugins`；调度运行记录归 `internal/scheduler`。Dispatcher 通过投递接口使用运行时，适配器路由位于 `internal/bot/pipeline/outbound`。只有 lifecycle 管理进程重载和旧实例回收，JSONL 帧留在 `plugins/runtime`。
 
 ## 当前边界
+
+消息统计由 `internal/bot/messagestats` 维护，通过 `GET /api/system/message-stats` 查询。收到计数位于公共事件入口，早于路由和治理；发送只计平台确认成功的逻辑发送。SQLite 结构 `000004` 保存 UTC 小时计数、适配器协议与最近收信时间、统计起点、服务运行记录及连接离线区间；这些统计数据不自动清理，也不从旧日志回填。
+
+统计增量与存活时间每 30 秒事务写入一次，查询同时读取未写入的增量。优雅关闭在现有最终持久化预算内刷盘；异常退出可能丢失最后一批未刷盘计数，停机起点按上次存活记录估计。日桶使用与配置响应相同的有效时区，按小时起点归属自然日；非整点时区不拆分小时，夏令时按实际日界聚合。
 
 - 单实例 Server 与 SQLite；聊天连接按 `adapters` 实例管理，支持 OneBot11 与 QQ 官方协议
 - 插件 runtime 通过正式 local action surface 访问平台能力

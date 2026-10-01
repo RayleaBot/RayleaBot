@@ -99,6 +99,9 @@ type ConfigSource interface {
 }
 
 type Service struct {
+	observe                   func(AdaptersView)
+	reloaded                  func(string)
+	lastConfig                config.Config
 	config                    ConfigSource
 	oneBotShells              map[string]*onebot11.Shell
 	qqClients                 map[string]QQOfficialAdapter
@@ -112,6 +115,8 @@ type Service struct {
 
 // Instances are the configured adapters, keyed by instance id.
 type Instances struct {
+	Observe  func(AdaptersView)
+	Reloaded func(string)
 	// OneBot11 contains every configured instance, including disabled ones.
 	OneBot11   map[string]*onebot11.Shell
 	QQOfficial map[string]QQOfficialAdapter
@@ -122,6 +127,12 @@ var ErrStopped = errors.New("adapter service stopped")
 func NewService(configSource ConfigSource, instances Instances) (*Service, error) {
 	if configSource == nil {
 		return nil, errors.New("adapter config source is required")
+	}
+	if instances.Observe == nil {
+		instances.Observe = func(AdaptersView) {}
+	}
+	if instances.Reloaded == nil {
+		instances.Reloaded = func(string) {}
 	}
 	oneBotShells := make(map[string]*onebot11.Shell, len(instances.OneBot11))
 	for id, shell := range instances.OneBot11 {
@@ -138,6 +149,7 @@ func NewService(configSource ConfigSource, instances Instances) (*Service, error
 		qqClients[id] = client
 	}
 	return &Service{
+		observe: instances.Observe, reloaded: instances.Reloaded, lastConfig: configSource.CurrentConfig(),
 		config:                    configSource,
 		oneBotShells:              oneBotShells,
 		qqClients:                 qqClients,
@@ -176,6 +188,8 @@ func (s *Service) ApplyConfigReload(cfg config.Config) error {
 		}
 		if err := shell.Reload(settings, cfg.Adapter); err != nil {
 			failures = append(failures, fmt.Errorf("adapter %s: %w", id, err))
+		} else if previous, ok := s.lastConfig.OneBot11RuntimeSettings(id); !ok || previous != settings || s.lastConfig.Adapter != cfg.Adapter {
+			s.reloaded(id)
 		}
 	}
 
@@ -186,10 +200,13 @@ func (s *Service) ApplyConfigReload(cfg config.Config) error {
 		}
 		// The client logs the reconnect itself, where the adapter id and the
 		// new settings are both in hand.
-		client.Reload(settings)
+		if client.Reload(settings) {
+			s.reloaded(id)
+		}
 		instance, _ := cfg.AdapterByID(id)
 		client.SetEnabled(instance.Enabled)
 	}
+	s.lastConfig = cfg
 
 	// Preserve each adapter failure so the configuration coordinator can retain
 	// the effective settings and report fields that require a restart.
@@ -203,6 +220,7 @@ func (s *Service) PublishSnapshot() {
 	s.snapshotMu.Lock()
 	defer s.snapshotMu.Unlock()
 	snapshot := s.Adapters()
+	s.observe(snapshot)
 	s.hub.PublishReplaceEach(func() AdaptersView { return cloneView(snapshot) })
 }
 

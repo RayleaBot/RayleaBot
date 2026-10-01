@@ -22,7 +22,23 @@ func (s EventState) ResolveOneBotAdapter(sourceAdapter, sourceProtocol string) (
 	if shell == nil {
 		return nil, fmt.Errorf("adapter %q does not serve OneBot11 actions", id)
 	}
-	return shell, nil
+	return observedOneBotAdapter{OneBotAdapter: shell, id: id, messageSent: s.MessageSent}, nil
+}
+
+// Forward sends bypass the outbound Router. Observe the resolved instance,
+// counting the whole forward once, irrespective of its number of nodes.
+type observedOneBotAdapter struct {
+	actions.OneBotAdapter
+	id          string
+	messageSent func(string, string)
+}
+
+func (a observedOneBotAdapter) CallAPIAny(ctx context.Context, action string, params map[string]any) (any, error) {
+	result, err := a.OneBotAdapter.CallAPIAny(ctx, action, params)
+	if err == nil && (action == "send_group_forward_msg" || action == "send_private_forward_msg") {
+		a.messageSent(a.id, "onebot11")
+	}
+	return result, err
 }
 
 func (s EventState) EnrichEventMetadata(ctx context.Context, event chatevent.NormalizedEvent) chatevent.NormalizedEvent {

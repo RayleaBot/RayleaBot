@@ -188,6 +188,37 @@ CREATE TABLE IF NOT EXISTS whitelist_state (
 INSERT OR IGNORE INTO whitelist_state (singleton_id, enabled, updated_at)
 VALUES (1, 0, '1970-01-01T00:00:00Z');
 
+CREATE TABLE message_stats_tracking (
+    singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
+    started_at_ms INTEGER NOT NULL
+);
+CREATE TABLE message_stats_adapters (
+    adapter_id TEXT PRIMARY KEY,
+    protocol TEXT NOT NULL,
+    last_received_at_ms INTEGER
+);
+CREATE TABLE message_stats_hours (
+    hour_start INTEGER NOT NULL,
+    adapter_id TEXT NOT NULL,
+    received INTEGER NOT NULL CHECK (received >= 0),
+    sent INTEGER NOT NULL CHECK (sent >= 0),
+    PRIMARY KEY (hour_start, adapter_id)
+);
+CREATE TABLE message_stats_runs (
+    id INTEGER PRIMARY KEY,
+    started_at_ms INTEGER NOT NULL,
+    last_alive_at_ms INTEGER NOT NULL,
+    stopped_at_ms INTEGER
+);
+CREATE TABLE message_stats_offline (
+    run_id INTEGER NOT NULL REFERENCES message_stats_runs(id),
+    adapter_id TEXT NOT NULL,
+    started_at_ms INTEGER NOT NULL,
+    ended_at_ms INTEGER,
+    PRIMARY KEY (run_id, adapter_id, started_at_ms)
+);
+CREATE INDEX idx_message_stats_offline_start ON message_stats_offline(started_at_ms);
+
 CREATE TABLE access_list_entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     list_kind TEXT NOT NULL CHECK (list_kind IN ('blacklist', 'whitelist')),

@@ -45,6 +45,36 @@ func TestAdapterSnapshotsKeepLatestAndIsolateSubscribers(t *testing.T) {
 	}
 }
 
+func TestStatsObserversReceiveConfigSnapshotsAndOnlyRealReloads(t *testing.T) {
+	settings := config.OneBotConfig{HTTPAPI: config.OneBotTransportConfig{Enabled: true, URL: "https://fixture.example/api"}}
+	source := &adapterConfigSource{cfg: config.Config{Adapters: []config.AdapterInstance{{ID: "fixture", Type: "onebot11", Enabled: true, OneBot11: &settings}}}}
+	shell := onebot11.New("fixture", settings, config.AdapterConfig{}, nil)
+	var snapshots []AdaptersView
+	var reloads []string
+	service := newTestService(t, source, Instances{OneBot11: map[string]*onebot11.Shell{"fixture": shell}, Observe: func(v AdaptersView) { snapshots = append(snapshots, v) }, Reloaded: func(id string) { reloads = append(reloads, id) }})
+	service.PublishSnapshot()
+	if err := service.ApplyConfigReload(source.cfg); err != nil {
+		t.Fatal(err)
+	}
+	if len(reloads) != 0 {
+		t.Fatal("identical config reset offline grace")
+	}
+	next := settings
+	next.HTTPAPI.URL = "https://fixture.example/new-api"
+	source.cfg = config.Config{Adapters: []config.AdapterInstance{{ID: "fixture", Type: "onebot11", Enabled: true, OneBot11: &next}}}
+	if err := service.ApplyConfigReload(source.cfg); err != nil {
+		t.Fatal(err)
+	}
+	if len(reloads) != 1 || reloads[0] != "fixture" {
+		t.Fatalf("reload notifications=%v", reloads)
+	}
+	source.cfg = config.Config{}
+	service.PublishSnapshot()
+	if len(snapshots) != 2 || len(snapshots[1].Adapters) != 0 {
+		t.Fatal("removal not observed")
+	}
+}
+
 type lifecycleQQ struct {
 	stubQQStatus
 	starts atomic.Int32

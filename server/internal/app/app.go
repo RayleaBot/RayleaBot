@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/messagestats"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
 	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
@@ -181,6 +182,13 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	}
 	buildState.core.SetConfig(resolvedConfig)
 	buildState.core.AddRedactionValues(configruntime.ConfigSecretValues(resolvedConfig)...)
+	platformState.MessageStats, err = messagestats.New(ctx, messagestats.Options{
+		Logger: buildState.core.Logger,
+		Store:  platformState.Storage, CurrentConfig: buildState.core.CurrentConfig, Timezone: platformState.Scheduler.Timezone(),
+	})
+	if err != nil {
+		return nil, cleanupPartialBuild(err)
+	}
 
 	pluginDeps := pluginStackDeps{
 		Context:   ctx,
@@ -211,6 +219,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	}
 
 	eventState = buildEvents(eventDeps{
+		MessageSent:    platformState.MessageStats.Sent,
 		Config:         resolvedConfig,
 		CurrentConfig:  buildState.core.CurrentConfig,
 		Logger:         buildState.core.Logger,

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/messagestats"
 	"github.com/go-chi/chi/v5"
 
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
@@ -17,6 +18,26 @@ import (
 
 type SystemRoutes struct {
 	Handlers *SystemHandlers
+}
+
+func (h *CoreHandlers) HandleMessageStats() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if h.messageStats == nil {
+			httpapi.WriteError(w, r, systemCodeInternalError, nil)
+			return
+		}
+		params := r.URL.Query()
+		view, err := h.messageStats.Query(r.Context(), messagestats.Query{StartAt: params.Get("start_at"), EndAt: params.Get("end_at"), Granularity: params.Get("granularity")})
+		if err != nil {
+			code := systemCodeInternalError
+			if errors.Is(err, messagestats.ErrInvalidRequest) {
+				code = systemCodeInvalidRequest
+			}
+			httpapi.WriteError(w, r, code, nil)
+			return
+		}
+		httpapi.WriteJSON(w, http.StatusOK, view)
+	}
 }
 
 type SystemHandlers struct {

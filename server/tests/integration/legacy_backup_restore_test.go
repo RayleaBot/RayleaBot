@@ -63,8 +63,8 @@ func TestLegacyBackupRestoreMigratesSecretsAndKeepsSessions(t *testing.T) {
 	restored := newPersistentTestApp(t, targetConfig, now, "legacy-restored")
 	defer closePersistentTestApp(t, restored)
 	metadata, err := restored.Storage().SchemaMetadata(context.Background())
-	if err != nil || metadata.Version != "000003" {
-		t.Fatalf("restored schema = %#v, %v; want 000003", metadata, err)
+	if err != nil || metadata.Version != "000004" {
+		t.Fatalf("restored schema = %#v, %v; want 000004", metadata, err)
 	}
 	var legacyRows int
 	if err := restored.Storage().Read.QueryRow(
@@ -120,7 +120,7 @@ func writeRuntimeRootConfig(t *testing.T, root string) string {
 }
 
 // sealSecretsAsSchema000002 rewrites a current database into the 000002 form:
-// 000003 changed no tables, only decrypted secret_store and dropped the key.
+// Drop statistics added by 000004; 000003 only changed secret values.
 func sealSecretsAsSchema000002(t *testing.T, databasePath string) {
 	t.Helper()
 	store, err := storage.Open(databasePath)
@@ -128,6 +128,10 @@ func sealSecretsAsSchema000002(t *testing.T, databasePath string) {
 		t.Fatal(err)
 	}
 	defer func() { _ = store.Close() }()
+	if _, err := store.Write.Exec(`DROP TABLE message_stats_offline; DROP TABLE message_stats_runs;
+		DROP TABLE message_stats_hours; DROP TABLE message_stats_adapters; DROP TABLE message_stats_tracking;`); err != nil {
+		t.Fatal(err)
+	}
 
 	rows, err := store.Write.Query("SELECT key, value FROM secret_store")
 	if err != nil {

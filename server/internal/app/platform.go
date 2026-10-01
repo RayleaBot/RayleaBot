@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/messagestats"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/console"
@@ -35,6 +36,7 @@ type platformDeps struct {
 }
 
 type PlatformState struct {
+	MessageStats  *messagestats.Service
 	Auth          *auth.Manager
 	Storage       *storage.Store
 	Secrets       secrets.Store

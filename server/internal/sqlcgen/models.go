@@ -48,6 +48,38 @@ type ManagementLog struct {
 	DetailsJson string
 }
 
+type MessageStatsAdapter struct {
+	AdapterID        string
+	Protocol         string
+	LastReceivedAtMs sql.NullInt64
+}
+
+type MessageStatsHour struct {
+	HourStart int64
+	AdapterID string
+	Received  int64
+	Sent      int64
+}
+
+type MessageStatsOffline struct {
+	RunID       int64
+	AdapterID   string
+	StartedAtMs int64
+	EndedAtMs   sql.NullInt64
+}
+
+type MessageStatsRun struct {
+	ID            int64
+	StartedAtMs   int64
+	LastAliveAtMs int64
+	StoppedAtMs   sql.NullInt64
+}
+
+type MessageStatsTracking struct {
+	SingletonID int64
+	StartedAtMs int64
+}
+
 type PluginInstance struct {
 	PluginID     string
 	DesiredState string

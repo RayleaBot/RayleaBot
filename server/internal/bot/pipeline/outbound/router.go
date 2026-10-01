@@ -17,6 +17,7 @@ import (
 // an active push may carry only a protocol, or nothing at all, which resolves
 // only while one candidate is connected.
 type Router struct {
+	messageSent   func(string, string)
 	senders       map[string]ActionSender
 	protocols     map[string]string
 	currentConfig func() config.Config
@@ -24,8 +25,12 @@ type Router struct {
 
 // NewRouter binds a fixed adapter registry to an optional live configuration snapshot.
 // A nil configuration source keeps every registered sender enabled.
-func NewRouter(senders map[string]ActionSender, protocols map[string]string, currentConfig func() config.Config) *Router {
-	return &Router{senders: maps.Clone(senders), protocols: maps.Clone(protocols), currentConfig: currentConfig}
+func NewRouter(senders map[string]ActionSender, protocols map[string]string, currentConfig func() config.Config, observers ...func(string, string)) *Router {
+	messageSent := func(string, string) {}
+	if len(observers) > 0 && observers[0] != nil {
+		messageSent = observers[0]
+	}
+	return &Router{senders: maps.Clone(senders), protocols: maps.Clone(protocols), currentConfig: currentConfig, messageSent: messageSent}
 }
 
 func (r *Router) SendMessage(ctx context.Context, message chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
@@ -35,6 +40,9 @@ func (r *Router) SendMessage(ctx context.Context, message chatevent.OutboundMess
 	}
 	message.SourceAdapter, message.SourceProtocol = id, r.protocols[id]
 	result, err := r.senders[id].SendMessage(ctx, message)
+	if err == nil {
+		r.messageSent(id, r.protocols[id])
+	}
 	result.SourceAdapter, result.SourceProtocol = id, r.protocols[id]
 	return result, err
 }
@@ -46,6 +54,9 @@ func (r *Router) SendReply(ctx context.Context, message chatevent.OutboundMessag
 	}
 	message.SourceAdapter, message.SourceProtocol = id, r.protocols[id]
 	result, err := r.senders[id].SendReply(ctx, message)
+	if err == nil {
+		r.messageSent(id, r.protocols[id])
+	}
 	result.SourceAdapter, result.SourceProtocol = id, r.protocols[id]
 	return result, err
 }

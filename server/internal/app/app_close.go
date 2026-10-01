@@ -129,6 +129,11 @@ func (a *App) shutdownPhases(b config.ShutdownBudgets, awaitClosers func(context
 			if err := awaitClosers(ctx); err != nil {
 				return err
 			}
+			if a.platform.MessageStats != nil {
+				if err := a.platform.MessageStats.Stop(ctx); err != nil {
+					return err
+				}
+			}
 			return a.closePersistence()
 		}},
 	}

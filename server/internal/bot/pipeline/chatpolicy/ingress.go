@@ -30,6 +30,7 @@ type EventBridge interface {
 }
 
 type IngressDeps struct {
+	MessageReceived  func(chatevent.NormalizedEvent)
 	CurrentConfig    func() config.Config
 	Logger           *slog.Logger
 	Plugins          PluginCatalog
@@ -47,6 +48,7 @@ type IngressDeps struct {
 }
 
 type Ingress struct {
+	messageReceived  func(chatevent.NormalizedEvent)
 	admissionMu      sync.Mutex
 	stopping         bool
 	active           map[*context.CancelFunc]struct{}
@@ -61,11 +63,15 @@ type Ingress struct {
 }
 
 func NewIngress(deps IngressDeps) *Ingress {
+	if deps.MessageReceived == nil {
+		deps.MessageReceived = func(chatevent.NormalizedEvent) {}
+	}
 	currentConfig := deps.CurrentConfig
 	if currentConfig == nil {
 		currentConfig = func() config.Config { return config.Config{} }
 	}
 	service := &Ingress{
+		messageReceived:  deps.MessageReceived,
 		active:           make(map[*context.CancelFunc]struct{}),
 		drained:          make(chan struct{}),
 		replyTargets:     deps.ReplyTargets,
@@ -117,6 +123,7 @@ func (s *Ingress) Policy() *Service {
 }
 
 func (s *Ingress) HandleAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) {
+	s.messageReceived(event)
 	s.admissionMu.Lock()
 	if s.stopping {
 		s.admissionMu.Unlock()
