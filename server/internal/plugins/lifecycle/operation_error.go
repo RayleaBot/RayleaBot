@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 )
 
 // operationError keeps causes available to the owner while exposing only stage
@@ -55,4 +57,33 @@ func (e *operationError) taskMustFail(cause error) bool {
 		return true
 	}
 	return !errors.Is(cause, context.Canceled) && !errors.Is(cause, context.DeadlineExceeded)
+}
+
+// Joined cleanup failures must not disappear behind an unrelated cancellation.
+func cancellationOnly(err error) bool {
+	if err == nil {
+		return false
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		causes := joined.Unwrap()
+		if len(causes) == 0 {
+			return false
+		}
+		for _, cause := range causes {
+			if !cancellationOnly(cause) {
+				return false
+			}
+		}
+		return true
+	}
+	if failure, ok := err.(*operationError); ok && failure.state != "unchanged" && failure.state != "rolled_back" {
+		return false
+	}
+	if _, committed := err.(*settings.ApplyError); committed {
+		return false
+	}
+	if wrapped, ok := err.(interface{ Unwrap() error }); ok {
+		return cancellationOnly(wrapped.Unwrap())
+	}
+	return err == context.Canceled
 }

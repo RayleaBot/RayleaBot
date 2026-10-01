@@ -603,7 +603,7 @@ func TestManagerStopIgnoresPluginThatAlreadyExited(t *testing.T) {
 		t.Fatalf("start runtime: %v", err)
 	}
 
-	waitForRuntimeState(t, manager, StateStopped)
+	waitForRuntimeState(t, manager, StateCrashed)
 
 	if err := manager.Stop(context.Background()); err != nil {
 		t.Fatalf("stop runtime after plugin exit: %v", err)

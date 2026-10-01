@@ -99,8 +99,8 @@ func TestNativeProcessFinalFramesSurviveImmediateExit(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if !manager.cleanupComplete() || manager.Snapshot().LastErrorCode != "" {
-			t.Fatalf("clean exit was not reconciled: %#v", manager.Snapshot())
+		if !manager.cleanupComplete() || manager.Snapshot().LastErrorCode != codePluginInternalError {
+			t.Fatalf("unplanned exit was not reconciled: %#v", manager.Snapshot())
 		}
 	})
 	t.Run("invalid_init", func(t *testing.T) {

@@ -1,0 +1,36 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: An enabled plugin retains the diagnosis after a forced stop.
+request:
+  method: GET
+  path: /api/plugins/weather
+response:
+  status: 200
+  body:
+    plugin:
+      id: weather
+      name: Weather
+      role: community
+      state: failed
+      state_diagnosis:
+        kind: shutdown_failed
+        summary: 插件未能正常停止
+        last_error_code: plugin.shutdown_timeout
+        last_error_message: 插件停止超时
+        recoverable: false
+      source:
+        root: plugins/installed
+        package_source_type: local_directory
+        package_source_ref: C:/plugins/weather
+        verified: false
+      trust:
+        level: unverified
+      webhooks: []
+      commands: []
+      command_prefixes: ["/"]
+      dedicated_command_prefixes: []
+      command_groups: []
+      help: {}
+      command_conflicts: []
+expect:
+  valid: true

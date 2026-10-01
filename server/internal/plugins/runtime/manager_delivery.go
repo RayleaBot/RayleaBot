@@ -32,7 +32,7 @@ func (m *Manager) DeliverEvent(ctx context.Context, event chatevent.Event) (deli
 	handle := m.proc
 	m.mu.RUnlock()
 	if handle == nil {
-		return plugins.Delivery{}, errorf(codePlatformInvalidRequest, "plugin runtime is not running", nil)
+		return plugins.Delivery{}, errorf(codePlatformInvalidRequest, "plugin runtime is not running", plugins.ErrRuntimeNotRunning)
 	}
 	if expected := plugins.ExpectedRuntimeDone(ctx); expected != nil && expected != handle.Done() {
 		return plugins.Delivery{}, errorf(codePluginStopping, "event belongs to a retired process", nil)

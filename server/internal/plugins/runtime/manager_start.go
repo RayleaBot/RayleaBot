@@ -99,7 +99,8 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 	}()
 	cmd.Stderr = stderrWriter
 
-	if err := cmd.Start(); err != nil {
+	terminate, err := startPluginProcess(cmd)
+	if err != nil {
 		m.markStopped(codePluginInternalError, "start plugin process", err)
 		return errorf(codePluginInternalError, "start plugin process", err)
 	}
@@ -116,6 +117,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 			close(handle.protocolDone)
 		}
 	}()
+	handle.terminate = terminate
 	handle.stdout = stdout
 	handle.stderr = stderr
 	handle.stderrDone = make(chan struct{})
@@ -161,6 +163,10 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		CommandPrefixes: append([]string(nil), payload.CommandPrefixes...),
 		Concurrency:     spec.EffectiveConcurrency,
 	}); err != nil {
+		if errors.Is(initCtx.Err(), context.Canceled) {
+			m.cleanupCanceledStart(handle)
+			return initCtx.Err()
+		}
 		if initCtx.Err() != nil {
 			m.cleanupFailedStart(handle, codePluginInitTimeout, "plugin initialization timed out", initCtx.Err())
 			return errorf(codePluginInitTimeout, "plugin initialization timed out", initCtx.Err())
@@ -169,8 +175,13 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		return errorf(codePluginInternalError, "write init frame", err)
 	}
 
-	runtimeErr := m.awaitInitAck(initCtx, handle, requestID)
-	if runtimeErr != nil {
+	initErr := m.awaitInitAck(initCtx, handle, requestID)
+	if errors.Is(initErr, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+		m.cleanupCanceledStart(handle)
+		return context.Canceled
+	}
+	if initErr != nil {
+		runtimeErr := normalizeRuntimeError(initErr, "plugin initialization failed")
 		m.cleanupFailedStart(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
 		return runtimeErr
 	}

@@ -68,6 +68,11 @@ func (c *Controller) reloadPluginAsync(pluginID, taskID string) {
 	defer cancel()
 	release, lockErr := c.acquireOperation(ctx, pluginID)
 	if lockErr != nil {
+		if manager, ok := c.runtimes.Get(pluginID); ok {
+			c.projectRuntimeResult(pluginID, manager)
+		} else {
+			c.publishRuntimeState(pluginID, string(pluginruntime.StateStopped))
+		}
 		c.failReloadTaskForError(taskID, pluginID, lockErr, "插件重载已取消")
 		return
 	}
@@ -135,6 +140,7 @@ func (c *Controller) reloadPluginAsync(pluginID, taskID string) {
 	if !activated {
 		stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), max(spec.ShutdownGrace, time.Second))
 		activationErr = errors.Join(activationErr, newManager.Stop(stopCtx))
+		c.projectRuntimeResult(pluginID, current)
 		cancel()
 		c.runtimes.ReleaseRetired(newManager)
 		c.failReloadTaskForError(taskID, pluginID, activationErr, "插件重载失败")
@@ -152,7 +158,7 @@ func (c *Controller) reloadPluginAsync(pluginID, taskID string) {
 		cancelDrain()
 	}
 	// Use a fresh budget: an expired drain must not prevent process cleanup.
-	stopCtx, cancelStop := context.WithTimeout(context.WithoutCancel(c.lifecycleContext()), max(spec.ShutdownGrace, time.Second))
+	stopCtx, cancelStop := context.WithTimeout(context.WithoutCancel(c.lifecycleContext()), current.ShutdownGrace())
 	if err := current.Stop(stopCtx); err != nil {
 		activationErr = errors.Join(activationErr, err)
 		c.logLifecycleWarn("stop old plugin runtime after reload", pluginID, err)
@@ -180,6 +186,10 @@ func (c *Controller) startRuntimeForReload(ctx context.Context, taskID, pluginID
 }
 
 func (c *Controller) failReloadTaskForError(taskID string, pluginID string, err error, fallbackMessage string) {
+	if cancellationOnly(err) {
+		c.cancelReloadTask(taskID, pluginID)
+		return
+	}
 	var applyErr *settings.ApplyError
 	if errors.As(err, &applyErr) {
 		definition, _ := errorcodes.Lookup(errorcodes.PluginSettingsApplyFailed)
@@ -189,7 +199,7 @@ func (c *Controller) failReloadTaskForError(taskID string, pluginID string, err 
 	code := errorcodes.PluginInternalError
 	message := fallbackMessage
 
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+	if errors.Is(err, context.DeadlineExceeded) {
 		code = errorcodes.PlatformTaskTimeout
 		message = "插件重载超时"
 	}

@@ -2,6 +2,7 @@ package management
 
 import (
 	"context"
+	"errors"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 	"net/http"
 	"os"
@@ -110,6 +111,11 @@ func (h *PluginManagementUIHandlers) HandlePluginManagementAction() http.Handler
 
 		result, err := actionInvoker.InvokeManagementAction(r.Context(), pluginID, action, request.Payload)
 		if err != nil {
+			var unavailable *plugins.NotRunningError
+			if errors.As(err, &unavailable) {
+				httpapi.WriteError(w, r, errorcodes.PluginNotRunning, unavailable.Details())
+				return
+			}
 			httpapi.WriteDomainError(w, r, &httpapi.DomainError{
 				Code: errorcodes.PluginManagementActionFailed,
 			})

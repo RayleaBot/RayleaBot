@@ -102,7 +102,7 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 		Services:             plugins.CloneServices(snapshot.Services),
 		InitTimeout:          initTimeout,
 		EventTimeout:         durationFromSeconds(runtimeConfig.PluginEventTimeoutSeconds, 5),
-		ShutdownGrace:        durationFromSeconds(runtimeConfig.ShutdownGraceSeconds, 5),
+		ShutdownGrace:        runtimeConfig.PluginShutdownGrace(),
 		EffectiveConcurrency: effectivePluginConcurrency(snapshot.Concurrency, runtimeConfig.MaxConcurrentTasksPerPlugin),
 		IPCMessageMaxBytes:   positiveInt(runtimeConfig.IPCMessageMaxBytes, 8*1024*1024),
 		ValidateFrames:       snapshot.PackageSourceType == "development",

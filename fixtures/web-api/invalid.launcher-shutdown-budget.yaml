@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
-case: ok
-description: Local Launcher status query returns the current system status snapshot.
+case: invalid
+description: Launcher shutdown budget must be at least one second.
 request:
   method: GET
   path: /api/launcher/status
@@ -9,7 +9,7 @@ request:
 response:
   status: 200
   body:
-    shutdown_budget_seconds: 42
+    shutdown_budget_seconds: 0
     status: running
     adapters:
       - id: onebot11
@@ -22,4 +22,4 @@ response:
     db_schema_version: "000001"
     uptime_seconds: 3600
 expect:
-  valid: true
+  valid: false

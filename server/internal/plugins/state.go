@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 const ManifestValidationMaxSummary = 256
@@ -37,6 +39,7 @@ const (
 	StateDiagnosisRetrying             = "retrying"
 	StateDiagnosisRecoveryRequired     = "recovery_required"
 	StateDiagnosisInitializationFailed = "initialization_failed"
+	StateDiagnosisShutdownFailed       = "shutdown_failed"
 
 	DisplayStateDiscovered      = "discovered"
 	DisplayStateInvalidManifest = "invalid_manifest"
@@ -114,6 +117,19 @@ func ProjectState(snapshot Snapshot) (string, *StateDiagnosis) {
 		return PluginStateInvalid, diagnosis
 	}
 
+	if snapshot.RuntimeErrorCode == errorcodes.PluginShutdownTimeout {
+		diagnosis := &StateDiagnosis{Kind: StateDiagnosisShutdownFailed, Summary: "插件未能正常停止", LastErrorCode: snapshot.RuntimeErrorCode, LastErrorMessage: snapshot.RuntimeErrorMessage}
+		if snapshot.RuntimeState == "stopping" {
+			return PluginStateStopping, diagnosis
+		}
+		if snapshot.RuntimeState == RuntimeStateStopped {
+			if snapshot.DesiredState == DesiredStateEnabled {
+				return PluginStateFailed, diagnosis
+			}
+			return PluginStateDisabled, diagnosis
+		}
+	}
+
 	switch snapshot.RuntimeState {
 	case "starting":
 		return PluginStateStarting, nil
@@ -123,15 +139,19 @@ func ProjectState(snapshot Snapshot) (string, *StateDiagnosis) {
 		return PluginStateStopping, nil
 	case "crashed":
 		return PluginStateFailed, &StateDiagnosis{
-			Kind:        StateDiagnosisCrashed,
-			Summary:     "插件运行时异常退出",
-			Recoverable: false,
+			Kind:             StateDiagnosisCrashed,
+			LastErrorCode:    snapshot.RuntimeErrorCode,
+			LastErrorMessage: snapshot.RuntimeErrorMessage,
+			Summary:          "插件运行时异常退出",
+			Recoverable:      false,
 		}
 	case "backoff":
 		return PluginStateFailed, &StateDiagnosis{
-			Kind:        StateDiagnosisRetrying,
-			Summary:     "插件运行时正在等待重试",
-			Recoverable: false,
+			Kind:             StateDiagnosisRetrying,
+			LastErrorCode:    snapshot.RuntimeErrorCode,
+			LastErrorMessage: snapshot.RuntimeErrorMessage,
+			Summary:          "插件运行时正在等待重试",
+			Recoverable:      false,
 		}
 	case "dead_letter":
 		diagnosis := &StateDiagnosis{

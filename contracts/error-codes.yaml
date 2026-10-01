@@ -3,6 +3,8 @@ description: >
   Fixture-ready error catalog. This file is the only formal source for
   HTTP, task, WebSocket, plugin-protocol, logs, CLI, and readiness error codes.
 x-fixtures:
+  - fixtures/errors/ok.plugin-not-running.yaml
+  - fixtures/errors/invalid.plugin-not-running-state.yaml
   - fixtures/errors/ok.plugin-services.yaml
   - fixtures/errors/ok.conversation-errors.yaml
   - fixtures/errors/ok.core-catalog.yaml
@@ -241,6 +243,32 @@ codes:
     http_status: 409
     retryable: false
     applies_to: [http]
+
+  plugin.not_running:
+    code: plugin.not_running
+    domain: plugin
+    message: 插件当前未运行，管理操作未执行
+    description: >
+      The host rejected a management action before delivery because the plugin
+      is disabled, starting, stopping, failed or otherwise not running.
+      This request does not start the plugin. State uses the public PluginState
+      vocabulary observed when reporting the rejection; a concurrent transition may
+      already have returned to running. Clients inspect code and details instead
+      of message.
+    http_status: 409
+    retryable: false
+    applies_to: [http]
+    details_schema:
+      type: object
+      additionalProperties: false
+      required: [plugin_id, state]
+      properties:
+        plugin_id:
+          type: string
+          minLength: 1
+        state:
+          type: string
+          enum: [disabled, enabled, starting, running, stopping, failed, invalid]
 
   plugin.management_action_failed:
     code: plugin.management_action_failed

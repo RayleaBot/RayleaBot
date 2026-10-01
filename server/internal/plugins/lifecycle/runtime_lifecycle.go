@@ -138,7 +138,7 @@ func (c *Controller) StartInstalled(ctx context.Context, pluginID string) error 
 	ctx, cancel := context.WithTimeout(ctx, runtimeInitTimeout(c.config().Runtime))
 	defer cancel()
 	if err := c.startRuntime(ctx, pluginID); err != nil {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), c.config().Runtime.PluginShutdownGrace())
 		defer cleanupCancel()
 		return errors.Join(err, c.StopAndResetPluginWithContext(cleanupCtx, pluginID))
 	}
@@ -161,7 +161,11 @@ func (c *Controller) stopPluginAsync(pluginID string, remove bool) {
 		return
 	}
 
-	ctx, cancel := c.lifecycleTimeoutContext(c.shutdownTimeout)
+	drainBudget := c.shutdownTimeout
+	if drainBudget <= 0 {
+		drainBudget = c.config().Runtime.ShutdownBudgets().DispatchDrain
+	}
+	ctx, cancel := c.lifecycleTimeoutContext(drainBudget)
 	defer cancel()
 	if err := c.stopPluginLocked(ctx, pluginID, remove); err != nil {
 		c.logLifecycleWarn("stop plugin runtime", pluginID, err)
@@ -181,10 +185,17 @@ func (c *Controller) stopPlugin(ctx context.Context, pluginID string, remove boo
 }
 
 func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remove bool) error {
+	c.publishRuntimeState(pluginID, string(pluginruntime.StateStopping))
 	c.clearBotIdentity(pluginID)
 	var drainErr error
 	if drain := c.dispatcher.DrainPlugin(pluginID); drain != nil {
-		drainErr = drain.Wait(ctx)
+		drainBudget := c.shutdownTimeout
+		if drainBudget <= 0 {
+			drainBudget = c.config().Runtime.ShutdownBudgets().DispatchDrain
+		}
+		drainCtx, cancelDrain := context.WithTimeout(ctx, drainBudget)
+		drainErr = drain.Wait(drainCtx)
+		cancelDrain()
 	}
 	defer c.dispatcher.Deregister(pluginID)
 
@@ -194,16 +205,18 @@ func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remo
 		return drainErr
 	}
 
+	defer c.projectRuntimeResult(pluginID, manager)
 	switch manager.Snapshot().State {
 	case pluginruntime.StateBackoff, pluginruntime.StateCrashed, pluginruntime.StateDeadLetter, pluginruntime.StateStopped:
 		manager.ResetCrashCount()
 		manager.SetStopped()
 	default:
-		stopCtx, cancelStop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		stopCtx, cancelStop := context.WithTimeout(context.WithoutCancel(ctx), manager.ShutdownGrace())
 		defer cancelStop()
 		if err := manager.Stop(stopCtx); err != nil {
 			// Keep ownership of a runtime whose shutdown failed so later cleanup
 			// can retry; an installer must not remove a possibly live executable.
+			c.projectAfterPendingStop(pluginID, manager)
 			return errors.Join(drainErr, err)
 		}
 		manager.ResetCrashCount()
@@ -212,7 +225,6 @@ func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remo
 	if remove {
 		c.runtimes.Delete(pluginID)
 	}
-	c.publishRuntimeState(pluginID, string(pluginruntime.StateStopped))
 	return drainErr
 }
 

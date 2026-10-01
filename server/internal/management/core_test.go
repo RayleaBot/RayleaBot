@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 )
@@ -190,5 +191,26 @@ func TestShutdownIntentRespectsRouteBoundary(t *testing.T) {
 	handlers.HandleSystemShutdown().ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusAccepted || calls != 1 {
 		t.Fatalf("system request: status=%d calls=%d", recorder.Code, calls)
+	}
+}
+
+func TestLauncherStatusReportsCurrentShutdownBudget(t *testing.T) {
+	grace := 10
+	handlers := NewCoreHandlers(CoreDeps{System: coreTestSystem{snapshot: systemsvc.StatusSnapshot{Status: "running"}}, LauncherControlToken: NewStaticToken("fixture-token"), CurrentConfig: func() config.Config { return config.Config{Runtime: config.RuntimeConfig{ShutdownGraceSeconds: grace}} }})
+	for _, value := range []int{10, 60} {
+		grace = value
+		request := httptest.NewRequest("GET", "/api/launcher/status", nil)
+		request.RemoteAddr = "127.0.0.1:12345"
+		request.Header.Set(LauncherControlTokenHeader, "fixture-token")
+		response := httptest.NewRecorder()
+		handlers.HandleLauncherStatus().ServeHTTP(response, request)
+		var body map[string]any
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		want := (config.RuntimeConfig{ShutdownGraceSeconds: grace}).ShutdownBudgets().TotalSeconds()
+		if response.Code != 200 || body["shutdown_budget_seconds"] != float64(want) {
+			t.Fatalf("status=%d body=%s", response.Code, response.Body)
+		}
 	}
 }

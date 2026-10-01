@@ -92,3 +92,17 @@ func (c *Controller) failReloadTask(taskID string, pluginID string, code string,
 		},
 	})
 }
+
+func (c *Controller) cancelReloadTask(taskID, pluginID string) {
+	if c.tasks == nil || taskID == "" {
+		return
+	}
+	status := tasks.StatusCancelled
+	summary := "插件重载已取消"
+	if c.lifecycleContext().Err() != nil {
+		status = tasks.StatusInterrupted
+		summary = "插件重载因服务停止而中断"
+	}
+	now := time.Now().UTC()
+	c.tasks.Update(taskID, tasks.Update{Status: taskStatusPtr(status), Summary: stringPtr(summary), FinishedAt: &now})
+}

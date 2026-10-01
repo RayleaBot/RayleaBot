@@ -1,0 +1,20 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: A stopping plugin rejects a management action before delivery.
+request:
+  method: POST
+  path: /api/plugins/fixture/management/actions
+  body:
+    action: snapshot
+response:
+  status: 409
+  body:
+    error:
+      request_id: fixture-request
+      code: plugin.not_running
+      message: 插件当前未运行，管理操作未执行
+      details:
+        plugin_id: fixture
+        state: stopping
+expect:
+  valid: true

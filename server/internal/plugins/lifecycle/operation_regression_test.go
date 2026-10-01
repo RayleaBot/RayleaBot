@@ -139,6 +139,9 @@ func TestLifecycleShutdownProcess(t *testing.T) {
 				os.Exit(2)
 			}
 		case "shutdown":
+			if delay, err := time.ParseDuration(os.Getenv("RAYLEABOT_LIFECYCLE_SHUTDOWN_DELAY")); err == nil {
+				time.Sleep(delay)
+			}
 			os.Exit(0)
 		}
 	}

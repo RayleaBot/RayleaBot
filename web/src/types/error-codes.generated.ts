@@ -241,6 +241,10 @@ export const errorCatalog = {
     "httpStatus": 409,
     "retryable": false
   },
+  "plugin.not_running": {
+    "httpStatus": 409,
+    "retryable": false
+  },
   "plugin.package_resource_limit_exceeded": {
     "httpStatus": 413,
     "retryable": false
@@ -391,6 +395,7 @@ export const errorMessages = {
     "method_not_found": "插件未公开该方法",
     "not_handled": "插件声明不处理该事件",
     "not_recoverable": "插件当前不可恢复",
+    "not_running": "插件当前未运行，管理操作未执行",
     "package_resource_limit_exceeded": "插件包超过资源限制",
     "package_unsafe_entry": "插件包包含不安全文件",
     "platform_mismatch": "插件产物与当前平台不匹配",

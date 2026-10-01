@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -59,15 +60,15 @@ func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requ
 
 	if m.proc != handle || handle == nil {
 		cancel()
-		return nil, errorf(codePlatformInvalidRequest, "plugin runtime is not running", nil)
+		return nil, errorf(codePlatformInvalidRequest, "plugin runtime is not running", plugins.ErrRuntimeNotRunning)
 	}
 	if m.snap.State == StateStopping {
 		cancel()
-		return nil, errorf(codePluginStopping, "plugin runtime is stopping", nil)
+		return nil, errorf(codePluginStopping, "plugin runtime is stopping", plugins.ErrRuntimeNotRunning)
 	}
 	if m.snap.State != StateRunning {
 		cancel()
-		return nil, errorf(codePlatformInvalidRequest, "plugin runtime is not ready for event delivery", nil)
+		return nil, errorf(codePlatformInvalidRequest, "plugin runtime is not ready for event delivery", plugins.ErrRuntimeNotRunning)
 	}
 	if m.pendingEvents[requestID] != nil || m.pendingPings[requestID] != nil || m.eventExpiredLocked(requestID) {
 		cancel()
@@ -220,14 +221,12 @@ func (m *Manager) failRuntime(handle *Handle, code, message string, err error) *
 	if handle.Stdin != nil {
 		_ = handle.Stdin.Close()
 	}
-	if handle.Cmd != nil && handle.Cmd.Process != nil {
-		_ = handle.Cmd.Process.Kill()
-	}
+	handle.killTree()
 	handle.closeStdout()
 	select {
 	case <-handle.Done():
 		m.finishFailedProcess(handle, runtimeErr)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(config.PluginKillWait):
 		if observe {
 			go func() { <-handle.Done(); m.finishFailedProcess(handle, runtimeErr) }()
 		}

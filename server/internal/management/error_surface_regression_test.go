@@ -80,3 +80,39 @@ func TestPluginManagementActionFailureIsGatewayFailureWithoutPrivateCause(t *tes
 		t.Fatalf("status=%d body=%s", response.Code, response.Body)
 	}
 }
+
+type notRunningActionInvoker struct{ state string }
+
+func (i notRunningActionInvoker) InvokeManagementAction(context.Context, string, string, map[string]any) (map[string]any, error) {
+	return nil, &plugins.NotRunningError{PluginID: "fixture", State: i.state}
+}
+func TestPluginManagementActionAdmissionIsConflict(t *testing.T) {
+	for _, state := range []string{"disabled", "enabled", "starting", "stopping", "failed"} {
+		handler := NewPluginManagementUIHandlers(PluginManagementUIDeps{Plugins: plugincatalog.New([]plugins.Snapshot{{PluginID: "fixture", Valid: true, RegistrationState: "installed"}}), ActionInvoker: notRunningActionInvoker{state}})
+		router := chi.NewRouter()
+		handler.RegisterProtectedRoutes(router)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest("POST", "/api/plugins/fixture/management/actions", strings.NewReader("{\"action\":\"fixture\"}")))
+		body := decodeErrorEnvelope(t, response.Body.Bytes())
+		if response.Code != 409 || body.Error.Code != errorcodes.PluginNotRunning || body.Error.Details["state"] != state || body.Error.Details["plugin_id"] != "fixture" {
+			t.Fatalf("status=%d body=%s", response.Code, response.Body)
+		}
+	}
+}
+
+type pluginSuppliedNotRunningInvoker struct{}
+
+func (pluginSuppliedNotRunningInvoker) InvokeManagementAction(context.Context, string, string, map[string]any) (map[string]any, error) {
+	return nil, &plugins.Error{Code: errorcodes.PluginNotRunning, Message: "fixture-only-secret"}
+}
+func TestPluginSuppliedAdmissionCodeRemainsExecutionFailure(t *testing.T) {
+	handler := NewPluginManagementUIHandlers(PluginManagementUIDeps{Plugins: plugincatalog.New([]plugins.Snapshot{{PluginID: "fixture", Valid: true, RegistrationState: "installed"}}), ActionInvoker: pluginSuppliedNotRunningInvoker{}})
+	router := chi.NewRouter()
+	handler.RegisterProtectedRoutes(router)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest("POST", "/api/plugins/fixture/management/actions", strings.NewReader("{\"action\":\"fixture\"}")))
+	body := decodeErrorEnvelope(t, response.Body.Bytes())
+	if response.Code != 502 || body.Error.Code != errorcodes.PluginManagementActionFailed || strings.Contains(response.Body.String(), "fixture-only-secret") {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body)
+	}
+}

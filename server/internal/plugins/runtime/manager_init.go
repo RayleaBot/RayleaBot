@@ -5,6 +5,7 @@ import (
 
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -13,11 +14,14 @@ import (
 
 const pluginExitedBeforeInitMessage = "插件进程在初始化完成前退出，请查看该插件的 stderr 日志"
 
-func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID string) *plugins.Error {
+func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID string) error {
 	deadlineTimer := time.NewTimer(handle.Spec.InitTimeout)
 	defer deadlineTimer.Stop()
 
 	for {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return ctx.Err()
+		}
 		readCh := make(chan []byte, 1)
 		readErrCh := make(chan error, 1)
 
@@ -52,10 +56,19 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 				"summary", summary,
 			)
 		case readErr := <-readErrCh:
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return ctx.Err()
+			}
 			return classifyProtocolReadError(handle, readErr, pluginExitedBeforeInitMessage, "read plugin init response")
 		case <-deadlineTimer.C:
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return ctx.Err()
+			}
 			return errorf(codePluginInitTimeout, "plugin init_ack timed out", nil)
 		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return ctx.Err()
+			}
 			return errorf(codePluginInitTimeout, "plugin init_ack timed out", ctx.Err())
 		}
 	}

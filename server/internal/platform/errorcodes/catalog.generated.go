@@ -62,6 +62,7 @@ const (
 	PluginMethodNotFound                       = "plugin.method_not_found"
 	PluginNotHandled                           = "plugin.not_handled"
 	PluginNotRecoverable                       = "plugin.not_recoverable"
+	PluginNotRunning                           = "plugin.not_running"
 	PluginPackageResourceLimitExceeded         = "plugin.package_resource_limit_exceeded"
 	PluginPackageUnsafeEntry                   = "plugin.package_unsafe_entry"
 	PluginPlatformMismatch                     = "plugin.platform_mismatch"
@@ -166,6 +167,7 @@ var catalog = map[string]Definition{
 	PluginMethodNotFound:                      {Code: PluginMethodNotFound, HTTPStatus: 0, Message: "插件未公开该方法", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginNotHandled:                          {Code: PluginNotHandled, HTTPStatus: 0, Message: "插件声明不处理该事件", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginNotRecoverable:                      {Code: PluginNotRecoverable, HTTPStatus: 409, Message: "插件当前不可恢复", Retryable: false, Surfaces: "http"},
+	PluginNotRunning:                          {Code: PluginNotRunning, HTTPStatus: 409, Message: "插件当前未运行，管理操作未执行", Retryable: false, Surfaces: "http"},
 	PluginPackageResourceLimitExceeded:        {Code: PluginPackageResourceLimitExceeded, HTTPStatus: 413, Message: "插件包超过资源限制", Retryable: false, Surfaces: "http,task"},
 	PluginPackageUnsafeEntry:                  {Code: PluginPackageUnsafeEntry, HTTPStatus: 400, Message: "插件包包含不安全文件", Retryable: false, Surfaces: "http,task"},
 	PluginPlatformMismatch:                    {Code: PluginPlatformMismatch, HTTPStatus: 409, Message: "插件产物与当前平台不匹配", Retryable: false, Surfaces: "http,task,readiness"},

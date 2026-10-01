@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
@@ -23,6 +24,7 @@ const (
 )
 
 type CoreHandlers struct {
+	currentConfig        func() config.Config
 	auth                 coreAuthService
 	system               coreSystemService
 	requestShutdown      func(systemsvc.StopIntent)
@@ -30,6 +32,7 @@ type CoreHandlers struct {
 }
 
 type CoreDeps struct {
+	CurrentConfig        func() config.Config
 	Auth                 coreAuthService
 	System               coreSystemService
 	RequestShutdown      func(systemsvc.StopIntent)
@@ -37,7 +40,11 @@ type CoreDeps struct {
 }
 
 func NewCoreHandlers(deps CoreDeps) *CoreHandlers {
+	if deps.CurrentConfig == nil {
+		deps.CurrentConfig = func() config.Config { return config.Config{} }
+	}
 	return &CoreHandlers{
+		currentConfig:        deps.CurrentConfig,
 		auth:                 deps.Auth,
 		system:               deps.System,
 		requestShutdown:      deps.RequestShutdown,
@@ -117,7 +124,10 @@ func (h *CoreHandlers) HandleLauncherStatus() http.HandlerFunc {
 			return
 		}
 
-		h.writeSystemStatus(w, http.StatusOK)
+		httpapi.WriteJSON(w, http.StatusOK, struct {
+			CoreSystemStatusResponse
+			ShutdownBudgetSeconds int64 `json:"shutdown_budget_seconds"`
+		}{coreStatusResponseFromSnapshot(h.system.StatusSnapshot()), h.currentConfig().Runtime.ShutdownBudgets().TotalSeconds()})
 	}
 }
 

@@ -42,9 +42,11 @@
 - `web-api.openapi.yaml`
   - 当前已固定的管理 HTTP 接口
   - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot、OneBot target / identity resolution、plugin lifecycle、插件商店、可信代码确认与安装、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system、scheduler、recovery、runtime bootstrap、render templates 以及更新状态与检查入口
+  - `GET /api/launcher/status` 返回 `shutdown_budget_seconds`，Launcher 强制结束前至少等待该秒数；预算涵盖 HTTP、停止公告、消息排空、插件宽限期与强杀等待、适配器及共享浏览器。
+  - 插件管理动作未进入执行时返回 HTTP 409 / `plugin.not_running`，`details` 固定包含 `plugin_id` 与公开 `state`；已尝试的动作失败仍为 HTTP 502 / `plugin.management_action_failed`。
   - `POST /api/launcher/shutdown` 可选 `intent: stop | restart | update`，省略为 `stop`；首次优雅关闭请求固定停机意图。`POST /api/system/shutdown` 始终为 `stop`。
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
-  - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
+  - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`；优雅停止失败保留 `shutdown_failed` 诊断，进程退出前保持 `stopping`，退出后按启用状态投影为 `failed` 或 `disabled`。无宿主停止请求的进程退出（包括退出码 0）进入异常退出恢复路径。
   - 插件列表、详情及生命周期详情响应返回当前生效的 `command_prefixes` 与 `dedicated_command_prefixes`；用法示例使用前者的第一项，专属前缀标记使用后者。
   - 插件商店的 `PluginStoreReleaseSummary` 仅在 `compatible: false` 时携带 `incompatible_reason`：`core_version_unknown` 表示无法确认当前版本，`core_version_too_old` 表示已知版本低于 `min_core_version`；`asset_available` 独立表示当前平台有无产物。普通本地安装与商店安装的版本准入失败均返回 `plugin.core_version_incompatible`，其 `details` 包含相同原因和最低版本；客户端不解析消息判断原因。
   - 黑白名单条目必须携带 `scope`。`global` 只允许 `onebot11`，`source_adapter` 与 `bot_id` 均为空；`instance` 必须同时提供协议、实例 ID 和 bot ID。读取聚合所有作用域，写入与删除按完整作用域定位；实例规则与同协议的全局规则均可命中。白名单启用开关仍作用于整个服务。

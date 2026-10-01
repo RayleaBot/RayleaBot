@@ -172,3 +172,16 @@ func (m *Manager) ReadyForEvents() bool {
 	defer m.mu.RUnlock()
 	return m.snap.State == StateRunning
 }
+
+// ShutdownGrace returns the grace owned by the current process generation.
+func (m *Manager) ShutdownGrace() time.Duration {
+	if cfg := m.opts.RuntimeConfig(); cfg.ShutdownGraceSeconds > 0 {
+		return cfg.PluginShutdownGrace()
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.proc != nil && m.proc.Spec.ShutdownGrace > 0 {
+		return m.proc.Spec.ShutdownGrace
+	}
+	return m.opts.RuntimeConfig().PluginShutdownGrace()
+}

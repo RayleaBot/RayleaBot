@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -30,6 +31,10 @@ type Handle struct {
 	Stdin  io.WriteCloser
 	Stdout *bufio.Reader
 	Spec   ProcessSpec
+
+	terminate     func()
+	terminateOnce sync.Once
+	stopRequested bool // guarded by the owning Manager.mu
 
 	writeMu sync.Mutex
 	done    chan struct{}
@@ -93,7 +98,9 @@ func (h *Handle) Watch() {
 	if h == nil || h.Cmd == nil {
 		return
 	}
-	h.SetExit(h.Cmd.Wait())
+	err := h.Cmd.Wait()
+	h.killTree()
+	h.SetExit(err)
 	if h.stderrDone != nil {
 		select {
 		case <-h.stderrDone:
@@ -101,6 +108,16 @@ func (h *Handle) Watch() {
 			_ = h.stderr.Close()
 		}
 	}
+}
+
+func (h *Handle) killTree() {
+	h.terminateOnce.Do(func() {
+		if h.terminate != nil {
+			h.terminate()
+		} else if h.Cmd != nil && h.Cmd.Process != nil {
+			_ = h.Cmd.Process.Kill()
+		}
+	})
 }
 
 func (h *Handle) drainTimeout() time.Duration {
@@ -180,49 +197,32 @@ func (m *Manager) watchRunningProcess(handle *Handle) {
 		return
 	}
 
-	if waitErr != nil {
-		m.snap.CrashCount++
-		crashCount := m.snap.CrashCount
-		m.snap.State = StateCrashed
-		runtimeErr := errorf(codePluginInternalError, "plugin exited unexpectedly", waitErr)
-		m.reportExitFailureLocked(handle, runtimeErr)
-		m.abortPendingLocked(runtimeErr)
-		now := m.deps.now()
-		m.snap.StoppedAt = &now
-		m.snap.LastErrorCode = codePluginInternalError
-		m.snap.LastErrorMessage = "plugin exited unexpectedly"
-		pluginID := m.snap.PluginID
-		onCrash := m.opts.OnCrash
-		m.proc = nil
+	// An exit code of zero is still unplanned without a host stop request.
+	if handle.stopRequested {
+		m.markStoppedLocked("", "", nil)
 		m.mu.Unlock()
-
-		if onCrash != nil {
-			onCrash(pluginID, crashCount, codePluginInternalError)
-		}
 		return
 	}
-
-	runtimeErr := errorf(codePluginInternalError, "plugin exited before delivery completed", nil)
-	if len(m.pendingEvents)+len(m.pendingPings) > 0 {
-		m.reportExitFailureLocked(handle, runtimeErr)
-	}
+	m.snap.CrashCount++
+	crashCount := m.snap.CrashCount
+	m.snap.State = StateCrashed
+	runtimeErr := errorf(codePluginInternalError, "plugin exited unexpectedly", waitErr)
+	m.reportExitFailureLocked(handle, runtimeErr)
 	m.abortPendingLocked(runtimeErr)
-	m.markStoppedLocked("", "", nil)
-	exitReported := handle.exitFailureReported
+	now := m.deps.now()
+	m.snap.StoppedAt = &now
+	m.snap.LastErrorCode = codePluginInternalError
+	m.snap.LastErrorMessage = "plugin exited unexpectedly"
+	pluginID, onCrash := m.snap.PluginID, m.opts.OnCrash
+	m.proc = nil
 	m.mu.Unlock()
-	log := m.logger.Info
-	if exitReported {
-		log = m.logger.Debug
+	if onCrash != nil {
+		go onCrash(pluginID, crashCount, codePluginInternalError)
 	}
-	log(
-		"插件"+pluginIDLabel(handle.Spec.PluginID)+"已退出",
-		"component", "runtime",
-		"plugin_id", handle.Spec.PluginID,
-		"runtime_state", string(StateStopped),
-	)
 }
 
 func (m *Manager) reconcileExitedProcess(handle *Handle, waitErr error) {
+	m.watchRunningProcess(handle)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.proc != handle {
@@ -263,6 +263,33 @@ func CrashBackoff(crashCount, initialSeconds, maxSeconds int) time.Duration {
 	}
 
 	return time.Duration(delay) * time.Second
+}
+
+func (m *Manager) cleanupCanceledStart(handle *Handle) {
+	m.mu.Lock()
+	if m.proc != handle {
+		m.mu.Unlock()
+		return
+	}
+	handle.stopRequested = true
+	m.snap.State = StateStopping
+	m.mu.Unlock()
+	_ = handle.Stdin.Close()
+	handle.killTree()
+	handle.closeStdout()
+	finish := func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		if m.proc == handle {
+			m.markStoppedLocked("", "", nil)
+		}
+	}
+	select {
+	case <-handle.Done():
+		finish()
+	case <-time.After(config.PluginKillWait):
+		go func() { <-handle.Done(); finish() }()
+	}
 }
 
 func (m *Manager) cleanupFailedStart(handle *Handle, code, message string, err error) {

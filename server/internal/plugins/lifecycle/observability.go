@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -21,12 +22,22 @@ func (c *Controller) publishRuntimeState(pluginID, state string) {
 			}
 		}
 	}
+	if manager, ok := c.runtimes.Get(pluginID); ok {
+		actual := manager.Snapshot()
+		if actual.State == pluginruntime.State(state) {
+			code, message = actual.LastErrorCode, actual.LastErrorMessage
+		}
+	}
 	if _, err := c.plugins.SetRuntimeResult(pluginID, state, code, message); err != nil {
 		c.logLifecycleWarn("publish plugin runtime state", pluginID, err)
 	}
 }
 
 func (c *Controller) publishRuntimeFailure(pluginID string, cause error) {
+	if cancellationOnly(cause) {
+		c.publishRuntimeState(pluginID, string(pluginruntime.StateStopped))
+		return
+	}
 	state := string(pluginruntime.StateStopped)
 	if manager, ok := c.runtimes.Get(pluginID); ok && manager != nil {
 		state = string(manager.Snapshot().State)
@@ -47,7 +58,7 @@ func (c *Controller) publishRuntimeFailure(pluginID string, cause error) {
 }
 
 func (c *Controller) logLifecycleWarn(message, pluginID string, err error) {
-	if c.logger == nil || err == nil {
+	if c.logger == nil || err == nil || cancellationOnly(err) {
 		return
 	}
 
@@ -102,4 +113,39 @@ func lifecycleActionLabel(message string) string {
 		}
 		return "处理：" + strings.TrimSpace(message)
 	}
+}
+
+func (c *Controller) projectRuntimeResult(pluginID string, manager *pluginruntime.Manager) {
+	actual := manager.Snapshot()
+	if _, err := c.plugins.SetRuntimeResult(pluginID, string(actual.State), actual.LastErrorCode, actual.LastErrorMessage); err != nil {
+		c.logLifecycleWarn("publish plugin runtime state", pluginID, err)
+	}
+}
+
+// A kill can return before OS reaping; keep the runtime registered and publish
+// its final observation only if it still owns this plugin generation.
+func (c *Controller) projectAfterPendingStop(pluginID string, manager *pluginruntime.Manager) {
+	done := manager.ProcessDone()
+	if done == nil {
+		return
+	}
+	c.launch(func() {
+		select {
+		case <-done:
+		case <-c.lifecycleContext().Done():
+			return
+		}
+		release, err := c.acquireOperation(c.lifecycleContext(), pluginID)
+		if err != nil {
+			return
+		}
+		defer release()
+		if current, ok := c.runtimes.Get(pluginID); !ok || current != manager {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(c.lifecycleContext()), manager.ShutdownGrace())
+		defer cancel()
+		_ = manager.Stop(ctx)
+		c.projectRuntimeResult(pluginID, manager)
+	})
 }

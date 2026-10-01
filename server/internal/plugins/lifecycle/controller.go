@@ -100,9 +100,6 @@ func NewController(deps Deps) (*Controller, error) {
 	if deps.Operations == nil {
 		return nil, errors.New("plugin lifecycle operation gate is required")
 	}
-	if deps.ShutdownTimeout <= 0 {
-		deps.ShutdownTimeout = 5 * time.Second
-	}
 	var zone string
 	if deps.Scheduler != nil {
 		zone = deps.Scheduler.Timezone()
@@ -270,15 +267,15 @@ func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, actio
 	if !ok {
 		return nil, plugins.ErrPluginNotFound
 	}
-	if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
-		return nil, fmt.Errorf("plugin is not enabled")
-	}
-	if err := c.ensurePluginRunning(ctx, pluginID); err != nil {
-		return nil, err
+	state, _ := plugins.ProjectState(snapshot)
+	if snapshot.DesiredState != "enabled" || state != plugins.PluginStateRunning {
+		return nil, &plugins.NotRunningError{PluginID: pluginID, State: state}
 	}
 	manager, ok := c.runtimes.Get(pluginID)
 	if !ok || manager == nil {
-		return nil, fmt.Errorf("plugin runtime is not running")
+		snapshot.RuntimeState = "stopped"
+		state, _ = plugins.ProjectState(snapshot)
+		return nil, &plugins.NotRunningError{PluginID: pluginID, State: state}
 	}
 
 	now := time.Now()
@@ -294,6 +291,11 @@ func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, actio
 		},
 	})
 	if err != nil {
+		if errors.Is(err, plugins.ErrRuntimeNotRunning) {
+			snapshot.RuntimeState = string(manager.Snapshot().State)
+			state, _ := plugins.ProjectState(snapshot)
+			return nil, &plugins.NotRunningError{PluginID: pluginID, State: state}
+		}
 		return nil, err
 	}
 	return delivery.Result, nil

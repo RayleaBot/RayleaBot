@@ -14,6 +14,7 @@ import (
 )
 
 func (m *Manager) Stop(ctx context.Context) error {
+	grace := m.ShutdownGrace()
 	if err := m.acquireLifecycle(ctx); err != nil {
 		return err
 	}
@@ -47,7 +48,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 		m.mu.Unlock()
 		// Another operation already reported the failure and owns termination.
 		// Stop waits for that cleanup without replacing its cause with a pipe error.
-		cleanupCtx, cancel := context.WithTimeout(ctx, max(handle.Spec.ShutdownGrace, time.Second))
+		cleanupCtx, cancel := context.WithTimeout(ctx, grace)
 		defer cancel()
 		select {
 		case <-handle.Done():
@@ -60,6 +61,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 			return m.failRuntime(handle, codePluginShutdownTimeout, "plugin shutdown timed out", cleanupCtx.Err())
 		}
 	}
+	handle.stopRequested = true
 	m.snap.State = StateStopping
 	m.retireServiceCallsLocked()
 	m.cancelDetachedLocked()
@@ -85,7 +87,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 		"runtime_state", string(StateStopping),
 	)
 
-	stopCtx, cancel := context.WithTimeout(ctx, handle.Spec.ShutdownGrace)
+	stopCtx, cancel := context.WithTimeout(ctx, grace)
 	defer cancel()
 	// Closing stdin releases a blocked event/action write and the shutdown
 	// frame waiting behind it, so the deadline can reach process termination.

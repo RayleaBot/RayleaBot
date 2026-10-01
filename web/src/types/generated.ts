@@ -1005,7 +1005,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Invoke one plugin-owned management action through the protected management UI bridge. */
+        /**
+         * Invoke one plugin-owned management action through the protected management UI bridge.
+         * @description Lifecycle admission rejection returns HTTP 409 with plugin.not_running; error.details contains plugin_id and state (the public PluginState). The action was not attempted and does not start a stopped plugin. An attempted action that fails returns HTTP 502 with plugin.management_action_failed without exposing the plugin's raw error.
+         */
         post: operations["invokePluginManagementAction"];
         delete?: never;
         options?: never;
@@ -1180,6 +1183,7 @@ export interface components {
             restart_required: boolean;
             apply_effects: components["schemas"]["ConfigApplyEffects"];
         };
+        LauncherStatusResponse: components["schemas"]["SystemStatusResponse"] & unknown;
         SystemStatusResponse: {
             /** @enum {string} */
             status: "running" | "shutting_down";
@@ -1193,6 +1197,8 @@ export interface components {
             failed_plugins?: number;
             /** @description Current database schema migration version. */
             db_schema_version?: string;
+            /** @description Required for GET /api/launcher/status. The maximum graceful shutdown budget in seconds, rounded up, for the current server configuration. Covers HTTP shutdown, stop announcement, dispatch drain, plugin grace and forced termination wait, adapters and shared browser cleanup. Launchers must wait at least this budget before force-killing. */
+            shutdown_budget_seconds?: number;
             uptime_seconds?: number;
             health?: components["schemas"]["ReadinessStatusResponse"];
         };
@@ -1737,9 +1743,10 @@ export interface components {
          * @enum {string}
          */
         PluginState: "disabled" | "enabled" | "starting" | "running" | "stopping" | "failed" | "invalid";
+        /** @description shutdown_failed records a graceful-stop failure, including forced termination. A live process remains stopping; after confirmed exit the plugin is failed when enabled or disabled when disabled, retaining this diagnosis. */
         PluginStateDiagnosis: {
             /** @enum {string} */
-            kind: "invalid_manifest" | "plugin_id_conflict" | "initialization_failed" | "crashed" | "retrying" | "recovery_required";
+            kind: "invalid_manifest" | "plugin_id_conflict" | "initialization_failed" | "shutdown_failed" | "crashed" | "retrying" | "recovery_required";
             summary?: string;
             manifest_path?: string;
             manifest_paths?: string[];
@@ -2888,7 +2895,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SystemStatusResponse"];
+                    "application/json": components["schemas"]["LauncherStatusResponse"];
                 };
             };
             403: components["responses"]["Error"];

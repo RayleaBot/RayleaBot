@@ -1,0 +1,13 @@
+contract: contracts/error-codes.yaml
+case: ok
+description: Management action admission exposes the plugin state.
+input:
+  errors:
+    - code: plugin.not_running
+      message: 插件当前未运行，管理操作未执行
+      applies_to: http
+      details:
+        plugin_id: fixture
+        state: disabled
+expect:
+  valid: true

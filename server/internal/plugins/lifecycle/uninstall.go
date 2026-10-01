@@ -220,7 +220,15 @@ func (s *UninstallService) run() {
 	for {
 		select {
 		case <-s.baseCtx.Done():
-			return
+			for {
+				select {
+				case job := <-s.jobs:
+					s.admission.Release()
+					s.execute(job)
+				default:
+					return
+				}
+			}
 		case job := <-s.jobs:
 			s.admission.Release()
 			s.execute(job)
@@ -239,6 +247,11 @@ func (s *UninstallService) execute(job uninstallJob) {
 		StartedAt: &startedAt,
 	})
 	if err := s.runUninstall(job); err != nil {
+		if cancellationOnly(err) {
+			now := s.deps.now().UTC()
+			s.registry.Update(job.taskID, tasks.Update{Status: taskStatusPtr(tasks.StatusCancelled), Summary: stringPtr("插件卸载已取消"), FinishedAt: &now})
+			return
+		}
 		var failure *operationError
 		if errors.As(err, &failure) {
 			s.failTask(job.taskID, codePluginUninstallFailed, failure.message(), failure.message(), failure.details())

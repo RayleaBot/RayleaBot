@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RayleaBot Web API
-  version: 0.5.3
+  version: 0.5.4
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
@@ -19,6 +19,9 @@ info:
     fields in closed objects, and oversized bodies return HTTP 400 with
     platform.invalid_request after the route's authentication checks.
 x-fixtures:
+  - fixtures/web-api/edge.plugin-shutdown-failed.yaml
+  - fixtures/web-api/edge.plugin-management-not-running.yaml
+  - fixtures/web-api/invalid.launcher-shutdown-budget.yaml
   - fixtures/web-api/ok.plugin-dedicated-command-prefixes.yaml
   - fixtures/web-api/ok.plugin-message-policy.yaml
   - fixtures/web-api/ok.log-detail-response.outbound-qqofficial.yaml
@@ -461,7 +464,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SystemStatusResponse'
+                $ref: '#/components/schemas/LauncherStatusResponse'
         '403':
           $ref: '#/components/responses/Error'
         default:
@@ -1953,6 +1956,12 @@ paths:
   /api/plugins/{plugin_id}/management/actions:
     post:
       summary: Invoke one plugin-owned management action through the protected management UI bridge.
+      description: >
+        Lifecycle admission rejection returns HTTP 409 with plugin.not_running;
+        error.details contains plugin_id and state (the public PluginState).
+        The action was not attempted and does not start a stopped plugin.
+        An attempted action that fails returns HTTP 502 with
+        plugin.management_action_failed without exposing the plugin's raw error.
       operationId: invokePluginManagementAction
       security:
         - BearerAuth: []
@@ -2467,6 +2476,11 @@ components:
         apply_effects:
           $ref: '#/components/schemas/ConfigApplyEffects'
 
+    LauncherStatusResponse:
+      allOf:
+        - $ref: '#/components/schemas/SystemStatusResponse'
+        - required: [shutdown_budget_seconds]
+
     SystemStatusResponse:
       type: object
       additionalProperties: false
@@ -2495,6 +2509,15 @@ components:
         db_schema_version:
           type: string
           description: Current database schema migration version.
+        shutdown_budget_seconds:
+          type: integer
+          minimum: 1
+          description: >
+            Required for GET /api/launcher/status. The maximum graceful shutdown
+            budget in seconds, rounded up, for the current server configuration.
+            Covers HTTP shutdown, stop announcement, dispatch drain, plugin grace
+            and forced termination wait, adapters and shared browser cleanup.
+            Launchers must wait at least this budget before force-killing.
         uptime_seconds:
           type: integer
           minimum: 0
@@ -3749,13 +3772,17 @@ components:
       enum: [disabled, enabled, starting, running, stopping, failed, invalid]
 
     PluginStateDiagnosis:
+      description: >
+        shutdown_failed records a graceful-stop failure, including forced termination.
+        A live process remains stopping; after confirmed exit the plugin is failed
+        when enabled or disabled when disabled, retaining this diagnosis.
       type: object
       additionalProperties: false
       required: [kind]
       properties:
         kind:
           type: string
-          enum: [invalid_manifest, plugin_id_conflict, initialization_failed, crashed, retrying, recovery_required]
+          enum: [invalid_manifest, plugin_id_conflict, initialization_failed, shutdown_failed, crashed, retrying, recovery_required]
         summary:
           type: string
         manifest_path:
