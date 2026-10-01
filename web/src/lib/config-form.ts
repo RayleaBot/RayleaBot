@@ -82,13 +82,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       title: t('config.sections.database'),
       fields: [
         {
-          path: 'database.engine',
-          label: t('config.fields.databaseEngine'),
-          type: 'text',
-          description: t('config.descriptions.databaseEngine'),
-          restartRequired: true,
-        },
-        {
           path: 'database.path',
           label: t('config.fields.databasePath'),
           type: 'text',
@@ -108,6 +101,14 @@ export function getConfigSections(): ConfigSectionDefinition[] {
           type: 'number',
           unit: t('config.units.day'),
           description: t('config.descriptions.adminSessionTtlDays'),
+        },
+        {
+          path: 'admin.session_absolute_ttl_days',
+          restartRequired: true,
+          label: t('config.fields.adminSessionAbsoluteTtlDays'),
+          type: 'number',
+          unit: t('config.units.day'),
+          description: t('config.descriptions.adminSessionAbsoluteTtlDays'),
         },
         {
           path: 'admin.sliding_renewal',

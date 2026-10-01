@@ -10,7 +10,7 @@ import type { ConfigDocument } from '@/types/api'
 
 export function useConfigDraft(options: { error?: () => string | null } = {}) {
   const store = useConfigStore()
-  const { document, saving, error, redactedFields } = storeToRefs(store)
+  const { document, saving, error } = storeToRefs(store)
   const draft = ref<ConfigDocument | null>(null)
   const saveStatus = ref<'hot' | 'restart' | null>(null)
   let active = true
@@ -29,11 +29,6 @@ export function useConfigDraft(options: { error?: () => string | null } = {}) {
   useToastFeedback(computed(() => {
     const message = options.error ? options.error() : error.value
     if (message) return { key: `config-error:${message}`, level: 'error' as const, message }
-    if (redactedFields.value.length) return {
-      key: `config-redacted:${redactedFields.value.join('|')}`,
-      level: 'info' as const,
-      message: `${t('config.redactedTitle')}：${redactedFields.value.join(', ')}`,
-    }
     return null
   }))
 
