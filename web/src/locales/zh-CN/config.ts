@@ -152,7 +152,7 @@ export const config = {
     storageKvTotalLimitMb: '所有插件 KV 数据合计存储上限；达到上限时新写入被拒。',
     dataDownloadCacheRetentionDays: '离线 cleanup 命令只清理超过该天数的下载缓存。',
     logLevel: '控制日志输出的最低级别；低于该级别的日志被忽略。',
-    logRetentionDays: 'SQLite 管理日志记录的保留天数；超出后自动裁剪。',
+    logRetentionDays: '历史日志的保留天数，超出后自动清理；历史日志页只能查到这段时间内的日志。',
   },
   rateLimit: {
     count: '次数',

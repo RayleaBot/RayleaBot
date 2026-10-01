@@ -206,7 +206,7 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 
 **Body Font:** 与标题相同的 HarmonyOS Sans SC，回退为 Microsoft YaHei UI、PingFang SC、Hiragino Sans GB 与系统无衬线字体。Web 管理面、认证页与 Launcher 的正文和标准控件都继承 `--font-sans`，Launcher 的 Fluent `fontFamilyBase` 同样映射到该变量。字体只提供 400、500、700 三个字重，600 及以上的字重使用 Bold。
 
-**Label/Mono Font:** 标签沿用所在应用的正文栈。Web 日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据、JSON 和代码使用 Cascadia Mono、Consolas、JetBrains Mono 等宽回退栈；日志消息正文使用界面字体，不因位于 `pre` 中而改用等宽字体。
+**Label/Mono Font:** 标签沿用所在应用的正文栈。Web 日志行的时间、模块与技术元数据，详情中的模块、插件 ID、请求 ID，以及结构化数据、JSON 和代码使用 Cascadia Mono、Consolas、JetBrains Mono 等宽回退栈；日志消息正文使用界面字体，不因位于 `pre` 中而改用等宽字体。
 
 ### Hierarchy
 
@@ -347,7 +347,7 @@ Web 持续提示使用 [`AppAlert`](web/src/components/AppAlert.vue) 的紧凑�
 
 ### Logs and diagnostic detail
 
-实时与历史日志保持各自的列表、筛选和滚动职责。筛选修改在停止输入后自动生效，不设应用按钮；协议、插件和请求标识在筛选栏放得下时与级别、来源排在同一行，放不下的从末尾依次收进“更多筛选”弹层，历史范围使用本地日期时间输入。清除筛选、分页、底部跟随和手动滚动沿用现有工作区状态，持续新增日志不逐条播放入场动画。
+实时与历史日志保持各自的列表、筛选和滚动职责。筛选修改在停止输入后自动生效，不设应用按钮；协议、插件和请求标识在筛选栏放得下时与级别、模块排在同一行，放不下的从末尾依次收进“更多筛选”弹层，历史范围使用本地日期时间输入。清除筛选、分页、底部跟随和手动滚动沿用现有工作区状态，持续新增日志不逐条播放入场动画。
 
 **The Log Row Density Rule.** 实时与历史日志的行级标签使用 AppTag 的 small 尺寸。虚拟列表以常规行高作为估算值，并测量实际行高；换行正文允许自然增高，虚拟列表维护滚动锚点与底部跟随。暂停跟随的实时列表统一使用 [`AppJumpToLatest`](web/src/components/AppJumpToLatest.vue) 返回最新条目，新条目数量是蓝色按钮上的白色计数，不使用错误色。
 
