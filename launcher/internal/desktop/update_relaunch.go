@@ -24,8 +24,16 @@ func launcherExecutable(basePath, goos string) string {
 	}
 }
 
-func startDetachedLauncher(basePath, goos string, pid int) error {
-	command := exec.Command(launcherExecutable(basePath, goos), WaitForPIDFlag, strconv.Itoa(pid))
+func relaunchArguments(pid int, resumeService bool) []string {
+	args := []string{WaitForPIDFlag, strconv.Itoa(pid)}
+	if resumeService {
+		args = append(args, ResumeServiceFlag)
+	}
+	return args
+}
+
+func startDetachedLauncher(basePath, goos string, pid int, resumeService bool) error {
+	command := exec.Command(launcherExecutable(basePath, goos), relaunchArguments(pid, resumeService)...)
 	command.Dir = basePath
 	configureDetachedProcess(command)
 	if err := command.Start(); err != nil {

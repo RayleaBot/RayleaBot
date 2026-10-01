@@ -30,6 +30,9 @@ type ProcessController struct {
 	lastStructuredError string
 	logDirectory        string
 	releaseSupervisor   func()
+	stopping            bool
+	lastExit            *LauncherProcessExit
+	shutdownBudget      int64
 
 	runtimeResources map[string]RuntimePrepareResourceProgress
 	runtimeActive    bool
@@ -63,6 +66,9 @@ func (p *ProcessController) Start(settings LauncherResolvedSettings) error {
 		return fmt.Errorf("生成启动器控制凭据: %w", err)
 	}
 	p.stderr = nil
+	p.stopping = false
+	p.lastExit = nil
+	p.shutdownBudget = 0
 	p.lastStructuredError = ""
 	p.runtimeResources = map[string]RuntimePrepareResourceProgress{}
 	p.runtimeActive = false
@@ -157,8 +163,20 @@ func replaceEnvironmentValues(environment []string, replacements map[string]stri
 func (p *ProcessController) wait(command *exec.Cmd) {
 	err := command.Wait()
 	var releaseSupervisor func()
+	planned := false
 	p.mu.Lock()
 	if p.cmd == command {
+		planned = p.stopping
+		kind := ExitUnexpected
+		if planned {
+			kind = ExitPlanned
+		}
+		code := -1
+		if command.ProcessState != nil {
+			code = command.ProcessState.ExitCode()
+		}
+		p.lastExit = &LauncherProcessExit{Kind: kind, ExitCode: code}
+		p.stopping = false
 		p.cmd = nil
 		p.setupToken = ""
 		p.controlToken = ""
@@ -169,7 +187,7 @@ func (p *ProcessController) wait(command *exec.Cmd) {
 	if releaseSupervisor != nil {
 		releaseSupervisor()
 	}
-	if err != nil {
+	if err != nil && !planned {
 		detail := "服务进程异常退出"
 		if reason := processExitReason(command.ProcessState); reason != "" {
 			detail += "（" + reason + "）"
@@ -328,6 +346,34 @@ func (p *ProcessController) IsRunning() bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.cmd != nil
+}
+
+func (p *ProcessController) MarkStopping() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.cmd != nil {
+		p.stopping = true
+	}
+}
+
+func (p *ProcessController) State() (running, stopping bool, exit *LauncherProcessExit) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.cmd != nil, p.stopping, clonePointer(p.lastExit)
+}
+
+func (p *ProcessController) RememberShutdownBudget(seconds int64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.cmd != nil {
+		p.shutdownBudget = seconds
+	}
+}
+
+func (p *ProcessController) ShutdownWaitBudget() time.Duration {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return shutdownWaitBudget(p.shutdownBudget)
 }
 
 func (p *ProcessController) ProcessID() *int64 {

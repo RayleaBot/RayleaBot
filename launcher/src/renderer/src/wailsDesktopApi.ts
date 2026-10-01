@@ -37,6 +37,11 @@ export function normalizeWailsSnapshot(snapshot: desktopModels.LauncherSnapshot)
     server: snapshot.server as LauncherSnapshot["server"],
     launcher: {
       ...local,
+      controlCapability: expectEnumValue(local.controlCapability, desktopModels.LauncherControlCapability, "launcher.controlCapability"),
+      processExit: local.processExit ? {
+        ...local.processExit,
+        kind: expectEnumValue(local.processExit.kind, desktopModels.LauncherProcessExitKind, "launcher.processExit.kind"),
+      } : null,
       processLifecycle: expectEnumValue(local.processLifecycle, desktopModels.LauncherProcessLifecycle, "launcher.processLifecycle"),
       processOwnership: expectEnumValue(local.processOwnership, desktopModels.LauncherProcessOwnership, "launcher.processOwnership"),
       environmentChecks: (local.environmentChecks ?? []).map(normalizeEnvironmentCheck),

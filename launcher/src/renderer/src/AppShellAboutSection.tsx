@@ -37,6 +37,8 @@ function buildVersionHint(releaseCheck: LauncherSnapshot["launcher"]["releaseChe
       return "已是最新";
     case "update_available":
       return latestVersion ? `有新版本 ${latestVersion}` : "有新版本";
+    case "cancelled":
+      return "已取消更新";
     case "failed":
       if (releaseCheck.errorCode === "launcher.update_relaunch_failed") {
         return "待重新打开";
@@ -64,7 +66,8 @@ export function AppShellAboutSection({
   const updateButtonLabel = guidedRelease ? "打开发布页" : releaseCheck.status === "checking" ? "检查中" : "检查更新";
   const updateDisabled = controlsDisabled || releaseCheck.status === "checking" || (!guidedRelease && !releaseCheck.canCheck);
   const showUpdateAction = releaseCheck.canCheck || guidedRelease || releaseCheck.status === "checking";
-  const showUpdateError = Boolean(releaseCheck.errorCode) || releaseCheck.status === "failed";
+  // A cancelled update is the user's choice, not a failure, so it only shows in the version line.
+  const showUpdateError = releaseCheck.status !== "cancelled" && (Boolean(releaseCheck.errorCode) || releaseCheck.status === "failed");
   const onUpdateAction = guidedRelease ? onOpenReleasePage : onCheckForUpdates;
 
   return (

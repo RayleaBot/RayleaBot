@@ -19,6 +19,8 @@ export const initialSnapshot: LauncherSnapshot = {
     systemStatus: null,
   },
   launcher: {
+    controlCapability: "none",
+    processExit: null,
     processId: null,
     processLifecycle: "stopped",
     processOwnership: "none",

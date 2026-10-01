@@ -28,7 +28,7 @@ func (p *gracefulShutdownProcess) ForceKill() error {
 }
 
 func TestExitWaitsForServerCleanupWithoutDelayingCompletedShutdown(t *testing.T) {
-	for _, cleanup := range []time.Duration{0, 5 * time.Second} {
+	for _, cleanup := range []time.Duration{0, 5 * time.Second, 60 * time.Second} {
 		t.Run(cleanup.String(), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				process := &gracefulShutdownProcess{}
@@ -46,7 +46,7 @@ func TestExitWaitsForServerCleanupWithoutDelayingCompletedShutdown(t *testing.T)
 						process.running.Store(false)
 					}()
 					return nil
-				}, shutdownGracePeriod)
+				}, shutdownWaitBudget(60))
 				if err != nil || process.killed {
 					t.Fatalf("server cleanup was interrupted: killed=%v, err=%v", process.killed, err)
 				}

@@ -5,12 +5,23 @@ import (
 	"time"
 )
 
-// Server drains HTTP, dispatch, plugins and adapters with separate grace
-// budgets. Let those phases finish before the exit fallback kills the process.
+// Older servers do not report a budget. New servers include every cleanup
+// phase; allow a small margin for request handling and process teardown.
 const shutdownGracePeriod = 30 * time.Second
-const stopGracePeriod = 5 * time.Second
+const shutdownGraceMargin = 2 * time.Second
 const processKillWait = 2 * time.Second
 const processExitPoll = 50 * time.Millisecond
+
+func shutdownWaitBudget(seconds int64) time.Duration {
+	if seconds < 1 {
+		return shutdownGracePeriod
+	}
+	const maximum = time.Duration(1<<63 - 1)
+	if seconds > int64((maximum-shutdownGraceMargin)/time.Second) {
+		return maximum
+	}
+	return time.Duration(seconds)*time.Second + shutdownGraceMargin
+}
 
 type managedProcessStopper interface {
 	IsRunning() bool

@@ -98,6 +98,7 @@ func main() {
 	icon := launcherIcon()
 	host := &appHost{}
 	service := desktop.NewService(basePath, consumeEnvironment("RAYLEA_LAUNCHER_CONTROL_TOKEN"), consumePIDEnvironment("RAYLEA_DEV_SERVER_WATCHER_PID"), host)
+	resume := desktop.NewServiceResume(os.Args[1:])
 	app := application.New(application.Options{
 		Name:         "RayleaLauncher",
 		Description:  "RayleaBot 桌面启动器",
@@ -187,6 +188,10 @@ func main() {
 		go func() {
 			if err := service.Initialize(); err != nil {
 				log.Printf("启动器初始化失败：%v", err)
+				return
+			}
+			if err := resume.AfterInitialize(service); err != nil {
+				log.Printf("更新后恢复服务失败：%v", err)
 			}
 		}()
 	})
@@ -240,7 +245,9 @@ func (h *appHost) SetTrayState(state desktop.TrayMenuState) {
 			go h.service.OpenWebUI("")
 		})
 		menu.Add(state.TrayServiceActionLabel).SetEnabled(state.CanRunTrayServiceAction).OnClick(func(*application.Context) {
-			if state.TrayServiceAction == "stop" {
+			if state.TrayServiceAction == "open_web" {
+				go h.service.OpenWebUI("")
+			} else if state.TrayServiceAction == "stop" {
 				go h.service.Stop()
 			} else {
 				go h.service.Start()

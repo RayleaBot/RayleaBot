@@ -30,9 +30,9 @@ const actionCopy = {
   },
   "stop-external": {
     title: "停止现有服务",
-    lead: "确认停止当前检测到的本机 RayleaBot 服务？",
-    detail: "该服务由其他进程启动。确认后，启动器会请求它停止运行。",
-    confirm: "停止服务",
+    lead: "该服务由其他进程启动，启动器无法直接停止它。",
+    detail: "确认后会打开管理界面，请在那里停止服务，停止后回到启动器继续操作。",
+    confirm: "打开管理界面",
     icon: <Stop24Filled />,
     tone: "attention",
   },

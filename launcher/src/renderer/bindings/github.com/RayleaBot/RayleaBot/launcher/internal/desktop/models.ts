@@ -65,7 +65,20 @@ export interface LauncherCloseConfirmResponse {
     "setAsDefault": boolean;
 }
 
+export enum LauncherControlCapability {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    ControlNone = "none",
+    ControlStop = "stop",
+    ControlOpenWeb = "open_web",
+};
+
 export interface LauncherLocalSnapshot {
+    "controlCapability": LauncherControlCapability;
+    "processExit": LauncherProcessExit | null;
     "processId": number | null;
     "processLifecycle": LauncherProcessLifecycle;
     "processOwnership": LauncherProcessOwnership;
@@ -81,6 +94,21 @@ export interface LauncherLocalSnapshot {
     "resolvedSettings": LauncherResolvedSettings;
     "endpoint": ServerEndpoint;
 }
+
+export interface LauncherProcessExit {
+    "kind": LauncherProcessExitKind;
+    "exitCode": number;
+}
+
+export enum LauncherProcessExitKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    ExitPlanned = "planned",
+    ExitUnexpected = "unexpected",
+};
 
 export enum LauncherProcessLifecycle {
     /**
@@ -154,6 +182,7 @@ export enum ReleaseCheckStatus {
     ReleaseUpToDate = "up_to_date",
     ReleaseUpdateAvailable = "update_available",
     ReleaseFailed = "failed",
+    ReleaseCancelled = "cancelled",
 };
 
 export interface RuntimePrepareResourceProgress {
@@ -242,6 +271,7 @@ export interface ServerReadinessStatusResponseChecks {
 }
 
 export interface ServerSystemStatusResponse {
+    "shutdown_budget_seconds"?: number;
     "status": string;
     "adapters": ServerAdapterStatus[] | null;
     "active_plugins"?: number;

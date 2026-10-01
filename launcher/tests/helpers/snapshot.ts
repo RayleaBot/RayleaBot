@@ -13,6 +13,8 @@ export function createLauncherSnapshot(overrides: DeepPartial<LauncherSnapshot> 
       ...overrides.server,
     },
     launcher: {
+      controlCapability: "none",
+      processExit: null,
       processId: null,
       processLifecycle: "stopped",
       processOwnership: "none",

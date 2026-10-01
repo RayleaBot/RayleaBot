@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -26,9 +27,31 @@ func (c *Coordinator) buildSnapshot(operation operationContext, inspection Envir
 	if ownership == "" {
 		ownership = currentOwnership
 	}
+	running, stopping, exit := c.process.State()
+	if running && stopping {
+		lifecycle, ownership = Stopping, OwnershipLauncher
+		options.statusHint, options.lastLocalError = "正在停止服务。", ""
+	} else if !running && ownership == OwnershipNone && exit != nil {
+		lifecycle = Stopped
+		// An older exit must not hide a new preflight or startup failure.
+		if !inspection.HasBlockingIssues && !inspection.CanBootstrapUserConfig && options.lastLocalError == "" {
+			options.statusHint = "服务已停止。"
+			if exit.Kind == ExitUnexpected {
+				options.statusHint = "服务进程异常退出，请查看日志后重新启动。"
+				options.lastLocalError = fmt.Sprintf("服务进程意外退出（退出码 %d）。", exit.ExitCode)
+			}
+		}
+	}
+	capability := ControlNone
+	if ownership == OwnershipLauncher {
+		capability = ControlStop
+	} else if ownership == OwnershipExternal {
+		capability = ControlOpenWeb
+	}
 	return LauncherSnapshot{
 		Server: LauncherServerSnapshot{Health: options.health, Readiness: options.readiness, SystemStatus: options.systemStatus},
 		Launcher: LauncherLocalSnapshot{
+			ControlCapability: capability, ProcessExit: exit,
 			ProcessID: c.process.ProcessID(), ProcessLifecycle: lifecycle, ProcessOwnership: ownership,
 			EnvironmentChecks: inspection.Checks, PreflightChecks: inspection.PreflightChecks, AdvisoryChecks: inspection.AdvisoryChecks,
 			RecentStderr: c.process.RecentStderr(), RuntimePrepare: options.runtimePrepare,

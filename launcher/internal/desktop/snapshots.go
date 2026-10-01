@@ -9,7 +9,8 @@ func defaultSnapshot() LauncherSnapshot {
 	return LauncherSnapshot{
 		Server: LauncherServerSnapshot{},
 		Launcher: LauncherLocalSnapshot{
-			ProcessLifecycle: "stopped", ProcessOwnership: "none", EnvironmentChecks: []EnvironmentCheckResult{}, PreflightChecks: []EnvironmentCheckResult{}, AdvisoryChecks: []EnvironmentCheckResult{}, RecentStderr: []string{},
+			ControlCapability: ControlNone,
+			ProcessLifecycle:  "stopped", ProcessOwnership: "none", EnvironmentChecks: []EnvironmentCheckResult{}, PreflightChecks: []EnvironmentCheckResult{}, AdvisoryChecks: []EnvironmentCheckResult{}, RecentStderr: []string{},
 			ReleaseCheck: releaseUnavailable("尚未检查版本。"), Settings: LauncherSettings{CloseBehavior: CloseAskEveryTime}, Endpoint: ServerEndpoint{Host: "127.0.0.1", Port: 8080, BaseURL: "http://127.0.0.1:8080/"},
 		},
 	}
@@ -21,6 +22,7 @@ func cloneSnapshot(snapshot LauncherSnapshot) LauncherSnapshot {
 	clone.Server.Readiness = cloneResponse(snapshot.Server.Readiness)
 	clone.Server.SystemStatus = cloneResponse(snapshot.Server.SystemStatus)
 	clone.Launcher.ProcessID = clonePointer(snapshot.Launcher.ProcessID)
+	clone.Launcher.ProcessExit = clonePointer(snapshot.Launcher.ProcessExit)
 	clone.Launcher.EnvironmentChecks = cloneSlice(snapshot.Launcher.EnvironmentChecks)
 	clone.Launcher.PreflightChecks = cloneSlice(snapshot.Launcher.PreflightChecks)
 	clone.Launcher.AdvisoryChecks = cloneSlice(snapshot.Launcher.AdvisoryChecks)
@@ -108,6 +110,11 @@ func trayState(snapshot LauncherSnapshot) TrayMenuState {
 	} else if snapshot.Server.Health != nil || snapshot.Launcher.ProcessLifecycle == "running" {
 		// A reachable service or a live process has started; only a start that left nothing running failed.
 		state = "运行异常"
+	} else if exit := snapshot.Launcher.ProcessExit; exit != nil {
+		state = "已停止"
+		if exit.Kind == ExitUnexpected {
+			state = "异常退出"
+		}
 	} else if snapshot.Launcher.LastLocalError != "" {
 		state = "启动失败"
 	}
@@ -115,6 +122,10 @@ func trayState(snapshot LauncherSnapshot) TrayMenuState {
 	canRun := snapshot.Launcher.ProcessLifecycle != "starting" && snapshot.Launcher.ProcessLifecycle != "stopping"
 	if snapshot.Launcher.ProcessOwnership != "none" {
 		action, label = "stop", "停止服务"
+	}
+	if snapshot.Launcher.ControlCapability == ControlOpenWeb {
+		action, label = "open_web", "打开管理界面"
+		canRun = canRun && canOpen
 	}
 	return TrayMenuState{TrayStatusSummary: state, CanOpenWebUI: canOpen, TrayServiceAction: action, TrayServiceActionLabel: label, CanRunTrayServiceAction: canRun}
 }

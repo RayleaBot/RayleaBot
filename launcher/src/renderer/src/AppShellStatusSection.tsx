@@ -121,6 +121,7 @@ export function AppShellStatusSection({
         onStart={onStart}
         onStop={onStop}
         showRunningActions={showRunningActions}
+        stopOpensWeb={snapshot.launcher.controlCapability === "open_web"}
         snapshot={{
           serviceDetail: serviceControlDetail,
           serviceState: presentation.state,

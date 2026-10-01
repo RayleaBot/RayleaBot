@@ -66,6 +66,19 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 	ctx, cancel := context.WithTimeout(context.Background(), refreshRequestBudget)
 	defer cancel()
 	healthy := c.management.IsHealthy(ctx, operation.endpoint)
+	// Read status regardless of readiness: shutdown is independent of database
+	// readiness and may start while setup or resource recovery is in progress.
+	var systemStatus *ServerSystemStatusResponse
+	var statusErr error
+	if healthy || c.process.IsRunning() {
+		systemStatus, statusErr = c.management.GetLauncherStatus(ctx, operation.endpoint)
+		if statusErr == nil {
+			c.process.RememberShutdownBudget(systemStatus.ShutdownBudgetSeconds)
+			if systemStatus.Status == "shutting_down" {
+				c.process.MarkStopping()
+			}
+		}
+	}
 	if !healthy {
 		lifecycle := Stopped
 		ownership := OwnershipNone
@@ -92,14 +105,9 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 		}))
 		return nil
 	}
-	var systemStatus *ServerSystemStatusResponse
 	statusError, statusHint := "", ""
-	if status := readiness.Status; status == "ready" || status == "degraded" {
-		if value, statusErr := c.management.GetLauncherStatus(ctx, operation.endpoint); statusErr == nil {
-			systemStatus = value
-		} else {
-			statusHint, statusError = describeLauncherStatusError(statusErr, c.process.IsRunning())
-		}
+	if statusErr != nil {
+		statusHint, statusError = describeLauncherStatusError(statusErr, c.process.IsRunning())
 	}
 	lifecycle := lifecycleFor(c.process.IsRunning())
 	if systemStatus != nil && systemStatus.Status == "shutting_down" {
@@ -287,7 +295,11 @@ func (c *Coordinator) Stop() error {
 	defer unblockStartups()
 	c.operationMu.Lock()
 	defer c.operationMu.Unlock()
-	return c.stopLocked(true, shutdownIntentStop)
+	err := c.stopLocked(true, shutdownIntentStop)
+	if errors.Is(err, errStopCancelled) {
+		return nil
+	}
+	return err
 }
 
 func (c *Coordinator) Restart() error {
@@ -327,33 +339,29 @@ func (c *Coordinator) stopLocked(confirmExternal bool, intent shutdownIntent) er
 		ownership = "external"
 	}
 	if ownership == "external" && confirmExternal {
-		if c.host == nil || !c.host.ConfirmExternalServiceStop() {
-			return c.refresh(operation)
+		// Publish capabilities before asking, including when the first stop
+		// happens before a status refresh has discovered this external service.
+		if err := c.refresh(operation); err != nil {
+			return err
 		}
-		if !isLoopbackHost(operation.endpoint.Host) {
-			snapshot := c.Snapshot()
-			snapshot.Launcher.StatusHint = "无法停止非本机服务。"
-			snapshot.Launcher.LastLocalError = "远程服务只能通过管理界面操作。"
-			c.publish(snapshot)
-			return nil
+		if c.host == nil || !c.host.ConfirmExternalServiceStop() {
+			return errStopCancelled
 		}
 	}
 	if ownership == "external" {
-		c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
-			health: &ServerLivenessStatusResponse{Status: "ok"}, processLifecycle: "stopping", processOwnership: ownership, statusHint: "正在停止现有服务。",
-		}))
-		ctx, cancel := context.WithTimeout(context.Background(), shutdownRequestTimeout)
-		shutdownErr := c.management.Shutdown(ctx, operation.endpoint, intent)
-		cancel()
-		if shutdownErr == nil {
-			return c.refresh(operation)
-		}
-		_ = c.refresh(operation)
 		snapshot := c.Snapshot()
-		snapshot.Launcher.StatusHint = "无法停止检测到的现有服务。"
-		snapshot.Launcher.LastLocalError = shutdownErr.Error()
+		snapshot.Launcher.StatusHint = "请在管理界面停止现有服务，停止后再重试。"
+		snapshot.Launcher.LastLocalError = ""
 		c.publish(snapshot)
-		return nil
+		if c.host != nil {
+			if err := c.OpenWebUI(""); err != nil {
+				return err
+			}
+		}
+		return &BoundaryError{Code: "launcher.external_stop_required", Message: "请先在管理界面停止现有服务。"}
+	}
+	if managed {
+		c.process.MarkStopping()
 	}
 	c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
 		health: func() *ServerLivenessStatusResponse {
@@ -372,7 +380,7 @@ func (c *Coordinator) stopLocked(confirmExternal bool, intent shutdownIntent) er
 			ctx, cancel := context.WithTimeout(context.Background(), shutdownRequestTimeout)
 			defer cancel()
 			return c.management.Shutdown(ctx, operation.endpoint, intent)
-		}, stopGracePeriod)
+		}, c.process.ShutdownWaitBudget())
 		if err != nil {
 			return err
 		}

@@ -240,6 +240,60 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "重启服务" })).toBeDisabled();
   });
 
+  // The Launcher cannot stop a service another process started, so it hands the stop to that service's console.
+  test("sends the stop of an external service to its management console", async () => {
+    let initialized = false;
+    const stop = vi.fn(async () => undefined);
+    const openWebUi = vi.fn(async () => undefined);
+    const externalWithConsole = createLauncherSnapshot({
+      ...runningExternalSnapshot,
+      launcher: { ...runningExternalSnapshot.launcher, controlCapability: "open_web" },
+    });
+    installDesktopApi({
+      getPlatform: vi.fn(async () => "win32-x64"),
+      getSnapshot: vi.fn(async () => (initialized ? externalWithConsole : blankSnapshot)),
+      initialize: vi.fn(async () => {
+        initialized = true;
+      }),
+      refresh: vi.fn(async () => undefined),
+      start: vi.fn(async () => undefined),
+      stop,
+      resetAdmin: vi.fn(async () => undefined),
+      openWebUi,
+      openReleasePage: vi.fn(async () => undefined),
+      checkForUpdates: vi.fn(async () => undefined),
+      applyUpdate: vi.fn(async () => undefined),
+      openLogsDirectory: vi.fn(async () => undefined),
+      saveSettings: vi.fn(async () => undefined),
+      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
+      chooseInstallationRoot: vi.fn(async () => null),
+      chooseServerExecutable: vi.fn(async () => null),
+      chooseConfigFile: vi.fn(async () => null),
+      chooseWorkdir: vi.fn(async () => null),
+      exitApplication: vi.fn(async () => undefined),
+      minimize: vi.fn(async () => undefined),
+      maximize: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+      closeConfirmResponse: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => false),
+      onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
+      onShowExitConfirm: vi.fn(() => () => undefined),
+      hasPendingCloseConfirm: vi.fn(async () => false),
+      onShowExternalStopConfirm: vi.fn(() => () => undefined),
+      hasPendingExternalStopConfirm: vi.fn(async () => false),
+    } as LauncherDesktopApi);
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "在管理界面停止" }));
+    await waitFor(() => {
+      expect(openWebUi).toHaveBeenCalledTimes(1);
+    });
+    expect(stop).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "停止服务" })).not.toBeInTheDocument();
+  });
+
   test("confirms before starting a one-click update", async () => {
     let initialized = false;
     const applyUpdate = vi.fn(async () => undefined);
@@ -540,7 +594,7 @@ describe("App", () => {
 
     act(() => showExternalStopConfirm?.());
     const confirmedDialog = await screen.findByRole("dialog", { name: "停止现有服务" });
-    fireEvent.click(within(confirmedDialog).getByRole("button", { name: "停止服务" }));
+    fireEvent.click(within(confirmedDialog).getByRole("button", { name: "打开管理界面" }));
     await waitFor(() => {
       expect(externalStopConfirmResponse).toHaveBeenLastCalledWith(true);
     });

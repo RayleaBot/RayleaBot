@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -14,6 +15,14 @@ import (
 func main() {
 	if len(os.Args) == 5 && os.Args[3] == "update" {
 		if os.Args[4] == "download" {
+			if marker := os.Getenv("RAYLEA_TEST_DOWNLOAD_PID_FILE"); marker != "" {
+				_ = os.WriteFile(marker, []byte(strconv.Itoa(os.Getpid())), 0600)
+				time.Sleep(time.Minute)
+			}
+			return
+		}
+		if marker := os.Getenv("RAYLEA_TEST_APPLY_FILE"); marker != "" {
+			_ = os.WriteFile(marker, []byte("applied"), 0600)
 			return
 		}
 		// Stop before relaunching a desktop application in the update test.
@@ -24,7 +33,9 @@ func main() {
 	done := make(chan struct{})
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, `{"status":"ok"}`) })
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, `{"status":"ready"}`) })
-	mux.HandleFunc("/api/launcher/status", func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, `{"status":"running","adapters":[]}`) })
+	mux.HandleFunc("/api/launcher/status", func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"status":"running","adapters":[],"shutdown_budget_seconds":45}`)
+	})
 	mux.HandleFunc("/api/launcher/shutdown", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.Header.Get("X-Raylea-Launcher-Control") != os.Getenv("RAYLEA_LAUNCHER_CONTROL_TOKEN") {
 			w.WriteHeader(http.StatusForbidden)

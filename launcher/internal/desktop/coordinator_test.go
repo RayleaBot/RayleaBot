@@ -334,7 +334,7 @@ func TestReplaceEnvironmentValuesRemovesStaleCredentialCopies(t *testing.T) {
 	}
 }
 
-func TestExternalShutdownFailureRemainsVisibleAndDoesNotForceKill(t *testing.T) {
+func TestExternalShutdownOpensWebWithoutSendingUnauthorisedStop(t *testing.T) {
 	shutdownCalls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
@@ -377,20 +377,24 @@ func TestExternalShutdownFailureRemainsVisibleAndDoesNotForceKill(t *testing.T) 
 	writeTestFile(t, serverExecutable, "test executable")
 	writeTestFile(t, configPath, "server:\n  host: "+host+"\n  port: "+portText+"\n")
 
-	hostBridge := &testServiceHost{confirmExternal: true}
+	hostBridge := &webUIHost{testServiceHost: testServiceHost{confirmExternal: true}}
 	coordinator := NewCoordinator(root, "", 0, hostBridge)
 	coordinator.settings = LauncherSettings{InstallationRoot: root, CloseBehavior: CloseAskEveryTime}
 	coordinator.initialized = true
 	coordinator.process.SetWorkdir(root)
-	if err := coordinator.Stop(); err != nil {
+	var boundary *BoundaryError
+	if err := coordinator.Stop(); !errors.As(err, &boundary) || boundary.Code != "launcher.external_stop_required" {
 		t.Fatalf("Stop() error = %v", err)
 	}
-	if shutdownCalls != 1 {
-		t.Fatalf("shutdown calls = %d, want 1", shutdownCalls)
+	if shutdownCalls != 0 || hostBridge.openedURL != server.URL+"/" {
+		t.Fatalf("shutdown calls = %d, Web URL = %q", shutdownCalls, hostBridge.openedURL)
 	}
 	snapshot := coordinator.Snapshot()
-	if !strings.Contains(snapshot.Launcher.LastLocalError, "control token required") || snapshot.Launcher.ProcessOwnership != "external" {
+	if snapshot.Launcher.LastLocalError != "" || snapshot.Launcher.ProcessOwnership != OwnershipExternal || snapshot.Launcher.ControlCapability != ControlOpenWeb {
 		t.Fatalf("snapshot after rejected shutdown = %#v", snapshot.Launcher)
+	}
+	if got := trayState(snapshot).TrayServiceAction; got != "open_web" {
+		t.Fatalf("external tray action = %q", got)
 	}
 	connection, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), time.Second)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 const repositoryURL = "https://github.com/RayleaBot/RayleaBot"
 
 var errStartupBlocked = errors.New("启动操作已被停止或退出流程阻止")
+var errStopCancelled = errors.New("停止操作已取消")
 
 type DesktopHost interface {
 	Emit(name string, data any)
@@ -43,6 +44,8 @@ type Coordinator struct {
 	release       *ReleaseFeed
 	host          DesktopHost
 	watcherPID    int
+	relaunch      func(string, string, int, bool) error
+	updates       updateLifecycle
 
 	mu          sync.RWMutex
 	settings    LauncherSettings
@@ -67,6 +70,7 @@ func NewCoordinator(basePath string, initialControlToken string, watcherPID int,
 		process:       process,
 		host:          host,
 		watcherPID:    watcherPID,
+		relaunch:      startDetachedLauncher,
 	}
 	coordinator.management = NewManagementClient(process.ControlToken)
 	coordinator.release = NewReleaseFeed(basePath)
@@ -112,6 +116,9 @@ func (c *Coordinator) Snapshot() LauncherSnapshot {
 
 func (c *Coordinator) Shutdown() error {
 	c.startups.block(true)
+	// Cancel before taking the operation lock: an update can be downloading
+	// without that lock, or waiting for it after the helper has finished.
+	c.updates.shutdown()
 	c.initMu.Lock()
 	if stop := c.monitorStop; stop != nil {
 		stop()
@@ -124,6 +131,11 @@ func (c *Coordinator) Shutdown() error {
 		return nil
 	}
 	operation, operationErr := c.operationContext()
+	c.process.MarkStopping()
+	snapshot := c.Snapshot()
+	snapshot.Launcher.ProcessLifecycle = Stopping
+	snapshot.Launcher.StatusHint, snapshot.Launcher.LastLocalError = "正在停止服务。", ""
+	c.publish(snapshot)
 	return stopManagedProcess(c.process, func() error {
 		if operationErr != nil {
 			return operationErr
@@ -134,7 +146,7 @@ func (c *Coordinator) Shutdown() error {
 		ctx, cancel := context.WithTimeout(context.Background(), shutdownRequestTimeout)
 		defer cancel()
 		return c.management.Shutdown(ctx, operation.endpoint, shutdownIntentStop)
-	}, shutdownGracePeriod)
+	}, c.process.ShutdownWaitBudget())
 
 }
 

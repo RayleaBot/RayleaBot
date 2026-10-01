@@ -41,14 +41,15 @@ type ServerSystemShutdownResponse struct {
 }
 
 type ServerSystemStatusResponse struct {
-	Status          string                         `json:"status"`
-	Adapters        []ServerAdapterStatus          `json:"adapters"`
-	ActivePlugins   int64                          `json:"active_plugins,omitempty"`
-	RunningPlugins  int64                          `json:"running_plugins,omitempty"`
-	FailedPlugins   int64                          `json:"failed_plugins,omitempty"`
-	DBSchemaVersion string                         `json:"db_schema_version,omitempty"`
-	UptimeSeconds   int64                          `json:"uptime_seconds,omitempty"`
-	Health          *ServerReadinessStatusResponse `json:"health,omitempty"`
+	ShutdownBudgetSeconds int64                          `json:"shutdown_budget_seconds,omitempty"`
+	Status                string                         `json:"status"`
+	Adapters              []ServerAdapterStatus          `json:"adapters"`
+	ActivePlugins         int64                          `json:"active_plugins,omitempty"`
+	RunningPlugins        int64                          `json:"running_plugins,omitempty"`
+	FailedPlugins         int64                          `json:"failed_plugins,omitempty"`
+	DBSchemaVersion       string                         `json:"db_schema_version,omitempty"`
+	UptimeSeconds         int64                          `json:"uptime_seconds,omitempty"`
+	Health                *ServerReadinessStatusResponse `json:"health,omitempty"`
 }
 
 type ServerReadinessStatusResponseChecks struct {

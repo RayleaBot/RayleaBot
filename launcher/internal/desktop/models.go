@@ -95,20 +95,27 @@ type LauncherServerSnapshot struct {
 }
 
 type LauncherLocalSnapshot struct {
-	ProcessID         *int64                   `json:"processId"`
-	ProcessLifecycle  LauncherProcessLifecycle `json:"processLifecycle"`
-	ProcessOwnership  LauncherProcessOwnership `json:"processOwnership"`
-	EnvironmentChecks []EnvironmentCheckResult `json:"environmentChecks"`
-	PreflightChecks   []EnvironmentCheckResult `json:"preflightChecks"`
-	AdvisoryChecks    []EnvironmentCheckResult `json:"advisoryChecks"`
-	RecentStderr      []string                 `json:"recentStderr"`
-	RuntimePrepare    *RuntimePrepareSnapshot  `json:"runtimePrepare"`
-	ReleaseCheck      ReleaseCheckSnapshot     `json:"releaseCheck"`
-	LastLocalError    string                   `json:"lastLocalError"`
-	StatusHint        string                   `json:"statusHint"`
-	Settings          LauncherSettings         `json:"settings"`
-	ResolvedSettings  LauncherResolvedSettings `json:"resolvedSettings"`
-	Endpoint          ServerEndpoint           `json:"endpoint"`
+	ControlCapability LauncherControlCapability `json:"controlCapability"`
+	ProcessExit       *LauncherProcessExit      `json:"processExit"`
+	ProcessID         *int64                    `json:"processId"`
+	ProcessLifecycle  LauncherProcessLifecycle  `json:"processLifecycle"`
+	ProcessOwnership  LauncherProcessOwnership  `json:"processOwnership"`
+	EnvironmentChecks []EnvironmentCheckResult  `json:"environmentChecks"`
+	PreflightChecks   []EnvironmentCheckResult  `json:"preflightChecks"`
+	AdvisoryChecks    []EnvironmentCheckResult  `json:"advisoryChecks"`
+	RecentStderr      []string                  `json:"recentStderr"`
+	RuntimePrepare    *RuntimePrepareSnapshot   `json:"runtimePrepare"`
+	ReleaseCheck      ReleaseCheckSnapshot      `json:"releaseCheck"`
+	LastLocalError    string                    `json:"lastLocalError"`
+	StatusHint        string                    `json:"statusHint"`
+	Settings          LauncherSettings          `json:"settings"`
+	ResolvedSettings  LauncherResolvedSettings  `json:"resolvedSettings"`
+	Endpoint          ServerEndpoint            `json:"endpoint"`
+}
+
+type LauncherProcessExit struct {
+	Kind     LauncherProcessExitKind `json:"kind"`
+	ExitCode int                     `json:"exitCode"`
 }
 
 type LauncherSnapshot struct {

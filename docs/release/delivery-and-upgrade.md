@@ -62,7 +62,9 @@ raylea-server update apply
 
 1. Launcher 调用 `raylea-server update download` 下载当前产物的更新包，服务保持运行。
 2. Launcher 停止服务，调用 `raylea-server update apply` 逐个替换安装根中的程序文件：已有文件先移入 `cache/update/replaced/`，`build_info.json` 最后写入。
-3. Launcher 启动新版 Launcher 后退出；新版等待旧进程退出再接管单实例。
+3. Launcher 启动新版 Launcher 后退出；新版等待旧进程退出再接管单实例。更新前由 Launcher 管理且仍在运行的服务，会在新版 Launcher 初始化成功后自动启动一次；启动失败时按普通启动流程显示原因，不自动重试。更新前已停止的服务保持停止。
+
+其他程序启动的服务须先在 Web 管理面停止，再重试安装；取消确认会结束本次更新。退出 Launcher 会取消并等待下载结束；已开始替换程序文件时，退出等待安装完成。停服后安装或重启 Launcher 失败时，服务保持停止，可重试更新或按失败提示手动处理。
 
 服务端包停止服务后在安装根执行同一命令：
 

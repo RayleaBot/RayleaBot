@@ -28,6 +28,7 @@ type AppShellServiceControlProps = {
   onStart: () => void;
   onStop: () => void;
   showRunningActions: boolean;
+  stopOpensWeb: boolean;
   snapshot: {
     serviceDetail: string;
     serviceState: LauncherPresentationState;
@@ -68,6 +69,7 @@ export function AppShellServiceControl({
   snapshot,
   startDisabled,
   stopDisabled,
+  stopOpensWeb,
 }: AppShellServiceControlProps) {
   const noteId = useId();
   const stateConfig = serviceStateConfig[snapshot.serviceState];
@@ -116,7 +118,12 @@ export function AppShellServiceControl({
       </div>
 
       <div className="service-control__actions">
-        <Button appearance="secondary" className="launcher-button launcher-button--danger" data-emphasis="regular" onClick={onStop} disabled={stopDisabled} icon={<Stop20Regular />}>停止服务</Button>
+        {/* A service started elsewhere can only be stopped from its own management console. */}
+        {stopOpensWeb ? (
+          <Button appearance="secondary" className="launcher-button" data-emphasis="regular" onClick={onOpenWeb} disabled={controlsDisabled || !canOpenWebUi} icon={<Globe20Regular />}>在管理界面停止</Button>
+        ) : (
+          <Button appearance="secondary" className="launcher-button launcher-button--danger" data-emphasis="regular" onClick={onStop} disabled={stopDisabled} icon={<Stop20Regular />}>停止服务</Button>
+        )}
         {showRunningActions ? (
           <Button
             appearance="secondary"

@@ -1,6 +1,8 @@
 package desktop
 
 import (
+	"context"
+	"errors"
 	"os"
 	"runtime"
 )
@@ -12,6 +14,11 @@ func (c *Coordinator) refreshRelease(force bool) {
 		return
 	}
 	defer c.releaseMu.Unlock()
+	ctx, finish, allowed := c.updates.begin()
+	if !allowed {
+		return
+	}
+	defer finish()
 	current := c.Snapshot().Launcher.ReleaseCheck
 	current.Status, current.Summary = "checking", "正在检查更新。"
 	current.CanCheck = false
@@ -20,7 +27,10 @@ func (c *Coordinator) refreshRelease(force bool) {
 		current.CurrentVersion = c.release.InstalledVersion()
 	}
 	c.publishRelease(current)
-	c.publishRelease(c.release.GetSnapshot(force))
+	result := c.release.getSnapshotContext(ctx, force, runtime.GOOS, runtime.GOARCH)
+	if ctx.Err() == nil {
+		c.publishRelease(result)
+	}
 }
 
 // ApplyUpdate downloads and installs the available release through the server
@@ -32,6 +42,11 @@ func (c *Coordinator) ApplyUpdate() bool {
 		return false
 	}
 	defer c.releaseMu.Unlock()
+	ctx, finish, allowed := c.updates.begin()
+	if !allowed {
+		return false
+	}
+	defer finish()
 	release := c.Snapshot().Launcher.ReleaseCheck
 	if !release.UpdateAvailable {
 		return false
@@ -45,9 +60,18 @@ func (c *Coordinator) ApplyUpdate() bool {
 		c.publishRelease(release)
 		return false
 	}
+	cancelled := func() bool {
+		release.Status, release.Summary, release.Detail = ReleaseCancelled, "更新已取消。", "可重新检查或安装更新。"
+		release.ErrorCode, release.CanCheck = "launcher.update_cancelled", true
+		c.publishRelease(release)
+		return false
+	}
 
 	progress("正在下载更新。")
-	if _, _, err := c.release.runServer(runtime.GOOS, updateDownloadTimeout, "update", "download"); err != nil {
+	if _, _, err := c.release.runServerContext(ctx, runtime.GOOS, updateDownloadTimeout, "update", "download"); err != nil {
+		if errors.Is(err, context.Canceled) || ctx.Err() != nil {
+			return cancelled()
+		}
 		return fail("launcher.update_download_failed", "下载更新失败。", "服务未受影响，请稍后重试或打开发布页手动下载。")
 	}
 
@@ -56,13 +80,28 @@ func (c *Coordinator) ApplyUpdate() bool {
 	defer unblockStartups()
 	c.operationMu.Lock()
 	defer c.operationMu.Unlock()
+	if ctx.Err() != nil {
+		return cancelled()
+	}
+	resumeService := c.process.IsRunning()
 	if err := c.stopLocked(true, shutdownIntentUpdate); err != nil {
+		if errors.Is(err, errStopCancelled) || ctx.Err() != nil {
+			return cancelled()
+		}
 		return fail("launcher.update_apply_failed", "安装更新失败。", "服务未能停止，请手动停止服务后重试。")
 	}
+	if ctx.Err() != nil {
+		return cancelled()
+	}
+	// Once replacement starts, let it complete even if exit is requested.
+	// Shutdown still waits for the operation; interruption could leave partial files.
 	if _, _, err := c.release.runServer(runtime.GOOS, updateApplyTimeout, "update", "apply"); err != nil {
 		return fail("launcher.update_apply_failed", "安装更新失败。", "请确认服务已停止后重试，或从发布页下载完整包解压覆盖安装目录。")
 	}
-	if err := startDetachedLauncher(c.release.basePath, runtime.GOOS, os.Getpid()); err != nil {
+	if ctx.Err() != nil {
+		return cancelled()
+	}
+	if err := c.relaunch(c.release.basePath, runtime.GOOS, os.Getpid(), resumeService); err != nil {
 		return fail("launcher.update_relaunch_failed", "更新已安装，但启动器未能自动重启。", "请手动重新打开启动器。")
 	}
 	return true

@@ -35,6 +35,21 @@ const (
 
 type CheckSeverity string
 
+type LauncherControlCapability string
+
+const (
+	ControlNone    LauncherControlCapability = "none"
+	ControlStop    LauncherControlCapability = "stop"
+	ControlOpenWeb LauncherControlCapability = "open_web"
+)
+
+type LauncherProcessExitKind string
+
+const (
+	ExitPlanned    LauncherProcessExitKind = "planned"
+	ExitUnexpected LauncherProcessExitKind = "unexpected"
+)
+
 const (
 	CheckOK      CheckSeverity = "ok"
 	CheckWarning CheckSeverity = "warning"
@@ -58,6 +73,7 @@ const (
 	ReleaseUpToDate        ReleaseCheckStatus = "up_to_date"
 	ReleaseUpdateAvailable ReleaseCheckStatus = "update_available"
 	ReleaseFailed          ReleaseCheckStatus = "failed"
+	ReleaseCancelled       ReleaseCheckStatus = "cancelled"
 )
 
 type RuntimePrepareStatus string
