@@ -12,8 +12,9 @@ type ManifestCommandPrefixes struct {
 	AcceptGlobal bool
 }
 
-// CommandPrefixes 保存插件的生效前缀策略，Dedicated 保留声明或设置顺序。
-// 零值只接受通用前缀，对应未声明专属前缀的插件。
+// CommandPrefixes holds a plugin's effective prefix policy. Dedicated keeps
+// declaration or settings order; longest-first sorting happens only when matching.
+// The zero value accepts only global prefixes, as for a plugin without a declaration.
 type CommandPrefixes struct {
 	Dedicated    []string
 	IgnoreGlobal bool
@@ -38,7 +39,8 @@ func (p CommandPrefixes) EffectivePrefixes(global []string) []string {
 	return result
 }
 
-// CommandPrefixView 供管理面和菜单展示生效前缀，空列表保持为非 nil 切片。
+// CommandPrefixView exposes effective prefixes for the management API and menu.
+// Its lists are never nil, even when empty.
 type CommandPrefixView struct {
 	All       []string
 	Dedicated []string

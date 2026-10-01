@@ -178,7 +178,8 @@ func WriteError(w http.ResponseWriter, r *http.Request, code string, details map
 	WriteErrorWithMessage(w, r, code, "", details)
 }
 
-// WriteErrorWithMessage 仅用于契约允许按结构化原因提供消息的错误。
+// WriteErrorWithMessage is only for errors whose contract allows messages
+// based on structured reasons.
 func WriteErrorWithMessage(w http.ResponseWriter, r *http.Request, code, message string, details map[string]any) {
 	definition, ok := errorcodes.HTTP(code)
 	if !ok {

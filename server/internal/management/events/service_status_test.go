@@ -95,7 +95,8 @@ func TestServiceStatusPayload(t *testing.T) {
 	}
 }
 
-// 发布同步完成，使用非阻塞读取可以直接断言没有多余帧。
+// assertNoServiceStatusFrame uses a nonblocking read to check for extra frames
+// because publishing completes synchronously.
 func assertNoServiceStatusFrame(t *testing.T, updates <-chan Frame) {
 	t.Helper()
 	select {
@@ -216,7 +217,7 @@ func TestPublishServiceStatusWhenReadinessChecksChange(t *testing.T) {
 	initial := receiveServiceStatus(t, updates)
 	assertNoServiceStatusFrame(t, updates)
 
-	// 原地修改来源 map，不能同时改变上一份广播指纹。
+	// Mutating the source map in place must not change the previous broadcast fingerprint.
 	provider.readiness.Checks["runtime"] = "ok"
 	publish()
 	if got := receiveServiceStatus(t, updates); !reflect.DeepEqual(got, initial) {
@@ -227,7 +228,7 @@ func TestPublishServiceStatusWhenReadinessChecksChange(t *testing.T) {
 	publish()
 	assertNoServiceStatusFrame(t, updates)
 
-	// 不同 map 实例只要内容相同，就不应重复广播。
+	// A different map with the same contents must not trigger another broadcast.
 	provider.readiness.Checks = map[string]string{"runtime": "ok", "database": "ok"}
 	publish()
 	assertNoServiceStatusFrame(t, updates)

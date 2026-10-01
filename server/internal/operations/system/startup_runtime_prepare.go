@@ -91,7 +91,7 @@ func (s *Service) setStartupRuntimeState(kind string, phase StartupRuntimePhase,
 	changed := !reflect.DeepEqual(s.startupRuntimes[kind], state)
 	s.startupRuntimes[kind] = state
 	s.startupMu.Unlock()
-	// 快照会回读运行资源状态，发布前必须释放状态锁。
+	// Release the state lock before publishing: the snapshot reads runtime resource state.
 	if changed {
 		s.PublishStatusSnapshot()
 	}

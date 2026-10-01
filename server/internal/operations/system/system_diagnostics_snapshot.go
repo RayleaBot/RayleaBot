@@ -33,7 +33,7 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
 	issues = append(issues, render.Issues...)
 	issues = append(issues, databaseIssues...)
 	for _, issue := range dependencyIssues {
-		// FFmpeg 准备失败优先使用 readiness 中保留的原因和修复指引。
+		// Prefer the reason and remediation from readiness when FFmpeg preparation fails.
 		if issue.Code == "dependency.ffmpeg" && readiness.Checks["runtime"] == "resource_missing" {
 			continue
 		}
