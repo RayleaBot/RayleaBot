@@ -84,7 +84,7 @@ export function AppShellStatusSection({
   const externalService = snapshot.launcher.processOwnership === "external";
   const startDisabled =
     controlsDisabled
-    || ((presentation.state === "running" || presentation.state === "degraded") && externalService)
+    || ((presentation.state === "running" || presentation.state === "setup_required" || presentation.state === "degraded") && externalService)
     || presentation.state === "starting"
     || presentation.state === "stopping";
   const stopDisabled =

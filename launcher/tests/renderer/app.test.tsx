@@ -298,7 +298,7 @@ describe("App", () => {
     await waitFor(() => expect(applyUpdate).toHaveBeenCalledOnce());
   });
 
-  test("keeps first-run setup inside the normal running flow", async () => {
+  test("shows first-run setup as waiting for an administrator and opens the management UI", async () => {
     let initialized = false;
     const openWebUi = vi.fn(async () => undefined);
     installDesktopApi({
@@ -342,7 +342,8 @@ describe("App", () => {
     expect(managementButton).not.toBeDisabled();
     fireEvent.click(document.querySelector<HTMLButtonElement>(".service-control__primary")!);
     await waitFor(() => expect(openWebUi).toHaveBeenCalledOnce());
-    expect(screen.getAllByText("运行中").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("待初始化").length).toBeGreaterThan(0);
+    expect(screen.queryByText("运行中")).not.toBeInTheDocument();
     expect(screen.queryByText("管理员初始化尚未完成。")).not.toBeInTheDocument();
     expect(screen.queryByText("需要设置")).not.toBeInTheDocument();
     expect(screen.queryByText("需要处理")).not.toBeInTheDocument();

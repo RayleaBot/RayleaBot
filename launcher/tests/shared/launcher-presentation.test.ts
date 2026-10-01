@@ -42,6 +42,21 @@ describe("Launcher presentation", () => {
     expect(deriveLauncherPresentation(external)).toMatchObject({ label: "运行中", detail: hint });
   });
 
+  test("names a service that still needs its first administrator and keeps it usable", () => {
+    const managed = createLauncherSnapshot({
+      server: { health: { status: "ok" }, readiness: { status: "setup_required" } },
+      launcher: { processLifecycle: "running", processOwnership: "launcher_managed" },
+    });
+    const external = createLauncherSnapshot({
+      server: { health: { status: "ok" }, readiness: { status: "setup_required" } },
+      launcher: { processOwnership: "external" },
+    });
+
+    expect(deriveLauncherPresentation(managed)).toMatchObject({ state: "setup_required", label: "待初始化", canOpenWebUi: true, canStopService: true });
+    // Only the Launcher's own service can be opened with its setup token; another one needs its console address.
+    expect(deriveLauncherPresentation(external).detail).not.toBe(deriveLauncherPresentation(managed).detail);
+  });
+
   test("offers runtime preparation only for resources a usable service reports", () => {
     const issue = {
       code: "platform.resource_missing",

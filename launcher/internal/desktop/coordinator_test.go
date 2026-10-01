@@ -98,6 +98,10 @@ func TestTrayStateSeparatesRunningFaultsFromFailedStarts(t *testing.T) {
 	unhealthyProcess.Launcher.LastLocalError = "健康检查失败。"
 	failedStart := defaultSnapshot()
 	failedStart.Launcher.LastLocalError = "服务进程在通过健康检查前退出。"
+	setupRequired := defaultSnapshot()
+	setupRequired.Server.Health = &ServerLivenessStatusResponse{Status: "ok"}
+	setupRequired.Server.Readiness = &ServerReadinessStatusResponse{Status: "setup_required"}
+	setupRequired.Launcher.ProcessLifecycle = "running"
 
 	for name, test := range map[string]struct {
 		snapshot LauncherSnapshot
@@ -106,6 +110,7 @@ func TestTrayStateSeparatesRunningFaultsFromFailedStarts(t *testing.T) {
 		"reachable but not ready": {notReady, "运行异常"},
 		"process without health":  {unhealthyProcess, "运行异常"},
 		"nothing left running":    {failedStart, "启动失败"},
+		"waiting for first admin": {setupRequired, "待初始化"},
 	} {
 		if got := trayState(test.snapshot).TrayStatusSummary; got != test.want {
 			t.Errorf("%s: tray status = %q, want %q", name, got, test.want)

@@ -43,7 +43,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 | `starting`、`stopping` | info | 启动器正在执行系统操作 |
 | `running` | success | 服务可用 |
 | `degraded` | warning | 服务可用但运行条件受限 |
-| `setup_required` | running | 按运行中展示；管理界面负责首次初始化流程 |
+| `setup_required` | info | 待初始化：服务已启动但还没有管理员账号，主操作打开管理界面的初始化页；外部启动的服务提示使用其控制台显示的首次设置地址 |
 | `unhealthy` | danger | 运行异常：服务进程在运行或服务可连接，但未通过就绪检查 |
 | `failed` | danger | 启动失败：启动流程结束后没有服务在运行 |
 

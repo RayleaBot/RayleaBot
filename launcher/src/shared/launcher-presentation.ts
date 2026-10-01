@@ -10,6 +10,7 @@ export type LauncherPresentationState =
   | "stopped"
   | "starting"
   | "running"
+  | "setup_required"
   | "degraded"
   | "unhealthy"
   | "stopping"
@@ -32,6 +33,7 @@ const stateLabels: Record<LauncherPresentationState, string> = {
   stopped: "未启动",
   starting: "启动中",
   running: "运行中",
+  setup_required: "待初始化",
   degraded: "运行条件受限",
   unhealthy: "运行异常",
   stopping: "停止中",
@@ -129,12 +131,14 @@ function derivePresentationState(snapshot: LauncherSnapshot): Pick<LauncherPrese
         return { state: "running", detail: localHint || runningDetail(readiness, processOwnership) };
       case "degraded":
         return { state: "degraded", detail: localHint || degradedDetail(readiness, processOwnership) };
+      // The service runs but has no administrator yet. The Launcher opens the setup page with its own token; a
+      // service started elsewhere printed its one-time setup address in that console.
       case "setup_required":
         return {
-          state: "running",
+          state: "setup_required",
           detail: localHint || (processOwnership === "external"
-            ? "检测到现有服务。可以直接打开管理界面，或确认后停止它。"
-            : "服务正在运行。"),
+            ? "检测到尚未初始化的现有服务。请用启动该服务时控制台显示的首次设置地址创建管理员账号。"
+            : "服务已启动，还没有管理员账号。打开管理界面即可创建。"),
         };
       case "failed":
       default:
@@ -200,9 +204,9 @@ function preparableRuntimeResources(readiness: LauncherReadinessSnapshot | null)
 export function deriveLauncherPresentation(snapshot: LauncherSnapshot): LauncherPresentation {
   const { state, detail } = derivePresentationState(snapshot);
   const setupRequired = snapshot.server.readiness?.status === "setup_required";
-  const canOpenWebUi = state === "running" || state === "degraded";
+  const canOpenWebUi = state === "running" || state === "setup_required" || state === "degraded";
   const canStopService =
-    (state === "running" || state === "degraded" || state === "unhealthy" || state === "failed")
+    (state === "running" || state === "setup_required" || state === "degraded" || state === "unhealthy" || state === "failed")
     && snapshot.launcher.processOwnership !== "none";
 
   return {

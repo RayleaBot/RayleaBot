@@ -96,8 +96,10 @@ func trayState(snapshot LauncherSnapshot) TrayMenuState {
 		state = "停止中"
 	} else if canOpen {
 		switch readinessStatus(snapshot.Server.Readiness) {
-		case "ready", "setup_required":
+		case "ready":
 			state = "运行中"
+		case "setup_required":
+			state = "待初始化"
 		case "degraded":
 			state = "运行条件受限"
 		default:

@@ -147,7 +147,7 @@ export function App() {
 
   const handlePrimaryServiceAction = useCallback(() => {
     if (
-      (presentation.state === "running" || presentation.state === "degraded")
+      (presentation.state === "running" || presentation.state === "setup_required" || presentation.state === "degraded")
       && snapshot.launcher.processOwnership === "launcher_managed"
     ) {
       return runAction("restart", async () => {

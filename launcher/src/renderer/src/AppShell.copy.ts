@@ -11,7 +11,7 @@ import type {
 const readinessStatusLabels: Record<LauncherReadinessSnapshot["status"], string> = {
   ready: "已就绪",
   degraded: "运行条件受限",
-  setup_required: "运行中",
+  setup_required: "待初始化",
   failed: "未就绪",
 };
 
@@ -51,7 +51,7 @@ const diagnosticCheckValueLabels: Record<string, string> = {
   on_demand: "按需准备",
   ready: "已就绪",
   resource_missing: "缺少运行资源",
-  setup_required: "运行中",
+  setup_required: "待初始化",
   unavailable: "不可用",
   unreadable: "无法读取",
   unknown: "未知",
