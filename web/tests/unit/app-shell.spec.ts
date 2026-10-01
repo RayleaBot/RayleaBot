@@ -523,13 +523,12 @@ describe('BasicLayout', () => {
     input!.dispatchEvent(new Event('input', { bubbles: true }))
     await flushPromises()
 
-    const pluginItem = Array.from(document.body.querySelectorAll<HTMLButtonElement>('.route-search-panel__result')).find(
-      (node) => node.textContent?.includes('/plugins'),
-    )
-    const pluginSettingsItem = Array.from(document.body.querySelectorAll<HTMLButtonElement>('.route-search-panel__result')).find(
-      (node) => node.textContent?.includes('/plugins/settings'),
-    )
+    const results = Array.from(document.body.querySelectorAll<HTMLButtonElement>('.route-search-panel__result'))
+    const pluginItem = results.find(node => node.querySelector('strong')?.textContent === '插件列表')
+    const pluginSettingsItem = results.find(node => node.querySelector('strong')?.textContent === '全局插件设置')
     expect(pluginSettingsItem).toBeTruthy()
+    // The second line names the sidebar section the page sits in, not its address.
+    expect(pluginItem?.querySelector('span')?.textContent).toBe('插件中心')
     pluginItem?.click()
     await flushPromises()
 
@@ -551,7 +550,8 @@ describe('BasicLayout', () => {
 
     const results = Array.from(document.body.querySelectorAll<HTMLElement>('.route-search-panel__result'))
     const statusItem = results.find(node => node.querySelector('strong')?.textContent === '系统状态')
-    expect(statusItem?.querySelector('span')?.textContent).toBe('/')
+    expect(statusItem).toBeTruthy()
+    expect(statusItem?.querySelector('span')).toBeNull()
     expect(results.some(node => node.querySelector('strong')?.textContent === '系统')).toBe(false)
   })
 
@@ -578,9 +578,9 @@ describe('BasicLayout', () => {
     await flushPromises()
 
     const templateItem = Array.from(document.body.querySelectorAll<HTMLButtonElement>('.route-search-panel__result')).find(
-      (node) => node.textContent?.includes('/render/templates'),
+      (node) => node.querySelector('strong')?.textContent === '模板预览',
     )
-    expect(templateItem?.textContent).not.toContain('/render/templates/:templateId?')
+    expect(templateItem?.querySelector('span')?.textContent).toBe('系统')
     templateItem?.click()
     await flushPromises()
 

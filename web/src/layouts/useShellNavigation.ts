@@ -6,6 +6,7 @@ import { buildMenuItems, collectNavigationItems, type AppMenuItem, type AppNavig
 import { isPluginCenterRoute, pluginCenterPages, pluginCenterPath, projectPluginCenterMenu } from '@/access/plugin-center'
 import { adminRoutes } from '@/router/routes/modules/admin'
 import { useUiShellStore } from '@/stores/ui-shell'
+import { t } from '@/i18n'
 import { getLeafRouteMeta } from './shell-routes'
 
 export type PluginNavigationScope = 'root' | 'plugin-center'
@@ -100,8 +101,10 @@ export function useShellNavigation(options: {
     .filter(item => pluginCenterRank.has(item.path))
     .sort((left, right) => (pluginCenterRank.get(left.path) ?? 0) - (pluginCenterRank.get(right.path) ?? 0))
   let pluginCenterSlot = 0
+  // The sidebar shows the plugin center pages under 插件中心, so search names that section too.
   const navigationItems: AppNavigationItem[] = collectedItems
     .map(item => (pluginCenterRank.has(item.path) ? pluginCenterItems[pluginCenterSlot++] ?? item : item))
+    .map(item => (pluginCenterRank.has(item.path) ? { ...item, section: t('routes.pluginCenter') } : item))
 
   function navigateTo(target: RouteLocationRaw) {
     collapsedOpenMenuKeys.value = []

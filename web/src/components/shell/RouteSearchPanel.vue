@@ -132,6 +132,7 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
   }
 
   const title = item.title.toLowerCase()
+  const section = item.section?.toLowerCase() ?? ''
   const path = item.path.toLowerCase()
 
   if (title === normalizedKeyword) {
@@ -146,8 +147,13 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
     return 3
   }
 
-  if (path.includes(normalizedKeyword)) {
+  if (section.includes(normalizedKeyword)) {
     return 2
+  }
+
+  // The address still matches for people who type it, but results show where the page sits in the sidebar.
+  if (path.includes(normalizedKeyword)) {
+    return 1
   }
 
   return 0
@@ -188,7 +194,7 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
         >
           <div class="route-search-panel__meta">
             <strong>{{ item.title }}</strong>
-            <span>{{ item.path }}</span>
+            <span v-if="item.section">{{ item.section }}</span>
           </div>
           <EnterOutlined v-if="index === activeIndex" class="route-search-panel__enter" aria-hidden="true" />
         </button>

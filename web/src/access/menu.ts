@@ -14,6 +14,8 @@ export interface AppNavigationItem {
   icon?: string
   key: string
   path: string
+  // The sidebar group the page sits in; top-level pages have none.
+  section?: string
   title: string
 }
 
@@ -74,19 +76,22 @@ export function buildMenuItems(routes: RouteRecordRaw[], parentPath = ''): AppMe
 }
 
 // Only named routes are pages; unnamed menu groups share their parent's path and would shadow the page there.
+// A titled unnamed route is a sidebar group, and its pages carry its title as their section.
 // Siblings follow the same order as the sidebar menu.
-export function collectNavigationItems(routes: RouteRecordRaw[], parentPath = ''): AppNavigationItem[] {
+export function collectNavigationItems(routes: RouteRecordRaw[], parentPath = '', section?: string): AppNavigationItem[] {
   const orderOf = (route: RouteRecordRaw) => (typeof route.meta?.order === 'number' ? route.meta.order : 0)
   return [...routes].sort((left, right) => orderOf(left) - orderOf(right)).flatMap((route) => {
     const routePath = joinRoutePath(parentPath, route.path)
     const path = resolveRouteEntryPath(route.meta, routePath)
     const title = resolveRouteTitle(route.meta)
-    const children = route.children ? collectNavigationItems(route.children, routePath) : []
+    const childSection = !route.name && title ? title : section
+    const children = route.children ? collectNavigationItems(route.children, routePath, childSection) : []
     const current = title && route.name && !route.meta?.hideInMenu
       ? [{
         icon: route.meta?.icon,
         key: String(route.name ?? `nav:${path}:${title}`),
         path,
+        section,
         title,
       }]
       : []

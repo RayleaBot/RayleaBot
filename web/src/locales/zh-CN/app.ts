@@ -64,7 +64,7 @@ export const shell = {
   logout: '退出登录',
   search: '搜索',
   searchEmpty: '没有匹配的页面',
-  searchPlaceholder: '搜索页面标题或路径',
+  searchPlaceholder: '搜索页面名称或所在分组',
   searchShortcutHint: '↑↓ 选择，回车打开页面，Esc 关闭面板。',
   settings: '偏好设置',
   themeMenuLabel: '主题模式：{mode}',
