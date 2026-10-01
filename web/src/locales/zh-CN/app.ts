@@ -10,7 +10,7 @@ export const app = {
 export const routes = {
   status: '系统状态',
   features: '功能与插件',
-  governance: '治理',
+  governance: '权限与限流',
   runtime: '运行与诊断',
   menuCenter: '菜单中心',
   pluginCenter: '插件中心',

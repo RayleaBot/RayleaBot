@@ -45,7 +45,7 @@ export const protocols = {
       reconnectInitialSeconds: '初始重连时间（秒）',
       reconnectMultiplier: '重连倍率',
       reconnectMaxSeconds: '最大重连时间（秒）',
-      reconnectJitterRatio: '重连抖动比例',
+      reconnectJitterRatio: '重连时间浮动比例',
     },
     missingConnection: '此连接已被删除或尚未配置。请关闭弹窗并刷新列表。',
     invalidNumber: '请填写有效范围内的数值。',
