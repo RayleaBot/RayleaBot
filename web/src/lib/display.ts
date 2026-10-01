@@ -34,6 +34,12 @@ export function getPluginRoleLabel(role?: PluginRole) {
   return role ? translated(`display.pluginRoles.${role}`, role) : t('display.empty')
 }
 
+// Manifests may subscribe to names the host never emits, so an unknown event type has no label.
+export function getEventTypeLabel(eventType: string) {
+  const key = `display.eventTypes.${eventType}`
+  return i18n.global.te(key) ? t(key) : null
+}
+
 export function getPluginSourceTypeLabel(type?: string | null) {
   switch (type) {
     case 'local_zip': return t('plugins.localZip')

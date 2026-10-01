@@ -8,8 +8,8 @@ import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppCard from '@/components/AppCard.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppAlert from '@/components/AppAlert.vue'
-import { ArrowLeftIcon } from '@lucide/vue'
-import { computed, ref } from 'vue'
+import { ArrowLeftIcon, BlocksIcon, ScrollTextIcon, TerminalIcon } from '@lucide/vue'
+import { computed, ref, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 
@@ -22,7 +22,6 @@ import PluginPowerButton from '@/components/plugins/PluginPowerButton.vue'
 import PluginCommandsPanel from '@/components/plugins/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
-import { getErrorCodeMessage } from '@/lib/error-text'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
@@ -66,10 +65,12 @@ const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
 
 const activeDetailTab = ref<DetailTab>('summary')
 const detailTabs = computed<{ value: DetailTab; label: string }[]>(() => [
-  { value: 'summary', label: t('plugins.sections.runtimeSummary') },
-  { value: 'commands', label: t('plugins.sections.commands') },
-  { value: 'console', label: t('plugins.sections.console') },
+  { value: 'summary', label: t('plugins.tabs.overview') },
+  { value: 'commands', label: t('plugins.tabs.commands') },
+  { value: 'console', label: t('plugins.tabs.console') },
 ])
+// The overview tab uses the sidebar's overview icon, the commands tab the command center's.
+const detailTabIcons: Record<DetailTab, Component> = { summary: BlocksIcon, commands: TerminalIcon, console: ScrollTextIcon }
 const consoleFrameCount = computed(() => pluginConsoleStore.getConsole(pluginId.value).length)
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
 const pluginDisplayName = computed(() => (
@@ -129,14 +130,6 @@ function returnToPluginList() {
       </div>
     </template>
 
-    <AppAlert
-      v-if="currentPlugin?.state_diagnosis?.kind === 'initialization_failed'"
-      tone="danger"
-      data-testid="plugin-initialization-failure"
-      :title="t('plugins.initializationFailed')"
-      :description="t('plugins.initializationFailureDescription', { reason: getErrorCodeMessage(currentPlugin.state_diagnosis.last_error_code) })"
-    />
-
     <RetryPanel
       v-if="loadError && !currentPlugin"
       :title="t('errors.common.loadFailed')"
@@ -150,7 +143,7 @@ function returnToPluginList() {
       class="plugin-detail-overview"
       :class="{ 'is-output-active': activeDetailTab === 'console' }"
     >
-      <AppSkeleton v-if="detailLoading && !currentPlugin" :rows="4" />
+      <AppSkeleton v-if="detailLoading && !currentPlugin" :rows="2" />
       <PluginDetailHero v-else :plugin="currentPlugin" :plugin-id="pluginId" :plugin-name="pluginDisplayName" />
 
       <AppAlert
@@ -161,49 +154,51 @@ function returnToPluginList() {
         :description="t('plugins.trustAttention.description')"
       />
 
-      <div class="plugin-detail-workspace">
-        <main class="plugin-detail-main-column">
-          <AppCard
-            borderless
-            class="plugin-detail-tab-card"
-            :class="{ 'is-console-tab-active': activeDetailTab === 'console' }"
-          >
-            <AppTabs v-model="activeDetailTab" :items="detailTabs" keep-alive class="premium-detail-tabs">
-              <template #tab="{ item }">
-                <span class="premium-tab-label">
-                  {{ item.label }}
-                  <AppTag v-if="item.value === 'commands'" class="tab-badge">{{ currentPlugin?.commands?.length ?? 0 }}</AppTag>
-                  <AppTag v-else-if="item.value === 'console'" class="tab-badge">{{ consoleFrameCount }}</AppTag>
-                </span>
-              </template>
+      <!-- The tabs sit on the white page; the overview brings its own boxes, the other tabs one box each. -->
+      <AppTabs v-model="activeDetailTab" :items="detailTabs" :label="t('plugins.tabs.label')" keep-alive class="plugin-detail-tabs">
+        <template #tab="{ item }">
+          <span class="plugin-detail-tab">
+            <component :is="detailTabIcons[item.value]" class="plugin-detail-tab__icon" aria-hidden="true" />
+            {{ item.label }}
+            <AppTag v-if="item.value === 'commands'" class="tab-badge">{{ currentPlugin?.commands?.length ?? 0 }}</AppTag>
+            <AppTag v-else-if="item.value === 'console'" class="tab-badge">{{ consoleFrameCount }}</AppTag>
+          </span>
+        </template>
 
-              <template #summary>
-                <PluginDetailSummary class="tab-pane-content" :plugin="currentPlugin" />
-              </template>
+        <template #summary>
+          <PluginDetailSummary
+            v-if="currentPlugin"
+            :plugin="currentPlugin"
+            :plugin-id="pluginId"
+            :reload-pending="actionPending[pluginId] === 'reload'"
+            @reload="runAction('reload')"
+            @open-tab="activeDetailTab = $event"
+          />
+          <AppSkeleton v-else-if="detailLoading" :rows="6" />
+        </template>
 
-              <template #commands>
-                <div class="tab-pane-content plugin-console-tab-content">
-                  <PluginCommandsPanel
-                    :commands="currentPlugin?.commands ?? []"
-                    :command-conflicts="currentPlugin?.command_conflicts ?? []"
-                    :command-prefix="commandPrefix"
-                  />
-                </div>
-              </template>
+        <template #commands>
+          <div class="app-box plugin-detail-tab-box">
+            <PluginCommandsPanel
+              :commands="currentPlugin?.commands ?? []"
+              :command-conflicts="currentPlugin?.command_conflicts ?? []"
+              :command-prefix="commandPrefix"
+            />
+          </div>
+        </template>
 
-              <template #console>
-                <PluginConsolePane
-                  class="tab-pane-content"
-                  :plugin-id="pluginId"
-                  :plugin-state="currentPlugin?.state"
-                  :active="activeDetailTab === 'console'"
-                  :ready="readyToRenderHeavyContent"
-                />
-              </template>
-            </AppTabs>
-          </AppCard>
-        </main>
-      </div>
+        <template #console>
+          <div class="app-box plugin-detail-tab-box plugin-detail-console-box">
+            <PluginConsolePane
+              class="plugin-detail-console"
+              :plugin-id="pluginId"
+              :plugin-state="currentPlugin?.state"
+              :active="activeDetailTab === 'console'"
+              :ready="readyToRenderHeavyContent"
+            />
+          </div>
+        </template>
+      </AppTabs>
     </div>
 
     <PluginManagementUIHost
@@ -226,38 +221,6 @@ function returnToPluginList() {
 </template>
 
 <style scoped lang="scss">
-/* Tab Panel Styling */
-.plugin-detail-tab-card {
-  :deep(.app-card__body) {
-    padding: 0;
-  }
-
-  &.is-console-tab-active {
-    display: flex;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-
-    :deep(.app-card__body),
-    :deep(.app-tabs),
-    :deep(.app-tabs__content),
-    :deep(.app-tabs__content[data-state=active]) {
-      display: flex;
-      flex: 1 1 auto;
-      flex-direction: column;
-      min-height: 0;
-      width: 100%;
-    }
-
-    .tab-pane-content {
-      display: flex;
-      flex: 1 1 auto;
-      flex-direction: column;
-      min-height: 0;
-    }
-  }
-}
-
 .plugin-detail-panel-switch {
   flex: 0 0 auto;
 }
@@ -266,24 +229,21 @@ function returnToPluginList() {
   display: none;
 }
 
-.premium-detail-tabs {
-  :deep(.app-tabs__header) {
-    padding-inline: 18px;
-    margin-bottom: 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  :deep(.app-tabs__trigger) {
-    padding-block: 14px;
-  }
+// Page-level tabs carry an icon, the label and a count, and sit closer to their content than the default header.
+.plugin-detail-tabs :deep(.app-tabs__header) {
+  margin-bottom: 16px;
 }
 
-.premium-tab-label {
+.plugin-detail-tab {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 0.92rem;
+}
+
+.plugin-detail-tab__icon {
+  width: 16px;
+  height: 16px;
 }
 
 .tab-badge {
@@ -291,14 +251,14 @@ function returnToPluginList() {
   font-size: 12px;
 }
 
-.tab-pane-content {
-  padding: 18px;
+// The tab counts sit on the page too; on the dark page they take the raised fill like the identity tags.
+:global([data-theme='dark']) .plugin-detail-tab .tab-badge {
+  background: var(--surface-raised);
 }
 
-.plugin-console-tab-content {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+.plugin-detail-tab-box {
+  min-width: 0;
+  padding: 18px 20px;
 }
 
 /* Actions in title */
@@ -326,12 +286,12 @@ function returnToPluginList() {
   color: var(--muted);
 }
 
-/* Workspace Structure */
 .plugin-detail-overview {
   display: grid;
   gap: var(--app-page-toolbar-gap);
   min-height: 0;
 
+  // The live output fills the rest of the page, so every layer down to the console pane flexes.
   &.is-output-active {
     display: flex;
     flex: 1 1 auto;
@@ -343,29 +303,15 @@ function returnToPluginList() {
       flex: 0 0 auto;
     }
 
-    .plugin-detail-workspace,
-    .plugin-detail-main-column {
+    .plugin-detail-tabs,
+    .plugin-detail-tabs :deep(.app-tabs__content[data-state=active]),
+    .plugin-detail-console-box,
+    .plugin-detail-console {
       display: flex;
       flex: 1 1 auto;
       flex-direction: column;
       min-height: 0;
     }
-
-    .plugin-detail-workspace {
-      align-items: stretch;
-    }
   }
-}
-
-.plugin-detail-workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
-  gap: 16px;
-}
-
-.plugin-detail-main-column {
-  display: grid;
-  gap: 14px;
 }
 </style>

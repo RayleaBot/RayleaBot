@@ -143,7 +143,7 @@ describe('PluginDetailPage', () => {
     setActivePinia(createPinia())
   })
 
-  it('shows initialization failures by code and clears them after runtime recovery', async () => {
+  it('shows the recorded failure by error code and returns to the routine checks after recovery', async () => {
     const router = createPluginRouter()
     await router.push('/plugins/weather')
     await router.isReady()
@@ -159,13 +159,51 @@ describe('PluginDetailPage', () => {
     vi.spyOn(usePluginConsoleStore(), 'fetchOutboundConsoleHistory').mockResolvedValue([])
     const wrapper = mount(PluginDetailPage, { global: { plugins: [getActivePinia()!, router] } })
     await flushPromises()
-    const failure = wrapper.get('[data-testid="plugin-initialization-failure"]')
-    expect(failure.text()).toContain('插件初始化失败')
-    expect(failure.text()).toContain('插件初始化超时')
-    expect(failure.text()).not.toContain('raw backend wording')
+    const health = wrapper.get('[data-testid="plugin-health"]')
+    expect(health.attributes('data-problem')).toBe('true')
+    expect(health.text()).toContain('运行异常 · 初始化失败')
+    expect(health.text()).toContain('插件初始化超时')
+    expect(health.text()).toContain('plugin.init_timeout')
+    expect(health.text()).not.toContain('raw backend wording')
     pluginsStore.upsert({ id: 'weather', state: 'running' })
     await nextTick()
-    expect(wrapper.find('[data-testid="plugin-initialization-failure"]').exists()).toBe(false)
+    expect(health.attributes('data-problem')).toBeUndefined()
+    expect(health.text()).toContain('运行中')
+    expect(health.text()).toContain('没有运行诊断')
+    wrapper.unmount()
+  })
+
+  it('lists recovery facts and reloads a failed plugin from the health box, but not an invalid one', async () => {
+    const router = createPluginRouter()
+    await router.push('/plugins/weather')
+    await router.isReady()
+    const pluginsStore = usePluginsStore()
+    const detail: PluginDetail = {
+      id: 'weather', name: 'Weather', role: 'community', state: 'failed',
+      state_diagnosis: { kind: 'recovery_required', entered_at: '2026-05-13T08:00:00Z', crash_count: 5, last_error_code: 'plugin.internal_error', recoverable: true },
+      webhooks: [], commands: [], command_groups: [], help: {}, command_conflicts: [],
+    }
+    pluginsStore.current = detail
+    vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(undefined)
+    vi.spyOn(useConfigStore(), 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(usePluginConsoleStore(), 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    const executeAction = vi.spyOn(pluginsStore, 'executeAction').mockResolvedValue(detail)
+    const wrapper = mount(PluginDetailPage, { global: { plugins: [getActivePinia()!, router] } })
+    await flushPromises()
+
+    const health = wrapper.get('[data-testid="plugin-health"]')
+    expect(health.text()).toContain('需要人工恢复')
+    expect(health.text()).toContain('5 次')
+    expect(health.text()).toContain('plugin.internal_error')
+    const reloadButton = health.findAll('button').find(button => button.text().includes('立即重载'))
+    await reloadButton!.trigger('click')
+    expect(executeAction).toHaveBeenCalledWith('weather', 'reload')
+
+    pluginsStore.current = { ...detail, state: 'invalid', state_diagnosis: { kind: 'invalid_manifest', manifest_path: 'plugins/installed/weather/plugin.json' } }
+    await flushPromises()
+    expect(health.text()).toContain('清单无效')
+    expect(health.text()).toContain('plugins/installed/weather/plugin.json')
+    expect(health.findAll('button').some(button => button.text().includes('立即重载'))).toBe(false)
     wrapper.unmount()
   })
 
@@ -349,18 +387,18 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('1.4.2')
     expect(wrapper.text()).toContain('raylea')
     expect(wrapper.text()).toContain('MIT')
-    const runtimeValue = (label: string) => wrapper.findAll('.plugin-detail-kv-list > div')
-      .find(row => row.find('dt').text() === label)?.find('dd').text()
-    expect(runtimeValue('消息优先级')).toBe('25')
-    expect(runtimeValue('默认传播')).toBe('阻断后续插件')
+    const origin = wrapper.get('[data-testid="plugin-origin"]')
+    const handling = () => origin.findAll('dt').find(term => term.text() === '处理方式')?.element.nextElementSibling?.textContent ?? ''
+    expect(handling()).toContain('并发 3 · 优先级 25 · 成功后阻断后续插件')
     delete pluginsStore.current!.priority
     delete pluginsStore.current!.block
     await flushPromises()
-    expect(runtimeValue('消息优先级')).toBe('0')
-    expect(runtimeValue('默认传播')).toBe('继续传播')
+    expect(handling()).toContain('并发 3 · 优先级 0 · 成功后继续传递')
+    expect(origin.text()).toContain('需要 RayleaBot v0.2.0 或更高')
     expect(wrapper.text()).toContain('assets/weather.svg')
-    expect(wrapper.text()).toContain('https://github.com/RayleaBot/plugins-weather')
-    expect(wrapper.text()).toContain('https://plugins.rayleabot.local/weather')
+    const project = wrapper.get('[data-testid="plugin-project"]')
+    expect(project.get('a[href="https://github.com/RayleaBot/plugins-weather"]').text()).toBe('github.com/RayleaBot/plugins-weather')
+    expect(project.get('a[href="https://plugins.rayleabot.local/weather"]').text()).toBe('plugins.rayleabot.local/weather')
     expect(wrapper.text()).toContain('assets/overview.svg')
     expect(wrapper.text()).toContain('天气总览卡片')
    expect(wrapper.text()).toContain('message.group')
@@ -383,6 +421,14 @@ describe('PluginDetailPage', () => {
     expect(wrapper.findComponent(VirtualDataViewport).exists()).toBe(true)
     expect(wrapper.findAll('.console-terminal-line')).toHaveLength(4)
     expect(wrapper.findComponent({ name: 'PluginCommandsPanel' }).exists()).toBe(true)
+    // The overview only counts the commands and leads to the commands tab.
+    const functionBox = wrapper.get('[data-testid="plugin-function"]')
+    expect(functionBox.text()).toContain('群聊消息')
+    expect(functionBox.text()).toContain('1 条')
+    expect(functionBox.text()).toContain('没有名称冲突')
+    expect(functionBox.text()).not.toContain('查看今日运势')
+    await functionBox.findAll('button').find(button => button.text().includes('查看指令'))!.trigger('click')
+    expect(wrapper.findAll('[role="tab"]').find(tab => tab.text().includes('指令'))!.attributes('aria-selected')).toBe('true')
     await openConsoleTab(wrapper)
 
     const reconnectButton = wrapper.findAll('button').find((candidate) => candidate.attributes('aria-label') === '重新连接')
