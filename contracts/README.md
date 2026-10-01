@@ -58,6 +58,7 @@
   - 当前已固定的管理 WebSocket envelope、事件名和 payload 约束
   - `events.received` 服务状态快照仅在 `stopping` 时携带可选 `stop_intent`；`restart` / `update` 的断线为临时中断，客户端继续重连，缺省按 `stop` 处理。
   - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`
+  - `events.received` 的 `message_stats` 分支在连接收到或发出被计入的消息、连接中断开始或结束时推送，最多每 2 秒一次，只带变化时间和变化的连接，不带计数；客户端据此重新读取 `GET /api/system/message-stats`，并保留低频轮询兜底。
   - 插件状态、诊断及命令运行态投影引用 OpenAPI 的同一 schema；命令触发器、权限级别、帮助与分组等声明字段引用 `plugin-info.schema.json` 的定义。静态 manifest 与含有效命令名的运行态投影保持各自的 required 字段。
 - `plugin-info.schema.json`
   - 插件 `info.json` v4 的安装前静态校验、最低 Core 版本、事件、命令、管理页与 webhook 边界

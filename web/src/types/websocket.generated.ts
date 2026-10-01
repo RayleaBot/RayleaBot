@@ -106,6 +106,13 @@ export type AdaptersSnapshotEventPayload = {
   adapters: components['schemas']['AdapterDescriptor'][]
 }
 
+export type MessageStatsChangedEventPayload = {
+  message_stats: {
+    changed_at: string
+    adapter_ids: string[]
+  }
+}
+
 export type EventsPayload =
   | ServiceStatusEventPayload
   | PluginStateEventPayload
@@ -114,6 +121,7 @@ export type EventsPayload =
   | BridgeRuntimeObservabilityEventPayload
   | DispatcherRuntimeObservabilityEventPayload
   | AdaptersSnapshotEventPayload
+  | MessageStatsChangedEventPayload
 
 export type PluginConsoleFrameData = {
   plugin_id: string

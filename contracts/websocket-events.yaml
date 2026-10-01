@@ -19,6 +19,8 @@ x-fixtures:
   - fixtures/websocket/ok.events-received-service-restarting.json
   - fixtures/websocket/invalid.events-received-running-stop-intent.json
   - fixtures/websocket/ok.events-received-governance-changed.json
+  - fixtures/websocket/ok.events-received-message-stats-changed.json
+  - fixtures/websocket/invalid.events-received-message-stats-counts.json
   - fixtures/websocket/edge.events-received-degraded.json
   - fixtures/websocket/edge.events-received-bridge-runtime-zeroed.json
   - fixtures/websocket/edge.events-received-plugin-crashed.json
@@ -321,6 +323,31 @@ channels:
                                   enum: [info, warning, error]
                                 summary:
                                   type: string
+            - type: object
+              additionalProperties: false
+              description: >
+                消息统计有变化时推送：连接收到或发出被计入的消息，或连接中断开始、结束。
+                同一服务最多每 2 秒推送一次，变化后 2 秒内送出，没有变化时不推送；载荷不携带计数，
+                客户端据此重新读取 GET /api/system/message-stats。慢连接上的推送可能被较新的事件替换，
+                客户端仍按低频轮询兜底。
+              required: [message_stats]
+              properties:
+                message_stats:
+                  type: object
+                  additionalProperties: false
+                  required: [changed_at, adapter_ids]
+                  properties:
+                    changed_at:
+                      type: string
+                      format: date-time
+                      description: 服务端合并本批变化的时间（UTC）。
+                    adapter_ids:
+                      type: array
+                      uniqueItems: true
+                      description: 计数或中断状态有变化的连接，按 adapter_id 升序。
+                      items:
+                        type: string
+                        minLength: 1
             - type: object
               additionalProperties: false
               required: [observability_scope, summary, delivered_count, result_count, error_count]

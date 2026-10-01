@@ -131,6 +131,10 @@ function generatedSource(contract) {
   const bridgeObservabilityBranch = branchWithRequired(branches, 'result_count')
   const dispatcherObservabilityBranch = branchWithRequired(branches, 'window_seconds')
   branchWithRequired(branches, 'adapters')
+  const messageStatsBranch = branchWithRequired(branches, 'message_stats')
+  const messageStatsProperties = requireObject(branchProperty(messageStatsBranch, 'message_stats').properties, 'message_stats.properties')
+  requireObject(messageStatsProperties.changed_at, 'message_stats.changed_at')
+  requireObject(messageStatsProperties.adapter_ids, 'message_stats.adapter_ids')
 
   const consoleChannel = channelByPath(contract, '/ws/plugins/{id}/console')
   const consoleEvent = eventByName(consoleChannel, 'plugins.console')
@@ -242,6 +246,13 @@ export type AdaptersSnapshotEventPayload = {
   adapters: components['schemas']['AdapterDescriptor'][]
 }
 
+export type MessageStatsChangedEventPayload = {
+  message_stats: {
+    changed_at: string
+    adapter_ids: string[]
+  }
+}
+
 export type EventsPayload =
   | ServiceStatusEventPayload
   | PluginStateEventPayload
@@ -250,6 +261,7 @@ export type EventsPayload =
   | BridgeRuntimeObservabilityEventPayload
   | DispatcherRuntimeObservabilityEventPayload
   | AdaptersSnapshotEventPayload
+  | MessageStatsChangedEventPayload
 
 export type PluginConsoleFrameData = {
   plugin_id: string

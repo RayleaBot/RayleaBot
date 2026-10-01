@@ -1,0 +1,23 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "invalid",
+  "description": "The change notice never carries counts; clients read them from GET /api/system/message-stats.",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-10-01T06:30:02Z",
+    "data": {
+      "message_stats": {
+        "changed_at": "2026-10-01T06:30:02Z",
+        "adapter_ids": [
+          "onebot11"
+        ],
+        "received": 12
+      }
+    }
+  },
+  "expect": {
+    "valid": false,
+    "reason": "message_stats change notices only carry changed_at and adapter_ids"
+  }
+}
