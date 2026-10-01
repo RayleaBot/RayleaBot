@@ -87,7 +87,7 @@ export const shell = {
     densityDefault: '默认',
     densityHelp: '紧凑模式减少页面留白，正文和关键操作保持相同尺寸。',
     pageTransition: '页面切换动画',
-    pageTransitionHelp: '动效只用于表达工作区切换，可随系统减少动态效果。',
+    pageTransitionHelp: '只在页面之间切换时播放；系统开启“减少动态效果”时不播放。',
     reset: '恢复默认设置',
     shortcuts: '快捷键',
     shortcutSearch: '打开页面搜索',
@@ -103,7 +103,6 @@ export const shell = {
     transitionNone: '关闭动画',
     uiFont: '界面字体',
     uiFontName: 'HarmonyOS Sans SC',
-    workspace: '工作区',
   },
 } as const
 

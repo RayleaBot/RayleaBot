@@ -18,7 +18,7 @@ import type {
 } from '@/preferences/app'
 import { useUiShellStore } from '@/stores/ui-shell'
 
-type SettingsTabKey = 'appearance' | 'workspace' | 'shortcuts'
+type SettingsTabKey = 'appearance' | 'shortcuts'
 
 withDefaults(defineProps<{ fallbackFocus?: string }>(), { fallbackFocus: '[data-testid=sidebar-account]' })
 const uiShellStore = useUiShellStore()
@@ -73,7 +73,7 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
     :fallback-focus="fallbackFocus"
     @close="uiShellStore.closeSettings()"
   >
-    <AppTabs v-model="activeTab" :items="[{ value: 'appearance', label: t('shell.preferences.appearance') }, { value: 'workspace', label: t('shell.preferences.workspace') }, { value: 'shortcuts', label: t('shell.preferences.shortcuts') }]" :label="t('shell.preferences.title')" class="preferences-drawer__tabs">
+    <AppTabs v-model="activeTab" :items="[{ value: 'appearance', label: t('shell.preferences.appearance') }, { value: 'shortcuts', label: t('shell.preferences.shortcuts') }]" :label="t('shell.preferences.title')" class="preferences-drawer__tabs">
       <template #appearance>
         <div class="preferences-group">
           <div class="preferences-group__heading">
@@ -101,6 +101,18 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
 
         <div class="preferences-group">
           <div class="preferences-group__heading">
+            <strong>{{ t('shell.preferences.contentWidth') }}</strong>
+            <span>{{ t('shell.preferences.contentWidthHelp') }}</span>
+          </div>
+          <AppSegmented
+            :options="contentWidthOptions"
+            :model-value="preferences.contentWidth" :label="t('shell.preferences.contentWidth')"
+            @update:model-value="patchPreference('contentWidth', $event as ContentWidth)"
+          />
+        </div>
+
+        <div class="preferences-group">
+          <div class="preferences-group__heading">
             <strong>{{ t('shell.preferences.pageTransition') }}</strong>
             <span>{{ t('shell.preferences.pageTransitionHelp') }}</span>
           </div>
@@ -114,20 +126,6 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
         <!-- HarmonyOS Sans requires the software to state that the fonts are used; the agreement ships with the package.
              It is a fact about the interface, not a setting, so it reads as a note rather than a group with a control. -->
         <p class="preferences-note" data-testid="preferences-font-notice">{{ t('shell.preferences.uiFont') }}：{{ t('shell.preferences.uiFontName') }}</p>
-      </template>
-
-      <template #workspace>
-        <div class="preferences-group">
-          <div class="preferences-group__heading">
-            <strong>{{ t('shell.preferences.contentWidth') }}</strong>
-            <span>{{ t('shell.preferences.contentWidthHelp') }}</span>
-          </div>
-          <AppSegmented
-            :options="contentWidthOptions"
-            :model-value="preferences.contentWidth" :label="t('shell.preferences.contentWidth')"
-            @update:model-value="patchPreference('contentWidth', $event as ContentWidth)"
-          />
-        </div>
       </template>
 
       <template #shortcuts>
