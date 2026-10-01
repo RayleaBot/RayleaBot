@@ -398,7 +398,7 @@ describe('PluginDetailPage', () => {
     await flushPromises()
     expect(handling()).toContain('并发 3 · 优先级 0 · 成功后继续传递')
     const installMethod = origin.findAll('dt').find(term => term.text() === '安装方式')?.element.nextElementSibling?.textContent ?? ''
-    expect(installMethod).toContain('本地 ZIP 包')
+    expect(installMethod).toContain('服务器上的 ZIP 包')
     expect(installMethod).toContain('C:/plugins/weather.zip')
     const project = wrapper.get('[data-testid="plugin-project"]')
     expect(project.get('a[href="https://github.com/RayleaBot/plugins-weather"]').text()).toBe('github.com/RayleaBot/plugins-weather')

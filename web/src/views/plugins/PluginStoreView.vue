@@ -248,13 +248,32 @@ async function removeSource(id: string) {
   }
 }
 
+// A release is incompatible for one of two reasons, and each has a different remedy: upgrading RayleaBot only helps
+// the first.
+function incompatibilityReason(plugin: PluginStoreEntry) {
+  const release = plugin.latest_release
+  if (!release) return ''
+  if (!release.compatible) return t('plugins.store.requiresCore', { version: formatPluginVersion(release.min_core_version) })
+  if (!release.asset_available) return t('plugins.store.noPlatformAsset')
+  return ''
+}
+
+// An installed plugin whose newer store release cannot be installed shows no update button, so it says why.
+function blockedUpdateReason(plugin: PluginStoreEntry) {
+  const release = plugin.latest_release
+  if (plugin.install_state !== 'installed' || !release || !plugin.installed_version) return ''
+  if (formatPluginVersion(release.version) === formatPluginVersion(plugin.installed_version)) return ''
+  const reason = incompatibilityReason(plugin)
+  return reason ? t('plugins.store.updateBlocked', { reason }) : ''
+}
+
 function installActionLabel(plugin: PluginStoreEntry) {
   if (installing.value[plugin.id]) return t('plugins.store.actions.installing')
   switch (plugin.install_state) {
     case 'update_available': return t('plugins.store.actions.update')
     case 'installed': return t('plugins.store.actions.installed')
     case 'unpublished': return t('plugins.store.actions.unpublished')
-    case 'incompatible': return t('plugins.store.actions.incompatible')
+    case 'incompatible': return incompatibilityReason(plugin) || t('plugins.store.actions.incompatible')
     default: return t('plugins.store.actions.install')
   }
 }
@@ -326,10 +345,23 @@ onMounted(() => {
       <div v-if="loading && items.length === 0" class="store-grid" aria-hidden="true">
         <AppSkeletonCard v-for="index in 8" :key="index" show-header :rows="2" />
       </div>
+      <!-- Without a search the empty list says whether the source was never loaded or is simply empty. -->
       <AppEmptyState
-        v-else-if="items.length === 0"
+        v-else-if="items.length === 0 && query.trim()"
         :title="t('plugins.store.empty.title')"
         :description="t('plugins.store.empty.description')"
+      />
+      <AppEmptyState
+        v-else-if="items.length === 0 && !source?.cached"
+        :title="t('plugins.store.empty.notLoadedTitle')"
+        :description="t('plugins.store.empty.notLoadedDescription')"
+        :action-label="t('plugins.store.actions.refresh')"
+        @action="refreshSource"
+      />
+      <AppEmptyState
+        v-else-if="items.length === 0"
+        :title="t('plugins.store.empty.sourceEmptyTitle')"
+        :description="t('plugins.store.empty.sourceEmptyDescription')"
       />
       <div v-else class="store-grid">
         <AppCard v-for="plugin in items" :key="plugin.id" class="store-plugin-card" shadow="sm">
@@ -365,6 +397,7 @@ onMounted(() => {
             <span :title="t('plugins.fields.license')">{{ plugin.license }}</span>
             <span v-if="plugin.latest_release">{{ t('plugins.store.latestVersion', { version: formatPluginVersion(plugin.latest_release.version) }) }}</span>
           </div>
+          <p v-if="blockedUpdateReason(plugin)" class="plugin-update-note">{{ blockedUpdateReason(plugin) }}</p>
 
           <div class="plugin-card-footer">
             <span v-if="plugin.installed_version" class="installed-version">
@@ -436,7 +469,7 @@ onMounted(() => {
               <AppTag v-if="item.official">{{ t('plugins.store.sources.official') }}</AppTag>
               <AppTag v-else>{{ t('plugins.store.sources.custom') }}</AppTag>
               <AppTag :tone="item.cached ? 'success' : 'neutral'">
-                {{ item.cached ? t('plugins.store.sources.cached') : t('plugins.store.sources.notCached') }}
+                {{ item.cached ? t('plugins.store.sources.cached', { count: item.entry_count }) : t('plugins.store.sources.notCached') }}
               </AppTag>
               <AppTag v-if="item.id === sourceId" tone="info">{{ t('plugins.store.sources.current') }}</AppTag>
             </div>
@@ -463,7 +496,7 @@ onMounted(() => {
 
     </AppDialog>
 
-    <AppDialog :open="sourceEditorOpen" :title="editingSourceId ? t('plugins.store.sources.edit') : t('plugins.store.sources.add')" :busy="sourceSaving" fallback-focus="[data-testid=plugin-store-sources]" @close="cancelSourceEditor">
+    <AppDialog :open="sourceEditorOpen" :title="editingSourceId ? t('plugins.store.sources.editTitle') : t('plugins.store.sources.add')" :busy="sourceSaving" fallback-focus="[data-testid=plugin-store-sources]" @close="cancelSourceEditor">
       <div>
         <AppField floating :label="t('plugins.store.sources.name')">
           <AppInput v-model="sourceForm.name" :maxlength="120" />
@@ -474,7 +507,7 @@ onMounted(() => {
       </div>
     <template #footer><div class="flex justify-end gap-3"><AppButton :disabled="sourceSaving" @click="cancelSourceEditor">{{ t('shell.cancel') }}</AppButton><AppButton variant="default" :loading="sourceSaving" :disabled="!sourceForm.name.trim() || !sourceForm.url.trim()" @click="saveSource">{{ t('plugins.store.sources.save') }}</AppButton></div></template>
     </AppDialog>
-    <AppConfirmDialog :open="pendingSourceRemoval !== null" :title="t('plugins.store.sources.remove')" :description="t('plugins.store.sources.removeConfirm')" :busy="sourceRemoving" danger :confirm-text="t('plugins.store.sources.remove')" @confirm="pendingSourceRemoval && removeSource(pendingSourceRemoval)" @cancel="pendingSourceRemoval = null" />
+    <AppConfirmDialog :open="pendingSourceRemoval !== null" :title="t('plugins.store.sources.removeTitle')" :description="t('plugins.store.sources.removeConfirm')" :busy="sourceRemoving" danger :confirm-text="t('plugins.store.sources.remove')" @confirm="pendingSourceRemoval && removeSource(pendingSourceRemoval)" @cancel="pendingSourceRemoval = null" />
   </AppPage>
 </template>
 
@@ -573,6 +606,12 @@ onMounted(() => {
 .plugin-meta {
   flex-wrap: wrap;
   gap: 8px 14px;
+}
+
+.plugin-update-note {
+  margin: 0;
+  color: var(--text-warning);
+  font-size: var(--font-size-sm);
 }
 
 .plugin-card-footer {

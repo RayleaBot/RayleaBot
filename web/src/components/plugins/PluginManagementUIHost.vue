@@ -7,7 +7,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
-import { getPluginTrustLabel } from '@/lib/display'
+import { formatPluginVersion, getPluginInstallMethodLabel } from '@/lib/display'
 import type { PluginDetail, PluginManagementUIPage } from '@/types/api'
 
 const props = defineProps<{
@@ -39,7 +39,6 @@ const frameSrc = computed(() => {
 })
 const canRenderIframe = computed(() => Boolean(frameSrc.value) && iframeKey.value > 0 && (!requiresConfirmation.value || confirmed.value))
 const busyLabel = computed(() => waitingForLoad.value ? t('plugins.managementUi.loading') : '')
-const sourceReference = computed(() => props.plugin.source?.package_source_ref?.trim() || props.plugin.source?.root?.trim() || t('display.empty'))
 
 function clearLoadTimer() {
   if (loadTimer) {
@@ -137,10 +136,10 @@ onBeforeUnmount(clearLoadTimer)
   <section class="plugin-management-ui-host" data-testid="plugin-management-ui-host" :aria-label="title">
     <section v-if="requiresConfirmation && !confirmed" class="plugin-management-ui-confirm" data-testid="plugin-management-ui-confirm">
       <div class="plugin-management-ui-confirm-note"><strong>{{ t('plugins.managementUi.confirmTitle') }}</strong><p>{{ t('plugins.managementUi.confirmBody') }}</p></div>
+      <!-- The confirmation is remembered per version and install source, so those are the two facts to check. -->
       <AppDetails>
-        <AppDetailItem :label="t('plugins.fields.trust')">{{ getPluginTrustLabel(plugin.trust?.level) }}</AppDetailItem>
-        <AppDetailItem :label="t('plugins.managementUi.entryPath')">{{ managementEntry || t('display.empty') }}</AppDetailItem>
-        <AppDetailItem :label="t('plugins.fields.sourceRef')">{{ sourceReference }}</AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.sourceRef')">{{ getPluginInstallMethodLabel(plugin.source) }}</AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.version')">{{ formatPluginVersion(plugin.version) }}</AppDetailItem>
       </AppDetails>
       <div class="table-actions"><AppButton variant="default" @click="acceptUnverifiedSource">{{ t('plugins.managementUi.confirmAction') }}</AppButton></div>
     </section>
