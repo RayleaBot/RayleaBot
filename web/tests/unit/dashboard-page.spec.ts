@@ -1,6 +1,7 @@
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ref, shallowRef } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import DashboardPage from '@/views/dashboard/DashboardView.vue'
@@ -11,6 +12,11 @@ const feedbackMock = vi.hoisted(() => ({
   notifyError: vi.fn(),
   notifySuccess: vi.fn(),
   useToastFeedback: vi.fn(),
+}))
+
+// The message counts have their own card tests; the page tests only need the card to stay off the network.
+vi.mock('@/views/dashboard/useMessageStats', () => ({
+  useMessageStats: () => ({ stats: shallowRef(null), loading: ref(false), error: ref(null), reload: vi.fn() }),
 }))
 
 vi.mock('@/adapter/feedback', () => ({
@@ -128,7 +134,7 @@ describe('DashboardPage', () => {
     const { wrapper } = await mountDashboard()
     const connections = wrapper.get('[data-testid="dashboard-connections"]')
     expect(connections.get('[data-testid="dashboard-connections-error"]').text()).toContain('读取连接失败')
-    expect(connections.text()).not.toContain('接入 OneBot 或 QQ 官方机器人')
+    expect(connections.text()).not.toContain('还没有机器人连接')
 
     vi.mocked(adaptersStore.refresh).mockImplementation(async () => {
       adaptersStore.error = null
@@ -138,7 +144,7 @@ describe('DashboardPage', () => {
     await connections.findAll('button').find(button => button.text() === '重试')!.trigger('click')
     await flushPromises()
     expect(connections.find('[data-testid="dashboard-connections-error"]').exists()).toBe(false)
-    expect(connections.text()).toContain('接入 OneBot 或 QQ 官方机器人')
+    expect(connections.text()).toContain('还没有机器人连接')
     wrapper.unmount()
   })
 

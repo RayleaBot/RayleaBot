@@ -349,7 +349,7 @@ Web 持续提示使用 [`AppAlert`](web/src/components/AppAlert.vue) 的紧凑�
 
 状态标签同时呈现文字或图标，不能只显示色点。标签表达状态和筛选，不替代操作按钮。关注提示、异常和空态提供原因、影响、可执行动作或必要前置条件。日志无匹配结果时说明为空，并提供调整筛选或等待新日志的方向。
 
-系统状态页先汇总需要人工处理的事项，再以机器人连接、运行信息、检查与近期变化四个盒子呈现系统，状态页不展示插件；复查与运行环境准备使用独立操作。通用故障页通过 [`AppFallback`](web/src/components/fallback/AppFallback.vue) 复用返回首页与重试控件，重试期间保留忙碌反馈。
+系统状态页先汇总需要人工处理的事项，再以通栏的机器人连接盒子呈现每个连接的状态与收发消息趋势，其下一行是运行信息、检查与近期变化三个盒子；状态页不展示插件，复查与运行环境准备使用独立操作。通用故障页通过 [`AppFallback`](web/src/components/fallback/AppFallback.vue) 复用返回首页与重试控件，重试期间保留忙碌反馈。
 
 [`AppStatusTag`](web/src/components/AppStatusTag.vue) 使用 AppBadge 的语义颜色、文字和辅助圆点表达状态；[`AppTag`](web/src/components/AppTag.vue) 关闭圆点，用于指令、分类、权限和数量等紧凑信息。别名、权限与来源不因使用同一标签外形而被解释为运行状态。
 

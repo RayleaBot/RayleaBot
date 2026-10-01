@@ -21,6 +21,7 @@
     "generate:types": "corepack pnpm run generate:openapi-types && corepack pnpm run generate:ws-types"
   },
   "dependencies": {
+    "@internationalized/date": "3.12.4",
     "@lucide/vue": "1.41.0",
     "@tanstack/vue-virtual": "3.13.35",
     "@vueuse/core": "14.4.0",

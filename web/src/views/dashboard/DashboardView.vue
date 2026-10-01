@@ -3,7 +3,6 @@ import { computed, nextTick, ref, watch, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   ArchiveIcon,
-  BotIcon,
   CalendarClockIcon,
   ChevronRightIcon,
   CircleCheckIcon,
@@ -17,18 +16,14 @@ import {
   ListChecksIcon,
   PackageCheckIcon,
   PackagePlusIcon,
-  PlusIcon,
   PowerIcon,
-  RadioTowerIcon,
   RefreshCwIcon,
   ServerIcon,
   TriangleAlertIcon,
 } from '@lucide/vue'
 
-import AppAlert from '@/components/AppAlert.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
-import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppSegmented from '@/components/AppSegmented.vue'
 import StatusRow from '@/components/dashboard/StatusRow.vue'
 import StatusSection from '@/components/dashboard/StatusSection.vue'
@@ -36,10 +31,9 @@ import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import { t } from '@/i18n'
-import { getAdapterStateLabel, getConnectionStatusLabel } from '@/lib/display'
+import { getConnectionStatusLabel } from '@/lib/display'
 import { formatDurationSeconds, formatTime } from '@/lib/format'
-import { buildDashboardEventActions, buildProtocolsLocation } from '@/lib/management-links'
-import { useAdaptersStore } from '@/stores/adapters'
+import { buildDashboardEventActions } from '@/lib/management-links'
 import { useSocketStore } from '@/stores/sockets'
 import { useSystemStore, type ServiceStopIntent } from '@/stores/system'
 import {
@@ -50,6 +44,7 @@ import {
   toRowTone,
   type StatusRowTone,
 } from '@/views/dashboard/dashboard-status'
+import DashboardConnectionsCard from '@/views/dashboard/DashboardConnectionsCard.vue'
 import { useDashboardPage } from '@/views/dashboard/useDashboardPage'
 import { useUpdateStatus } from '@/views/dashboard/useUpdateStatus'
 
@@ -73,12 +68,7 @@ const {
   visibleReasonCodes,
 } = useDashboardPage()
 const { diagnostics, readiness, stopIntent } = storeToRefs(useSystemStore())
-const adaptersStore = useAdaptersStore()
-const { adapters, error: adaptersError, loaded: adaptersLoaded, loading: adaptersLoading } = storeToRefs(adaptersStore)
 const systemUnread = computed(() => Boolean(error.value && !system.value))
-function retryAdapters() {
-  void adaptersStore.refresh().catch(() => undefined)
-}
 const socketStore = useSocketStore()
 const { snapshots } = storeToRefs(socketStore)
 const update = useUpdateStatus()
@@ -153,31 +143,6 @@ async function showChecks() {
   void target.offsetWidth
   target.classList.add('is-highlighted')
 }
-
-// Without a known bot account the title falls back to the protocol name, so the detail names the connection instead.
-const connectionRows = computed(() => adapters.value.map((adapter) => {
-  const protocol = adapter.protocol === 'qqofficial' ? t('protocols.qqTitle') : 'OneBot11'
-  const title = adapter.identity?.name || adapter.display_name || adapter.id
-  const account = adapter.identity?.id
-    ? `${adapter.protocol === 'qqofficial' ? t('protocols.connectionCard.botId') : 'QQ'} ${adapter.identity.id}`
-    : t('dashboard.hub.connectionIdentifier', { id: adapter.id })
-  return {
-    id: adapter.id,
-    detail: [protocol === title ? '' : protocol, account].filter(Boolean).join(' · '),
-    icon: adapter.protocol === 'qqofficial' ? BotIcon : RadioTowerIcon,
-    status: adapter.enabled ? getAdapterStateLabel(adapter.state) : t('dashboard.hub.connectionDisabled'),
-    title,
-    to: buildProtocolsLocation({ adapterId: adapter.id }),
-    tone: adapter.enabled ? toRowTone(adapter.state) : 'muted' as StatusRowTone,
-  }
-}))
-// A stopped connection is not a missing one, so only enabled connections count toward the total.
-const connectionsMeta = computed(() => {
-  if (!connectionRows.value.length) return undefined
-  const enabled = adapters.value.filter(adapter => adapter.enabled)
-  if (!enabled.length) return t('dashboard.hub.connectionsNoneEnabled')
-  return t('dashboard.hub.connectionsMeta', { connected: enabled.filter(adapter => adapter.state === 'connected').length, total: enabled.length })
-})
 
 const versionText = computed(() => {
   const snapshot = update.status.value
@@ -283,37 +248,10 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
       </div>
     </section>
 
-    <!-- Without a system snapshot there is nothing to show below the retry panel. -->
+    <!-- Without a system snapshot there is nothing to show below the retry panel. Connections and their messages take
+         the full-width card; the other three boxes share the row below it. -->
+    <DashboardConnectionsCard v-if="!systemUnread" />
     <div v-if="!systemUnread" class="status-grid">
-      <StatusSection :title="t('dashboard.hub.connections')" :meta="connectionsMeta" data-testid="dashboard-connections">
-        <template #actions>
-          <MotionRouterLink :to="{ name: 'protocols' }" class="status-link">{{ t('dashboard.hub.openProtocols') }}<ChevronRightIcon aria-hidden="true" /></MotionRouterLink>
-        </template>
-        <!-- An unread list is loading or failed, never "no connections"; the add prompt explains itself only when the list is known to be empty. -->
-        <AppAlert v-if="adaptersError && !connectionRows.length" tone="danger" :title="t('dashboard.hub.connectionsLoadFailed')" :description="adaptersError" data-testid="dashboard-connections-error">
-          <template #action><AppButton size="sm" :loading="adaptersLoading" @click="retryAdapters">{{ t('ui.retry') }}</AppButton></template>
-        </AppAlert>
-        <AppSkeleton v-else-if="!adaptersLoaded && !connectionRows.length" :rows="2" />
-        <StatusRow
-          v-for="row in connectionRows"
-          :key="row.id"
-          :title="row.title"
-          :detail="row.detail"
-          :status="row.status"
-          :tone="row.tone"
-          :to="row.to"
-        >
-          <template #icon><component :is="row.icon" /></template>
-        </StatusRow>
-        <MotionRouterLink :to="buildProtocolsLocation({ view: 'add' })" class="status-add">
-          <span class="status-add__icon" aria-hidden="true"><PlusIcon /></span>
-          <span class="status-add__copy">
-            <span>{{ t('dashboard.hub.addConnection') }}</span>
-            <small v-if="adaptersLoaded && !connectionRows.length">{{ t('dashboard.hub.addConnectionDetail') }}</small>
-          </span>
-        </MotionRouterLink>
-      </StatusSection>
-
       <StatusSection :title="t('dashboard.runtimeInfo')" data-testid="dashboard-runtime-info">
         <dl class="status-facts">
           <div class="status-facts__row">
@@ -454,20 +392,13 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
 .status-attention p { margin: 0; color: var(--muted); font-size: var(--font-size-sm); }
 .status-attention__actions { display: flex; gap: 8px; }
 
-.status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
 
 .status-link { display: inline-flex; align-items: center; gap: 2px; border-radius: var(--radius-sm); color: var(--brand-foreground); font-size: var(--font-size-sm); font-weight: 500; }
 .status-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .status-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .status-link svg { width: 15px; height: 15px; }
 
-.status-add { display: flex; align-items: center; gap: 12px; padding: 12px 0 6px; border-top: 1px solid var(--border); color: var(--brand-foreground); font-weight: 500; }
-.status-add__icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: var(--control-fill); box-shadow: var(--shadow-xs); }
-.status-add__icon svg { width: 16px; height: 16px; }
-.status-add__copy { display: grid; }
-.status-add__copy small { color: var(--muted); font-size: var(--font-size-xs); font-weight: 400; }
-.status-add:hover .status-add__copy > span { text-decoration: underline; text-underline-offset: 3px; }
-.status-add:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-md); }
 
 .status-facts { display: grid; margin: 0; }
 .status-facts__row { display: flex; align-items: center; gap: 16px; min-height: 46px; padding: 6px 0; }
