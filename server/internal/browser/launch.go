@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
@@ -40,17 +39,20 @@ func launchLocalBrowser(ctx context.Context, options Options, pluginID, profile 
 	var workspace string
 	var logFile *os.File
 	var stopped <-chan struct{}
-	var terminate func()
-	var stopOnce sync.Once
+	var terminate func(context.Context) error
 	cleanup = func() error {
+		stopCtx, cancel := context.WithTimeout(context.Background(), browserShutdownTimeout)
+		defer cancel()
 		if terminate != nil {
-			stopOnce.Do(terminate)
+			if err := terminate(stopCtx); err != nil {
+				return err
+			}
 		}
 		if stopped != nil {
 			select {
 			case <-stopped:
-			case <-time.After(browserShutdownTimeout):
-				return errors.New("browser process did not exit before the cleanup deadline")
+			case <-stopCtx.Done():
+				return fmt.Errorf("browser process did not exit before the cleanup deadline: %w", stopCtx.Err())
 			}
 		}
 		var errs []error
