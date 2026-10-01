@@ -336,6 +336,16 @@ describe('BasicLayout', () => {
     expect(sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').classes()).toContain('sidebar-navigation__plugin-resource--active')
     expect(sidebar.get('[data-sidebar-plugin-overview="example-config-panel"]').attributes('aria-current')).toBe('page')
 
+    // Clicking the plugin already shown closes its pages, and a further click opens them again; the page stays.
+    await sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').trigger('click')
+    await flushPromises()
+    expect(sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').attributes('aria-expanded')).toBe('false')
+    expect(sidebar.find('[data-sidebar-plugin-overview="example-config-panel"]').exists()).toBe(false)
+    expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel')
+    await sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').trigger('click')
+    await flushPromises()
+    expect(sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').attributes('aria-expanded')).toBe('true')
+
     await sidebar.get('[data-sidebar-management-page="secrets"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel?panel=management-ui&management_page=secrets')

@@ -127,9 +127,14 @@ function enterPluginCenter() {
   void focusAfterScopeChange('[data-sidebar-scope-back="plugin-center"]')
 }
 
+// A plugin row opens that plugin with its pages. The plugin already shown has nowhere to go, so its row opens or closes
+// its pages instead, the same as its arrow.
 function enterPlugin(pluginId: string) {
+  if (pluginId === activePluginId.value) {
+    togglePluginExpansion(pluginId)
+    return
+  }
   expandPlugin(pluginId)
-  if (pluginId === activePluginId.value) return
   emit('navigate', buildPluginDetailLocation(pluginId))
 }
 
