@@ -403,6 +403,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/message-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 统计各机器人连接收到与发出的聊天消息
+         * @description 返回统计范围内按 granularity 分桶的消息条数，以及每个连接的合计、紧邻前一段等长时间的合计、 最近收到消息的时间，和与范围相交的连接中断、服务未运行时段。 收到：适配器交给宿主的群聊与私聊消息事件（message.group、message.private），在会话路由、 黑白名单与命令处理之前计数，与是否有插件处理无关；不含机器人自身消息的回显（message_sent.*）、 通知、请求与元事件，被适配器去重丢弃的重复事件不计。 发出：平台确认已接受的发送，每次逻辑发送计一条，包括插件发送与回复、内置菜单、冷却提示和合并转发； 状态未确认、超时、限流、未连接及其他失败的发送不计。 计数按 UTC 整点小时持久化。服务端把 start_at 向下、end_at 向上对齐到桶边界：hour 为 UTC 整点， day 为 effective_timezone 的自然日零点；按天汇总包含起点落在该日内的小时，时区偏移不是整点时 日界与小时边界最多相差 45 分钟。对齐后 hour 最多 744 个桶，day 最多 732 个桶。 只返回在 as_of 之前开始、且不早于统计开始时间的桶；包含 as_of 的最后一个桶仍在累计。 统计开始之前的时间没有数据，客户端不得把缺少的桶当作 0 条。
+         */
+        get: operations["getMessageStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/shutdown": {
         parameters: {
             query?: never;
@@ -1201,6 +1221,84 @@ export interface components {
             shutdown_budget_seconds?: number;
             uptime_seconds?: number;
             health?: components["schemas"]["ReadinessStatusResponse"];
+        };
+        /**
+         * @description 分桶单位。hour 为 UTC 整点小时，day 为 effective_timezone 的自然日。
+         * @enum {string}
+         */
+        MessageStatsGranularity: "hour" | "day";
+        MessageStatsCounts: {
+            received: number;
+            sent: number;
+        };
+        MessageStatsConnection: {
+            /** @description 计数所属的适配器实例标识，与配置 adapters[].id 一致。 */
+            adapter_id: string;
+            protocol: components["schemas"]["AdapterProtocol"];
+            /** @description 是否仍在当前配置中；false 表示实例已从配置删除，只保留统计。 */
+            configured: boolean;
+            /** @description 与 buckets 逐项对应的收到条数。 */
+            received: number[];
+            /** @description 与 buckets 逐项对应的发出条数。 */
+            sent: number[];
+            totals: components["schemas"]["MessageStatsCounts"];
+            /** @description 该连接在前一段时间的合计，与响应的 previous 同时出现或同时省略。 */
+            previous?: components["schemas"]["MessageStatsCounts"];
+            /**
+             * Format: date-time
+             * @description 该连接最近一次收到消息的时间，不受统计范围限制；从未收到时省略。
+             */
+            last_received_at?: string;
+        };
+        /** @description adapter_offline：已启用的连接在服务运行期间不处于 connected，持续至少 30 秒。连接从 connected 离开时开始；服务启动、启用或重载后 60 秒仍未连上时，从第 60 秒开始。连上、被停用或删除、服务停止时结束。 server_stopped：相邻两次服务运行之间的空档，异常退出时按最后一次存活记录估计停止时间，误差不超过 1 分钟。 两种时段都只从统计开始时记录。客户端忽略不认识的 kind。 */
+        MessageStatsIncident: {
+            /** @enum {string} */
+            kind: "adapter_offline" | "server_stopped";
+            /** @description 中断的连接；仅 adapter_offline 携带。 */
+            adapter_id?: string;
+            /** Format: date-time */
+            started_at: string;
+            /**
+             * Format: date-time
+             * @description 结束时间；adapter_offline 仍在持续时省略，server_stopped 总是携带。
+             */
+            ended_at?: string;
+        } & (unknown & unknown);
+        MessageStatsResponse: {
+            granularity: components["schemas"]["MessageStatsGranularity"];
+            /** @description 按天汇总所用的 effective_timezone（IANA 名称）。 */
+            timezone: string;
+            /**
+             * Format: date-time
+             * @description 对齐后的统计起点（UTC）。
+             */
+            start_at: string;
+            /**
+             * Format: date-time
+             * @description 对齐后的统计终点（UTC，不含）。
+             */
+            end_at: string;
+            /**
+             * Format: date-time
+             * @description 本次统计截止的服务端时间（UTC）。
+             */
+            as_of: string;
+            /**
+             * Format: date-time
+             * @description 消息计数开始的时间；更早的桶不返回。
+             */
+            tracking_started_at: string;
+            /** @description 各桶起点（UTC），升序。覆盖对齐后范围内、不早于包含 tracking_started_at 的桶、并在 as_of 之前开始的全部桶；没有这样的桶时为 []。connections[].received 与 sent 与它逐项对应。 */
+            buckets: string[];
+            /** @description 全部连接在返回桶内的合计。 */
+            totals: components["schemas"]["MessageStatsCounts"];
+            /** @description 紧邻的前一段时间的合计：[start_at − L, min(end_at, as_of) − L)，L = end_at − start_at， 即长度相同、截止到同一相对时刻的时间段。该时间段早于 tracking_started_at 开始时省略。 */
+            previous?: components["schemas"]["MessageStatsCounts"];
+            /** @description 当前配置中的连接按配置顺序在前，包括没有计数的连接；其后是已从配置删除、但在本范围或前一段时间内 有计数的连接，按 adapter_id 升序。没有任何连接时为 []。 */
+            connections: components["schemas"]["MessageStatsConnection"][];
+            /** @description 与 [start_at, as_of) 相交的连接中断和服务未运行时段，按 started_at 升序；超过 1000 条时只保留 开始时间最晚的 1000 条，并把 incidents_truncated 设为 true。 */
+            incidents: components["schemas"]["MessageStatsIncident"][];
+            incidents_truncated: boolean;
         };
         SystemDiagnosticsResponse: {
             /** Format: date-time */
@@ -3221,6 +3319,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemStatusResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getMessageStats: {
+        parameters: {
+            query: {
+                /** @description 统计范围起点（含），RFC3339。 */
+                start_at: string;
+                /** @description 统计范围终点（不含），RFC3339，必须晚于 start_at。可以晚于当前时间，用来表示今天、近 7 天等 仍在进行的期间；前一段时间据此确定长度。 */
+                end_at: string;
+                granularity: components["schemas"]["MessageStatsGranularity"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 统计范围内的消息计数、连接合计与中断时段。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageStatsResponse"];
+                };
+            };
+            /** @description 参数缺失或无法解析、granularity 不受支持、end_at 不晚于 start_at，或对齐后的桶数超过上限， 返回 platform.invalid_request。 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             401: components["responses"]["Error"];

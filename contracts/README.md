@@ -33,14 +33,15 @@
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
   - `core_version` 从有效的安装产物 `build_info.json` 读取；缺失或无效时记为 `unknown`。未知版本不参与升降级排序；恢复仍按清单检查配置、数据库与插件合同版本。有最低 core 版本要求的插件须确认兼容后才能安装。
   - 本机 `plugin dev-sync` 和受控开发同步接口允许未标版本的源码构建接收 `development` artifact；此路径不声称已验证最低 core 版本，仍执行 manifest、artifact、平台与协议握手检查。普通安装和商店安装不使用此例外。
-  - 配置与数据库 schema 版本从实际归档内容读取：配置为 `4`，备份契约接受数据库 `000001`、`000002`、`000003`；没有归档数据库时明确记录 `absent`。可前向迁移的旧结构在首次启动时迁移，迁移日志记录源版本与目标版本。初始化元数据、配置与业务数据一起恢复。
+  - 配置与数据库 schema 版本从实际归档内容读取：配置为 `4`，备份契约接受数据库 `000001`、`000002`、`000003`、`000004`；没有归档数据库时明确记录 `absent`。可前向迁移的旧结构在首次启动时迁移，迁移日志记录源版本与目标版本。初始化元数据、配置与业务数据一起恢复。
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
   - 图片渲染与插件浏览器会话共用 Chromium，以及受信本地插件共用 FFmpeg / FFprobe 的可信来源列表、SHA256、归档格式与相对入口
 - `error-codes.yaml`
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
-  - 当前已固定的管理 HTTP 接口（契约修订 0.5.5）。
+  - 当前已固定的管理 HTTP 接口（契约修订 0.5.6）。
+  - `GET /api/system/message-stats` 按小时或按天返回各机器人连接收到与发出的消息条数、连接合计与紧邻前一段等长时间的合计、最近收到时间，以及连接中断和服务未运行时段。收到在会话路由与黑白名单之前按适配器交出的群聊、私聊消息计数，发出只计平台确认接受的发送；计数按 UTC 小时持久化，按天汇总使用 `effective_timezone`，统计开始前没有数据，客户端不得补 0。
   - 诊断任务摘要必含 `interrupted`（非负整数），统计关闭或重启中断的任务；`failed` 仅统计失败，取消不计入这两类。调度 `last_error` 不包含计划取消，取消仍更新最近运行信息并计入 `stats.other`，保留已有真实错误。
   - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot、OneBot target / identity resolution、plugin lifecycle、插件商店、可信代码确认与安装、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system、scheduler、recovery、runtime bootstrap、render templates 以及更新状态与检查入口
   - `GET /api/launcher/status` 返回 `shutdown_budget_seconds`，Launcher 强制结束前至少等待该秒数；预算涵盖 HTTP、停止公告、后台工作、消息排空、插件宽限期与强杀等待、适配器、任务执行器、共享浏览器与渲染及持久化收尾。
