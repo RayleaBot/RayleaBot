@@ -11,10 +11,12 @@ import { t } from '@/i18n'
 import { formatDateTime } from '@/lib/format'
 import {
   conversationText,
-  displayText,
+  errorLabel,
   formatCronSchedule,
   formatDurationMs,
   getSuccessRate,
+  isLatestRunFailed,
+  taskLabel,
 } from '@/lib/scheduler-job-display'
 import type { SchedulerJobSummary } from '@/types/api'
 
@@ -31,7 +33,12 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
   <AppDialog :open="open" :title="t('scheduler.detailTitle')" :width="720" @close="$emit('close')" @after-close="$emit('afterClose')">
     <!-- Facts sit in divided rows on the dialog itself: no gauge, no boxes within the box. -->
     <div v-if="job" class="scheduler-job-detail">
-      <AppAlert v-if="job.last_error" tone="danger" :title="t('scheduler.recentError')" :description="job.last_error.message">
+      <AppAlert
+        v-if="job.last_error"
+        :tone="isLatestRunFailed(job) ? 'danger' : 'warning'"
+        :title="`${isLatestRunFailed(job) ? t('scheduler.recentError') : t('scheduler.earlierError', { time: formatDateTime(job.last_error.at) })}：${errorLabel(job.last_error.code)}`"
+        :description="job.last_error.message"
+      >
         <code class="scheduler-job-detail__error-code">{{ job.last_error.code }}</code>
         <template #action>
           <AppButton size="sm" @click="copyError(job.last_error)">
@@ -48,13 +55,10 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
             {{ pluginName }}<span class="sr-only"> / </span><span class="scheduler-job-detail__id">{{ job.plugin_id }}</span>
           </AppDetailItem>
           <AppDetailItem :label="t('scheduler.taskName')">
-            {{ job.task_name }}<span class="sr-only"> / </span><span class="scheduler-job-detail__id">{{ job.job_id }}</span>
+            {{ taskLabel(job) }}<template v-if="job.log_label?.trim()"><span class="sr-only"> / </span><span class="scheduler-job-detail__id">{{ job.job_id }}</span></template>
           </AppDetailItem>
-          <AppDetailItem :label="t('scheduler.fields.conversation')">
-            <span v-if="conversationText(job)" class="scheduler-job-detail__mono">{{ conversationText(job) }}</span>
-            <template v-else>{{ t('scheduler.globalTask') }}</template>
-          </AppDetailItem>
-          <AppDetailItem :label="t('scheduler.fields.label')">{{ displayText(job.log_label || job.payload_summary.content) }}</AppDetailItem>
+          <AppDetailItem :label="t('scheduler.fields.conversation')">{{ conversationText(job) || t('scheduler.globalTask') }}</AppDetailItem>
+          <AppDetailItem v-if="job.payload_summary.content" :label="t('scheduler.fields.content')">{{ job.payload_summary.content }}</AppDetailItem>
         </AppDetails>
       </section>
 
@@ -81,7 +85,7 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
             {{ job.stats.total ? t('scheduler.successSummary', { total: job.stats.total, rate: getSuccessRate(job.stats) }) : t('scheduler.notRun') }}
           </AppDetailItem>
           <AppDetailItem :label="t('scheduler.runBreakdown')">
-            {{ t('scheduler.breakdown', { success: job.stats.success, failed: job.stats.failed, timeout: job.stats.timeout, retry: job.stats.retry }) }}
+            {{ t('scheduler.breakdown', { success: job.stats.success, failed: job.stats.failed, timeout: job.stats.timeout, retry: job.stats.retry, other: job.stats.other }) }}
           </AppDetailItem>
         </AppDetails>
       </section>

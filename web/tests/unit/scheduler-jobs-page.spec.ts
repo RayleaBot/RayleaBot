@@ -121,9 +121,11 @@ describe('SchedulerJobsPage', () => {
 
     expect(wrapper.text()).toContain('天气插件')
     expect(wrapper.text()).toContain('每日早报')
-    expect(wrapper.text()).toContain('group:20001')
+    expect(wrapper.text()).toContain('群 20001')
     expect(wrapper.text()).toContain('已执行 160 次')
-    expect(wrapper.text()).toContain('plugin.event_timeout')
+    // The error is from a run before the last one, which succeeded, so it is a quiet note rather than the job's state.
+    expect(wrapper.text()).toContain('最近一次执行成功')
+    expect(wrapper.text()).toContain('曾出错')
   })
 
   it('opens a scheduler job detail view without full payload data', async () => {
@@ -144,7 +146,7 @@ describe('SchedulerJobsPage', () => {
     await flushPromises()
 
     expect(document.body.textContent).toContain('天气插件 / weather')
-    expect(document.body.textContent).toContain('daily_report / daily_report')
+    expect(document.body.textContent).toContain('每日早报 / daily_report')
     expect(document.body.textContent).not.toContain('target_type')
   })
 

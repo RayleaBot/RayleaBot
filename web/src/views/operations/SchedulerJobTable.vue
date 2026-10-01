@@ -19,12 +19,14 @@ import { t } from '@/i18n'
 import { formatDateTime } from '@/lib/format'
 import {
   conversationText,
-  displayText,
+  errorLabel,
   formatCronSchedule,
   formatDurationMs,
   formatNextRunRelative,
   getDurationClass,
+  isLatestRunFailed,
   successRateText,
+  taskLabel,
 } from '@/lib/scheduler-job-display'
 import { usePluginsStore } from '@/stores/plugins'
 import type { SchedulerJobSummary } from '@/types/api'
@@ -36,8 +38,7 @@ const emit = defineEmits<{ view: [job: SchedulerJobSummary]; trigger: [job: Sche
 const pluginsStore = usePluginsStore()
 const pluginMap = computed(() => new Map(pluginsStore.items.map(plugin => [plugin.id, plugin])))
 const tableColumns = computed(() => [
-  { label: `${t('scheduler.fields.plugin')} / ${t('scheduler.fields.task')}`, key: 'plugin', width: 300 },
-  { label: `${t('scheduler.fields.label')} / ${t('scheduler.fields.conversation')}`, key: 'label', width: 250 },
+  { label: `${t('scheduler.fields.plugin')} / ${t('scheduler.fields.task')}`, key: 'plugin', width: 360 },
   { label: `${t('scheduler.fields.cron')} / ${t('scheduler.fields.nextRun')}`, key: 'cron', width: 320 },
   { label: `${t('scheduler.fields.lastRun')} / ${t('scheduler.fields.duration')}`, key: 'lastRun', width: 240 },
   { label: `${t('scheduler.fields.stats')} / ${t('scheduler.fields.lastError')}`, key: 'stats', width: 280 },
@@ -64,7 +65,7 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
       :columns="tableColumns"
       :rows="jobs"
       :row-key="schedulerRowKey"
-      :min-width="1450"
+      :min-width="1260"
       :label="t('scheduler.title')"
     >
       <template #empty>
@@ -72,40 +73,29 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
       </template>
 
       <template #cell="{ column, row: record }">
-        <!-- 1. 插件与任务合并列 -->
+        <!-- 1. 插件与任务：可读的任务名在前，ID 各出现一次；只有绑定会话或带消息内容的任务多一行。 -->
         <template v-if="column.key === 'plugin'">
           <div class="scheduler-cell-plugin-task">
             <PluginIcon :plugin-id="record.plugin_id" :icon="pluginMap.get(record.plugin_id)?.icon" :version="pluginMap.get(record.plugin_id)?.version" :refresh-key="pluginsStore.iconRevision" />
             <div class="meta-content">
               <div class="top-row">
                 <strong class="plugin-name">{{ pluginName(record) }}</strong>
-                <span class="task-tag">{{ record.task_name }}</span>
+                <span class="task-tag">{{ taskLabel(record) }}</span>
               </div>
               <div class="bottom-row">
                 <span class="plugin-id" :title="t('scheduler.pluginId')">{{ record.plugin_id }}</span>
-                <span class="divider">/</span>
-                <span class="job-id" :title="t('scheduler.jobId')">{{ record.job_id }}</span>
+                <template v-if="record.log_label?.trim()">
+                  <span class="divider">/</span>
+                  <span class="job-id" :title="t('scheduler.jobId')">{{ record.job_id }}</span>
+                </template>
               </div>
-            </div>
-          </div>
-        </template>
-
-        <!-- 2. 自定义内容与会话 ID 合并列 -->
-        <template v-else-if="column.key === 'label'">
-          <div class="scheduler-cell-label-conv">
-            <div class="label-text" :title="record.log_label || record.payload_summary.content">
-              {{ displayText(record.log_label || record.payload_summary.content) }}
-            </div>
-            <div class="conv-tag-row">
-              <template v-if="conversationText(record)">
-                <span class="conv-badge">
+              <div v-if="conversationText(record) || record.payload_summary.content" class="payload-row">
+                <span v-if="conversationText(record)" class="conv-badge">
                   <MessageSquareIcon class="badge-icon" />
                   <span class="badge-text">{{ conversationText(record) }}</span>
                 </span>
-              </template>
-              <template v-else>
-                <span class="conv-badge global">{{ t('scheduler.globalConversation') }}</span>
-              </template>
+                <span v-if="record.payload_summary.content" class="payload-content" :title="record.payload_summary.content">{{ record.payload_summary.content }}</span>
+              </div>
             </div>
           </div>
         </template>
@@ -170,15 +160,19 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
               ></div>
             </div>
 
-            <!-- 错误气泡 -->
+            <!-- 错误气泡：最近一次失败时用状态色写出原因；更早的错误只作中性提示，详情在弹层里。 -->
+            <div class="success-dot-row" v-if="record.stats.total > 0 && !isLatestRunFailed(record)">
+              <span class="success-dot"><CheckIcon class="ok-icon" /> {{ t('scheduler.lastRunSucceeded') }}</span>
+            </div>
             <div class="error-badge-row" v-if="record.last_error">
-              <AppPopover :title="t('scheduler.recentError')" side="left">
+              <AppPopover :title="isLatestRunFailed(record) ? t('scheduler.recentError') : t('scheduler.earlierError', { time: formatDateTime(record.last_error.at) })" side="left">
                 <template #content>
                   <div class="error-popover-content">
                     <div class="err-title">
                       <TriangleAlertIcon class="err-icon" />
-                      <strong>{{ record.last_error.code }}</strong>
+                      <strong>{{ errorLabel(record.last_error.code) }}</strong>
                     </div>
+                    <code class="err-code">{{ record.last_error.code }}</code>
                     <div class="err-msg">{{ record.last_error.message }}</div>
                     <AppButton size="sm" variant="link" class="copy-err-btn" @click="copyError(record.last_error)">
                       <template #icon><CopyIcon /></template>
@@ -186,13 +180,10 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
                     </AppButton>
                   </div>
                 </template>
-                <button type="button" class="error-capsule">
-                  {{ record.last_error.code }}
+                <button type="button" class="error-capsule" :data-earlier="!isLatestRunFailed(record) || undefined">
+                  {{ isLatestRunFailed(record) ? errorLabel(record.last_error.code) : t('scheduler.earlierErrorShort') }}
                 </button>
               </AppPopover>
-            </div>
-            <div class="success-dot-row" v-else-if="record.stats.total > 0">
-              <span class="success-dot"><CheckIcon class="ok-icon" /> {{ t('scheduler.healthy') }}</span>
             </div>
           </div>
         </template>
@@ -298,52 +289,38 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
   }
 }
 
-.scheduler-cell-label-conv {
+// A bound conversation and the message content are listed under the task only when the job has them.
+.payload-row {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
-  white-space: nowrap;
 
-  .label-text {
-    font-size: 13px;
-    color: var(--text);
-    font-weight: 500;
+  .payload-content {
     overflow: hidden;
+    color: var(--muted);
+    font-size: 13px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
 
-  .conv-tag-row {
-    display: flex;
-    align-items: center;
-  }
+.conv-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  max-width: 180px;
+  padding: 1px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 13px;
 
-  .conv-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 13px;
-    background: var(--surface-soft);
-    color: var(--muted);
-    padding: 1px 8px;
-    border-radius: var(--radius-xs);
-    max-width: 160px;
-    font-family: var(--font-mono);
-
-    .badge-icon {
-      font-size: 12px;
-    }
-    .badge-text {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    // A global task is a kind of target, not a health state, so it stays neutral.
-    &.global {
-      font-family: var(--font-sans);
-    }
+  .badge-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -501,14 +478,23 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
     padding: 2px 8px;
     border-radius: var(--radius-xs);
     cursor: pointer;
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
     transition: background-color 150ms ease, color 150ms ease;
 
     &:hover {
       background: var(--danger);
       color: var(--on-brand);
+    }
+
+    // An error from an earlier run no longer describes the job, so it is a quiet note rather than an alarm.
+    &[data-earlier] {
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-weight: 500;
+
+      &:hover {
+        background: var(--control-fill-hover);
+        color: var(--text);
+      }
     }
   }
 
@@ -548,6 +534,14 @@ function copyError(error: NonNullable<SchedulerJobSummary['last_error']>) {
     .err-icon {
       font-size: 14px;
     }
+  }
+
+  .err-code {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
   }
 
   .err-msg {

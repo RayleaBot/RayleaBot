@@ -1,4 +1,5 @@
-import { t } from '@/i18n'
+import { i18n, t } from '@/i18n'
+import { timestampMilliseconds } from '@/lib/timestamp'
 import type { SchedulerJobRunStats, SchedulerJobSummary } from '@/types/api'
 
 export function formatDurationMs(value: number) {
@@ -6,9 +7,30 @@ export function formatDurationMs(value: number) {
     return t('display.empty')
   }
   if (value < 1000) {
-    return `${value} ms`
+    return `${value} ${t('display.durationUnits.ms')}`
   }
-  return `${(value / 1000).toFixed(value < 10_000 ? 1 : 0)} s`
+  return `${(value / 1000).toFixed(value < 10_000 ? 1 : 0)} ${t('display.durationUnits.s')}`
+}
+
+// task_name is the job ID; the readable name a plugin gives its job is the log label.
+export function taskLabel(job: SchedulerJobSummary) {
+  return job.log_label?.trim() || job.task_name
+}
+
+// The server keeps the last error after later runs succeed, so it describes the latest run only when it is that run's.
+export function isLatestRunFailed(job: SchedulerJobSummary) {
+  if (!job.last_error) return false
+  const errorAt = timestampMilliseconds(job.last_error.at)
+  const lastRunAt = timestampMilliseconds(job.last_run)
+  if (errorAt === null || lastRunAt === null) return true
+  return errorAt >= lastRunAt
+}
+
+// Error codes have readable messages; a run outcome stands in for the code when the plugin gave none.
+export function errorLabel(code: string) {
+  if (i18n.global.te(`errors.${code}`)) return t(`errors.${code}`)
+  if (i18n.global.te(`scheduler.outcomes.${code}`)) return t(`scheduler.outcomes.${code}`)
+  return code
 }
 
 export function getDurationClass(value: number) {
@@ -18,19 +40,15 @@ export function getDurationClass(value: number) {
   return 'duration-slow'
 }
 
-export function displayText(value?: string | null) {
-  return value?.trim() || t('display.empty')
-}
-
+// A target reads as the chat it addresses; a conversation key the page cannot read is shown as sent.
 export function conversationText(job: SchedulerJobSummary) {
   const payload = job.payload_summary
-  if (payload.conversation_id) {
-    return payload.conversation_id
-  }
-  if (payload.target_type && payload.target_id) {
-    return `${payload.target_type}:${payload.target_id}`
-  }
-  return ''
+  const [type, id] = payload.target_type && payload.target_id
+    ? [payload.target_type, payload.target_id]
+    : payload.conversation_id.split(/:(.*)/s)
+  if (type === 'group' && id) return t('scheduler.groupTarget', { id })
+  if (type === 'private' && id) return t('scheduler.privateTarget', { id })
+  return payload.conversation_id
 }
 
 export function formatCronSchedule(cron?: string): string {

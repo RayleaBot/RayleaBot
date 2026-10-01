@@ -61,7 +61,7 @@ const {
             v-model="statusFilter"
             :options="[
               { label: t('scheduler.filterAll'), value: 'all' },
-              { label: t('scheduler.healthy'), value: 'success' },
+              { label: t('scheduler.filterNoError'), value: 'success' },
               { label: t('scheduler.filterError'), value: 'error' },
             ]"
             class="filter-segmented"
