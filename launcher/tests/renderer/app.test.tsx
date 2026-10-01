@@ -156,6 +156,9 @@ describe("App", () => {
       stop: vi.fn(async () => {
         calls.push("stop");
       }),
+      restart: vi.fn(async () => {
+        calls.push("restart");
+      }),
       openWebUi: vi.fn(async () => undefined),
       openReleasePage: vi.fn(async () => undefined),
       checkForUpdates: vi.fn(async () => undefined),
@@ -187,7 +190,7 @@ describe("App", () => {
     fireEvent.click(restartButton);
 
     await waitFor(() => {
-      expect(calls).toEqual(["stop", "start"]);
+      expect(calls).toEqual(["restart"]);
     });
   });
 

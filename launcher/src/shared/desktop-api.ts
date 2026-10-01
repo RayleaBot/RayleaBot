@@ -13,6 +13,7 @@ export interface LauncherDesktopApi {
   refresh(): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;
+  restart(): Promise<void>;
   resetAdmin(): Promise<void>;
   checkForUpdates(): Promise<void>;
   applyUpdate(): Promise<void>;

@@ -70,6 +70,7 @@ export function createWailsDesktopApi(): LauncherDesktopApi {
     refresh: () => desktop.Refresh(),
     start: () => desktop.Start(),
     stop: () => desktop.Stop(),
+    restart: () => desktop.Restart(),
     resetAdmin: () => desktop.ResetAdmin(),
     checkForUpdates: () => desktop.CheckForUpdates(),
     applyUpdate: () => desktop.ApplyUpdate(),

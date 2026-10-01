@@ -150,10 +150,8 @@ export function App() {
       (presentation.state === "running" || presentation.state === "setup_required" || presentation.state === "degraded")
       && snapshot.launcher.processOwnership === "launcher_managed"
     ) {
-      return runAction("restart", async () => {
-        await window.rayleaLauncher.stop();
-        await window.rayleaLauncher.start();
-      });
+      // One restart call, so the service is told it is restarting and the Web console keeps reconnecting.
+      return runAction("restart", () => window.rayleaLauncher.restart());
     }
     return runAction("start", () => window.rayleaLauncher.start());
   }, [presentation.state, runAction, snapshot.launcher.processOwnership]);
