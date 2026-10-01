@@ -7,6 +7,7 @@ export const renderTemplates = {
   refreshList: '刷新模板目录',
   catalogHint: '只显示当前可用的模板',
   catalogCount: '当前可用 {count} 个模板',
+  matchedCount: '匹配 {count} 个模板',
   sampleTab: '示例数据',
   infoTab: '模板说明',
   previewTab: '效果预览',
@@ -32,9 +33,7 @@ export const renderTemplates = {
   },
   fields: {
     id: '模板 ID',
-    source: '来源',
-    localId: '短 ID',
-    size: '渲染参数',
+    size: '图片尺寸',
     sizeValue: '宽度 {width}px · 高度自适应（初始 {height}px）',
     version: '模板版本',
     updatedAt: '更新时间',

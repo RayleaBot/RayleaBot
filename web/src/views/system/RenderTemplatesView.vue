@@ -125,14 +125,6 @@ function getTemplateSourceLabel(template: RenderTemplateSummary) {
   return pluginsStore.getPluginDisplayName(id)
 }
 
-function getTemplateLocalId(template: RenderTemplateSummary) {
-  if (template.source.type !== 'plugin') {
-    return ''
-  }
-
-  return template.source.local_id || ''
-}
-
 async function loadTemplateList() {
   const refreshing = hasRequestedList.value
   if (refreshing) resetPreviewCaches()
@@ -230,7 +222,7 @@ onDeactivated(() => {
           <AppInput v-model="search" :maxlength="200" type="search" allow-clear :aria-label="t('renderTemplates.search')" :placeholder="t('renderTemplates.search')">
             <template #prefix><SearchIcon :size="17" /></template>
           </AppInput>
-          <p class="template-catalog__hint">{{ t('renderTemplates.catalogCount', { count: total || items.length }) }}</p>
+          <p class="template-catalog__hint">{{ search.trim() ? t('renderTemplates.matchedCount', { count: total || items.length }) : t('renderTemplates.catalogCount', { count: total || items.length }) }}</p>
           <div class="template-catalog__list">
             <AppSkeleton v-if="loading && !items.length" :rows="6" />
             <section v-for="group in groupedTemplates" :key="group.key" class="template-nav-group">
@@ -288,8 +280,6 @@ onDeactivated(() => {
               <details class="template-technical"><summary>{{ t('renderTemplates.technicalDetails') }}</summary>
                 <dl class="template-info-list">
                   <div><dt>{{ t('renderTemplates.fields.id') }}</dt><dd>{{ currentTemplate.id }}</dd></div>
-                  <div v-if="currentTemplate.source.plugin_id"><dt>{{ t('renderTemplates.fields.source') }}</dt><dd>{{ currentTemplate.source.plugin_id }}</dd></div>
-                  <div v-if="getTemplateLocalId(currentTemplate)"><dt>{{ t('renderTemplates.fields.localId') }}</dt><dd>{{ getTemplateLocalId(currentTemplate) }}</dd></div>
                   <div><dt>{{ t('renderTemplates.fields.version') }}</dt><dd>{{ currentTemplate.version }}</dd></div>
                   <div><dt>{{ t('renderTemplates.fields.size') }}</dt><dd>{{ formatTemplateSize(currentTemplate.width, currentTemplate.height) }}</dd></div>
                   <div><dt>{{ t('renderTemplates.fields.updatedAt') }}</dt><dd>{{ formatDateTime(currentTemplate.updated_at) }}</dd></div>

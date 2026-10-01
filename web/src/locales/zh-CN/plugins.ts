@@ -109,7 +109,7 @@ export const plugins = {
     subtitle: '设置所有插件共用的指令前缀，以及插件图片底部的说明文字。',
     sections: {
       command: '指令入口',
-      render: '模板说明',
+      render: '图片底部说明',
     },
     hints: {
       commandPrefixes: '输入前缀后按 Enter 添加，聊天消息以这些前缀开头时进入指令解析。',
