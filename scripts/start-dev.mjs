@@ -76,6 +76,7 @@ const serverDevLeasePath = path.join(rootDir, ".tmp", "server-dev-runtime.json")
 const serverDevTakeoverTimeoutMs = 30_000;
 const serverReloadDebounceMs = 500;
 const childGoCacheDir = path.join(rootDir, ".tmp", "gocache");
+const childTempDir = path.join(rootDir, ".tmp", "dev-cache", "tmp");
 const pluginWorkspacePath = path.resolve(rootDir, process.env.RAYLEA_PLUGIN_WORKSPACE || "plugin-workspace.local.json");
 const pluginDevRoot = path.join(rootDir, ".tmp", "plugin-dev");
 const pluginDevArtifactRoot = path.join(pluginDevRoot, "artifacts");
@@ -114,6 +115,7 @@ const reportedPluginErrors = new Map();
 const startupInputs = [...scriptInputs, path.join(scriptDir, "dev-console.mjs")];
 
 await fsp.mkdir(childGoCacheDir, { recursive: true });
+await fsp.mkdir(childTempDir, { recursive: true });
 
 process.once("SIGINT", () => {
   void shutdown(130);
@@ -127,6 +129,7 @@ try {
   Object.assign(baseChildEnvironment, createTrustedChildEnvironment({
     nodeExecutablePath: process.execPath,
     goExecutablePath: resolveGoExecutablePath(),
+    tempRoot: childTempDir,
   }));
   await main();
   await cleanup();

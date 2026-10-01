@@ -46,7 +46,9 @@ def list_entries(artifact_id: str, archive_path: Path) -> set[str]:
 
 
 def validate_runtime_bootstrap_prerequisites(artifact_id: str, archive_path: Path) -> None:
-    with tempfile.TemporaryDirectory(prefix="rayleabot-release-smoke-") as tmp:
+    temp_root = Path(__file__).resolve().parents[2] / ".tmp" / "release-smoke"
+    temp_root.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="rayleabot-release-smoke-", dir=temp_root) as tmp:
         root = unpack_archive(artifact_id, archive_path, Path(tmp))
         ensure_no_forbidden_paths(root)
         manifest = load_deps_manifest(root)

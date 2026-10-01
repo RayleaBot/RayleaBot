@@ -367,6 +367,20 @@ test("creates a minimal child environment with the selected Node and Go executab
   assert.equal(environment.PATH.includes(String.raw`C:\Program Files\Go\bin`), false);
 });
 
+test("keeps build temporary files inside the selected project directory", () => {
+  for (const [platform, tempRoot, executable] of [
+    ["win32", String.raw`C:\project\.tmp\dev-cache\tmp`, String.raw`C:\tools\node.exe`],
+    ["linux", "/project/.tmp/dev-cache/tmp", "/tools/node"],
+  ]) {
+    const environment = createTrustedChildEnvironment({
+      nodeExecutablePath: executable, platform, tempRoot,
+      env: { TEMP: "unavailable-system-temp", TMP: "unavailable-system-temp" },
+    });
+    for (const key of ["TEMP", "TMP", "TMPDIR", "GOTMPDIR"]) assert.equal(environment[key], tempRoot);
+  }
+  assert.throws(() => createTrustedChildEnvironment({ nodeExecutablePath: "/tools/node", platform: "linux", tempRoot: "relative" }), /must be absolute/);
+});
+
 test("preserves the POSIX home and explicit Go module cache roots", () => {
   const environment = createTrustedChildEnvironment({
     nodeExecutablePath: "/opt/raylea/node/bin/node",

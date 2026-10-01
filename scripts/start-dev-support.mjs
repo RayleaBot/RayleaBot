@@ -443,6 +443,7 @@ export function resolveCorepackCliPath({
 export function createTrustedChildEnvironment({
   nodeExecutablePath,
   goExecutablePath,
+  tempRoot,
   env = process.env,
   platform = process.platform,
 } = {}) {
@@ -492,6 +493,10 @@ export function createTrustedChildEnvironment({
   }
 
   childEnvironment.PATH = uniquePathEntries(pathEntries, isWindows).join(delimiter);
+  if (tempRoot !== undefined) {
+    if (!pathApi.isAbsolute(tempRoot)) throw new Error("temporary root must be absolute");
+    for (const key of ["TEMP", "TMP", "TMPDIR", "GOTMPDIR"]) childEnvironment[key] = tempRoot;
+  }
   return childEnvironment;
 }
 
