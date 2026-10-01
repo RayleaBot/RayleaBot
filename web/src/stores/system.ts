@@ -87,8 +87,9 @@ export const useSystemStore = defineStore('system', () => {
       return
     }
 
-    // The server sends the current service status when the stream connects and repeats it on every connection
-    // update; the first one is the starting point and only a different status or reason is a change.
+    // The server sends the current service status when the stream connects, and again when the status or a readiness
+    // check changes; the first one is the starting point, and a frame that only reports a check change repeats the
+    // same status, so only a different status or reason is listed as a change.
     if ('service_status' in payload) {
       const serviceKey = `${payload.service_status}\n${summary}`
       const isStartingPoint = lastServiceKey === null

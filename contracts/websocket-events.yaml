@@ -129,6 +129,7 @@ channels:
             - type: object
               additionalProperties: false
               required: [service_status, summary]
+              description: 新订阅收到当前服务快照；后续在 service_status、summary、reason、reason_codes 或 readiness checks 的内容与上次广播不同时推送。checks 不包含在载荷中，因此检查变化时可能推送相同载荷；时间戳不参与比较。
               properties:
                 service_status:
                   type: string

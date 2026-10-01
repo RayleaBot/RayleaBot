@@ -1,6 +1,8 @@
 package events
 
 import (
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 
@@ -14,9 +16,11 @@ type ServiceStatusProvider interface {
 }
 
 type ServiceStatusService struct {
-	system     ServiceStatusProvider
-	hub        pubsub.Hub[Frame]
-	snapshotMu sync.Mutex
+	system              ServiceStatusProvider
+	hub                 pubsub.Hub[Frame]
+	snapshotMu          sync.Mutex
+	lastBroadcast       *ServiceStatusPayload
+	lastBroadcastChecks map[string]string
 }
 
 func NewServiceStatusService(system ServiceStatusProvider) *ServiceStatusService {
@@ -24,19 +28,20 @@ func NewServiceStatusService(system ServiceStatusProvider) *ServiceStatusService
 }
 
 func (s *ServiceStatusService) CurrentEvent() Frame {
-	return NewReceivedFrame(s.currentServiceStatusPayload())
+	payload, _ := s.currentServiceStatusSnapshot()
+	return NewReceivedFrame(payload)
 }
 
-func (s *ServiceStatusService) currentServiceStatusPayload() ServiceStatusPayload {
+func (s *ServiceStatusService) currentServiceStatusSnapshot() (ServiceStatusPayload, map[string]string) {
 	if s.system == nil {
 		return ServiceStatusPayload{
 			ServiceStatus: "failed",
 			Summary:       "服务运行异常",
-		}
+		}, nil
 	}
 
 	readiness := s.system.CurrentReadiness()
-	return ServiceStatusPayloadFrom(s.system.SystemStatus(), readiness)
+	return ServiceStatusPayloadFrom(s.system.SystemStatus(), readiness), readiness.Checks
 }
 
 func ServiceStatusPayloadFrom(systemStatus string, readiness systemsvc.ReadinessReport) ServiceStatusPayload {
@@ -93,7 +98,16 @@ func serviceStatusSummary(status string) string {
 func (s *ServiceStatusService) PublishSnapshot() {
 	s.snapshotMu.Lock()
 	defer s.snapshotMu.Unlock()
-	snapshot := s.CurrentEvent()
+	payload, checks := s.currentServiceStatusSnapshot()
+	if previous := s.lastBroadcast; previous != nil &&
+		previous.ServiceStatus == payload.ServiceStatus && previous.Summary == payload.Summary &&
+		previous.Reason == payload.Reason && slices.Equal(previous.ReasonCodes, payload.ReasonCodes) &&
+		maps.Equal(s.lastBroadcastChecks, checks) {
+		return
+	}
+	s.lastBroadcast = &payload
+	s.lastBroadcastChecks = maps.Clone(checks)
+	snapshot := NewReceivedFrame(payload)
 	s.hub.PublishReplaceEach(func() Frame {
 		cloned := snapshot
 		payload := snapshot.Data.(ServiceStatusPayload)
