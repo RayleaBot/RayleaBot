@@ -14,7 +14,7 @@ test.beforeEach(async ({ page, request, server, baseURL }) => {
 })
 
 async function scrollConfigSectionIntoView(page: import('@playwright/test').Page, sectionKey: string) {
-  const category = sectionKey === 'runtime' ? '插件运行' : '调度'
+  const category = sectionKey === 'runtime' ? '插件运行' : '时区'
   await page.getByRole('tab', { name: category }).click()
   const advanced = page.locator('.config-advanced__trigger')
   if (await advanced.getAttribute('data-state') === 'closed') await advanced.click()
