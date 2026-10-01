@@ -467,7 +467,7 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
 .status-facts { display: grid; margin: 0; }
 .status-facts__row { display: flex; align-items: center; gap: 16px; min-height: 46px; padding: 6px 0; }
 .status-facts__row + .status-facts__row { border-top: 1px solid var(--border); }
-.status-facts dt { color: var(--muted); font-size: var(--font-size-sm); }
+.status-facts dt { flex: none; color: var(--muted); font-size: var(--font-size-sm); }
 .status-facts dd { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0 0 0 auto; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
 // Text buttons give back their inner padding so their words end on the same edge as the values above.
 // Paths are data: the mono face, wrapping anywhere instead of pushing the label out of the row.
