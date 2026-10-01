@@ -83,6 +83,20 @@ describe('system store', () => {
     expect(store.recentEvents).toHaveLength(0)
   })
 
+  it('records a service status only when it changes, not each time the server repeats it', () => {
+    const store = useSystemStore()
+    const status = (service_status: string, reason?: string) => ({ service_status, reason, summary: reason ?? '' }) as never
+
+    store.applyEvent('2026-04-08T10:00:00Z', status('running'))
+    store.applyEvent('2026-04-08T10:01:00Z', status('running'))
+    expect(store.recentEvents).toHaveLength(0)
+
+    store.applyEvent('2026-04-08T10:02:00Z', status('degraded', '图片渲染 Chromium 未准备。'))
+    store.applyEvent('2026-04-08T10:03:00Z', status('degraded', '图片渲染 Chromium 未准备。'))
+    store.applyEvent('2026-04-08T10:04:00Z', status('running'))
+    expect(store.recentEvents.map(event => event.summary)).toEqual(['服务运行中', '图片渲染 Chromium 未准备。'])
+  })
+
   it('does not overwrite newer status with an older completed request', async () => {
     const responses: Array<(response: Response) => void> = []
     vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => { responses.push(resolve) })))

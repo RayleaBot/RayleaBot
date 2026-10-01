@@ -95,8 +95,8 @@ func statusSummary(state, botName, lastErr string) string {
 		}
 		return "鉴权失败，请检查 AppID 与 AppSecret。"
 	case StateStopped:
-		return "适配器已停止。"
+		return "连接已停止。"
 	default:
-		return "适配器未启动。"
+		return "连接未启动。"
 	}
 }

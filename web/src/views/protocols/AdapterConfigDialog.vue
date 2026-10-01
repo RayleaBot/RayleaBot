@@ -54,6 +54,8 @@ const dirty = computed(() => Boolean(draft.value) && (JSON.stringify(draft.value
 const descriptor = computed(() => adaptersStore.adapters.find((item) => item.id === props.adapterId))
 const protocolName = computed(() => draft.value?.type === 'qqofficial' ? t('protocols.qqTitle') : 'OneBot11')
 const runtimeSnapshot = computed(() => descriptor.value?.onebot11 ?? null)
+// Only the connection methods this connection uses are worth a line; the others would all read “未启用”.
+const enabledTransports = computed(() => runtimeSnapshot.value?.transport_status.filter(transport => transport.enabled) ?? [])
 const intentOptions: { value: QQOfficialSettings['intents'][number]; label: string }[] = [
   { value: 'group_and_c2c', label: t('protocols.qqIntents.groupAndC2c') },
   { value: 'public_guild_messages', label: t('protocols.qqIntents.publicGuildMessages') },
@@ -250,7 +252,7 @@ function openLogs() {
             <div class="disclosure-content">
               <AppField floating :label="t('protocols.connectionDialog.instanceField')" for="adapter-id" :error="fieldErrors.id">
                 <AppInput id="adapter-id" v-model="draft.id" :disabled="isEditing" :maxlength="64" />
-                <p class="field-hint">{{ isEditing ? t('protocols.connectionDialog.instanceFixed') : t('protocols.connectionDialog.instanceGenerated') }}</p>
+                <p class="field-hint">{{ isEditing ? t('protocols.connectionDialog.instanceFixed') : t(draft.qqofficial ? 'protocols.connectionDialog.instanceGeneratedQQ' : 'protocols.connectionDialog.instanceGenerated') }}</p>
               </AppField>
               <AppCheckbox v-if="draft.qqofficial" v-model="draft.qqofficial.sandbox">{{ t('protocols.connectionDialog.sandbox') }}</AppCheckbox>
               <p v-if="draft.qqofficial" class="field-hint">{{ t('protocols.connectionDialog.sandboxHint') }}</p>
@@ -272,11 +274,11 @@ function openLogs() {
               <p v-if="descriptor?.identity" class="field-hint">{{ t('protocols.connectionDialog.identity', { name: descriptor.identity.name || descriptor.identity.id }) }}</p>
               <AppAlert v-if="adaptersStore.error" tone="warning" :title="adaptersStore.error" />
               <ul v-if="runtimeSnapshot" class="runtime-list">
-                <li v-for="transport in runtimeSnapshot.transport_status" :key="transport.transport">
-                  <strong>{{ transport.transport }}</strong> · {{ transport.summary }}
+                <li v-for="transport in enabledTransports" :key="transport.transport">
+                  <strong>{{ t(`protocols.connectionDialog.transportLabels.${transport.transport}`) }}</strong> · {{ transport.summary }}
                   <small>{{ [transport.app_name, transport.app_version, transport.nickname, transport.user_id].filter(Boolean).join(' · ') }}</small>
                 </li>
-                <li v-for="issue in runtimeSnapshot.recent_transport_issues" :key="issue.code">{{ issue.code }} · {{ issue.summary }}</li>
+                <li v-for="issue in runtimeSnapshot.recent_transport_issues" :key="issue.code">{{ issue.summary }}<small class="runtime-list__code">{{ issue.code }}</small></li>
               </ul>
               <AppButton size="sm" @click="openLogs">{{ draft.type === 'onebot11' ? t('protocols.connectionDialog.protocolLogs') : t('protocols.connectionDialog.logs') }}</AppButton>
             </div>
@@ -328,6 +330,7 @@ function openLogs() {
 .runtime-list { padding-left: 18px; font-size: 13px; }
 .runtime-list li { margin-bottom: 12px; overflow-wrap: anywhere; }
 .runtime-list small { display: block; color: var(--muted); }
+.runtime-list__code { font-family: var(--font-mono); }
 .dialog-footer { display: flex; align-items: center; gap: 8px; }
 .dialog-footer > :first-child { margin-right: auto; }
 .save-hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; text-align: right; }

@@ -125,7 +125,7 @@ func (s *Service) adapterDescriptor(instance config.AdapterInstance) AdapterDesc
 			DisplayName: instance.ID,
 			Enabled:     instance.Enabled,
 			State:       string(onebot11.StateStopped),
-			Summary:     "适配器未启动。",
+			Summary:     "连接未启动。",
 		}
 	}
 }
@@ -137,12 +137,12 @@ func (s *Service) oneBot11Descriptor(instance config.AdapterInstance) AdapterDes
 		DisplayName: adapterDisplayName(instance, "OneBot11"),
 		Enabled:     instance.Enabled,
 		State:       string(onebot11.StateStopped),
-		Summary:     "适配器未启动。",
+		Summary:     "连接未启动。",
 	}
 	shell := s.oneBotShell(instance.ID)
 	if shell == nil {
 		if !instance.Enabled {
-			descriptor.Summary = "适配器已配置但未启用。"
+			descriptor.Summary = "连接已停用。"
 		}
 		return descriptor
 	}
@@ -193,12 +193,12 @@ func (s *Service) qqOfficialDescriptor(instance config.AdapterInstance) AdapterD
 		DisplayName: adapterDisplayName(instance, "QQ 官方机器人"),
 		Enabled:     instance.Enabled,
 		State:       qqofficial.StateIdle,
-		Summary:     "适配器未启动。",
+		Summary:     "连接未启动。",
 	}
 	client := s.qqClient(instance.ID)
 	if client == nil {
 		if !instance.Enabled {
-			descriptor.Summary = "适配器已配置但未启用。"
+			descriptor.Summary = "连接已停用。"
 		}
 		return descriptor
 	}
@@ -233,9 +233,9 @@ func oneBot11Summary(instance config.AdapterInstance, snapshot onebot11.Snapshot
 	}
 	switch {
 	case !configured:
-		return "适配器未配置传输。"
+		return "连接未配置任何连接方式。"
 	case !instance.Enabled:
-		return "适配器已配置但未启用。"
+		return "连接已停用。"
 	case snapshot.State == onebot11.StateConnected:
 		return "已连接。"
 	case snapshot.LastErrorMessage != "":

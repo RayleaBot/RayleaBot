@@ -167,7 +167,9 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).toContain('运行中 · 已运行 2 分钟 0 秒')
     expect(wrapper.get('[data-testid="dashboard-connections"]').text()).toContain('OneBot11')
     expect(wrapper.get('[data-testid="dashboard-connections"]').text()).toContain('1 / 1 已连接')
-    expect(wrapper.get('[data-testid="dashboard-runtime-info"]').text()).toContain('schema 000001')
+    const runtimeInfo = wrapper.get('[data-testid="dashboard-runtime-info"]').text()
+    expect(runtimeInfo).toContain('配置文件')
+    expect(runtimeInfo).not.toContain('schema')
     expect(wrapper.text()).not.toContain('插件')
 
     await wrapper.findAll('button').find(candidate => candidate.text().includes('创建备份'))!.trigger('click')
@@ -215,12 +217,12 @@ describe('DashboardPage', () => {
     adaptersStore.adapters = createAdapterSnapshots()
     store.recentEvents = [
       { timestamp: '2026-06-12T00:01:00Z', summary: '插件 weather 运行中', payload: { plugin_id: 'weather', state: 'running', commands: [], command_conflicts: [] } },
-      { timestamp: '2026-06-12T00:00:00Z', summary: '协议连接正常', payload: { connection_status: 'connected', summary: '协议连接正常' } },
+      { timestamp: '2026-06-12T00:00:00Z', summary: '机器人已连接', payload: { connection_status: 'connected', summary: '机器人已连接' } },
     ]
 
     const { router, wrapper } = await mountDashboard()
     const events = wrapper.get('[data-testid="dashboard-events"]')
-    expect(events.text()).toContain('协议连接正常')
+    expect(events.text()).toContain('机器人已连接')
     expect(events.text()).not.toContain('插件 weather 运行中')
 
     await events.get('.status-event__summary--link').trigger('click')
@@ -286,7 +288,7 @@ describe('DashboardPage', () => {
     const { wrapper } = await mountDashboard()
 
     expect(wrapper.text()).toContain('就绪检查')
-    expect(toastMessages()).toContain('协议连接警告：OneBot authentication failed')
+    expect(toastMessages()).toContain('机器人连接警告：OneBot authentication failed')
     expect(wrapper.text()).not.toContain('运行条件受限')
     expect(wrapper.findAll('[data-tone="success"]').length).toBeGreaterThan(0)
     expect(wrapper.text()).toContain('adapter.auth_failed')

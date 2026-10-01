@@ -19,7 +19,7 @@ export const display = {
     disconnected: '未连接',
     connecting: '连接中',
     connected: '已连接',
-    authenticated: '已认证',
+    authenticated: '已连接',
     auth_failed: '鉴权失败',
     reconnecting: '重连中',
   },
@@ -95,7 +95,7 @@ export const display = {
     failed: '异常',
   },
   adapterStates: {
-    idle: '未启用',
+    idle: '等待连接',
     listening: '监听中',
     connecting: '连接中',
     connected: '已连接',

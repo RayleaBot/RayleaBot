@@ -25,7 +25,8 @@ const accountLabel = computed(() => props.config.type === 'qqofficial' ? t('prot
 const name = computed(() => identity.value?.name || (identity.value?.id ? t('protocols.connectionCard.nameUnavailable') : t('protocols.connectionCard.accountPending')))
 const avatarFailed = ref(false)
 watch(() => [identity.value?.id, identity.value?.avatar_url], () => { avatarFailed.value = false })
-const showSummary = computed(() => !identity.value?.id || props.runtime?.state !== 'connected')
+// A stopped connection is already named by its badge, so the server's summary would only repeat it.
+const showSummary = computed(() => props.config.enabled && (!identity.value?.id || props.runtime?.state !== 'connected'))
 // Every connection is a light gray box; problems get a ring in their tone.
 const attentionTone = computed(() => props.statusTone === 'danger' || props.statusTone === 'warning' ? props.statusTone : undefined)
 </script>
@@ -44,7 +45,7 @@ const attentionTone = computed(() => props.statusTone === 'danger' || props.stat
       <div class="connection-identity">
         <h3 :class="{ 'connection-name-pending': !identity?.name }">{{ name }}</h3>
         <p v-if="identity?.id" class="connection-number"><span>{{ accountLabel }}</span><span>{{ identity.id }}</span></p>
-        <p v-else class="connection-pending">{{ t('protocols.connectionCard.accountAfterConnect') }}</p>
+        <p v-else class="connection-pending">{{ t(config.enabled ? 'protocols.connectionCard.accountAfterConnect' : 'protocols.connectionCard.accountDisabled') }}</p>
       </div>
     </div>
     <!-- A raw transport error can run long; the card keeps three lines and the configure dialog shows it all. -->

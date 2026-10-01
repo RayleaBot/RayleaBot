@@ -10,6 +10,7 @@ import { PlusIcon, RefreshCwIcon } from '@lucide/vue'
 import { notifyError, notifySuccess } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import { t } from '@/i18n'
+import { getAdapterStateLabel } from '@/lib/display'
 import { resolveStatusTone, type StatusTone } from '@/lib/status-tone'
 import { readAdapterInstances, type AdapterInstanceDocument } from '@/lib/adapters'
 import { cloneConfig } from '@/lib/config-form'
@@ -55,7 +56,7 @@ function status(runtime: AdapterDescriptor | undefined, config: AdapterInstanceD
   // Readiness is what the status page reports, so a degraded or failed transport is flagged here the same way.
   const readiness = runtime.onebot11?.readiness_status
   const tone: StatusTone = readiness === 'failed' ? 'danger' : readiness === 'degraded' ? 'warning' : resolveStatusTone(runtime.state)
-  return { label: t(`protocols.adapterState.${runtime.state}`), tone }
+  return { label: getAdapterStateLabel(runtime.state), tone }
 }
 function closeDialog() { void router.replace(buildProtocolsLocation()) }
 async function saved(response: ConfigUpdateResponse) {

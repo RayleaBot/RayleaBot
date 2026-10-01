@@ -30,6 +30,7 @@ export const useSystemStore = defineStore('system', () => {
   const recentEvents = ref<Array<{ timestamp: string; summary: string; payload: EventsPayload }>>([])
 
   let snapshotRequestID = 0
+  let lastServiceKey: string | null = null
   let interactiveLoads = 0
 
   async function requestReadinessStatus(signal?: AbortSignal) {
@@ -84,6 +85,16 @@ export const useSystemStore = defineStore('system', () => {
     const summary = formatDashboardEventSummary(payload)
     if (!summary) {
       return
+    }
+
+    // The server sends the current service status when the stream connects and repeats it on every connection
+    // update; the first one is the starting point and only a different status or reason is a change.
+    if ('service_status' in payload) {
+      const serviceKey = `${payload.service_status}\n${summary}`
+      const isStartingPoint = lastServiceKey === null
+      if (serviceKey === lastServiceKey) return
+      lastServiceKey = serviceKey
+      if (isStartingPoint) return
     }
 
     recentEvents.value = [{ timestamp, summary, payload }, ...recentEvents.value].slice(0, 12)

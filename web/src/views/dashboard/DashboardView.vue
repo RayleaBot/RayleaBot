@@ -37,7 +37,7 @@ import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import { t } from '@/i18n'
-import { getAdapterStateLabel, getConnectionChannelLabel, getConnectionStatusLabel } from '@/lib/display'
+import { getAdapterStateLabel, getConnectionStatusLabel } from '@/lib/display'
 import { formatDurationSeconds, formatTime } from '@/lib/format'
 import { buildDashboardEventActions, buildProtocolsLocation } from '@/lib/management-links'
 import { useAdaptersStore } from '@/stores/adapters'
@@ -112,15 +112,10 @@ const diagnosticsRows = computed(() => diagnosticsSubsystemItems.value
   .filter(item => !hiddenCheckKeys.has(item.key))
   .map(item => ({ ...item, icon: checkIcons[item.key] ?? ListChecksIcon })))
 
-// Readiness reports only a verdict per check; the diagnostics snapshot supplies the context line.
+// Readiness reports only a verdict per check; the diagnostics snapshot supplies the context line where it describes
+// the same subsystem. Config, database and runtime have no such line, and borrowing another subsystem's count misleads.
 function readinessCheckDetail(key: string) {
-  const snapshot = diagnostics.value
-  if (!snapshot) return undefined
-  const diagnosticsItem = diagnosticsSubsystemItems.value.find(item => item.key === key)
-  if (key === 'database') return t('dashboard.databaseValue', { engine: snapshot.config.database_engine, version: snapshot.database.schema_version })
-  if (key === 'config') return t('dashboard.configSchema', { version: snapshot.config.schema_version })
-  if (key === 'runtime') return diagnosticsSubsystemItems.value.find(item => item.key === 'dependencies')?.value
-  return diagnosticsItem?.value
+  return diagnosticsSubsystemItems.value.find(item => item.key === key)?.value
 }
 
 const attention = computed(() => summarizeAttention(
@@ -161,18 +156,30 @@ async function showChecks() {
   target.classList.add('is-highlighted')
 }
 
-const connectionRows = computed(() => adapters.value.map((adapter) => ({
-  id: adapter.id,
-  detail: [adapter.protocol === 'qqofficial' ? t('protocols.qqTitle') : 'OneBot11', adapter.identity?.id].filter(Boolean).join(' · '),
-  icon: adapter.protocol === 'qqofficial' ? BotIcon : RadioTowerIcon,
-  status: adapter.enabled ? getAdapterStateLabel(adapter.state) : t('dashboard.hub.connectionDisabled'),
-  title: adapter.identity?.name || adapter.display_name || adapter.id,
-  to: buildProtocolsLocation({ adapterId: adapter.id }),
-  tone: adapter.enabled ? toRowTone(adapter.state) : 'muted' as StatusRowTone,
-})))
-const connectionsMeta = computed(() => connectionRows.value.length
-  ? t('dashboard.hub.connectionsMeta', { connected: adapters.value.filter(adapter => adapter.enabled && adapter.state === 'connected').length, total: connectionRows.value.length })
-  : undefined)
+// Without a known bot account the title falls back to the protocol name, so the detail names the connection instead.
+const connectionRows = computed(() => adapters.value.map((adapter) => {
+  const protocol = adapter.protocol === 'qqofficial' ? t('protocols.qqTitle') : 'OneBot11'
+  const title = adapter.identity?.name || adapter.display_name || adapter.id
+  const account = adapter.identity?.id
+    ? `${adapter.protocol === 'qqofficial' ? t('protocols.connectionCard.botId') : 'QQ'} ${adapter.identity.id}`
+    : t('dashboard.hub.connectionIdentifier', { id: adapter.id })
+  return {
+    id: adapter.id,
+    detail: [protocol === title ? '' : protocol, account].filter(Boolean).join(' · '),
+    icon: adapter.protocol === 'qqofficial' ? BotIcon : RadioTowerIcon,
+    status: adapter.enabled ? getAdapterStateLabel(adapter.state) : t('dashboard.hub.connectionDisabled'),
+    title,
+    to: buildProtocolsLocation({ adapterId: adapter.id }),
+    tone: adapter.enabled ? toRowTone(adapter.state) : 'muted' as StatusRowTone,
+  }
+}))
+// A stopped connection is not a missing one, so only enabled connections count toward the total.
+const connectionsMeta = computed(() => {
+  if (!connectionRows.value.length) return undefined
+  const enabled = adapters.value.filter(adapter => adapter.enabled)
+  if (!enabled.length) return t('dashboard.hub.connectionsNoneEnabled')
+  return t('dashboard.hub.connectionsMeta', { connected: enabled.filter(adapter => adapter.state === 'connected').length, total: enabled.length })
+})
 
 const versionText = computed(() => {
   const snapshot = update.status.value
@@ -186,26 +193,20 @@ const updateGuidance = computed(() => {
   if (snapshot?.state === 'disabled') return t('dashboard.update.checkUnavailable')
   return ''
 })
-const managementAddress = typeof window === 'undefined' ? '' : window.location.host
-
 // The management streams feed this page; a broken stream is shown with its retry countdown.
 const managementStreams = computed(() => {
   const broken = (['events', 'logs'] as const)
-    .map(channel => ({ channel, snapshot: snapshots.value[channel] }))
-    .filter(({ snapshot }) => snapshot.status !== 'authenticated')
+    .map(channel => snapshots.value[channel])
+    .filter(snapshot => snapshot.status !== 'authenticated')
   const first = broken[0]
   if (!first) return { label: t('dashboard.streamsHealthy'), reconnect: false, tone: 'success' as StatusRowTone }
-  const seconds = first.snapshot.status === 'reconnecting' && first.snapshot.nextBackoffMs !== undefined
-    ? Math.max(1, Math.round(first.snapshot.nextBackoffMs / 1000))
+  const seconds = first.status === 'reconnecting' && first.nextBackoffMs !== undefined
+    ? Math.max(1, Math.round(first.nextBackoffMs / 1000))
     : null
   return {
-    label: [
-      getConnectionChannelLabel(first.channel),
-      getConnectionStatusLabel(first.snapshot.status),
-      seconds === null ? '' : t('dashboard.connectionReconnectIn', { seconds }),
-    ].filter(Boolean).join(' · '),
+    label: seconds === null ? getConnectionStatusLabel(first.status) : t('dashboard.streamsReconnecting', { seconds }),
     reconnect: true,
-    tone: toRowTone(first.snapshot.status),
+    tone: toRowTone(first.status),
   }
 })
 
@@ -317,17 +318,14 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
               <AppButton size="sm" variant="ghost" :loading="update.checking.value" data-testid="dashboard-update-check" @click="update.check">{{ t('dashboard.update.check') }}</AppButton>
             </dd>
           </div>
+          <!-- Engine, schema and apply state are the same on every install; where the files live is what differs. -->
           <div class="status-facts__row">
-            <dt>{{ t('dashboard.facts.database') }}</dt>
-            <dd>{{ diagnostics ? t('dashboard.databaseValue', { engine: diagnostics.config.database_engine, version: diagnostics.database.schema_version }) : t('dashboard.databaseSchema', { version: system?.db_schema_version ?? t('display.empty') }) }}</dd>
+            <dt>{{ t('dashboard.facts.configFile') }}</dt>
+            <dd class="status-facts__path">{{ diagnostics?.config.config_path || t('display.empty') }}</dd>
           </div>
           <div class="status-facts__row">
-            <dt>{{ t('dashboard.facts.config') }}</dt>
-            <dd>{{ diagnostics ? t('dashboard.configValue', { state: t(`dashboard.diagnosticsStatus.${diagnostics.config.apply_state}`), version: diagnostics.config.schema_version }) : t('display.empty') }}</dd>
-          </div>
-          <div class="status-facts__row">
-            <dt>{{ t('dashboard.facts.address') }}</dt>
-            <dd>{{ managementAddress || t('display.empty') }}</dd>
+            <dt>{{ t('dashboard.facts.databaseFile') }}</dt>
+            <dd class="status-facts__path">{{ diagnostics?.config.database_path || t('display.empty') }}</dd>
           </div>
           <div class="status-facts__row">
             <dt>{{ t('dashboard.facts.streams') }}</dt>
@@ -472,6 +470,8 @@ function eventAction(payload: Parameters<typeof buildDashboardEventActions>[0]) 
 .status-facts dt { color: var(--muted); font-size: var(--font-size-sm); }
 .status-facts dd { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0 0 0 auto; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
 // Text buttons give back their inner padding so their words end on the same edge as the values above.
+// Paths are data: the mono face, wrapping anywhere instead of pushing the label out of the row.
+.status-facts__path { font-family: var(--font-mono); font-size: var(--font-size-sm); font-weight: 400; overflow-wrap: anywhere; }
 .status-facts dd :deep(.app-button) { height: 30px; margin-inline-end: -10px; padding-inline: 10px; color: var(--brand-foreground); }
 .status-facts__state { display: inline-flex; align-items: center; gap: 6px; }
 .status-facts__state svg { width: 15px; height: 15px; }

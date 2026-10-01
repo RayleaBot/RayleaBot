@@ -182,33 +182,25 @@ export function buildDiagnosticsSubsystemItems(snapshot: SystemDiagnosticsRespon
   const dependencyBlockingCount = snapshot.dependencies.filter(
     dependency => ['metadata_incomplete', 'unavailable'].includes(dependency.status),
   ).length
+  // Only a ready dependency is usable now; on_demand and cached ones still have to be prepared.
+  const dependencyReadyCount = snapshot.dependencies.filter(dependency => dependency.status === 'ready').length
+  const dependencyPendingCount = snapshot.dependencies.length - dependencyReadyCount - dependencyBlockingCount
   // The dependency row takes the severity the server gave its issues instead of assuming a blocking failure.
   const dependencyTone: StatusType = snapshot.issues.some(issue => issue.code.startsWith('dependency.') && issue.severity === 'error') ? 'danger' : 'warning'
+  const dependencyStatus: StatusType = dependencyBlockingCount > 0 ? dependencyTone : dependencyPendingCount > 0 ? 'warning' : 'success'
   const filesystemIssueCount = snapshot.filesystem.filter(path => path.status !== 'ok').length
   const adapters = describeAdapterStates(snapshot.adapters)
   const failureStatus = (failed: number, tone: StatusType = 'danger'): StatusType => failed > 0 ? tone : 'success'
 
+  // The service state and version already lead the page, and the config is always loaded and applied, so neither
+  // gets a row here.
   return [
-    {
-      key: 'system',
-      label: t('dashboard.diagnosticsSubsystems.system'),
-      status: diagnosticsStatusType(snapshot.system.status),
-      value: diagnosticsStatusLabel(snapshot.system.status),
-      detail: t('dashboard.diagnosticsCoreVersion', { version: snapshot.build.core_version }),
-    },
     {
       key: 'adapter',
       label: t('dashboard.diagnosticsSubsystems.adapter'),
       status: adapters.status,
       value: adapters.value,
       detail: adapters.detail,
-    },
-    {
-      key: 'config',
-      label: t('dashboard.diagnosticsSubsystems.config'),
-      status: diagnosticsStatusType(snapshot.config.status),
-      value: diagnosticsStatusLabel(snapshot.config.status),
-      detail: t('dashboard.diagnosticsConfigApplyState', { state: diagnosticsStatusLabel(snapshot.config.apply_state) }),
     },
     {
       key: 'plugins',
@@ -241,12 +233,14 @@ export function buildDiagnosticsSubsystemItems(snapshot: SystemDiagnosticsRespon
     {
       key: 'dependencies',
       label: t('dashboard.diagnosticsSubsystems.dependencies'),
-      status: failureStatus(dependencyBlockingCount, dependencyTone),
+      status: dependencyStatus,
       value: t('dashboard.diagnosticsDependencyValue', {
-        ready: snapshot.dependencies.length - dependencyBlockingCount,
+        ready: dependencyReadyCount,
         total: snapshot.dependencies.length,
       }),
-      detail: issueCountDetail(dependencyBlockingCount),
+      detail: dependencyBlockingCount > 0 || dependencyPendingCount === 0
+        ? issueCountDetail(dependencyBlockingCount)
+        : t('dashboard.diagnosticsDependencyPending', { count: dependencyPendingCount }),
     },
     {
       key: 'filesystem',
