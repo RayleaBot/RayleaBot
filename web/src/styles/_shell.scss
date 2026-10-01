@@ -78,15 +78,57 @@
   white-space: nowrap;
 }
 
+// The navigation always reserves its 8px scrollbar gutter, so a list that grows past the sidebar never pushes the
+// rows sideways; the right padding gives back those 8px to keep both insets even. The thumb is a quiet pill that
+// darkens while the pointer or focus is in the navigation.
 .admin-layout__sider-scroll {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 8px 10px 12px;
+  padding: 8px 2px 12px 10px;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--border) transparent;
+}
+
+.admin-layout__sider-scroll:is(:hover, :focus-within) {
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+@supports selector(::-webkit-scrollbar) {
+  .admin-layout__sider-scroll,
+  .admin-layout__sider-scroll:is(:hover, :focus-within) {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+
+  .admin-layout__sider-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .admin-layout__sider-scroll::-webkit-scrollbar-track {
+    margin-block: 8px;
+    background: transparent;
+  }
+
+  .admin-layout__sider-scroll::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--border) padding-box;
+  }
+
+  .admin-layout__sider-scroll:is(:hover, :focus-within)::-webkit-scrollbar-thumb {
+    background-color: var(--border-strong);
+  }
+
+  .admin-layout__sider-scroll::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
 .admin-layout__sider[data-collapsed=true] .admin-layout__sider-scroll {
-  padding-inline: 12px;
+  padding-inline: 12px 4px;
 }
 
 .admin-layout__menu-label {
