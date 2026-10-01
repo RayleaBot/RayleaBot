@@ -62,17 +62,12 @@ const webhookPaths = computed(() => (props.plugin.webhooks ?? []).map(webhook =>
 const managementPages = computed(() => props.plugin.management_ui?.pages ?? [])
 
 const trustLevel = computed(() => props.plugin.trust?.level)
-// The source row leads with how the plugin was installed. Without a recorded method it leads with the recorded
-// address or, failing that, the install root, so the first fact of the column is never a placeholder.
-const source = computed(() => {
-  const summary = props.plugin.source
-  const method = getPluginSourceTypeLabel(summary?.package_source_type)
-  const reference = summary?.package_source_ref?.trim()
-  const root = summary?.root?.trim()
-  if (method) return { value: method, mono: false, reference, root }
-  if (reference) return { value: reference, mono: true, reference: undefined, root }
-  return { value: root || t('display.empty'), mono: Boolean(root), reference: undefined, root: undefined }
-})
+// Every package sits under the same install root, so the row only says how this one was installed and the path
+// or address its package came from.
+const installMethod = computed(() => ({
+  label: getPluginSourceTypeLabel(props.plugin.source?.package_source_type),
+  reference: props.plugin.source?.package_source_ref?.trim(),
+}))
 const handling = computed(() => {
   // Omitted values take the manifest defaults: one event at a time, priority 0, and propagation continues.
   const concurrency = props.plugin.concurrency ?? 1
@@ -225,13 +220,13 @@ function displayUrl(url?: string) {
       <section class="app-box plugin-board__box" aria-labelledby="plugin-origin-title" data-testid="plugin-origin">
         <h2 id="plugin-origin-title" class="plugin-board__title"><PackageIcon aria-hidden="true" />{{ t('plugins.overview.origin.title') }}</h2>
         <dl class="plugin-kv">
-          <dt><FolderInputIcon aria-hidden="true" />{{ t('plugins.overview.origin.source') }}</dt>
+          <dt><FolderInputIcon aria-hidden="true" />{{ t('plugins.fields.sourceRef') }}</dt>
           <dd>
-            <span :class="{ 'is-mono': source.mono }">{{ source.value }}</span>
-            <span v-if="source.reference" class="plugin-kv__note is-mono">{{ source.reference }}</span>
-            <span v-if="source.root" class="plugin-kv__note">{{ t('plugins.overview.origin.installedIn') }} <span class="is-mono">{{ source.root }}</span></span>
+            <template v-if="installMethod.label">{{ installMethod.label }}</template>
+            <span v-else class="is-muted">{{ t('plugins.overview.origin.methodUnrecorded') }}</span>
+            <span v-if="installMethod.reference" class="plugin-kv__note is-mono">{{ installMethod.reference }}</span>
           </dd>
-          <dt><ShieldIcon aria-hidden="true" />{{ t('plugins.overview.origin.trust') }}</dt>
+          <dt><ShieldIcon aria-hidden="true" />{{ t('plugins.fields.trust') }}</dt>
           <dd>
             {{ getPluginTrustLabel(trustLevel) }}
             <span v-if="trustLevel !== 'unverified' && plugin.source" class="plugin-kv__note">{{ t(plugin.source.verified ? 'plugins.overview.origin.sourceVerified' : 'plugins.overview.origin.sourceUnverified') }}</span>

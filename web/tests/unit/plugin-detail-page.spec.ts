@@ -395,6 +395,9 @@ describe('PluginDetailPage', () => {
     await flushPromises()
     expect(handling()).toContain('并发 3 · 优先级 0 · 成功后继续传递')
     expect(origin.text()).toContain('需要 RayleaBot v0.2.0 或更高')
+    const installMethod = origin.findAll('dt').find(term => term.text() === '安装方式')?.element.nextElementSibling?.textContent ?? ''
+    expect(installMethod).toContain('本地 ZIP 包')
+    expect(installMethod).toContain('C:/plugins/weather.zip')
     expect(wrapper.text()).toContain('assets/weather.svg')
     const project = wrapper.get('[data-testid="plugin-project"]')
     expect(project.get('a[href="https://github.com/RayleaBot/plugins-weather"]').text()).toBe('github.com/RayleaBot/plugins-weather')
@@ -413,7 +416,6 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('Weather')
     expect(wrapper.get('h1').text()).toBe('插件：Weather')
     expect(wrapper.text()).toContain('未验证来源')
-    expect(wrapper.text()).toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
     expect(wrapper.text()).toContain('我的运势')
     expect(wrapper.text()).not.toContain('fortune')
