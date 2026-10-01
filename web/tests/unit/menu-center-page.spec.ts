@@ -92,7 +92,7 @@ describe('MenuCenterView', () => {
     const wrapper = mount(MenuCenterView, { global: { plugins: [getActivePinia()!] } })
     await flushPromises()
     expect(rootPreviewData(wrapper).items).toHaveLength(1)
-    expect(wrapper.text()).toContain('预览包含已加载的运行中插件')
+    expect(wrapper.text()).toContain('预览包含已加载的插件')
     await wrapper.getComponent(PluginPicker).vm.$emit('update:modelValue', later.id)
     await flushPromises()
     expect(usePluginsStore().getPluginDisplayName(later.id)).toBe('后页插件')
@@ -101,7 +101,7 @@ describe('MenuCenterView', () => {
     await flushPromises()
     expect(rootPreviewData(wrapper).items).toHaveLength(2)
     expect(wrapper.getComponent(PluginPicker).props('modelValue')).toBe(later.id)
-    expect(wrapper.text()).not.toContain('预览包含已加载的运行中插件')
+    expect(wrapper.text()).not.toContain('预览包含已加载的插件')
   })
 
   it('builds menu groups only from real command ids', async () => {

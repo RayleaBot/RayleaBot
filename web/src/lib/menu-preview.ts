@@ -1,3 +1,4 @@
+import { buildVersionLabel } from '@/lib/build-info'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
 import type { CommandPermissionLevel, PluginCommandSummary, PluginSummary } from '@/types/api'
 
@@ -6,6 +7,8 @@ import type { CommandPermissionLevel, PluginCommandSummary, PluginSummary } from
 export const defaultMenuCommands = ['help', '帮助']
 const defaultRenderFooterTemplate = 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}'
 const developmentVersion = '开发版本'
+const ungroupedCommandsTitle = '命令'
+const rootItemFallbackDescription = '可用插件菜单'
 const systemMenuPluginName = 'RayleaBot'
 const commonCommandPrefixes = ['/', '#', '*', '＊']
 
@@ -22,7 +25,13 @@ export interface MenuPreviewContext {
   defaultPermission?: string | null
 }
 
-type MenuPreviewPlugin = Pick<PluginSummary, 'id' | 'name' | 'version' | 'help' | 'commands' | 'command_groups'>
+type MenuPreviewPlugin = Pick<PluginSummary, 'id' | 'name' | 'version' | 'description' | 'help' | 'commands' | 'command_groups'>
+
+// The menu lists every enabled plugin with a valid manifest that has commands or help to show, running or not.
+export function isMenuPreviewPlugin(plugin: Pick<PluginSummary, 'state' | 'help' | 'commands'>) {
+  if (plugin.state === 'disabled' || plugin.state === 'invalid') return false
+  return plugin.commands.length > 0 || Boolean(plugin.help?.title?.trim() || plugin.help?.summary?.trim())
+}
 
 export function normalizeMenuTokens(values?: readonly string[] | null, fallback: string[] = []) {
   const seen = new Set<string>()
@@ -56,7 +65,7 @@ export function renderMenuPreviewFooter(template?: string, plugin?: Pick<PluginS
   const pluginName = plugin ? plugin.name || plugin.id : systemMenuPluginName
   const version = String(plugin?.version ?? '').trim()
   return source
-    .replaceAll('{{rayleabot_version}}', developmentVersion)
+    .replaceAll('{{rayleabot_version}}', buildVersionLabel)
     .replaceAll('{{plugin_name}}', pluginName)
     .replaceAll('{{plugin_version}}', version && version !== '0.0.0-dev' ? version : developmentVersion)
 }
@@ -64,11 +73,12 @@ export function renderMenuPreviewFooter(template?: string, plugin?: Pick<PluginS
 export function buildRootMenuItems(plugins: readonly MenuPreviewPlugin[]) {
   return plugins.map((plugin) => ({
     name: plugin.name || plugin.id,
-    description: plugin.help?.summary || plugin.commands[0]?.description || plugin.id,
+    description: plugin.description?.trim() || plugin.help?.summary?.trim() || rootItemFallbackDescription,
   }))
 }
 
-// Groups follow the plugin's declared command groups; commands outside every group are listed last.
+// Groups follow the plugin's declared command groups; as in the menu the bot sends, commands outside every group
+// come first under their own title.
 export function buildPluginMenuGroups(plugin: MenuPreviewPlugin, context: MenuPreviewContext) {
   const commandByID = new Map(plugin.commands.map((command) => [command.id, command]))
   const covered = new Set<string>()
@@ -91,7 +101,7 @@ export function buildPluginMenuGroups(plugin: MenuPreviewPlugin, context: MenuPr
     .filter((command) => !covered.has(command.id))
     .map((command) => buildCommandPreviewItem(command, context))
   if (ungrouped.length > 0) {
-    groups.push({ title: '其他命令', items: ungrouped })
+    groups.unshift({ title: ungroupedCommandsTitle, items: ungrouped })
   }
 
   return groups

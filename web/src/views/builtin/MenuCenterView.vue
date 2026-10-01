@@ -20,6 +20,7 @@ import {
   buildPluginMenuGroups,
   buildRootMenuItems,
   defaultMenuCommands,
+  isMenuPreviewPlugin,
   normalizeMenuTokens,
   renderMenuPreviewFooter,
 } from '@/lib/menu-preview'
@@ -65,11 +66,11 @@ const previewContext = computed(() => ({
 const footerTemplate = computed(() => configDocument.value?.render?.footer_template)
 
 const enabledPlugins = computed(() => sortedItems.value
-  .filter((plugin) => plugin.state === 'running')
+  .filter(isMenuPreviewPlugin)
   .sort((left, right) => compareLabel(left.name, right.name) || compareLabel(left.id, right.id)))
 
 const selectedPlugin = computed(() => (
-  pluginsStore.knownItems.find((plugin) => plugin.id === selectedPluginId.value && plugin.state === 'running')
+  pluginsStore.knownItems.find((plugin) => plugin.id === selectedPluginId.value && isMenuPreviewPlugin(plugin))
     ?? enabledPlugins.value.find((plugin) => plugin.id === selectedPluginId.value)
     ?? null
 ))
@@ -100,7 +101,7 @@ const selectedPluginPreviewData = computed(() => {
   }
   return {
     title: plugin.name || plugin.id,
-    subtitle: plugin.help?.summary || plugin.commands[0]?.description || plugin.id,
+    subtitle: plugin.description?.trim() ?? '',
     command_prefixes: effectiveMenuPrefixes.value,
     groups: buildPluginMenuGroups(plugin, previewContext.value),
     render_footer: renderMenuPreviewFooter(footerTemplate.value, plugin),
@@ -229,7 +230,7 @@ async function save() {
               running-only
               align="end"
               :label="t('builtinFeatures.menuCenter.preview.selectedPlugin')"
-              :placeholder="t('builtinFeatures.menuCenter.preview.allPlugins')"
+              :placeholder="t('plugins.picker.title')"
               class="menu-center-plugin-select"
 
               data-testid="menu-center-plugin-select"
