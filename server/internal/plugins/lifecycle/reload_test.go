@@ -270,6 +270,13 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	if info, err := os.Stat(dataDir); err != nil || !info.IsDir() {
 		t.Fatalf("plugin data directory was not created: %v", err)
 	}
+	cacheDir := filepath.Join(repoRoot, "cache", "plugins", "weather-card")
+	if !slices.Contains(spec.Env, "RAYLEABOT_PLUGIN_CACHE_DIR="+cacheDir) {
+		t.Fatalf("plugin cache directory is not injected: %#v", spec.Env)
+	}
+	if info, err := os.Stat(cacheDir); err != nil || !info.IsDir() {
+		t.Fatalf("plugin cache directory was not created: %v", err)
+	}
 	if !reflect.DeepEqual(payload.SuperAdmins, []string{"10001", "10002"}) {
 		t.Fatalf("super_admins = %#v, want canonical values", payload.SuperAdmins)
 	}
@@ -288,6 +295,15 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	}
 	if restarted.Timezone != "America/Los_Angeles" {
 		t.Fatalf("restarted plugin timezone = %q", restarted.Timezone)
+	}
+	if err := os.Remove(cacheDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cacheDir, []byte("blocked directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card"); err == nil {
+		t.Fatal("plugin startup must fail when the cache directory cannot be created")
 	}
 }
 

@@ -64,6 +64,7 @@
 - 插件包目录与插件业务数据目录严格分离。
 - `plugins/installed/` 只存放经验证的编译产物。
 - `data/plugins/<plugin_id>/` 存放插件业务数据与持久化内容，由插件经 `RAYLEABOT_PLUGIN_DATA_DIR` 直接读写。
+- `cache/plugins/<plugin_id>/` 存放插件可重建缓存、下载与媒体中间文件；宿主在启动前创建，并通过 `RAYLEABOT_PLUGIN_CACHE_DIR` 传入绝对路径。插件负责清理自己的缓存，该目录不随业务数据备份。
 - 插件包目录经 `RAYLEABOT_PLUGIN_PACKAGE_DIR` 传入，插件进程也以它为工作目录；包内随附的文件只读，升级时整体替换。
 - 可重建缓存、下载中间产物和失败安装残留进入 `cache/` 或临时目录，不与业务数据混放。
 
