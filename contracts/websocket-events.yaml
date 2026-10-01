@@ -16,6 +16,8 @@ x-fixtures:
   - fixtures/websocket/ok.events-received-adapters-snapshot.json
   - fixtures/websocket/ok.events-received-service-running.json
   - fixtures/websocket/ok.events-received-service-stopping.json
+  - fixtures/websocket/ok.events-received-service-restarting.json
+  - fixtures/websocket/invalid.events-received-running-stop-intent.json
   - fixtures/websocket/ok.events-received-governance-changed.json
   - fixtures/websocket/edge.events-received-degraded.json
   - fixtures/websocket/edge.events-received-bridge-runtime-zeroed.json
@@ -130,15 +132,28 @@ channels:
               additionalProperties: false
               required: [service_status, summary]
               description: >
-                新订阅收到当前服务快照；后续在 service_status、summary、reason、reason_codes 或 readiness checks 的内容与上次广播不同时推送。
+                新订阅收到当前服务快照；后续在 service_status、stop_intent、summary、reason、reason_codes 或 readiness checks 的内容与上次广播不同时推送。
                 checks 不包含在载荷中，因此检查变化时可能推送相同载荷；时间戳不参与比较。
                 通过 Launcher、管理 API 或操作系统信号开始优雅关闭时，服务立即发布 service_status 为 stopping 的快照。
+                stop_intent 仅在 stopping 时携带，值为 stop、restart 或 update；首个优雅关闭请求确定该值，后续请求不覆盖。
+                /api/system/shutdown 和操作系统信号固定为 stop，Launcher 请求省略 intent 时也为 stop。
+                summary 面向读者，分别为“服务正在停止”、“服务正在重启”或“服务正在安装更新”。客户端按 stop_intent 分支，不解析 summary 或 reason。
                 服务关闭事件连接前，为已有订阅者写出该快照提供共享的最多 1 秒等待窗口；全部写出或断开后立即继续关闭，不逐连接累加等待时间。
                 连接不可写、等待超时或进程被强制终止时不保证送达；客户端收到 stopping 后应将随后的断线视为预期停止，不等待 stopped 帧。
+                restart 或 update 表示预期的临时断线，客户端继续重连；stop 或缺少 stop_intent 时按停止处理。
+              if:
+                required: [stop_intent]
+              then:
+                properties:
+                  service_status:
+                    const: stopping
               properties:
                 service_status:
                   type: string
                   enum: [setup_required, stopped, starting, running, degraded, stopping, failed]
+                stop_intent:
+                  type: string
+                  enum: [stop, restart, update]
                 summary:
                   type: string
                 reason:

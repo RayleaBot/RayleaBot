@@ -1427,6 +1427,13 @@ export interface components {
             items: components["schemas"]["OneBot11Identity"][];
             issues: components["schemas"]["OneBot11TargetIssue"][];
         };
+        LauncherShutdownRequest: {
+            /**
+             * @default stop
+             * @enum {string}
+             */
+            intent: "stop" | "restart" | "update";
+        };
         SystemShutdownResponse: {
             accepted: boolean;
         };
@@ -2895,7 +2902,12 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        /** @description A missing body or intent defaults to stop. The first graceful-stop request fixes the intent; later requests cannot change it. Invalid intent values return HTTP 400 with platform.invalid_request. */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["LauncherShutdownRequest"];
+            };
+        };
         responses: {
             /** @description Shutdown request accepted. */
             202: {
@@ -2906,6 +2918,7 @@ export interface operations {
                     "application/json": components["schemas"]["SystemShutdownResponse"];
                 };
             };
+            400: components["responses"]["Error"];
             403: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

@@ -78,6 +78,7 @@ func TestServiceStatusPayload(t *testing.T) {
 			},
 			want: ServiceStatusPayload{
 				ServiceStatus: "stopping",
+				StopIntent:    systemsvc.StopIntentStop,
 				Summary:       "服务正在停止",
 			},
 		},
@@ -88,7 +89,7 @@ func TestServiceStatusPayload(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := ServiceStatusPayloadFrom(tt.system, tt.readiness); !reflect.DeepEqual(got, tt.want) {
+			if got := ServiceStatusPayloadFrom(tt.system, tt.readiness, ""); !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("ServiceStatusPayloadFrom() = %#v, want %#v", got, tt.want)
 			}
 		})
@@ -123,7 +124,8 @@ type statusTestProvider struct {
 	readinessCalls int
 }
 
-func (p *statusTestProvider) SystemStatus() string { return p.systemStatus }
+func (p *statusTestProvider) SystemStatus() string                 { return p.systemStatus }
+func (p *statusTestProvider) ShutdownIntent() systemsvc.StopIntent { return systemsvc.StopIntentStop }
 func (p *statusTestProvider) CurrentReadiness() systemsvc.ReadinessReport {
 	p.readinessCalls++
 	return p.readiness
@@ -153,7 +155,7 @@ func TestPublishServiceStatusOnlyWhenPayloadChanges(t *testing.T) {
 		provider.readiness = readiness
 		service.PublishSnapshot()
 		got := receiveServiceStatus(t, updates)
-		want := ServiceStatusPayloadFrom("running", readiness)
+		want := ServiceStatusPayloadFrom("running", readiness, "")
 		want.ReasonCodes = append([]string{}, want.ReasonCodes...)
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("payload = %#v, want %#v", got, want)

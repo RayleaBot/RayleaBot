@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
@@ -105,5 +108,87 @@ func TestIsLoopbackRequest(t *testing.T) {
 				t.Fatalf("isLoopbackRequest(%q) = %v, want %v", tc.remoteAddr, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestLauncherShutdownIntentValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		want       systemsvc.StopIntent
+	}{
+		{"missing body", "", systemsvc.StopIntentStop},
+		{"whitespace body", " \n", systemsvc.StopIntentStop},
+		{"missing intent", `{}`, systemsvc.StopIntentStop},
+		{"stop", `{"intent":"stop"}`, systemsvc.StopIntentStop},
+		{"restart", `{"intent":"restart"}`, systemsvc.StopIntentRestart},
+		{"update", `{"intent":"update"}`, systemsvc.StopIntentUpdate},
+		{"unknown intent", `{"intent":"reboot"}`, ""},
+		{"empty intent", `{"intent":""}`, ""},
+		{"null intent", `{"intent":null}`, ""},
+		{"number intent", `{"intent":1}`, ""},
+		{"case sensitive", `{"intent":"Restart"}`, ""},
+		{"unknown field", `{"intent":"stop","other":true}`, ""},
+		{"trailing JSON", `{} {}`, ""},
+		{"non object", `[]`, ""},
+		{"null body", `null`, ""},
+		{"malformed", `{"intent":`, ""},
+		{"oversized", strings.Repeat(" ", 1048577), ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var got systemsvc.StopIntent
+			handlers := NewCoreHandlers(CoreDeps{
+				LauncherControlToken: NewStaticToken("fixture-control-token"),
+				RequestShutdown:      func(intent systemsvc.StopIntent) { got = intent },
+			})
+			router := chi.NewRouter()
+			handlers.RegisterPublicRoutes(router)
+			request := httptest.NewRequest(http.MethodPost, "/api/launcher/shutdown", strings.NewReader(tc.body))
+			request.RemoteAddr = "127.0.0.1:12345"
+			request.Header.Set(LauncherControlTokenHeader, "fixture-control-token")
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, request)
+			if got != tc.want {
+				t.Fatalf("shutdown intent = %q, want %q", got, tc.want)
+			}
+			wantStatus := http.StatusAccepted
+			if tc.want == "" {
+				wantStatus = http.StatusBadRequest
+			}
+			if recorder.Code != wantStatus {
+				t.Fatalf("status = %d, want %d: %s", recorder.Code, wantStatus, recorder.Body)
+			}
+			if tc.want == "" {
+				var response struct{ Error struct{ Code string } }
+				if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil || response.Error.Code != "platform.invalid_request" {
+					t.Fatalf("error response = %s, decode error = %v", recorder.Body, err)
+				}
+			}
+		})
+	}
+}
+
+func TestShutdownIntentRespectsRouteBoundary(t *testing.T) {
+	calls := 0
+	handlers := NewCoreHandlers(CoreDeps{
+		LauncherControlToken: NewStaticToken("fixture-control-token"),
+		RequestShutdown: func(intent systemsvc.StopIntent) {
+			calls++
+			if intent != systemsvc.StopIntentStop {
+				t.Errorf("system shutdown intent = %q", intent)
+			}
+		},
+	})
+	request := httptest.NewRequest(http.MethodPost, "/api/launcher/shutdown", strings.NewReader(`{"intent":"reboot"}`))
+	request.RemoteAddr = "127.0.0.1:12345"
+	recorder := httptest.NewRecorder()
+	handlers.HandleLauncherShutdown().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden || calls != 0 {
+		t.Fatalf("unauthenticated request: status=%d calls=%d", recorder.Code, calls)
+	}
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/api/system/shutdown", strings.NewReader(`{"intent":"restart"}`))
+	handlers.HandleSystemShutdown().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusAccepted || calls != 1 {
+		t.Fatalf("system request: status=%d calls=%d", recorder.Code, calls)
 	}
 }

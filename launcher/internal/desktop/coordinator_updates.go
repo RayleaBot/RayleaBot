@@ -56,7 +56,7 @@ func (c *Coordinator) ApplyUpdate() bool {
 	defer unblockStartups()
 	c.operationMu.Lock()
 	defer c.operationMu.Unlock()
-	if err := c.stopLocked(true); err != nil {
+	if err := c.stopLocked(true, shutdownIntentUpdate); err != nil {
 		return fail("launcher.update_apply_failed", "安装更新失败。", "服务未能停止，请手动停止服务后重试。")
 	}
 	if _, _, err := c.release.runServer(runtime.GOOS, updateApplyTimeout, "update", "apply"); err != nil {

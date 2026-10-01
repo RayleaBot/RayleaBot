@@ -12,6 +12,7 @@ import (
 
 type ServiceStatusProvider interface {
 	SystemStatus() string
+	ShutdownIntent() systemsvc.StopIntent
 	CurrentReadiness() systemsvc.ReadinessReport
 }
 
@@ -43,17 +44,29 @@ func (s *ServiceStatusService) currentServiceStatusSnapshot() (ServiceStatusPayl
 	// Stopping does not depend on readiness probes, which may be blocked or
 	// already tearing down when shutdown begins.
 	if s.system.SystemStatus() == "shutting_down" {
-		return ServiceStatusPayloadFrom("shutting_down", systemsvc.ReadinessReport{}), nil
+		return ServiceStatusPayloadFrom("shutting_down", systemsvc.ReadinessReport{}, s.system.ShutdownIntent()), nil
 	}
 	readiness := s.system.CurrentReadiness()
-	return ServiceStatusPayloadFrom(s.system.SystemStatus(), readiness), readiness.Checks
+	return ServiceStatusPayloadFrom(s.system.SystemStatus(), readiness, s.system.ShutdownIntent()), readiness.Checks
 }
 
-func ServiceStatusPayloadFrom(systemStatus string, readiness systemsvc.ReadinessReport) ServiceStatusPayload {
+func ServiceStatusPayloadFrom(systemStatus string, readiness systemsvc.ReadinessReport, intent systemsvc.StopIntent) ServiceStatusPayload {
 	status := ProjectServiceStatus(systemStatus, readiness.Status)
 	payload := ServiceStatusPayload{
 		ServiceStatus: status,
 		Summary:       serviceStatusSummary(status),
+	}
+	if status == "stopping" {
+		if intent == "" {
+			intent = systemsvc.StopIntentStop
+		}
+		payload.StopIntent = intent
+		switch intent {
+		case systemsvc.StopIntentRestart:
+			payload.Summary = "服务正在重启"
+		case systemsvc.StopIntentUpdate:
+			payload.Summary = "服务正在安装更新"
+		}
 	}
 	if reason := strings.TrimSpace(readiness.Reason); reason != "" {
 		payload.Reason = reason
@@ -105,7 +118,7 @@ func (s *ServiceStatusService) PublishSnapshot() {
 	defer s.snapshotMu.Unlock()
 	payload, checks := s.currentServiceStatusSnapshot()
 	if previous := s.lastBroadcast; previous != nil &&
-		previous.ServiceStatus == payload.ServiceStatus && previous.Summary == payload.Summary &&
+		previous.ServiceStatus == payload.ServiceStatus && previous.StopIntent == payload.StopIntent && previous.Summary == payload.Summary &&
 		previous.Reason == payload.Reason && slices.Equal(previous.ReasonCodes, payload.ReasonCodes) &&
 		maps.Equal(s.lastBroadcastChecks, checks) {
 		return

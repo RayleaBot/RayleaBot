@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Local Launcher restart intent is accepted.
+request:
+  method: POST
+  path: /api/launcher/shutdown
+  headers:
+    X-Raylea-Launcher-Control: fixture-control-token-not-a-real-secret
+  body:
+    intent: restart
+response:
+  status: 202
+  body:
+    accepted: true
+expect:
+  valid: true

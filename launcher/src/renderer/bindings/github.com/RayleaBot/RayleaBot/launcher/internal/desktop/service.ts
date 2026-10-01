@@ -113,6 +113,10 @@ export function ResetAdmin(): $CancellablePromise<void> {
     return $Call.ByName("github.com/RayleaBot/RayleaBot/launcher/internal/desktop.Service.ResetAdmin");
 }
 
+export function Restart(): $CancellablePromise<void> {
+    return $Call.ByName("github.com/RayleaBot/RayleaBot/launcher/internal/desktop.Service.Restart");
+}
+
 export function SaveSettings(settings: $models.LauncherSettings): $CancellablePromise<void> {
     return $Call.ByName("github.com/RayleaBot/RayleaBot/launcher/internal/desktop.Service.SaveSettings", settings);
 }

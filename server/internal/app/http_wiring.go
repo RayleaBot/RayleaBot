@@ -7,6 +7,7 @@ import (
 	"time"
 
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
@@ -20,7 +21,7 @@ type httpBuildDeps struct {
 	Events                  EventState
 	Renderer                *render.Service
 	ServiceBuild            serviceBuildResult
-	RequestShutdown         func()
+	RequestShutdown         func(systemsvc.StopIntent)
 	SetupToken              string
 	LauncherControlToken    string
 	DevelopmentArtifactRoot string

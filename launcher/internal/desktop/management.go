@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,14 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+)
+
+type shutdownIntent string
+
+const (
+	shutdownIntentStop    shutdownIntent = "stop"
+	shutdownIntentRestart shutdownIntent = "restart"
+	shutdownIntentUpdate  shutdownIntent = "update"
 )
 
 type ManagementClient struct {
@@ -71,7 +80,7 @@ func normalizeClientHost(host string) string {
 }
 
 func (m *ManagementClient) IsHealthy(ctx context.Context, endpoint ServerEndpoint) bool {
-	response, err := m.request(ctx, http.MethodGet, endpoint, "healthz", false)
+	response, err := m.request(ctx, http.MethodGet, endpoint, "healthz", false, nil)
 	if err != nil {
 		return false
 	}
@@ -84,7 +93,7 @@ func (m *ManagementClient) IsHealthy(ctx context.Context, endpoint ServerEndpoin
 }
 
 func (m *ManagementClient) GetReadiness(ctx context.Context, endpoint ServerEndpoint) (*ServerReadinessStatusResponse, error) {
-	response, err := m.request(ctx, http.MethodGet, endpoint, "readyz", false)
+	response, err := m.request(ctx, http.MethodGet, endpoint, "readyz", false, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +105,7 @@ func (m *ManagementClient) GetReadiness(ctx context.Context, endpoint ServerEndp
 }
 
 func (m *ManagementClient) GetLauncherStatus(ctx context.Context, endpoint ServerEndpoint) (*ServerSystemStatusResponse, error) {
-	response, err := m.request(ctx, http.MethodGet, endpoint, "api/launcher/status", true)
+	response, err := m.request(ctx, http.MethodGet, endpoint, "api/launcher/status", true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -107,8 +116,14 @@ func (m *ManagementClient) GetLauncherStatus(ctx context.Context, endpoint Serve
 	return decodeServerResponse[ServerSystemStatusResponse](response.Body)
 }
 
-func (m *ManagementClient) Shutdown(ctx context.Context, endpoint ServerEndpoint) error {
-	response, err := m.request(ctx, http.MethodPost, endpoint, "api/launcher/shutdown", true)
+func (m *ManagementClient) Shutdown(ctx context.Context, endpoint ServerEndpoint, intent shutdownIntent) error {
+	body, err := json.Marshal(struct {
+		Intent shutdownIntent `json:"intent"`
+	}{Intent: intent})
+	if err != nil {
+		return err
+	}
+	response, err := m.request(ctx, http.MethodPost, endpoint, "api/launcher/shutdown", true, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -126,7 +141,7 @@ func (m *ManagementClient) Shutdown(ctx context.Context, endpoint ServerEndpoint
 	return nil
 }
 
-func (m *ManagementClient) request(ctx context.Context, method string, endpoint ServerEndpoint, path string, controlled bool) (*http.Response, error) {
+func (m *ManagementClient) request(ctx context.Context, method string, endpoint ServerEndpoint, path string, controlled bool, body io.Reader) (*http.Response, error) {
 	base, err := url.Parse(endpoint.BaseURL)
 	if err != nil {
 		return nil, err
@@ -135,9 +150,12 @@ func (m *ManagementClient) request(ctx context.Context, method string, endpoint 
 	if err != nil {
 		return nil, err
 	}
-	request, err := http.NewRequestWithContext(ctx, method, target.String(), nil)
+	request, err := http.NewRequestWithContext(ctx, method, target.String(), body)
 	if err != nil {
 		return nil, err
+	}
+	if body != nil {
+		request.Header.Set("Content-Type", "application/json")
 	}
 	if controlled {
 		if token := strings.TrimSpace(m.getControlToken()); token != "" {

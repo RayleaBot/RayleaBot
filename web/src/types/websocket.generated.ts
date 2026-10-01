@@ -45,6 +45,7 @@ export interface SessionExpiredFrame {
 
 export type ServiceStatusEventPayload = {
   service_status: 'setup_required' | 'stopped' | 'starting' | 'running' | 'degraded' | 'stopping' | 'failed'
+  stop_intent?: 'stop' | 'restart' | 'update'
   summary: string
   reason?: string
   reason_codes?: string[]

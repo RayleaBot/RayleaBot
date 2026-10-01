@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RayleaBot Web API
-  version: 0.5.2
+  version: 0.5.3
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
@@ -47,6 +47,8 @@ x-fixtures:
   - fixtures/web-api/invalid.account-credentials-current-secret.yaml
   - fixtures/web-api/ok.launcher-status.yaml
   - fixtures/web-api/ok.launcher-shutdown.yaml
+  - fixtures/web-api/ok.launcher-shutdown-restart.yaml
+  - fixtures/web-api/invalid.launcher-shutdown-intent.yaml
   - fixtures/web-api/ok.config-get-response.yaml
   - fixtures/web-api/ok.config-update-response.yaml
   - fixtures/web-api/edge.config-update-response.adapter-reload-fallback.yaml
@@ -474,7 +476,19 @@ paths:
       operationId: shutdownFromLauncher
       security:
         - LauncherControlAuth: []
+      requestBody:
+        required: false
+        description: >
+          A missing body or intent defaults to stop. The first graceful-stop
+          request fixes the intent; later requests cannot change it.
+          Invalid intent values return HTTP 400 with platform.invalid_request.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LauncherShutdownRequest'
       responses:
+        '400':
+          $ref: '#/components/responses/Error'
         '202':
           description: Shutdown request accepted.
           content:
@@ -3048,6 +3062,14 @@ components:
           items:
             $ref: '#/components/schemas/OneBot11TargetIssue'
 
+    LauncherShutdownRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        intent:
+          type: string
+          enum: [stop, restart, update]
+          default: stop
     SystemShutdownResponse:
       type: object
       additionalProperties: false

@@ -2,6 +2,9 @@ package management
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -22,14 +25,14 @@ const (
 type CoreHandlers struct {
 	auth                 coreAuthService
 	system               coreSystemService
-	requestShutdown      func()
+	requestShutdown      func(systemsvc.StopIntent)
 	launcherControlToken *StaticToken
 }
 
 type CoreDeps struct {
 	Auth                 coreAuthService
 	System               coreSystemService
-	RequestShutdown      func()
+	RequestShutdown      func(systemsvc.StopIntent)
 	LauncherControlToken *StaticToken
 }
 
@@ -140,7 +143,25 @@ func (h *CoreHandlers) handleShutdown(requireLauncherToken bool) http.HandlerFun
 			httpapi.WriteError(w, r, coreCodePermissionDenied, nil)
 			return
 		}
-		h.requestShutdown()
+		intent := systemsvc.StopIntentStop
+		if requireLauncherToken {
+			var request struct {
+				Intent json.RawMessage `json:"intent"`
+			}
+			if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil && !errors.Is(err, io.EOF) {
+				httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
+				return
+			}
+			if len(request.Intent) > 0 {
+				var requested systemsvc.StopIntent
+				if err := json.Unmarshal(request.Intent, &requested); err != nil || !requested.Valid() {
+					httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
+					return
+				}
+				intent = requested
+			}
+		}
+		h.requestShutdown(intent)
 		httpapi.WriteJSON(w, http.StatusAccepted, coreShutdownResponse{Accepted: true})
 	}
 }

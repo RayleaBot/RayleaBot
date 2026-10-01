@@ -95,6 +95,14 @@ func (s *Service) Stop() error {
 	return coordinator.Stop()
 }
 
+func (s *Service) Restart() error {
+	coordinator, _, err := s.dependencies()
+	if err != nil {
+		return err
+	}
+	return coordinator.Restart()
+}
+
 func (s *Service) ResetAdmin() error {
 	coordinator, _, err := s.dependencies()
 	if err != nil {

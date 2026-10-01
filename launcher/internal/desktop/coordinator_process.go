@@ -287,10 +287,32 @@ func (c *Coordinator) Stop() error {
 	defer unblockStartups()
 	c.operationMu.Lock()
 	defer c.operationMu.Unlock()
-	return c.stopLocked(true)
+	return c.stopLocked(true, shutdownIntentStop)
 }
 
-func (c *Coordinator) stopLocked(confirmExternal bool) error {
+func (c *Coordinator) Restart() error {
+	unblockStartups := c.startups.block(false)
+	defer unblockStartups()
+	c.operationMu.Lock()
+	defer c.operationMu.Unlock()
+	if !c.process.IsRunning() {
+		return errors.New("只能重启由启动器管理的服务")
+	}
+	if err := c.stopLocked(true, shutdownIntentRestart); err != nil {
+		return err
+	}
+	// Retain the operation lock across stop and start. Other stop/exit requests
+	// keep their own blockers and may reject or cancel the new startup.
+	unblockStartups()
+	startupContext, finishStartup, allowed := c.startups.begin()
+	if !allowed {
+		return fmt.Errorf("服务已停止，但重启被阻止: %w", errStartupBlocked)
+	}
+	defer finishStartup()
+	return c.startLocked(startupContext)
+}
+
+func (c *Coordinator) stopLocked(confirmExternal bool, intent shutdownIntent) error {
 	operation, err := c.operationContext()
 	if err != nil {
 		return err
@@ -321,7 +343,7 @@ func (c *Coordinator) stopLocked(confirmExternal bool) error {
 			health: &ServerLivenessStatusResponse{Status: "ok"}, processLifecycle: "stopping", processOwnership: ownership, statusHint: "正在停止现有服务。",
 		}))
 		ctx, cancel := context.WithTimeout(context.Background(), shutdownRequestTimeout)
-		shutdownErr := c.management.Shutdown(ctx, operation.endpoint)
+		shutdownErr := c.management.Shutdown(ctx, operation.endpoint, intent)
 		cancel()
 		if shutdownErr == nil {
 			return c.refresh(operation)
@@ -349,7 +371,7 @@ func (c *Coordinator) stopLocked(confirmExternal bool) error {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), shutdownRequestTimeout)
 			defer cancel()
-			return c.management.Shutdown(ctx, operation.endpoint)
+			return c.management.Shutdown(ctx, operation.endpoint, intent)
 		}, stopGracePeriod)
 		if err != nil {
 			return err

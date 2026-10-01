@@ -74,8 +74,11 @@ func TestManagementClientUsesFormalLauncherControlHeader(t *testing.T) {
 	if err != nil || status.Status != "running" {
 		t.Fatalf("GetLauncherStatus() = %#v, %v", status, err)
 	}
-	if err := client.Shutdown(context.Background(), endpoint); err != nil {
-		t.Fatalf("Shutdown() error = %v", err)
+	// Older servers ignore the optional body and still acknowledge every intent.
+	for _, intent := range []shutdownIntent{shutdownIntentStop, shutdownIntentRestart, shutdownIntentUpdate} {
+		if err := client.Shutdown(context.Background(), endpoint, intent); err != nil {
+			t.Fatalf("Shutdown(%s) error = %v", intent, err)
+		}
 	}
 }
 

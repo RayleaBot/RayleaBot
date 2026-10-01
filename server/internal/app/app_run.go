@@ -12,6 +12,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
@@ -19,15 +20,15 @@ import (
 )
 
 type appProcessState struct {
-	router       http.Handler
-	server       *http.Server
-	shuttingDown atomic.Bool
-	runCancelMu  sync.Mutex
-	runCancel    context.CancelFunc
-	runWait      func() error
-	shutdownOnce sync.Once
-	closeOnce    sync.Once
-	closeErr     error
+	router         http.Handler
+	server         *http.Server
+	shutdownIntent atomic.Pointer[systemsvc.StopIntent]
+	runCancelMu    sync.Mutex
+	runCancel      context.CancelFunc
+	runWait        func() error
+	shutdownOnce   sync.Once
+	closeOnce      sync.Once
+	closeErr       error
 }
 
 type appRuntimeState struct {
@@ -154,7 +155,7 @@ func (a *App) Run(ctx context.Context) error {
 func (a *App) setRunSupervisor(supervisor *runSupervisor, started <-chan struct{}) bool {
 	a.process.runCancelMu.Lock()
 	defer a.process.runCancelMu.Unlock()
-	if a.process.shuttingDown.Load() || a.process.runCancel != nil {
+	if a.process.shutdownIntent.Load() != nil || a.process.runCancel != nil {
 		return false
 	}
 	a.process.runCancel = supervisor.Cancel
@@ -173,9 +174,9 @@ func (a *App) clearRunCancel() {
 	a.process.runWait = nil
 }
 
-func (a *App) requestShutdown() {
+func (a *App) requestShutdown(intent systemsvc.StopIntent) {
 	a.process.shutdownOnce.Do(func() {
-		a.process.shuttingDown.Store(true)
+		a.process.shutdownIntent.Store(&intent)
 		ctx, cancelDrain := context.WithTimeout(context.Background(), time.Second)
 		defer cancelDrain()
 		if a.services.System != nil {
@@ -282,7 +283,7 @@ func configureAppRuntimeCallbacks(application *App) {
 	eventIngress := application.services.EventIngress
 	protocolService := application.services.Protocol
 
-	systemService.BindShutdownFlag(&application.process.shuttingDown)
+	systemService.BindShutdownIntent(&application.process.shutdownIntent)
 
 	if application.runtimes != nil {
 		application.runtimes.SetOnCrash(lifecycle.HandleCrash)

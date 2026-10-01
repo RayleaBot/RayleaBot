@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Unknown shutdown intent is rejected.
+request:
+  method: POST
+  path: /api/launcher/shutdown
+  headers:
+    X-Raylea-Launcher-Control: fixture-control-token-not-a-real-secret
+  body:
+    intent: reboot
+response:
+  status: 400
+  body:
+    error:
+      code: platform.invalid_request
+      message: 请求参数无效
+      request_id: req_launcher_shutdown_intent
+expect:
+  valid: false

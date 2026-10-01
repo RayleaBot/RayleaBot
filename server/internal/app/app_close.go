@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 )
 
 func (a *App) Close() error {
@@ -22,7 +24,7 @@ func (a *App) Close() error {
 // cleared after their owner closes.
 func (a *App) closeResources() error {
 	var errs []error
-	a.requestShutdown()
+	a.requestShutdown(systemsvc.StopIntentStop)
 	if err := a.shutdownHTTPServer(5 * time.Second); err != nil {
 		errs = append(errs, fmt.Errorf("shutdown http server: %w", err))
 	}

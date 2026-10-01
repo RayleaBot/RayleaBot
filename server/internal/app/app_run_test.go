@@ -3,7 +3,11 @@ package app
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
+
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"time"
 )
 
@@ -101,5 +105,31 @@ func TestRunSupervisorNormalCancellationWaitsForWorkers(t *testing.T) {
 	case <-stopped:
 	default:
 		t.Fatal("Wait returned before the worker stopped")
+	}
+}
+
+func TestFirstShutdownRequestKeepsItsIntent(t *testing.T) {
+	intents := []systemsvc.StopIntent{systemsvc.StopIntentStop, systemsvc.StopIntentRestart, systemsvc.StopIntentUpdate}
+	for _, first := range intents {
+		t.Run(string(first), func(t *testing.T) {
+			application := &App{}
+			entered, release := make(chan struct{}), make(chan struct{})
+			var canceled atomic.Int32
+			application.process.runCancel = func() { canceled.Add(1); close(entered); <-release }
+			var workers sync.WaitGroup
+			workers.Go(func() { application.requestShutdown(first) })
+			<-entered
+			for _, later := range intents {
+				workers.Go(func() { application.requestShutdown(later) })
+			}
+			close(release)
+			workers.Wait()
+			if got := application.process.shutdownIntent.Load(); got == nil || *got != first {
+				t.Fatalf("shutdown intent = %v, want %q", got, first)
+			}
+			if canceled.Load() != 1 {
+				t.Fatalf("shutdown ran %d times", canceled.Load())
+			}
+		})
 	}
 }

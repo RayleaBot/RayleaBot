@@ -133,7 +133,7 @@ func (c *Coordinator) Shutdown() error {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), shutdownRequestTimeout)
 		defer cancel()
-		return c.management.Shutdown(ctx, operation.endpoint)
+		return c.management.Shutdown(ctx, operation.endpoint, shutdownIntentStop)
 	}, shutdownGracePeriod)
 
 }

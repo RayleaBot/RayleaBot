@@ -90,7 +90,7 @@ type Service struct {
 	resolveDatabasePath DatabasePathResolver
 	inspectRuntime      func(string, string) (*runtimedeps.BootstrapInspection, error)
 	prepareRuntime      func(context.Context, string, string, runtimedeps.PrepareProgressReporter) (*runtimedeps.PrepareReport, error)
-	shuttingDown        *atomic.Bool
+	shutdownIntent      *atomic.Pointer[StopIntent]
 	statusPublisher     StatusPublisher
 	startupMu           sync.RWMutex
 	startupRuntimes     map[string]StartupRuntimeState
@@ -171,9 +171,9 @@ func readinessReportPtr(report ReadinessReport) *ReadinessReport {
 	return &report
 }
 
-func (s *Service) BindShutdownFlag(flag *atomic.Bool) {
+func (s *Service) BindShutdownIntent(intent *atomic.Pointer[StopIntent]) {
 	if s != nil {
-		s.shuttingDown = flag
+		s.shutdownIntent = intent
 	}
 }
 

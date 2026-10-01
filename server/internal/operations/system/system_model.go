@@ -153,7 +153,7 @@ func (s *Service) uptimeSeconds() int64 {
 }
 
 func (s *Service) systemStatus() string {
-	if s != nil && s.shuttingDown != nil && s.shuttingDown.Load() {
+	if s != nil && s.ShutdownIntent() != "" {
 		return "shutting_down"
 	}
 	return "running"

@@ -452,12 +452,13 @@ func TestServiceShutdownCancelsExternalStopConfirmation(t *testing.T) {
 	}
 }
 
-func TestStopAndShutdownCancelStartupBeforeWaitingForOperationLock(t *testing.T) {
+func TestStopRestartAndShutdownCancelStartupBeforeWaitingForOperationLock(t *testing.T) {
 	operations := []struct {
 		name string
 		run  func(*Coordinator)
 	}{
 		{name: "stop", run: func(coordinator *Coordinator) { _ = coordinator.Stop() }},
+		{name: "restart", run: func(coordinator *Coordinator) { _ = coordinator.Restart() }},
 		{name: "shutdown", run: func(coordinator *Coordinator) { coordinator.Shutdown() }},
 	}
 	for _, operation := range operations {
@@ -494,7 +495,7 @@ func TestStopAndShutdownCancelStartupBeforeWaitingForOperationLock(t *testing.T)
 				t.Fatal("operation did not complete after the startup lock was released")
 			}
 			_, finishLaterStartup, laterAllowed := coordinator.startups.begin()
-			if operation.name == "stop" && !laterAllowed {
+			if operation.name != "shutdown" && !laterAllowed {
 				t.Fatal("ordinary stop left future startups blocked")
 			}
 			if operation.name == "shutdown" && laterAllowed {

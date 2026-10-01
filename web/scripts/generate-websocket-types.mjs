@@ -137,6 +137,7 @@ function generatedSource(contract) {
   const consoleProperties = requireObject(consoleEvent.payload_schema.properties, 'plugins.console.payload_schema.properties')
 
   const serviceStatuses = enumFor(branchProperty(serviceBranch, 'service_status'), 'service_status')
+  const serviceStopIntents = enumFor(branchProperty(serviceBranch, 'stop_intent'), 'stop_intent')
   const pluginStates = enumFor(branchProperty(pluginBranch, 'state'), 'state')
   const connectionStatuses = enumFor(branchProperty(connectionBranch, 'connection_status'), 'connection_status')
   const bridgeScopes = enumFor(branchProperty(bridgeObservabilityBranch, 'observability_scope'), 'bridge.observability_scope')
@@ -180,6 +181,7 @@ export interface SessionExpiredFrame {
 
 export type ServiceStatusEventPayload = {
   service_status: ${union(serviceStatuses)}
+  stop_intent?: ${union(serviceStopIntents)}
   summary: string
   reason?: string
   reason_codes?: string[]

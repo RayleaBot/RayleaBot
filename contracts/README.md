@@ -42,6 +42,7 @@
 - `web-api.openapi.yaml`
   - 当前已固定的管理 HTTP 接口
   - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot、OneBot target / identity resolution、plugin lifecycle、插件商店、可信代码确认与安装、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system、scheduler、recovery、runtime bootstrap、render templates 以及更新状态与检查入口
+  - `POST /api/launcher/shutdown` 可选 `intent: stop | restart | update`，省略为 `stop`；首次优雅关闭请求固定停机意图。`POST /api/system/shutdown` 始终为 `stop`。
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
   - 插件列表、详情及生命周期详情响应返回当前生效的 `command_prefixes` 与 `dedicated_command_prefixes`；用法示例使用前者的第一项，专属前缀标记使用后者。
@@ -51,6 +52,7 @@
   - `TaskStatusResponse.error_code` 等标注 `x-error-code-registry: contracts/error-codes.yaml` 的字段，取值必须是该目录已登记的 code；契约校验对 fixtures 与 examples 强制执行。
 - `websocket-events.yaml`
   - 当前已固定的管理 WebSocket envelope、事件名和 payload 约束
+  - `events.received` 服务状态快照仅在 `stopping` 时携带可选 `stop_intent`；`restart` / `update` 的断线为临时中断，客户端继续重连，缺省按 `stop` 处理。
   - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`
   - 插件状态、诊断及命令运行态投影引用 OpenAPI 的同一 schema；命令触发器、权限级别、帮助与分组等声明字段引用 `plugin-info.schema.json` 的定义。静态 manifest 与含有效命令名的运行态投影保持各自的 required 字段。
 - `plugin-info.schema.json`

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -24,10 +25,11 @@ type Frame struct {
 }
 
 type ServiceStatusPayload struct {
-	ServiceStatus string   `json:"service_status"`
-	Summary       string   `json:"summary"`
-	Reason        string   `json:"reason,omitempty"`
-	ReasonCodes   []string `json:"reason_codes,omitempty"`
+	ServiceStatus string               `json:"service_status"`
+	StopIntent    systemsvc.StopIntent `json:"stop_intent,omitempty"`
+	Summary       string               `json:"summary"`
+	Reason        string               `json:"reason,omitempty"`
+	ReasonCodes   []string             `json:"reason_codes,omitempty"`
 }
 
 type PluginStatePayload struct {

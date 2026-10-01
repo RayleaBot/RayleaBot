@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,8 +17,14 @@ import (
 )
 
 func TestRunningAppWritesStoppingBeforeClosingEveryEventSubscriber(t *testing.T) {
-	for _, entry := range []string{"/api/launcher/shutdown", "/api/system/shutdown", "signal context"} {
-		t.Run(entry, func(t *testing.T) {
+	for _, tc := range []struct{ name, entry, body, intent, summary string }{
+		{"launcher default", "/api/launcher/shutdown", "", "stop", "服务正在停止"},
+		{"launcher restart", "/api/launcher/shutdown", `{"intent":"restart"}`, "restart", "服务正在重启"},
+		{"launcher update", "/api/launcher/shutdown", `{"intent":"update"}`, "update", "服务正在安装更新"},
+		{"system", "/api/system/shutdown", "", "stop", "服务正在停止"},
+		{"signal", "signal context", "", "stop", "服务正在停止"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			ctx, stopTest := context.WithTimeout(t.Context(), 10*time.Second)
 			defer stopTest()
 			// The outbound adapter request synchronizes with App.Run after it
@@ -79,11 +86,11 @@ func TestRunningAppWritesStoppingBeforeClosingEveryEventSubscriber(t *testing.T)
 			case <-ctx.Done():
 				t.Fatal("App.Run did not start its adapter")
 			}
-			if entry == "signal context" {
+			if tc.entry == "signal context" {
 				// main's signal.NotifyContext cancels this same parent context.
 				cancelRun()
 			} else {
-				request, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL+entry, nil)
+				request, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL+tc.entry, strings.NewReader(tc.body))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -116,6 +123,8 @@ func TestRunningAppWritesStoppingBeforeClosingEveryEventSubscriber(t *testing.T)
 						Type    string `json:"type"`
 						Data    struct {
 							ServiceStatus string `json:"service_status"`
+							StopIntent    string `json:"stop_intent"`
+							Summary       string `json:"summary"`
 						} `json:"data"`
 					}
 					if err := json.Unmarshal(payload, &frame); err != nil {
@@ -123,6 +132,9 @@ func TestRunningAppWritesStoppingBeforeClosingEveryEventSubscriber(t *testing.T)
 					}
 					if frame.Channel == "events" && frame.Type == "events.received" && frame.Data.ServiceStatus == "stopping" {
 						stopping = true
+						if frame.Data.StopIntent != tc.intent || frame.Data.Summary != tc.summary {
+							t.Fatalf("subscriber %d stopping data = %#v, want intent %q and summary %q", i, frame.Data, tc.intent, tc.summary)
+						}
 					}
 				}
 			}
