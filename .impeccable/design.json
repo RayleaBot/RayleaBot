@@ -1456,7 +1456,7 @@
       },
       {
         "name": "The Embedded Content Rule",
-        "body": "需要连续工作的预览和控制台通过 AppTabs 的 keepAlive 保留隐藏节点；插件管理面 Host 使用 AppLoadingPanel 表达忙碌并暂时阻止内容交互，不因加载提示重建 iframe。Host 管理错误恢复和显式重载，独立插件页面管理自己的内部组件。",
+        "body": "需要连续工作的预览和控制台通过 AppTabs 的 keepAlive 保留隐藏节点；插件管理面 Host 使用 AppLoadingPanel 表达忙碌并暂时阻止内容交互：内容保持原位，上方浮一枚与 Toast 同族的不透明加载胶囊，不铺半透明遮罩，也不因加载提示重建 iframe。Host 管理错误恢复和显式重载，独立插件页面管理自己的内部组件。",
         "section": "components"
       },
       {

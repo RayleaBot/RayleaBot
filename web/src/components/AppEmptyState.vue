@@ -70,7 +70,11 @@ const iconClass = computed(() => `app-empty-state__icon--${props.icon ?? 'generi
   text-align: center;
 }
 
+// The drawing's shapes are mixed with the colour under them (the plate, or the box when the plate is left out) so
+// they stay opaque.
 .app-empty-state__visual {
+  --empty-state-ground: var(--empty-state-plate-ground, var(--surface-soft));
+
   width: 80px;
   height: 80px;
   border-radius: var(--radius-xl);
@@ -117,14 +121,14 @@ const iconClass = computed(() => `app-empty-state__icon--${props.icon ?? 'generi
   width: 28px;
   height: 8px;
   border-radius: 2px 2px 0 0;
-  background: color-mix(in srgb, var(--muted) 35%, transparent);
+  background: color-mix(in srgb, var(--muted) 35%, var(--empty-state-ground));
 }
 
 .css-icon-box__body {
   width: 24px;
   height: 16px;
   border-radius: 0 0 3px 3px;
-  background: color-mix(in srgb, var(--muted) 22%, transparent);
+  background: color-mix(in srgb, var(--muted) 22%, var(--empty-state-ground));
 }
 
 .css-icon-search {
@@ -137,7 +141,7 @@ const iconClass = computed(() => `app-empty-state__icon--${props.icon ?? 'generi
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 2.5px solid color-mix(in srgb, var(--muted) 40%, transparent);
+  border: 2.5px solid color-mix(in srgb, var(--muted) 40%, var(--empty-state-ground));
 }
 
 .css-icon-search__handle {
@@ -147,7 +151,7 @@ const iconClass = computed(() => `app-empty-state__icon--${props.icon ?? 'generi
   width: 10px;
   height: 2.5px;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--muted) 40%, transparent);
+  background: color-mix(in srgb, var(--muted) 40%, var(--empty-state-ground));
   transform: rotate(45deg);
   transform-origin: left center;
 }
@@ -162,7 +166,7 @@ const iconClass = computed(() => `app-empty-state__icon--${props.icon ?? 'generi
   font-family: var(--font-mono);
   font-size: 1.1rem;
   font-weight: 600;
-  color: color-mix(in srgb, var(--muted) 50%, transparent);
+  color: color-mix(in srgb, var(--muted) 50%, var(--empty-state-ground));
   letter-spacing: 0.04em;
 }
 
@@ -177,7 +181,7 @@ const iconClass = computed(() => `app-empty-state__icon--${props.icon ?? 'generi
   width: 26px;
   height: 14px;
   border-radius: 3px;
-  background: color-mix(in srgb, var(--muted) 25%, transparent);
+  background: color-mix(in srgb, var(--muted) 25%, var(--empty-state-ground));
 }
 
 .css-icon-plugin__block--small {
@@ -195,7 +199,7 @@ const iconClass = computed(() => `app-empty-state__icon--${props.icon ?? 'generi
 .css-icon-log__line {
   height: 3px;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--muted) 28%, transparent);
+  background: color-mix(in srgb, var(--muted) 28%, var(--empty-state-ground));
 }
 
 .css-icon-log__line--short {

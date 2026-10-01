@@ -235,7 +235,7 @@ Web 只提供桌面布局，使用可收起的持久导航与单一工作区，�
 
 页面、盒子与控件三级明暗配合柔和阴影提供主要层级：盒子以表面阴影抬起，盒子里的小控件、选中导航与分段滑块以 raised 阴影抬起，菜单、选择器浮层、说明弹层、抽屉、Dialog 与 Toast 以浮层阴影抬起。所有表面不透明，不使用渐变、背景模糊或半透明材质；两套主题的阴影与 sticky、menu、drawer、modal、toast、emergency 层级由 sidecar 记录。
 
-Web 产品弹窗、抽屉、菜单、说明弹层与选择器浮层使用浅灰表面并消费浮层阴影。Toast 与连接中断提示不依附触发器，会落在白色页面或浅灰盒子上，使用 raised 表面、1px 边界与浮层阴影。遮罩是纯色压暗：浅色主题为 28% 的黑色，暗色主题为 50% 的黑色。Tooltip 使用正文色作底、表面色作文字，保持独立的高对比提示。
+Web 产品弹窗、抽屉、菜单、说明弹层与选择器浮层使用浅灰表面并消费浮层阴影。Toast 与连接中断提示不依附触发器，会落在白色页面或浅灰盒子上，使用 raised 表面、1px 边界与浮层阴影。遮罩是纯色压暗：浅色主题为 28% 的黑色，暗色主题为 50% 的黑色。Tooltip 使用正文色作底、表面色作文字，保持独立的高对比提示。危险操作按钮的浅红底与空状态插图的图形都由色调与所在容器的底色混合而成，同样不透明，不透出下层内容。
 
 **The Web Overlay Stack Rule.** Web 弹窗与抽屉遮罩从 1200 起按打开顺序递增 20，内容位于所属遮罩上方 1 层；嵌套菜单、说明弹层和选择器继承所属层级再加 5，Tooltip 加 8。未嵌套菜单、说明弹层、选择器和 Tooltip 的基准为 1100，Toast 为 1600，使退出中的菜单留在新打开的抽屉下方。这些 Web 局部层级不改变共享基础层级或 Launcher。
 
@@ -401,7 +401,7 @@ Launcher 动效由 Motion 驱动：工作区以 220ms 从 0.88 不透明度淡�
 
 插件页面、聊天卡片与渲染模板拥有独立内容和样式边界，视觉体系由各插件仓库自行维护；其管理面 Host 使用本体系。独立 iframe 不继承宿主 CSS、字体或组件运行时，内部页面保留自身组件库；页面与宿主同源加载，Vue SDK 可选地把宿主主题变量提供给页面，详见 [插件管理面](docs/design/plugin-management-surface.md)。
 
-**The Embedded Content Rule.** 需要连续工作的预览和控制台通过 AppTabs 的 keepAlive 保留隐藏节点；插件管理面 Host 使用 AppLoadingPanel 表达忙碌并暂时阻止内容交互，不因加载提示重建 iframe。Host 管理错误恢复和显式重载，独立插件页面管理自己的内部组件。
+**The Embedded Content Rule.** 需要连续工作的预览和控制台通过 AppTabs 的 keepAlive 保留隐藏节点；插件管理面 Host 使用 AppLoadingPanel 表达忙碌并暂时阻止内容交互：内容保持原位，上方浮一枚与 Toast 同族的不透明加载胶囊，不铺半透明遮罩，也不因加载提示重建 iframe。Host 管理错误恢复和显式重载，独立插件页面管理自己的内部组件。
 
 [`PluginManagementUIHost`](web/src/components/plugins/PluginManagementUIHost.vue) 保留现有 iframe 高度同步与 160ms CSS 高度过渡，不与 Motion 叠加；reduced-motion 和 forced-colors 由共享响应式样式将该过渡压缩为即时呈现。
 

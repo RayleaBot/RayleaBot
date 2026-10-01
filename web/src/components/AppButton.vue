@@ -31,7 +31,11 @@ withDefaults(defineProps<{
 .app-button[data-variant=outline] { border-color: transparent; background: var(--control-fill); color: var(--text); box-shadow: var(--shadow-xs); }
 .app-button[data-variant=outline]:hover, .app-button[data-variant=outline][aria-expanded=true] { background: var(--control-fill-hover); }
 .app-button[data-variant=ghost]:hover, .app-button[data-variant=ghost][aria-expanded=true] { background: var(--nav-hover); }
-.app-button[data-variant=destructive] { color: var(--text-danger); }
+/* Destructive buttons tint their container's control fill instead of letting the surface show through. */
+.app-button[data-variant=destructive] { --destructive-tint: 10%; color: var(--text-danger); background: color-mix(in srgb, var(--text-danger) var(--destructive-tint), var(--control-fill)); }
+.app-button[data-variant=destructive]:hover { --destructive-tint: 16%; }
+:global([data-theme=dark]) .app-button[data-variant=destructive] { --destructive-tint: 18%; }
+:global([data-theme=dark]) .app-button[data-variant=destructive]:hover { --destructive-tint: 26%; }
 .app-button[data-variant=link] { color: var(--brand-foreground); }
 .app-button:disabled { cursor: not-allowed; box-shadow: none; }
 @media (pointer: coarse) { .app-button { min-width: 44px; min-height: 44px; } }
