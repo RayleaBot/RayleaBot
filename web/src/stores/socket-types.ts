@@ -21,6 +21,7 @@ export type SocketSnapshotMap = Record<SocketChannelKey, SocketSnapshot>
 
 export type PluginStateEvent = Extract<EventsPayload, { plugin_id: string }>
 export type AdaptersSnapshotEvent = Extract<EventsPayload, { adapters: unknown }>
+export type MessageStatsChangedEvent = Extract<EventsPayload, { message_stats: unknown }>
 
 export interface PluginSocketProjection {
   id: string
@@ -55,6 +56,9 @@ export interface SocketFrameRouterDependencies {
   }
   adapters: {
     applySnapshot: (adapters: AdaptersSnapshotEvent['adapters']) => void
+  }
+  messageStats: {
+    notifyChanged: () => void
   }
 }
 

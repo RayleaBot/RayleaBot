@@ -290,6 +290,51 @@ describe('socket frame router', () => {
     ])
   })
 
+  it('hands message statistics notices to their reader and nothing else', async () => {
+    const dependencies = {
+      system: {
+        applyEvent: vi.fn(),
+        refreshStatus: vi.fn().mockResolvedValue(undefined),
+      },
+      plugins: {
+        upsert: vi.fn(),
+      },
+      pluginConsole: {
+        appendOutboundLog: vi.fn(),
+        appendConsole: vi.fn(),
+      },
+      schedulerJobs: {
+        scheduleDataSourceRefresh: vi.fn(),
+      },
+      logs: {
+        appendBatch: vi.fn(),
+      },
+      governance: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
+      adapters: {
+        applySnapshot: vi.fn(),
+      },
+      messageStats: {
+        notifyChanged: vi.fn(),
+      },
+    }
+    const router = createSocketFrameRouter(dependencies)
+
+    router.handleEventsFrame({
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-10-01T06:30:02Z',
+      data: { message_stats: { changed_at: '2026-10-01T06:30:02Z', adapter_ids: ['onebot11', 'qq-official'] } },
+    })
+    await vi.advanceTimersByTimeAsync(200)
+
+    expect(dependencies.messageStats.notifyChanged).toHaveBeenCalledTimes(1)
+    expect(dependencies.system.refreshStatus).not.toHaveBeenCalled()
+    expect(dependencies.governance.refresh).not.toHaveBeenCalled()
+    expect(dependencies.adapters.applySnapshot).not.toHaveBeenCalled()
+  })
+
   it('debounces governance refresh when governance.changed arrives repeatedly', async () => {
     const dependencies = {
       system: {

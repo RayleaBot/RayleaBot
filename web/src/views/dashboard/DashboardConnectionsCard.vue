@@ -28,6 +28,7 @@ import {
   type MessageSplit,
 } from '@/views/dashboard/message-stats'
 import { useMessageStats } from '@/views/dashboard/useMessageStats'
+import { useTweenedNumber } from '@/views/dashboard/useTweenedNumber'
 
 const titleId = useId()
 const router = useRouter()
@@ -37,7 +38,8 @@ const configStore = useConfigStore()
 const { effectiveTimezone, logRetentionDays } = storeToRefs(configStore)
 
 const period = ref<MessagePeriod>({ kind: 'preset', preset: 'week' })
-const { stats, loading, error, reload } = useMessageStats(period)
+const { stats, loading, error, open, live, updatedAt, pulse, reload } = useMessageStats(period)
+const periodSubject = computed(() => JSON.stringify(period.value))
 
 const arrangement = computed(() => arrangeConnections(adapters.value, stats.value))
 const entries = computed(() => arrangement.value.entries)
@@ -46,6 +48,15 @@ const splitChoice = ref<MessageSplit>('connection')
 const split = computed<MessageSplit>(() => (entries.value.length > 1 ? splitChoice.value : 'direction'))
 const layers = computed(() => (stats.value ? buildLayers(stats.value, arrangement.value, split.value) : null))
 const total = computed(() => (stats.value ? stats.value.totals.received + stats.value.totals.sent : 0))
+// The first reading of a period shows at once; later readings of it roll to the new total.
+const shownTotal = useTweenedNumber(() => total.value, () => `${periodSubject.value}|${stats.value ? 'read' : 'unread'}`)
+// Live while the window is still counting and the event stream is up; otherwise say when the figures were read.
+const clockFormat = computed(() => new Intl.DateTimeFormat(i18n.global.locale.value, { timeZone: effectiveTimezone.value, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }))
+const freshness = computed(() => {
+  if (!stats.value || !open.value) return null
+  if (live.value) return { live: true, text: t('dashboard.messages.live'), hint: t('dashboard.messages.liveHint') }
+  return { live: false, text: t('dashboard.messages.updatedAt', { time: clockFormat.value.format(updatedAt.value ?? Date.now()) }), hint: t('dashboard.messages.pausedHint') }
+})
 const previousTotal = computed(() => (stats.value?.previous ? stats.value.previous.received + stats.value.previous.sent : null))
 
 const connected = computed(() => adapters.value.filter(adapter => adapter.enabled && adapter.state === 'connected').length)
@@ -151,6 +162,7 @@ function retryAdapters() {
           :time-zone="effectiveTimezone"
           :focus-key="focusKey"
           :logs-from="logsFrom"
+          :pulse="pulse"
           @open-logs="openLogs"
         />
         <AppAlert v-else-if="error" tone="danger" :title="t('dashboard.messages.loadFailed')" :description="error" class="connections-card__chart-state">
@@ -164,12 +176,17 @@ function retryAdapters() {
 
       <div class="connections-card__panel">
         <div class="connections-card__panel-head">
-          <span>{{ totalLabel }}</span>
+          <span class="connections-card__label">
+            {{ totalLabel }}
+            <span v-if="freshness" class="connections-card__live" :data-live="freshness.live || undefined" :title="freshness.hint">
+              <span class="connections-card__signal" aria-hidden="true"><i v-if="freshness.live && pulse" :key="pulse" /></span>{{ freshness.text }}
+            </span>
+          </span>
           <AppSegmented v-if="entries.length > 1" v-model="splitChoice" class="connections-card__split" :label="t('dashboard.messages.split.label')" :options="[{ value: 'connection', label: t('dashboard.messages.split.connection') }, { value: 'direction', label: t('dashboard.messages.split.direction') }]" />
         </div>
         <div class="connections-card__total">
           <template v-if="stats">
-            <b>{{ fmt(total) }}</b><small>{{ t('dashboard.messages.unit') }}</small>
+            <b>{{ fmt(shownTotal) }}</b><small>{{ t('dashboard.messages.unit') }}</small>
             <MessageDelta :value="total" :previous="previousTotal" />
           </template>
           <AppSkeleton v-else :rows="1" class="connections-card__total-skeleton" />
@@ -191,6 +208,7 @@ function retryAdapters() {
               :compared="compared"
               :incidents="stats?.incidents"
               :solo="solo"
+              :subject="periodSubject"
               :class="{ 'is-focus': focusKey === entry.id }"
             />
           </li>
@@ -218,7 +236,7 @@ function retryAdapters() {
                       <h4>{{ t(`dashboard.messages.groups.${group.key}`) }} · {{ group.entries.length }}<small v-if="group.note">{{ group.note }}</small></h4>
                       <ul>
                         <li v-for="entry in group.entries" :key="entry.id" @pointerenter="focusEntry(entry)" @pointerleave="focusEntry(null)">
-                          <ConnectionStatsRow :entry="entry" :color="colorOf(entry)" :share="shareOf(entry)" :compared="compared" :incidents="stats?.incidents" wide @click="allOpen = false" />
+                          <ConnectionStatsRow :entry="entry" :color="colorOf(entry)" :share="shareOf(entry)" :compared="compared" :incidents="stats?.incidents" :subject="periodSubject" wide @click="allOpen = false" />
                         </li>
                       </ul>
                     </section>
@@ -265,6 +283,20 @@ function retryAdapters() {
 
 .connections-card__panel { display: grid; min-width: 0; }
 .connections-card__panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; color: var(--muted); font-size: var(--font-size-sm); }
+.connections-card__label { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+// The live mark is the reconnect signal at rest: a dot on a soft disc that sends one ring when new counts arrive.
+.connections-card__live { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: var(--font-size-xs); font-weight: 500; white-space: nowrap; }
+.connections-card__live[data-live] { color: var(--success); }
+.connections-card__signal { position: relative; z-index: 0; display: grid; flex: none; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: var(--surface-soft); }
+.connections-card__signal::before { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); content: ''; }
+.connections-card__live[data-live] .connections-card__signal { background: var(--success-soft); }
+.connections-card__live[data-live] .connections-card__signal::before { background: var(--success); }
+.connections-card__signal i { position: absolute; z-index: -1; inset: 0; border-radius: 50%; background: var(--success-soft); animation: connections-card-ping 1.4s cubic-bezier(0, 0, 0.2, 1) both; }
+@keyframes connections-card-ping {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(2.4); }
+}
+@media (prefers-reduced-motion: reduce) { .connections-card__signal i { animation: none; opacity: 0; } }
 .connections-card__split :deep(.app-segmented__item) { min-height: 26px; padding: 2px 10px; font-size: var(--font-size-xs); }
 .connections-card__total { display: flex; align-items: baseline; gap: 8px; min-height: 40px; }
 .connections-card__total b { font-size: 34px; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }

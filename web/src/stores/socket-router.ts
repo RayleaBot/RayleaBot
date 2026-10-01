@@ -8,6 +8,7 @@ import type {
 } from '@/types/api'
 import type {
   AdaptersSnapshotEvent,
+  MessageStatsChangedEvent,
   PluginStateEvent,
   SocketFrameRouter,
   SocketFrameRouterDependencies,
@@ -34,6 +35,12 @@ export function createSocketFrameRouter(
   function handleEventsFrame(frame: WebSocketFrame<EventsPayload>) {
     if (frame.type !== webSocketEvents.eventsReceived) return
     dependencies.system.applyEvent(frame.timestamp, frame.data)
+
+    // Message counts are reread by whoever shows them; the notice itself never enters the recent events.
+    if (isMessageStatsChangedEvent(frame.data)) {
+      dependencies.messageStats.notifyChanged()
+      return
+    }
 
     if (isServiceStatusEvent(frame.data)) {
       statusRefresh.schedule()
@@ -120,6 +127,10 @@ function isServiceStatusEvent(payload: EventsPayload): payload is Extract<Events
 
 function isPluginStateEvent(payload: EventsPayload): payload is PluginStateEvent {
   return 'plugin_id' in payload
+}
+
+function isMessageStatsChangedEvent(payload: EventsPayload): payload is MessageStatsChangedEvent {
+  return 'message_stats' in payload && typeof payload.message_stats === 'object' && payload.message_stats !== null
 }
 
 function isAdaptersSnapshotEvent(payload: EventsPayload): payload is AdaptersSnapshotEvent {

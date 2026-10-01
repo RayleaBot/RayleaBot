@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useNow } from '@vueuse/core'
 import { BotIcon, ChevronRightIcon, CircleCheckIcon, CircleMinusIcon, CircleXIcon, RadioTowerIcon, TriangleAlertIcon } from '@lucide/vue'
 
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
@@ -10,6 +11,7 @@ import { buildProtocolsLocation } from '@/lib/management-links'
 import type { MessageStatsIncident } from '@/types/api'
 import type { StatusRowTone } from '@/views/dashboard/dashboard-status'
 import MessageDelta from '@/views/dashboard/MessageDelta.vue'
+import { useTweenedNumber } from '@/views/dashboard/useTweenedNumber'
 import type { ConnectionEntry } from '@/views/dashboard/message-stats'
 
 const props = withDefaults(defineProps<{
@@ -25,7 +27,9 @@ const props = withDefaults(defineProps<{
   wide?: boolean
   // A single connection is the total, so its row only reports status.
   solo?: boolean
-}>(), { color: null, share: null, compared: false, incidents: () => [], wide: false, solo: false })
+  // The period being shown; a new one shows its counts at once instead of rolling to them.
+  subject?: string
+}>(), { color: null, share: null, compared: false, incidents: () => [], wide: false, solo: false, subject: '' })
 
 const adapter = computed(() => props.entry.adapter)
 const protocol = computed(() => adapter.value?.protocol ?? props.entry.stats?.protocol ?? 'onebot11')
@@ -42,9 +46,15 @@ const stateText = computed(() => {
   return getAdapterStateLabel(adapter.value?.state)
 })
 const stateIcons: Record<StatusRowTone, unknown> = { success: CircleCheckIcon, warning: TriangleAlertIcon, danger: CircleXIcon, info: CircleMinusIcon, muted: CircleMinusIcon }
+// Relative times keep moving between readings.
+const now = useNow({ interval: 5_000 })
+const shownTotal = useTweenedNumber(() => props.entry.total, () => `${props.subject}|${props.entry.id}|${props.entry.stats ? 'read' : 'unread'}`)
 const lastReceived = computed(() => {
   const at = props.entry.stats?.last_received_at
-  return at ? t('dashboard.messages.lastReceived', { time: formatRelativeTime(at) }) : t('dashboard.messages.neverReceived')
+  if (!at) return t('dashboard.messages.neverReceived')
+  // Within the last few seconds a counting clock reads oddly ("0 秒前"), so it just says it was now.
+  if (now.value.getTime() - Date.parse(at) < 10_000) return t('dashboard.messages.receivedJustNow')
+  return t('dashboard.messages.lastReceived', { time: formatRelativeTime(at) })
 })
 const meta = computed(() => {
   if (props.entry.stage === 'removed') return t('dashboard.messages.removedDetail')
@@ -72,7 +82,7 @@ const link = computed(() => (props.entry.stage === 'removed' ? null : buildProto
       <span v-if="outages.length" class="connection-row__outage" :title="outageTitle">{{ t('dashboard.messages.outages', { count: outages.length }) }}</span>
     </span>
     <span v-if="!solo && entry.stats" class="connection-row__count">
-      <b>{{ numberFormat.format(entry.total) }}</b><small v-if="share !== null">{{ Math.round(share * 100) }}%</small>
+      <b>{{ numberFormat.format(shownTotal) }}</b><small v-if="share !== null">{{ Math.round(share * 100) }}%</small>
     </span>
     <span class="connection-row__go" aria-hidden="true"><ChevronRightIcon v-if="link" /></span>
     <span class="connection-row__meta">{{ meta }}</span>

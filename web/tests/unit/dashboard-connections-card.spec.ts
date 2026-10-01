@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { useAdaptersStore } from '@/stores/adapters'
 import { useConfigStore } from '@/stores/config'
+import { useMessageStatsLiveStore } from '@/stores/message-stats-live'
 import type { AdapterDescriptor, MessageStatsConnection, MessageStatsResponse } from '@/types/api'
 import DashboardConnectionsCard from '@/views/dashboard/DashboardConnectionsCard.vue'
 
@@ -114,6 +115,44 @@ describe('DashboardConnectionsCard', () => {
     const query = new URLSearchParams(String(http.apiRequest.mock.calls.at(-1)![0]).split('?')[1])
     expect(query.get('granularity')).toBe('day')
     wrapper.unmount()
+  })
+
+  it('rereads the counts shortly after the server announces a change', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    try {
+      const { wrapper } = await mountCard([adapter('onebot11', '小雷')], response([connection('onebot11', 5)]))
+      expect(http.apiRequest).toHaveBeenCalledTimes(1)
+      http.apiRequest.mockResolvedValue(response([connection('onebot11', 9)]))
+
+      useMessageStatsLiveStore().notifyChanged()
+      await flushPromises()
+      await vi.advanceTimersByTimeAsync(1_000)
+      await flushPromises()
+
+      expect(http.apiRequest).toHaveBeenCalledTimes(2)
+      wrapper.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('leaves a finished period alone when changes are announced', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    try {
+      const finished = { ...response([connection('onebot11', 5)]), end_at: '2026-09-30T16:00:00Z' }
+      const { wrapper } = await mountCard([adapter('onebot11', '小雷')], finished)
+
+      useMessageStatsLiveStore().notifyChanged()
+      await flushPromises()
+      await vi.advanceTimersByTimeAsync(2_000)
+      await flushPromises()
+
+      expect(http.apiRequest).toHaveBeenCalledTimes(1)
+      expect(wrapper.text()).not.toContain('实时')
+      wrapper.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('invites adding a connection when there is none', async () => {

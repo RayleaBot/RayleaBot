@@ -9,6 +9,7 @@ import { useLogsStore } from '@/stores/logs'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
 import { useAdaptersStore } from '@/stores/adapters'
+import { useMessageStatsLiveStore } from '@/stores/message-stats-live'
 import { useSessionStore } from '@/stores/session'
 import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
 import { useSystemStore } from '@/stores/system'
@@ -23,6 +24,7 @@ export const useSocketStore = defineStore('sockets', () => {
   const governanceStore = useGovernanceStore()
   const adaptersStore = useAdaptersStore()
   const systemStore = useSystemStore()
+  const messageStatsLive = useMessageStatsLiveStore()
 
   const router = createSocketFrameRouter({
     system: {
@@ -49,6 +51,9 @@ export const useSocketStore = defineStore('sockets', () => {
     },
     adapters: {
       applySnapshot: adaptersStore.applySnapshot,
+    },
+    messageStats: {
+      notifyChanged: messageStatsLive.notifyChanged,
     },
   })
 

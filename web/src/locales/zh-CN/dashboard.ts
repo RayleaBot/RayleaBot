@@ -71,6 +71,7 @@ export const dashboard = {
     nameSeparator: '、',
     removedDetail: '已从配置中删除，只保留统计',
     lastReceived: '最近收到 {time}',
+    receivedJustNow: '刚刚收到',
     neverReceived: '还没有收到消息',
     outages: '断线 {count} 次',
     today: '今天',
@@ -98,6 +99,10 @@ export const dashboard = {
     rangeEarliest: '最早可选 {date}',
     byHour: '按小时统计',
     byDay: '按天统计',
+    live: '实时',
+    liveHint: '有新消息或连接中断时，几秒内更新',
+    updatedAt: '更新于 {time}',
+    pausedHint: '实时连接已断开，暂时每分钟刷新一次',
   },
   update: {
     check: '检查更新',

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { useElementSize } from '@vueuse/core'
 
 import { i18n, t } from '@/i18n'
+import { prefersReducedMotion } from '@/motion/runtime'
 import type { MessageStatsIncident, MessageStatsResponse } from '@/types/api'
 import {
   bucketEnd,
@@ -28,8 +29,10 @@ const props = withDefaults(defineProps<{
   focusKey?: string | null
   // Buckets that end after this instant (epoch ms) can open the history logs; null when the logs are not kept.
   logsFrom?: number | null
+  // Grows each time a reading of the same period brought more messages; the newest point answers with one pulse.
+  pulse?: number
   height?: number
-}>(), { focusKey: null, logsFrom: null, height: 330 })
+}>(), { focusKey: null, logsFrom: null, pulse: 0, height: 330 })
 const emit = defineEmits<{ openLogs: [range: { startAt: string; endAt: string }] }>()
 
 const host = ref<HTMLElement | null>(null)
@@ -61,7 +64,35 @@ const domain = computed(() => {
   return { start, end: Math.max(last ?? asOf.value, start + step) }
 })
 const x = (time: number) => padding.value.left + ((time - domain.value.start) / (domain.value.end - domain.value.start)) * plot.value.width
-const tops = computed(() => props.layers.map((_, index) => starts.value.map((__, bucket) => props.layers.slice(0, index + 1).reduce((sum, layer) => sum + (layer.values[bucket] ?? 0), 0))))
+
+// A live reading of the same buckets glides the curves to their new values; other changes redraw at once. The tooltip
+// always reads the exact values from the props.
+const shown = shallowRef<number[][]>(props.layers.map(layer => [...layer.values]))
+let tweenFrame = 0
+watch(() => [props.stats.buckets, props.layers] as const, ([buckets, layers], [previousBuckets, previousLayers]) => {
+  cancelAnimationFrame(tweenFrame)
+  const target = layers.map(layer => [...layer.values])
+  const sameShape = buckets.length === previousBuckets.length && buckets[0] === previousBuckets[0]
+    && layers.length === previousLayers.length && layers.every((layer, index) => layer.key === previousLayers[index]?.key)
+  if (!sameShape || prefersReducedMotion() || typeof requestAnimationFrame !== 'function') {
+    shown.value = target
+    return
+  }
+  const from = shown.value
+  const started = performance.now()
+  const step = (time: number) => {
+    const progress = Math.min(1, (time - started) / 450)
+    const eased = 1 - (1 - progress) ** 3
+    shown.value = target.map((values, layer) => values.map((value, bucket) => {
+      const before = from[layer]?.[bucket] ?? value
+      return before + (value - before) * eased
+    }))
+    if (progress < 1) tweenFrame = requestAnimationFrame(step)
+  }
+  tweenFrame = requestAnimationFrame(step)
+})
+onScopeDispose(() => cancelAnimationFrame(tweenFrame))
+const tops = computed(() => props.layers.map((_, index) => starts.value.map((__, bucket) => shown.value.slice(0, index + 1).reduce((sum, values) => sum + (values[bucket] ?? 0), 0))))
 const totals = computed(() => tops.value.at(-1) ?? starts.value.map(() => 0))
 const scale = computed(() => niceScale(Math.max(1, ...totals.value)))
 const y = (value: number) => padding.value.top + plot.value.height - (value / scale.value.max) * plot.value.height
@@ -117,6 +148,15 @@ const shapes = computed(() => {
       stroke: muted ? 'var(--chart-muted-line)' : layerColor(layer.color),
     }
   })
+})
+
+// The newest point of an open period marks "now"; when more messages arrive it sends out one ring.
+const head = computed(() => {
+  const last = starts.value.length - 1
+  if (last < 0 || !plot.value.width || !partial.value) return null
+  const top = props.layers.length - 1
+  const muted = props.focusKey !== null && props.layers[top]?.key !== props.focusKey
+  return { x: x(starts.value[last]!), y: y(tops.value[top]?.[last] ?? 0), stroke: muted ? 'var(--chart-muted-line)' : layerColor(props.layers[top]?.color ?? 0) }
 })
 
 const tracking = computed(() => {
@@ -252,6 +292,10 @@ function onKeydown(event: KeyboardEvent) {
         <text class="message-chart__note" :x="tracking.x - 8" :y="padding.top + 14" text-anchor="end">{{ tracking.label }}</text>
         <text v-if="tracking.emptyX !== null" class="message-chart__empty" :x="tracking.emptyX" :y="padding.top + plot.height / 2 + 4" text-anchor="middle">{{ t('dashboard.messages.notTrackedYet') }}</text>
       </template>
+      <template v-if="head">
+        <circle v-if="pulse" :key="`pulse-${pulse}`" class="message-chart__pulse" :cx="head.x" :cy="head.y" r="4" :fill="head.stroke" />
+        <circle class="message-chart__head" :cx="head.x" :cy="head.y" r="3.5" :fill="head.stroke" />
+      </template>
       <rect v-for="item in track" :key="item.key" class="message-chart__incident" :data-kind="item.kind" :x="item.x" :y="padding.top + plot.height + 9" :width="item.width" height="5" rx="2.5" />
       <template v-if="tooltip">
         <line class="message-chart__cursor" :x1="tooltip.x" :x2="tooltip.x" :y1="padding.top" :y2="padding.top + plot.height" />
@@ -284,6 +328,14 @@ function onKeydown(event: KeyboardEvent) {
 .message-chart__incident[data-kind=server_stopped] { fill: var(--muted); }
 .message-chart__cursor { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
 .message-chart__dot { fill: var(--surface-raised); stroke-width: 2; }
+.message-chart__head { stroke: var(--surface); stroke-width: 2; }
+// One soft ring from the newest point, like the reconnect signal; it fades out and stays gone until the next change.
+.message-chart__pulse { transform-box: fill-box; transform-origin: center; opacity: 0; animation: message-chart-pulse 1.2s cubic-bezier(0, 0, 0.2, 1) both; }
+@keyframes message-chart-pulse {
+  from { opacity: .45; transform: scale(1); }
+  to { opacity: 0; transform: scale(4); }
+}
+@media (prefers-reduced-motion: reduce) { .message-chart__pulse { animation: none; } }
 
 // The reading floats above the plot on the raised control surface.
 .message-chart__tooltip { position: absolute; z-index: 2; min-width: 168px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--shadow-floating); color: var(--text); font-size: var(--font-size-xs); white-space: nowrap; pointer-events: none; }
