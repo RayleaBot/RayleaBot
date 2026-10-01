@@ -22,6 +22,7 @@ import PluginPowerButton from '@/components/plugins/PluginPowerButton.vue'
 import PluginCommandsPanel from '@/components/plugins/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
+import { canTogglePluginPower, getPluginReloadBlocker } from '@/lib/plugin-lifecycle'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
@@ -77,6 +78,8 @@ const pluginDisplayName = computed(() => (
   currentPlugin.value?.name?.trim() || pluginsStore.getPluginDisplayName(pluginId.value)
 ))
 const pluginPageTitle = computed(() => t('plugins.detailPageTitle', { name: pluginDisplayName.value }))
+const reloadBlocker = computed(() => currentPlugin.value ? getPluginReloadBlocker(currentPlugin.value.state) : null)
+const powerBlocked = computed(() => Boolean(currentPlugin.value && !canTogglePluginPower(currentPlugin.value.state)))
 
 function returnToPluginList() {
   void navigate({ name: 'plugins' })
@@ -117,7 +120,13 @@ function returnToPluginList() {
 
     <template #extra>
       <div class="table-actions plugin-detail-actions">
+        <AppTooltip v-if="powerBlocked" :title="t('plugins.power.invalid')">
+          <span class="plugin-detail-actions__anchor">
+            <PluginPowerButton :checked="true" disabled :checked-label="t('plugins.power.enabled')" :unchecked-label="t('plugins.power.disabled')" />
+          </span>
+        </AppTooltip>
         <PluginPowerButton
+          v-else
           :checked="currentPlugin?.state !== 'disabled'"
           :loading="actionPending[pluginId] === 'enable' || actionPending[pluginId] === 'disable'"
           :disabled="!currentPlugin"
@@ -125,7 +134,12 @@ function returnToPluginList() {
           :unchecked-label="t('plugins.power.disabled')"
           @click="runAction(getToggleAction())"
         />
-        <AppButton :disabled="!currentPlugin" :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</AppButton>
+        <AppTooltip v-if="reloadBlocker" :title="reloadBlocker">
+          <span class="plugin-detail-actions__anchor">
+            <AppButton disabled>{{ t('plugins.actions.reload') }}</AppButton>
+          </span>
+        </AppTooltip>
+        <AppButton v-else :disabled="!currentPlugin" :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</AppButton>
         <AppButton :disabled="!currentPlugin" :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true" variant="destructive">{{ t('plugins.actions.uninstall') }}</AppButton>
       </div>
     </template>
@@ -266,6 +280,11 @@ function returnToPluginList() {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+// A disabled button takes no pointer events, so its tooltip hangs on a wrapper.
+.plugin-detail-actions__anchor {
+  display: inline-flex;
 }
 
 .plugin-detail-actions :deep(.plugin-holo-button) {

@@ -9,7 +9,7 @@ import AppStatusTag from '@/components/AppStatusTag.vue'
 import AppTag from '@/components/AppTag.vue'
 import PluginCommandsPanel from '@/components/plugins/PluginCommandsPanel.vue'
 import { t } from '@/i18n'
-import { getPluginInstallMethodLabel, getPluginRoleLabel, getPluginStateLabel, getPluginTrustLabel } from '@/lib/display'
+import { getPluginInstallMethodLabel, getPluginStateLabel, getPluginTrustLabel } from '@/lib/display'
 import { buildPluginDetailLocation } from '@/lib/management-links'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import type { PluginSummary } from '@/types/api'
@@ -25,15 +25,14 @@ function openDetail(pluginId: string) {
 </script>
 
 <template>
-  <!-- The drawer is named after its plugin; the facts follow as divided rows. -->
+  <!-- The drawer is named after its plugin; the facts follow as divided rows. The publisher role follows from the trust
+       level and every plugin shares one install root, so neither gets a row. -->
   <AppDrawer :open="open" :title="plugin?.name || t('plugins.actions.summary')" :width="560" @close="$emit('close')">
     <template v-if="plugin">
       <AppDetails>
         <AppDetailItem :label="t('plugins.fields.id')"><span class="plugin-summary-drawer__mono">{{ plugin.id }}</span></AppDetailItem>
         <AppDetailItem :label="t('plugins.fields.state')"><AppStatusTag :label="getPluginStateLabel(plugin.state)" :status="plugin.state" /></AppDetailItem>
-        <AppDetailItem :label="t('plugins.fields.role')">{{ getPluginRoleLabel(plugin.role) }}</AppDetailItem>
         <AppDetailItem :label="t('plugins.fields.trust')">{{ getPluginTrustLabel(plugin.trust?.level) }}</AppDetailItem>
-        <AppDetailItem :label="t('plugins.fields.sourceRoot')"><span class="plugin-summary-drawer__mono">{{ plugin.source?.root ?? t('display.empty') }}</span></AppDetailItem>
         <AppDetailItem :label="t('plugins.fields.sourceRef')">{{ getPluginInstallMethodLabel(plugin.source) }}</AppDetailItem>
         <AppDetailItem :label="t('plugins.fields.conflicts')">
           <div v-if="plugin.command_conflicts?.length" class="table-actions">
@@ -41,7 +40,7 @@ function openDetail(pluginId: string) {
               {{ command }}
             </AppTag>
           </div>
-          <span v-else>{{ t('display.empty') }}</span>
+          <span v-else>{{ t('plugins.overview.function.noConflicts') }}</span>
         </AppDetailItem>
       </AppDetails>
 

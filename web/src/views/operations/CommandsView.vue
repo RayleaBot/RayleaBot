@@ -159,6 +159,7 @@ function getStatusColor(status: PluginCommandAvailability) {
     case 'available':
       return 'success'
     case 'starting':
+    case 'not_running':
     case 'switching':
       return 'warning'
     case 'disabled':

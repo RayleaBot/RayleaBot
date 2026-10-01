@@ -302,10 +302,12 @@ describe('PluginsPage', () => {
     expect(wrapper.find('button[aria-label="管理"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.findAll('.plugin-card__meta .app-tag').filter(tag => tag.text() === '未验证来源')).toHaveLength(1)
-    store.items[0]!.trust = undefined
+    store.items[0]!.source = { root: 'plugins/installed', verified: false }
+    store.items[0]!.trust = { level: 'third_party' }
     await flushPromises()
-    // Without a trust level the unverified source becomes a notice in the same row, still shown once.
-    expect(wrapper.findAll('.plugin-card__meta .app-tag').filter(tag => tag.text() === '未验证来源')).toHaveLength(1)
+    // Without a recorded install method the card says so beside the trust level instead of naming a second level.
+    expect(wrapper.findAll('.plugin-card__meta .app-tag').map(tag => tag.text())).toEqual(expect.arrayContaining(['第三方', '安装方式未记录']))
+    expect(wrapper.findAll('.plugin-card__meta .app-tag').filter(tag => tag.text() === '未验证来源')).toHaveLength(0)
     expect(wrapper.find('.plugins-grid').text()).not.toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
     expect(wrapper.text()).toContain('1 个指令冲突')

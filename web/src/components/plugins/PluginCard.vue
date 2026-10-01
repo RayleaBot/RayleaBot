@@ -10,6 +10,7 @@ import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import PluginPowerButton from '@/components/plugins/PluginPowerButton.vue'
 import { t } from '@/i18n'
 import { formatPluginVersion, getPluginSourceTypeLabel, getPluginStateLabel, getPluginTrustLabel } from '@/lib/display'
+import { canTogglePluginPower, getPluginReloadBlocker } from '@/lib/plugin-lifecycle'
 import { resolveStatusTone, type StatusTone } from '@/lib/status-tone'
 import { usePluginsStore } from '@/stores/plugins'
 import type { PluginSummary } from '@/types/api'
@@ -29,24 +30,20 @@ const attentionTone = computed(() => {
   return tone === 'danger' || tone === 'warning' ? tone : undefined
 })
 const toggleLoading = computed(() => props.pendingAction === 'enable' || props.pendingAction === 'disable' || lifecycleSwitching.value)
-const reloadDisabled = computed(() => props.plugin.state === 'disabled' || lifecycleSwitching.value || props.plugin.state === 'invalid')
+const reloadBlocker = computed(() => getPluginReloadBlocker(props.plugin.state))
+const powerAvailable = computed(() => canTogglePluginPower(props.plugin.state))
 
-// At most three notices keep cards of equal height readable.
+// At most three notices keep cards of equal height readable. The state itself is the status tag in the header,
+// so notices only add what it cannot say.
 const healthNotices = computed(() => {
   const notices: Array<{ label: string; tone: StatusTone }> = []
   const conflicts = props.plugin.command_conflicts?.length ?? 0
   if (conflicts > 0) {
     notices.push({ label: t('plugins.health.commandConflicts', { count: conflicts }), tone: 'warning' })
   }
-  if (props.plugin.source?.verified === false && props.plugin.trust?.level !== 'unverified') {
+  // Without a recorded install method the source cannot be verified; the trust tag beside it already names the level.
+  if (!sourceTypeLabel.value) {
     notices.push({ label: t('plugins.health.unverifiedSource'), tone: 'neutral' })
-  }
-  if (props.plugin.state === 'failed') {
-    notices.push({ label: t('plugins.health.runtimeIssue'), tone: 'danger' })
-  } else if (props.plugin.state === 'invalid') {
-    notices.push({ label: t('plugins.health.invalidManifest'), tone: 'danger' })
-  } else if (props.plugin.state === 'enabled') {
-    notices.push({ label: t('plugins.health.enabledButStopped'), tone: 'warning' })
   }
   return notices.slice(0, 3)
 })
@@ -100,7 +97,7 @@ const healthNotices = computed(() => {
           <template #icon><SettingsIcon /></template>
           {{ t('plugins.actions.manage') }}
         </AppButton>
-        <AppTooltip :title="reloadDisabled ? t('plugins.actions.reloadUnavailable') : t('plugins.actions.reload')">
+        <AppTooltip :title="reloadBlocker ?? t('plugins.actions.reload')">
           <span class="plugin-card__tooltip-anchor">
             <AppButton
               class="plugin-card__icon-action"
@@ -108,7 +105,7 @@ const healthNotices = computed(() => {
               :aria-label="t('plugins.actions.reload')"
               :data-testid="`plugin-reload-button-${plugin.id}`"
               :loading="pendingAction === 'reload'"
-              :disabled="reloadDisabled"
+              :disabled="Boolean(reloadBlocker)"
               @click="$emit('reload')"
             >
               <template #icon><RefreshCwIcon /></template>
@@ -116,16 +113,19 @@ const healthNotices = computed(() => {
           </span>
         </AppTooltip>
       </div>
-      <AppTooltip :title="plugin.state === 'disabled' ? t('plugins.actions.enable') : t('plugins.actions.disable')">
-        <PluginPowerButton
-          icon-only
-          :checked="plugin.state !== 'disabled'"
-          :data-testid="`plugin-enable-button-${plugin.id}`"
-          :loading="toggleLoading"
-          :checked-label="t('plugins.power.enabled')"
-          :unchecked-label="t('plugins.power.disabled')"
-          @click="$emit('toggle')"
-        />
+      <AppTooltip :title="!powerAvailable ? t('plugins.power.invalid') : plugin.state === 'disabled' ? t('plugins.actions.enable') : t('plugins.actions.disable')">
+        <span class="plugin-card__tooltip-anchor">
+          <PluginPowerButton
+            icon-only
+            :checked="plugin.state !== 'disabled'"
+            :disabled="!powerAvailable"
+            :data-testid="`plugin-enable-button-${plugin.id}`"
+            :loading="toggleLoading"
+            :checked-label="t('plugins.power.enabled')"
+            :unchecked-label="t('plugins.power.disabled')"
+            @click="$emit('toggle')"
+          />
+        </span>
       </AppTooltip>
     </footer>
   </article>

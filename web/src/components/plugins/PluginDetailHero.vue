@@ -5,7 +5,7 @@ import AppTag from '@/components/AppTag.vue'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
 import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import { t } from '@/i18n'
-import { formatPluginVersion, getPluginRoleLabel, getPluginTrustLabel } from '@/lib/display'
+import { getPluginTrustLabel } from '@/lib/display'
 import { buildPluginWorkbenchActions } from '@/lib/management-links'
 import { usePluginsStore } from '@/stores/plugins'
 import type { PluginDetail } from '@/types/api'
@@ -15,11 +15,11 @@ const props = defineProps<{ plugin: PluginDetail | null; pluginId: string; plugi
 const pluginsStore = usePluginsStore()
 const workbenchActions = computed(() => buildPluginWorkbenchActions(props.pluginId))
 const requiresTrustAttention = computed(() => props.plugin?.trust?.level === 'unverified')
-const author = computed(() => props.plugin?.author?.trim())
 </script>
 
 <template>
-  <!-- The plugin's identity sits on the white page above the tabs: mark, name and tags, then ID, version and author. -->
+  <!-- The plugin's identity sits on the white page above the tabs: mark, name and trust, then the ID. Version and author
+       belong to the boxes below, and the publisher role is implied by the trust level, so neither repeats here. -->
   <section class="plugin-detail-hero" :aria-label="t('plugins.overview.identity')">
     <span class="plugin-detail-hero__mark">
       <PluginIcon
@@ -33,13 +33,10 @@ const author = computed(() => props.plugin?.author?.trim())
     <div class="plugin-detail-hero__copy">
       <p class="plugin-detail-hero__title">
         <strong class="plugin-title">{{ pluginName }}</strong>
-        <AppTag size="small">{{ getPluginRoleLabel(plugin?.role) }}</AppTag>
         <AppTag size="small" :tone="requiresTrustAttention ? 'attention' : 'neutral'">{{ getPluginTrustLabel(plugin?.trust?.level) }}</AppTag>
       </p>
       <p class="plugin-detail-hero__meta">
         <span class="plugin-id-sub">{{ pluginId }}</span>
-        <template v-if="plugin?.version?.trim()"><span aria-hidden="true">·</span><span>{{ formatPluginVersion(plugin.version) }}</span></template>
-        <template v-if="author"><span aria-hidden="true">·</span><span>{{ t('plugins.overview.author', { author }) }}</span></template>
       </p>
     </div>
     <ManagementContextActions :actions="workbenchActions" />

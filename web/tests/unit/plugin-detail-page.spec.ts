@@ -169,7 +169,6 @@ describe('PluginDetailPage', () => {
     await nextTick()
     expect(health.attributes('data-problem')).toBeUndefined()
     expect(health.text()).toContain('运行中')
-    expect(health.text()).toContain('没有运行诊断')
     wrapper.unmount()
   })
 
@@ -204,6 +203,10 @@ describe('PluginDetailPage', () => {
     expect(health.text()).toContain('清单无效')
     expect(health.text()).toContain('plugins/installed/weather/plugin.json')
     expect(health.findAll('button').some(button => button.text().includes('立即重载'))).toBe(false)
+    // An unreadable manifest declared nothing the page could read, which is not the same as declaring nothing.
+    const functionBox = wrapper.get('[data-testid="plugin-function"]')
+    expect(functionBox.text()).toContain('清单未通过校验')
+    expect(functionBox.text()).not.toContain('未声明')
     wrapper.unmount()
   })
 
@@ -394,16 +397,14 @@ describe('PluginDetailPage', () => {
     delete pluginsStore.current!.block
     await flushPromises()
     expect(handling()).toContain('并发 3 · 优先级 0 · 成功后继续传递')
-    expect(origin.text()).toContain('需要 RayleaBot v0.2.0 或更高')
     const installMethod = origin.findAll('dt').find(term => term.text() === '安装方式')?.element.nextElementSibling?.textContent ?? ''
     expect(installMethod).toContain('本地 ZIP 包')
     expect(installMethod).toContain('C:/plugins/weather.zip')
-    expect(wrapper.text()).toContain('assets/weather.svg')
     const project = wrapper.get('[data-testid="plugin-project"]')
     expect(project.get('a[href="https://github.com/RayleaBot/plugins-weather"]').text()).toBe('github.com/RayleaBot/plugins-weather')
     expect(project.get('a[href="https://plugins.rayleabot.local/weather"]').text()).toBe('plugins.rayleabot.local/weather')
-    expect(wrapper.text()).toContain('assets/overview.svg')
-    expect(wrapper.text()).toContain('天气总览卡片')
+    // Package-internal icon and screenshot paths open nothing, so the overview does not list them.
+    expect(project.text()).not.toContain('assets/')
    expect(wrapper.text()).toContain('message.group')
     expect(wrapper.text()).toContain('查看今日运势')
     expect(wrapper.text()).toContain('所有成员')
@@ -427,7 +428,7 @@ describe('PluginDetailPage', () => {
     const functionBox = wrapper.get('[data-testid="plugin-function"]')
     expect(functionBox.text()).toContain('群聊消息')
     expect(functionBox.text()).toContain('1 条')
-    expect(functionBox.text()).toContain('没有名称冲突')
+    expect(functionBox.text()).toContain('没有指令冲突')
     expect(functionBox.text()).not.toContain('查看今日运势')
     await functionBox.findAll('button').find(button => button.text().includes('查看指令'))!.trigger('click')
     expect(wrapper.findAll('[role="tab"]').find(tab => tab.text().includes('指令'))!.attributes('aria-selected')).toBe('true')

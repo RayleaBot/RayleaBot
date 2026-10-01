@@ -19,7 +19,7 @@ export function getCommandPermissionLabel(permission?: string | null) {
   return key ? t(key) : value
 }
 
-export type PluginCommandAvailability = 'available' | 'starting' | 'switching' | 'not_ready' | 'disabled'
+export type PluginCommandAvailability = 'available' | 'starting' | 'not_running' | 'switching' | 'not_ready' | 'disabled'
 
 export interface UnifiedCommandRow {
   key: string
@@ -45,8 +45,9 @@ export function getPluginCommandAvailability(plugin: Pick<PluginSummary, 'state'
     case 'running':
       return 'available'
     case 'starting':
-    case 'enabled':
       return 'starting'
+    case 'enabled':
+      return 'not_running'
     case 'stopping':
       return 'switching'
     case 'disabled':

@@ -128,7 +128,7 @@ async function runPluginAction(pluginId: string, action: 'enable' | 'disable' | 
 
             <AppSegmented v-model="filterState" :options="stateOptions" :label="t('plugins.filter.title')" class="filter-radio-group" />
 
-            <AppSelect v-model="filterSource" :options="sourceOptions" :aria-label="t('plugins.filter.sourceAll')" wrapper-class="filter-select" />
+            <AppSelect v-model="filterSource" :options="sourceOptions" :aria-label="t('plugins.filter.sourceLabel')" wrapper-class="filter-select" />
           </div>
         </template>
 

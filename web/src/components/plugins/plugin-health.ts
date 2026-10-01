@@ -90,7 +90,9 @@ function describeDiagnosisFacts(diagnosis: PluginStateDiagnosis): PluginHealthFa
     facts.push({ key: 'crash-count', label: t('plugins.overview.health.crashCount'), icon: RepeatIcon, value: t('plugins.overview.health.crashCountValue', { count: diagnosis.crash_count }) })
   }
   if (diagnosis.entered_at) {
-    facts.push({ key: 'entered-at', label: t('plugins.overview.health.enteredAt'), icon: ClockIcon, value: formatDateTime(diagnosis.entered_at) })
+    // Only a runtime that needs manual recovery records when it entered that state: when automatic retries stopped.
+    const label = diagnosis.kind === 'recovery_required' ? t('plugins.overview.health.stoppedRetryingAt') : t('plugins.overview.health.enteredAt')
+    facts.push({ key: 'entered-at', label, icon: ClockIcon, value: formatDateTime(diagnosis.entered_at) })
   }
   if (diagnosis.retry_at) {
     facts.push({ key: 'retry-at', label: t('plugins.overview.health.retryAt'), icon: TimerIcon, value: formatDateTime(diagnosis.retry_at) })

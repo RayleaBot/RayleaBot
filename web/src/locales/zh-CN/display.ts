@@ -25,7 +25,7 @@ export const display = {
   },
   pluginStates: {
     disabled: '已停用',
-    enabled: '已启用',
+    enabled: '已启用未运行',
     starting: '启动中',
     running: '运行中',
     stopping: '停止中',

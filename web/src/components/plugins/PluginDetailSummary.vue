@@ -5,7 +5,6 @@ import {
   ArrowRightIcon,
   ArrowUpRightIcon,
   BookOpenIcon,
-  CheckIcon,
   ChevronRightIcon,
   CircleDashedIcon,
   FolderInputIcon,
@@ -13,10 +12,7 @@ import {
   GlobeIcon,
   HashIcon,
   HistoryIcon,
-  ImageIcon,
-  ImagesIcon,
   LayersIcon,
-  MinusIcon,
   PackageIcon,
   RadioIcon,
   RotateCwIcon,
@@ -50,8 +46,9 @@ const health = computed(() => describePluginHealth(props.plugin))
 // Warnings and errors are what the health box points at; the identity row already opens the full history.
 const warningLogs = computed(() => buildLogsLocation({ history: true, filters: { pluginIds: [props.pluginId], levels: ['warn', 'error'] } }))
 
+// An invalid manifest is not read at all, so the server sends no declarations; nothing below may claim “未声明”.
+const manifestReadable = computed(() => props.plugin.state !== 'invalid')
 const events = computed(() => (props.plugin.events ?? []).map(name => ({ name, label: getEventTypeLabel(name) })))
-const eventSummary = computed(() => events.value.map(event => event.label ?? event.name).join('、'))
 
 const commandCount = computed(() => props.plugin.commands?.length ?? 0)
 const conflictCount = computed(() => props.plugin.command_conflicts?.length ?? 0)
@@ -64,9 +61,10 @@ const managementPages = computed(() => props.plugin.management_ui?.pages ?? [])
 const trustLevel = computed(() => props.plugin.trust?.level)
 // Every package sits under the same install root, so the row only says how this one was installed and the path
 // or address its package came from.
+// A store install records the internal ID of its plugin source, which names nothing an operator recognizes.
 const installMethod = computed(() => ({
   label: getPluginSourceTypeLabel(props.plugin.source?.package_source_type),
-  reference: props.plugin.source?.package_source_ref?.trim(),
+  reference: props.plugin.source?.package_source_type === 'catalog' ? undefined : props.plugin.source?.package_source_ref?.trim(),
 }))
 const handling = computed(() => {
   // Omitted values take the manifest defaults: one event at a time, priority 0, and propagation continues.
@@ -90,8 +88,6 @@ const projectFields = computed(() => {
     { key: 'repo', label: t('plugins.fields.repo'), present: Boolean(plugin.repo) },
     { key: 'homepage', label: t('plugins.fields.homepage'), present: Boolean(plugin.homepage) },
     { key: 'keywords', label: t('plugins.fields.keywords'), present: hasItems(plugin.keywords) },
-    { key: 'screenshots', label: t('plugins.fields.screenshots'), present: hasItems(plugin.screenshots) },
-    { key: 'icon', label: t('plugins.fields.icon'), present: Boolean(plugin.icon?.trim()) },
   ]
 })
 const declared = computed(() => new Set(projectFields.value.filter(field => field.present).map(field => field.key)))
@@ -145,11 +141,6 @@ function displayUrl(url?: string) {
         </template>
 
         <template v-else>
-          <ul v-if="plugin.state === 'running'" class="plugin-health-checks">
-            <li><CheckIcon aria-hidden="true" />{{ t('plugins.overview.health.noDiagnosis') }}<span>{{ t('plugins.overview.health.noDiagnosisNote') }}</span></li>
-            <li v-if="events.length"><CheckIcon aria-hidden="true" />{{ t('plugins.overview.health.subscriptions') }}<span>{{ eventSummary }}</span></li>
-            <li v-else><MinusIcon class="is-neutral" aria-hidden="true" />{{ t('plugins.overview.health.noSubscriptions') }}</li>
-          </ul>
           <div class="plugin-health-links">
             <button type="button" class="plugin-board__link" @click="emit('openTab', 'console')">{{ t('plugins.overview.health.liveOutput') }}<ChevronRightIcon aria-hidden="true" /></button>
             <MotionRouterLink :to="warningLogs" class="plugin-board__link">{{ t('plugins.overview.health.warningLogs') }}<ChevronRightIcon aria-hidden="true" /></MotionRouterLink>
@@ -159,60 +150,63 @@ function displayUrl(url?: string) {
 
       <section class="app-box plugin-board__box" aria-labelledby="plugin-function-title" data-testid="plugin-function">
         <h2 id="plugin-function-title" class="plugin-board__title"><LayersIcon aria-hidden="true" />{{ t('plugins.overview.function.title') }}</h2>
-        <p v-if="plugin.description?.trim()" class="plugin-function__lede">{{ plugin.description }}</p>
-        <p v-else class="plugin-function__lede is-muted">{{ t('plugins.overview.function.noDescription') }}</p>
+        <p v-if="!manifestReadable" class="plugin-function__lede is-muted">{{ t('plugins.overview.manifestUnreadable') }}</p>
+        <template v-else>
+          <p v-if="plugin.description?.trim()" class="plugin-function__lede">{{ plugin.description }}</p>
+          <p v-else class="plugin-function__lede is-muted">{{ t('plugins.overview.function.noDescription') }}</p>
 
-        <!-- Commands are a count that leads to the commands tab, never a list on the overview. -->
-        <dl class="plugin-function__commands">
-          <dt><TerminalIcon aria-hidden="true" />{{ t('plugins.overview.function.commands') }}</dt>
-          <dd v-if="commandCount" class="plugin-function__command-summary">
-            <span>{{ t('plugins.overview.function.commandCount', { count: commandCount }) }}</span>
-            <span class="is-muted">{{ t(`commands.status.${getPluginCommandAvailability(plugin)}`) }}</span>
-            <span v-if="conflictCount" class="is-warning">{{ t('plugins.health.commandConflicts', { count: conflictCount }) }}</span>
-            <span v-else class="is-muted">{{ t('plugins.overview.function.noConflicts') }}</span>
-          </dd>
-          <dd v-else class="is-muted">{{ t('plugins.overview.undeclared') }}</dd>
-          <dd v-if="commandCount">
-            <AppButton size="sm" @click="emit('openTab', 'commands')">
-              {{ t('plugins.overview.function.viewCommands') }}
-              <ArrowRightIcon class="plugin-function__arrow" aria-hidden="true" />
-            </AppButton>
-          </dd>
-        </dl>
+          <!-- Commands are a count that leads to the commands tab, never a list on the overview. -->
+          <dl class="plugin-function__commands">
+            <dt><TerminalIcon aria-hidden="true" />{{ t('plugins.overview.function.commands') }}</dt>
+            <dd v-if="commandCount" class="plugin-function__command-summary">
+              <span>{{ t('plugins.overview.function.commandCount', { count: commandCount }) }}</span>
+              <span class="is-muted">{{ t(`commands.status.${getPluginCommandAvailability(plugin)}`) }}</span>
+              <span v-if="conflictCount" class="is-warning">{{ t('plugins.health.commandConflicts', { count: conflictCount }) }}</span>
+              <span v-else class="is-muted">{{ t('plugins.overview.function.noConflicts') }}</span>
+            </dd>
+            <dd v-else class="is-muted">{{ t('plugins.overview.undeclared') }}</dd>
+            <dd v-if="commandCount">
+              <AppButton size="sm" @click="emit('openTab', 'commands')">
+                {{ t('plugins.overview.function.viewCommands') }}
+                <ArrowRightIcon class="plugin-function__arrow" aria-hidden="true" />
+              </AppButton>
+            </dd>
+          </dl>
 
-        <div class="plugin-function__facts">
-          <dl class="plugin-fact">
-            <dt><RadioIcon aria-hidden="true" />{{ t('plugins.overview.function.events') }}</dt>
-            <dd v-if="events.length" class="plugin-board__tags">
-              <AppTag v-for="event in events" :key="event.name">
-                <template v-if="event.label">{{ event.label }}</template>
-                <span class="is-mono">{{ event.name }}</span>
-              </AppTag>
-            </dd>
-            <dd v-else class="is-muted">{{ t('plugins.overview.undeclared') }}</dd>
-          </dl>
-          <dl class="plugin-fact">
-            <dt><WebhookIcon aria-hidden="true" />{{ t('plugins.fields.webhooks') }}</dt>
-            <dd v-if="webhookPaths.length" class="plugin-fact__list">
-              <span v-for="webhook in webhookPaths" :key="webhook.id" class="is-mono">{{ webhook.path }}</span>
-            </dd>
-            <dd v-else class="is-muted">{{ t('plugins.overview.undeclared') }}</dd>
-          </dl>
-          <dl class="plugin-fact">
-            <dt><SettingsIcon aria-hidden="true" />{{ t('plugins.overview.function.managementPages') }}</dt>
-            <dd v-if="managementPages.length" class="plugin-fact__list">
-              <MotionRouterLink
-                v-for="page in managementPages"
-                :key="page.id"
-                :to="buildPluginDetailLocation(pluginId, { panel: 'management-ui', managementPage: page.id })"
-                class="plugin-board__link"
-              >
-                {{ page.label?.trim() || t('plugins.panels.managementUi') }}<ChevronRightIcon aria-hidden="true" />
-              </MotionRouterLink>
-            </dd>
-            <dd v-else class="is-muted">{{ t('plugins.overview.undeclared') }}</dd>
-          </dl>
-        </div>
+          <div class="plugin-function__facts">
+            <dl class="plugin-fact">
+              <dt><RadioIcon aria-hidden="true" />{{ t('plugins.overview.function.events') }}</dt>
+              <dd v-if="events.length" class="plugin-board__tags">
+                <AppTag v-for="event in events" :key="event.name">
+                  <template v-if="event.label">{{ event.label }}</template>
+                  <span class="is-mono">{{ event.name }}</span>
+                </AppTag>
+              </dd>
+              <dd v-else class="is-muted">{{ t('plugins.overview.undeclared') }}</dd>
+            </dl>
+            <dl class="plugin-fact">
+              <dt><WebhookIcon aria-hidden="true" />{{ t('plugins.fields.webhooks') }}</dt>
+              <dd v-if="webhookPaths.length" class="plugin-fact__list">
+                <span v-for="webhook in webhookPaths" :key="webhook.id" class="is-mono">{{ webhook.path }}</span>
+              </dd>
+              <dd v-else class="is-muted">{{ t('plugins.overview.undeclared') }}</dd>
+            </dl>
+            <dl class="plugin-fact">
+              <dt><SettingsIcon aria-hidden="true" />{{ t('plugins.overview.function.managementPages') }}</dt>
+              <dd v-if="managementPages.length" class="plugin-fact__list">
+                <MotionRouterLink
+                  v-for="page in managementPages"
+                  :key="page.id"
+                  :to="buildPluginDetailLocation(pluginId, { panel: 'management-ui', managementPage: page.id })"
+                  class="plugin-board__link"
+                >
+                  {{ page.label?.trim() || t('plugins.panels.managementUi') }}<ChevronRightIcon aria-hidden="true" />
+                </MotionRouterLink>
+              </dd>
+              <dd v-else class="is-muted">{{ t('plugins.overview.undeclared') }}</dd>
+            </dl>
+          </div>
+        </template>
       </section>
     </div>
 
@@ -231,22 +225,22 @@ function displayUrl(url?: string) {
             {{ getPluginTrustLabel(trustLevel) }}
             <span v-if="trustLevel !== 'unverified' && plugin.source" class="plugin-kv__note">{{ t(plugin.source.verified ? 'plugins.overview.origin.sourceVerified' : 'plugins.overview.origin.sourceUnverified') }}</span>
           </dd>
-          <dt><TagIcon aria-hidden="true" />{{ t('plugins.fields.version') }}</dt>
-          <dd>
-            {{ formatPluginVersion(plugin.version) }}
-            <span v-if="plugin.min_core_version?.trim()" class="plugin-kv__note">{{ t('plugins.overview.origin.requiresCore', { version: formatPluginVersion(plugin.min_core_version) }) }}</span>
-          </dd>
-          <dt><SlidersHorizontalIcon aria-hidden="true" />{{ t('plugins.overview.origin.handling') }}</dt>
-          <dd>
-            {{ handling.value }}
-            <span class="plugin-kv__note">{{ handling.note }}</span>
-          </dd>
+          <template v-if="manifestReadable">
+            <dt><TagIcon aria-hidden="true" />{{ t('plugins.fields.version') }}</dt>
+            <dd>{{ formatPluginVersion(plugin.version) }}</dd>
+            <dt><SlidersHorizontalIcon aria-hidden="true" />{{ t('plugins.overview.origin.handling') }}</dt>
+            <dd>
+              {{ handling.value }}
+              <span class="plugin-kv__note">{{ handling.note }}</span>
+            </dd>
+          </template>
         </dl>
       </section>
 
       <section class="app-box plugin-board__box" aria-labelledby="plugin-project-title" data-testid="plugin-project">
         <h2 id="plugin-project-title" class="plugin-board__title"><BookOpenIcon aria-hidden="true" />{{ t('plugins.overview.project.title') }}</h2>
-        <dl class="plugin-kv">
+        <p v-if="!manifestReadable" class="plugin-function__lede is-muted">{{ t('plugins.overview.manifestUnreadable') }}</p>
+        <dl v-else class="plugin-kv">
           <template v-if="declared.has('author')">
             <dt><UserIcon aria-hidden="true" />{{ t('plugins.fields.author') }}</dt>
             <dd>{{ plugin.author }}</dd>
@@ -266,19 +260,6 @@ function displayUrl(url?: string) {
           <template v-if="declared.has('keywords')">
             <dt><HashIcon aria-hidden="true" />{{ t('plugins.fields.keywords') }}</dt>
             <dd class="plugin-board__tags"><AppTag v-for="keyword in plugin.keywords" :key="keyword">{{ keyword }}</AppTag></dd>
-          </template>
-          <template v-if="declared.has('screenshots')">
-            <dt><ImagesIcon aria-hidden="true" />{{ t('plugins.fields.screenshots') }}</dt>
-            <dd>
-              <span v-for="screenshot in plugin.screenshots" :key="screenshot.path" class="plugin-kv__screenshot">
-                <span class="is-mono">{{ screenshot.path }}</span>
-                <span v-if="screenshot.alt?.trim()" class="plugin-kv__note">{{ screenshot.alt }}</span>
-              </span>
-            </dd>
-          </template>
-          <template v-if="declared.has('icon')">
-            <dt><ImageIcon aria-hidden="true" />{{ t('plugins.fields.icon') }}</dt>
-            <dd class="is-mono">{{ plugin.icon }}</dd>
           </template>
           <template v-if="undeclaredLabels.length">
             <dt><CircleDashedIcon aria-hidden="true" />{{ t('plugins.overview.undeclared') }}</dt>
@@ -381,7 +362,7 @@ function displayUrl(url?: string) {
   color: var(--text-warning);
 }
 
-// Health: one state line with its tile, then either the routine checks or what the server recorded.
+// Health: one state line with its tile, then the way to the output and logs, or what the server recorded.
 .plugin-health-state {
   display: flex;
   align-items: center;
@@ -432,43 +413,6 @@ function displayUrl(url?: string) {
   margin: 0;
   color: var(--muted);
   font-size: var(--font-size-md);
-}
-
-.plugin-health-checks {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 44px;
-    padding: 10px 0;
-    border-top: 1px solid var(--border);
-    font-size: var(--font-size-md);
-  }
-
-  svg {
-    flex: none;
-    width: 16px;
-    height: 16px;
-    color: var(--text-success);
-    stroke-width: 2.4;
-  }
-
-  svg.is-neutral {
-    color: var(--muted);
-  }
-
-  span {
-    min-width: 0;
-    margin-left: auto;
-    color: var(--muted);
-    font-size: var(--font-size-sm);
-    text-align: right;
-  }
 }
 
 .plugin-health-links {
@@ -549,13 +493,8 @@ function displayUrl(url?: string) {
   line-height: 20px;
 }
 
-.plugin-kv__path,
-.plugin-kv__screenshot {
+.plugin-kv__path {
   display: block;
-}
-
-.plugin-kv__screenshot + .plugin-kv__screenshot {
-  margin-top: 6px;
 }
 
 // Function: the plugin's own description, the command count with its way in, then three declared facts.

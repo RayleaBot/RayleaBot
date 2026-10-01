@@ -35,7 +35,8 @@ export const commands = {
   status: {
     available: '当前可用',
     starting: '启动中',
-    switching: '切换中',
+    not_running: '未运行',
+    switching: '停止中',
     not_ready: '未就绪',
     disabled: '已停用',
   },

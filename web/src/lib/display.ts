@@ -51,9 +51,13 @@ export function getPluginSourceTypeLabel(type?: string | null) {
   }
 }
 
-// How a plugin was installed, followed by the path or address it came from when that is recorded.
+// How a plugin was installed, followed by the path or address it came from when that is recorded. A store install
+// records the internal ID of its plugin source, which names nothing an operator recognizes, so it is left out.
 export function getPluginInstallMethodLabel(source?: { package_source_type?: string | null; package_source_ref?: string | null } | null) {
-  return [getPluginSourceTypeLabel(source?.package_source_type), source?.package_source_ref?.trim()].filter(Boolean).join(' · ') || t('display.empty')
+  const method = getPluginSourceTypeLabel(source?.package_source_type)
+  if (!method) return t('plugins.overview.origin.methodUnrecorded')
+  const reference = source?.package_source_type === 'catalog' ? '' : source?.package_source_ref?.trim()
+  return [method, reference].filter(Boolean).join(' · ')
 }
 
 export function formatPluginVersion(version?: string | null) {
