@@ -1,7 +1,7 @@
 export const accessLists = {
   namespace: {
     required: '请输入连接标识与机器人 ID。',
-    label: '适用范围', onebotGlobal: 'OneBot · 全部机器人', onebotInstance: 'OneBot · 指定机器人',
+    label: '适用范围', onebotGlobal: 'OneBot11 · 全部机器人', onebotInstance: 'OneBot11 · 指定机器人',
     qqOfficial: 'QQ 官方 · 指定机器人', adapter: '连接标识', bot: '机器人 ID',
   },
   title: '黑白名单',
@@ -14,10 +14,10 @@ export const accessLists = {
   cards: {
     whitelistTitle: '白名单',
     whitelistHelp: '白名单说明',
-    whitelistDescription: '命中白名单的用户或群会进入指令分发，指令权限与冷却继续生效。',
+    whitelistDescription: '开启后，只有白名单中的用户或群能使用指令，超级管理员除外；命中白名单的指令不再受黑名单拦截，指令权限与冷却照常生效。关闭时条目保留但不起作用。',
     blacklistTitle: '黑名单',
     blacklistHelp: '黑名单说明',
-    blacklistDescription: '命中黑名单的用户或群会被拦截；命中白名单时，仍会继续走权限和冷却检查。',
+    blacklistDescription: '黑名单中的用户或群发出的消息会被拦截，插件收不到；开启白名单后，命中白名单的指令不受黑名单拦截。',
   },
   scopes: {
     user: '用户',

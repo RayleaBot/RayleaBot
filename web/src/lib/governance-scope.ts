@@ -1,4 +1,5 @@
 import { t } from '@/i18n'
+import { getLogProtocolLabel } from '@/lib/display'
 import type { GovernanceScope, BlacklistEntry } from '@/types/governance'
 
 export function oneBotGlobalScope(): GovernanceScope {
@@ -9,7 +10,8 @@ export function governanceEntryKey(entry: BlacklistEntry) {
   return JSON.stringify([entry.scope.source_protocol, entry.scope.source_adapter, entry.scope.bot_id, entry.entry_type, entry.target_id])
 }
 
+// The protocol reads as its product name; the connection and bot IDs stay as entered, since they identify the bot.
 export function governanceScopeLabel(scope: GovernanceScope) {
   if (!scope.source_adapter) return t('accessLists.namespace.onebotGlobal')
-  return `${scope.source_protocol} · ${scope.source_adapter} · ${scope.bot_id}`
+  return `${getLogProtocolLabel(scope.source_protocol)} · ${scope.source_adapter} · ${scope.bot_id}`
 }

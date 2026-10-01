@@ -93,7 +93,7 @@ export const config = {
     dataDownloadCacheRetentionDays: '下载缓存最短保留',
     logLevel: '日志级别',
     logRetentionDays: '日志保留',
-    messageRateLimitPerTarget: '目标消息速率限制',
+    messageRateLimitPerTarget: '外发消息速率限制',
     userCommandRateLimit: '用户指令速率限制',
     groupCommandRateLimit: '群指令速率限制',
   },
