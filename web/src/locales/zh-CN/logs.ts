@@ -45,6 +45,7 @@ export const logs = {
     invalidTimeRange: '结束时间不能早于开始时间。',
     empty: '当前时间范围内没有符合条件的日志。可扩大时间范围或调整筛选条件。',
     description: '按时间范围和条件查询服务端保存的日志。',
+    descriptionWithRetention: '按时间范围和条件查询服务端保存的日志。日志保留 {days} 天，更早的已自动清理。',
     streamTitle: '查询结果',
     frozen: '固定时间窗口',
     startAt: '开始时间',
@@ -54,5 +55,6 @@ export const logs = {
     lastWeek: '最近一周',
     lastMonth: '最近一个月',
     lastHalfYear: '最近半年',
+    lastDays: '最近 {days} 天',
   },
 } as const

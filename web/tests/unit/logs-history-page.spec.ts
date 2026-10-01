@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { useConfigStore } from '@/stores/config'
 import { useLogHistoryStore } from '@/stores/log-history'
 import { usePluginsStore } from '@/stores/plugins'
 import LogsHistoryPage from '@/views/operations/LogsHistoryView.vue'
@@ -335,6 +336,36 @@ describe('LogsHistoryPage', () => {
     await flushPromises()
     expect(setTimeRangeSpy).toHaveBeenCalledWith(180)
     expect(scrollToBottomSpy).toHaveBeenCalled()
+  })
+
+  it('offers no shortcut past the log retention period and says how long logs are kept', async () => {
+    const router = createTestRouter()
+    await router.push('/logs/history')
+    await router.isReady()
+
+    const store = useLogHistoryStore()
+    vi.spyOn(store, 'refreshAnchor').mockResolvedValue([])
+    const setTimeRangeSpy = vi.spyOn(store, 'setTimeRange')
+    useConfigStore().logRetentionDays = 10
+
+    const wrapper = mount(LogsHistoryPage, {
+      attachTo: document.body,
+      global: {
+        plugins: [getActivePinia()!, router],
+        stubs: {
+          VirtualDataViewport: VirtualDataViewportStub,
+        },
+      },
+    })
+    await flushPromises()
+
+    const shortcuts = wrapper.findAll('.logs-range-group__item')
+    expect(shortcuts.map(button => button.text())).toEqual(['最近一天', '最近一周', '最近 10 天'])
+    expect(wrapper.text()).toContain('日志保留 10 天')
+    await shortcuts[2]!.trigger('click')
+    await flushPromises()
+    expect(setTimeRangeSpy).toHaveBeenCalledWith(10)
+    wrapper.unmount()
   })
 
   it('keeps the same page instance and re-syncs to latest after keep-alive reactivation', async () => {

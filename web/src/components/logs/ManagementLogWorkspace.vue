@@ -14,6 +14,7 @@ import ManagementLogFilters from './ManagementLogFilters.vue'
 import ManagementLogRow from './ManagementLogRow.vue'
 import { useLogWorkspace, type LogViewport, type LogWorkspaceScope } from './useLogWorkspace'
 import { managementTimeZone } from '@/lib/format'
+import { useConfigStore } from '@/stores/config'
 import { t } from '@/i18n'
 
 const props = defineProps<{ scope: LogWorkspaceScope }>()
@@ -29,18 +30,32 @@ const {
 const { currentDetail, error: detailError, loading: detailLoading, open: detailOpen,
   selectedLogId, selectedSummary } = detail
 const logsLayoutRef = ref<HTMLElement | null>(null)
-const recentRangeOptions = [
-  { value: '1', label: t('logs.history.lastDay') },
-  { value: '7', label: t('logs.history.lastWeek') },
-  { value: '30', label: t('logs.history.lastMonth') },
-  { value: '180', label: t('logs.history.lastHalfYear') },
+const configStore = useConfigStore()
+const presetRanges = [
+  { days: 1, label: t('logs.history.lastDay') },
+  { days: 7, label: t('logs.history.lastWeek') },
+  { days: 30, label: t('logs.history.lastMonth') },
+  { days: 180, label: t('logs.history.lastHalfYear') },
 ]
+// Logs older than the retention period are pruned, so no shortcut reaches past it; a retention that is not a preset
+// gets its own shortcut, keeping every stored log one click away.
+const recentRangeOptions = computed(() => {
+  const retention = configStore.logRetentionDays
+  const ranges = retention ? presetRanges.filter(range => range.days <= retention) : presetRanges
+  const options = retention && !ranges.some(range => range.days === retention)
+    ? [...ranges, { days: retention, label: t('logs.history.lastDays', { days: retention }) }]
+    : ranges
+  return options.map(range => ({ value: String(range.days), label: range.label }))
+})
+const pageDescription = computed(() => history && configStore.logRetentionDays
+  ? t('logs.history.descriptionWithRetention', { days: configStore.logRetentionDays })
+  : t(`${labelPrefix}.description`))
 // No segment is selected while the list uses a hand-edited range.
 const recentRange = computed(() => historyStore?.recentDays ? String(historyStore.recentDays) : '')
 </script>
 
 <template>
-  <AppPage :title="t(history ? 'logs.historyTitle' : 'logs.currentTitle')" :description="t(`${labelPrefix}.description`)" full-height>
+  <AppPage :title="t(history ? 'logs.historyTitle' : 'logs.currentTitle')" :description="pageDescription" full-height>
     <template #toolbar>
       <AppCard borderless class="app-view-card logs-toolbar">
         <ManagementLogFilters v-model="draftFilters" :history="history">

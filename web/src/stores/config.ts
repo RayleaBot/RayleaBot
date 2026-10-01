@@ -9,18 +9,24 @@ import type { ConfigDocument, ConfigSnapshotResponse, ConfigUpdateResponse } fro
 export const useConfigStore = defineStore('config', () => {
   const document = ref<ConfigDocument | null>(null)
   const effectiveTimezone = ref(DEFAULT_TIME_ZONE)
+  // How many days of history logs the server keeps; null until a configuration snapshot has been read.
+  const logRetentionDays = ref<number | null>(null)
   const redactedFields = ref<string[]>([])
   const restartRequired = ref<boolean | null>(null)
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<string | null>(null)
-  let timezoneRequest: Promise<void> | null = null
+  let sharedSettingsRequest: Promise<void> | null = null
 
-  function refreshEffectiveTimezone() {
-    timezoneRequest ??= apiRequest<ConfigSnapshotResponse>('/api/config').then(response => {
-      effectiveTimezone.value = response.effective_timezone || DEFAULT_TIME_ZONE
-    }).finally(() => { timezoneRequest = null })
-    return timezoneRequest
+  function applySharedSettings(response: Pick<ConfigSnapshotResponse, 'config' | 'effective_timezone'>) {
+    effectiveTimezone.value = response.effective_timezone || DEFAULT_TIME_ZONE
+    logRetentionDays.value = response.config?.log?.retention_days ?? null
+  }
+
+  // Pages other than the configuration page read the settings they display by (time zone, log retention) from here.
+  function refreshSharedSettings() {
+    sharedSettingsRequest ??= apiRequest<ConfigSnapshotResponse>('/api/config').then(applySharedSettings).finally(() => { sharedSettingsRequest = null })
+    return sharedSettingsRequest
   }
 
   async function fetchConfig() {
@@ -29,7 +35,7 @@ export const useConfigStore = defineStore('config', () => {
     try {
       const response = await apiRequest<ConfigSnapshotResponse>('/api/config')
       document.value = response.config
-      effectiveTimezone.value = response.effective_timezone || DEFAULT_TIME_ZONE
+      applySharedSettings(response)
       redactedFields.value = response.redacted_fields ?? []
       restartRequired.value = null
     } catch (err) {
@@ -49,7 +55,7 @@ export const useConfigStore = defineStore('config', () => {
         body: nextDocument,
       })
       document.value = response.config
-      effectiveTimezone.value = response.effective_timezone || DEFAULT_TIME_ZONE
+      applySharedSettings(response)
       redactedFields.value = response.redacted_fields ?? []
       restartRequired.value = response.restart_required
       return response
@@ -66,11 +72,12 @@ export const useConfigStore = defineStore('config', () => {
     effectiveTimezone,
     error,
     loading,
+    logRetentionDays,
     redactedFields,
     restartRequired,
     saving,
     fetchConfig,
-    refreshEffectiveTimezone,
+    refreshSharedSettings,
     saveConfig,
   }
 })

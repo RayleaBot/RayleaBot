@@ -121,7 +121,7 @@ function onSearchOpenUpdate(open: boolean) {
 
 let stopRoutePrefetch: (() => void) | undefined
 onMounted(() => {
-  void configStore.refreshEffectiveTimezone().catch(() => undefined)
+  void configStore.refreshSharedSettings().catch(() => undefined)
   stopRoutePrefetch = prefetchRouteComponents(router)
 })
 onBeforeUnmount(() => stopRoutePrefetch?.())

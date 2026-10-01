@@ -61,7 +61,7 @@ export const useSocketStore = defineStore('sockets', () => {
   })
 
   watch(() => controller.snapshots.events.status, status => {
-    if (status === 'authenticated') void configStore.refreshEffectiveTimezone().catch(() => undefined)
+    if (status === 'authenticated') void configStore.refreshSharedSettings().catch(() => undefined)
   })
 
   onScopeDispose(controller.disconnectAll)
