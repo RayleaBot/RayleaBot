@@ -1,0 +1,45 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: 兼容的商店发布摘要不能携带不兼容原因。
+request:
+  method: GET
+  path: /api/plugin-store/plugins/raylea.echo?source_id=official
+response:
+  status: 200
+  body:
+    plugin:
+      id: raylea.echo
+      name: Echo
+      summary: 回显收到的聊天消息。
+      publisher:
+        id: rayleabot
+        name: RayleaBot
+      repository_url: https://github.com/RayleaBot/plugin-echo
+      license: MIT
+      keywords: [echo]
+      recommended: true
+      latest_release:
+        version: 0.2.0
+        published_at: 2026-08-04T00:00:00Z
+        min_core_version: 0.1.0
+        compatible: true
+        asset_available: true
+      install_state: available
+      confirmation_reasons: [first_install]
+    current_release:
+      version: 0.2.0
+      published_at: 2026-08-04T00:00:00Z
+      min_core_version: 0.1.0
+      compatible: true
+      incompatible_reason: core_version_unknown
+      asset_available: true
+    source:
+      id: official
+      name: RayleaBot 官方插件
+      url: https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.json
+      official: true
+      cached: true
+      refreshed_at: 2026-08-04T00:00:00Z
+      entry_count: 1
+expect:
+  valid: false

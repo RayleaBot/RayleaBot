@@ -23,7 +23,7 @@ input:
       applies_to: [http, websocket, task]
     - code: plugin.core_version_incompatible
       message: 插件与当前 RayleaBot 版本不兼容
-      description: The plugin min_core_version is newer than the running RayleaBot core version. Every installation source applies this admission check.
+      description: 当前核心版本无法确认或低于插件最低版本；普通本地与商店安装拒绝，development 同步仅豁免未知核心版本。
       http_status: 409
       retryable: false
       applies_to: [http, task, cli, readiness]

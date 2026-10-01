@@ -877,9 +877,20 @@ func TestInstallServiceRejectsIncompatibleMinimumCoreVersion(t *testing.T) {
 
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer func(release func() error) { _ = release() }(service.Close)
-	_, err = service.Accept(context.Background(), plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir})
-	if InstallErrorCode(err) != "plugin.core_version_incompatible" {
-		t.Fatalf("Accept() error = %v, want plugin.core_version_incompatible", err)
+	for _, sourceType := range []string{"local_directory", "development"} {
+		_, err = service.Accept(t.Context(), plugins.InstallRequest{
+			SourceType:         sourceType,
+			Source:             sourceDir,
+			ResolvedSourceType: "local_directory",
+			ResolvedSource:     sourceDir,
+		})
+		if InstallErrorCode(err) != "plugin.core_version_incompatible" {
+			t.Fatalf("Accept() error = %v, want plugin.core_version_incompatible", err)
+		}
+		var versionErr *plugins.CoreVersionIncompatibleError
+		if !errors.As(err, &versionErr) || versionErr.Reason != plugins.CoreVersionTooOld || versionErr.MinCoreVersion != "999.0.0" {
+			t.Fatalf("incompatible version error = %#v", err)
+		}
 	}
 }
 
@@ -923,17 +934,45 @@ func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Regist
 }
 
 func TestInstallRejectsUnknownCoreVersion(t *testing.T) {
-	repoRoot := t.TempDir()
-	registry := tasks.NewRegistry()
-	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
-	t.Cleanup(func() { _ = service.Close() })
-	if err := os.Remove(filepath.Join(repoRoot, "build_info.json")); err != nil {
-		t.Fatal(err)
-	}
-	source := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "weather"), "weather")
-	_, err := service.Accept(t.Context(), plugins.InstallRequest{SourceType: "local_directory", Source: source})
-	if InstallErrorCode(err) != "plugin.core_version_incompatible" {
-		t.Fatalf("unknown build accepted an installation: %v", err)
+	for _, invalidBuildInfo := range []bool{false, true} {
+		repoRoot := t.TempDir()
+		registry := tasks.NewRegistry()
+		service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
+		t.Cleanup(func() { _ = service.Close() })
+		buildInfoPath := filepath.Join(repoRoot, "build_info.json")
+		if invalidBuildInfo {
+			if err := os.WriteFile(buildInfoPath, []byte("{invalid"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		} else if err := os.Remove(buildInfoPath); err != nil {
+			t.Fatal(err)
+		}
+		source := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "weather"), "weather")
+		for _, sourceType := range []string{"local_directory", "catalog"} {
+			_, err := service.Accept(t.Context(), plugins.InstallRequest{
+				SourceType:         sourceType,
+				Source:             source,
+				ResolvedSourceType: "local_directory",
+				ResolvedSource:     source,
+			})
+			if InstallErrorCode(err) != "plugin.core_version_incompatible" {
+				t.Fatalf("unknown build accepted an installation: %v", err)
+			}
+			var versionErr *plugins.CoreVersionIncompatibleError
+			if !errors.As(err, &versionErr) || versionErr.Reason != plugins.CoreVersionUnknown || versionErr.MinCoreVersion != "0.7.0" {
+				t.Fatalf("unknown build error = %#v", err)
+			}
+		}
+		candidate, err := service.prepareCandidate(t.Context(), plugins.InstallRequest{
+			SourceType:         "development",
+			Source:             source,
+			ResolvedSourceType: "local_directory",
+			ResolvedSource:     source,
+		})
+		if err != nil {
+			t.Fatalf("unknown build rejected development candidate: %v", err)
+		}
+		candidate.cleanup()
 	}
 }
 

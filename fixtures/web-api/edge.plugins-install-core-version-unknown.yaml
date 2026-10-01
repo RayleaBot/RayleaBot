@@ -1,0 +1,22 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: 本地安装在核心版本未知时返回明确消息和结构化版本原因。
+request:
+  method: POST
+  path: /api/plugins/install
+  body:
+    source_type: local_directory
+    source: C:/plugins/fixture
+    trusted_code_confirmed: true
+response:
+  status: 409
+  body:
+    error:
+      code: plugin.core_version_incompatible
+      message: 无法确认当前 RayleaBot 版本，不能安装要求最低版本的插件。
+      request_id: req_fixture_core_version
+      details:
+        incompatible_reason: core_version_unknown
+        min_core_version: 0.4.0
+expect:
+  valid: true

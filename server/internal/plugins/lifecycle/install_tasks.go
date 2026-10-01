@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -29,6 +30,10 @@ func installError(code, message, summary string) error {
 }
 
 func InstallErrorCode(err error) string {
+	var coreVersionErr *plugins.CoreVersionIncompatibleError
+	if errors.As(err, &coreVersionErr) {
+		return errorcodes.PluginCoreVersionIncompatible
+	}
 	var installErr *installTaskError
 	if errors.As(err, &installErr) {
 		return installErr.Code

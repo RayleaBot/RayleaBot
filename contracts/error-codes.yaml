@@ -13,6 +13,8 @@ x-fixtures:
   - fixtures/errors/ok.plugin-settings-apply-failed.yaml
   - fixtures/errors/ok.sdk-shutdown.yaml
   - fixtures/errors/ok.detached-event-errors.yaml
+  - fixtures/errors/ok.plugin-core-version-incompatible.yaml
+  - fixtures/errors/invalid.plugin-core-version-incompatible-details.yaml
 
 domains:
   - platform
@@ -459,7 +461,22 @@ codes:
     code: plugin.core_version_incompatible
     domain: plugin
     message: 插件与当前 RayleaBot 版本不兼容
-    description: The plugin min_core_version is newer than the running RayleaBot core version. Every installation source applies this admission check.
+    description: >
+      当前 RayleaBot 版本无法确认，或已知版本低于插件的 min_core_version。普通本地安装与商店安装
+      均拒绝；development 同步仅豁免未知核心版本，已知版本仍须满足最低要求。
+      message 按原因说明无法确认当前版本或版本过旧，不把 unknown 当作版本号展示。
+      details 携带 incompatible_reason 与 min_core_version，客户端按这些字段判断原因。
+    details_schema:
+      type: object
+      additionalProperties: false
+      required: [incompatible_reason, min_core_version]
+      properties:
+        incompatible_reason:
+          type: string
+          enum: [core_version_unknown, core_version_too_old]
+        min_core_version:
+          type: string
+          minLength: 1
     http_status: 409
     retryable: false
     applies_to: [http, task, cli, readiness]
@@ -495,7 +512,7 @@ codes:
     code: plugin.store_release_unavailable
     domain: plugin
     message: 当前平台没有可安装的插件商店产物
-    description: The plugin is unpublished, incompatible, or has no artifact for the current platform.
+    description: 插件尚未发布，或没有当前平台的产物。核心版本未知或过旧使用 plugin.core_version_incompatible。
     http_status: 409
     retryable: false
     applies_to: [http, task]

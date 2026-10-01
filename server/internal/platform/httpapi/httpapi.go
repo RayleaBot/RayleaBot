@@ -175,13 +175,22 @@ func RequestIDFromContext(ctx context.Context) string {
 }
 
 func WriteError(w http.ResponseWriter, r *http.Request, code string, details map[string]any) {
+	WriteErrorWithMessage(w, r, code, "", details)
+}
+
+// WriteErrorWithMessage 仅用于契约允许按结构化原因提供消息的错误。
+func WriteErrorWithMessage(w http.ResponseWriter, r *http.Request, code, message string, details map[string]any) {
 	definition, ok := errorcodes.HTTP(code)
 	if !ok {
 		definition, _ = errorcodes.HTTP(errorcodes.PlatformInternalError)
+		message = ""
 		details = nil
 	}
 	statusCode := definition.HTTPStatus
-	code, message := definition.Code, definition.Message
+	code = definition.Code
+	if message == "" {
+		message = definition.Message
+	}
 	requestID := ""
 	if r != nil {
 		requestID = RequestIDFromContext(r.Context())

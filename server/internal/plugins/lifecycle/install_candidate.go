@@ -3,14 +3,12 @@ package lifecycle
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
-	semverutil "github.com/RayleaBot/RayleaBot/server/internal/platform/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -107,13 +105,10 @@ func (s *InstallService) prepareCandidate(ctx context.Context, request plugins.I
 		return nil, installError(errorcodes.PluginStoreIntegrityMismatch, "插件包与商店条目不一致", "插件包与商店条目不一致")
 	}
 	coreVersion := releaseupdate.InstalledVersion(s.repoRoot)
-	unknownVersion := coreVersion == "unknown"
-	if (unknownVersion && request.SourceType != "development") || (!unknownVersion && semverutil.Compare(coreVersion, snapshot.MinCoreVersion) < 0) {
-		return nil, installError(
-			errorcodes.PluginCoreVersionIncompatible,
-			fmt.Sprintf("插件要求 RayleaBot %s 或更高版本，当前版本为 %s", snapshot.MinCoreVersion, coreVersion),
-			"插件与当前 RayleaBot 版本不兼容",
-		)
+	if err := plugins.CheckCoreVersion(coreVersion, snapshot.MinCoreVersion); err != nil {
+		if err.Reason != plugins.CoreVersionUnknown || request.SourceType != "development" {
+			return nil, err
+		}
 	}
 	metadata, err := s.buildPackageMetadata(ctx, request, snapshot, candidateDir)
 	if err != nil {

@@ -45,6 +45,7 @@
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
   - 插件列表、详情及生命周期详情响应返回当前生效的 `command_prefixes` 与 `dedicated_command_prefixes`；用法示例使用前者的第一项，专属前缀标记使用后者。
+  - 插件商店的 `PluginStoreReleaseSummary` 仅在 `compatible: false` 时携带 `incompatible_reason`：`core_version_unknown` 表示无法确认当前版本，`core_version_too_old` 表示已知版本低于 `min_core_version`；`asset_available` 独立表示当前平台有无产物。普通本地安装与商店安装的版本准入失败均返回 `plugin.core_version_incompatible`，其 `details` 包含相同原因和最低版本；客户端不解析消息判断原因。
   - 黑白名单条目必须携带 `scope`。`global` 只允许 `onebot11`，`source_adapter` 与 `bot_id` 均为空；`instance` 必须同时提供协议、实例 ID 和 bot ID。读取聚合所有作用域，写入与删除按完整作用域定位；实例规则与同协议的全局规则均可命中。白名单启用开关仍作用于整个服务。
   - `info.version` 是本文档的契约修订版本，独立于产品版本、包版本与运行时协议版本；破坏性契约变更递增 minor（0.x 阶段），兼容新增递增 patch。
   - `TaskStatusResponse.error_code` 等标注 `x-error-code-registry: contracts/error-codes.yaml` 的字段，取值必须是该目录已登记的 code；契约校验对 fixtures 与 examples 强制执行。

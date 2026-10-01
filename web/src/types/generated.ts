@@ -1832,7 +1832,14 @@ export interface components {
             /** Format: date-time */
             published_at: string;
             min_core_version: string;
+            /** @description 是否已确认当前 RayleaBot 版本满足最低核心版本要求，与平台产物是否可用无关。 */
             compatible: boolean;
+            /**
+             * @description 仅在 compatible 为 false 时必须出现；core_version_unknown 表示无法确认当前 RayleaBot 版本，core_version_too_old 表示已知版本低于 min_core_version。
+             * @enum {string}
+             */
+            incompatible_reason?: "core_version_unknown" | "core_version_too_old";
+            /** @description 是否存在当前平台的产物，与核心版本兼容性独立。 */
             asset_available: boolean;
         };
         PluginStoreEntry: {

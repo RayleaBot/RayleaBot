@@ -294,6 +294,11 @@ func (s *Service) Install(ctx context.Context, request InstallRequest) (string, 
 	if !ok {
 		return "", ErrEntryNotFound
 	}
+	if entry.CurrentRelease != nil {
+		if err := plugins.CheckCoreVersion(s.options.CoreVersion, entry.CurrentRelease.MinCoreVersion); err != nil {
+			return "", err
+		}
+	}
 	release, asset, ok := s.resolveRelease(entry)
 	if !ok {
 		return "", errorWithCode(CodeReleaseUnavailable, ErrReleaseUnavailable)
@@ -374,12 +379,17 @@ func (s *Service) projectRelease(release CurrentRelease) ReleaseView {
 	platform, _ := pluginartifact.CurrentPlatform()
 	_, hasAsset := releaseAsset(release, platform)
 	publishedAt, _ := time.Parse(time.RFC3339, release.PublishedAt)
+	var reason plugins.CoreVersionIncompatibilityReason
+	if err := plugins.CheckCoreVersion(s.options.CoreVersion, release.MinCoreVersion); err != nil {
+		reason = err.Reason
+	}
 	return ReleaseView{
-		Version:        release.Version,
-		PublishedAt:    publishedAt,
-		MinCoreVersion: release.MinCoreVersion,
-		Compatible:     s.options.CoreVersion != "unknown" && semverutil.Compare(s.options.CoreVersion, release.MinCoreVersion) >= 0,
-		AssetAvailable: hasAsset,
+		Version:            release.Version,
+		PublishedAt:        publishedAt,
+		MinCoreVersion:     release.MinCoreVersion,
+		Compatible:         reason == "",
+		IncompatibleReason: reason,
+		AssetAvailable:     hasAsset,
 	}
 }
 
@@ -387,7 +397,7 @@ func (s *Service) resolveRelease(entry Entry) (CurrentRelease, Asset, bool) {
 	if entry.CurrentRelease == nil {
 		return CurrentRelease{}, Asset{}, false
 	}
-	if s.options.CoreVersion == "unknown" || semverutil.Compare(s.options.CoreVersion, entry.CurrentRelease.MinCoreVersion) < 0 {
+	if plugins.CheckCoreVersion(s.options.CoreVersion, entry.CurrentRelease.MinCoreVersion) != nil {
 		return CurrentRelease{}, Asset{}, false
 	}
 	platform, err := pluginartifact.CurrentPlatform()

@@ -150,6 +150,80 @@ func TestServiceInstallRequiresConfirmationOnlyForNewTrust(t *testing.T) {
 	}
 }
 
+func TestStoreCoreVersionCompatibilityReasons(t *testing.T) {
+	platform, err := pluginartifact.CurrentPlatform()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		coreVersion string
+		reason      plugins.CoreVersionIncompatibilityReason
+	}{
+		{coreVersion: "unknown", reason: plugins.CoreVersionUnknown},
+		{coreVersion: "0.3.0", reason: plugins.CoreVersionTooOld},
+		{coreVersion: "0.4.0"},
+		{coreVersion: "0.5.0"},
+	} {
+		for _, assetAvailable := range []bool{true, false} {
+			assetPlatform := platform
+			if !assetAvailable {
+				assetPlatform = "windows-x64"
+				if platform == assetPlatform {
+					assetPlatform = "linux-x64"
+				}
+			}
+			payload := catalogJSON(assetPlatform)
+			installer := &stubInstaller{}
+			service, err := New(t.Context(), emptyCatalog{}, installer, newMemoryRepository(payload), Options{CoreVersion: tc.coreVersion})
+			if err != nil {
+				t.Fatal(err)
+			}
+			list, err := service.List(Query{SourceID: OfficialSourceID})
+			if err != nil || len(list.Items) != 1 {
+				t.Fatalf("List() = %#v, %v", list, err)
+			}
+			detail, ok := service.Get(OfficialSourceID, "raylea.echo")
+			if !ok {
+				t.Fatal("Get() did not find the cached entry")
+			}
+			for _, release := range []*ReleaseView{list.Items[0].LatestRelease, detail.Plugin.LatestRelease, detail.CurrentRelease} {
+				if release == nil || release.Compatible != (tc.reason == "") || release.IncompatibleReason != tc.reason || release.AssetAvailable != assetAvailable {
+					t.Fatalf("core=%s asset=%v: release = %#v", tc.coreVersion, assetAvailable, release)
+				}
+				data, err := json.Marshal(release)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var fields map[string]any
+				if err := json.Unmarshal(data, &fields); err != nil {
+					t.Fatal(err)
+				}
+				value, present := fields["incompatible_reason"]
+				if present != !release.Compatible || present && value != string(tc.reason) {
+					t.Fatalf("unexpected reason presence or value: %s", data)
+				}
+			}
+			_, err = service.Install(t.Context(), InstallRequest{PluginID: "raylea.echo", SourceID: OfficialSourceID, TrustedCodeConfirmed: true})
+			switch {
+			case tc.reason != "":
+				var versionErr *plugins.CoreVersionIncompatibleError
+				if !errors.As(err, &versionErr) || versionErr.Reason != tc.reason || versionErr.MinCoreVersion != "0.4.0" {
+					t.Fatalf("core=%s: Install() error = %v", tc.coreVersion, err)
+				}
+			case !assetAvailable:
+				if ErrorCode(err) != CodeReleaseUnavailable {
+					t.Fatalf("missing platform asset: Install() error = %v", err)
+				}
+			case err != nil:
+				t.Fatalf("compatible release: Install() error = %v", err)
+			}
+			if (installer.accepted.Source != "") != (tc.reason == "" && assetAvailable) {
+				t.Fatalf("unexpected installer admission: %#v", installer.accepted)
+			}
+		}
+	}
+}
+
 func newTestService(t *testing.T, installed plugins.CatalogView, installer Installer, repository Repository, transport http.RoundTripper) *Service {
 	t.Helper()
 	service, err := New(context.Background(), installed, installer, repository, Options{

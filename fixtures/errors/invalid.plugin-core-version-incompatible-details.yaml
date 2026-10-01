@@ -1,0 +1,18 @@
+contract: contracts/error-codes.yaml
+case: invalid
+description: 版本不兼容详情必须包含最低版本，且原因不能混入平台产物可用性。
+input:
+  errors:
+    - code: plugin.core_version_incompatible
+      message: 无法确认当前 RayleaBot 版本，不能安装要求最低版本的插件。
+      applies_to: http
+      details:
+        incompatible_reason: core_version_unknown
+    - code: plugin.core_version_incompatible
+      message: 插件与当前 RayleaBot 版本不兼容
+      applies_to: http
+      details:
+        incompatible_reason: asset_unavailable
+        min_core_version: 0.4.0
+expect:
+  valid: false

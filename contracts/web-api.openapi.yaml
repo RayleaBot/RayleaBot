@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RayleaBot Web API
-  version: 0.5.1
+  version: 0.5.2
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
@@ -93,6 +93,12 @@ x-fixtures:
   - fixtures/web-api/invalid.plugins-install-untrusted.yaml
   - fixtures/web-api/ok.plugin-store-list.yaml
   - fixtures/web-api/ok.plugin-store-detail.yaml
+  - fixtures/web-api/edge.plugin-store-core-version-unknown.yaml
+  - fixtures/web-api/edge.plugin-store-core-version-too-old.yaml
+  - fixtures/web-api/invalid.plugin-store-missing-incompatible-reason.yaml
+  - fixtures/web-api/invalid.plugin-store-compatible-with-reason.yaml
+  - fixtures/web-api/edge.plugin-store-install-core-version-unknown.yaml
+  - fixtures/web-api/edge.plugins-install-core-version-unknown.yaml
   - fixtures/web-api/ok.plugin-store-sources.yaml
   - fixtures/web-api/ok.plugin-store-source-create.yaml
   - fixtures/web-api/ok.plugin-store-source-update.yaml
@@ -3989,6 +3995,14 @@ components:
       type: object
       additionalProperties: false
       required: [version, published_at, min_core_version, compatible, asset_available]
+      if:
+        properties:
+          compatible: {const: false}
+      then:
+        required: [incompatible_reason]
+      else:
+        not:
+          required: [incompatible_reason]
       properties:
         version:
           type: string
@@ -3999,8 +4013,14 @@ components:
           type: string
         compatible:
           type: boolean
+          description: 是否已确认当前 RayleaBot 版本满足最低核心版本要求，与平台产物是否可用无关。
+        incompatible_reason:
+          type: string
+          enum: [core_version_unknown, core_version_too_old]
+          description: 仅在 compatible 为 false 时必须出现；core_version_unknown 表示无法确认当前 RayleaBot 版本，core_version_too_old 表示已知版本低于 min_core_version。
         asset_available:
           type: boolean
+          description: 是否存在当前平台的产物，与核心版本兼容性独立。
     PluginStoreEntry:
       type: object
       additionalProperties: false

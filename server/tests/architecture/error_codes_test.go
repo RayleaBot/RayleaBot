@@ -283,7 +283,7 @@ func errorWriterCodeArgIndex(fun ast.Expr) (int, bool) {
 			return 0, false
 		}
 	case *ast.SelectorExpr:
-		if selectorIdentName(typed.X) == "httpapi" && typed.Sel.Name == "WriteError" {
+		if selectorIdentName(typed.X) == "httpapi" && (typed.Sel.Name == "WriteError" || typed.Sel.Name == "WriteErrorWithMessage") {
 			return 2, true
 		}
 	}

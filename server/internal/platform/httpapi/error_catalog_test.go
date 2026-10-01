@@ -35,12 +35,12 @@ func TestErrorResponseUsesRegisteredHTTPMetadata(t *testing.T) {
 func TestUndeclaredOrWrongSurfaceErrorDoesNotLeakDetails(t *testing.T) {
 	for _, code := range []string{"unknown.code", errorcodes.PluginNotHandled, ""} {
 		response := httptest.NewRecorder()
-		WriteError(response, httptest.NewRequest("GET", "/", nil), code, map[string]any{"private": "fixture-only-secret"})
+		WriteErrorWithMessage(response, httptest.NewRequest("GET", "/", nil), code, "fixture-only-secret", map[string]any{"private": "fixture-only-secret"})
 		var body ErrorEnvelope
 		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 			t.Fatal(err)
 		}
-		if response.Code != 500 || body.Error.Code != errorcodes.PlatformInternalError || len(body.Error.Details) != 0 {
+		if response.Code != 500 || body.Error.Code != errorcodes.PlatformInternalError || len(body.Error.Details) != 0 || body.Error.Message == "fixture-only-secret" {
 			t.Fatalf("invalid error escaped HTTP boundary: %d %+v", response.Code, body)
 		}
 	}

@@ -122,11 +122,12 @@ type SourceView struct {
 }
 
 type ReleaseView struct {
-	Version        string    `json:"version"`
-	PublishedAt    time.Time `json:"published_at"`
-	MinCoreVersion string    `json:"min_core_version"`
-	Compatible     bool      `json:"compatible"`
-	AssetAvailable bool      `json:"asset_available"`
+	Version            string                                   `json:"version"`
+	PublishedAt        time.Time                                `json:"published_at"`
+	MinCoreVersion     string                                   `json:"min_core_version"`
+	Compatible         bool                                     `json:"compatible"`
+	IncompatibleReason plugins.CoreVersionIncompatibilityReason `json:"incompatible_reason,omitempty"`
+	AssetAvailable     bool                                     `json:"asset_available"`
 }
 
 type EntryView struct {
