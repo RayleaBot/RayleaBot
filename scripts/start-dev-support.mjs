@@ -389,6 +389,83 @@ export function createDependencyInstallEnvironment(environment = {}) {
   };
 }
 
+const dependencyInstallStateFiles = [".modules.yaml", ".package-map.json", ".pnpm-workspace-state-v1.json"];
+
+// Stale install metadata can let pnpm skip recreating missing package files.
+export async function removeDependencyInstallState(projectDir, { rm = fs.rm } = {}) {
+  const nodeModulesDir = path.resolve(projectDir, "node_modules");
+  for (const name of dependencyInstallStateFiles) {
+    await rm(path.join(nodeModulesDir, name), { force: true });
+  }
+  await rm(path.join(nodeModulesDir, ".bin"), { recursive: true, force: true });
+}
+
+// pnpm 11 writes JSON to .modules.yaml and .package-map.json. Validate actual
+// package locations and executable links as well as the metadata cache stamp.
+export async function isDependencyInstallComplete(projectDir, { readFile = fs.readFile, stat = fs.stat, platform = process.platform } = {}) {
+  const nodeModulesDir = path.join(projectDir, "node_modules");
+  try {
+    const manifest = JSON.parse(await readFile(path.join(nodeModulesDir, ".modules.yaml"), "utf8"));
+    const project = JSON.parse(await readFile(path.join(projectDir, "package.json"), "utf8"));
+    if (!manifest || !project || !["isolated", "hoisted"].includes(manifest.nodeLinker)) return false;
+    const isFile = async (file) => (await stat(file)).isFile();
+    if (manifest.nodeLinker === "isolated") {
+      const virtualStoreDir = path.resolve(nodeModulesDir, manifest.virtualStoreDir || ".pnpm");
+      if (!(await stat(virtualStoreDir)).isDirectory()) return false;
+      const packageMap = JSON.parse(await readFile(path.join(nodeModulesDir, ".package-map.json"), "utf8"));
+      if (!packageMap?.packages?.["."]) return false;
+      const skipped = new Set(manifest.skipped ?? []);
+      for (const [id, entry] of Object.entries(packageMap.packages)) {
+        if (skipped.has(id)) continue;
+        if (!entry || typeof entry.url !== "string" || !(await isFile(path.resolve(nodeModulesDir, entry.url, "package.json")))) return false;
+      }
+    }
+    for (const kind of ["dependencies", "devDependencies"]) {
+      for (const name of Object.keys(project[kind] ?? {})) {
+        if (Object.hasOwn(project.optionalDependencies ?? {}, name)) continue;
+        if (manifest.included?.[kind] === false) return false;
+        const packageDir = path.join(nodeModulesDir, name);
+        const dependency = JSON.parse(await readFile(path.join(packageDir, "package.json"), "utf8"));
+        const bins = typeof dependency.bin === "string" ? { [name.split("/").at(-1)]: dependency.bin } : dependency.bin ?? {};
+        for (const [command, target] of Object.entries(bins)) {
+          if (typeof target !== "string" || !(await isFile(path.resolve(packageDir, target)))) return false;
+          if (!(await isFile(path.join(nodeModulesDir, ".bin", command + (platform === "win32" ? ".cmd" : ""))))) return false;
+        }
+      }
+    }
+    return true;
+  } catch (error) {
+    if (["ENOENT", "ENOTDIR"].includes(error?.code) || error instanceof SyntaxError || error instanceof TypeError) return false;
+    throw error;
+  }
+}
+
+export async function ensureDependencyInstall({ projectDir, cache, name, inputs, identity, install, onRepair = () => {} }) {
+  await cache.run(name, {
+    inputs, identity,
+    outputs: [path.join(projectDir, "node_modules", ".modules.yaml")],
+    validateOutputs: () => isDependencyInstallComplete(projectDir),
+    build: async () => {
+      const repair = async () => {
+        onRepair();
+        await removeDependencyInstallState(projectDir);
+        await install();
+      };
+      let existing = false;
+      try { existing = (await fs.stat(path.join(projectDir, "node_modules"))).isDirectory(); }
+      catch (error) { if (error.code !== "ENOENT") throw error; }
+      if (existing && !(await isDependencyInstallComplete(projectDir))) await repair();
+      else {
+        await install();
+        if (!(await isDependencyInstallComplete(projectDir))) await repair();
+      }
+      if (!(await isDependencyInstallComplete(projectDir))) {
+        throw new Error("依赖重新安装后仍缺少包或命令入口，请检查安装日志与磁盘空间后重试。");
+      }
+    },
+  });
+}
+
 const commandFailureHintRules = [
   {
     pattern: /ERR_PNPM_(?:OUTDATED_LOCKFILE|LOCKFILE_CONFIG_MISMATCH)/,
@@ -504,6 +581,64 @@ export function createLauncherGoArgs(command, args = [], platform = process.plat
   return platform === "linux"
     ? [command, "-tags", "gtk3", ...args]
     : [command, ...args];
+}
+
+export const SERVER_READY_TIMEOUT_MS = 30_000;
+export const SERVER_RUNTIME_PREPARE_STALL_MS = 10 * 60_000;
+export const SERVER_RUNTIME_PREPARE_MAX_MS = 30 * 60_000;
+
+// Server prepares managed runtimes before listening, and a first run may
+// download hundreds of megabytes. Extend the readiness deadline while that
+// preparation keeps reporting progress, without waiting forever on a stall.
+export function createServerReadinessWatch({
+  timeoutMs = SERVER_READY_TIMEOUT_MS,
+  prepareStallMs = SERVER_RUNTIME_PREPARE_STALL_MS,
+  prepareMaxMs = SERVER_RUNTIME_PREPARE_MAX_MS,
+  now = Date.now,
+} = {}) {
+  const startedAt = now();
+  let deadline = startedAt + timeoutMs;
+  let previousProgress = "";
+  let preparing = false;
+  return {
+    observe(output) {
+      let event;
+      try { event = JSON.parse(String(output ?? "")); } catch { return false; }
+      if (event?.component !== "runtime_prepare") return false;
+      const progress = JSON.stringify([
+        event.resource_kind, event.resource_id, event.version, event.stage,
+        event.status, event.source_url, event.downloaded_bytes, event.extracted_entries, event.progress,
+      ]);
+      if (progress === previousProgress) return false;
+      previousProgress = progress;
+      preparing = true;
+      deadline = Math.min(now() + prepareStallMs, startedAt + prepareMaxMs);
+      return true;
+    },
+    isPreparing() {
+      return preparing;
+    },
+    hasExpired() {
+      return now() >= deadline;
+    },
+  };
+}
+
+export async function waitForDevelopmentServerLease({
+  lease, readLease, isOwnerRunning = isProcessRunning,
+  timeoutMs = SERVER_RUNTIME_PREPARE_MAX_MS, now = Date.now,
+  sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+}) {
+  const leaseID = lease.lease_id;
+  const deadline = now() + timeoutMs;
+  while (!lease.ready && isOwnerRunning(lease.owner_pid) && now() < deadline) {
+    await sleep(250);
+    lease = await readLease();
+    if (!lease || lease.lease_id !== leaseID) return null;
+  }
+  if (!isOwnerRunning(lease.owner_pid)) return null;
+  if (!lease.ready) throw new Error("已有开发启动流程尚未就绪，请查看其启动窗口。");
+  return lease;
 }
 
 export async function waitForChildProcessExit(child, {
