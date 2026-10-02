@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import test from "node:test";
 import { createDevChildOutput, createDevConsole } from "../dev-console.mjs";
+import { createServerReadinessWatch } from "../start-dev-support.mjs";
 
 function fixture({ tty = false, env = {}, columns = 120, ...options } = {}) {
   const out = [], errors = [], records = [];
@@ -53,6 +54,36 @@ test("split UTF-8 and secrets are redacted before log, terminal and failure tail
   }
   assert.match(f.errors.join(""), /fixture.plugin/);
   assert.match(f.errors.join(""), /manifest invalid/);
+});
+
+test("structured child output preserves JSONL record boundaries in files and failure tails", () => {
+  const f = fixture(), log = [];
+  const output = createDevChildOutput({ terminal: f.terminal, scope: "server", writeLog: (text) => log.push(text) });
+  const first = { component: "runtime_prepare", stage: "download", downloaded_bytes: 1 };
+  const second = { component: "runtime_prepare", stage: "download", downloaded_bytes: 2 };
+  output.stdout.write(Buffer.from(JSON.stringify(first) + "\n"));
+  output.stdout.write(Buffer.from(JSON.stringify(second) + "\n"));
+  output.end();
+  for (const text of [log.join(""), output.tail()]) {
+    assert.deepEqual(text.trim().split("\n").map((line) => JSON.parse(line)), [first, second]);
+  }
+});
+
+test("readiness sees each complete progress record independently of the bounded diagnostic tail", () => {
+  const f = fixture();
+  let current = 0;
+  const watch = createServerReadinessWatch({ timeoutMs: 30, prepareStallMs: 100, prepareMaxMs: 500, now: () => current });
+  const output = createDevChildOutput({ terminal: f.terminal, scope: "server", maxTailChars: 32, writeLog() {}, onLine: (line) => watch.observe(line) });
+  const progress = Buffer.from('{ "component": "runtime_prepare", "stage": "download", "downloaded_bytes": 1 }\n');
+  output.stdout.write(progress.subarray(0, 20));
+  assert.equal(watch.isPreparing(), false);
+  output.stdout.write(progress.subarray(20));
+  assert.equal(watch.isPreparing(), true);
+  current = 90;
+  output.stderr.write(Buffer.from('{"component":"storage","msg":"unrelated"}\n'));
+  current = 100;
+  assert.equal(watch.hasExpired(), true);
+  output.end();
 });
 
 test("runtime events keep their identity and are never deduplicated just by message", () => {

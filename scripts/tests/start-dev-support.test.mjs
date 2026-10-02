@@ -38,6 +38,7 @@ import {
   resolveStartProfile,
   requestDevelopmentServerShutdown,
   waitForChildProcessExit,
+  waitForDevelopmentServerLease,
 } from "../start-dev-support.mjs";
 
 test("loads the optional root environment file", () => {
@@ -416,6 +417,8 @@ test("detects dependency installs whose pnpm virtual store is missing", async (t
   t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
   const nodeModulesDir = path.join(projectDir, "node_modules");
   await fs.mkdir(nodeModulesDir, { recursive: true });
+  await fs.writeFile(path.join(projectDir, "package.json"), "{}");
+  await fs.writeFile(path.join(nodeModulesDir, ".package-map.json"), JSON.stringify({ packages: { ".": { url: ".." } } }));
 
   assert.equal(await isDependencyInstallComplete(projectDir), false);
 
@@ -428,12 +431,12 @@ test("detects dependency installs whose pnpm virtual store is missing", async (t
   await fs.mkdir(path.join(nodeModulesDir, ".pnpm"));
   assert.equal(await isDependencyInstallComplete(projectDir), true);
 
-  await fs.writeFile(path.join(nodeModulesDir, ".modules.yaml"), "nodeLinker: hoisted\n");
+  await fs.writeFile(path.join(nodeModulesDir, ".modules.yaml"), JSON.stringify({ nodeLinker: "hoisted" }));
   await fs.rm(path.join(nodeModulesDir, ".pnpm"), { recursive: true, force: true });
   assert.equal(await isDependencyInstallComplete(projectDir), true);
 });
 
-test("resets only pnpm install state files before a repair install", async (t) => {
+test("resets pnpm state and generated commands while preserving package contents", async (t) => {
   const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "raylea-deps-state-"));
   t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
   const nodeModulesDir = path.join(projectDir, "node_modules");
@@ -441,13 +444,59 @@ test("resets only pnpm install state files before a repair install", async (t) =
   for (const name of [".modules.yaml", ".package-map.json", ".pnpm-workspace-state-v1.json", "vue"]) {
     await fs.writeFile(path.join(nodeModulesDir, name), "state\n");
   }
+  await fs.mkdir(path.join(nodeModulesDir, ".bin"));
+  await fs.writeFile(path.join(nodeModulesDir, ".bin", "vite"), "fixture shim\n");
 
   await removeDependencyInstallState(projectDir);
 
-  for (const name of [".modules.yaml", ".package-map.json", ".pnpm-workspace-state-v1.json"]) {
+  for (const name of [".modules.yaml", ".package-map.json", ".pnpm-workspace-state-v1.json", ".bin"]) {
     await assert.rejects(fs.access(path.join(nodeModulesDir, name)), { code: "ENOENT" });
   }
   assert.equal(await fs.readFile(path.join(nodeModulesDir, "vue"), "utf8"), "state\n");
+});
+
+test("rejects an existing virtual store with a missing required package", async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "raylea-partial-deps-"));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+  const nodeModulesDir = path.join(projectDir, "node_modules");
+  await fs.mkdir(path.join(nodeModulesDir, ".pnpm"), { recursive: true });
+  await fs.writeFile(path.join(projectDir, "package.json"), JSON.stringify({ devDependencies: { vite: "8.2.1" } }));
+  await fs.writeFile(path.join(nodeModulesDir, ".modules.yaml"), JSON.stringify({ nodeLinker: "isolated" }));
+  assert.equal(await isDependencyInstallComplete(projectDir), false);
+});
+
+test("does not accept corrupt pnpm metadata as a complete installation", async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "raylea-corrupt-deps-"));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+  await fs.mkdir(path.join(projectDir, "node_modules"));
+  await fs.writeFile(path.join(projectDir, "node_modules", ".modules.yaml"), '{"nodeLinker":');
+  assert.equal(await isDependencyInstallComplete(projectDir), false);
+});
+
+test("checks transitive packages and command entrypoints while ignoring excluded optional packages", async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "raylea-deps-entries-"));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+  const modules = path.join(projectDir, "node_modules");
+  const direct = path.join(modules, "fixture-cli"), transitive = path.join(modules, ".pnpm", "transitive");
+  const bin = path.join(modules, ".bin", "fixture-cli" + (process.platform === "win32" ? ".cmd" : ""));
+  for (const directory of [direct, transitive, path.dirname(bin)]) await fs.mkdir(directory, { recursive: true });
+  await fs.writeFile(path.join(projectDir, "package.json"), JSON.stringify({ devDependencies: { "fixture-cli": "1.0.0" } }));
+  await fs.writeFile(path.join(modules, ".modules.yaml"), JSON.stringify({ nodeLinker: "isolated", skipped: ["foreign-native@1"] }));
+  await fs.writeFile(path.join(modules, ".package-map.json"), JSON.stringify({ packages: {
+    ".": { url: ".." }, "fixture-cli@1": { url: "./fixture-cli" },
+    "transitive@1": { url: "./.pnpm/transitive" }, "foreign-native@1": { url: "./.pnpm/foreign-native" },
+  } }));
+  await fs.writeFile(path.join(direct, "package.json"), JSON.stringify({ bin: { "fixture-cli": "cli.js" } }));
+  await fs.writeFile(path.join(direct, "cli.js"), "console.log('fixture');\n");
+  await fs.writeFile(bin, "fixture shim\n");
+  assert.equal(await isDependencyInstallComplete(projectDir), false);
+  await fs.writeFile(path.join(transitive, "package.json"), "{}");
+  assert.equal(await isDependencyInstallComplete(projectDir), true);
+  await fs.rm(bin);
+  assert.equal(await isDependencyInstallComplete(projectDir), false);
+  await fs.writeFile(bin, "fixture shim\n");
+  await fs.rm(path.join(direct, "cli.js"));
+  assert.equal(await isDependencyInstallComplete(projectDir), false);
 });
 
 test("extends server readiness while runtime preparation reports progress", () => {
@@ -494,6 +543,45 @@ test("waits through server runtime preparation but not past a stall or the cap",
   assert.equal(capped.hasExpired(), false);
   current = 300_000;
   assert.equal(capped.hasExpired(), true);
+});
+
+test("old preparation output and changing log timestamps do not renew a stalled download", () => {
+  let current = 0;
+  const watch = createServerReadinessWatch({ timeoutMs: 30, prepareStallMs: 100, prepareMaxMs: 500, now: () => current });
+  const event = { component: "runtime_prepare", resource_id: "browser", stage: "download", status: "running", downloaded_bytes: 1 };
+  const first = JSON.stringify({ ...event, ts: "first" });
+  watch.observe(first);
+  current = 90;
+  watch.observe(first + '\n{"component":"storage","msg":"unrelated activity"}\n');
+  watch.observe(JSON.stringify({ ...event, ts: "second" }));
+  current = 100;
+  assert.equal(watch.hasExpired(), true);
+});
+
+test("reusing a starting environment waits through preparation longer than two minutes", async () => {
+  let current = 0;
+  const lease = { lease_id: "fixture", owner_pid: 123, ready: false };
+  const ready = await waitForDevelopmentServerLease({
+    lease, now: () => current, sleep: async (ms) => { current += ms; }, isOwnerRunning: () => true,
+    readLease: async () => ({ ...lease, ready: current >= 180_000 }),
+  });
+  assert.equal(ready.ready, true);
+  assert.equal(current, 180_000);
+});
+
+test("pending reuse stops at its deadline, owner exit or replacement lease", async () => {
+  const lease = { lease_id: "fixture", owner_pid: 123, ready: false };
+  for (const outcome of ["timeout", "exit", "replaced", "removed"]) {
+    let current = 0;
+    const result = waitForDevelopmentServerLease({
+      lease, timeoutMs: 500, now: () => current, sleep: async (ms) => { current += ms; },
+      isOwnerRunning: () => outcome !== "exit" || current === 0,
+      readLease: async () => outcome === "removed" ? null : { ...lease, lease_id: outcome === "replaced" ? "another" : lease.lease_id },
+    });
+    if (outcome === "timeout") await assert.rejects(result);
+    else assert.equal(await result, null);
+    assert.ok(current <= 500);
+  }
 });
 
 test("waits for a child process to release its executable", async () => {

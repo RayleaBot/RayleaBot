@@ -27,10 +27,9 @@ import {
   createDependencyInstallEnvironment,
   createServerDevelopmentEnvironment,
   createServerReadinessWatch,
-  isDependencyInstallComplete,
+  ensureDependencyInstall,
   isProcessRunning,
   parseDevelopmentServerLease,
-  removeDependencyInstallState,
   requestDevelopmentServerShutdown,
   createTrustedChildEnvironment,
   describeCommandFailure,
@@ -42,6 +41,7 @@ import {
   resolveServerReloadMode,
   resolveStartProfile,
   waitForChildProcessExit,
+  waitForDevelopmentServerLease,
 } from "./start-dev-support.mjs";
 import {
   createDevelopmentReloadQueue,
@@ -101,6 +101,7 @@ let startupReported = false;
 const longRunningChildren = new Set();
 const childOutputTails = new WeakMap();
 const childHiddenOutputTails = new WeakMap();
+const childReadinessWatches = new WeakMap();
 const cleanupCallbacks = new Set();
 let shuttingDown = false;
 let cleanupPromise;
@@ -698,13 +699,8 @@ async function reuseDevelopmentRuntime(backendBaseUrl) {
   let lease = await readDevelopmentServerLease();
   if (!lease || !isProcessRunning(lease.owner_pid)) return false;
   if (process.env.RAYLEA_START_RESTART === "1" || lease.startup_identity !== startupIdentity || lease.backend_base_url !== backendBaseUrl) return false;
-  const deadline = Date.now() + 120_000;
-  while (!lease.ready && isProcessRunning(lease.owner_pid) && Date.now() < deadline) {
-    await delay(250);
-    lease = await readDevelopmentServerLease();
-    if (!lease) return false;
-  }
-  if (!lease.ready) throw new Error("已有开发启动流程尚未就绪，请查看其启动窗口。");
+  lease = await waitForDevelopmentServerLease({ lease, readLease: readDevelopmentServerLease });
+  if (!lease) return false;
   if (await classifyWebDevServer({ backendBaseUrl, projectDir: webDir }) !== "rayleabot") throw new Error("已有环境的 Web 开发服务不可用；设置 RAYLEA_START_RESTART=1 后重启。");
   const status = await developmentRequest(backendBaseUrl, lease.control_token, "api/development/status", undefined, { timeoutMs: 2000 });
   if (path.resolve(status.artifact_root) !== await fsp.realpath(pluginDevArtifactRoot)) throw new Error("开发 Server 不属于当前工作区。");
@@ -871,10 +867,10 @@ function startServerDevProcess(serverDevEnvironment) {
 }
 
 async function waitForServerProcess(child, backendBaseUrl, readyMessage) {
-  const readiness = createServerReadinessWatch();
+  const readiness = childReadinessWatches.get(child);
   let reportedPreparation = false;
   while (!readiness.hasExpired()) {
-    if (child.exitCode !== null) {
+    if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error("Server 热重载进程已退出。");
     }
     try {
@@ -890,7 +886,7 @@ async function waitForServerProcess(child, backendBaseUrl, readyMessage) {
         throw error;
       }
     }
-    if (readiness.observe(childOutputTails.get(child)?.()) && !reportedPreparation) {
+    if (readiness.isPreparing() && !reportedPreparation) {
       reportedPreparation = true;
       log("Server 正在准备运行环境，完成后继续启动。");
     }
@@ -898,7 +894,7 @@ async function waitForServerProcess(child, backendBaseUrl, readyMessage) {
   }
   const reason = readiness.isPreparing()
     ? "Server 运行环境准备超时"
-    : "Server 热重载未在 30 秒内完成首次构建";
+    : "Server 未在 30 秒内就绪";
   throw new Error(`${reason}，日志见 ${relativePath(developmentLogs.server.path)}。`);
 }
 
@@ -1031,19 +1027,12 @@ async function ensureDependencies(label, projectDir, installMode, extraInputs = 
     "install", "--frozen-lockfile", "--os=" + process.platform, "--cpu=" + process.arch,
     ...(process.platform === "linux" ? ["--libc=" + (process.report.getReport().header.glibcVersionRuntime ? "glibc" : "musl")] : []),
   ], { cwd: projectDir, env: createDependencyInstallEnvironment() });
-  await buildCache.run(name, {
+  await ensureDependencyInstall({
+    projectDir, cache: buildCache, name,
     inputs: async () => [...dependencyInputs(projectDir), ...extraInputs], identity,
-    outputs: [path.join(projectDir, "node_modules", ".modules.yaml")],
-    build: install,
+    install,
+    onRepair: () => log(`检测到 ${label} 依赖安装不完整，正在重新安装。`, "warn"),
   });
-  if (!(await isDependencyInstallComplete(projectDir))) {
-    log(`检测到 ${label} 依赖安装不完整，正在重新安装。`, "warn");
-    await removeDependencyInstallState(projectDir);
-    await install();
-    if (!(await isDependencyInstallComplete(projectDir))) {
-      throw new Error(`${label} 依赖重新安装后仍缺少 pnpm 虚拟存储，请检查磁盘空间后重试。`);
-    }
-  }
 }
 
 async function ensureWebDevServer(devEnvironment) {
@@ -1069,7 +1058,7 @@ async function ensureWebDevServer(devEnvironment) {
 async function waitForWebDevServer(child, backendBaseUrl) {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    if (child.exitCode !== null) {
+    if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error("Web 开发服务器已退出。");
     }
     const state = await classifyWebDevServer({ backendBaseUrl, projectDir: webDir, timeoutMs: 800 });
@@ -1128,7 +1117,9 @@ function spawnManaged(command, args, { cwd, env = {}, logType = "build", windows
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  const output = createDevChildOutput({ terminal, scope: logType, writeLog: (text) => childLog.write(text) });
+  const readiness = logType === "server" ? createServerReadinessWatch() : null;
+  if (readiness) childReadinessWatches.set(child, readiness);
+  const output = createDevChildOutput({ terminal, scope: logType, writeLog: (text) => childLog.write(text), onLine: (line) => readiness?.observe(line) });
   childOutputTails.set(child, output.tail);
   childHiddenOutputTails.set(child, output.hiddenTail);
   child.stdout.on("data", (chunk) => output.stdout.write(chunk));

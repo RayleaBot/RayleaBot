@@ -6,12 +6,13 @@ export function cleanOutput(text) {
   return stripVTControlCharacters(String(text)).replace(/\r/g, "\n").replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
 }
 
-export function createDevChildOutput({ terminal, scope, writeLog, maxTailChars = 64 * 1024 }) {
+export function createDevChildOutput({ terminal, scope, writeLog, onLine = () => {}, maxTailChars = 64 * 1024 }) {
   let tail = "", hiddenTail = "";
   const accept = (chunk, isStderr) => {
-    const text = redactLogLine(cleanOutput(chunk));
+    const text = cleanOutput(chunk).split("\n").map(redactLogLine).join("\n");
     tail = (tail + text).slice(-maxTailChars);
     writeLog(text);
+    for (const line of text.split("\n")) if (line) onLine(line);
     if (!terminal.child(text, { scope, isStderr })) hiddenTail = (hiddenTail + text).slice(-maxTailChars);
   };
   const stdout = createRedactedOutput((chunk) => accept(chunk, false));

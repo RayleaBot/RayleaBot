@@ -62,7 +62,7 @@ async function outputFingerprint(outputs) {
 
 export function createBuildCache(directory, log = () => {}) {
   return {
-    async run(name, { inputs, identity = {}, outputs, build }) {
+    async run(name, { inputs, identity = {}, outputs, build, validateOutputs = async () => true }) {
       const stampPath = path.join(directory, `${name}.json`)
       const inputFiles = await inputs()
       const key = await fingerprint(inputFiles, identity)
@@ -70,7 +70,7 @@ export function createBuildCache(directory, log = () => {}) {
       try { stamp = JSON.parse(await fs.readFile(stampPath, 'utf8')) }
       catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
       const output = await outputFingerprint(outputs)
-      if (stamp?.version === 1 && stamp.key === key && output && stamp.output === output) {
+      if (stamp?.version === 1 && stamp.key === key && output && stamp.output === output && await validateOutputs()) {
         return false
       }
       log(`${name}: ${stamp?.key === key ? 'output missing or changed' : 'inputs changed'}`)
@@ -81,6 +81,7 @@ export function createBuildCache(directory, log = () => {}) {
       }
       const builtOutput = await outputFingerprint(outputs)
       if (!builtOutput) throw new Error(`${name}: build did not produce its expected output`)
+      if (!(await validateOutputs())) throw new Error(`${name}: build output validation failed`)
       await writeIfChanged(stampPath, JSON.stringify({ version: 1, key, output: builtOutput }))
       return true
     },
