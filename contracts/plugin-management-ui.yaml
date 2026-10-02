@@ -4,7 +4,9 @@ description: >
   management origin under a per-plugin path and embedded in an iframe. Pages
   call the management API directly with the operator session; the response
   Content-Security-Policy limits scripts to the plugin UI path, or to the
-  management origin when the request Host is an IPv6 literal.
+  management origin when the request Host is an IPv6 literal. Images and media
+  may also load from any HTTPS origin; styles, fonts and requests stay on the
+  management origin.
 
 x-fixtures:
   - fixtures/plugin-management-ui/ok.static-route.yaml
@@ -35,7 +37,8 @@ static_route:
       default-src: "'none'"
       script-src: "{request_host}/plugin-ui/{plugin_id}/"
       style-src: "'self' 'unsafe-inline'"
-      img-src: "'self' data:"
+      img-src: "'self' data: https:"
+      media-src: "'self' data: https:"
       font-src: "'self'"
       connect-src: "'self'"
       object-src: "'none'"

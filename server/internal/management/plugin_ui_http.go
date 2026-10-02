@@ -261,11 +261,13 @@ func writePluginUIHeaders(w http.ResponseWriter, r *http.Request, pluginID, asse
 // pluginUIContentSecurityPolicy limits scripts to the plugin UI path. A
 // host-source without a scheme follows the page scheme; CSP cannot express an
 // IPv6 literal host, which falls back to 'self'. Path matching only holds
-// without redirects, so the asset route never redirects.
+// without redirects, so the asset route never redirects. Images and media may
+// come from any HTTPS origin because they cannot run code; Referrer-Policy
+// keeps the management path out of those requests.
 func pluginUIContentSecurityPolicy(host, pluginID string) string {
 	scriptSource := "'self'"
 	if host = strings.TrimSpace(host); host != "" && !strings.HasPrefix(host, "[") {
 		scriptSource = host + pluginUIPathPrefix + pluginID + "/"
 	}
-	return "default-src 'none'; script-src " + scriptSource + "; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'"
+	return "default-src 'none'; script-src " + scriptSource + "; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' data: https:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'"
 }

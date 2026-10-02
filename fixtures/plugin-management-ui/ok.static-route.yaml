@@ -9,5 +9,7 @@ response:
   status: 200
   content_type: text/html
   content_security_policy_script_src: 127.0.0.1:8080/plugin-ui/example-config-panel/
+  content_security_policy_img_src: "'self' data: https:"
+  content_security_policy_media_src: "'self' data: https:"
 expect:
   valid: true

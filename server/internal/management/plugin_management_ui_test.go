@@ -126,12 +126,12 @@ func TestPluginUIAssetsAreServedFromThePluginPath(t *testing.T) {
 		}
 		header := recorder.Header()
 		csp := header.Get("Content-Security-Policy")
-		for _, directive := range []string{"script-src 127.0.0.1:8080/plugin-ui/example-config-panel/;", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'self'"} {
+		for _, directive := range []string{"script-src 127.0.0.1:8080/plugin-ui/example-config-panel/;", "img-src 'self' data: https:;", "media-src 'self' data: https:;", "connect-src 'self';", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'self'"} {
 			if !strings.Contains(csp, directive) {
 				t.Fatalf("%s Content-Security-Policy = %q, missing %q", requestPath, csp, directive)
 			}
 		}
-		if header.Get("Cache-Control") != "no-store, max-age=0" || header.Get("X-Content-Type-Options") != "nosniff" {
+		if header.Get("Cache-Control") != "no-store, max-age=0" || header.Get("X-Content-Type-Options") != "nosniff" || header.Get("Referrer-Policy") != "same-origin" {
 			t.Fatalf("%s headers = %#v", requestPath, header)
 		}
 	}
