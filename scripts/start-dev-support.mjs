@@ -501,6 +501,12 @@ export function resolveCorepackCliPath({
       .map((directory) => stripQuotes(directory.trim()))
       .filter(Boolean),
   ];
+  if (platform === "win32") {
+    const appData = stripQuotes(String(env.APPDATA ?? "").trim());
+    if (pathApi.isAbsolute(appData)) {
+      searchDirectories.push(pathApi.join(appData, "npm"));
+    }
+  }
   const seen = new Set();
   for (const directory of searchDirectories) {
     const key = platform === "win32" ? directory.toLowerCase() : directory;
@@ -514,7 +520,7 @@ export function resolveCorepackCliPath({
     }
   }
 
-  throw new Error("Corepack CLI was not found next to Node.js or in a Node.js directory on PATH.");
+  throw new Error("Corepack CLI was not found in the Node.js directory, PATH, or the user npm directory. Run python scripts/check-toolchain.py for installation guidance.");
 }
 
 export function createTrustedChildEnvironment({

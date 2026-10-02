@@ -323,6 +323,43 @@ test("finds Corepack on PATH when the selected Node runtime contains only node.e
   }), fallbackCorepack);
 });
 
+test("finds user-installed Corepack when the Windows process PATH omits npm", () => {
+  const appData = String.raw`C:\Profiles\Developer Name\AppData\Roaming`;
+  const corepack = path.win32.join(appData, "npm", "node_modules", "corepack", "dist", "corepack.js");
+  assert.equal(resolveCorepackCliPath({
+    nodeExecutablePath: String.raw`C:\Program Files\nodejs\node.exe`,
+    env: { APPDATA: appData, Path: String.raw`C:\Windows\System32;C:\Program Files\nodejs` },
+    platform: "win32",
+    fileExists: (candidate) => candidate === corepack,
+  }), corepack);
+});
+
+test("keeps Node and PATH Corepack installations ahead of the Windows user fallback", () => {
+  const nodeDirectory = String.raw`C:\Program Files\nodejs`;
+  const pathDirectory = String.raw`D:\tools`;
+  const appData = String.raw`C:\Profiles\developer\AppData\Roaming`;
+  const candidates = [nodeDirectory, pathDirectory, path.win32.join(appData, "npm")]
+    .map((directory) => path.win32.join(directory, "node_modules", "corepack", "dist", "corepack.js"));
+  for (const firstAvailable of [0, 1]) {
+    assert.equal(resolveCorepackCliPath({
+      nodeExecutablePath: path.win32.join(nodeDirectory, "node.exe"),
+      env: { APPDATA: appData, PATH: pathDirectory },
+      platform: "win32",
+      fileExists: (candidate) => candidates.slice(firstAvailable).includes(candidate),
+    }), candidates[firstAvailable]);
+  }
+});
+
+test("does not resolve a Windows user Corepack installation from a relative APPDATA", () => {
+  const relativeCorepack = path.win32.join("relative", "npm", "node_modules", "corepack", "dist", "corepack.js");
+  assert.throws(() => resolveCorepackCliPath({
+    nodeExecutablePath: String.raw`C:\Program Files\nodejs\node.exe`,
+    env: { APPDATA: "relative", PATH: "" },
+    platform: "win32",
+    fileExists: (candidate) => candidate === relativeCorepack,
+  }), /Corepack CLI was not found/);
+});
+
 test("creates a minimal child environment with the selected Node and Go executables", () => {
   const nodeDirectory = String.raw`C:\toolchains\node-v26.7.0-win-x64`;
   const goDirectory = String.raw`D:\toolchains\Go\bin`;

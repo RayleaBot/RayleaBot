@@ -47,3 +47,5 @@ dist/
 POSIX 启动入口允许 `RAYLEA_NODE_EXECUTABLE=/absolute/path/to/node ./start.sh`；路径必须是可执行的绝对文件路径，仍检查 `.tool-versions` 中的固定版本。含空格路径在赋值时加引号。无效显式路径会报错，不改用 PATH 中的其他版本。
 
 Server 与 Launcher 开发脚本共用 `scripts/process-invocation.mjs` 解析 Go：优先 `RAYLEA_GO_EXECUTABLE` 的绝对路径，再查 PATH，Windows 再查 Program Files 下的 Go。启动参数与子进程退出码继续传回调用方。
+
+开发启动脚本使用所选 Node 直接运行 Corepack CLI，由各工程的 `package.json` 中的 `packageManager` 选择 pnpm 版本。Corepack 优先从 Node 所在目录和 PATH 查找；Windows 还会检查用户 npm 安装目录 `%APPDATA%\npm`，因此从尚未刷新 PATH 的桌面进程启动时也能使用已安装的 Corepack。
