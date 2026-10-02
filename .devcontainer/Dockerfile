@@ -1,6 +1,6 @@
-FROM python:3.14.7-bookworm AS python-runtime
+FROM python:3.14.8-bookworm AS python-runtime
 
-FROM golang:1.26.6-bookworm
+FROM golang:1.27.1-bookworm
 
 COPY --from=python-runtime /usr/local /usr/local
 COPY .tool-versions scripts/read-tool-versions.sh /tmp/toolchain/

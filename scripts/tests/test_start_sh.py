@@ -22,7 +22,7 @@ class StartShTests(unittest.TestCase):
         scripts_dir.mkdir()
         (scripts_dir / "start-dev.mjs").write_text("", encoding="utf-8")
 
-    def _write_fake_node(self, workspace: Path, version: str = "v26.7.0") -> tuple[Path, Path]:
+    def _write_fake_node(self, workspace: Path, version: str = "v26.10.0") -> tuple[Path, Path]:
         bin_dir = workspace / "bin"
         bin_dir.mkdir()
         calls_path = workspace / "node-calls.log"

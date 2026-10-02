@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.22.0",
+  "packageManager": "pnpm@11.25.0",
   "scripts": {
     "typecheck": "vue-tsc --noEmit",
     "test": "node ../../../../scripts/run-vitest.mjs run",

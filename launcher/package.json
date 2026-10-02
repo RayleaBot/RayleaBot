@@ -5,10 +5,10 @@
   "type": "module",
   "description": "RayleaBot Wails desktop launcher",
   "author": "RayleaBot",
-  "packageManager": "pnpm@11.22.0",
+  "packageManager": "pnpm@11.25.0",
   "engines": {
-    "node": "26.7.0",
-    "pnpm": "11.22.0"
+    "node": "26.10.0",
+    "pnpm": "11.25.0"
   },
   "scripts": {
     "clean": "node scripts/clean.mjs",
