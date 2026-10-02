@@ -389,6 +389,54 @@ export function createDependencyInstallEnvironment(environment = {}) {
   };
 }
 
+const dependencyInstallStateFiles = [".modules.yaml", ".package-map.json", ".pnpm-workspace-state-v1.json"];
+
+// pnpm treats its install state files as the truth, so a full install after
+// their loss would report success without recreating the virtual store.
+export async function removeDependencyInstallState(projectDir, { rm = fs.rm } = {}) {
+  for (const name of dependencyInstallStateFiles) {
+    await rm(path.join(projectDir, "node_modules", name), { force: true });
+  }
+}
+
+// A cached install stamp is not proof that node_modules still resolves. The
+// isolated linker hides every package behind the virtual store, so a deleted
+// or partially restored store leaves broken links the UI build cannot see.
+export async function isDependencyInstallComplete(projectDir, { readFile = fs.readFile, stat = fs.stat } = {}) {
+  const nodeModulesDir = path.join(projectDir, "node_modules");
+  let manifest;
+  try {
+    manifest = String(await readFile(path.join(nodeModulesDir, ".modules.yaml"), "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+  let virtualStoreDir = path.join(nodeModulesDir, ".pnpm");
+  try {
+    const parsed = JSON.parse(manifest);
+    if (parsed?.nodeLinker && parsed.nodeLinker !== "isolated") {
+      return true;
+    }
+    if (typeof parsed?.virtualStoreDir === "string" && parsed.virtualStoreDir.trim()) {
+      virtualStoreDir = path.resolve(nodeModulesDir, parsed.virtualStoreDir);
+    }
+  } catch {
+    if (!/nodeLinker\s*:\s*["']?isolated\b/.test(manifest)) {
+      return true;
+    }
+  }
+  try {
+    return (await stat(virtualStoreDir)).isDirectory();
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
 const commandFailureHintRules = [
   {
     pattern: /ERR_PNPM_(?:OUTDATED_LOCKFILE|LOCKFILE_CONFIG_MISMATCH)/,
@@ -504,6 +552,45 @@ export function createLauncherGoArgs(command, args = [], platform = process.plat
   return platform === "linux"
     ? [command, "-tags", "gtk3", ...args]
     : [command, ...args];
+}
+
+export const SERVER_READY_TIMEOUT_MS = 30_000;
+export const SERVER_RUNTIME_PREPARE_STALL_MS = 10 * 60_000;
+export const SERVER_RUNTIME_PREPARE_MAX_MS = 30 * 60_000;
+export const SERVER_RUNTIME_PREPARE_MARKER = '"component":"runtime_prepare"';
+
+// Server prepares managed runtimes before listening, and a first run may
+// download hundreds of megabytes. Extend the readiness deadline while that
+// preparation keeps reporting progress, without waiting forever on a stall.
+export function createServerReadinessWatch({
+  timeoutMs = SERVER_READY_TIMEOUT_MS,
+  prepareStallMs = SERVER_RUNTIME_PREPARE_STALL_MS,
+  prepareMaxMs = SERVER_RUNTIME_PREPARE_MAX_MS,
+  prepareMarker = SERVER_RUNTIME_PREPARE_MARKER,
+  now = Date.now,
+} = {}) {
+  const startedAt = now();
+  let deadline = startedAt + timeoutMs;
+  let previousOutput = "";
+  let preparing = false;
+  return {
+    observe(output) {
+      const text = String(output ?? "");
+      if (text === previousOutput || !text.includes(prepareMarker)) {
+        return false;
+      }
+      previousOutput = text;
+      preparing = true;
+      deadline = Math.min(now() + prepareStallMs, startedAt + prepareMaxMs);
+      return true;
+    },
+    isPreparing() {
+      return preparing;
+    },
+    hasExpired() {
+      return now() >= deadline;
+    },
+  };
 }
 
 export async function waitForChildProcessExit(child, {

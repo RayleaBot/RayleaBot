@@ -59,13 +59,13 @@
 
 ## 增量构建与环境复用
 
-重复运行启动包装器时，同一工作区、相同启动配置和脚本版本的健康 Server / Web 开发环境保持运行，Launcher 自动打开或聚焦。设置 `RAYLEA_START_RESTART=1` 可重新启动；Server 与开发插件先完成构建预检，再优雅停止旧环境。预检失败时保留健康旧环境，修复后重新启动。未受当前工作区租约管理的 Server 不会被接管。
+重复运行启动包装器时，同一工作区、相同启动配置和脚本版本的健康 Server / Web 开发环境保持运行，Launcher 自动打开或聚焦。设置 `RAYLEA_START_RESTART=1` 可重新启动；Server 与开发插件先完成构建预检，再优雅停止旧环境。预检失败时保留健康旧环境，修复后重新启动。未受当前工作区租约管理的 Server 不会被接管。Server 首次启动需要准备 Chromium 或 FFmpeg 时，脚本等待运行环境准备完成，期间持续报告进度；准备停滞或超过总时长上限才判定启动失败。
 
 `.tmp/dev-cache/` 保存内容摘要与构建产物，覆盖 Server、插件构建工具、插件后端、UI、展开 artifact、Launcher bindings、前端和原生程序。输入内容、工具链、平台或构建参数变化会使对应缓存失效；产物缺失或内容变化会触发修复。修改文件时间或重复启动不会单独触发编译。构建期间收到的修改会在切换运行时前重新检查。
 
 开发子进程的 `TEMP`、`TMP`、`TMPDIR` 与 `GOTMPDIR` 指向 `.tmp/dev-cache/tmp/`，Go 构建及插件打包的临时文件留在项目内。发布归档 smoke 的解压目录位于 `.tmp/release-smoke/`，校验结束后清理。
 
-开发依赖安装显式限制当前 OS、CPU 和 Linux libc。Vue SDK 镜像按内容同步文件，保留已有 `node_modules`。安装依赖的判断使用 package、lockfile、workspace 配置、SDK package 与工具链内容，不依赖文件更新时间。
+开发依赖安装显式限制当前 OS、CPU 和 Linux libc。Vue SDK 镜像按内容同步文件，保留已有 `node_modules`。安装依赖的判断使用 package、lockfile、workspace 配置、SDK package 与工具链内容，不依赖文件更新时间；缓存命中后发现 pnpm 虚拟存储缺失等安装不完整状态时重置安装状态并重新安装。
 
 插件后端通过当前平台的 `go list` 输入图判定变化，包含本地依赖和 `go:embed` 文件。每个插件使用独立的临时 `go.work`，仅连接 SDK 和自身声明的本地模块，避免无关插件的模块错误影响构建。UI 修改只重建 UI 与 artifact；manifest、未嵌入 Go 的模板和资源修改只组装 artifact。开发 artifact 使用标准展开目录，不生成 ZIP；许可证和 notices 仍随产物保留。
 

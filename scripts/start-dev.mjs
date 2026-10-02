@@ -26,8 +26,11 @@ import {
   createDatedLogWriter,
   createDependencyInstallEnvironment,
   createServerDevelopmentEnvironment,
+  createServerReadinessWatch,
+  isDependencyInstallComplete,
   isProcessRunning,
   parseDevelopmentServerLease,
+  removeDependencyInstallState,
   requestDevelopmentServerShutdown,
   createTrustedChildEnvironment,
   describeCommandFailure,
@@ -868,8 +871,9 @@ function startServerDevProcess(serverDevEnvironment) {
 }
 
 async function waitForServerProcess(child, backendBaseUrl, readyMessage) {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
+  const readiness = createServerReadinessWatch();
+  let reportedPreparation = false;
+  while (!readiness.hasExpired()) {
     if (child.exitCode !== null) {
       throw new Error("Server 热重载进程已退出。");
     }
@@ -886,9 +890,16 @@ async function waitForServerProcess(child, backendBaseUrl, readyMessage) {
         throw error;
       }
     }
+    if (readiness.observe(childOutputTails.get(child)?.()) && !reportedPreparation) {
+      reportedPreparation = true;
+      log("Server 正在准备运行环境，完成后继续启动。");
+    }
     await delay(500);
   }
-  throw new Error(`Server 热重载未在 30 秒内完成首次构建，日志见 ${relativePath(developmentLogs.server.path)}。`);
+  const reason = readiness.isPreparing()
+    ? "Server 运行环境准备超时"
+    : "Server 热重载未在 30 秒内完成首次构建";
+  throw new Error(`${reason}，日志见 ${relativePath(developmentLogs.server.path)}。`);
 }
 
 async function watchServerSources(onChange) {
@@ -1016,14 +1027,23 @@ async function ensureDependencies(label, projectDir, installMode, extraInputs = 
   if (installMode === "skip") return;
   const identity = { ...toolIdentity, platformOnly: true, ...(installMode === "always" ? { force: Date.now() } : {}) };
   const name = "deps-" + (await fingerprint([], { projectDir })).slice(0, 16);
+  const install = () => runCommand("安装 " + label + " 依赖", "pnpm", [
+    "install", "--frozen-lockfile", "--os=" + process.platform, "--cpu=" + process.arch,
+    ...(process.platform === "linux" ? ["--libc=" + (process.report.getReport().header.glibcVersionRuntime ? "glibc" : "musl")] : []),
+  ], { cwd: projectDir, env: createDependencyInstallEnvironment() });
   await buildCache.run(name, {
     inputs: async () => [...dependencyInputs(projectDir), ...extraInputs], identity,
     outputs: [path.join(projectDir, "node_modules", ".modules.yaml")],
-    build: () => runCommand("安装 " + label + " 依赖", "pnpm", [
-      "install", "--frozen-lockfile", "--os=" + process.platform, "--cpu=" + process.arch,
-      ...(process.platform === "linux" ? ["--libc=" + (process.report.getReport().header.glibcVersionRuntime ? "glibc" : "musl")] : []),
-    ], { cwd: projectDir, env: createDependencyInstallEnvironment() }),
+    build: install,
   });
+  if (!(await isDependencyInstallComplete(projectDir))) {
+    log(`检测到 ${label} 依赖安装不完整，正在重新安装。`, "warn");
+    await removeDependencyInstallState(projectDir);
+    await install();
+    if (!(await isDependencyInstallComplete(projectDir))) {
+      throw new Error(`${label} 依赖重新安装后仍缺少 pnpm 虚拟存储，请检查磁盘空间后重试。`);
+    }
+  }
 }
 
 async function ensureWebDevServer(devEnvironment) {

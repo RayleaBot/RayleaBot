@@ -19,12 +19,15 @@ import {
   createDependencyInstallEnvironment,
   createDevEnvironment,
   createServerDevelopmentEnvironment,
+  createServerReadinessWatch,
   createTrustedChildEnvironment,
   createLauncherGoArgs,
   describeCommandFailure,
   formatUTCLogDate,
   loadStartEnvironmentFile,
+  isDependencyInstallComplete,
   isProcessRunning,
+  removeDependencyInstallState,
   parseDevelopmentServerLease,
   parseBackendEndpointFromConfigText,
   resolveDatedLogPath,
@@ -406,6 +409,91 @@ test("enables the GTK 3 build tag only for Linux launcher commands", () => {
   assert.deepEqual(createLauncherGoArgs("run", ["."], "linux"), ["run", "-tags", "gtk3", "."]);
   assert.deepEqual(createLauncherGoArgs("run", ["."], "win32"), ["run", "."]);
   assert.deepEqual(createLauncherGoArgs("test", ["./..."], "darwin"), ["test", "./..."]);
+});
+
+test("detects dependency installs whose pnpm virtual store is missing", async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "raylea-deps-"));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+  const nodeModulesDir = path.join(projectDir, "node_modules");
+  await fs.mkdir(nodeModulesDir, { recursive: true });
+
+  assert.equal(await isDependencyInstallComplete(projectDir), false);
+
+  await fs.writeFile(path.join(nodeModulesDir, ".modules.yaml"), JSON.stringify({
+    nodeLinker: "isolated",
+    virtualStoreDir: path.join(nodeModulesDir, ".pnpm"),
+  }));
+  assert.equal(await isDependencyInstallComplete(projectDir), false);
+
+  await fs.mkdir(path.join(nodeModulesDir, ".pnpm"));
+  assert.equal(await isDependencyInstallComplete(projectDir), true);
+
+  await fs.writeFile(path.join(nodeModulesDir, ".modules.yaml"), "nodeLinker: hoisted\n");
+  await fs.rm(path.join(nodeModulesDir, ".pnpm"), { recursive: true, force: true });
+  assert.equal(await isDependencyInstallComplete(projectDir), true);
+});
+
+test("resets only pnpm install state files before a repair install", async (t) => {
+  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "raylea-deps-state-"));
+  t.after(() => fs.rm(projectDir, { recursive: true, force: true }));
+  const nodeModulesDir = path.join(projectDir, "node_modules");
+  await fs.mkdir(nodeModulesDir, { recursive: true });
+  for (const name of [".modules.yaml", ".package-map.json", ".pnpm-workspace-state-v1.json", "vue"]) {
+    await fs.writeFile(path.join(nodeModulesDir, name), "state\n");
+  }
+
+  await removeDependencyInstallState(projectDir);
+
+  for (const name of [".modules.yaml", ".package-map.json", ".pnpm-workspace-state-v1.json"]) {
+    await assert.rejects(fs.access(path.join(nodeModulesDir, name)), { code: "ENOENT" });
+  }
+  assert.equal(await fs.readFile(path.join(nodeModulesDir, "vue"), "utf8"), "state\n");
+});
+
+test("extends server readiness while runtime preparation reports progress", () => {
+  let current = 0;
+  const watch = createServerReadinessWatch({
+    timeoutMs: 30_000, prepareStallMs: 120_000, prepareMaxMs: 300_000, now: () => current,
+  });
+
+  assert.equal(watch.hasExpired(), false);
+  current = 30_000;
+  assert.equal(watch.hasExpired(), true);
+  assert.equal(watch.isPreparing(), false);
+});
+
+test("waits through server runtime preparation but not past a stall or the cap", () => {
+  let current = 0;
+  const watch = createServerReadinessWatch({
+    timeoutMs: 30_000, prepareStallMs: 120_000, prepareMaxMs: 300_000, now: () => current,
+  });
+
+  assert.equal(watch.observe("server: preparing"), false);
+  assert.equal(watch.isPreparing(), false);
+  assert.equal(watch.observe('{"component":"runtime_prepare","stage":"download"}'), true);
+  assert.equal(watch.isPreparing(), true);
+
+  current = 100_000;
+  assert.equal(watch.hasExpired(), false);
+  assert.equal(watch.observe('{"component":"runtime_prepare","downloaded_bytes":1}'), true);
+
+  current = 219_999;
+  assert.equal(watch.hasExpired(), false);
+  current = 220_000;
+  assert.equal(watch.hasExpired(), true);
+
+  current = 0;
+  const capped = createServerReadinessWatch({
+    timeoutMs: 30_000, prepareStallMs: 120_000, prepareMaxMs: 300_000, now: () => current,
+  });
+  for (let tick = 0; tick <= 500_000; tick += 100_000) {
+    current = tick;
+    capped.observe(`{"component":"runtime_prepare","downloaded_bytes":${tick}}`);
+  }
+  current = 299_999;
+  assert.equal(capped.hasExpired(), false);
+  current = 300_000;
+  assert.equal(capped.hasExpired(), true);
 });
 
 test("waits for a child process to release its executable", async () => {
