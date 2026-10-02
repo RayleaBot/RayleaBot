@@ -29,7 +29,7 @@ class StartBatTests(unittest.TestCase):
             @echo off
             setlocal
             if "%~1"=="--version" (
-              echo v26.7.0
+              echo v26.10.0
               exit /b 0
             )
             >> "{calls_path}" echo CWD=%CD%

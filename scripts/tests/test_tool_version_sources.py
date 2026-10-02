@@ -17,7 +17,7 @@ class ToolVersionSourcesTests(unittest.TestCase):
         bash = str(Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe") if os.name == "nt" else shutil.which("bash")
         if not bash or not Path(bash).is_file():
             self.skipTest("Bash unavailable")
-        source = (ROOT / ".tool-versions").read_text(encoding="utf-8").replace("golang 1.26.6", "golang 9.8.7")
+        source = (ROOT / ".tool-versions").read_text(encoding="utf-8").replace("golang 1.27.1", "golang 9.8.7")
         node_script = "import { readToolVersions } from './scripts/tool-versions.mjs'; import { pathToFileURL } from 'node:url'; console.log(JSON.stringify(readToolVersions(pathToFileURL(process.argv[1]))));"
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

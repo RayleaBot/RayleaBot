@@ -31,7 +31,7 @@ class CheckToolchainTests(unittest.TestCase):
 
         def fake_run(args: list[str], cwd: Path | None = None):
             calls.append((args, cwd))
-            return module.CommandOutput(0, "go1.26.6\n", "")
+            return module.CommandOutput(0, "go1.27.1\n", "")
 
         original_exists = module.executable_exists
         original_run = module.run_command
@@ -56,7 +56,7 @@ class CheckToolchainTests(unittest.TestCase):
             if args == ["pnpm", "--version"]:
                 return module.CommandOutput(0, "11.21.0\n", "")
             if args == ["corepack", "pnpm", "--version"]:
-                return module.CommandOutput(0, "11.22.0\n", "")
+                return module.CommandOutput(0, "11.25.0\n", "")
             return module.CommandOutput(127, "", "unexpected command")
 
         original_exists = module.executable_exists
@@ -71,20 +71,20 @@ class CheckToolchainTests(unittest.TestCase):
 
         self.assertEqual(result.status, "warning")
         self.assertIn("corepack pnpm --version", result.detail)
-        self.assertIn("corepack prepare pnpm@11.22.0 --activate", result.remediation)
+        self.assertIn("corepack prepare pnpm@11.25.0 --activate", result.remediation)
 
     def test_python_checks_running_interpreter(self) -> None:
         module = load_module()
 
         original_version = module.platform.python_version
         try:
-            module.platform.python_version = lambda: "3.14.7"
+            module.platform.python_version = lambda: "3.14.8"
             result = module.check_python()
         finally:
             module.platform.python_version = original_version
 
         self.assertEqual(result.status, "ok")
-        self.assertEqual(result.detail, "3.14.7")
+        self.assertEqual(result.detail, "3.14.8")
 
 
     def test_selected_server_task_does_not_require_frontend_tools(self) -> None:
@@ -100,7 +100,7 @@ class CheckToolchainTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             valid = (REPO_ROOT / ".tool-versions").read_text(encoding="utf-8")
-            for content in (valid + "\ngolang 1.26.6\n", valid.replace("nodejs 26.7.0", "nodejs latest")):
+            for content in (valid + "\ngolang 1.27.1\n", valid.replace("nodejs 26.10.0", "nodejs latest")):
                 (root / ".tool-versions").write_text(content, encoding="utf-8")
                 with self.assertRaises(ValueError):
                     module.read_tool_versions(root)
