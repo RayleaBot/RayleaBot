@@ -166,13 +166,23 @@ func (s *Service) Match(event chatevent.NormalizedEvent) Request {
 	if !parsed.IsCommand {
 		return Request{}
 	}
+	commandName := strings.TrimSpace(parsed.Command)
+	candidate := false
+	for _, name := range matcher.commands {
+		if strings.HasSuffix(commandName, name) {
+			candidate = true
+			break
+		}
+	}
+	if !candidate {
+		return Request{}
+	}
 	// The menu is addressed through global prefixes, so a plugin command reached
 	// through a dedicated prefix shadows it, as it shadows global-tier plugins.
 	if s.plugins != nil && plugins.HasDedicatedMatch(plugins.ResolveCommandMatches(s.plugins.Commands(), text, s.config().CommandPrefixes())) {
 		return Request{}
 	}
 
-	commandName := strings.TrimSpace(parsed.Command)
 	for _, name := range matcher.commands {
 		if commandName == name {
 			return s.withHelpDelegate(Request{

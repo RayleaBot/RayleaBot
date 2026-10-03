@@ -5,6 +5,18 @@ import (
 	"testing"
 )
 
+func TestSharedGlobalParseKeepsEachMatchArgumentsIndependent(t *testing.T) {
+	entries := []CommandEntry{{PluginID: "first", Commands: []Command{{Name: "echo"}}}, {PluginID: "second", Commands: []Command{{Name: "echo"}}}}
+	matches := ResolveCommandMatches(entries, "/echo hello world", []string{"/"})
+	if len(matches) != 2 {
+		t.Fatalf("matches=%v", matches)
+	}
+	matches[0].Args[0] = "changed"
+	if matches[1].Args[0] != "hello" {
+		t.Fatal("command matches share mutable arguments")
+	}
+}
+
 func TestResolveCommandMatches(t *testing.T) {
 	global := []string{"/", "*", "~"}
 	exact := func(id, name string) Command { return Command{ID: id, Name: name, TriggerType: "exact"} }

@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"slices"
 	"sort"
 	"strings"
 )
@@ -94,10 +95,11 @@ func resolveCommandMatches(entries []CommandEntry, text string, global []string,
 		return nil
 	}
 	globalPrefix, afterGlobal := longestPrefix(text, global)
+	globalFields := strings.Fields(afterGlobal)
 	var matches []CommandMatch
 	dedicated := false
 	for _, entry := range entries {
-		match, ok := matchPluginCommand(entry, text, globalPrefix, afterGlobal, fallback)
+		match, ok := matchPluginCommand(entry, text, globalPrefix, afterGlobal, globalFields, fallback)
 		if !ok {
 			continue
 		}
@@ -122,24 +124,32 @@ func HasDedicatedMatch(matches []CommandMatch) bool {
 	return len(matches) > 0 && matches[0].Tier == CommandTierDedicated
 }
 
-func matchPluginCommand(entry CommandEntry, text, globalPrefix, afterGlobal string, fallback bool) (CommandMatch, bool) {
-	// A dedicated prefix may stand alone or follow the global prefix. Longer
-	// prefixes are tried first so a shorter one never hides them; the declared
-	// order is kept for display.
-	for _, prefix := range SortCommandPrefixes(entry.Prefixes.Dedicated) {
+func matchPluginCommand(entry CommandEntry, text, globalPrefix, afterGlobal string, globalFields []string, fallback bool) (CommandMatch, bool) {
+	// A dedicated prefix may stand alone or follow the global prefix. Keep the
+	// longest successful match, preserving declaration order for equal lengths.
+	var best CommandMatch
+	bestLength := -1
+	for _, prefix := range entry.Prefixes.Dedicated {
+		if len(prefix) <= bestLength {
+			continue
+		}
 		if match, ok := matchAfterPrefix(entry, text, prefix, fallback); ok {
 			match.Tier, match.Prefix = CommandTierDedicated, prefix
-			return match, true
+			best, bestLength = match, len(prefix)
+			continue
 		}
 		if match, ok := matchAfterPrefix(entry, afterGlobal, prefix, fallback); ok {
 			match.Tier, match.Prefix = CommandTierDedicated, globalPrefix+prefix
-			return match, true
+			best, bestLength = match, len(prefix)
 		}
+	}
+	if bestLength >= 0 {
+		return best, true
 	}
 	if entry.Prefixes.IgnoreGlobal || globalPrefix == "" {
 		return CommandMatch{}, false
 	}
-	match, ok := matchDeclared(entry, afterGlobal, fallback)
+	match, ok := matchDeclaredFields(entry, globalFields, fallback)
 	if ok {
 		match.Tier, match.Prefix = CommandTierGlobal, globalPrefix
 	}
@@ -154,13 +164,16 @@ func matchAfterPrefix(entry CommandEntry, text, prefix string, fallback bool) (C
 }
 
 func matchDeclared(entry CommandEntry, rest string, fallback bool) (CommandMatch, bool) {
-	fields := strings.Fields(rest)
+	return matchDeclaredFields(entry, strings.Fields(rest), fallback)
+}
+
+func matchDeclaredFields(entry CommandEntry, fields []string, fallback bool) (CommandMatch, bool) {
 	if len(fields) == 0 {
 		return CommandMatch{}, false
 	}
 	for _, command := range entry.Commands {
 		if command.Fallback == fallback && command.Matches(fields[0]) {
-			return CommandMatch{PluginID: entry.PluginID, Command: fields[0], Args: fields[1:], Declaration: command}, true
+			return CommandMatch{PluginID: entry.PluginID, Command: fields[0], Args: slices.Clone(fields[1:]), Declaration: command}, true
 		}
 	}
 	return CommandMatch{}, false
