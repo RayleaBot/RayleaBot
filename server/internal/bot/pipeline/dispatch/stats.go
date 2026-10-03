@@ -1,5 +1,25 @@
 package dispatch
 
+type DispatcherTotals struct {
+	Delivered uint64
+	Dropped   uint64
+	Errored   uint64
+	Ignored   uint64
+}
+
+// StatsTotals reads the cumulative counters under one lock without copying
+// per-plugin drop details that the live bridge frame does not expose.
+func (d *Dispatcher) StatsTotals() DispatcherTotals {
+	d.statsMu.Lock()
+	defer d.statsMu.Unlock()
+	return DispatcherTotals{
+		Delivered: d.delivered,
+		Dropped:   d.dropped,
+		Errored:   d.errored,
+		Ignored:   d.ignored,
+	}
+}
+
 func (d *Dispatcher) recordOutcome(outcome Outcome, pluginID, reason string) {
 	d.statsMu.Lock()
 	switch outcome {

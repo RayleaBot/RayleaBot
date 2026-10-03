@@ -18,7 +18,7 @@ func (a DispatcherStatsAdapter) Stats() bridge.DispatcherStatsView {
 	if a.dispatcher == nil {
 		return bridge.DispatcherStatsView{}
 	}
-	stats := a.dispatcher.Stats()
+	stats := a.dispatcher.StatsTotals()
 	return bridge.DispatcherStatsView{
 		Delivered: stats.Delivered,
 		Dropped:   stats.Dropped,
