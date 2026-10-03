@@ -144,11 +144,34 @@ func TestAcceptedAsyncEventOutlivesCallerCancellation(t *testing.T) {
 	}
 	close(rt.release)
 	d.Close()
-	// The event context is derived from a wrapper the runtime cannot attach to
-	// its cancellation tree, so the worker propagates the slot's cancellation
-	// through context.AfterFunc. That runs in its own goroutine: closing does
-	// cancel the owned context, but not before Close returns.
+	// Completion releases this delivery's context even when the submitter's
+	// earlier cancellation did not end the admitted event.
 	waitForContextDone(t, accepted, time.Second)
+}
+
+func TestSuccessiveDeliveriesHaveIndependentContextsAndTracing(t *testing.T) {
+	d := New(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, 4)
+	t.Cleanup(d.Close)
+	rt := &contextDeliverer{contexts: make(chan context.Context, 1), release: make(chan struct{})}
+	t.Cleanup(func() { close(rt.release) })
+	d.Register("fixture", rt, nil, nil, 1)
+	type traceKey struct{}
+	for sequence := range 24 {
+		ctx := context.WithValue(t.Context(), traceKey{}, sequence)
+		result := d.DispatchToPlugin(ctx, "fixture", testEvent())
+		if result.Outcome != OutcomeDelivered {
+			t.Fatal(result)
+		}
+		accepted := <-rt.contexts
+		if accepted.Err() != nil || accepted.Value(traceKey{}) != sequence {
+			t.Fatal("delivery retained an earlier context or trace")
+		}
+		rt.release <- struct{}{}
+		if !waitCompletion(t, result).Success {
+			t.Fatal("delivery failed")
+		}
+		waitForContextDone(t, accepted, time.Second)
+	}
 }
 
 func waitForContextDone(t *testing.T, ctx context.Context, timeout time.Duration) {

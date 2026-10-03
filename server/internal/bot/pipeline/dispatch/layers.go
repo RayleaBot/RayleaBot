@@ -25,23 +25,83 @@ type messageLayer struct {
 // Caller holds the registry read lock. Policy and generation are immutable for
 // this admission even when the next message observes a reloaded manifest.
 func (d *Dispatcher) messageCandidates(event chatevent.Event, command string) []messageCandidate {
-	ids := d.selectTargets(event, command)
-	directed := len(d.commandTargets(event, command)) > 0
-	result := make([]messageCandidate, 0, len(ids))
+	ids := d.commandTargets(event, command)
+	routes, known := d.messageRoutes[event.EventType]
+	if !known {
+		routes = d.messageWildcards
+	}
+	if len(ids) == 0 {
+		if event.CommandResolved && len(event.CommandTargets) > 0 {
+			return nil
+		}
+		result := make([]messageCandidate, 0, len(routes))
+		for _, candidate := range routes {
+			if slotIsDeliverable(candidate.slot) {
+				result = append(result, candidate)
+			}
+		}
+		return result
+	}
 	selected := make(map[string]bool, len(ids))
+	commands := make([]messageCandidate, 0, len(ids))
 	for _, id := range ids {
 		slot := d.slots[id]
 		selected[id] = true
-		result = append(result, messageCandidate{id: id, slot: slot, policy: slot.messagePolicy})
+		commands = append(commands, messageCandidate{id: id, slot: slot, policy: slot.messagePolicy})
 	}
-	if directed {
-		for id, slot := range d.slots {
-			if !selected[id] && slotIsDeliverable(slot) && slot.messagePolicy.Priority > 0 && slotAcceptsEvent(slot, event.EventType) {
-				result = append(result, messageCandidate{id: id, slot: slot, policy: slot.messagePolicy, beforeCommand: true})
+	if len(commands) > 1 {
+		sort.Slice(commands, func(i, j int) bool { return candidateLess(commands[i], commands[j]) })
+	}
+	var before []messageCandidate
+	for _, candidate := range routes {
+		if candidate.policy.Priority <= 0 {
+			break
+		}
+		if !selected[candidate.id] && slotIsDeliverable(candidate.slot) {
+			candidate.beforeCommand = true
+			before = append(before, candidate)
+		}
+	}
+	if len(before) == 0 {
+		return commands
+	}
+	return append(before, commands...)
+}
+
+func candidateLess(left, right messageCandidate) bool {
+	if left.policy.Priority != right.policy.Priority {
+		return left.policy.Priority > right.policy.Priority
+	}
+	return left.id < right.id
+}
+
+// Subscription ordering changes with registry membership, not with individual
+// messages. Readiness is still checked at admission and again before delivery.
+// The caller holds mu for the whole replacement of these derived routes.
+func (d *Dispatcher) rebuildMessageRoutesLocked() {
+	ordered := make([]messageCandidate, 0, len(d.slots))
+	routes := make(map[string][]messageCandidate)
+	for id, slot := range d.slots {
+		ordered = append(ordered, messageCandidate{id: id, slot: slot, policy: slot.messagePolicy})
+		for _, subscription := range slot.subscriptions {
+			if subscription != "*" {
+				routes[subscription] = nil
 			}
 		}
 	}
-	return result
+	sort.Slice(ordered, func(i, j int) bool { return candidateLess(ordered[i], ordered[j]) })
+	var wildcards []messageCandidate
+	for _, candidate := range ordered {
+		if slotAcceptsEvent(candidate.slot, "*") {
+			wildcards = append(wildcards, candidate)
+		}
+		for eventType := range routes {
+			if slotAcceptsEvent(candidate.slot, eventType) {
+				routes[eventType] = append(routes[eventType], candidate)
+			}
+		}
+	}
+	d.messageRoutes, d.messageWildcards = routes, wildcards
 }
 
 func (d *Dispatcher) dispatchLayered(ctx context.Context, event chatevent.Event, command string) []DeliveryResult {
@@ -54,18 +114,17 @@ func (d *Dispatcher) dispatchLayered(ctx context.Context, event chatevent.Event,
 	}
 	candidates := d.messageCandidates(event, command)
 	d.mu.RUnlock()
-	sort.Slice(candidates, func(i, j int) bool {
-		if candidates[i].beforeCommand != candidates[j].beforeCommand {
-			return candidates[i].beforeCommand
-		}
-		if candidates[i].policy.Priority != candidates[j].policy.Priority {
-			return candidates[i].policy.Priority > candidates[j].policy.Priority
-		}
-		return candidates[i].id < candidates[j].id
-	})
 	if len(candidates) == 0 {
 		d.recordOutcome(OutcomeIgnored, "", "")
 		return nil
+	}
+	first, last := candidates[0], candidates[len(candidates)-1]
+	if first.policy.Priority == last.policy.Priority && first.beforeCommand == last.beforeCommand {
+		results := make([]DeliveryResult, 0, len(candidates))
+		for _, candidate := range candidates {
+			results = append(results, d.enqueueTarget(ctx, eventForTarget(event, candidate.id), candidate.id, nil, &enqueueOptions{expected: candidate.slot}))
+		}
+		return results
 	}
 	var layers []messageLayer
 	results := make([]DeliveryResult, 0, len(candidates))

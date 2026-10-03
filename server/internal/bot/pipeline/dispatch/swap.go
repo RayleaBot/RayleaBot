@@ -83,6 +83,7 @@ func (d *Dispatcher) SwapPlugin(pluginID string, target runtimeDeliverer, subscr
 	}
 	next := d.newPluginSlot(target, subscriptions, commands, concurrency, policy...)
 	d.slots[pluginID] = next
+	d.rebuildMessageRoutesLocked()
 	go d.worker(pluginID, next)
 	d.mu.Unlock()
 	if previous == nil {

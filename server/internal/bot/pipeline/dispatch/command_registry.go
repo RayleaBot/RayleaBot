@@ -26,6 +26,7 @@ func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []strin
 
 	slot := d.newPluginSlot(rt, subs, cmds, concurrency, policy...)
 	d.slots[pluginID] = slot
+	d.rebuildMessageRoutesLocked()
 	go d.worker(pluginID, slot)
 	d.mu.Unlock()
 
@@ -52,6 +53,7 @@ func (d *Dispatcher) Deregister(pluginID string) {
 		return
 	}
 	delete(d.slots, pluginID)
+	d.rebuildMessageRoutesLocked()
 	d.mu.Unlock()
 
 	slot.closeQueues()
@@ -150,6 +152,8 @@ func (d *Dispatcher) Close() {
 		slots[slot] = struct{}{}
 	}
 	d.slots = make(map[string]*pluginSlot)
+	d.messageRoutes = nil
+	d.messageWildcards = nil
 	d.retired = make(map[*pluginSlot]struct{})
 	d.mu.Unlock()
 	d.admissionMu.Unlock()

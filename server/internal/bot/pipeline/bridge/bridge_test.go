@@ -14,6 +14,27 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 )
 
+func TestObservabilitySubscriptionIncludesEarlierUnobservedCounts(t *testing.T) {
+	client := &recordingDispatcher{deliverable: true, results: []dispatch.DeliveryResult{{PluginID: "fixture", Outcome: dispatch.OutcomeDelivered}}}
+	b := testBridge(client)
+	b.HandleAdapterEvent(t.Context(), supportedAdapterEvent())
+	if b.Snapshot().DeliveredCount != 1 {
+		t.Fatal("unobserved event was not counted")
+	}
+	frames, unsubscribe := b.SubscribeObservability(1)
+	defer unsubscribe()
+	b.HandleAdapterEvent(t.Context(), supportedAdapterEvent())
+	select {
+	case frame := <-frames:
+		data, ok := frame.Data.(ObservabilityData)
+		if !ok || data.DeliveredCount != 2 || data.ResultCount != 2 {
+			t.Fatalf("observability=%+v", frame.Data)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("subscriber did not receive the current counters")
+	}
+}
+
 func TestBridgeQueuesSupportedEventToDispatcher(t *testing.T) {
 	t.Parallel()
 

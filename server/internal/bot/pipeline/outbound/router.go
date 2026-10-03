@@ -66,9 +66,8 @@ func (r *Router) SendReply(ctx context.Context, message chatevent.OutboundMessag
 // delivering to the wrong one would either fail confusingly or reach an
 // unrelated conversation that happens to share an id.
 func (r *Router) ResolveAdapterID(sourceAdapter, sourceProtocol string) (string, error) {
-	senders := r.activeSenders()
 	if adapterID := strings.TrimSpace(sourceAdapter); adapterID != "" {
-		_, ok := senders[adapterID]
+		_, ok := r.activeSender(adapterID)
 		if !ok {
 			return "", routeFailure(errorcodes.AdapterTransportUnavailable, "outbound: adapter %q is not connected", adapterID)
 		}
@@ -77,6 +76,7 @@ func (r *Router) ResolveAdapterID(sourceAdapter, sourceProtocol string) (string,
 		}
 		return adapterID, nil
 	}
+	senders := r.activeSenders()
 
 	// A request with only a protocol can use exactly one connected instance.
 	// If several instances are connected, the caller must name the adapter.
@@ -112,7 +112,7 @@ func (r *Router) ResolveAdapterID(sourceAdapter, sourceProtocol string) (string,
 // belongs to. Without it the label would be built by whichever adapter the
 // pipeline happened to hold, which for a keyed router is none of them.
 func (r *Router) ResolveTargetName(ctx context.Context, adapterID, targetType, targetID string) string {
-	sender, ok := r.activeSenders()[strings.TrimSpace(adapterID)]
+	sender, ok := r.activeSender(strings.TrimSpace(adapterID))
 	if !ok {
 		return ""
 	}
@@ -126,7 +126,7 @@ func (r *Router) ResolveTargetName(ctx context.Context, adapterID, targetType, t
 // ResolveBotDisplay forwards the question to the named adapter for the same
 // reason as ResolveTargetName: the router itself is signed in as nobody.
 func (r *Router) ResolveBotDisplay(adapterID string) (string, string) {
-	sender, ok := r.activeSenders()[strings.TrimSpace(adapterID)]
+	sender, ok := r.activeSender(strings.TrimSpace(adapterID))
 	if !ok {
 		return "", ""
 	}
@@ -155,6 +155,19 @@ func (r *Router) adapterNames(senders map[string]ActionSender) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func (r *Router) activeSender(id string) (ActionSender, bool) {
+	sender, ok := r.senders[id]
+	if !ok || r.currentConfig == nil {
+		return sender, ok
+	}
+	for _, instance := range r.currentConfig().Adapters {
+		if instance.ID == id && instance.Enabled && instance.Type == r.protocols[id] {
+			return sender, true
+		}
+	}
+	return nil, false
 }
 
 func (r *Router) activeSenders() map[string]ActionSender {

@@ -112,6 +112,13 @@ type deliveryContext struct {
 
 func (ctx deliveryContext) Value(key any) any { return ctx.values.Value(key) }
 
+// Value intentionally comes from the submitter, so it does not expose the
+// queue owner's internal cancel context. Delegate cancellation registration to
+// that owner instead of making context.WithCancel start a watcher goroutine.
+func (ctx deliveryContext) AfterFunc(f func()) func() bool {
+	return context.AfterFunc(ctx.Context, f)
+}
+
 type OutboundPolicy interface {
 	Begin(context.Context, outbound.MessageLimitRequest) (outbound.MessageAdmission, error)
 }
@@ -147,12 +154,14 @@ type Dispatcher struct {
 	layersDone       sync.WaitGroup
 	// detachedRuns records scheduler runs whose events moved to the
 	// background; the runtime ends each of them by deadline or stop.
-	detachedRuns sync.WaitGroup
-	closing      chan struct{}
-	closeOnce    sync.Once
-	slots        map[string]*pluginSlot
-	retired      map[*pluginSlot]struct{}
-	closed       bool
+	detachedRuns     sync.WaitGroup
+	closing          chan struct{}
+	closeOnce        sync.Once
+	slots            map[string]*pluginSlot
+	messageRoutes    map[string][]messageCandidate
+	messageWildcards []messageCandidate
+	retired          map[*pluginSlot]struct{}
+	closed           bool
 
 	statsMu       sync.Mutex
 	delivered     uint64

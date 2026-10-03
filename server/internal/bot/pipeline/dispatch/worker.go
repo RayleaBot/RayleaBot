@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
@@ -31,6 +32,43 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 	controlQueue := (<-chan dispatchItem)(slot.controlQueue)
 	fallbackCounter := 0
 	activeCount := 0
+	type laneJob struct {
+		key  string
+		item dispatchItem
+	}
+	jobs := make(chan laneJob, slot.concurrency)
+	var executors sync.WaitGroup
+	executorCount := 0
+	defer func() { close(jobs); executors.Wait() }()
+
+	startItem := func(laneKey string, item dispatchItem) {
+		activeLanes[laneKey] = struct{}{}
+		activeCount++
+		slot.markStarted(item)
+		// Grow on demand to the observed parallelism, then reuse executors for
+		// later events. Idle plugins do not preallocate a full worker pool.
+		if executorCount < activeCount {
+			executorCount++
+			executors.Go(func() {
+				for job := range jobs {
+					d.deliverLaneItem(pluginID, slot, job.key, job.item)
+					completions <- laneCompletion{laneKey: job.key}
+				}
+			})
+		}
+		jobs <- laneJob{key: laneKey, item: item}
+	}
+	enqueue := func(item dispatchItem) {
+		key := laneKeyForEvent(item.event, &fallbackCounter)
+		if _, active := activeLanes[key]; !active && len(pendingByLane[key]) == 0 && activeCount < slot.concurrency {
+			startItem(key, item)
+			return
+		}
+		pendingByLane[key] = append(pendingByLane[key], item)
+		if _, active := activeLanes[key]; !active {
+			lanes.append(key)
+		}
+	}
 
 	startReadyLanes := func() {
 		for activeCount < slot.concurrency {
@@ -49,6 +87,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 				}
 
 				item := queueForLane[0]
+				queueForLane[0] = dispatchItem{}
 				queueForLane = queueForLane[1:]
 				if len(queueForLane) == 0 {
 					delete(pendingByLane, laneKey)
@@ -58,15 +97,8 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					pendingByLane[laneKey] = queueForLane
 				}
 
-				activeLanes[laneKey] = struct{}{}
-				activeCount++
-				slot.markStarted(item)
+				startItem(laneKey, item)
 				started = true
-
-				go func(laneKey string, item dispatchItem) {
-					d.deliverLaneItem(pluginID, slot, laneKey, item)
-					completions <- laneCompletion{laneKey: laneKey}
-				}(laneKey, item)
 			}
 			if !started {
 				return
@@ -93,7 +125,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					controlQueue = nil
 					continue
 				}
-				enqueueLaneItem(item, pendingByLane, lanes, activeLanes, &fallbackCounter)
+				enqueue(item)
 				continue
 			default:
 			}
@@ -105,13 +137,13 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 				controlQueue = nil
 				continue
 			}
-			enqueueLaneItem(item, pendingByLane, lanes, activeLanes, &fallbackCounter)
+			enqueue(item)
 		case item, ok := <-normalInbound:
 			if !ok {
 				eventQueue = nil
 				continue
 			}
-			enqueueLaneItem(item, pendingByLane, lanes, activeLanes, &fallbackCounter)
+			enqueue(item)
 		case completion := <-completions:
 			if _, active := activeLanes[completion.laneKey]; !active {
 				continue
@@ -136,8 +168,18 @@ func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey 
 		}
 	}()
 	execCtx, cancel := context.WithCancel(item.ctx)
-	stop := context.AfterFunc(slot.ctx, cancel)
-	defer func() { stop(); cancel() }()
+	var stop func() bool
+	if item.event.EventType == "management.action" {
+		// Management follows its request context as well as runtime shutdown.
+		// Other deliveries already inherit cancellation from slot.ctx.
+		stop = context.AfterFunc(slot.ctx, cancel)
+	}
+	defer func() {
+		if stop != nil {
+			stop()
+		}
+		cancel()
+	}()
 	item.ctx = execCtx
 	if slot.ctx.Err() != nil {
 		d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeOther, schedulerElapsed(item.run), errorcodes.PluginEventCanceled, "事件因运行时停止而取消")
@@ -240,21 +282,6 @@ func (d *Dispatcher) recordEventEnd(ctx context.Context, pluginID, laneKey strin
 			d.logger.Info("插件已恢复处理任务", "component", "dispatch", "plugin_id", pluginID, "event_type", item.event.EventType, "repeat_count", count)
 		}
 	}
-}
-
-func enqueueLaneItem(
-	item dispatchItem,
-	pendingByLane map[string][]dispatchItem,
-	lanes *laneQueue,
-	activeLanes map[string]struct{},
-	fallbackCounter *int,
-) {
-	laneKey := laneKeyForEvent(item.event, fallbackCounter)
-	pendingByLane[laneKey] = append(pendingByLane[laneKey], item)
-	if _, active := activeLanes[laneKey]; active {
-		return
-	}
-	lanes.append(laneKey)
 }
 
 // laneQueue keeps lanes in arrival order with a membership index so enqueue

@@ -41,6 +41,9 @@ func (b *Bridge) SetDispatcherStatsSource(source DispatcherStatsSnapshot) {
 }
 
 func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome chatevent.DeliveryOutcome) {
+	if b.hub.SubscriberCount() == 0 {
+		return
+	}
 	lastKind := b.snapshot.LastEventKind
 	if lastKind == "" {
 		lastKind = chatevent.EventKindMessageText
