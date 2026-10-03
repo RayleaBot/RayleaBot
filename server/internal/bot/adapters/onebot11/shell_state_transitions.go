@@ -134,6 +134,14 @@ func (s *Shell) emitStateSnapshot(handler func(Snapshot), snapshot Snapshot) {
 
 func (s *Shell) markTransportFailure(transport TransportKey, fallback TransportState, code string, err error) {
 	s.mu.Lock()
+	s.markTransportFailureLocked(transport, fallback, code, err)
+	snapshot := cloneSnapshot(s.snapshot)
+	handler := s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
+}
+
+func (s *Shell) markTransportFailureLocked(transport TransportKey, fallback TransportState, code string, err error) {
 	switch transport {
 	case TransportReverseWS:
 		s.snapshot.ReverseWS.State = fallback
@@ -156,10 +164,6 @@ func (s *Shell) markTransportFailure(transport TransportKey, fallback TransportS
 	s.snapshot.LastErrorCode = code
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.refreshAggregateStateLocked()
-	snapshot := cloneSnapshot(s.snapshot)
-	handler := s.stateHandler
-	s.mu.Unlock()
-	s.emitStateSnapshot(handler, snapshot)
 }
 
 func (s *Shell) syncLastErrorLocked() {

@@ -215,9 +215,13 @@ func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKe
 }
 
 func (s *Shell) doHTTPAPIRequest(ctx context.Context, request APICallRequest) (APIResponse, error) {
-	snapshot := s.Snapshot()
-	endpoint := strings.TrimSpace(s.cfg.HTTPAPI.URL)
-	if endpoint == "" || !snapshot.HTTPAPI.Enabled || !snapshot.HTTPAPI.Configured {
+	s.mu.RLock()
+	settings, transportState, client := s.cfg.HTTPAPI, s.snapshot.HTTPAPI, s.httpClient
+	ownedTransport := s.httpTransport
+	s.mu.RUnlock()
+	defer s.closeRetiredHTTPIdle(client, ownedTransport)
+	endpoint := strings.TrimSpace(settings.URL)
+	if endpoint == "" || !transportState.Enabled || !transportState.Configured {
 		return APIResponse{}, errorf(errorCodeConnectionLost, "adapter transport is not connected", nil)
 	}
 
@@ -231,13 +235,13 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request APICallRequest) (A
 		return APIResponse{}, errorf(errorCodeHTTPAPIRequestFailed, "build OneBot HTTP request failed", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	if accessToken := strings.TrimSpace(s.cfg.HTTPAPI.AccessToken); accessToken != "" {
+	if accessToken := strings.TrimSpace(settings.AccessToken); accessToken != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+accessToken)
 	}
 
-	resp, err := s.httpClient.Do(httpReq)
+	resp, err := client.Do(httpReq)
 	if err != nil {
-		s.markTransportFailure(TransportHTTPAPI, TransportStateReconnecting, errorCodeHTTPAPIRequestFailed, err)
+		s.markHTTPAPIFailure(client, TransportStateReconnecting, errorCodeHTTPAPIRequestFailed, err)
 		if request.Action == "send_msg" {
 			return APIResponse{}, errorf(ErrorCodeSendUnconfirmed, "发送请求未取得有效回执，无法确认消息是否送达；未自动重发", err)
 		}
@@ -246,7 +250,7 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request APICallRequest) (A
 	defer func(release func() error) { _ = release() }(resp.Body.Close)
 
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		s.markTransportFailure(TransportHTTPAPI, TransportStateAuthFailed, errorCodeHTTPAPIAuthFailed, fmt.Errorf("status %d", resp.StatusCode))
+		s.markHTTPAPIFailure(client, TransportStateAuthFailed, errorCodeHTTPAPIAuthFailed, fmt.Errorf("status %d", resp.StatusCode))
 		return APIResponse{}, errorf(errorCodeHTTPAPIAuthFailed, "OneBot HTTP API authentication failed", nil)
 	}
 
@@ -258,23 +262,14 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request APICallRequest) (A
 		Echo    any    `json:"echo"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
-		s.markTransportFailure(TransportHTTPAPI, TransportStateReconnecting, errorCodeHTTPAPIInvalidResponse, err)
+		s.markHTTPAPIFailure(client, TransportStateReconnecting, errorCodeHTTPAPIInvalidResponse, err)
 		if request.Action == "send_msg" {
 			return APIResponse{}, errorf(ErrorCodeSendUnconfirmed, "发送回执无法解析，无法确认消息是否送达；未自动重发", err)
 		}
 		return APIResponse{}, errorf(errorCodeHTTPAPIInvalidResponse, "OneBot HTTP API response is invalid", err)
 	}
 
-	s.mu.Lock()
-	s.snapshot.HTTPAPI.State = TransportStateConnected
-	s.snapshot.HTTPAPI.LastErrorCode = ""
-	s.snapshot.HTTPAPI.LastErrorMessage = ""
-	s.syncLastErrorLocked()
-	s.refreshAggregateStateLocked()
-	snapshot = cloneSnapshot(s.snapshot)
-	handler := s.stateHandler
-	s.mu.Unlock()
-	s.emitStateSnapshot(handler, snapshot)
+	s.markHTTPAPISuccess(client)
 
 	echo, _ := frameEcho(decoded.Echo)
 	return APIResponse{

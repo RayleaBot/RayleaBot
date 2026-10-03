@@ -77,6 +77,7 @@ type Shell struct {
 	nextEcho         uint64
 	pendingResponses map[string]chan APIResponse
 	httpClient       *http.Client
+	httpTransport    *http.Transport
 	identityCache    *IdentityCache
 
 	// dedupMu guards the recent event set separately from mu so per-event
@@ -121,6 +122,7 @@ func newShell(adapterID string, cfg config.OneBotConfig, adapterCfg config.Adapt
 		)
 	}
 
+	httpClient, httpTransport := newHTTPAPIClient(deps.connectTimeout, http.DefaultTransport)
 	return &Shell{
 		adapterID:        strings.TrimSpace(adapterID),
 		cfg:              cfg,
@@ -130,11 +132,10 @@ func newShell(adapterID string, cfg config.OneBotConfig, adapterCfg config.Adapt
 		snapshot:         newTransportSnapshot(cfg),
 		eventQueue:       make(chan chatevent.NormalizedEvent, 16),
 		pendingResponses: make(map[string]chan APIResponse),
-		httpClient: &http.Client{
-			Timeout: deps.connectTimeout,
-		},
-		recentEventIDs: make(map[string]time.Time),
-		identityCache:  NewIdentityCache(defaultIdentityCacheTTL),
+		httpClient:       httpClient,
+		httpTransport:    httpTransport,
+		recentEventIDs:   make(map[string]time.Time),
+		identityCache:    NewIdentityCache(defaultIdentityCacheTTL),
 	}
 }
 func (s *Shell) Snapshot() Snapshot {

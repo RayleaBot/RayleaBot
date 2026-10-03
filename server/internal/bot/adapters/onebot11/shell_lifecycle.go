@@ -65,8 +65,13 @@ func (s *Shell) Stop(ctx context.Context) error {
 	reverseConn := s.reverseConn
 	reverseDone := s.reverseDone
 	started := s.started
+	httpTransport := s.httpTransport
 	s.stopping = true
 	s.mu.Unlock()
+	if httpTransport != nil {
+		httpTransport.CloseIdleConnections()
+		defer httpTransport.CloseIdleConnections()
+	}
 
 	if cancel != nil {
 		cancel()
@@ -142,9 +147,8 @@ func (s *Shell) applyConfig(nextCfg config.OneBotConfig, nextAdapterCfg config.A
 	s.adapterCfg = nextAdapterCfg
 	s.deps.connectTimeout = nextConnectTimeout(previousAdapterCfg, nextAdapterCfg, s.deps.connectTimeout)
 	s.deps.backoff = nextBackoff(previousAdapterCfg, nextAdapterCfg, s.deps.backoff)
-	s.httpClient = &http.Client{
-		Timeout: s.deps.connectTimeout,
-	}
+	previousHTTPTransport := s.httpTransport
+	s.httpClient, s.httpTransport = newHTTPAPIClient(s.deps.connectTimeout, http.DefaultTransport)
 	s.snapshot = newTransportSnapshot(nextCfg)
 	s.pendingResponses = make(map[string]chan APIResponse)
 	s.resetDedup()
@@ -152,6 +156,9 @@ func (s *Shell) applyConfig(nextCfg config.OneBotConfig, nextAdapterCfg config.A
 	snapshot := cloneSnapshot(s.snapshot)
 	handler := s.stateHandler
 	s.mu.Unlock()
+	if previousHTTPTransport != nil {
+		previousHTTPTransport.CloseIdleConnections()
+	}
 
 	s.emitStateSnapshot(handler, snapshot)
 }

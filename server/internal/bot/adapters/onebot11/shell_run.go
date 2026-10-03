@@ -11,7 +11,11 @@ func (s *Shell) run(ctx context.Context) {
 		s.stopping = true
 		cancel := s.cancel
 		reverseConn := s.reverseConn
+		httpTransport := s.httpTransport
 		s.mu.Unlock()
+		if httpTransport != nil {
+			httpTransport.CloseIdleConnections()
+		}
 		cancel()
 		if reverseConn != nil {
 			_ = reverseConn.CloseNow()
@@ -19,6 +23,9 @@ func (s *Shell) run(ctx context.Context) {
 		// Stop may time out, but this lifecycle stays active until every callback
 		// exits, preventing a reload from starting a second event dispatcher.
 		s.workers.Wait()
+		if httpTransport != nil {
+			httpTransport.CloseIdleConnections()
+		}
 		s.clearConn(nil)
 		s.markStopped()
 		s.logger.Info(
