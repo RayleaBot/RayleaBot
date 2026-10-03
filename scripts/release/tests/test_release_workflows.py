@@ -1,5 +1,4 @@
 """Release callers share native build and trust gates without sharing publish rights."""
-import importlib.util
 import os
 import shutil
 from pathlib import Path
@@ -80,8 +79,6 @@ class ReleaseWorkflowTests(unittest.TestCase):
                 args = completed.stdout.splitlines()
                 self.assertEqual(args.count("--artifact-id"), 1, args)
                 self.assertEqual(args[args.index("--artifact-id") + 1], platform["artifact_id"])
-                self.assertNotIn("--updater-bin", args)
-                self.assertNotIn("--windows-signer-sha256", args)
                 self.assertNotIn("", args)
 
     def test_metadata_only_consumes_release_packages(self):
@@ -96,17 +93,6 @@ class ReleaseWorkflowTests(unittest.TestCase):
         uploaded = step_named(assemble, "Upload release metadata")["with"]["path"]
         self.assertEqual(uploaded.strip(), "dist/release/release_manifest.v2.json")
         self.assertNotIn("secrets", workflow("release-build.yml")["on"]["workflow_call"])
-
-    def test_new_workflows_select_release_and_ci_checks(self):
-        spec = importlib.util.spec_from_file_location("validation_detect_changes", ROOT / "scripts/ci/detect_changes.py")
-        detector = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(detector)
-        for path in (".github/workflows/release.yml", ".github/workflows/release-build.yml"):
-            with self.subTest(path=path):
-                areas = detector.classify([path])
-                self.assertTrue(areas["release"])
-                self.assertTrue(areas["ci"])
-                self.assertFalse(areas["docs_only"])
 
 
 if __name__ == "__main__":

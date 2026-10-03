@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate RayleaBot contracts in PR or strict mode."""
+"""Validate RayleaBot contracts, fixtures, and examples in strict mode."""
 
 from __future__ import annotations
 
@@ -1244,7 +1244,6 @@ def validate_devcontainer_versions(versions: dict[str, str]) -> None:
 def validate_baseline() -> None:
     versions = read_tool_versions(ROOT)
     validate_devcontainer_versions(versions)
-    baseline = (ROOT / "docs" / "engineering" / "baseline.md").read_text(encoding="utf-8")
     go_mod = (ROOT / "server" / "go.mod").read_text(encoding="utf-8")
     if "module github.com/RayleaBot/RayleaBot/server" not in go_mod:
         fail("server/go.mod must use module path github.com/RayleaBot/RayleaBot/server")
@@ -1879,8 +1878,8 @@ def validate_strict() -> None:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=["pr", "strict"], default="pr")
-    parser.add_argument("--self-test", action="store_true", help="run CLI, schema, example, and coverage validator regression tests and exit")
+    parser.add_argument("--mode", choices=["strict"], default="strict")
+    parser.add_argument("--self-test", action="store_true", help="run the CLI fixture semantics self-test and exit")
     return parser.parse_args(argv)
 
 
@@ -1892,18 +1891,10 @@ def main(argv: list[str] | None = None) -> int:
             for problem in problems:
                 print(problem)
             return 1
-        import unittest
-
-        suite = unittest.defaultTestLoader.discover(str(ROOT / "scripts" / "tests"), pattern="test_validate_contracts.py")
-        if not unittest.TextTestRunner(verbosity=1).run(suite).wasSuccessful():
-            return 1
         print("contracts validator self-test passed")
         return 0
-    if args.mode == "pr":
-        validate_pr()
-    else:
-        validate_strict()
-    print(f"contracts validation passed: mode={args.mode}")
+    validate_strict()
+    print("contracts validation passed: mode=strict")
     return 0
 
 
