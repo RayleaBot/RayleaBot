@@ -36,6 +36,7 @@ type catalogSnapshot struct {
 	catalog     Catalog
 	status      SourceView
 	entriesByID map[string]Entry
+	orders      map[string][]int
 }
 
 type Service struct {
@@ -214,16 +215,17 @@ func (s *Service) List(query Query) (ListResult, error) {
 	if !ok {
 		return ListResult{}, ErrSourceNotFound
 	}
-	installed := installedVersions(s.installed)
-	items := make([]EntryView, 0, len(snapshot.catalog.Entries))
-	for _, entry := range snapshot.catalog.Entries {
-		if !matchesQuery(entry, query) {
-			continue
+	order := snapshot.orders[query.Sort]
+	if query.Text != "" {
+		matches := make([]int, 0, len(order))
+		for _, index := range order {
+			if matchesQuery(snapshot.catalog.Entries[index], query) {
+				matches = append(matches, index)
+			}
 		}
-		items = append(items, s.projectEntry(entry, installed[entry.ID], s.confirmationReasons(snapshot.source.ID, entry.ID)))
+		order = matches
 	}
-	sortEntryViews(items, query.Sort)
-	total := len(items)
+	total := len(order)
 	if query.Cursor > total {
 		query.Cursor = total
 	}
@@ -232,8 +234,18 @@ func (s *Service) List(query Query) (ListResult, error) {
 	if end < total {
 		next = strconv.Itoa(end)
 	}
+	installed := installedStates(s.installed)
+	var items []EntryView
+	if end > query.Cursor {
+		items = make([]EntryView, 0, end-query.Cursor)
+	}
+	for _, index := range order[query.Cursor:end] {
+		entry := snapshot.catalog.Entries[index]
+		state, exists := installed[entry.ID]
+		items = append(items, s.projectEntry(entry, state.version, installationConfirmationReasons(snapshot.source.ID, state, exists)))
+	}
 	return ListResult{
-		Items:      append([]EntryView(nil), items[query.Cursor:end]...),
+		Items:      items,
 		Total:      total,
 		NextCursor: next,
 		Source:     cloneSourceView(snapshot.status),
@@ -252,8 +264,8 @@ func (s *Service) Get(sourceID, pluginID string) (DetailResult, bool) {
 	if !ok {
 		return DetailResult{}, false
 	}
-	installed := installedVersions(s.installed)
-	view := s.projectEntry(entry, installed[entry.ID], s.confirmationReasons(snapshot.source.ID, entry.ID))
+	state, installed := s.installedState(entry.ID)
+	view := s.projectEntry(entry, state.version, installationConfirmationReasons(snapshot.source.ID, state, installed))
 	var currentRelease *ReleaseView
 	if entry.CurrentRelease != nil {
 		release := s.projectRelease(*entry.CurrentRelease)
@@ -321,14 +333,15 @@ func (s *Service) Install(ctx context.Context, request InstallRequest) (string, 
 // confirmationReasons reports why installing an entry needs trusted-code
 // confirmation: a first install or a change of catalog source.
 func (s *Service) confirmationReasons(sourceID, pluginID string) []string {
-	if s.installed == nil {
+	state, installed := s.installedState(pluginID)
+	return installationConfirmationReasons(sourceID, state, installed)
+}
+
+func installationConfirmationReasons(sourceID string, state installedState, installed bool) []string {
+	if !installed {
 		return []string{"first_install"}
 	}
-	current, ok := s.installed.Get(pluginID)
-	if !ok {
-		return []string{"first_install"}
-	}
-	if current.PackageSourceType != "catalog" || current.PackageSourceRef != sourceID {
+	if state.sourceType != "catalog" || state.sourceRef != sourceID {
 		return []string{"source_changed"}
 	}
 	return []string{}
@@ -436,7 +449,8 @@ func (s *Service) snapshot(sourceID string) (catalogSnapshot, bool) {
 	if !ok {
 		return catalogSnapshot{}, false
 	}
-	return cloneCatalogSnapshot(snapshot), true
+	// Published snapshots are immutable; only their response projections escape.
+	return snapshot, true
 }
 
 func (s *Service) fetchCatalog(ctx context.Context, rawURL string) ([]byte, Catalog, error) {
@@ -571,28 +585,19 @@ func emptyCatalogSnapshot(source Source) catalogSnapshot {
 }
 
 func newCatalogSnapshot(source Source, catalog Catalog, refreshedAt time.Time) catalogSnapshot {
+	catalog = cloneCatalog(catalog)
 	entries := make(map[string]Entry, len(catalog.Entries))
 	for _, entry := range catalog.Entries {
-		entries[entry.ID] = cloneEntry(entry)
+		entries[entry.ID] = entry
 	}
 	timeCopy := refreshedAt.UTC()
 	return catalogSnapshot{
 		source:      source,
-		catalog:     cloneCatalog(catalog),
+		catalog:     catalog,
 		status:      SourceView{ID: source.ID, Name: source.Name, URL: source.URL, Official: source.Official, Cached: true, RefreshedAt: &timeCopy, EntryCount: len(catalog.Entries)},
 		entriesByID: entries,
+		orders:      catalogOrders(catalog.Entries),
 	}
-}
-
-func cloneCatalogSnapshot(snapshot catalogSnapshot) catalogSnapshot {
-	cloned := snapshot
-	cloned.catalog = cloneCatalog(snapshot.catalog)
-	cloned.status = cloneSourceView(snapshot.status)
-	cloned.entriesByID = make(map[string]Entry, len(snapshot.entriesByID))
-	for id, entry := range snapshot.entriesByID {
-		cloned.entriesByID[id] = cloneEntry(entry)
-	}
-	return cloned
 }
 
 func cloneCatalog(catalog Catalog) Catalog {
@@ -657,35 +662,62 @@ func matchesQuery(entry Entry, query Query) bool {
 	return false
 }
 
-func sortEntryViews(items []EntryView, mode string) {
-	sort.SliceStable(items, func(i, j int) bool {
-		left, right := items[i], items[j]
-		switch mode {
-		case "name":
-			return strings.ToLower(left.Name) < strings.ToLower(right.Name)
-		case "updated":
-			if left.LatestRelease != nil && right.LatestRelease != nil {
-				return left.LatestRelease.PublishedAt.After(right.LatestRelease.PublishedAt)
-			}
-			return left.LatestRelease != nil && right.LatestRelease == nil
-		default:
-			if left.Recommended != right.Recommended {
-				return left.Recommended
-			}
-			return strings.ToLower(left.Name) < strings.ToLower(right.Name)
+func catalogOrders(entries []Entry) map[string][]int {
+	names := make([]string, len(entries))
+	published := make([]time.Time, len(entries))
+	for index, entry := range entries {
+		names[index] = strings.ToLower(entry.Name)
+		if entry.CurrentRelease != nil {
+			published[index], _ = time.Parse(time.RFC3339, entry.CurrentRelease.PublishedAt)
 		}
-	})
+	}
+	orders := make(map[string][]int, 3)
+	for _, mode := range []string{"name", "updated", "recommended"} {
+		order := make([]int, len(entries))
+		for index := range order {
+			order[index] = index
+		}
+		sort.SliceStable(order, func(i, j int) bool {
+			left, right := order[i], order[j]
+			switch mode {
+			case "updated":
+				if entries[left].CurrentRelease != nil && entries[right].CurrentRelease != nil {
+					return published[left].After(published[right])
+				}
+				return entries[left].CurrentRelease != nil && entries[right].CurrentRelease == nil
+			case "recommended":
+				if entries[left].Recommended != entries[right].Recommended {
+					return entries[left].Recommended
+				}
+			}
+			return names[left] < names[right]
+		})
+		orders[mode] = order
+	}
+	return orders
 }
 
-func installedVersions(catalog plugins.CatalogView) map[string]string {
-	versions := map[string]string{}
+type installedState struct {
+	version, sourceType, sourceRef string
+}
+
+func (s *Service) installedState(pluginID string) (installedState, bool) {
+	if s.installed == nil {
+		return installedState{}, false
+	}
+	snapshot, ok := s.installed.Get(pluginID)
+	return installedState{version: snapshot.Version, sourceType: snapshot.PackageSourceType, sourceRef: snapshot.PackageSourceRef}, ok
+}
+
+func installedStates(catalog plugins.CatalogView) map[string]installedState {
+	states := map[string]installedState{}
 	if catalog == nil {
-		return versions
+		return states
 	}
 	for _, snapshot := range catalog.List() {
-		versions[snapshot.PluginID] = snapshot.Version
+		states[snapshot.PluginID] = installedState{version: snapshot.Version, sourceType: snapshot.PackageSourceType, sourceRef: snapshot.PackageSourceRef}
 	}
-	return versions
+	return states
 }
 
 func releaseAsset(release CurrentRelease, platform string) (Asset, bool) {
