@@ -55,6 +55,9 @@ func init() {
 }
 
 func TestCrashAfterSuccessfulInitReachesDeadLetterWithoutRestartingPeer(t *testing.T) {
+	// Probes inherit this environment; race builds otherwise sleep a second
+	// in TSan before a zero exit and overrun the shutdown grace.
+	t.Setenv("GORACE", "atexit_sleep_ms=0")
 	root := t.TempDir()
 	executable, err := os.Executable()
 	if err != nil {

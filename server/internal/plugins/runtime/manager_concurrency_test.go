@@ -653,6 +653,8 @@ func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, ini
 	env := append([]string(nil), os.Environ()...)
 	env = append(env, "RAYLEABOT_RUNTIME_HELPER=1")
 	env = append(env, "RAYLEABOT_RUNTIME_SCENARIO="+scenario)
+	// Race-built helpers otherwise sleep a second in TSan before a zero exit.
+	env = append(env, "GORACE=atexit_sleep_ms=0")
 	if recordPath != "" {
 		env = append(env, "RAYLEABOT_RUNTIME_RECORD="+recordPath)
 	}
