@@ -149,6 +149,36 @@ func TestWindowLimiterCancelledHeadCannotReserveAfterConfigWake(t *testing.T) {
 	}
 }
 
+func TestWindowLimiterTryReserveFailsFastAndNeverOvertakesQueuedWaiter(t *testing.T) {
+	limiter := newWindowLimiter(time.Now, config.RateLimit{Count: 1, Window: time.Hour})
+	if !limiter.TryReserve("target") {
+		t.Fatal("TryReserve() on a free window = false, want true")
+	}
+	if limiter.TryReserve("target") {
+		t.Fatal("TryReserve() on a full window = true, want false")
+	}
+	awaitWindowQueueLength(t, limiter, 0)
+
+	ctx := t.Context()
+	waiter, err := limiter.reserveOrEnqueue(ctx, "target")
+	if err != nil || waiter == nil {
+		t.Fatalf("reserveOrEnqueue() = %v, %v, want queued waiter", waiter, err)
+	}
+	limiter.SetLimit(config.RateLimit{Count: 2, Window: time.Hour})
+	if limiter.TryReserve("target") {
+		t.Fatal("TryReserve() took the slot freed for a queued waiter")
+	}
+	if waitFor, _, err := limiter.tryReserve(ctx, "target", waiter); err != nil || waitFor != 0 {
+		t.Fatalf("queued waiter reservation = %v, %v, want admitted", waitFor, err)
+	}
+	if limiter.TryReserve("target") {
+		t.Fatal("TryReserve() exceeded the raised limit")
+	}
+	if !limiter.TryReserve("other") {
+		t.Fatal("TryReserve() on another target = false, want independent quota")
+	}
+}
+
 type windowWaitResult struct {
 	id  int
 	err error

@@ -20,9 +20,10 @@ type MessageLimitRequest struct {
 	TargetID   string
 }
 
-// MessageLimiter waits until an outbound message is allowed to leave.
-type MessageLimiter interface {
-	Wait(context.Context, MessageLimitRequest) error
+// MessageAdmitter admits an outbound message only when its target has quota
+// right now, for platform notices that must not queue behind other messages.
+type MessageAdmitter interface {
+	TryAdmit(MessageLimitRequest) error
 }
 
 // MessageRateLimiter enforces the per-target outbound message limit. Platform
@@ -52,6 +53,20 @@ func (l *MessageRateLimiter) Wait(ctx context.Context, request MessageLimitReque
 		return nil
 	}
 	if err := l.targetLimiter.Wait(ctx, "target:"+request.Scope.Key(targetType, targetID)); err != nil {
+		return rateLimitedError()
+	}
+	return nil
+}
+
+// TryAdmit takes the target's quota only when it is free now and no message is
+// queued before it; otherwise it fails at once instead of waiting.
+func (l *MessageRateLimiter) TryAdmit(request MessageLimitRequest) error {
+	targetType := strings.TrimSpace(request.TargetType)
+	targetID := strings.TrimSpace(request.TargetID)
+	if targetType == "" || targetID == "" {
+		return nil
+	}
+	if !l.targetLimiter.TryReserve("target:" + request.Scope.Key(targetType, targetID)) {
 		return rateLimitedError()
 	}
 	return nil

@@ -155,30 +155,16 @@ type recordingAppOutboundLimiter struct {
 	err      error
 }
 
-func (l *recordingAppOutboundLimiter) Wait(_ context.Context, request outbound.MessageLimitRequest) error {
+func (l *recordingAppOutboundLimiter) TryAdmit(request outbound.MessageLimitRequest) error {
 	l.requests = append(l.requests, request)
 	return l.err
 }
-
-func (l *recordingAppOutboundLimiter) ApplyConfig(config.Config) {}
 
 func (l *recordingAppOutboundLimiter) lastRequest() outbound.MessageLimitRequest {
 	if len(l.requests) == 0 {
 		return outbound.MessageLimitRequest{}
 	}
 	return l.requests[len(l.requests)-1]
-}
-
-type contextAwareOutboundLimiter struct {
-	ctxErr error
-}
-
-func (l *contextAwareOutboundLimiter) Wait(ctx context.Context, _ outbound.MessageLimitRequest) error {
-	l.ctxErr = ctx.Err()
-	if l.ctxErr != nil {
-		return &chatevent.SendError{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"}
-	}
-	return nil
 }
 
 func firstTextSegment(segments []chatevent.MessageSegment) string {

@@ -27,6 +27,10 @@ func (p *MessagePolicy) Wait(ctx context.Context, request MessageLimitRequest) e
 	return p.Limiter.Wait(ctx, p.resolve(request))
 }
 
+func (p *MessagePolicy) TryAdmit(request MessageLimitRequest) error {
+	return p.Limiter.TryAdmit(p.resolve(request))
+}
+
 func (p *MessagePolicy) resolve(request MessageLimitRequest) MessageLimitRequest {
 	if p.resolveScope != nil {
 		request.Scope = p.resolveScope(request.Scope)

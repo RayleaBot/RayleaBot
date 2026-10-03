@@ -120,7 +120,7 @@ sequenceDiagram
 - 命令声明优先选择目标插件，其余事件按订阅匹配。消息候选按 manifest `priority` 分层，同层并发；成功终态的 `propagation` 覆盖静态 `block`，未处理、失败和队列拒绝继续后续层。
 - Ingress 先匹配会话等待；命中后只执行名单准入，并把回复定向交给登记进程。
 - 本地动作使用独立 `request_id` 并以 `parent_request_id` 关联事件，返回正式 result 或 error；插件私有日志、配置、KV 与会话动作按插件 ID 隔离。
-- Dispatcher 是插件出站动作的唯一执行出口；Outbound 按目标 admission 与限流后发送一次，发送失败返回正式错误，不自动重试。冷却提示、内置菜单和调度消息共用这条链路。
+- Dispatcher 是插件出站动作的唯一执行出口；Outbound 按目标 admission 与限流后发送一次，发送失败返回正式错误，不自动重试。冷却提示、内置菜单和调度消息共用这条链路；冷却提示只在目标当下有额度时发送，不排队，并按 `user.cooldown_reply_once` 限制同一用户在同一会话每个冷却期最多一次。
 
 ```mermaid
 flowchart LR

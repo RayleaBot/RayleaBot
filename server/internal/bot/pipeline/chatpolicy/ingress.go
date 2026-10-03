@@ -36,7 +36,7 @@ type IngressDeps struct {
 	Plugins          PluginCatalog
 	ReplyTargets     *outbound.ReplyTargetCache
 	OutboundSender   OutboundSender
-	OutboundLimiter  outbound.MessageLimiter
+	OutboundLimiter  outbound.MessageAdmitter
 	Menu             *menuext.Service
 	Bridge           EventBridge
 	Lifecycle        Lifecycle

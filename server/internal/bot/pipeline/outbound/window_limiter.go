@@ -155,6 +155,33 @@ func (l *windowLimiter) reserveOrEnqueue(ctx context.Context, key string) (*wind
 	return waiter, nil
 }
 
+// TryReserve takes a slot only when the window has room now and no earlier
+// caller is queued, so it never overtakes a waiting message.
+func (l *windowLimiter) TryReserve(key string) bool {
+	if strings.TrimSpace(key) == "" {
+		return true
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	now := l.now().UTC()
+	state := l.windows[key]
+	if state == nil {
+		state = &windowState{}
+	}
+	if len(state.queue) > 0 {
+		return false
+	}
+	state.records = pruneWindowRecords(state.records, now, l.limit.Window)
+	if len(state.records) >= l.limit.Count {
+		return false
+	}
+	state.records = append(state.records, now)
+	l.windows[key] = state
+	return true
+}
+
 func (l *windowLimiter) tryReserve(ctx context.Context, key string, waiter *windowWaiter) (time.Duration, <-chan struct{}, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

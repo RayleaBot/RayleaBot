@@ -97,11 +97,11 @@ func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 	}
 }
 
-func TestApplyChatPolicyCancelsCooldownReplyTargetLimit(t *testing.T) {
+func TestApplyChatPolicySkipsCooldownReplyForCancelledEvent(t *testing.T) {
 	t.Parallel()
 
 	sender := &recordingOutboundSender{}
-	limiter := &contextAwareOutboundLimiter{}
+	limiter := &recordingAppOutboundLimiter{}
 	cfg := config.Config{
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
@@ -156,8 +156,8 @@ func TestApplyChatPolicyCancelsCooldownReplyTargetLimit(t *testing.T) {
 	if _, allowed := ingress.ApplyChatPolicy(ctx, event); allowed {
 		t.Fatal("second command should be rate limited")
 	}
-	if limiter.ctxErr != context.Canceled {
-		t.Fatalf("limiter ctxErr = %v, want context.Canceled", limiter.ctxErr)
+	if len(limiter.requests) != 0 {
+		t.Fatalf("cancelled cooldown reply took target quota: %#v", limiter.requests)
 	}
 	if sender.replyCount != 0 || sender.messageCount != 0 {
 		t.Fatalf("cancelled cooldown reply should not send: replies=%d messages=%d", sender.replyCount, sender.messageCount)
@@ -559,5 +559,119 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 	}
 	if strings.Contains(html, "访客") {
 		t.Fatalf("builtin menu html should not fall back to guest identity:\n%s", html)
+	}
+}
+
+func TestApplyChatPolicyLimitsCooldownNoticesPerUserConversation(t *testing.T) {
+	t.Parallel()
+
+	for _, testCase := range []struct {
+		name        string
+		once        bool
+		wantReplies int
+	}{
+		{name: "once per period", once: true, wantReplies: 2},
+		{name: "every rejection", once: false, wantReplies: 4},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			sender := &recordingOutboundSender{}
+			ingress := newCooldownNoticeIngress(sender, &recordingAppOutboundLimiter{}, testCase.once)
+			event := cooldownNoticeEvent("20001")
+
+			if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
+				t.Fatal("first command should be allowed")
+			}
+			for range 3 {
+				if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); allowed {
+					t.Fatal("repeated command should be rate limited")
+				}
+			}
+			// The user cooldown spans conversations, but each conversation gets its own notice.
+			if _, allowed := ingress.ApplyChatPolicy(context.Background(), cooldownNoticeEvent("20002")); allowed {
+				t.Fatal("command in another group should be rate limited")
+			}
+			if sender.replyCount != testCase.wantReplies {
+				t.Fatalf("replyCount = %d, want %d", sender.replyCount, testCase.wantReplies)
+			}
+		})
+	}
+}
+
+func TestApplyChatPolicyRetriesCooldownNoticeSkippedForTargetQuota(t *testing.T) {
+	t.Parallel()
+
+	sender := &recordingOutboundSender{}
+	limiter := &recordingAppOutboundLimiter{
+		err: &chatevent.SendError{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
+	}
+	ingress := newCooldownNoticeIngress(sender, limiter, true)
+	event := cooldownNoticeEvent("20001")
+
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
+		t.Fatal("first command should be allowed")
+	}
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); allowed {
+		t.Fatal("second command should be rate limited")
+	}
+	if sender.replyCount != 0 {
+		t.Fatalf("notice without target quota was sent: replies=%d", sender.replyCount)
+	}
+
+	limiter.err = nil
+	for range 2 {
+		if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); allowed {
+			t.Fatal("repeated command should be rate limited")
+		}
+	}
+	if sender.replyCount != 1 {
+		t.Fatalf("replyCount = %d, want one notice once quota is free", sender.replyCount)
+	}
+	if len(limiter.requests) != 2 {
+		t.Fatalf("limiter requests = %d, want the skipped and the sent notice only", len(limiter.requests))
+	}
+}
+
+func newCooldownNoticeIngress(sender *recordingOutboundSender, limiter *recordingAppOutboundLimiter, once bool) *chatpolicy.Ingress {
+	cfg := config.Config{
+		Command: &config.CommandConfig{Prefixes: []string{"/"}},
+		User: config.UserConfig{
+			CommandRateLimit:  "1/1h",
+			CooldownReply:     true,
+			CooldownReplyOnce: once,
+		},
+		Group: config.GroupConfig{CommandRateLimit: "30/1h"},
+	}
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return cfg }}
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
+		PluginID:          "weather",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Commands:          []plugins.Command{{Name: "weather", Permission: "everyone"}},
+	}})
+	deps.OutboundSender = sender
+	deps.OutboundLimiter = limiter
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	return chatpolicy.NewIngress(deps)
+}
+
+func cooldownNoticeEvent(groupID string) chatevent.NormalizedEvent {
+	return chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
+		EventID:          "evt-weather-notice-" + groupID,
+		SourceProtocol:   "onebot11",
+		SourceAdapter:    "adapter.onebot11",
+		BotID:            "10001",
+		EventType:        "message.group",
+		Timestamp:        time.Now().Unix(),
+		ConversationType: "group",
+		ConversationID:   groupID,
+		SenderID:         "10002",
+		ActorRole:        "member",
+		PlainText:        "/weather",
+		MessageID:        "30001",
 	}
 }

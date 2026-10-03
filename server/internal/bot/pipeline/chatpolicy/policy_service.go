@@ -43,7 +43,7 @@ type Deps struct {
 	Menu            MenuMatcher
 	Bridge          RejectionLogger
 	OutboundSender  OutboundSender
-	OutboundLimiter outbound.MessageLimiter
+	OutboundLimiter outbound.MessageAdmitter
 	Logger          *slog.Logger
 	WhitelistRepo   permission.EntryRepository
 	WhitelistState  permission.WhitelistStateRepository
@@ -58,6 +58,7 @@ type policyEngine struct {
 	prefixes []string
 	checker  *permission.Checker
 	cooldown *permission.CooldownTracker
+	notices  *cooldownNotices
 	snapshot ConfigSnapshot
 }
 
@@ -67,7 +68,7 @@ type Service struct {
 	menu            MenuMatcher
 	bridge          RejectionLogger
 	outboundSender  OutboundSender
-	outboundLimiter outbound.MessageLimiter
+	outboundLimiter outbound.MessageAdmitter
 	logger          *slog.Logger
 	whitelistRepo   permission.EntryRepository
 	whitelistState  permission.WhitelistStateRepository
@@ -99,18 +100,21 @@ func (s *Service) UpdateConfig(cfg config.Config) {
 	settings := ResolveConfig(cfg)
 	previous := s.engine.Load()
 
-	// Preserve in-flight cooldown windows when the rate-limit fields did not
-	// change, so unrelated config updates do not reset every user/group
-	// cooldown counter.
+	// Preserve in-flight cooldown windows and notice periods when the
+	// rate-limit fields did not change, so unrelated config updates do not
+	// reset every user/group cooldown counter.
 	var cooldown *permission.CooldownTracker
+	var notices *cooldownNotices
 	if previous != nil &&
 		previous.snapshot.UserCommandRateLimit == settings.UserCommandRateLimit &&
 		previous.snapshot.GroupCommandRateLimit == settings.GroupCommandRateLimit {
 		cooldown = previous.cooldown
+		notices = previous.notices
 	} else {
 		userLimit := parseCooldownRateLimitWithFallback(settings.UserCommandRateLimit, config.DefaultUserCommandRateLimit)
 		groupLimit := parseCooldownRateLimitWithFallback(settings.GroupCommandRateLimit, config.DefaultGroupCommandRateLimit)
 		cooldown = permission.NewCooldownTracker(userLimit, groupLimit)
+		notices = newCooldownNotices(userLimit, groupLimit)
 	}
 
 	checker := permission.NewChecker(permission.CheckerConfig{
@@ -124,6 +128,7 @@ func (s *Service) UpdateConfig(cfg config.Config) {
 		prefixes: prefixes,
 		checker:  checker,
 		cooldown: cooldown,
+		notices:  notices,
 		snapshot: settings,
 	})
 }
@@ -190,7 +195,7 @@ func (s *Service) Apply(ctx context.Context, event chatevent.NormalizedEvent) (c
 		s.logCommandPolicyRejection(enriched, verdict, commandContext)
 	}
 	if (verdict.ErrorCode == errorcodes.PlatformUserRateLimited || verdict.ErrorCode == errorcodes.PlatformRateLimited) && engine.snapshot.CooldownReplyEnabled {
-		s.sendCooldownReply(ctx, enriched)
+		s.notifyCooldown(ctx, engine, enriched, verdict.ErrorCode)
 	}
 	return enriched, false
 }
@@ -231,6 +236,7 @@ type ConfigSnapshot struct {
 	UserCommandRateLimit  string
 	GroupCommandRateLimit string
 	CooldownReplyEnabled  bool
+	CooldownReplyOnce     bool
 }
 
 func parseCooldownRateLimitWithFallback(raw, fallback string) config.RateLimit {
@@ -266,6 +272,7 @@ func ResolveConfig(cfg config.Config) ConfigSnapshot {
 		UserCommandRateLimit:  strings.TrimSpace(cfg.User.CommandRateLimit),
 		GroupCommandRateLimit: strings.TrimSpace(cfg.Group.CommandRateLimit),
 		CooldownReplyEnabled:  cfg.User.CooldownReply,
+		CooldownReplyOnce:     cfg.User.CooldownReplyOnce,
 	}
 
 	if settings.UserCommandRateLimit == "" {
