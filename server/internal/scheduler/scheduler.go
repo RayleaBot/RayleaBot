@@ -35,6 +35,7 @@ type Job struct {
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	Revision       uint64          `json:"-"`
+	payloadView    *jobPayloadView
 }
 
 type RunOutcome string
@@ -200,7 +201,9 @@ func (e *Engine) Hydrate(ctx context.Context) error {
 	defer e.mu.Unlock()
 	for _, j := range jobs {
 		j.Revision = e.nextJobRevision()
-		e.jobs[j.JobID] = cloneJob(j)
+		j = cloneJob(j)
+		j.payloadView = &jobPayloadView{}
+		e.jobs[j.JobID] = j
 	}
 
 	e.logger.Info("定时任务已加载", "component", "scheduler", "job_count", len(jobs))
@@ -356,6 +359,7 @@ func (e *Engine) UpsertTaskWithLabel(ctx context.Context, pluginID, taskID, logL
 	if err := e.repo.SaveJob(ctx, job); err != nil {
 		return Job{}, fmt.Errorf("upsert scheduled task %s: %w", taskID, err)
 	}
+	job.payloadView = &jobPayloadView{}
 
 	e.mu.Lock()
 	e.jobs[job.JobID] = job
@@ -424,6 +428,18 @@ func (e *Engine) Jobs() []Job {
 		result = append(result, cloneJob(j))
 	}
 	return result
+}
+
+// viewJobs keeps immutable payload and run-metadata references inside the
+// scheduler. Only payload replacement publishes a new lazy summary.
+func (e *Engine) viewJobs() []Job {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	jobs := make([]Job, 0, len(e.jobs))
+	for _, job := range e.jobs {
+		jobs = append(jobs, job)
+	}
+	return jobs
 }
 
 func (e *Engine) RunningCount() int {
@@ -540,6 +556,8 @@ func cloneRunError(err *RunError) *RunError {
 
 func cloneJob(job Job) Job {
 	cloned := job
+	// A caller may mutate its payload copy before the engine's first view read.
+	cloned.payloadView = nil
 	cloned.Payload = append(json.RawMessage(nil), job.Payload...)
 	if job.LastRun != nil {
 		lastRun := *job.LastRun

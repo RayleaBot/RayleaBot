@@ -7,6 +7,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -45,6 +46,39 @@ type JobPayloadSummary struct {
 	Content        string `json:"content"`
 }
 
+const maxCachedPayloadSummaryBytes = 4 << 10
+
+type jobPayloadView struct {
+	once      sync.Once
+	cacheable bool
+	summary   JobPayloadSummary
+}
+
+func (job Job) payloadSummary() JobPayloadSummary {
+	if job.payloadView == nil {
+		return summarizeSchedulerPayload(job.Payload)
+	}
+	var summary JobPayloadSummary
+	initialized := false
+	job.payloadView.once.Do(func() {
+		summary = summarizeSchedulerPayload(job.Payload)
+		initialized = true
+		// Large display text stays in the original payload rather than adding a
+		// second persistent copy for every scheduled job.
+		if len(summary.ConversationID)+len(summary.TargetType)+len(summary.TargetID)+len(summary.Content) <= maxCachedPayloadSummaryBytes {
+			job.payloadView.summary = summary
+			job.payloadView.cacheable = true
+		}
+	})
+	if job.payloadView.cacheable {
+		return job.payloadView.summary
+	}
+	if initialized {
+		return summary
+	}
+	return summarizeSchedulerPayload(job.Payload)
+}
+
 type JobRunStats struct {
 	Total   int64 `json:"total"`
 	Success int64 `json:"success"`
@@ -75,7 +109,7 @@ func NewView(engine *Engine, pluginName func(string) string) (*View, error) {
 }
 
 func (s *View) ListJobs() JobList {
-	jobs := s.engine.Jobs()
+	jobs := s.engine.viewJobs()
 	sort.Slice(jobs, func(i, j int) bool {
 		if jobs[i].PluginID == jobs[j].PluginID {
 			return jobs[i].JobID < jobs[j].JobID
@@ -98,7 +132,7 @@ func (s *View) TriggerJob(ctx context.Context, jobID string) (TriggerResult, err
 }
 
 func (s *View) jobSummary(job Job) JobSummary {
-	return s.jobSummaryWithPayload(job, s.pluginLabel(job.PluginID), summarizeSchedulerPayload(job.Payload))
+	return s.jobSummaryWithPayload(job, s.pluginLabel(job.PluginID), job.payloadSummary())
 }
 
 func (s *View) pluginLabel(pluginID string) string {
@@ -219,14 +253,7 @@ type JobQuery struct {
 }
 
 func (s *View) ListJobsPage(query JobQuery) JobList {
-	// Jobs replace their payload and run metadata on mutation. These references
-	// stay inside the view; returned summaries contain no engine-owned pointers.
-	s.engine.mu.Lock()
-	jobs := make([]Job, 0, len(s.engine.jobs))
-	for _, job := range s.engine.jobs {
-		jobs = append(jobs, job)
-	}
-	s.engine.mu.Unlock()
+	jobs := s.engine.viewJobs()
 
 	type pageJob struct {
 		job                                       *Job
@@ -253,7 +280,7 @@ func (s *View) ListJobsPage(query JobQuery) JobList {
 		taskName := DisplayLabel(job.JobID, "未命名任务")
 		item := pageJob{job: job, pluginName: label.display, pluginSort: label.sort, taskSort: strings.ToLower(taskName)}
 		if text != "" && !pagination.Matches(text, job.JobID, job.PluginID, label.display, taskName, DisplayLabel(job.LogLabel)) {
-			item.payload = summarizeSchedulerPayload(job.Payload)
+			item.payload = job.payloadSummary()
 			item.payloadRead = true
 			if !pagination.Matches(text, item.payload.Content) {
 				continue
@@ -292,7 +319,7 @@ func (s *View) ListJobsPage(query JobQuery) JobList {
 	items := make([]JobSummary, 0, len(page))
 	for _, item := range page {
 		if !item.payloadRead {
-			item.payload = summarizeSchedulerPayload(item.job.Payload)
+			item.payload = item.job.payloadSummary()
 		}
 		items = append(items, s.jobSummaryWithPayload(*item.job, item.pluginName, item.payload))
 	}
