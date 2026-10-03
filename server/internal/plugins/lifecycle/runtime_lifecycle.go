@@ -293,9 +293,9 @@ func pluginRuntimeSuperAdmins(cfg config.Config) []string {
 func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string, initBots []chatevent.BotIdentity) {
 	c.identityMu.Lock()
 	if c.identityByPlugin == nil {
-		c.identityByPlugin = make(map[string][]chatevent.BotIdentity)
+		c.identityByPlugin = make(map[string]*botIdentitySnapshot)
 	}
-	c.identityByPlugin[pluginID] = append([]chatevent.BotIdentity{}, initBots...)
+	c.identityByPlugin[pluginID] = &botIdentitySnapshot{bots: append([]chatevent.BotIdentity{}, initBots...)}
 	c.identityMu.Unlock()
 	c.dispatchPluginStarted(ctx, pluginID)
 	c.SyncBotIdentities(ctx)

@@ -191,11 +191,12 @@ func (s *Shell) ResolveBotDisplay(adapterID string) (string, string) {
 }
 
 func (s *Shell) CurrentBotID() string {
-	snapshot := s.Snapshot()
-	if snapshot.State != StateConnected {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.snapshot.State != StateConnected {
 		return ""
 	}
-	return strings.TrimSpace(snapshot.BotID)
+	return strings.TrimSpace(s.snapshot.BotID)
 }
 
 func (s *Shell) DetectedProvider() string {

@@ -87,7 +87,8 @@ type Controller struct {
 	operations      *OperationGate
 
 	identityMu       sync.Mutex
-	identityByPlugin map[string][]chatevent.BotIdentity
+	identitySnapshot *botIdentitySnapshot
+	identityByPlugin map[string]*botIdentitySnapshot
 }
 
 func NewController(deps Deps) (*Controller, error) {

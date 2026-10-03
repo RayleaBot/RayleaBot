@@ -55,13 +55,7 @@ func buildEvents(deps eventDeps) EventState {
 	if currentConfig == nil {
 		currentConfig = func() config.Config { return deps.Config }
 	}
-	isEnabled := func(id, protocol string) bool {
-		instance, ok := currentConfig().AdapterByID(id)
-		return ok && instance.Enabled && instance.Type == protocol
-	}
-	// Providers are appended in configuration order, which is the order the
-	// identity source falls back through.
-	var identity botIdentitySource
+	identity := botIdentitySource{providers: make(map[string]botIdentityProvider, len(deps.Config.Adapters)), currentConfig: currentConfig}
 
 	for _, instance := range deps.Config.Adapters {
 		switch {
@@ -73,25 +67,19 @@ func buildEvents(deps eventDeps) EventState {
 			oneBotShells[instance.ID] = shell
 			senders[instance.ID] = shell
 			protocols[instance.ID] = instance.Type
-			identity.providers = append(identity.providers, func() chatevent.BotIdentity {
-				if !isEnabled(instance.ID, instance.Type) {
-					return chatevent.BotIdentity{}
-				}
+			identity.providers[instance.ID] = botIdentityProvider{protocol: instance.Type, identity: func() chatevent.BotIdentity {
 				return chatevent.BotIdentity{SourceAdapter: instance.ID, SourceProtocol: instance.Type, ID: shell.CurrentBotID()}
-			})
+			}}
 		case instance.Type == config.AdapterTypeQQOfficial && instance.QQOfficial != nil:
 			client := qqofficial.New(instance.ID, *instance.QQOfficial, deps.Config.Adapter, deps.Logger)
 			client.SetEnabled(instance.Enabled)
 			qqClients[instance.ID] = client
 			senders[instance.ID] = client
 			protocols[instance.ID] = instance.Type
-			identity.providers = append(identity.providers, func() chatevent.BotIdentity {
-				if !isEnabled(instance.ID, instance.Type) {
-					return chatevent.BotIdentity{}
-				}
+			identity.providers[instance.ID] = botIdentityProvider{protocol: instance.Type, identity: func() chatevent.BotIdentity {
 				botID, nickname := client.BotIdentity()
 				return chatevent.BotIdentity{SourceAdapter: instance.ID, SourceProtocol: instance.Type, ID: botID, Nickname: nickname}
-			})
+			}}
 		}
 	}
 
@@ -109,6 +97,9 @@ func buildEvents(deps eventDeps) EventState {
 		eventDispatcher.DispatchToProcess(context.Background(), owner.PluginID, owner.Done, event)
 	}})
 	outboundPolicy := outbound.NewMessagePolicy(deps.Config, func(scope chatevent.IdentityScope) chatevent.IdentityScope {
+		if scope.BotID != "" {
+			return scope
+		}
 		return outboundSender.ResolveScope(scope, identity.BotIdentities())
 	})
 	eventDispatcher.SetOutboundPolicy(outboundPolicy)

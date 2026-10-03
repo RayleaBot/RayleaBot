@@ -58,6 +58,52 @@ func TestIdentitySnapshotsPreserveNamespacesAndClearRemovedInstances(t *testing.
 	receive(0)
 }
 
+func TestIdentitySyncPreservesDeliveredSnapshotAcrossRejectedChanges(t *testing.T) {
+	t.Parallel()
+	dispatcher := dispatch.New(slog.Default(), nil, nil, 16, 4)
+	t.Cleanup(dispatcher.Close)
+	capture := &capturingRuntime{events: make(chan chatevent.Event, 4)}
+	dispatcher.Register("fixture", capture, nil, nil, 1)
+	initial := chatevent.BotIdentity{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "first"}
+	source := &identitySource{bots: []chatevent.BotIdentity{initial}}
+	controller := newTestController(t, Deps{Dispatcher: dispatcher, Identities: source})
+	receive := func(want string) []chatevent.BotIdentity {
+		t.Helper()
+		select {
+		case event := <-capture.events:
+			bots := event.PayloadFields["bots"].([]chatevent.BotIdentity)
+			if len(bots) != 1 || bots[0].ID != want {
+				t.Fatalf("identity event = %#v", event)
+			}
+			return bots
+		case <-time.After(2 * time.Second):
+			t.Fatal("identity snapshot not delivered")
+			return nil
+		}
+	}
+	controller.SyncBotIdentities(t.Context())
+	receive("first")[0].ID = "changed by receiver"
+	before := dispatcher.Stats().Delivered
+	controller.SyncBotIdentities(t.Context())
+	if dispatcher.Stats().Delivered != before {
+		t.Fatal("receiver changed the remembered identity")
+	}
+
+	source.bots[0].ID = "second"
+	cancelled, cancel := context.WithCancel(t.Context())
+	cancel()
+	controller.SyncBotIdentities(cancelled)
+	source.bots[0] = initial
+	controller.SyncBotIdentities(t.Context())
+	if dispatcher.Stats().Delivered != before {
+		t.Fatal("rejected intermediate identity caused a duplicate notification")
+	}
+
+	source.bots[0].ID = "second"
+	controller.SyncBotIdentities(t.Context())
+	receive("second")
+}
+
 func TestAfterRuntimeRegisteredDispatchesPluginStarted(t *testing.T) {
 	t.Parallel()
 
