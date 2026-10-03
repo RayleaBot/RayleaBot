@@ -42,6 +42,7 @@ func (c *Catalog) ApplyDesiredStates(states map[string]string) {
 
 	c.mu.Lock()
 	updated := make([]plugins.Snapshot, 0, len(states))
+	commandsChanged := false
 
 	for pluginID, desired := range states {
 		entry, ok := c.items[pluginID]
@@ -59,10 +60,13 @@ func (c *Catalog) ApplyDesiredStates(states map[string]string) {
 		entry.DesiredState = desired
 		entry.DisplayState = plugins.DefaultDisplayState(entry)
 		c.items[pluginID] = entry
-		c.rebuildCommandsLocked()
+		commandsChanged = commandsChanged || current.CommandsEnabled() != entry.CommandsEnabled()
 		if pluginStateChanged(current, entry) {
 			updated = append(updated, plugins.CloneSnapshot(entry))
 		}
+	}
+	if commandsChanged {
+		c.rebuildCommandsLocked()
 	}
 	c.mu.Unlock()
 
@@ -92,7 +96,6 @@ func (c *Catalog) SetRuntimeResult(pluginID, runtimeState, errorCode, errorMessa
 	}
 	entry.DisplayState = plugins.DefaultDisplayState(entry)
 	c.items[pluginID] = entry
-	c.rebuildCommandsLocked()
 	updated := plugins.CloneSnapshot(entry)
 	c.mu.Unlock()
 
@@ -115,7 +118,6 @@ func (c *Catalog) SetDeadLetterSnapshot(pluginID string, info plugins.DeadLetter
 	copied := info
 	entry.DeadLetter = &copied
 	c.items[pluginID] = entry
-	c.rebuildCommandsLocked()
 	updated := plugins.CloneSnapshot(entry)
 	c.mu.Unlock()
 

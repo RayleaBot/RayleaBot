@@ -99,7 +99,9 @@ func (c *Catalog) RefreshCommands(pluginID string, settings map[string]any) (plu
 	entry.CommandPrefixes = ProjectCommandPrefixes(entry, settings)
 	changed := pluginStateChanged(current, entry)
 	c.items[pluginID] = entry
-	c.rebuildCommandsLocked()
+	if changed && entry.CommandsEnabled() {
+		c.rebuildCommandsLocked()
+	}
 	updated := plugins.CloneSnapshot(entry)
 	published := []plugins.Snapshot{updated}
 	if changed {
