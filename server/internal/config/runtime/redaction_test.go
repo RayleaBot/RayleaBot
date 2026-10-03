@@ -419,6 +419,31 @@ func TestLookupAddressesCollectionEntriesByKey(t *testing.T) {
 	}
 }
 
+func TestSecretIndexPreservesExactFirstMatchingID(t *testing.T) {
+	t.Parallel()
+	current := map[string]any{"adapters": []any{
+		adapterDocument("duplicate", "qqofficial", map[string]any{"app_secret": "first-fixture"}),
+		adapterDocument("duplicate", "qqofficial", map[string]any{"app_secret": "second-fixture"}),
+		adapterDocument(" padded ", "qqofficial", map[string]any{"app_secret": "padded-fixture"}),
+		adapterDocument("other", "qqofficial", map[string]any{"app_secret": "other-fixture"}),
+	}}
+	request := map[string]any{"adapters": []any{
+		adapterDocument("other", "qqofficial", map[string]any{"app_secret": redactedConfigValue}),
+		adapterDocument("duplicate", "qqofficial", map[string]any{"app_secret": redactedConfigValue}),
+		adapterDocument("duplicate", "qqofficial", map[string]any{"app_secret": redactedConfigValue}),
+		adapterDocument("padded", "qqofficial", map[string]any{"app_secret": redactedConfigValue}),
+	}}
+	got := restoreRedactedConfigSecrets(request, current)["adapters"].([]any)
+	for index, want := range []string{"other-fixture", "first-fixture", redactedConfigValue, ""} {
+		if value := got[index].(map[string]any)["qqofficial"].(map[string]any)["app_secret"]; value != want {
+			t.Fatalf("entry %d secret = %v, want %q", index, value, want)
+		}
+	}
+	if value := request["adapters"].([]any)[0].(map[string]any)["qqofficial"].(map[string]any)["app_secret"]; value != redactedConfigValue {
+		t.Fatal("restoration mutated the request")
+	}
+}
+
 func mustOneBot(t *testing.T, cfg internalconfig.Config) internalconfig.OneBotConfig {
 	t.Helper()
 	settings, ok := cfg.OneBot11Settings(internalconfig.DefaultOneBot11AdapterID)

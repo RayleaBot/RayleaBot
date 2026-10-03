@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -68,6 +69,34 @@ func TestTimezoneChangeWaitsForRestartWithoutChangingEffectiveTimezone(t *testin
 	}
 	if got := service.CurrentConfigDocument(); got.EffectiveTimezone != "Asia/Shanghai" || got.Config["scheduler"].(map[string]any)["timezone"] != "America/New_York" {
 		t.Fatalf("wrong persisted/effective timezone: %+v", got)
+	}
+}
+
+func TestConcurrentConfigDocumentsOwnTheirRedactedValues(t *testing.T) {
+	cfg := internalconfig.Config{Adapters: []internalconfig.AdapterInstance{{
+		ID: "qq", Type: internalconfig.AdapterTypeQQOfficial,
+		QQOfficial: &internalconfig.QQOfficialConfig{AppSecret: "fixture-secret", Intents: []string{"group_and_c2c"}},
+	}}}
+	service := NewService(Deps{CurrentConfig: func() internalconfig.Config { return cfg }})
+	var readers sync.WaitGroup
+	for range 8 {
+		readers.Go(func() {
+			for range 10 {
+				snapshot := service.CurrentConfigDocument()
+				settings := snapshot.Config["adapters"].([]any)[0].(map[string]any)["qqofficial"].(map[string]any)
+				if settings["app_secret"] != redactedConfigValue || settings["intents"].([]any)[0] != "group_and_c2c" || len(snapshot.RedactedFields) != 1 || snapshot.RedactedFields[0] != "adapters.qq.qqofficial.app_secret" {
+					t.Error("config snapshot exposed a secret or another caller's mutation")
+					return
+				}
+				settings["intents"].([]any)[0] = "changed"
+				settings["app_secret"] = "changed"
+				snapshot.RedactedFields[0] = "changed"
+			}
+		})
+	}
+	readers.Wait()
+	if cfg.Adapters[0].QQOfficial.AppSecret != "fixture-secret" || cfg.Adapters[0].QQOfficial.Intents[0] != "group_and_c2c" {
+		t.Fatal("config snapshot mutated the source")
 	}
 }
 

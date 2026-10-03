@@ -15,18 +15,33 @@ import (
 // identifier rather than its position, so reordering the collection does not
 // re-key its secrets.
 func configSecretPathsIn(document map[string]any) [][]string {
-	shapes := ConfigSecretFieldPaths()
-	resolved := make([][]string, 0, len(shapes))
-	for _, shape := range shapes {
-		resolved = append(resolved, expandSecretShape(document, strings.Split(shape, "."))...)
-	}
-	slices.SortFunc(resolved, func(left, right []string) int {
-		return strings.Compare(strings.Join(left, "."), strings.Join(right, "."))
-	})
-	return resolved
+	index := configDocumentIndex{document: document}
+	return index.secretPaths()
 }
 
-func expandSecretShape(document map[string]any, shape []string) [][]string {
+func (d *configDocumentIndex) secretPaths() [][]string {
+	shapes := ConfigSecretFieldPaths()
+	type resolvedPath struct {
+		path []string
+		name string
+	}
+	resolved := make([]resolvedPath, 0, len(shapes))
+	for _, shape := range shapes {
+		for _, path := range d.expandSecretShape(strings.Split(shape, ".")) {
+			resolved = append(resolved, resolvedPath{path: path, name: strings.Join(path, ".")})
+		}
+	}
+	slices.SortFunc(resolved, func(left, right resolvedPath) int {
+		return strings.Compare(left.name, right.name)
+	})
+	paths := make([][]string, len(resolved))
+	for index, path := range resolved {
+		paths[index] = path.path
+	}
+	return paths
+}
+
+func (d *configDocumentIndex) expandSecretShape(shape []string) [][]string {
 	prefixes := [][]string{{}}
 	for index, segment := range shape {
 		if segment != ConfigCollectionWildcard {
@@ -44,14 +59,14 @@ func expandSecretShape(document map[string]any, shape []string) [][]string {
 		}
 		expanded := make([][]string, 0, len(prefixes))
 		for _, prefix := range prefixes {
-			for _, entryKey := range collectionEntryKeys(document, prefix, key) {
+			for _, entryKey := range d.collectionEntryKeys(prefix, key) {
 				branch := append(append([]string{}, prefix...), entryKey)
 				// Entries of one collection hold different shapes: an adapter
 				// speaking one protocol has no settings block for another. A
 				// branch that cannot reach the field is not a path to it.
 				if index+1 < len(shape) {
 					probe := append(append([]string{}, branch...), shape[index+1])
-					if _, ok := lookupConfigPath(document, probe); !ok {
+					if _, ok := d.lookup(probe); !ok {
 						continue
 					}
 				}
@@ -68,8 +83,8 @@ func expandSecretShape(document map[string]any, shape []string) [][]string {
 
 // collectionEntryKeys reads the identifiers of the entries actually present at
 // a collection path.
-func collectionEntryKeys(document map[string]any, path []string, key string) []string {
-	value, ok := lookupConfigPath(document, path)
+func (d *configDocumentIndex) collectionEntryKeys(path []string, key string) []string {
+	value, ok := d.lookup(path)
 	if !ok {
 		return nil
 	}

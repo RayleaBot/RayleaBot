@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	_ "embed"
 
@@ -48,6 +49,30 @@ var PluginArtifactSchemaJSON []byte
 //
 //go:embed contracts/plugin-store-catalog.schema.json
 var PluginStoreCatalogSchemaJSON []byte
+
+var builtinValidators = map[string]func() (*Validator, error){
+	ConfigUserSchemaID:         builtinValidator(ConfigUserSchemaID, ConfigUserSchemaJSON),
+	BackupManifestSchemaID:     builtinValidator(BackupManifestSchemaID, BackupManifestSchemaJSON),
+	PluginInfoSchemaID:         builtinValidator(PluginInfoSchemaID, PluginInfoSchemaJSON),
+	PluginArtifactSchemaID:     builtinValidator(PluginArtifactSchemaID, PluginArtifactSchemaJSON),
+	PluginStoreCatalogSchemaID: builtinValidator(PluginStoreCatalogSchemaID, PluginStoreCatalogSchemaJSON),
+}
+
+func builtinValidator(name string, content []byte) func() (*Validator, error) {
+	return sync.OnceValues(func() (*Validator, error) {
+		return CompileJSON(name, content)
+	})
+}
+
+// CompileBuiltin shares an immutable embedded schema across concurrent validations.
+// File-backed schemas and caller-provided JSON are compiled afresh by Compile and CompileJSON.
+func CompileBuiltin(name string) (*Validator, error) {
+	compile, ok := builtinValidators[strings.TrimSpace(name)]
+	if !ok {
+		return nil, fmt.Errorf("unknown builtin schema %s", name)
+	}
+	return compile()
+}
 
 func IsConfigUserSchemaID(name string) bool {
 	return name == "" || name == ConfigUserSchemaID
@@ -105,6 +130,9 @@ func (v *Validator) Path() string {
 
 func (v *Validator) Validate(document any) error {
 	if err := v.schema.Validate(document); err != nil {
+		if validationErr, ok := err.(*jsonschema.ValidationError); ok {
+			detachSchemaConstraints(validationErr)
+		}
 		return err
 	}
 
@@ -158,7 +186,7 @@ func normalizeDocument(raw map[string]any) (any, error) {
 
 func validateDocument(schemaPath string, document any) error {
 	if IsConfigUserSchemaID(schemaPath) {
-		validator, err := CompileJSON(ConfigUserSchemaID, ConfigUserSchemaJSON)
+		validator, err := CompileBuiltin(ConfigUserSchemaID)
 		if err != nil {
 			return err
 		}

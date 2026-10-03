@@ -59,6 +59,60 @@ func TestFailedConfigPersistenceRestoresCredentialsAndRevision(t *testing.T) {
 	}
 }
 
+func TestConfigPersistenceRevalidatesChangedExternalSchema(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "user.yaml")
+	cfg, summary, err := config.Init(path, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters = []config.AdapterInstance{{ID: "test", Type: config.AdapterTypeOneBot11, OneBot11: &config.OneBotConfig{}}}
+	schemaPath := filepath.Join(t.TempDir(), "config.schema.json")
+	if err := os.WriteFile(schemaPath, []byte("true"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	summary.SchemaPath = schemaPath
+	store := &schemaChangingSecretStore{
+		memorySecretStore: newMemorySecretStore(),
+		schemaPath:        schemaPath,
+	}
+	service := NewService(Deps{CurrentConfig: func() config.Config { return cfg },
+		CurrentSummary: func() config.Summary { return summary }, Secrets: store})
+	request := ConfigDocumentFromTyped(cfg)
+	secretPath := onebotSecretPath("test", "forward_ws")
+	setConfigPath(request, secretPath, "fixture-token")
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.UpdateConfigDocument(context.Background(), request); err == nil {
+		t.Fatal("persisted a document rejected by the replacement external schema")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !store.changed || string(before) != string(after) || service.CurrentConfigDocument().Revision != 1 || len(store.values) != 0 {
+		t.Fatal("failed second validation did not preserve file, secrets and revision")
+	}
+}
+
+type schemaChangingSecretStore struct {
+	*memorySecretStore
+	schemaPath string
+	changed    bool
+}
+
+func (s *schemaChangingSecretStore) Set(ctx context.Context, key string, value []byte) error {
+	if err := s.memorySecretStore.Set(ctx, key, value); err != nil {
+		return err
+	}
+	if !s.changed {
+		s.changed = true
+		return os.WriteFile(s.schemaPath, []byte("false"), 0o600)
+	}
+	return nil
+}
+
 type reloadFailure struct{ calls int }
 
 func (r *reloadFailure) ApplyConfigReload(config.Config) error {

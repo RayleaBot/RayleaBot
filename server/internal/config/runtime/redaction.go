@@ -10,23 +10,27 @@ import (
 const redactedConfigValue = "********"
 
 func sanitizeConfigDocument(document map[string]any) (map[string]any, []string) {
-	cloned := internalconfig.CloneDocument(document)
-	if cloned == nil {
+	return sanitizeOwnedConfigDocument(internalconfig.CloneDocument(document))
+}
+
+func sanitizeOwnedConfigDocument(document map[string]any) (map[string]any, []string) {
+	if document == nil {
 		return nil, nil
 	}
 
-	paths := configSecretPathsIn(cloned)
+	index := configDocumentIndex{document: document}
+	paths := index.secretPaths()
 	redactedFields := make([]string, 0, len(paths))
 	for _, path := range paths {
-		value, ok := lookupConfigPath(cloned, path)
+		value, ok := index.lookup(path)
 		if !ok || strings.TrimSpace(stringValue(value)) == "" {
 			continue
 		}
-		setConfigPath(cloned, path, redactedConfigValue)
+		index.set(path, redactedConfigValue)
 		redactedFields = append(redactedFields, strings.Join(path, "."))
 	}
 	slices.Sort(redactedFields)
-	return cloned, redactedFields
+	return document, redactedFields
 }
 
 func restoreRedactedConfigSecrets(request, current map[string]any) map[string]any {
@@ -34,11 +38,13 @@ func restoreRedactedConfigSecrets(request, current map[string]any) map[string]an
 	if cloned == nil {
 		return nil
 	}
+	requestIndex := configDocumentIndex{document: cloned}
+	currentIndex := configDocumentIndex{document: current}
 
 	// Resolve against the request: an adapter the caller did not send has no
 	// secrets to restore into it.
-	for _, path := range configSecretPathsIn(cloned) {
-		requestValue, exists := lookupConfigPath(cloned, path)
+	for _, path := range requestIndex.secretPaths() {
+		requestValue, exists := requestIndex.lookup(path)
 		if exists && strings.TrimSpace(stringValue(requestValue)) != redactedConfigValue {
 			continue
 		}
@@ -46,19 +52,19 @@ func restoreRedactedConfigSecrets(request, current map[string]any) map[string]an
 		// configuring; restoring into it would materialise a half-built block
 		// that then fails that section's own required fields. Within a section
 		// the request did send, an omitted field still inherits its secret.
-		if !exists && !configSectionPresent(cloned, path) {
+		if !exists && !requestIndex.sectionPresent(path) {
 			continue
 		}
-		currentValue, _ := lookupConfigPath(current, path)
-		setConfigPath(cloned, path, stringValue(currentValue))
+		currentValue, _ := currentIndex.lookup(path)
+		requestIndex.set(path, stringValue(currentValue))
 	}
 	return cloned
 }
 
-// configSectionPresent reports whether the request holds the section the secret
+// sectionPresent reports whether the request holds the section the secret
 // lives in. For a secret inside a collection entry that section is the entry's
 // settings block; otherwise it is the top-level section.
-func configSectionPresent(document map[string]any, path []string) bool {
+func (d *configDocumentIndex) sectionPresent(path []string) bool {
 	sectionEnd := 1
 	for index := 1; index < len(path); index++ {
 		if _, ok := ConfigCollectionKey(ConfigShapePath(strings.Join(path[:index], "."))); ok {
@@ -67,9 +73,9 @@ func configSectionPresent(document map[string]any, path []string) bool {
 		}
 	}
 	if sectionEnd >= len(path) {
-		return document != nil
+		return d.document != nil
 	}
-	section, ok := lookupConfigPath(document, path[:sectionEnd])
+	section, ok := d.lookup(path[:sectionEnd])
 	if !ok {
 		return false
 	}
@@ -79,10 +85,11 @@ func configSectionPresent(document map[string]any, path []string) bool {
 
 func configSecretValues(cfg internalconfig.Config) []string {
 	document := ConfigDocumentFromTyped(cfg)
-	paths := configSecretPathsIn(document)
+	index := configDocumentIndex{document: document}
+	paths := index.secretPaths()
 	values := make([]string, 0, len(paths))
 	for _, path := range paths {
-		value, ok := lookupConfigPath(document, path)
+		value, ok := index.lookup(path)
 		if !ok {
 			continue
 		}
@@ -97,17 +104,29 @@ func configSecretValues(cfg internalconfig.Config) []string {
 	return values
 }
 
+// The index lives for one secret operation. That operation changes only secret
+// leaves, never collection membership or the identifiers used by this cache.
+type configDocumentIndex struct {
+	document    map[string]any
+	collections map[string]map[string]map[string]any
+}
+
 func lookupConfigPath(document map[string]any, path []string) (any, bool) {
+	index := configDocumentIndex{document: document}
+	return index.lookup(path)
+}
+
+func (d *configDocumentIndex) lookup(path []string) (any, bool) {
 	if len(path) == 0 {
-		return document, true
+		return d.document, true
 	}
 
-	current := any(document)
+	current := any(d.document)
 	for index, segment := range path {
 		// A segment addressing a keyed collection names an entry by its own
 		// identifier rather than by position, so reordering does not move it.
 		if entries, ok := current.([]any); ok {
-			entry, ok := collectionEntry(entries, collectionKeyFor(path[:index]), segment)
+			entry, ok := d.collectionEntry(entries, path[:index], segment)
 			if !ok {
 				return nil, false
 			}
@@ -136,28 +155,45 @@ func collectionKeyFor(path []string) string {
 	return "id"
 }
 
-func collectionEntry(entries []any, key, wanted string) (map[string]any, bool) {
-	for _, entry := range entries {
-		item, ok := entry.(map[string]any)
-		if !ok {
-			continue
+func (d *configDocumentIndex) collectionEntry(entries []any, path []string, wanted string) (map[string]any, bool) {
+	collectionPath := strings.Join(path, ".")
+	indexed, ok := d.collections[collectionPath]
+	if !ok {
+		key := collectionKeyFor(path)
+		indexed = make(map[string]map[string]any, len(entries))
+		for _, entry := range entries {
+			item, ok := entry.(map[string]any)
+			if !ok {
+				continue
+			}
+			id, ok := item[key].(string)
+			if _, exists := indexed[id]; ok && !exists {
+				indexed[id] = item
+			}
 		}
-		if id, ok := item[key].(string); ok && id == wanted {
-			return item, true
+		if d.collections == nil {
+			d.collections = make(map[string]map[string]map[string]any)
 		}
+		d.collections[collectionPath] = indexed
 	}
-	return nil, false
+	entry, ok := indexed[wanted]
+	return entry, ok
 }
 
 func setConfigPath(document map[string]any, path []string, value any) {
-	if document == nil || len(path) == 0 {
+	index := configDocumentIndex{document: document}
+	index.set(path, value)
+}
+
+func (d *configDocumentIndex) set(path []string, value any) {
+	if d.document == nil || len(path) == 0 {
 		return
 	}
 
-	current := any(document)
+	current := any(d.document)
 	for index, segment := range path[:len(path)-1] {
 		if entries, ok := current.([]any); ok {
-			entry, ok := collectionEntry(entries, collectionKeyFor(path[:index]), segment)
+			entry, ok := d.collectionEntry(entries, path[:index], segment)
 			if !ok {
 				// Never invent a collection entry: it would have no identity.
 				return

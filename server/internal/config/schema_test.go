@@ -2,9 +2,13 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
+	"github.com/santhosh-tekuri/jsonschema/v6/kind"
 )
 
 func TestEmbeddedRuntimeSchemasMatchFormalContracts(t *testing.T) {
@@ -52,6 +56,107 @@ func TestEmbeddedRuntimeSchemasMatchFormalContracts(t *testing.T) {
 func normalizeSchemaBytes(content []byte) []byte {
 	content = bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
 	return bytes.ReplaceAll(content, []byte("\r"), []byte("\n"))
+}
+
+func TestBuiltinConfigValidatorSupportsConcurrentIndependentDocuments(t *testing.T) {
+	for range 32 {
+		t.Run("validate", func(t *testing.T) {
+			t.Parallel()
+			validator, err := CompileBuiltin(ConfigUserSchemaID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			document := CloneDocument(defaultDocument())
+			if err := validator.Validate(document); err != nil {
+				t.Fatalf("valid configuration: %v", err)
+			}
+			document["server"].(map[string]any)["port"] = "invalid-port"
+			if err := validator.Validate(document); err == nil {
+				t.Fatal("accepted an invalid port")
+			}
+		})
+	}
+}
+
+func TestBuiltinValidationErrorsCannotMutateSharedSchema(t *testing.T) {
+	for range 8 {
+		t.Run("independent constraints", func(t *testing.T) {
+			t.Parallel()
+			validator, err := CompileBuiltin(ConfigUserSchemaID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			document := CloneDocument(defaultDocument())
+			document["render"].(map[string]any)["default_output"] = "invalid-output"
+			document["server"].(map[string]any)["port"] = float64(0)
+			err = validator.Validate(document)
+			var validationErr *jsonschema.ValidationError
+			if !errors.As(err, &validationErr) {
+				t.Fatalf("lost structured validation error: %v", err)
+			}
+			var changedEnum, changedMinimum bool
+			pending := []*jsonschema.ValidationError{validationErr}
+			for len(pending) > 0 {
+				current := pending[len(pending)-1]
+				pending = append(pending[:len(pending)-1], current.Causes...)
+				switch constraint := current.ErrorKind.(type) {
+				case *kind.Enum:
+					for index := range constraint.Want {
+						constraint.Want[index] = "invalid-output"
+					}
+					changedEnum = true
+				case *kind.Minimum:
+					constraint.Want.SetInt64(-1)
+					changedMinimum = true
+				}
+			}
+			if !changedEnum || !changedMinimum {
+				t.Fatal("missing mutable enum or minimum constraints in error")
+			}
+			if err := validator.Validate(CloneDocument(defaultDocument())); err != nil {
+				t.Fatalf("returned error changed a valid configuration's result: %v", err)
+			}
+			if err := validator.Validate(document); err == nil {
+				t.Fatal("returned error changed invalid constraints into accepted values")
+			}
+		})
+	}
+}
+
+func TestCompileJSONDoesNotReuseCallerSchemaByName(t *testing.T) {
+	for _, schema := range []string{`{"type":"string"}`, `{"type":"number"}`} {
+		validator, err := CompileJSON(ConfigUserSchemaID, []byte(schema))
+		if err != nil {
+			t.Fatal(err)
+		}
+		acceptString := schema == `{"type":"string"}`
+		if err := validator.Validate("value"); (err == nil) != acceptString {
+			t.Fatalf("caller-provided schema %s: %v", schema, err)
+		}
+	}
+}
+
+func TestExternalConfigSchemaIsReadAgainAfterRewrite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.schema.json")
+	if err := os.WriteFile(path, []byte(`{"type":"object"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := NormalizeDocument("user.yaml", path, defaultDocument()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"type":"string"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(path, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := NormalizeDocument("user.yaml", path, defaultDocument()); err == nil {
+		t.Fatal("reused an external schema after its contents changed")
+	}
 }
 
 func TestFormalSchemaFixturesKeepRelativePathConstraints(t *testing.T) {

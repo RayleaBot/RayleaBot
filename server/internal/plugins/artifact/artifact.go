@@ -96,7 +96,7 @@ func Verify(root string, options Options) (Verified, error) {
 	if version := objectString(documentValue, "artifact_version"); version != Version {
 		return Verified{}, fmt.Errorf("%w: artifact_version %q, supported %q", ErrContractUnsupported, version, Version)
 	}
-	artifactValidator, err := config.CompileJSON(config.PluginArtifactSchemaID, config.PluginArtifactSchemaJSON)
+	artifactValidator, err := config.CompileBuiltin(config.PluginArtifactSchemaID)
 	if err != nil {
 		return Verified{}, invalid("compile artifact schema", err)
 	}
@@ -118,7 +118,7 @@ func Verify(root string, options Options) (Verified, error) {
 	if version := objectString(manifestValue, "manifest_version"); version != ManifestVersion {
 		return Verified{}, fmt.Errorf("%w: manifest_version %q, supported %q", ErrContractUnsupported, version, ManifestVersion)
 	}
-	manifestValidator, err := config.CompileJSON(config.PluginInfoSchemaID, config.PluginInfoSchemaJSON)
+	manifestValidator, err := config.CompileBuiltin(config.PluginInfoSchemaID)
 	if err != nil {
 		return Verified{}, invalid("compile plugin manifest schema", err)
 	}

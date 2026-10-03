@@ -50,7 +50,7 @@ type UpdateResult struct {
 func (s *Service) CurrentConfigDocument() Document {
 	s.updateMu.RLock()
 	defer s.updateMu.RUnlock()
-	document, redactedFields := sanitizeConfigDocument(ConfigDocumentFromTyped(s.desired()))
+	document, redactedFields := sanitizeOwnedConfigDocument(internalconfig.CanonicalJSONDocumentFromTyped(s.desired()))
 	return Document{
 		Revision:          s.currentRevision(),
 		Config:            document,
@@ -111,7 +111,7 @@ func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]a
 		s.setSummary(newSummary)
 	}
 
-	document, redactedFields := sanitizeConfigDocument(ConfigDocumentFromTyped(newCfg))
+	document, redactedFields := sanitizeOwnedConfigDocument(internalconfig.CanonicalJSONDocumentFromTyped(newCfg))
 	return UpdateResult{
 		Document: Document{
 			Revision:          s.revision,

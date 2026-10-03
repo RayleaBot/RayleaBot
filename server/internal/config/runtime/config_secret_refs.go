@@ -22,8 +22,9 @@ func StoreConfigSecrets(ctx context.Context, store secrets.Store, document map[s
 		return cloned, nil
 	}
 
+	index := configDocumentIndex{document: cloned}
 	for _, path := range configSecretPathsIn(document) {
-		value, ok := lookupConfigPath(cloned, path)
+		value, ok := index.lookup(path)
 		if !ok {
 			continue
 		}
@@ -35,7 +36,7 @@ func StoreConfigSecrets(ctx context.Context, store secrets.Store, document map[s
 			if err := store.Delete(ctx, key); err != nil {
 				return nil, fmt.Errorf("delete config secret %s: %w", strings.Join(path, "."), err)
 			}
-			setConfigPath(cloned, path, "")
+			index.set(path, "")
 		case isConfigSecretReference(text):
 			if text != reference {
 				return nil, fmt.Errorf("config secret %s must use %s", strings.Join(path, "."), reference)
@@ -43,12 +44,12 @@ func StoreConfigSecrets(ctx context.Context, store secrets.Store, document map[s
 			if err := verifyConfigSecretReference(ctx, store, path); err != nil {
 				return nil, err
 			}
-			setConfigPath(cloned, path, reference)
+			index.set(path, reference)
 		default:
 			if err := store.Set(ctx, key, []byte(text)); err != nil {
 				return nil, fmt.Errorf("store config secret %s: %w", strings.Join(path, "."), err)
 			}
-			setConfigPath(cloned, path, reference)
+			index.set(path, reference)
 		}
 	}
 	return cloned, nil
@@ -56,8 +57,9 @@ func StoreConfigSecrets(ctx context.Context, store secrets.Store, document map[s
 
 func ResolveConfigSecretRefs(ctx context.Context, store secrets.Store, cfg internalconfig.Config) (internalconfig.Config, error) {
 	document := ConfigDocumentFromTyped(cfg)
-	for _, path := range configSecretPathsIn(document) {
-		value, ok := lookupConfigPath(document, path)
+	index := configDocumentIndex{document: document}
+	for _, path := range index.secretPaths() {
+		value, ok := index.lookup(path)
 		if !ok {
 			continue
 		}
@@ -65,7 +67,7 @@ func ResolveConfigSecretRefs(ctx context.Context, store secrets.Store, cfg inter
 		if err != nil {
 			return internalconfig.Config{}, err
 		}
-		setConfigPath(document, path, resolved)
+		index.set(path, resolved)
 	}
 	payload, err := json.Marshal(document)
 	if err != nil {

@@ -45,6 +45,41 @@ func TestVerifyRejectsExpectedPlatformMismatch(t *testing.T) {
 	}
 }
 
+func TestVerifyRevalidatesChangedArtifactFiles(t *testing.T) {
+	for _, file := range []string{"artifact.json", "info.json"} {
+		t.Run(file, func(t *testing.T) {
+			root := makeTestArtifact(t, false)
+			if _, err := Verify(root, Options{}); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(root, file)
+			content, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var document map[string]any
+			if err := json.Unmarshal(content, &document); err != nil {
+				t.Fatal(err)
+			}
+			if file == "artifact.json" {
+				document["entry"] = 123
+			} else {
+				document["name"] = 123
+			}
+			invalid, err := json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, invalid, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Verify(root, Options{}); !errors.Is(err, ErrInvalid) {
+				t.Fatalf("changed invalid %s: %v", file, err)
+			}
+		})
+	}
+}
+
 func makeTestArtifact(t *testing.T, withUI bool) string {
 	t.Helper()
 	root := t.TempDir()
