@@ -20,6 +20,8 @@ export interface ConfigFieldDefinition {
   min?: number
   max?: number
   step?: number
+  /** Boolean field that must be on for this field to take effect. */
+  enabledBy?: string
 }
 
 export function composeFieldTooltip(field: ConfigFieldDefinition): string | undefined {
@@ -476,6 +478,13 @@ export function getRateLimitConfigSections(): ConfigSectionDefinition[] {
           label: t('rateLimits.fields.cooldownReply'),
           type: 'boolean',
           description: t('rateLimits.hints.cooldownReply'),
+        },
+        {
+          path: 'user.cooldown_reply_once',
+          label: t('rateLimits.fields.cooldownReplyOnce'),
+          type: 'boolean',
+          description: t('rateLimits.hints.cooldownReplyOnce'),
+          enabledBy: 'user.cooldown_reply',
         },
       ],
     },

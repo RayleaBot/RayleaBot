@@ -19,6 +19,7 @@ import { useConfigDraft } from '@/components/config/useConfigDraft'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
   getRateLimitConfigSections,
+  type ConfigFieldDefinition,
 } from '@/lib/config-form'
 import { formatRateLimitPreview } from '@/lib/format'
 import { t } from '@/i18n'
@@ -38,6 +39,10 @@ const configSections = computed(() => getRateLimitConfigSections().map(section =
 onMounted(() => {
   void loadConfig()
 })
+
+function isFieldDisabled(field: ConfigFieldDefinition) {
+  return field.enabledBy !== undefined && !readField(field.enabledBy, 'boolean')
+}
 
 function getSectionIcon(key: string) {
   switch (key) {
@@ -86,10 +91,15 @@ function getSectionIcon(key: string) {
             <RateLimitPreview :text="field.rateLimitPreview" class="rate-limits-field__preview" />
           </div>
 
-          <label v-else-if="field.type === 'boolean'" class="rate-limits-field__switch">
+          <label
+            v-else-if="field.type === 'boolean'"
+            class="rate-limits-field__switch"
+            :class="{ 'rate-limits-field__switch--disabled': isFieldDisabled(field) }"
+          >
             <AppSwitch
               :model-value="Boolean(readField(field.path, field.type))"
               :aria-label="field.label"
+              :disabled="isFieldDisabled(field)"
               @update:model-value="writeField(field.path, field.type, $event)"
             />
             <span>{{ field.label }}</span>
@@ -155,6 +165,11 @@ function getSectionIcon(key: string) {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
+}
+
+.rate-limits-field__switch--disabled {
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 .rate-limits-field__note {
