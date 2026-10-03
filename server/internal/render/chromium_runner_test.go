@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -77,22 +76,8 @@ func logTestBrowserVersion(t *testing.T, browserPath string) {
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, browserPath, "--version")
-	if runtime.GOOS == "windows" {
-		// Windows browsers may treat --version as a normal launch. Read PE
-		// metadata instead, without opening the operator's browser profile.
-		script := "$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); " +
-			"(Get-Item -LiteralPath '" + strings.ReplaceAll(browserPath, "'", "''") + "').VersionInfo | " +
-			"Select-Object ProductName,FileVersion,ProductVersion | ConvertTo-Json -Compress"
-		command = exec.CommandContext(ctx, filepath.Join(os.Getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
-			"-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", script)
-	}
-	prepareBrowserCommand(command)
-	command.WaitDelay = time.Second
-	output := &testBrowserOutput{}
-	command.Stdout, command.Stderr = output, output
-	err = command.Run()
-	t.Logf("selected Chromium version: %s (probe error: %v)", strings.TrimSpace(output.String()), err)
+	version, err := testBrowserVersion(ctx, browserPath)
+	t.Logf("selected Chromium version: %s (probe error: %v)", version, err)
 }
 
 const testBrowserOutputLimit = 32 * 1024
