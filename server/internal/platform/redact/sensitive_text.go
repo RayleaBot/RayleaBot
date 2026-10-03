@@ -56,6 +56,10 @@ func (pattern sensitiveTextPattern) replace(text string) string {
 			search = separator + 1
 			continue
 		}
+		if text[start+match[3]:start+match[1]] == placeholder {
+			search = start + match[1]
+			continue
+		}
 		if copied == 0 {
 			output.Grow(len(text) - (match[1] - match[3]) + len(placeholder))
 		}

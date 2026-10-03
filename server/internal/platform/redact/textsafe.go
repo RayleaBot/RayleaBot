@@ -17,6 +17,10 @@ func SanitizeString(value string) string {
 	modified := false
 
 	for index := 0; index < len(value); {
+		if c := value[index]; c < 0x7f && (c >= ' ' || c == '\t' || c == '\n' || c == '\r') {
+			index++
+			continue
+		}
 		r, size := utf8.DecodeRuneInString(value[index:])
 
 		replacement, shouldReplace, shouldDrop := sanitizeRune(r, size)

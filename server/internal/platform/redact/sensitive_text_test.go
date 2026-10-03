@@ -19,6 +19,10 @@ func TestSensitiveTextPreservesCredentialBoundariesAndHeaderPrecedence(t *testin
 		{"header multiline whitespace", "Authorization:\r\n \tBearer fixture\r\nnext=value", "Authorization:\r\n \t[REDACTED]\r\nnext=value"},
 		{"header whitespace value", "Cookie:  ", "Cookie: [REDACTED]"},
 		{"invalid UTF8 boundary", "\xfftoken=fixture\xff&keep=\xff", "\xfftoken=[REDACTED]&keep=\xff"},
+		{"already masked", "Cookie: [REDACTED]\ntoken=[REDACTED]", "Cookie: [REDACTED]\ntoken=[REDACTED]"},
+		{"masked between credentials", "token=first&password=[REDACTED]; api_key=second", "token=[REDACTED]&password=[REDACTED]; api_key=[REDACTED]"},
+		{"masked before credential", "token=[REDACTED]&password=second", "token=[REDACTED]&password=[REDACTED]"},
+		{"placeholder prefix remains sensitive", "token=[REDACTED]suffix&Cookie: [REDACTED] suffix", "token=[REDACTED]&Cookie: [REDACTED]"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := SensitiveText(tc.input); got != tc.want {
