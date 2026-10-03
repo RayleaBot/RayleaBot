@@ -22,7 +22,7 @@
 
 ## 固定版本线
 
-Go、Node.js、Python、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 `.tool-versions` 维护。CI 在安装工具前读取该文件；doctor、契约校验与插件开发工作区也从此处取值。`go.mod`、`package.json` 等生态必填声明及下表保留，并由门禁检查一致性。
+Go、Node.js、Python、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 `.tool-versions` 维护。工作流在安装工具前读取该文件；doctor、契约校验与插件开发工作区也从此处取值。`go.mod`、`package.json` 等生态必填声明由 doctor 与契约校验器核对，下表供阅读。
 
 | 领域 | 固定基线 |
 | --- | --- |
@@ -39,7 +39,7 @@ Go、Node.js、Python、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 
 | Database | SQLite via `modernc.org/sqlite v1.56.0` |
 | Render | `chromedp 0.16.0` + Chrome for Testing `152.0.7977.42` |
 | Media tools | Windows / Linux 使用 BtbN FFmpeg Builds `n9.0.1-11-ge47273f4d9-20260831` full GPL build；macOS arm64 使用 vanloctech `ffmpeg-2026.06.11` |
-| macOS CI / release runner | `macos-26` |
+| macOS release runner | `macos-26` |
 
 Windows / Linux 的 FFmpeg 固定使用 BtbN [2026-08-31 月末构建](https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-08-31-13-27)，保留 9.0.1 维护线与 full GPL 变体。按[上游保留规则](https://github.com/BtbN/FFmpeg-Builds#release-retention-policy)，月末构建保留两年，普通日构建只保留最近 14 版；固定日期 URL 不代表永久可用。每次分发前仍需验证来源与 SHA-256，更新构建时同步资源版本、归档摘要和入口路径。
 
@@ -92,7 +92,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 | 数据库初始化 | 从当前 `schema.sql` 在事务内初始化；旧结构按 `store_schema.go` 的有序前向迁移表升级，每步一个事务并更新 `schema_metadata`，失败回滚；不引入额外迁移框架 |
 | OpenAPI 实现 | 保留严格契约校验和生成类型检查；只有 handler 漂移持续发生时才评估 Server 侧 OpenAPI 代码生成 |
 | Secret 存储 | secret 原值保存在 SQLite 独立存储，配置只保存 `secret://` 引用，管理面不回显；部署目标要求外部密钥托管时再评估环境密钥、操作系统 keychain 或外部 KMS |
-| 架构门禁 | 保留仓库专用的结构测试和预算文件，它们比通用 linter 更准确地表达本仓库包边界 |
+| 架构门禁 | 保留仓库专用的结构测试，它比通用 linter 更准确地表达本仓库包边界 |
 | 媒体处理 | 使用 `.deps/manifest.json` 固定三平台 full GPL FFmpeg / FFprobe 资源，不在各插件内重复打包，也不新增 Go 媒体编解码栈 |
 
 ## 默认命令
@@ -137,7 +137,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 | 路径 | 职责 |
 | --- | --- |
 | `contracts/` | 对外正式契约根目录 |
-| `docs/engineering/` | 工程基线、CI、实施顺序、治理规则 |
+| `docs/engineering/` | 工程基线、质量门禁、人工 smoke |
 | `docs/architecture/` | 组件职责、消息主流程与状态归属概览 |
 | `docs/dev/` | 开发、调试、诊断、贡献流程 |
 | `docs/plugin/` | 插件 manifest、协议、生命周期 |

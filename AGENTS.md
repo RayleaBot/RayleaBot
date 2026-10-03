@@ -14,10 +14,10 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 
 - `contracts/` 定义对外正式语义；实现、生成物、README、fixtures 和 examples 不得反向覆盖它。
 - 新增或改变对外接口、协议、schema、状态、错误码、事件、CLI 或发布元数据的正式语义时，先更新对应契约，再同步受影响实现。修复实现以符合现有契约时，直接修实现并按风险验证；正式语义不变的内部调整不需要契约改动，也不启动全面契约审计。
-- 按实际影响更新实现、测试、fixtures、examples、生成物和文档，不要求无关文件制造 diff。契约变更合并前，引用的样例和必要验证必须齐备。
+- 按实际影响更新实现、测试、fixtures、examples、生成物和文档，不要求无关文件制造 diff。契约变更提交前，引用的样例和必要验证必须齐备。
 - Server 是在线业务状态的正式来源；Web、Launcher 和插件运行时不能成为同一业务状态的第二来源，也不从日志反推状态。
 - 程序分支依赖稳定的 code、枚举或结构化 details，不比对面向读者的 message 或界面文案。
-- 优先搜索现有实现并复用；新依赖须说明必要性，不引入平行技术栈。不升级冻结版本线，除非任务明确要求并同步 baseline、工程文件、lockfile、CI 与发布说明。
+- 优先搜索现有实现并复用；新依赖须说明必要性，不引入平行技术栈。不升级冻结版本线，除非任务明确要求并同步 baseline、工程文件、lockfile、工作流与发布说明。
 - 不在配置响应、fixtures、examples、日志、文档或测试快照中暴露真实凭据。
 - 核心发布更新、数据库迁移与恢复不增加 SHA-256 摘要、签名、回滚、迁移前副本或独立更新程序；发布清单宽松读取、严格发布，理由见 `docs/release/delivery-and-upgrade.md`。
 - 可能并发读写的共享可变状态必须由原子快照或锁保护。
@@ -26,7 +26,7 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 ## Source of Truth
 
 - 对外接口与协议：`contracts/README.md` 及对应契约。
-- 工具链、固定版本线与默认命令：`docs/engineering/baseline.md` 和对应工程脚本。
+- 工具链版本：`.tool-versions`；默认命令与固定选型：`docs/engineering/baseline.md` 和对应工程脚本。
 - 组件职责、消息主流程与状态归属：`docs/architecture/README.md`。
 - 产品目标与范围：`docs/RayleaBot机器人项目规划.md`。
 - 用户操作与管理面：`docs/user/`。
@@ -34,7 +34,7 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 ## Working Entrypoints
 
 - 服务端改动先读 `server/README.md`；Web 与 Launcher 改动先读各自 `package.json`，Launcher 还需读 `launcher/go.mod`。
-- 开发启动与工作区说明：`docs/dev/repo-workflow.md`。
+- 开发启动：`docs/dev/README.md`；版本控制边界与插件工作区：`docs/dev/repo-workflow.md`。
 - 设计工具共享上下文：指定应用目标前，按 `docs/design/README.md` 设置 `IMPECCABLE_CONTEXT_DIR`。
 
 ## Testing
@@ -45,7 +45,7 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 
 ## Instruction Maintenance
 
-- 同一规则在最接近责任方的位置维护；改动指令时复核重复、冲突和引用，并运行 agent-docs 检查脚本，它校验 CLAUDE bridge、反引号路径存在性与疑似凭据。
+- 同一规则在最接近责任方的位置维护；改动指令时复核重复、冲突和引用，并运行 agent-docs 与文档链接检查脚本；前者校验 CLAUDE bridge、反引号路径存在性与疑似凭据。
 - 重复问题优先修代码、测试或就近说明；只有跨任务反复出现且无法直接发现的稳定约束才进入 AGENTS。原因消失或已有可靠实现约束时，删除对应规则。
 
 ## Git and Review

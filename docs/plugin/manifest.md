@@ -75,11 +75,11 @@ manifest 不声明宿主权限。插件进程是管理员确认安装的完全�
 
 ## 消息优先级与会话
 
-声明 `priority` 或 `block` 的插件要求 `min_core_version >= 0.6.0`。普通消息按优先级降序分层，同层并发；同一目标的消息在每个插件内保持接收顺序。命令声明者之外，正优先级且订阅该消息的插件也会先收到命令消息。现有同名命令取最严格权限、名单与冷却规则继续适用。
+普通消息按优先级降序分层，同层并发；同一目标的消息在每个插件内保持接收顺序。命令声明者之外，正优先级且订阅该消息的插件也会先收到命令消息。现有同名命令取最严格权限、名单与冷却规则继续适用。
 
 成功消息终态可用 `propagation: stop|continue` 覆盖静态 `block`；未处理、异常、超时与队列拒绝继续后续层。终态动作发送完成后推进层次，发送失败不改变终态指定的传播结果。详情页的“消息优先级”和“默认传播”展示 manifest 声明。
 
-多轮输入使用 `session.wait`，或使用 [Go SDK 的回调式会话](./sdk/README.md#回调式会话)。这类插件同样要求 Core 0.6.0。只有当前事件成功结束后的等待阶段接收回复，回复定向交给登记进程；业务状态由插件保存。完整三轮流程与 KV TTL 见[会话示例](../../examples/plugins/example-conversation/README.md)。
+多轮输入使用 `session.wait`，或使用 [Go SDK 的回调式会话](./sdk/README.md#回调式会话)。只有当前事件成功结束后的等待阶段接收回复，回复定向交给登记进程；业务状态由插件保存。完整三轮流程与 KV TTL 见[会话示例](../../examples/plugins/example-conversation/README.md)。
 
 ## 静态 Webhook
 
@@ -108,13 +108,6 @@ manifest 不声明宿主权限。插件进程是管理员确认安装的完全�
 
 统一工具 `raylea-plugin inspect/pack/build-go` 分别负责检查、通用原生打包和 Go 构建打包。
 
-## 相关文档
-
-- [Plugin Protocol](./protocol.md)
-- [Plugin Lifecycle](./lifecycle.md)
-- [Management UI](./management-ui.md)
-- [Plugin SDK](./sdk/README.md)
-
 ## 静态插件服务
 
 服务调用是 manifest 与 JSONL v4 的兼容扩展，不另设最低 Core 版本；不支持该能力的 Core 会因未知的 `services` 字段拒绝清单。提供者通过 `services` 声明公开的方法：
@@ -133,4 +126,11 @@ Go 构建器同步校验服务标识、重复声明、方法数量与最低 Core
 
 服务只接受定向的 `plugin.request`，不依赖普通 `events` 订阅。宿主只允许调用当前运行实例声明的服务、精确版本和方法；不自动启动被停用的提供者，也不把服务声明作为全局权限授予。提供者按实际 caller 和自己的业务配置判断调用许可。
 
-调用与取消见 [协议](./protocol.md#插件服务调用)，SDK 注册方式见 [服务示例](../../examples/plugins/example-service-provider/README.md)。
+调用见 [协议](./protocol.md#插件服务调用)，SDK 注册方式见 [服务示例](../../examples/plugins/example-service-provider/README.md)。
+
+## 相关文档
+
+- [Plugin Protocol](./protocol.md)
+- [Plugin Lifecycle](./lifecycle.md)
+- [Management UI](./management-ui.md)
+- [Plugin SDK](./sdk/README.md)

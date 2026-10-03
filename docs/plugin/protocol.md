@@ -6,7 +6,7 @@ RayleaBot 与插件进程使用 JSONL 通信。正式消息结构以 `contracts/
 
 - `stdout` 只输出一行一个 JSON 协议帧。
 - `stderr` 用于插件调试输出，由宿主接入插件 console。
-- 单帧大小、待处理 action 数、事件期限、后台事件的期限与数量和关闭宽限由宿主配置限制。
+- 单帧大小、事件期限、后台事件的期限与数量和关闭宽限由宿主配置限制；每个插件进程同时未完成的 action 固定最多 256 个。
 - 插件后端只需要是当前平台原生可执行文件，协议不依赖实现语言。
 
 ## 生命周期
@@ -76,7 +76,7 @@ SDK 在调用事件 handler 前原子替换配置快照。每个 `EventContext.C
 
 Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根据聊天事件的 `source_adapter` 和 `source_protocol` 选择对应身份。平台内部事件仅在列表恰好有一个身份时提供该便利值，多实例时为空；插件应明确选择目标实例。相同字符串 ID 在不同实例中属于不同身份。
 
-协议 v2 的单一 `init.bot` 和 `bot.identity.changed` 不再使用。SDK 的协议版本校验会拒绝 v2 宿主，v2 SDK 也不能处理 v3 握手；插件须用当前 SDK 重新构建，其他语言实现按 `contracts/plugin-protocol.schema.json` 更新。
+宿主只接受协议 v4 握手，旧协议版本的 SDK 不能与当前宿主通信；插件须用当前 SDK 重新构建，其他语言实现按 `contracts/plugin-protocol.schema.json` 更新。
 
 ## Action RPC
 
@@ -143,7 +143,7 @@ Go SDK 的 `CallService` 在本地 context 结束时返回错误，并保留响�
 
 ### KV 期限
 
-`storage.kv` 的 `set` 可携带整数 `ttl_seconds`（1..31536000）。使用 TTL 的插件声明 `min_core_version >= 0.6.0`。省略 TTL 会永久覆盖并清除旧期限；成功结果中的 `expires_at_ms` 是实际 Unix 毫秒截止时间，永久值省略该字段。
+`storage.kv` 的 `set` 可携带整数 `ttl_seconds`（1..31536000）。省略 TTL 会永久覆盖并清除旧期限；成功结果中的 `expires_at_ms` 是实际 Unix 毫秒截止时间，永久值省略该字段。
 
 在 `now >= expires_at_ms` 时，get 返回 `exists=false` 且不包含 value/expiry，list 不列出该键，delete 返回 `deleted=false`。全局逻辑配额排除过期键，写入仍在事务内校验单值与总容量。空列表返回 `keys: []`。
 

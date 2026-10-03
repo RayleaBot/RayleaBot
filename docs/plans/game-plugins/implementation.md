@@ -90,7 +90,7 @@ Miao-Yunzai 的 `NoteUser` 关联一个聊天用户的多个 `MysUser`，`MysUse
 
 ## 5. 通过通用服务调用共享账号
 
-宿主侧的字段、状态、取消和错误设计统一见 [通用插件服务调用实施计划](../plugin-services.md)。本节只定义四个业务插件如何使用该能力。
+宿主侧的字段、状态与错误设计统一见[插件协议](../../plugin/protocol.md#插件服务调用)。本节只定义四个业务插件如何使用该能力。
 
 ```mermaid
 flowchart LR

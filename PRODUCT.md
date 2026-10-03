@@ -28,7 +28,7 @@ RayleaBot 由个人开发者或开源协作者部署在自有 Windows、macOS �
 
 - 当前正式聊天协议包括 OneBot11 与 QQ 官方机器人；OneBot11 提供 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 四种传输。
 - 正式部署使用本地 SQLite，支持多个独立适配器实例；Web 与 Launcher 不持有第二份业务状态。
-- 插件以经过 artifact 校验的本机原生代码运行，通过 manifest permissions 和 JSONL 协议访问平台能力；permissions 不是操作系统沙盒。
+- 插件以经过 artifact 校验的本机原生代码运行，通过 JSONL 协议访问平台能力；manifest 不声明宿主权限，宿主也不提供操作系统沙盒。
 - 对外字段、状态、错误码、事件、CLI 和发布元数据以 `contracts/` 为唯一正式来源。
 - 配置、业务数据和已安装插件需要支持可验证备份、恢复与版本升级，不以云端控制面作为运行前提。
 - Web 管理面只提供桌面布局，以 16:9 的 1920×1080 为最低分辨率与界面验证基准，Launcher 在该屏幕上以默认 1280×720 窗口验证；手机、平板与更低的桌面分辨率不在支持范围。

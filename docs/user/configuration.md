@@ -39,9 +39,9 @@
 | 策略 | 典型内容 | 保存后的效果 |
 | --- | --- | --- |
 | `read_only` | `schema_version` | 只用于标识当前配置格式，不作为运行期可变设置 |
-| `hot_reload` | 指令前缀、内置菜单、权限、渲染输出与队列参数、存储配额、日志、消息、用户、HTTP 参数，以及插件后台事件的期限与数量上限 | 保存后直接应用，列入 `apply_effects.applied_now` |
+| `hot_reload` | 指令前缀、内置菜单、权限、渲染输出与队列参数、存储配额、日志、消息、用户，以及插件后台事件的期限与数量上限 | 保存后直接应用，列入 `apply_effects.applied_now` |
 | `adapter_reload` | OneBot11 连接地址、兼容开关、QQ 官方机器人的 AppID / 订阅事件 / 沙箱开关，以及 adapter 连接和重连参数 | 保存后受控重载对应实例，列入 `apply_effects.reloaded_now` |
-| `restart_required` | Server 与数据库、管理会话、渲染浏览器与 worker、调度时区、插件运行限制、Web | 配置已保存，但服务重启后才生效，列入 `apply_effects.restart_required_fields` |
+| `restart_required` | Server 与数据库、管理会话、渲染浏览器与 worker、调度时区、插件运行限制 | 配置已保存，但服务重启后才生效，列入 `apply_effects.restart_required_fields` |
 
 OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数据：管理 API 把明文写入本地 secret store，配置文件仅保存 `secret://` 引用；更新后与 adapter 配置一并受控重载。
 

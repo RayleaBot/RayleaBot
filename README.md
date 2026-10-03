@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/RayleaBot/RayleaBot)](https://github.com/RayleaBot/RayleaBot/releases)
-[![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev)
 [![Node.js](https://img.shields.io/badge/Node.js-26+-339933?logo=nodedotjs)](https://nodejs.org)
 [![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs)](https://vuejs.org)
 
@@ -66,7 +66,7 @@ node scripts/start-dev.mjs
 
 - 管理面板默认监听 `0.0.0.0`，支持本机和局域网访问；防火墙、访问范围与传输安全由用户管理。
 - 在协议中心添加 OneBot11 或 QQ 官方机器人实例并完成连接配置后，即可在相应聊天窗口与机器人交互。
-- 插件商店展示官方和自定义 HTTPS 目录中的条目，并保留各来源最后一次成功读取的缓存；安装前会展示插件身份、权限和本机原生代码确认要求。
+- 插件商店展示官方和自定义 HTTPS 目录中的条目，并保留各来源最后一次成功读取的缓存；安装前会展示插件身份和本机原生代码确认要求。
 - 所有插件统一安装在运行根目录的 `plugins/installed/`，只接受与当前平台匹配、通过 artifact 结构与原生入口校验的目录或单根目录 ZIP。
 - 管理员可在管理面板中配置权限策略、黑白名单、指令前缀、任务调度等。
 
@@ -88,7 +88,7 @@ node scripts/start-dev.mjs
 
 独立 Go 插件统一使用 `cmd/<plugin>` 进程入口、`internal/` 实现与嵌入资源以及可选 `ui/`/`templates/` 资源，并使用 `raylea-plugin build-go`；其他语言先生成原生入口，再使用 `raylea-plugin pack`。完整目录约定见[插件 SDK](./docs/plugin/sdk/README.md#raylea-plugin)。
 
-Server、Web、Launcher 与插件 SDK 的构建、测试和类型检查命令见[工程基线](./docs/engineering/baseline.md)，CI 与发布门禁见[质量门禁](./docs/engineering/quality-gates.md)。
+Server、Web、Launcher 与插件 SDK 的构建、测试和类型检查命令见[工程基线](./docs/engineering/baseline.md)，nightly 与发布门禁见[质量门禁](./docs/engineering/quality-gates.md)。
 
 ## License
 

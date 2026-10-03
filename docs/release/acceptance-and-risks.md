@@ -12,14 +12,7 @@
 
 ## 发布验收
 
-正式发行物必须通过：
-
-- strict contracts、valid/invalid fixtures、embedded schema 和 generated types drift；
-- server tests、目标包 `-race`、server build 与 binary-mode govulncheck；
-- Web 与 Launcher typecheck、test、build 和受影响的 E2E；
-- Go SDK 与全部插件 race 测试、Vue SDK/页面 typecheck/test/build、三平台 artifact 构建与校验；
-- 四种归档的 `LICENSE`、`THIRD_PARTY_NOTICES.md`、metadata 与 artifact smoke；
-- doctor、agent docs、文档链接和 `git diff --check`。
+正式发行物必须通过[质量门禁的发布验收](../engineering/quality-gates.md#发布验收)。
 
 插件验收以 manifest v4、JSONL protocol v4 与 artifact v2 为准。负向用例必须拒绝不符合这些契约的输入、错误平台、篡改的商店归档摘要、缺失 UI 资源和非单根目录 ZIP。正式包检查必须确认不存在插件源码、源码 SDK、`node_modules` 与托管语言运行时。
 
@@ -42,4 +35,4 @@
 
 ## 范围与限制
 
-当前范围之外的能力见[项目章程](../RayleaBot机器人项目规划.md)的非目标。插件商店消费 HTTPS 静态目录并校验资产归档 SHA-256；第三方插件是用户确认来源后执行的完全可信本地代码。
+当前范围之外的能力见[项目章程](../RayleaBot机器人项目规划.md#范围与限制)。插件商店消费 HTTPS 静态目录并校验资产归档 SHA-256；第三方插件是用户确认来源后执行的完全可信本地代码。

@@ -22,7 +22,7 @@
 - `release-manifest.schema.json`
 - `cli-commands.yaml`
 
-这些文件都带有 `x-fixtures` 或等价引用，并接受 CI 的解析、存在性与最小覆盖校验。
+这些文件都带有 `x-fixtures` 或等价引用，由 `scripts/ci/validate_contracts.py --mode=strict` 做解析、存在性与最小覆盖校验。
 
 ## 文件职责
 
@@ -38,7 +38,7 @@
   - `.deps/manifest.json` 的正式机器可校验结构
   - 图片渲染与插件浏览器会话共用 Chromium，以及受信本地插件共用 FFmpeg / FFprobe 的可信来源列表、SHA256、归档格式与相对入口
 - `error-codes.yaml`
-  - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
+  - 统一错误码命名、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已固定的管理 HTTP 接口（契约修订 0.5.6）。
   - `GET /api/system/message-stats` 按小时或按天返回各机器人连接收到与发出的消息条数、连接合计与紧邻前一段等长时间的合计、最近收到时间，以及连接中断和服务未运行时段。收到在会话路由与黑白名单之前按适配器交出的群聊、私聊消息计数，发出只计平台确认接受的发送；计数按 UTC 小时持久化，按天汇总使用 `effective_timezone`，统计开始前没有数据，客户端不得补 0。

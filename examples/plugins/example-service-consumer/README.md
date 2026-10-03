@@ -17,4 +17,4 @@ err := event.Actions().CallService(ctx, rayleabot.ServiceCallRequest{
 
 调用者将最后请求的资源 ID 保存在自己的 KV；提供者保存处理记录，两者使用各自命名空间。调用者也导出一个简单的 `resource.query` 服务，演示同一插件可以同时提供和调用服务；服务处理器本身不继续发起跨插件调用。
 
-集成测试通过现有 `management.action` 传入 `method`、对象 `params` 和可选 `timeout_ms`，验证失败与取消。context 到期时 SDK 会发出服务取消通知；宿主不自动重试调用。
+集成测试通过现有 `management.action` 传入 `method`、对象 `params` 和可选 `timeout_ms`，验证失败与超时。协议没有取消帧，context 到期后调用在本地返回错误；宿主不自动重试调用。

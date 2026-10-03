@@ -20,7 +20,7 @@
 - 每个错误码明确触发条件、HTTP status 与 message 策略；不同接口触发条件不一致时拆分错误码或明确 scope。
 - message 面向读者；details 只在契约声明时出现，优先固定对象形状。
 
-## Merge Readiness
+## Commit Readiness
 
 - 按实际依赖检查实现、样例、测试、生成物与文档；生成来源和输出从现有工程脚本确认，不维护完整输出清单。
 - 配套登记：
@@ -28,4 +28,4 @@
   - HTTP JSON 示例在 `examples/http/index.yaml` 登记。
   - 改变接受或拒绝结果的修改至少补一条 `ok`、`invalid` 或 `edge` 样例；新增错误码补错误样例，并检查受影响客户端的消费点。
   - 样例命名、结构与凭据要求见 `fixtures/README.md` 与 `examples/README.md`。
-- fixture-ready 是合并验收条件。契约和样例可以先后编辑，合并前引用须存在、可解析、可被 CI 枚举，并通过 `docs/engineering/quality-gates.md` 中的契约门禁与生成器校验。
+- fixture-ready 是提交条件。契约和样例可以先后编辑，提交前引用须存在、可解析、可被契约校验器枚举，并通过 `docs/engineering/quality-gates.md` 中的契约门禁与生成器校验。

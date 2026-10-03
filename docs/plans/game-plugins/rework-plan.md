@@ -93,7 +93,7 @@
 
 ### R0 主仓库收口
 
-1. 删除 `cancel` 帧。涉及 `contracts/plugin-protocol.schema.json` 的 `$defs/cancel` 与消息目录、两份 wire 生成物、`server/internal/plugins/runtime/` 中停止时写 cancel 帧与 `serviceCancels` 的处理、`sdk/go/actions.go` 与 `sdk/go/services.go` 的取消分支、`fixtures/plugin-protocol/ok.plugin-call-cancel.yaml`、集成测试的取消用例，以及 `docs/plugin/protocol.md` 和 [通用插件服务调用](../plugin-services.md) 的对应说明。调用方放弃后，服务方处理到截止时间，宿主丢弃迟到结果。
+1. 删除 `cancel` 帧。涉及 `contracts/plugin-protocol.schema.json` 的 `$defs/cancel` 与消息目录、两份 wire 生成物、`server/internal/plugins/runtime/` 中停止时写 cancel 帧与 `serviceCancels` 的处理、`sdk/go/actions.go` 与 `sdk/go/services.go` 的取消分支、`fixtures/plugin-protocol/ok.plugin-call-cancel.yaml`、集成测试的取消用例，以及 `docs/plugin/protocol.md` 和通用插件服务调用计划的对应说明。调用方放弃后，服务方处理到截止时间，宿主丢弃迟到结果。
 2. 删除 0.7.1 门槛。涉及 `contracts/plugin-info.schema.json` 的条件约束与说明、`x-plugin-services.min_core_version`、`sdk/go/pluginbuild/build.go` 的 `coreVersionBeforeServices`、`fixtures/plugin-info/invalid.service-core-version.json` 与 `invalid.service-core-prerelease.json`，以及示例和四个插件清单里的 `min_core_version`。旧版清单 schema 顶层禁止未知字段，旧 Core 会直接拒绝带 `services` 的清单。
 3. `runtime/manager_sessions.go` 把所有事件会话从 `WithCancel` 改成了 `WithTimeout`，目的是让 `plugin.call` 的期限不超过调用方事件的期限。恢复会话为 `WithCancel`，把事件期限记录在会话上，只在创建 `plugin.call` 动作的 context 时应用；提供者侧会话从调用 context 继承期限，不需要另行处理。
 4. 帧超限复用了 `platform.value_too_large`，但错误目录仍描述为存储写入超限。按 `contracts/AGENTS.md` 的错误码规则消除触发条件漂移。
@@ -101,7 +101,7 @@
 6. 同步 `docs/architecture/README.md` 的 Runtime Manager 职责与状态归属，以及 `contracts/README.md` 的帧类型列表。
 7. 补测试：服务方 64 个待处理调用上限、服务方崩溃退出、迟到结果、调用方停止时未完成的出站调用。补测试时发现并修复一处缺陷：提供者进程退出时调用方收到的是 `plugin.internal_error` 而不是 `plugin.service_unavailable`。
 8. 拆分提交：契约与生成物、Server、SDK、示例、文档。
-9. 文档整理：[通用插件服务调用](../plugin-services.md) 与现行语义对齐；删除三份过程台账；本目录其余插件业务文档在 R2 结构重组完成后迁入插件侧，主仓库只保留宿主能力的计划。
+9. 文档整理：通用插件服务调用计划与现行语义对齐（该计划已落地并删除）；删除三份过程台账；本目录其余插件业务文档在 R2 结构重组完成后迁入插件侧，主仓库只保留宿主能力的计划。
 10. 清理 `external/参考项目`：顶层 2026-08-30 的旧副本与 zip 约 4.1G、两份旧方案、采集脚本、`__pycache__`、历史方案目录和本地 JSON 副本，经用户确认后移出并由用户删除；固定提交的原始 ZIP（`2026-09-15/archives/`）保留。`GachaClock-data` 与 `2026-09-19/genshin.py` 已登记进[参考来源](./references.md)。
 
 验收：`docs/engineering/quality-gates.md` 中契约、Server、SDK、示例与文档对应的门禁通过；`git status` 干净。

@@ -10,7 +10,7 @@ RayleaBot 为聊天平台事件处理、插件扩展和本地管理提供一套�
 - 日常部署和运维不依赖云端控制面；
 - 插件通过版本化协议访问受控平台能力；
 - Web、Launcher 和 CLI 共享服务端状态与错误模型；
-- 独立插件通过 HTTPS 静态目录发现，安装时校验归档摘要，并按来源与权限变化要求用户确认可信代码。
+- 独立插件通过 HTTPS 静态目录发现，安装时校验归档摘要，并在首次安装或来源变化时要求用户确认可信代码。
 
 ## 范围与限制
 
@@ -44,7 +44,7 @@ flowchart LR
     AD --> DP["Dispatcher"]
     DP <--> RT["Plugin Runtime"]
     RT --> LA["Local Action Service"]
-    LA --> CAP["Storage / Scheduler / Render / HTTP / Governance"]
+    LA --> CAP["Storage / Scheduler / Render / Governance"]
     DP --> OUT["Outbound / Adapter Send"]
     OUT --> OB
     OUT --> QQ

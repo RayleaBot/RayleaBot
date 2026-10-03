@@ -57,6 +57,10 @@
 - 构建输出位于 `logs/dev/build/YYYY-MM-DD.log`；启动日志记录编排和子日志位置，不重复保存子进程全文。
 - 终端显示阶段耗时、插件进度与运行摘要；构建资源清单保存在构建日志中，失败时显示诊断与日志位置。重定向输出自动使用静态行，`NO_COLOR` 可关闭交互终端配色。详见[日志说明](./logging.md)。
 
+## 时区数据
+
+Web 时区选择器使用的 `web/src/lib/time-zones.generated.json` 与许可证文本 `web/public/licenses/time-zones.txt` 由 `node scripts/update-time-zones.mjs` 从 IANA tzdb 与 CLDR 下载生成；脚本内固定两者的版本号，升级时同步修改并重新运行。
+
 ## 增量构建与环境复用
 
 重复运行启动包装器时，同一工作区、相同启动配置和脚本版本的健康 Server / Web 开发环境保持运行，Launcher 自动打开或聚焦。设置 `RAYLEA_START_RESTART=1` 可重新启动；Server 与开发插件先完成构建预检，再优雅停止旧环境。预检失败时保留健康旧环境，修复后重新启动。未受当前工作区租约管理的 Server 不会被接管。Server 首次启动需要准备 Chromium 或 FFmpeg 时，准备阶段或下载、解压进度推进会延长就绪等待；连续 10 分钟没有进展或启动超过 30 分钟才判定超时。普通日志和只有时间变化的重复进度不会延长等待。重复打开正在启动的同一环境也使用 30 分钟等待上限；原进程退出或启动所有权变化时停止等待。

@@ -1,8 +1,8 @@
 # Plugin Docs
 
-本目录说明 RayleaBot 插件平台的 manifest、能力声明、能力参数、协议和 SDK。
+本目录说明 RayleaBot 插件平台的 manifest、协议、生命周期和 SDK。
 
-正式定义以 `contracts/plugin-info.schema.json`、`contracts/plugin-artifact.schema.json`、`contracts/plugin-protocol.schema.json`、插件商店/开发工作区 schema 和管理页契约为准；发行包中的服务端使用同一组校验规则。
+正式定义以 `contracts/plugin-info.schema.json`、`contracts/plugin-artifact.schema.json`、`contracts/plugin-protocol.schema.json`、插件商店目录 schema 和管理页契约为准；发行包中的服务端使用同一组校验规则。
 
 ## 阅读入口
 
@@ -17,12 +17,11 @@
 
 ## 当前边界
 
-- 插件通过正式 manifest、声明能力、能力参数和协议帧接入平台。
+- 插件通过正式 manifest 和协议帧接入平台。
 - 主仓库不携带内置业务插件；商店安装、本地安装和开发同步都写入 `plugins/installed/`。
 - 插件后端使用当前平台的预编译原生 artifact，实现语言不限，通过 JSONL v4 与宿主通信；Go 插件可使用官方 SDK 和构建器。管理页使用 artifact 内的静态资源，推荐 Vue 3 技术栈。
 - 平台统一管理插件生命周期、artifact 完整性、聊天命令权限和出站消息语义。
 
 ## 执行计划
 
-- [通用插件服务调用](../plans/plugin-services.md)：静态服务声明、定向调用与 SDK 的实施记录；当前用法见协议和 SDK 文档。
 - [游戏插件与账号服务](../plans/game-plugins/README.md)：使用通用服务的独立业务插件实施方案、功能矩阵和参考清单。

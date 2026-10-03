@@ -5,7 +5,7 @@
 
 [三轮会话示例](example-conversation/README.md)演示回调式选择、无效输入重试和五分钟 KV 结果，业务状态由插件闭包维护。
 
-[通用服务示例](example-service-provider/README.md)包含独立的提供者与调用者，演示静态服务声明、来源上下文、自身存储、结构化错误与取消。
+[通用服务示例](example-service-provider/README.md)包含独立的提供者与调用者，演示静态服务声明、来源上下文、自身存储、结构化错误与超时。
 
 规则：
 

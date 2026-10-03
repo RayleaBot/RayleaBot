@@ -155,7 +155,7 @@ plugin-example/
 - `invokeAction` 等待管理动作结果；`apiRequest` 调用其他管理接口，失败时抛出带稳定 `code` 的 `PluginUIError`。
 - `applyTheme` 把宿主主题变量映射为插件 CSS variables，`usePluginHost` 在宿主切换主题时同步更新。
 
-插件 UI 固定使用 Vue 3、TypeScript、Vite 和 `base: "./"`。所有页面共用 `management_ui.entry`，页面不能获取已保存 secret 明文。
+官方插件 UI 与 `@rayleabot/plugin-ui` 使用 Vue 3、TypeScript、Vite 和 `base: "./"`。所有页面共用 `management_ui.entry`，页面不能获取已保存 secret 明文。
 
 ## 本地联调
 

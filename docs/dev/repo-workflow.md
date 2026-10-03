@@ -11,21 +11,7 @@
 
 ## 当前常规忽略项
 
-```plain
-data/
-cache/
-logs/
-plugins/installed/*
-!plugins/installed/.gitkeep
-config/user.yaml
-plugin-workspace.local.json
-.tmp/plugin-dev/
-/.deps/*
-!/.deps/manifest.json
-node_modules/
-dist/
-.env
-```
+忽略规则以仓库根目录的 [`.gitignore`](../../.gitignore) 为准：运行数据、缓存、日志、用户配置、已安装插件、下载的运行环境资源、构建产物、依赖目录与本地环境文件均不进入版本控制。
 
 ## 协作原则
 
@@ -48,4 +34,4 @@ POSIX 启动入口允许 `RAYLEA_NODE_EXECUTABLE=/absolute/path/to/node ./start.
 
 Server 与 Launcher 开发脚本共用 `scripts/process-invocation.mjs` 解析 Go：优先 `RAYLEA_GO_EXECUTABLE` 的绝对路径，再查 PATH，Windows 再查 Program Files 下的 Go。启动参数与子进程退出码继续传回调用方。
 
-开发启动脚本使用所选 Node 直接运行 Corepack CLI，由各工程的 `package.json` 中的 `packageManager` 选择 pnpm 版本。Corepack 优先从 Node 所在目录和 PATH 查找；Windows 还会检查用户 npm 安装目录 `%APPDATA%\npm`，因此从尚未刷新 PATH 的桌面进程启动时也能使用已安装的 Corepack。
+开发启动脚本使用所选 Node 直接运行 Corepack CLI，由各工程的 `package.json` 中的 `packageManager` 选择 pnpm 版本。Corepack 优先从 Node 所在目录和 PATH 查找，POSIX 上同时检查这些目录上级的 `lib/node_modules`（npm 全局前缀布局）；Windows 还会检查用户 npm 安装目录 `%APPDATA%\npm`，因此从尚未刷新 PATH 的桌面进程启动时也能使用已安装的 Corepack。

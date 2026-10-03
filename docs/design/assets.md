@@ -19,18 +19,12 @@ Noto Sans SC 子集是模板共用源文件，不按单个页面显示的少量�
 
 正式模板由 `template.json` 指定 HTML 与 CSS，管理预览数据来自 `preview.json`；服务端在 `internal/render` 中读取和渲染这些文件。
 
-`templates/status.panel/preview.html` 保留为静态设计预览。排行榜的独立 `preview.html` 没有模板声明、运行入口或设计工具引用，已移除；排行榜的正式 `template.html`、`styles.css`、输入 schema 和预览数据保留。
+`templates/status.panel/preview.html` 保留为静态设计预览。
 
 ## 2026-09-29 核对记录
 
 - HarmonyOS Sans SC 三个 TTF 与上游发布包逐字节一致，名称表版本为 1.0，版权方为 Huawei Device Co., Ltd.，嵌入许可位 fsType 为 8（可编辑嵌入）。Web 与 Launcher 构建产物中的 TTF 摘要与 `upstream.json` 一致，许可协议位于产物的 `fonts/` 目录。
 - 每个字重覆盖 29,063 个码位，包含 CJK 统一表意文字基本区全部 20,902 字与扩展 A 区全部 6,582 字。
 - Web 与 Launcher 界面改用该字体后，Noto Sans SC 的 WOFF2 分段不再进入两者的构建产物。
-
-## 2026-09-10 核对记录
-
-- 共享字体 CSS 引用的 101 个 WOFF2 文件均存在且文件头有效，总计 4,516,508 字节。
-- 从 Web 源码、Launcher Renderer 和模板的 TS、Vue、JSON、HTML 文本抽取 1023 个不同中文字符，使用本机 Chromium 浏览器离线载入共享 CSS。DevTools 返回 1023 个自托管 Noto Sans SC 字形，未使用系统字体回退，HTTP(S) 请求为零。
-- 认证 PNG 保留生成提示词，Web 实际引用 WebP；Launcher 图标有生成输入、来源元数据和摘要校验入口。
 
 这次字体检查覆盖当前界面与模板样本文字，不代表任意用户文本、全部 Unicode 字符或所有平台都已经验收。新增字形、替换字体或改变子集时，需重新检查字体加载、授权和实际渲染。

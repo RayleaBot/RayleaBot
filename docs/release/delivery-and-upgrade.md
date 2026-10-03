@@ -29,7 +29,7 @@ Linux 完整包还包含 `LINUX-RUNTIME.md`。Launcher 依赖系统提供的 GTK
 
 主程序 release workflow 不 checkout、不构建也不打包业务插件。正式归档中不得出现 `plugins/` 业务产物、插件 `.go`、`.py`、`.ts`、`.vue`、测试、源码 SDK、`node_modules` 或语言运行时；`.deps/manifest.json` v5 声明 Chromium 与 FFmpeg 资源。每个平台资源必须提供按顺序选择的 `sources`（`upstream` / `mirror`，可按测速结果选源）、归档格式和 SHA-256；Chromium 提供 `entrypoints.browser`，FFmpeg 资源同时提供 `entrypoints.ffmpeg` 与 `entrypoints.ffprobe`。运行环境准备完成后，核心从这些相对入口定位可执行文件。
 
-官方和社区插件都由各自仓库构建一个或多个平台的单根目录 ZIP，再通过 HTTPS 插件目录或本地 artifact 走统一安装流程。框架不会编译源码、安装语言依赖或执行安装脚本。release recovery drill 使用外部预编译 Go 测试 fixture 验证插件备份与恢复，该 fixture 只参与测试，不进入应用归档。
+官方和社区插件都由各自仓库构建一个或多个平台的单根目录 ZIP，再通过 HTTPS 插件目录或本地 artifact 走统一安装流程。框架不会编译源码、安装语言依赖或执行安装脚本。恢复流程由 nightly 的本版恢复演练在构建后的 Server 上验证，演练数据不进入应用归档。
 
 依赖许可证未知或缺失时，发布必须失败。运行时配置和插件 schema 内置于 server；源码仓库中的 `contracts/` 仍是正式来源。
 
