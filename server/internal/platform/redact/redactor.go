@@ -42,7 +42,8 @@ func (r *Redactor) Redact(text string) string {
 	}
 
 	r.mu.RLock()
-	values := append([]string(nil), r.values...)
+	// Add publishes a new slice and never changes an existing snapshot.
+	values := r.values
 	r.mu.RUnlock()
 
 	for _, value := range values {

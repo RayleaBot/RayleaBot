@@ -91,8 +91,11 @@ func (s *Stream) SetBootID(bootID string) {
 }
 
 func (s *Stream) Append(summary Summary) {
-	summary = NormalizeSummary(summary)
+	s.appendNormalized(NormalizeSummary(summary))
+}
 
+// appendNormalized takes ownership of details already normalized by this package.
+func (s *Stream) appendNormalized(summary Summary) {
 	s.mu.RLock()
 	bootID := s.bootID
 	repository := s.repository

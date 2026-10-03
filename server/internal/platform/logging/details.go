@@ -122,7 +122,8 @@ func compactOneBot11LogDetails(details map[string]any) map[string]any {
 	return details
 }
 
-func ExtractSummary(body map[string]any) map[string]any {
+// summaryDetailFields borrows nested values until normalization copies them.
+func summaryDetailFields(body map[string]any) map[string]any {
 	if len(body) == 0 {
 		return map[string]any{}
 	}
@@ -136,7 +137,7 @@ func ExtractSummary(body map[string]any) map[string]any {
 			details[key] = value
 		}
 	}
-	return sanitizeMap(details)
+	return details
 }
 
 func sanitizeMap(details map[string]any) map[string]any {

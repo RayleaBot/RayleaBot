@@ -67,3 +67,51 @@ func TestSummaryWriterKeepsJSONTextCanonicalAcrossSinks(t *testing.T) {
 		t.Fatalf("output and summary differ: %q %+v", output.String(), stream.Snapshot())
 	}
 }
+
+func TestSummaryWriterSanitizesDetailsBeforePublishing(t *testing.T) {
+	var output bytes.Buffer
+	stream := NewStream(1)
+	defer stream.Close()
+	writer := NewSummaryWriter(&output, stream, nil)
+	line := `{"ts":"2026-10-03T00:00:00Z","level":"INFO","component":"bridge.onebot11","msg":"fixture","nested":[{"value":"token\u200e=fixture-private","cookie":"fixture-cookie"}],"sender_nickname":"fixture\u0000-name"}` + "\n"
+	if _, err := writer.Write([]byte(line)); err != nil {
+		t.Fatal(err)
+	}
+	snapshot := stream.Snapshot()
+	if len(snapshot) != 1 {
+		t.Fatalf("summaries = %+v", snapshot)
+	}
+	details := snapshot[0].Details
+	inner := details["nested"].([]any)[0].(map[string]any)
+	if inner["value"] != "token=[REDACTED]" {
+		t.Fatalf("control-separated credential was not sanitized: %+v", inner)
+	}
+	if _, exists := inner["cookie"]; exists {
+		t.Fatal("sensitive detail field was published")
+	}
+	if details["sender"].(map[string]any)["nickname"] != "fixture-name" {
+		t.Fatalf("sender details = %+v", details)
+	}
+}
+
+func TestStreamAppendOwnsAndNormalizesCallerDetails(t *testing.T) {
+	stream := NewStream(1)
+	defer stream.Close()
+	details := map[string]any{
+		"nested":  []any{map[string]any{"value": "token=fixture-private"}},
+		"strings": []string{"fixture\x00-value"},
+	}
+	stream.Append(Summary{
+		Timestamp: "2026-10-03T08:00:00+08:00", Level: " INFO ", Source: " bridge.onebot11 ", Message: " fixture ", Details: details,
+	})
+	details["nested"].([]any)[0].(map[string]any)["value"] = "changed"
+	details["strings"].([]string)[0] = "changed"
+	snapshot := stream.Snapshot()
+	if len(snapshot) != 1 || snapshot[0].Timestamp != "2026-10-03T00:00:00.000000000Z" || snapshot[0].Level != "info" || snapshot[0].Protocol != ProtocolOneBot11 {
+		t.Fatalf("summary = %+v", snapshot)
+	}
+	stored := snapshot[0].Details
+	if stored["nested"].([]any)[0].(map[string]any)["value"] != "token=[REDACTED]" || stored["strings"].([]string)[0] != "fixture-value" {
+		t.Fatalf("stored details = %+v", stored)
+	}
+}

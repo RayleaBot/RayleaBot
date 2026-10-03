@@ -1,6 +1,10 @@
 package redact
 
-import "testing"
+import (
+	"fmt"
+	"sync"
+	"testing"
+)
 
 func TestRedactorNormalizesValuesAndRedactsMatches(t *testing.T) {
 	t.Parallel()
@@ -24,4 +28,21 @@ func TestRedactorPrefersLongerOverlappingSecrets(t *testing.T) {
 	if got := redactor.Redact("token-secret"); got != "[REDACTED]" {
 		t.Fatalf("redacted overlapping secret = %q", got)
 	}
+}
+
+func TestRedactorKeepsRegisteredSecretsDuringConcurrentUpdates(t *testing.T) {
+	redactor := New("fixture-initial-secret")
+	var workers sync.WaitGroup
+	for worker := range 8 {
+		workers.Go(func() {
+			for index := range 32 {
+				secret := fmt.Sprintf("fixture-added-%d-%d-secret", worker, index)
+				redactor.Add(secret)
+				if got := redactor.Redact("fixture-initial-secret " + secret); got != "[REDACTED] [REDACTED]" {
+					t.Errorf("registered secret disclosed during updates: %q", got)
+				}
+			}
+		})
+	}
+	workers.Wait()
 }

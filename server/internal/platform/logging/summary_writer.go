@@ -57,7 +57,7 @@ func (w *SummaryWriter) Write(p []byte) (int, error) {
 		}
 		if summary, ok := summaryFromObject(body); ok {
 			if w.stream != nil {
-				w.stream.Append(summary)
+				w.stream.appendNormalized(summary)
 			}
 		}
 	}
@@ -110,26 +110,25 @@ func normalizeJSONLine(line []byte, redact func(string) string) ([]byte, map[str
 	return append(encoded, '\n'), object, true
 }
 
+// redactJSONValue only receives the private tree decoded by normalizeJSONLine.
 func redactJSONValue(value any, redact func(string) string) any {
 	switch typed := value.(type) {
 	case string:
 		return redact(typed)
 	case []any:
-		result := make([]any, len(typed))
 		for index := range typed {
-			result[index] = redactJSONValue(typed[index], redact)
+			typed[index] = redactJSONValue(typed[index], redact)
 		}
-		return result
+		return typed
 	case map[string]any:
-		result := make(map[string]any, len(typed))
 		for key, inner := range typed {
 			if isSensitiveKey(key) {
-				result[key] = "[REDACTED]"
+				typed[key] = "[REDACTED]"
 			} else {
-				result[key] = redactJSONValue(inner, redact)
+				typed[key] = redactJSONValue(inner, redact)
 			}
 		}
-		return result
+		return typed
 	default:
 		return value
 	}
@@ -147,7 +146,7 @@ func summaryFromObject(body map[string]any) (Summary, bool) {
 		Message:   toString(body["msg"]),
 		PluginID:  toString(body["plugin_id"]),
 		RequestID: toString(body["request_id"]),
-		Details:   ExtractSummary(body),
+		Details:   summaryDetailFields(body),
 	}
 	summary = NormalizeSummary(summary)
 
