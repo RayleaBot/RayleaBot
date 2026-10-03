@@ -14,8 +14,8 @@ type Catalog struct {
 	order []string
 	items map[string]plugins.Snapshot
 	hub   pubsub.Hub[plugins.Snapshot]
-	// commands is the enabled command index, replaced wholesale on every
-	// mutation so message-path readers share one immutable slice.
+	// commands is replaced wholesale when enabled declarations change so
+	// message-path readers share one immutable slice.
 	commands atomic.Pointer[[]plugins.CommandEntry]
 }
 

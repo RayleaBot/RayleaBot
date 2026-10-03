@@ -123,16 +123,8 @@ func (s *Service) pluginStateCounts() (running int, failed int) {
 	if s.plugins == nil {
 		return 0, 0
 	}
-	for _, snapshot := range s.plugins.List() {
-		state, _ := plugins.ProjectState(snapshot)
-		switch state {
-		case plugins.PluginStateRunning:
-			running++
-		case plugins.PluginStateFailed:
-			failed++
-		}
-	}
-	return running, failed
+	counts := plugins.ReadCatalogStateCounts(s.plugins)
+	return counts.Running, counts.Failed
 }
 
 func (s *Service) dbSchemaVersion() string {

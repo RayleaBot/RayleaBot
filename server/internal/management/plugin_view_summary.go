@@ -48,7 +48,7 @@ func buildSummary(catalog plugins.CatalogView, snapshot plugins.Snapshot, global
 	if catalog == nil {
 		return toSummary(snapshot, nil, global)
 	}
-	conflicts := plugins.DetectCommandConflicts(catalog.List())
+	conflicts := plugins.DetectCommandConflicts(plugins.ReadDisplaySnapshots(catalog))
 	return toSummary(snapshot, conflicts[snapshot.PluginID], global)
 }
 

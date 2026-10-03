@@ -107,12 +107,43 @@ func DetectCommandConflicts(snapshots []Snapshot) map[string][]string {
 		if len(pluginIDs) < 2 {
 			continue
 		}
+		globalOwners := 0
+		type dedicatedGroup struct {
+			firstOwner string
+			shared     bool
+		}
+		var dedicated map[string]dedicatedGroup
 		for pluginID := range pluginIDs {
-			for otherID := range pluginIDs {
-				if otherID != pluginID && commandReachOverlaps(reach[pluginID], reach[otherID]) {
-					conflicts[pluginID] = append(conflicts[pluginID], token)
-					break
+			prefixes := reach[pluginID]
+			if !prefixes.IgnoreGlobal {
+				globalOwners++
+			}
+			for _, prefix := range prefixes.Dedicated {
+				if dedicated == nil {
+					dedicated = make(map[string]dedicatedGroup)
 				}
+				group, exists := dedicated[prefix]
+				if !exists {
+					dedicated[prefix] = dedicatedGroup{firstOwner: pluginID}
+				} else if group.firstOwner != pluginID && !group.shared {
+					group.shared = true
+					dedicated[prefix] = group
+				}
+			}
+		}
+		for pluginID := range pluginIDs {
+			prefixes := reach[pluginID]
+			overlaps := !prefixes.IgnoreGlobal && globalOwners > 1
+			if !overlaps {
+				for _, prefix := range prefixes.Dedicated {
+					if dedicated[prefix].shared {
+						overlaps = true
+						break
+					}
+				}
+			}
+			if overlaps {
+				conflicts[pluginID] = append(conflicts[pluginID], token)
 			}
 		}
 	}
@@ -120,18 +151,6 @@ func DetectCommandConflicts(snapshots []Snapshot) map[string][]string {
 		sort.Strings(conflicts[pluginID])
 	}
 	return conflicts
-}
-
-func commandReachOverlaps(left, right CommandPrefixes) bool {
-	if !left.IgnoreGlobal && !right.IgnoreGlobal {
-		return true
-	}
-	for _, prefix := range left.Dedicated {
-		if containsString(right.Dedicated, prefix) {
-			return true
-		}
-	}
-	return false
 }
 
 func normalizeConflictViews(conflicts []string) []string {

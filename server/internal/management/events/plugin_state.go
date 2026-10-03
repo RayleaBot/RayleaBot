@@ -17,7 +17,7 @@ func pluginSnapshotsForConflicts(catalog interface{ List() []plugins.Snapshot })
 	if catalog == nil {
 		return nil
 	}
-	return catalog.List()
+	return plugins.ReadDisplaySnapshots(catalog)
 }
 
 func pluginStateEventCommands(commands []plugins.Command) []PluginCommandItem {

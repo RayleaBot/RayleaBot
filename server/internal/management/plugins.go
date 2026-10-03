@@ -104,7 +104,7 @@ func newListHandler(catalog plugins.CatalogView, currentConfig func() config.Con
 		if !ok {
 			return
 		}
-		snapshots := catalog.List()
+		snapshots := plugins.ReadDisplaySnapshots(catalog)
 		conflicts := plugins.DetectCommandConflicts(snapshots)
 		page, meta := plugins.ListPage(snapshots, conflicts, plugins.ListFilter{State: state, Source: source}, query)
 		global := currentConfig().CommandPrefixes()
@@ -119,7 +119,7 @@ func newListHandler(catalog plugins.CatalogView, currentConfig func() config.Con
 func newDetailHandler(catalog plugins.CatalogView, currentConfig func() config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
-		snapshot, ok := catalog.Get(pluginID)
+		snapshot, ok := plugins.ReadDisplaySnapshot(catalog, pluginID)
 		if !ok {
 			httpapi.WriteError(
 				w,

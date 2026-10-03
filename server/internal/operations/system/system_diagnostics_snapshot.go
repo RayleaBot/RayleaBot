@@ -13,6 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 )
 
@@ -84,7 +85,7 @@ func (s *Service) pluginCount() int {
 	if s.plugins == nil {
 		return 0
 	}
-	return len(s.plugins.List())
+	return plugins.ReadCatalogCount(s.plugins)
 }
 
 func (s *Service) diagnosticsDatabase(ctx context.Context) (DiagnosticsDatabase, []health.DiagnosticIssue) {

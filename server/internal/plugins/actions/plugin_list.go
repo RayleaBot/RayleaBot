@@ -26,7 +26,7 @@ func executePluginList(ctx context.Context, deps Deps, req ActionRequest) (map[s
 	if deps.Plugins == nil {
 		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "plugin catalog is not available"}
 	}
-	snapshots := deps.Plugins.List()
+	snapshots := plugins.ReadDisplaySnapshots(deps.Plugins)
 	conflicts := plugins.DetectCommandConflicts(snapshots)
 	items := make([]map[string]any, 0, len(snapshots))
 	for _, snapshot := range snapshots {
