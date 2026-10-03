@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"reflect"
 	"testing"
 	"time"
 
@@ -95,7 +96,9 @@ func TestIngressConversationThreeRoundsAndExistingCommandPolicy(t *testing.T) {
 	takeSessionEvent(t, p)
 	var id string
 	for i, text := range []string{"choice", "/restricted", "confirm"} {
-		ingress.HandleAdapterEvent(t.Context(), adapterMessage(fmt.Sprint(i), text))
+		input := adapterMessage(fmt.Sprint(i), text)
+		input.Segments = []chatevent.MessageSegment{{Type: "text", Data: map[string]any{"text": text}}, {Type: "image", Data: map[string]any{"url": "https://example.invalid/image"}}}
+		ingress.HandleAdapterEvent(t.Context(), input)
 		event := takeSessionEvent(t, p)
 		if event.Session == nil {
 			t.Fatal("waiting reply used ordinary dispatch")
@@ -107,6 +110,9 @@ func TestIngressConversationThreeRoundsAndExistingCommandPolicy(t *testing.T) {
 		}
 		if event.PayloadFields["command"] != nil {
 			t.Fatal("reply inherited command execution metadata")
+		}
+		if event.Message == nil || event.Message.PlainText != text || !reflect.DeepEqual(event.Message.Segments, input.Segments) {
+			t.Fatalf("reply message changed: %#v", event.Message)
 		}
 	}
 	if r.HasWaiting(chatevent.FromAdapter(adapterMessage("check", ""))) {

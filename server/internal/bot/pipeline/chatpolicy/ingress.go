@@ -161,32 +161,8 @@ func (s *Ingress) HandleAdapterEvent(ctx context.Context, event chatevent.Normal
 	if s.replyTargets != nil {
 		s.replyTargets.Record(event)
 	}
-	if s.conversations != nil && s.conversations.HasWaiting(chatevent.FromAdapter(event)) {
-		if !s.policy.AllowSessionInput(ctx, event) {
-			return
-		}
-		if s.lifecycle != nil {
-			s.lifecycle.SyncBotIdentities(ctx)
-		}
-		sessionEvent := event
-		sessionEvent.PayloadFields = maps.Clone(event.PayloadFields)
-		delete(sessionEvent.PayloadFields, "command")
-		delete(sessionEvent.PayloadFields, "args")
-		var report func()
-		consumed := s.conversations.TryRoute(chatevent.FromAdapter(sessionEvent), func(owner conversation.Owner, ref chatevent.SessionRef) bool {
-			if s.bridge == nil {
-				return false
-			}
-			var outcome chatevent.DeliveryOutcome
-			outcome, report = s.bridge.QueueAdapterEvent(conversation.WithDelivery(ctx, owner, ref), sessionEvent)
-			return outcome == chatevent.DeliveryOutcomeDelivered
-		})
-		if report != nil {
-			report()
-		}
-		if consumed {
-			return
-		}
+	if s.conversations != nil && s.routeSessionInput(ctx, event) {
+		return
 	}
 
 	enriched, allowed := s.ApplyChatPolicy(ctx, event)
@@ -205,6 +181,40 @@ func (s *Ingress) HandleAdapterEvent(ctx context.Context, event chatevent.Normal
 	if s.bridge != nil {
 		s.bridge.HandleAdapterEvent(ctx, enriched)
 	}
+}
+
+func (s *Ingress) routeSessionInput(ctx context.Context, event chatevent.NormalizedEvent) bool {
+	// Session matching needs the event address, not a projected message body.
+	// Keep target fallback rules in the shared adapter projection.
+	routeInput := event
+	routeInput.PlainText, routeInput.Segments = "", nil
+	routeEvent := chatevent.FromAdapter(routeInput)
+	if !s.conversations.HasWaiting(routeEvent) {
+		return false
+	}
+	if !s.policy.AllowSessionInput(ctx, event) {
+		return true
+	}
+	if s.lifecycle != nil {
+		s.lifecycle.SyncBotIdentities(ctx)
+	}
+	sessionEvent := event
+	sessionEvent.PayloadFields = maps.Clone(event.PayloadFields)
+	delete(sessionEvent.PayloadFields, "command")
+	delete(sessionEvent.PayloadFields, "args")
+	var report func()
+	consumed := s.conversations.TryRoute(routeEvent, func(owner conversation.Owner, ref chatevent.SessionRef) bool {
+		if s.bridge == nil {
+			return false
+		}
+		var outcome chatevent.DeliveryOutcome
+		outcome, report = s.bridge.QueueAdapterEvent(conversation.WithDelivery(ctx, owner, ref), sessionEvent)
+		return outcome == chatevent.DeliveryOutcomeDelivered
+	})
+	if report != nil {
+		report()
+	}
+	return consumed
 }
 
 // StopAdmission leaves accepted handlers and outbound transports alive.
