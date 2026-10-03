@@ -2494,8 +2494,16 @@ export interface components {
             user: {
                 /** @default 10/60s */
                 command_rate_limit: components["schemas"]["rateLimit"];
-                /** @default true */
+                /**
+                 * @description Send a cooldown notice when the user or group command rate limit rejects a command. The notice counts against message.rate_limit_per_target and is skipped, never queued, when the target has no quota left at that moment. Default: true.
+                 * @default true
+                 */
                 cooldown_reply: boolean;
+                /**
+                 * @description While cooldown_reply is enabled, send at most one cooldown notice to the same user in the same conversation per cooldown period. The period starts with the notice and lasts one window of the rate limit that rejected the command. A notice skipped for lack of target quota does not start a period. Default: true.
+                 * @default true
+                 */
+                cooldown_reply_once: boolean;
             } & {
                 [key: string]: unknown;
             };

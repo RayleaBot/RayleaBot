@@ -185,8 +185,9 @@ func configMessageDocument(cfg Config) map[string]any {
 
 func configUserDocument(cfg Config) map[string]any {
 	return map[string]any{
-		"command_rate_limit": configUserCommandRateLimit(cfg),
-		"cooldown_reply":     cfg.User.CooldownReply,
+		"command_rate_limit":  configUserCommandRateLimit(cfg),
+		"cooldown_reply":      cfg.User.CooldownReply,
+		"cooldown_reply_once": cfg.User.CooldownReplyOnce,
 	}
 }
 

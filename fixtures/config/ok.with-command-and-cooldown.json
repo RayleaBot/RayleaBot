@@ -123,7 +123,8 @@
     },
     "user": {
       "command_rate_limit": "10/60s",
-      "cooldown_reply": true
+      "cooldown_reply": true,
+      "cooldown_reply_once": false
     },
     "group": {
       "command_rate_limit": "30/60s"

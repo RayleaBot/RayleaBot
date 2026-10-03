@@ -80,6 +80,7 @@ export function createConfigDocumentFixture(configure?: ConfigureConfigDocument)
     user: {
       command_rate_limit: '10/60s',
       cooldown_reply: true,
+      cooldown_reply_once: true,
     },
     group: {
       command_rate_limit: '30/60s',

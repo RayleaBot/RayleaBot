@@ -66,8 +66,9 @@ type MessageConfig struct {
 }
 
 type UserConfig struct {
-	CommandRateLimit string `json:"command_rate_limit" yaml:"command_rate_limit"`
-	CooldownReply    bool   `json:"cooldown_reply" yaml:"cooldown_reply"`
+	CommandRateLimit  string `json:"command_rate_limit" yaml:"command_rate_limit"`
+	CooldownReply     bool   `json:"cooldown_reply" yaml:"cooldown_reply"`
+	CooldownReplyOnce bool   `json:"cooldown_reply_once" yaml:"cooldown_reply_once"`
 }
 
 type GroupConfig struct {

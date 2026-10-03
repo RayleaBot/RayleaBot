@@ -368,8 +368,9 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"rate_limit_per_target": "5/5s",
 		},
 		"user": map[string]any{
-			"command_rate_limit": "10/60s",
-			"cooldown_reply":     true,
+			"command_rate_limit":  "10/60s",
+			"cooldown_reply":      true,
+			"cooldown_reply_once": true,
 		},
 		"group": map[string]any{
 			"command_rate_limit": "30/60s",
