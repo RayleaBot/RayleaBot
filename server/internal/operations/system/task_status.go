@@ -12,13 +12,9 @@ func (s *Service) GetTaskStatus(taskID string) (TaskStatus, bool) {
 	if s.taskExecutor == nil {
 		return TaskStatus{}, false
 	}
-	snapshot, ok := s.taskExecutor.Get(taskID)
+	snapshot, ok := s.taskExecutor.State(taskID)
 	if !ok {
 		return TaskStatus{}, false
 	}
-	result := TaskStatus{TaskID: snapshot.TaskID, Status: snapshot.Status}
-	if snapshot.Error != nil {
-		result.ErrorCode = snapshot.Error.Code
-	}
-	return result, true
+	return TaskStatus{TaskID: snapshot.TaskID, Status: snapshot.Status, ErrorCode: snapshot.ErrorCode}, true
 }

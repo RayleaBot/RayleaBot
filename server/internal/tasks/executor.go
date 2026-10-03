@@ -123,6 +123,17 @@ func (e *Executor) List() []Snapshot {
 	return e.registry.List()
 }
 
+func (e *Executor) State(taskID string) (StateSnapshot, bool) {
+	return e.registry.State(taskID)
+}
+
+func (e *Executor) CountByStatus() StatusCounts {
+	if e.registry == nil {
+		return StatusCounts{}
+	}
+	return e.registry.CountByStatus()
+}
+
 func (e *Executor) Close() error {
 	if e == nil {
 		return nil

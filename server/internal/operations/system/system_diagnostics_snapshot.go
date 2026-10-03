@@ -14,7 +14,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
-	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
@@ -140,19 +139,8 @@ func (s *Service) diagnosticsTasks() DiagnosticsTaskSummary {
 	if s.taskExecutor == nil {
 		return result
 	}
-	for _, task := range s.taskExecutor.List() {
-		switch task.Status {
-		case tasks.StatusPending:
-			result.Pending++
-		case tasks.StatusRunning:
-			result.Running++
-		case tasks.StatusFailed:
-			result.Failed++
-		case tasks.StatusInterrupted:
-			result.Interrupted++
-		}
-	}
-	return result
+	counts := s.taskExecutor.CountByStatus()
+	return DiagnosticsTaskSummary{Pending: counts.Pending, Running: counts.Running, Failed: counts.Failed, Interrupted: counts.Interrupted}
 }
 
 func (s *Service) diagnosticsDependencies() ([]DiagnosticsDependency, []health.DiagnosticIssue) {

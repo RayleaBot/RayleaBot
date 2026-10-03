@@ -48,6 +48,16 @@ type Snapshot struct {
 	Error      *ErrorSummary  `json:"error,omitempty"`
 }
 
+type StateSnapshot struct {
+	TaskID    string
+	Status    Status
+	ErrorCode string
+}
+
+type StatusCounts struct {
+	Pending, Running, Succeeded, Failed, Cancelled, Interrupted int
+}
+
 type Update struct {
 	Status     *Status
 	Progress   *int
@@ -115,6 +125,40 @@ func (r *Registry) Get(taskID string) (Snapshot, bool) {
 
 	snapshot, ok := r.items[taskID]
 	return cloneSnapshot(snapshot), ok
+}
+
+func (r *Registry) State(taskID string) (StateSnapshot, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	snapshot, ok := r.items[taskID]
+	state := StateSnapshot{TaskID: snapshot.TaskID, Status: snapshot.Status}
+	if snapshot.Error != nil {
+		state.ErrorCode = snapshot.Error.Code
+	}
+	return state, ok
+}
+
+func (r *Registry) CountByStatus() StatusCounts {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var counts StatusCounts
+	for _, id := range r.order {
+		switch r.items[id].Status {
+		case StatusPending:
+			counts.Pending++
+		case StatusRunning:
+			counts.Running++
+		case StatusSucceeded:
+			counts.Succeeded++
+		case StatusFailed:
+			counts.Failed++
+		case StatusCancelled:
+			counts.Cancelled++
+		case StatusInterrupted:
+			counts.Interrupted++
+		}
+	}
+	return counts
 }
 
 func (r *Registry) SetRepository(repo Repository) {
