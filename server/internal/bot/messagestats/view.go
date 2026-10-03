@@ -121,13 +121,15 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 		}
 		return cachedIndex, true
 	}
-	add := func(start int64, adapter string, value Counts) {
+	add := func(start int64, adapter string, value Counts, c *Connection) *Connection {
 		index, inRange := locate(start)
 		inPrevious := hasPrevious && start >= previousFrom && start < previousThrough
 		if !inRange && !inPrevious {
-			return
+			return c
 		}
-		c := connection(adapter)
+		if c == nil {
+			c = connection(adapter)
+		}
 		if inRange {
 			c.Received[index] += value.Received
 			c.Sent[index] += value.Sent
@@ -138,14 +140,18 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 			c.Previous.add(value)
 			view.Previous.add(value)
 		}
+		return c
 	}
-	for _, chunk := range snapshot.hours {
-		for _, row := range chunk {
-			add(row.HourStart, row.AdapterID, Counts{row.Received, row.Sent})
+	for _, group := range snapshot.hours {
+		var c *Connection
+		for _, chunk := range group.chunks {
+			for _, row := range chunk {
+				c = add(row.start, group.adapter, row.counts, c)
+			}
 		}
 	}
 	for key, value := range snapshot.pending {
-		add(key.start, key.adapter, value)
+		add(key.start, key.adapter, value, nil)
 	}
 	cfg := s.config()
 	for _, a := range cfg.Adapters {
@@ -193,7 +199,7 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 
 type querySnapshot struct {
 	asOf            time.Time
-	hours           [][]sqlcgen.MessageStatsHour
+	hours           []adapterHours
 	metadata        []sqlcgen.MessageStatsAdapter
 	offline         []sqlcgen.MessageStatsOffline
 	stops           []sqlcgen.ListMessageStatsStopsRow

@@ -117,16 +117,17 @@ func (q *Queries) ListMessageStatsOffline(ctx context.Context, arg ListMessageSt
 
 const listMessageStatsStops = `-- name: ListMessageStatsStops :many
 SELECT r.stopped_at_ms AS started_at_ms, n.started_at_ms AS ended_at_ms
-FROM message_stats_runs r JOIN message_stats_runs n
-    ON n.id = (SELECT MIN(next_run.id) FROM message_stats_runs next_run WHERE next_run.id > r.id)
-WHERE r.stopped_at_ms IS NOT NULL AND r.stopped_at_ms < n.started_at_ms
-    AND r.stopped_at_ms < ?1 AND n.started_at_ms > ?2
+FROM message_stats_runs n CROSS JOIN message_stats_runs r
+    ON r.id = (SELECT MAX(previous_run.id) FROM message_stats_runs previous_run WHERE previous_run.id < n.id)
+WHERE n.started_at_ms > ?1
+    AND r.stopped_at_ms IS NOT NULL AND r.stopped_at_ms < n.started_at_ms
+    AND r.stopped_at_ms < ?2
 ORDER BY r.stopped_at_ms DESC LIMIT 1001
 `
 
 type ListMessageStatsStopsParams struct {
-	AsOfMs  sql.NullInt64
 	StartMs int64
+	AsOfMs  sql.NullInt64
 }
 
 type ListMessageStatsStopsRow struct {
@@ -135,7 +136,7 @@ type ListMessageStatsStopsRow struct {
 }
 
 func (q *Queries) ListMessageStatsStops(ctx context.Context, arg ListMessageStatsStopsParams) ([]ListMessageStatsStopsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listMessageStatsStops, arg.AsOfMs, arg.StartMs)
+	rows, err := q.db.QueryContext(ctx, listMessageStatsStops, arg.StartMs, arg.AsOfMs)
 	if err != nil {
 		return nil, err
 	}

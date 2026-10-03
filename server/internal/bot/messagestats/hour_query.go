@@ -6,9 +6,19 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 )
 
-// sqlc materializes one growing slice. Read the same range into bounded chunks
-// so a large history does not repeatedly copy rows as its result grows.
-func (s *Service) queryHours(ctx context.Context, from, through int64) ([][]sqlcgen.MessageStatsHour, error) {
+type hourCounts struct {
+	start  int64
+	counts Counts
+}
+
+type adapterHours struct {
+	adapter string
+	chunks  [][]hourCounts
+}
+
+// Keep one adapter ID per group and grow chunks without copying earlier rows.
+// Small initial chunks also bound unused capacity for sparse adapter histories.
+func (s *Service) queryHours(ctx context.Context, from, through int64) ([]adapterHours, error) {
 	rows, err := s.store.Read.QueryContext(ctx,
 		`SELECT hour_start, adapter_id, received, sent FROM message_stats_hours WHERE hour_start >= ? AND hour_start < ?`,
 		from, through)
@@ -16,23 +26,31 @@ func (s *Service) queryHours(ctx context.Context, from, through int64) ([][]sqlc
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	var chunks [][]sqlcgen.MessageStatsHour
-	var chunk []sqlcgen.MessageStatsHour
+	var groups []adapterHours
+	byAdapter := make(map[string]int)
 	var row sqlcgen.MessageStatsHour
 	destination := []any{&row.HourStart, &row.AdapterID, &row.Received, &row.Sent}
-	used, nextSize := 0, 64
 	for rows.Next() {
 		if err := rows.Scan(destination...); err != nil {
 			return nil, err
 		}
-		if used == len(chunk) {
-			chunk = make([]sqlcgen.MessageStatsHour, nextSize)
-			chunks = append(chunks, chunk)
-			used = 0
-			nextSize = min(2*nextSize, 1024)
+		index, ok := byAdapter[row.AdapterID]
+		if !ok {
+			index = len(groups)
+			byAdapter[row.AdapterID] = index
+			groups = append(groups, adapterHours{adapter: row.AdapterID})
 		}
-		chunk[used] = row
-		used++
+		group := &groups[index]
+		last := len(group.chunks) - 1
+		if last < 0 || len(group.chunks[last]) == cap(group.chunks[last]) {
+			nextSize := 1
+			if last >= 0 {
+				nextSize = min(2*cap(group.chunks[last]), 1024)
+			}
+			group.chunks = append(group.chunks, make([]hourCounts, 0, nextSize))
+			last++
+		}
+		group.chunks[last] = append(group.chunks[last], hourCounts{row.HourStart, Counts{row.Received, row.Sent}})
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -40,8 +58,5 @@ func (s *Service) queryHours(ctx context.Context, from, through int64) ([][]sqlc
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	if len(chunks) > 0 {
-		chunks[len(chunks)-1] = chunk[:used]
-	}
-	return chunks, nil
+	return groups, nil
 }

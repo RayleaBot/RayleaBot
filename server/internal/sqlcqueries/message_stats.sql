@@ -49,8 +49,9 @@ ORDER BY started_at_ms DESC, adapter_id DESC, run_id DESC LIMIT 1001;
 
 -- name: ListMessageStatsStops :many
 SELECT r.stopped_at_ms AS started_at_ms, n.started_at_ms AS ended_at_ms
-FROM message_stats_runs r JOIN message_stats_runs n
-    ON n.id = (SELECT MIN(next_run.id) FROM message_stats_runs next_run WHERE next_run.id > r.id)
-WHERE r.stopped_at_ms IS NOT NULL AND r.stopped_at_ms < n.started_at_ms
-    AND r.stopped_at_ms < sqlc.arg(as_of_ms) AND n.started_at_ms > sqlc.arg(start_ms)
+FROM message_stats_runs n CROSS JOIN message_stats_runs r
+    ON r.id = (SELECT MAX(previous_run.id) FROM message_stats_runs previous_run WHERE previous_run.id < n.id)
+WHERE n.started_at_ms > sqlc.arg(start_ms)
+    AND r.stopped_at_ms IS NOT NULL AND r.stopped_at_ms < n.started_at_ms
+    AND r.stopped_at_ms < sqlc.arg(as_of_ms)
 ORDER BY r.stopped_at_ms DESC LIMIT 1001;
