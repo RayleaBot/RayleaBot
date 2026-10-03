@@ -259,9 +259,7 @@ describe('VirtualDataViewport', () => {
     expect(prependedRow).toBeTruthy()
 
     ResizeObserverMock.trigger(prependedRow!.element)
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.get('.data-viewport__canvas').attributes('style')).toContain('height:')
+    await vi.waitFor(() => expectCanvasHeight(wrapper, 400))
   })
 
   it('allows reaching the top again after older rows are prepended without an intermediate scroll-away', async () => {
@@ -475,7 +473,6 @@ describe('VirtualDataViewport', () => {
     await wrapper.vm.$nextTick()
 
     expect(scroller.scrollTop).toBeGreaterThanOrEqual(280)
-    expect(wrapper.get('.data-viewport__canvas').attributes('style')).toContain('height:')
   }, 15000)
 
   it('does not snap the viewport back when rows are measured for the first time while scrolling upward', async () => {

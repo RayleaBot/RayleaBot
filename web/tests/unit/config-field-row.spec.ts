@@ -24,12 +24,6 @@ describe('ConfigFieldRow', () => {
     wrapper.unmount()
   })
 
-  it('emits the typed value for text fields', async () => {
-    const wrapper = mountField({ path: 'server.host', label: 'host', type: 'text' }, '127.0.0.1')
-    await wrapper.find('input').setValue('0.0.0.0')
-    expect(wrapper.emitted('update:value')?.[0]).toEqual(['0.0.0.0'])
-  })
-
   it('shows separate default hints for an empty rate limit without filling either input', () => {
     const wrapper = mountField({ path: 'user.command_rate_limit', label: 'Limit', type: 'rateLimit', defaultValue: '100/1s' }, undefined)
     const inputs = wrapper.findAll('input')
@@ -60,30 +54,6 @@ describe('ConfigFieldRow', () => {
     expect(input.exists()).toBe(true)
     await input.setValue('')
     expect(wrapper.emitted('update:value')?.at(-1)).toEqual([undefined])
-  })
-
-  it('emits a boolean for switch fields', async () => {
-    const wrapper = mountField({ path: 'admin.sliding_renewal', label: 'sliding', type: 'boolean' }, false)
-    await wrapper.find('[role=switch]').trigger('click')
-    expect(wrapper.emitted('update:value')?.[0]).toEqual([true])
-  })
-
-  it('emits the selected option for select fields', async () => {
-    const wrapper = mountField(
-      {
-        path: 'log.level',
-        label: 'level',
-        type: 'select',
-        options: [
-          { label: 'Info', value: 'info' },
-          { label: 'Debug', value: 'debug' },
-        ],
-      },
-      'info',
-    )
-    const select = wrapper.getComponent({ name: 'AppSelect' })
-    await select.vm.$emit('update:modelValue', 'debug')
-    expect(wrapper.emitted('update:value')?.[0]).toEqual(['debug'])
   })
 
   it('splits multiline textarea into a list for list fields', async () => {

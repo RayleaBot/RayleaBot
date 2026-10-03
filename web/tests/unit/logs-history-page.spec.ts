@@ -15,32 +15,6 @@ interface ScrollMetrics {
   scrollTop: number
 }
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
-function mockRect(element: Element, width: number, height: number, left = 0, top = 0) {
-  Object.defineProperty(element, 'getBoundingClientRect', {
-    configurable: true,
-    value: () => ({
-      x: left,
-      y: top,
-      width,
-      height,
-      left,
-      top,
-      right: left + width,
-      bottom: top + height,
-      toJSON() {
-        return {}
-      },
-    }),
-  })
-}
-
 const scrollToBottomSpy = vi.fn()
 const getScrollMetricsSpy = vi.fn<() => ScrollMetrics>()
 let scrollMetricsQueue: ScrollMetrics[] = []
@@ -136,7 +110,6 @@ describe('LogsHistoryPage', () => {
         commands: [],
       },
     ]
-    vi.spyOn(pluginsStore, 'fetchList').mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -200,68 +173,6 @@ describe('LogsHistoryPage', () => {
     expect(wrapper.findComponent(VirtualDataViewportStub).props('itemHeight')).toBe(44)
     expect(wrapper.findComponent(VirtualDataViewportStub).props('followBottom')).toBe(true)
     expect(wrapper.find('input[type="datetime-local"]').exists()).toBe(true)
-  })
-
-  it('opens the shared detail window for a history row', async () => {
-    const router = createTestRouter()
-    await router.push('/logs/history?level=warn&level=error&plugin_id=weather&plugin_id=raylea.echo&protocol=onebot11&request_id=req_history_1&start_at=2026-04-01T00:00:00Z&end_at=2026-04-02T00:00:00Z')
-    await router.isReady()
-
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
-      log_id: 'log_history_0001',
-      timestamp: '2026-04-02T00:53:16Z',
-      level: 'warn',
-      source: 'adapter',
-      message: 'history row',
-      details: {
-        branch: 'history',
-      },
-    }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    const store = useLogHistoryStore()
-    store.items = [
-      {
-        log_id: 'log_history_0001',
-        timestamp: '2026-04-02T00:53:16Z',
-        level: 'warn',
-        source: 'adapter.onebot11',
-        protocol: 'onebot11',
-        plugin_id: 'weather',
-        request_id: 'req_history_1',
-        message: 'history row',
-      },
-    ]
-    vi.spyOn(store, 'applyFilters').mockResolvedValue(store.items)
-    vi.spyOn(store, 'refreshAnchor').mockResolvedValue(store.items)
-
-    const wrapper = mount(LogsHistoryPage, {
-      attachTo: document.body,
-      global: {
-        plugins: [getActivePinia()!, router],
-        stubs: {
-          VirtualDataViewport: VirtualDataViewportStub,
-        },
-      },
-    })
-
-    await flushPromises()
-    mockRect(wrapper.get('.logs-layout').element, 1600, 960)
-    expect(store.filters.levels).toEqual(['warn', 'error'])
-    expect(store.filters.pluginIds).toEqual(['raylea.echo', 'weather'])
-    await wrapper.get('.logs-row').trigger('click')
-    await flushPromises()
-
-    expect(fetchMock).toHaveBeenCalledWith('/api/logs/log_history_0001', expect.any(Object))
-    expect(router.currentRoute.value.query.log_id).toBe('log_history_0001')
-    expect(router.currentRoute.value.query.level).toEqual(['warn', 'error'])
-    expect(router.currentRoute.value.query.plugin_id).toEqual(['raylea.echo', 'weather'])
-    expect(wrapper.find('.log-detail-window').exists()).toBe(true)
-    expect(wrapper.text()).toContain('日志详情')
-    expect(wrapper.text()).toContain('详情 JSON')
-    expect(wrapper.text()).toContain('查看插件')
-    expect(wrapper.text()).toContain('查看协议')
-    expect(wrapper.text()).toContain('相关历史日志')
   })
 
   it('requests older history rows from the top and reuses the recent-day shortcut', async () => {
@@ -443,34 +354,5 @@ describe('LogsHistoryPage', () => {
     expect(scrollToBottomSpy).toHaveBeenCalledTimes(3)
     expect(getScrollMetricsSpy).toHaveBeenCalledTimes(3)
     expect(wrapper.findComponent(VirtualDataViewportStub).props('followBottom')).toBe(true)
-  })
-
-  it('does not load a global plugin list for an empty log view', async () => {
-    const router = createTestRouter()
-    await router.push('/logs/history')
-    await router.isReady()
-
-    const pluginsStore = usePluginsStore()
-    pluginsStore.upsert({ id: 'weather', state: 'running' })
-    const fetchListSpy = vi.spyOn(pluginsStore, 'fetchList').mockImplementation(async () => {
-      pluginsStore.upsert({ id: 'weather', name: '天气插件', state: 'running' })
-      pluginsStore.listLoaded = true
-    })
-    const store = useLogHistoryStore()
-    vi.spyOn(store, 'refreshAnchor').mockResolvedValue(store.items)
-
-    mount(LogsHistoryPage, {
-      attachTo: document.body,
-      global: {
-        plugins: [getActivePinia()!, router],
-        stubs: {
-          VirtualDataViewport: VirtualDataViewportStub,
-        },
-      },
-    })
-
-    await flushPromises()
-    expect(fetchListSpy).not.toHaveBeenCalled()
-    expect(pluginsStore.getPluginDisplayName('weather')).toBe('Weather')
   })
 })

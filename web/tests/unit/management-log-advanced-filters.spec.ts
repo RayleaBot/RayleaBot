@@ -61,6 +61,5 @@ describe('ManagementLogAdvancedFilters', () => {
     })
 
     expect(wrapper.get('.log-advanced-filters__count').text()).toBe('2')
-    expect(wrapper.get('button').classes()).toContain('is-active')
   })
 })

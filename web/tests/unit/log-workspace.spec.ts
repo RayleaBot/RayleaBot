@@ -7,7 +7,6 @@ import ManagementLogWorkspace from '@/components/logs/ManagementLogWorkspace.vue
 import { LOG_FILTER_DEBOUNCE_MS } from '@/components/logs/useLogWorkspace'
 import { useLogHistoryStore } from '@/stores/log-history'
 import { useLogsStore } from '@/stores/logs'
-import { usePluginsStore } from '@/stores/plugins'
 import LogsView from '@/views/operations/LogsView.vue'
 import LogsHistoryView from '@/views/operations/LogsHistoryView.vue'
 
@@ -27,7 +26,6 @@ it('deactivates the live workspace when moving to the history workspace', async 
   historyStore.initialized = true
   vi.spyOn(liveStore, 'ensureLoaded').mockResolvedValue([])
   vi.spyOn(historyStore, 'applyFilters').mockResolvedValue([])
-  vi.spyOn(usePluginsStore(pinia), 'fetchList').mockResolvedValue(undefined)
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 0 })
   const destination = '/logs/history?source=plugin&log_id=history&start_at=2026-04-01T00:00:00Z&end_at=2026-04-02T00:00:00Z'
   await router.push('/logs?level=info&log_id=live')
@@ -65,7 +63,6 @@ describe.each([
     vi.spyOn(store, 'applyFilters').mockResolvedValue(store.items)
     vi.spyOn(liveStore, 'ensureLoaded').mockResolvedValue(liveStore.items)
     vi.spyOn(historyStore, 'refreshAnchor').mockResolvedValue(historyStore.items)
-    vi.spyOn(usePluginsStore(pinia), 'fetchList').mockResolvedValue(undefined)
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 0 })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       code: 'platform.internal_error', message: 'detail request failed',

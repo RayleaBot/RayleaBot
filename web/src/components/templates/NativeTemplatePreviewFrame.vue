@@ -1,11 +1,4 @@
 <script lang="ts">
-export {
-  calculateNativePreviewLayout,
-  calculateNativePreviewScale,
-  nativePreviewMinHeight,
-  nativePreviewTemplateWidth,
-} from '@/components/templates/template-preview-frame'
-
 export function stripHelpMenuPreviewFontImports(styles: string) {
   return styles
     .replace(/@import\s+url\(["']assets\/fonts\/noto-sans-sc\/result\.css["']\);?\s*/g, '')

@@ -169,8 +169,6 @@ function applyPreviewOverflowGuard() {
     ref="containerRef"
     class="native-template-preview"
     :style="previewStyle"
-    :data-preview-scale="previewLayout.scale.toFixed(4)"
-    :data-preview-scrollable="previewLayout.isScrollable ? 'true' : 'false'"
     :data-testid="hostTestId"
   >
     <div class="native-template-preview__scaled-frame">

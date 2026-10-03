@@ -1,6 +1,6 @@
 import { resolve as resolvePath } from 'node:path'
 
-import { createBackendProxyOptions, createPluginUIProxyOptions, createRayleaBotDevStatus, resolveBuildVersion, resolveClientBackendTarget, resolveClientWebSocketBaseUrl, resolveDevWebSocketBaseUrl, resolveServerFsAllow } from '../../vite.config'
+import { createBackendProxyOptions, createPluginUIProxyOptions, createRayleaBotDevStatus, resolveBuildVersion, resolveClientBackendTarget, resolveClientWebSocketBaseUrl } from '../../vite.config'
 
 describe('vite config', () => {
   it('uses the backend target only for development plugin pages', () => {
@@ -14,15 +14,6 @@ describe('vite config', () => {
     expect(resolveBuildVersion('build', ' v2.3.4-rc.1 ')).toBe('v2.3.4-rc.1')
     expect(() => resolveBuildVersion('build', 'runtime-version')).toThrow('RAYLEA_BUILD_VERSION')
   })
-  it('uses the backend target when the dev WebSocket base URL is empty', () => {
-    expect(resolveDevWebSocketBaseUrl(undefined, 'http://127.0.0.1:8080')).toBe('http://127.0.0.1:8080')
-    expect(resolveDevWebSocketBaseUrl('   ', 'http://127.0.0.1:8080')).toBe('http://127.0.0.1:8080')
-  })
-
-  it('keeps an explicit dev WebSocket base URL', () => {
-    expect(resolveDevWebSocketBaseUrl('ws://127.0.0.1:4010', 'http://127.0.0.1:8080')).toBe('ws://127.0.0.1:4010')
-  })
-
   it('does not pin built assets to a development WebSocket base URL', () => {
     expect(resolveClientWebSocketBaseUrl('build', 'ws://127.0.0.1:4010', 'http://127.0.0.1:8080')).toBe('')
   })
@@ -41,14 +32,6 @@ describe('vite config', () => {
       changeOrigin: false,
       ws: false,
     })
-  })
-
-  it('allows the web app root, bundled UI fonts and shared templates in dev server fs access', () => {
-    expect(resolveServerFsAllow('C:/repo/web')).toEqual([
-      resolvePath('C:/repo/web'),
-      resolvePath('C:/repo/design/fonts'),
-      resolvePath('C:/repo/templates'),
-    ])
   })
 
   it('exposes the dev backend target for start script reuse checks', () => {

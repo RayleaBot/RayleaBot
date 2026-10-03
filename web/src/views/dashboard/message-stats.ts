@@ -54,7 +54,7 @@ export function periodWindow(period: MessagePeriod, now: Date, timeZone: string)
 // ---------- connections ----------
 
 export const CONNECTION_SLOTS = 4
-export const SERIES_COUNT = 4
+const SERIES_COUNT = 4
 
 export type ConnectionStage = 'problem' | 'active' | 'disabled' | 'removed'
 export interface ConnectionEntry {

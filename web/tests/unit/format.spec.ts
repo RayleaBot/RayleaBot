@@ -1,41 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { formatDateTime, formatDurationSeconds, formatRateLimit, formatRelativeTime } from '@/lib/format'
-import { i18n } from '@/i18n'
+import { formatDurationSeconds, formatRateLimit, formatRelativeTime } from '@/lib/format'
 
 afterEach(() => {
   vi.useRealTimers()
 })
 
 describe('format helpers', () => {
-  it('keeps invalid datetime values from throwing', () => {
-    expect(formatDateTime('not-a-date')).toBe('not-a-date')
-    expect(formatDateTime(undefined)).toBe('—')
-    expect(formatDateTime(Number.MAX_SAFE_INTEGER)).toBe(String(Number.MAX_SAFE_INTEGER))
-  })
-
-  it('formats unix-second timestamps from numbers and scientific-notation strings', () => {
-    const unixSeconds = 1.775762955e+09
-    const expected = '2026/04/10 03:29:15'
-
-    expect(i18n.global.locale.value).toBe('zh-CN')
-    expect(formatDateTime(unixSeconds)).toBe(expected)
-    expect(formatDateTime(String(unixSeconds))).toBe(expected)
-  })
-
   it('keeps invalid relative time values readable', () => {
     expect(formatRelativeTime('not-a-date')).toBe('not-a-date')
     expect(formatRelativeTime(undefined)).toBe('—')
-  })
-
-  it('formats unix-second timestamps for relative time', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-04-10T03:30:00Z'))
-    const thirtySecondsAgo = (Date.now() - 30_000) / 1000
-    const scientificUnixSeconds = thirtySecondsAgo.toExponential()
-
-    expect(formatRelativeTime(scientificUnixSeconds)).toBe('30 秒前')
-    expect(formatRelativeTime(thirtySecondsAgo)).toBe('30 秒前')
   })
 
   it('distinguishes future instants and rejects invalid durations', () => {

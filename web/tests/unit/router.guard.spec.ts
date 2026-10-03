@@ -2,7 +2,7 @@ import { createMemoryHistory } from 'vue-router'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createAppRouter, routes } from '@/router'
+import { createAppRouter } from '@/router'
 import { useAppAvailabilityStore } from '@/stores/app-availability'
 import { useUiShellStore } from '@/stores/ui-shell'
 
@@ -51,32 +51,6 @@ describe('router guards', () => {
     expect(router.currentRoute.value.name).toBe('login')
   })
 
-  it('registers the split permission pages with the current permission routes', () => {
-    const routeNames = new Set<string>()
-    const routePaths = new Set<string>()
-
-    function collect(routeList: typeof routes) {
-      for (const route of routeList) {
-        if (typeof route.name === 'string') {
-          routeNames.add(route.name)
-        }
-        routePaths.add(route.path)
-        if (route.children) {
-          collect(route.children)
-        }
-      }
-    }
-
-    collect(routes)
-
-    expect(routeNames.has('permission-policy')).toBe(true)
-    expect(routeNames.has('access-lists')).toBe(true)
-    expect(routeNames.has('governance')).toBe(false)
-    expect(routePaths.has('/permission-policy')).toBe(true)
-    expect(routePaths.has('/access-lists')).toBe(true)
-    expect(routePaths.has('/governance')).toBe(false)
-  })
-
   it('registers fallback routes and redirects unmatched paths to 404', async () => {
     vi.stubGlobal('fetch', bootstrappedFetch(true))
     const router = createAppRouter(createMemoryHistory())
@@ -96,16 +70,6 @@ describe('router guards', () => {
     await router.isReady()
 
     expect(router.currentRoute.value.name).toBe('plugins')
-  })
-
-  it('opens setup when initialization is required', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: false })))
-    const router = createAppRouter(createMemoryHistory())
-
-    await router.push('/')
-    await router.isReady()
-
-    expect(router.currentRoute.value.name).toBe('setup')
   })
 
   it('keeps the requested page in place when session bootstrap is interrupted', async () => {

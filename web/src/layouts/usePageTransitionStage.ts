@@ -52,7 +52,7 @@ export function providePageTransitionStage(profile: Ref<PageMotionProfile>) {
   }
 }
 
-export function usePageTransitionStage(): Readonly<Ref<PageTransitionStage>> {
+function usePageTransitionStage(): Readonly<Ref<PageTransitionStage>> {
   return inject(PAGE_TRANSITION_STAGE_KEY, defaultStage)
 }
 

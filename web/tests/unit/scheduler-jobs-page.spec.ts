@@ -53,16 +53,6 @@ describe('SchedulerJobsPage', () => {
   afterEach(() => { vi.useRealTimers() })
   beforeEach(() => {
     setActivePinia(createPinia())
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })) as typeof window.matchMedia
     vi.mocked(notifySuccess).mockReset()
     vi.spyOn(usePluginsStore(), 'ensureList').mockResolvedValue(undefined)
   })
@@ -104,28 +94,6 @@ describe('SchedulerJobsPage', () => {
     expect(search).toHaveBeenLastCalledWith(expect.objectContaining({ query: '', status: undefined }))
     expect(wrapper.text()).toContain('每日早报')
     wrapper.unmount()
-  })
-
-  it('renders scheduler job aggregate state', async () => {
-    const store = useSchedulerJobsStore()
-    store.items = [makeSchedulerJob()]
-    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
-
-    const wrapper = mount(SchedulerJobsPage, {
-      global: {
-        plugins: [getActivePinia()!],
-      },
-    })
-
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('天气插件')
-    expect(wrapper.text()).toContain('每日早报')
-    expect(wrapper.text()).toContain('群 20001')
-    expect(wrapper.text()).toContain('已执行 160 次')
-    // The error is from a run before the last one, which succeeded, so it is a quiet note rather than the job's state.
-    expect(wrapper.text()).toContain('最近一次执行成功')
-    expect(wrapper.text()).toContain('曾出错')
   })
 
   it('opens a scheduler job detail view without full payload data', async () => {

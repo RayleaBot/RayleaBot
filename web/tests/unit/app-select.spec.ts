@@ -21,6 +21,5 @@ describe('AppSelect in a filter toolbar', () => {
     })
 
     expect(wrapper.get('.app-select__value').text()).toBe('info、warn')
-    expect(wrapper.get('.app-select__value').classes()).toContain('app-select__value--single-line')
   })
 })

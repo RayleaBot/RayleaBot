@@ -38,11 +38,6 @@ export const display = {
     failed: '运行异常',
     invalid: '清单异常',
   },
-  pluginRoles: {
-    official: '官方',
-    community: '社区',
-    development: '开发',
-  },
   // Host event types, nested by their dotted name so each one resolves as a message path.
   eventTypes: {
     message: { private: '私聊消息', group: '群聊消息' },
@@ -89,16 +84,6 @@ export const display = {
   logProtocols: {
     qqofficial: 'QQ 官方',
     onebot11: 'OneBot11',
-  },
-  systemStatuses: {
-    running: '运行中',
-    shutting_down: '停止中',
-  },
-  readinessStatuses: {
-    ready: '就绪',
-    degraded: '运行条件受限',
-    setup_required: '待初始化',
-    failed: '异常',
   },
   adapterStates: {
     idle: '等待连接',

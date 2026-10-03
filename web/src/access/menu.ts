@@ -19,7 +19,7 @@ export interface AppNavigationItem {
   title: string
 }
 
-export function joinRoutePath(parentPath: string, childPath: string) {
+function joinRoutePath(parentPath: string, childPath: string) {
   if (!childPath) {
     return parentPath || '/'
   }
@@ -32,7 +32,7 @@ export function joinRoutePath(parentPath: string, childPath: string) {
   return `${prefix}/${childPath}` || '/'
 }
 
-export function resolveRouteTitle(meta?: Record<string, unknown> | null) {
+function resolveRouteTitle(meta?: Record<string, unknown> | null) {
   if (!meta) {
     return ''
   }
@@ -44,7 +44,7 @@ export function resolveRouteTitle(meta?: Record<string, unknown> | null) {
   return typeof meta.title === 'string' ? meta.title : ''
 }
 
-export function resolveRouteEntryPath(meta: Record<string, unknown> | null | undefined, fallbackPath: string) {
+function resolveRouteEntryPath(meta: Record<string, unknown> | null | undefined, fallbackPath: string) {
   if (typeof meta?.entryPath === 'string' && meta.entryPath) {
     return meta.entryPath
   }

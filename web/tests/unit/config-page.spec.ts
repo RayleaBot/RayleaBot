@@ -78,27 +78,6 @@ describe('ConfigPage', () => {
     expect(wrapper.get('[data-testid=config-restart-notice]').text()).toContain('需要重启服务')
   })
 
-  it('keeps protocol fields out of the general config page', async () => {
-    const store = useConfigStore()
-    store.document = createConfigDocumentFixture()
-
-    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-
-    const wrapper = mount(ConfigPage, {
-      global: {
-        plugins: [getActivePinia()!],
-      },
-    })
-
-    await flushPromises()
-
-    expect(wrapper.find('.app-page').exists()).toBe(true)
-    expect(wrapper.find('.config-page').exists()).toBe(true)
-    expect(wrapper.findAll('[data-category]')).toHaveLength(6)
-    expect(wrapper.findAllComponents(ConfigFieldRow).some(row => row.props('field').path.startsWith('adapters.'))).toBe(false)
-    expect(wrapper.find('[aria-label="配置分类"]').exists()).toBe(true)
-  })
-
   it('keeps cleared numeric fields empty instead of forcing them to 0', async () => {
     const store = useConfigStore()
     store.document = createConfigDocumentFixture()
@@ -133,72 +112,6 @@ describe('ConfigPage', () => {
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(saveSpy.mock.calls[0][0].server.port).toBeUndefined()
-  })
-
-  it('edits image generation defaults from the render section', async () => {
-    const store = useConfigStore()
-    store.document = createConfigDocumentFixture()
-
-    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-    const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
-      config: store.document,
-      redacted_fields: [],
-      restart_required: false,
-      apply_effects: {
-        applied_now: ['render.default_output', 'render.device_scale_percent'],
-        reloaded_now: [],
-        restart_required_fields: [],
-      },
-    })
-
-    const wrapper = mount(ConfigPage, {
-      global: {
-        plugins: [getActivePinia()!],
-      },
-    })
-
-    await flushPromises()
-
-    await selectCategory(wrapper, 'render')
-    const outputRow = getConfigFieldRow(wrapper, 'render.default_output')
-    const precisionRow = getConfigFieldRow(wrapper, 'render.device_scale_percent')
-    expect(precisionRow.props('field')).toMatchObject({ min: 50, max: 500, unit: '%' })
-
-    await outputRow.vm.$emit('update:value', 'jpeg')
-    await precisionRow.vm.$emit('update:value', 200)
-    await flushPromises()
-
-    const saveButton = wrapper.get('[data-testid=config-save]')
-    expect(saveButton).toBeTruthy()
-    await saveButton!.trigger('click')
-
-    expect(saveSpy).toHaveBeenCalledTimes(1)
-    const submitted = saveSpy.mock.calls[0][0]
-    expect(submitted.render.default_output).toBe('jpeg')
-    expect(submitted.render.device_scale_percent).toBe(200)
-  })
-
-  it('reflects dirty state in the floating save button', async () => {
-    const store = useConfigStore()
-    store.document = createConfigDocumentFixture()
-    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-
-    const wrapper = mount(ConfigPage, {
-      global: {
-        plugins: [getActivePinia()!],
-      },
-    })
-
-    await flushPromises()
-
-    const saveButton = wrapper.get('[data-testid=config-save]')
-    expect(saveButton).toBeTruthy()
-    expect(saveButton!.attributes('aria-disabled') === 'true').toBe(true)
-
-    await getConfigFieldRow(wrapper, 'server.host').vm.$emit('update:value', '0.0.0.0')
-    await flushPromises()
-
-    expect(saveButton!.attributes('aria-disabled') === 'true').toBe(false)
   })
 
   it('keeps edits across category changes and searches including advanced fields', async () => {

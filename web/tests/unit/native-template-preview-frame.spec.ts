@@ -2,10 +2,10 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import NativeTemplatePreviewFrame, {
-  nativePreviewTemplateWidth,
   rewriteHelpMenuPreviewFontSources,
   stripHelpMenuPreviewFontImports,
 } from '@/components/templates/NativeTemplatePreviewFrame.vue'
+import { nativePreviewTemplateWidth } from '@/components/templates/template-preview-frame'
 import helpMenuFontFaces from '../../../templates/help.menu/assets/fonts/noto-sans-sc/result.css?raw'
 import helpMenuStyles from '../../../templates/help.menu/styles.css?raw'
 

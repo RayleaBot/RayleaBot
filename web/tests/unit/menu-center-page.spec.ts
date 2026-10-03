@@ -2,7 +2,8 @@ import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import NativeTemplatePreviewFrame, { calculateNativePreviewLayout } from '@/components/templates/NativeTemplatePreviewFrame.vue'
+import NativeTemplatePreviewFrame from '@/components/templates/NativeTemplatePreviewFrame.vue'
+import { calculateNativePreviewLayout } from '@/components/templates/template-preview-frame'
 import MenuCenterView from '@/views/builtin/MenuCenterView.vue'
 import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import PluginPicker from '@/components/plugins/PluginPicker.vue'
@@ -111,16 +112,6 @@ describe('MenuCenterView', () => {
     expect(data.groups.map((group) => group.title)).toEqual(['订阅操作', '解析操作'])
     expect(data.groups.flatMap((group) => group.items).map((item) => item.name))
       .toEqual(['订阅状态', '解析帮助', '角色攻略'])
-  })
-
-  it('projects unified trigger types into native preview data', async () => {
-    const data = pluginPreviewData(await mountPage())
-    const items = data.groups.flatMap((group) => group.items)
-    expect(items[0]).toMatchObject({ trigger_type: 'exact', command_prefixes: ['/', '*'] })
-    expect(items[2]).toMatchObject({
-      trigger_type: 'pattern', usage: '<角色名>攻略',
-      usage_parts: [{ kind: 'required', text: '角色名' }, { kind: 'literal', text: '攻略' }],
-    })
   })
 
   // The bot's page for one plugin uses the prefixes that address that plugin, not the menu's own prefixes.

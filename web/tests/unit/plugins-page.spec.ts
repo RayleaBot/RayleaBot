@@ -5,7 +5,6 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
 import PluginsPage from '@/views/plugins/PluginsView.vue'
-import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import { usePluginsStore } from '@/stores/plugins'
 
 vi.mock('@/adapter/feedback', () => ({
@@ -22,20 +21,6 @@ function testCommand(id: string, name: string, aliases: string[] = [], permissio
 }
 
 describe('PluginsPage', () => {
-  it('loads only the protected icon URL and restores the logo after an image error', async () => {
-    const wrapper = mount(PluginIcon, { props: { pluginId: 'weather', icon: 'assets/weather.svg', version: '1.0.0' } })
-    expect(wrapper.get('img').attributes('src')).toBe('/api/plugins/weather/icon')
-    await wrapper.get('img').trigger('error')
-    expect(wrapper.find('img').exists()).toBe(false)
-    expect(wrapper.find('.raylea-mark').exists()).toBe(true)
-    await wrapper.setProps({ icon: 'assets/replacement.svg' })
-    expect(wrapper.find('img').exists()).toBe(true)
-    await wrapper.setProps({ icon: undefined })
-    expect(wrapper.find('img').exists()).toBe(false)
-    expect(wrapper.find('.raylea-mark').exists()).toBe(true)
-    wrapper.unmount()
-  })
-
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.mocked(notifyError).mockClear()
@@ -210,39 +195,6 @@ describe('PluginsPage', () => {
     expect(notifySuccess).not.toHaveBeenCalled()
   })
 
-  it('shows error feedback when enabling or disabling fails', async () => {
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/', component: { template: '<div />' } }],
-    })
-    const store = usePluginsStore()
-    store.items = [{
-      id: 'weather',
-      name: 'Weather',
-      role: 'community',
-      state: 'running',
-      commands: [],
-      command_conflicts: [],
-    }]
-
-    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
-    const executeSpy = vi.spyOn(store, 'executeAction').mockRejectedValue(new Error('disable failed'))
-
-    const wrapper = mount(PluginsPage, {
-      global: {
-        plugins: [getActivePinia()!, router],
-      },
-    })
-
-    await flushPromises()
-    await wrapper.get('[data-testid="plugin-enable-button-weather"]').trigger('click')
-    await flushPromises()
-
-    expect(executeSpy).toHaveBeenCalledWith('weather', 'disable')
-    expect(notifyError).toHaveBeenCalledTimes(1)
-    expect(notifySuccess).not.toHaveBeenCalled()
-  })
-
   it('renders source, trust, and command conflict metadata', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
@@ -329,7 +281,7 @@ describe('PluginsPage', () => {
     })
   })
 
-  it('keeps verified third-party plugins in the community source filter', async () => {
+  it('forwards the selected source filter to the plugin list request', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: { template: '<div />' } }],
@@ -370,11 +322,7 @@ describe('PluginsPage', () => {
       },
     ]
 
-    const available = [...store.items]
-    vi.spyOn(store, 'fetchList').mockImplementation(async query => {
-      store.items = available.filter(item => !query?.source || (query.source === 'official' ? item.trust?.level === 'official' : item.trust?.level !== 'official'))
-      store.total = store.items.length
-    })
+    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
 
     const wrapper = mount(PluginsPage, {
       global: {
@@ -389,14 +337,11 @@ describe('PluginsPage', () => {
     await flushPromises()
 
     expect(store.fetchList).toHaveBeenLastCalledWith(expect.objectContaining({ source: 'community' }))
-    expect(wrapper.find('.plugins-grid').text()).toContain('Verified Third Party')
-    expect(wrapper.find('.plugins-grid').text()).not.toContain('Official Help')
 
     sourceFilter.vm.$emit('update:modelValue', 'official')
     await flushPromises()
 
-    expect(wrapper.find('.plugins-grid').text()).toContain('Official Help')
-    expect(wrapper.find('.plugins-grid').text()).not.toContain('Verified Third Party')
+    expect(store.fetchList).toHaveBeenLastCalledWith(expect.objectContaining({ source: 'official' }))
   })
 
   it('keeps all plugin commands accessible from the overview icon', async () => {

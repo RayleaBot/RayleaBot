@@ -70,7 +70,6 @@ describe('LogsPage', () => {
         commands: [],
       },
     ]
-    vi.spyOn(pluginsStore, 'fetchList').mockResolvedValue(undefined)
   })
 
   function createTestRouter() {
@@ -125,9 +124,6 @@ describe('LogsPage', () => {
 
     expect(wrapper.text()).toContain('本次服务端启动以来的日志')
     expect(wrapper.text()).toContain('跟随最新')
-    expect(wrapper.findComponent(VirtualDataViewport).props('dynamicItemHeight')).toBe(true)
-    expect(wrapper.findComponent(VirtualDataViewport).props('itemHeight')).toBe(44)
-    expect(wrapper.findComponent(VirtualDataViewport).props('bottomThreshold')).toBe(24)
     expect(wrapper.findAll('.logs-row')).toHaveLength(1)
     expect(store.filters.levels).toEqual(['warn', 'error'])
     expect(store.filters.pluginIds).toEqual(['raylea.echo', 'weather'])

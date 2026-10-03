@@ -4,7 +4,6 @@ const configureApiRuntime = vi.fn()
 const createAppRouter = vi.fn()
 const createApp = vi.fn()
 const createPinia = vi.fn()
-const useUiShellStore = vi.fn()
 const appAvailabilityStoreFactory = vi.fn()
 const watch = vi.fn()
 const sessionStoreFactory = vi.fn()
@@ -21,10 +20,6 @@ vi.mock('@/styles/main.scss', () => ({}))
 
 vi.mock('pinia', () => ({
   createPinia,
-}))
-
-vi.mock('@/stores/ui-shell', () => ({
-  useUiShellStore,
 }))
 
 vi.mock('@/stores/app-availability', () => ({
@@ -87,7 +82,6 @@ describe('web bootstrap', () => {
     })
 
     sessionStoreFactory.mockReturnValue({
-      token: 'fixture-token',
       isAuthenticated: false,
       isBootstrapped: false,
       requiresSetup: false,
@@ -112,8 +106,6 @@ describe('web bootstrap', () => {
       markConnected: vi.fn(),
       markConnectionInterrupted: vi.fn(),
     })
-
-    useUiShellStore.mockReturnValue({})
   })
 
   afterEach(() => {
@@ -137,24 +129,6 @@ describe('web bootstrap', () => {
     expect(sessionStore.handleSessionExpired).toHaveBeenCalledWith()
   })
 
-  it('keeps workspace state when startup detects a connection interruption', async () => {
-    vi.useFakeTimers()
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')))
-    window.history.replaceState({}, '', '/plugins/settings?panel=limits#rate')
-
-    await import('@/main')
-
-    const startupRuntime = configureApiRuntime.mock.calls[0]?.[0]
-    const availabilityStore = appAvailabilityStoreFactory.mock.results[0]?.value
-
-    startupRuntime.onNetworkUnavailable()
-    expect(availabilityStore.markConnectionInterrupted).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(800)
-
-    expect(availabilityStore.markConnectionInterrupted).toHaveBeenCalledOnce()
-    expect(useUiShellStore).not.toHaveBeenCalled()
-  })
-
   it('keeps authenticated startup deep links on the target page', async () => {
     const router = {
       currentRoute: {
@@ -169,7 +143,6 @@ describe('web bootstrap', () => {
       replace: vi.fn(),
     }
     const sessionStore = {
-      token: 'fixture-token',
       isAuthenticated: true,
       isBootstrapped: true,
       requiresSetup: false,
@@ -191,7 +164,6 @@ describe('web bootstrap', () => {
     await import('@/main')
     await flushBootstrap()
 
-    expect(useUiShellStore).not.toHaveBeenCalled()
     expect(router.replace).not.toHaveBeenCalledWith({ name: 'status' })
   })
 
@@ -219,7 +191,6 @@ describe('web bootstrap', () => {
       replace: vi.fn(),
     }
     const sessionStore = {
-      token: null,
       isAuthenticated: false,
       isBootstrapped: false,
       requiresSetup: false,
@@ -257,7 +228,6 @@ describe('web bootstrap', () => {
       replace: vi.fn(),
     }
     const sessionStore = {
-      token: 'fixture-token',
       isAuthenticated: true,
       isBootstrapped: true,
       requiresSetup: false,
@@ -295,7 +265,6 @@ describe('web bootstrap', () => {
     }
 
     const sessionStore = {
-      token: null,
       isAuthenticated: false,
       isBootstrapped: true,
       requiresSetup: false,
@@ -343,7 +312,6 @@ describe('web bootstrap', () => {
       replace: vi.fn(),
     }
     const sessionStore = {
-      token: 'fixture-token',
       isAuthenticated: true,
       isBootstrapped: true,
       requiresSetup: false,
@@ -410,7 +378,6 @@ describe('web bootstrap', () => {
       replace: vi.fn(),
     }
     const sessionStore = {
-      token: 'fixture-token',
       isAuthenticated: true,
       isBootstrapped: true,
       requiresSetup: false,
@@ -478,7 +445,6 @@ describe('web bootstrap', () => {
       replace: vi.fn(),
     }
     const sessionStore = {
-      token: 'fixture-token',
       isAuthenticated: true,
       isBootstrapped: true,
       requiresSetup: false,
@@ -534,7 +500,6 @@ describe('web bootstrap', () => {
     vi.useFakeTimers()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })))
     const sessionStore = {
-      token: 'fixture-token',
       isAuthenticated: true,
       isBootstrapped: true,
       requiresSetup: false,

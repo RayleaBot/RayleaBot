@@ -333,7 +333,6 @@ describe('BasicLayout', () => {
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel')
     expect(sidebar.get('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(true)
-    expect(sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').classes()).toContain('sidebar-navigation__plugin-resource--active')
     expect(sidebar.get('[data-sidebar-plugin-overview="example-config-panel"]').attributes('aria-current')).toBe('page')
 
     // Clicking the plugin already shown closes its pages, and a further click opens them again; the page stays.

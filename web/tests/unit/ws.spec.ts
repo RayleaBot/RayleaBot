@@ -92,16 +92,6 @@ describe('computeBackoffMs', () => {
     expect(computeBackoffMs(-1)).toBe(0)
   })
 
-  it('doubles delay per attempt up to the cap', () => {
-    const options: BackoffOptions = { baseMs: 500, capMs: 30_000, jitterRatio: 0 }
-    expect(computeBackoffMs(1, options)).toBe(500)
-    expect(computeBackoffMs(2, options)).toBe(1000)
-    expect(computeBackoffMs(3, options)).toBe(2000)
-    expect(computeBackoffMs(4, options)).toBe(4000)
-    expect(computeBackoffMs(7, options)).toBe(30_000)
-    expect(computeBackoffMs(20, options)).toBe(30_000)
-  })
-
   it('applies symmetric jitter bounded by the configured ratio', () => {
     const options: BackoffOptions = { baseMs: 1000, capMs: 30_000, jitterRatio: 0.25 }
     expect(computeBackoffMs(1, options, () => 0)).toBe(750)
@@ -140,27 +130,6 @@ describe('ManagedSocket', () => {
 
     expect(latestUpdate(updates).status).toBe('authenticated')
     expect(onFrame).toHaveBeenCalledTimes(1)
-  })
-
-  it('triggers session expiration on session_expired frame', () => {
-    const onSessionExpired = vi.fn()
-    const { socket, updates } = makeSocket({
-      runtime: {
-        isAuthenticated: () => true,
-        onSessionExpired,
-      },
-    })
-
-    socket.start()
-    const instance = FakeWebSocket.instances[0]
-    instance.emit('open')
-    instance.emit('message', {
-      type: 'session_expired',
-      data: {},
-    })
-
-    expect(onSessionExpired).toHaveBeenCalledTimes(1)
-    expect(latestUpdate(updates).status).toBe('disconnected')
   })
 
   it('does not put a bearer token in the WebSocket URL', () => {

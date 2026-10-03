@@ -198,7 +198,7 @@ export function normalizeLogListResponseItems(response: LogListResponse | null |
   return sortLogItemsAsc(response?.items ?? [])
 }
 
-export function getLogIdentityKey(log: LogSummary) {
+function getLogIdentityKey(log: LogSummary) {
   if (log.log_id) {
     return log.log_id
   }
@@ -250,7 +250,7 @@ function sameFilterValues(left: string[], right: string[]) {
 
 // Logs written outside any request carry this reserved request ID (see the log request_id contract).
 // It correlates nothing, so it is neither shown on a row nor offered as a filter for related logs.
-export const SYSTEM_LOG_REQUEST_ID = 'system'
+const SYSTEM_LOG_REQUEST_ID = 'system'
 
 export function correlatedRequestId(requestId?: string | null) {
   return requestId && requestId !== SYSTEM_LOG_REQUEST_ID ? requestId : undefined

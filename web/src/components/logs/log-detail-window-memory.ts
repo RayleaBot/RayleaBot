@@ -21,7 +21,3 @@ export function writeLogDetailWindowPosition(memoryKey: string, position: LogDet
 
   positionMemory.set(memoryKey, { ...position })
 }
-
-export function clearLogDetailWindowPositionMemory() {
-  positionMemory.clear()
-}

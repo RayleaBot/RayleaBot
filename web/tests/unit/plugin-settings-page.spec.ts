@@ -3,7 +3,6 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { notifySuccess } from '@/adapter/feedback'
-import { t } from '@/i18n'
 import PluginSettingsPage from '@/views/plugins/PluginSettingsView.vue'
 import { useConfigStore } from '@/stores/config'
 import { createConfigDocumentFixture } from './config-document.fixture'

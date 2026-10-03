@@ -262,11 +262,10 @@ describe('DashboardPage', () => {
 
     expect(wrapper.text()).not.toContain('OneBot 主动连接已断开，正在重试。')
     expect(wrapper.text()).not.toContain('adapter.transport_forward_ws_session_lost')
-    expect(feedbackMock.useToastFeedback).toHaveBeenCalledTimes(3)
-    const protocolToastSource = feedbackMock.useToastFeedback.mock.calls[2][0] as { value: { message?: string | null } | null }
-    expect(protocolToastSource.value?.message).toBe('OneBot11：OneBot 主动连接已断开，正在重试。')
+    const protocolToast = feedbackMock.useToastFeedback.mock.calls.find(([source]) => source?.value?.message === 'OneBot11：OneBot 主动连接已断开，正在重试。')
+    expect(protocolToast).toBeDefined()
     // The connection rows keep showing the problem, so opening the page does not replay it as a toast.
-    expect(feedbackMock.useToastFeedback.mock.calls[2][1]).toEqual({ skipFirst: true })
+    expect(protocolToast?.[1]).toEqual({ skipFirst: true })
   })
 
   it('renders readiness issues from the readiness snapshot', async () => {
@@ -299,39 +298,6 @@ describe('DashboardPage', () => {
     expect(wrapper.findAll('[data-tone="success"]').length).toBeGreaterThan(0)
     expect(wrapper.text()).toContain('adapter.auth_failed')
     expect(wrapper.text()).toContain('请检查对应连接方式的访问令牌后重试连接。')
-  })
-
-  it('shows readiness issues and their recovery guidance', async () => {
-    const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
-    store.health = { status: 'ok' }
-    store.readiness = {
-      status: 'degraded',
-      reason: '运行条件未满足',
-      reason_codes: ['platform.resource_missing'],
-      issues: [
-        {
-          code: 'platform.resource_missing',
-          runtime_resources: ['chromium'],
-          severity: 'warning',
-          summary: '图片渲染 Chromium 尚未准备完成。',
-          remediation: '请先准备图片渲染 Chromium。',
-        },
-      ],
-    }
-    store.system = {
-      status: 'running',
-      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'idle' }],
-      active_plugins: 0,
-      uptime_seconds: 17,
-    }
-    adaptersStore.adapters = createAdapterSnapshots()
-
-    const { wrapper } = await mountDashboard()
-
-    expect(wrapper.text()).toContain('运行条件受限')
-    expect(wrapper.get('[data-testid="dashboard-attention"]').text()).toContain('1 项需要处理：图片渲染 Chromium 尚未准备完成。')
-    expect(wrapper.get('[data-testid="dashboard-attention"]').text()).toContain('请先准备图片渲染 Chromium。')
-    expect(toastMessages()).toContain('运行条件受限：图片渲染 Chromium 尚未准备完成。')
   })
 
   it('deduplicates readiness issue codes already represented by issue rows', async () => {

@@ -9,7 +9,6 @@ vi.mock('motion-v', () => ({ animate: animateMock, animateMini: animateMiniMock 
 import {
   applyThemeWithMotion,
   navigateWithMotion,
-  runRouteFallbackMotion,
 } from '@/motion/runtime'
 
 function installViewTransitionMock() {
@@ -87,35 +86,6 @@ describe('motion runtime', () => {
 
     expect(transitions[0]?.skipTransition).toHaveBeenCalledOnce()
     transitions.forEach((transition) => transition.resolve())
-  })
-
-  it('uses Motion for Vue for the route fallback and completes through its controls', async () => {
-    const element = document.createElement('div')
-    Object.defineProperty(element, 'animate', { configurable: true, value: vi.fn() })
-    const done = vi.fn()
-    const controls = Object.assign(Promise.resolve(), { cancel: vi.fn() })
-    animateMock.mockReturnValue(controls)
-
-    runRouteFallbackMotion(element, 'enter', 'fade-slide', done)
-    await controls
-
-    expect(animateMock).toHaveBeenCalledWith(
-      element,
-      expect.objectContaining({ opacity: [0.88, 1] }),
-      expect.objectContaining({ duration: 0.2 }),
-    )
-    expect(done).toHaveBeenCalledOnce()
-  })
-
-  it('completes the fallback leave phase immediately so one navigation lasts 200ms', async () => {
-    const element = document.createElement('div')
-    const done = vi.fn()
-
-    runRouteFallbackMotion(element, 'leave', 'fade-slide', done)
-    await Promise.resolve()
-
-    expect(animateMock).not.toHaveBeenCalled()
-    expect(done).toHaveBeenCalledOnce()
   })
 
   it('disables all optional motion for reduced-motion users', async () => {

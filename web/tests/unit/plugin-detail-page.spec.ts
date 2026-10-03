@@ -11,80 +11,8 @@ import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
-import type { ConfigDocument, PluginDetail } from '@/types/api'
-
-function createFixtureConfig(prefixes: string[]): ConfigDocument {
-  return {
-    schema_version: '3',
-    server: { host: '127.0.0.1', port: 8080 },
-    onebot: {
-      reverse_ws: { enabled: false, url: '', access_token: '' },
-      forward_ws: { enabled: false, url: '', access_token: '' },
-      http_api: { enabled: false, url: '', access_token: '' },
-      webhook: { enabled: false, url: '', access_token: '' },
-    },
-    database: { engine: 'sqlite', path: 'data/rayleabot.db' },
-    command: { prefixes },
-    builtin_features: {
-      menu: {
-        commands: ['help', '帮助'],
-        prefixes: [],
-      },
-    },
-    admin: {
-      super_admins: [],
-      session_ttl_days: 7,
-      sliding_renewal: true,
-      max_sessions: 3,
-      login_fail_limit: 5,
-      login_fail_window_seconds: 300,
-    },
-    permission: {
-      default_level: 'everyone',
-    },
-    render: {
-      worker_count: 1,
-      browser_args: ['--disable-gpu'],
-      browser_path: '',
-      timeout_seconds: 30,
-      queue_wait_timeout_seconds: 15,
-      queue_max_length: 32,
-      footer_template: 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}',
-    },
-    scheduler: { timezone: 'Asia/Shanghai' },
-    runtime: {
-      plugin_init_timeout_seconds: 30,
-      plugin_event_timeout_seconds: 60,
-      max_pending_events_per_plugin: 16,
-      max_pending_control_events_per_plugin: 4,
-      stderr_rate_limit_bytes_per_second: 262144,
-      max_concurrent_tasks_per_plugin: 4,
-      plugin_detached_event_timeout_seconds: 900,
-      max_detached_events_per_plugin: 8,
-      crash_backoff_initial_seconds: 2,
-      crash_backoff_max_seconds: 60,
-      shutdown_grace_seconds: 10,
-      ipc_message_max_bytes: 8388608,
-    },
-    storage: { kv_value_max_bytes: 65536, kv_total_limit_mb: 16 },
-    data: {
-      download_cache_retention_days: 15,
-    },
-    log: { level: 'info', retention_days: 7 },
-    message: {
-      rate_limit_per_target: '5/5s',
-    },
-    user: { command_rate_limit: '10/60s', cooldown_reply: true },
-    group: { command_rate_limit: '30/60s' },
-    adapter: {
-      connect_timeout_seconds: 15,
-      reconnect_initial_seconds: 2,
-      reconnect_multiplier: 2,
-      reconnect_max_seconds: 120,
-      reconnect_jitter_ratio: 0.2,
-    },
-  }
-}
+import type { PluginDetail } from '@/types/api'
+import { createConfigDocumentFixture } from './config-document.fixture'
 
 function mockScrollerMetrics(wrapper: ReturnType<typeof mount>, clientHeight: number) {
   const scroller = wrapper.get('.plugin-console-panel .data-viewport__scroller').element as HTMLElement
@@ -235,51 +163,6 @@ describe('PluginDetailPage', () => {
     wrapper.unmount()
   })
 
-  it('uses the protected plugin icon and falls back to the default mark', async () => {
-    const router = createPluginRouter()
-    await router.push('/plugins/weather')
-    await router.isReady()
-
-    const configStore = useConfigStore()
-    const pluginConsoleStore = usePluginConsoleStore()
-    const pluginsStore = usePluginsStore()
-    const detail: PluginDetail = {
-      id: 'weather',
-      name: 'Weather',
-      role: 'community',
-      state: 'running',
-      version: '1.4.2',
-      icon: 'assets/weather.svg',
-      commands: [],
-      help: { groups: [] },
-      command_conflicts: [],
-    }
-    pluginsStore.current = detail
-
-    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
-    vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
-    vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(detail)
-
-    const wrapper = mount(PluginDetailPage, {
-      global: {
-        plugins: [getActivePinia()!, router],
-      },
-    })
-    await flushPromises()
-
-    const identityIcon = wrapper.get('[data-testid="plugin-detail-icon"]')
-    expect(identityIcon.get('img').attributes('src')).toBe('/api/plugins/weather/icon')
-
-    const detailWithoutIcon = { ...detail }
-    delete detailWithoutIcon.icon
-    pluginsStore.current = detailWithoutIcon
-    await nextTick()
-
-    expect(identityIcon.find('img').exists()).toBe(false)
-    expect(identityIcon.find('.raylea-mark').exists()).toBe(true)
-    wrapper.unmount()
-  })
-
   it('renders manifest metadata and reconnects the console stream', async () => {
     const router = createPluginRouter()
     await router.push('/plugins/weather')
@@ -369,7 +252,7 @@ describe('PluginDetailPage', () => {
       message: 'plugin weather command weather delivered group message: 杭州晴',
     })
 
-    configStore.document = createFixtureConfig(['#'])
+    configStore.document = createConfigDocumentFixture((config) => { config.command.prefixes = ['#'] })
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
     const historySpy = vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
@@ -771,7 +654,7 @@ describe('PluginDetailPage', () => {
     await flushPromises()
 
     await vi.waitFor(() => {
-      expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src') ?? '', 'http://127.0.0.1:8080').pathname).toBe('/plugin-ui/example-config-panel/index.html')
+      expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src') ?? '', 'http://127.0.0.1:8080').searchParams.get('page')).toBe('secrets')
     })
 
     await router.push('/plugins/example-config-panel')

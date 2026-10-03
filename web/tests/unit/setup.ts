@@ -1,18 +1,10 @@
-import { config, enableAutoUnmount } from '@vue/test-utils'
+import { enableAutoUnmount } from '@vue/test-utils'
 import { afterEach, beforeEach, vi } from 'vitest'
 
 class ResizeObserverMock {
   observe() {}
   unobserve() {}
   disconnect() {}
-}
-
-config.global.directives = {
-  ...(config.global.directives ?? {}),
-  motion: {
-    mounted() {},
-    updated() {},
-  },
 }
 
 enableAutoUnmount(afterEach)

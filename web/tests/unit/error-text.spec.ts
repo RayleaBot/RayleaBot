@@ -9,23 +9,6 @@ function hasChineseText(value: string) {
 }
 
 describe('error text helpers', () => {
-  it.each([
-    ['platform.task_queue_full', 'errors.platform.task_queue_full'],
-    ['plugin.install_failed', 'errors.plugin.install_failed'],
-    ['plugin.trusted_code_confirmation_required', 'errors.plugin.trusted_code_confirmation_required'],
-    ['plugin.package_resource_limit_exceeded', 'errors.plugin.package_resource_limit_exceeded'],
-    ['plugin.package_unsafe_entry', 'errors.plugin.package_unsafe_entry'],
-    ['plugin.artifact_invalid', 'errors.plugin.artifact_invalid'],
-    ['plugin.platform_mismatch', 'errors.plugin.platform_mismatch'],
-    ['plugin.store_catalog_unavailable', 'errors.plugin.store_catalog_unavailable'],
-    ['plugin.store_release_unavailable', 'errors.plugin.store_release_unavailable'],
-    ['plugin.store_integrity_mismatch', 'errors.plugin.store_integrity_mismatch'],
-  ])('preserves the recovery message for %s through its code', (code, localeKey) => {
-    const codeError = new ApiError('内部中文诊断', 409, code, undefined, { error: '详细诊断' })
-
-    expect(getDisplayErrorMessage(codeError)).toBe(t(localeKey))
-  })
-
   it('says why an install was refused for the RayleaBot version from the structured reason', () => {
     const unknown = new ApiError('无法确认', 409, 'plugin.core_version_incompatible', undefined, { incompatible_reason: 'core_version_unknown', min_core_version: '0.4.0' })
     const tooOld = new ApiError('版本过旧', 409, 'plugin.core_version_incompatible', undefined, { incompatible_reason: 'core_version_too_old', min_core_version: '0.9.0' })

@@ -1,12 +1,8 @@
-import { resolveStatusTone } from '@/lib/status-tone'
 import type {
   ConnectionStatus,
   LogLevel,
   LogProtocol,
-  PluginRole,
   PluginState,
-  ReadinessStatusResponse,
-  SystemStatusResponse,
 } from '@/types/api'
 import { i18n, t } from '@/i18n'
 
@@ -18,20 +14,12 @@ function translated(key: string, raw?: string) {
   return i18n.global.te(key) ? t(key) : fallback(raw)
 }
 
-export function getConnectionChannelLabel(channel: 'events' | 'logs' | 'pluginConsole') {
-  return t(`display.connectionChannels.${channel}`)
-}
-
 export function getConnectionStatusLabel(status?: ConnectionStatus) {
   return status ? t(`display.connectionStatuses.${status}`) : t('display.empty')
 }
 
 export function getPluginStateLabel(status?: PluginState | string) {
   return status ? translated(`display.pluginStates.${status}`, status) : t('display.empty')
-}
-
-export function getPluginRoleLabel(role?: PluginRole) {
-  return role ? translated(`display.pluginRoles.${role}`, role) : t('display.empty')
 }
 
 // Manifests may subscribe to names the host never emits, so an unknown event type has no label.
@@ -73,27 +61,11 @@ export function getLogProtocolLabel(protocol?: LogProtocol | string) {
   return protocol ? translated(`display.logProtocols.${protocol}`, protocol) : t('display.empty')
 }
 
-export function getSystemStatusLabel(status?: SystemStatusResponse['status']) {
-  return status ? translated(`display.systemStatuses.${status}`, status) : t('display.empty')
-}
-
-export function getReadinessStatusLabel(status?: ReadinessStatusResponse['status']) {
-  return status ? translated(`display.readinessStatuses.${status}`, status) : t('display.empty')
-}
-
 export function getAdapterStateLabel(status?: string) {
   return status ? translated(`display.adapterStates.${status}`, status) : t('display.empty')
 }
 
 export type StatusType = 'success' | 'warning' | 'danger' | 'muted'
-
-// Compact indicators have four tones; project the shared semantic palette.
-export function getStatusType(status?: string): StatusType {
-  const tone = resolveStatusTone(status)
-  if (tone === 'neutral') return 'muted'
-  if (tone === 'attention' || tone === 'info') return 'warning'
-  return tone
-}
 
 export function getPluginTrustLabel(level?: string) {
   switch (level) {

@@ -5,6 +5,6 @@ export default defineConfig({
   timeout: 30_000,
   workers: 1,
   // Desktop verification runs at the 16:9 1920x1080 baseline.
-  use: { trace: 'on-first-retry', viewport: { width: 1920, height: 1080 } },
+  use: { viewport: { width: 1920, height: 1080 } },
   projects: [{ name: 'real-server', testMatch: '*.real.spec.ts' }],
 })

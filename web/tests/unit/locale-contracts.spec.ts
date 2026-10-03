@@ -14,7 +14,6 @@ describe('dynamic locale coverage', () => {
     for (const [schema, prefix] of [
       ['PluginState', 'display.pluginStates'],
       ['AdapterState', 'display.adapterStates'],
-      ['ProtocolReadinessStatus', 'display.readinessStatuses'],
     ]) {
       const values = contract.components.schemas[schema].enum
       expect(values.length).toBeGreaterThan(0)
