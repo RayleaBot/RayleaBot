@@ -234,8 +234,6 @@ func normalizeMetaEvent(frame OneBotFrame, observedAt time.Time) (chatevent.Norm
 }
 
 func ClassifyFrame(messageType websocket.MessageType, payload []byte, observedAt time.Time) ClassifiedFrame {
-	payloadPreview := FramePayloadPreview(slices.Clone(payload))
-
 	if messageType != websocket.MessageText && messageType != websocket.MessageBinary {
 		return ClassifiedFrame{
 			Summary: FrameSummary{
@@ -244,7 +242,7 @@ func ClassifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 				ObservedAt: observedAt,
 			},
 			InvalidSummary: "unexpected websocket message type",
-			PayloadPreview: payloadPreview,
+			PayloadPreview: FramePayloadPreview(slices.Clone(payload)),
 		}
 	}
 
@@ -257,7 +255,7 @@ func ClassifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 				ObservedAt: observedAt,
 			},
 			InvalidSummary: summarizeError(err),
-			PayloadPreview: payloadPreview,
+			PayloadPreview: FramePayloadPreview(slices.Clone(payload)),
 		}
 	}
 
@@ -288,7 +286,7 @@ func ClassifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 				},
 				InvalidSummary: "api response echo must be a non-empty string",
 				Frame:          frame,
-				PayloadPreview: payloadPreview,
+				PayloadPreview: FramePayloadPreview(slices.Clone(payload)),
 			}
 		}
 		summary.Category = FrameCategoryAPIResponse
@@ -302,9 +300,8 @@ func ClassifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 	}
 
 	return ClassifiedFrame{
-		Summary:        summary,
-		Frame:          frame,
-		PayloadPreview: payloadPreview,
+		Summary: summary,
+		Frame:   frame,
 	}
 }
 

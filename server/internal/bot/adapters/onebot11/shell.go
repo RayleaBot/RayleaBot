@@ -83,6 +83,8 @@ type Shell struct {
 	// deduplication never queues behind snapshot or connection updates.
 	dedupMu        sync.Mutex
 	recentEventIDs map[string]time.Time
+	recentEvents   eventExpiryQueue
+	dedupLatest    time.Time
 	dedupPrunedAt  time.Time
 	dedupDrops     uint64
 }
@@ -199,21 +201,35 @@ func (s *Shell) isDuplicateEvent(eventID string, observedAt time.Time) bool {
 	defer s.dedupMu.Unlock()
 
 	cutoff := observedAt.Add(-recentEventDedupRetention)
-	// Expired ids are ignored on lookup, so the full sweep only has to keep
-	// the set bounded rather than run on every event.
-	if len(s.recentEventIDs) > recentEventDedupPruneSize || observedAt.Sub(s.dedupPrunedAt) >= recentEventDedupRetention/4 {
-		for key, seenAt := range s.recentEventIDs {
-			if seenAt.Before(cutoff) {
-				delete(s.recentEventIDs, key)
+	prune := len(s.recentEventIDs) > recentEventDedupPruneSize || observedAt.Sub(s.dedupPrunedAt) >= recentEventDedupRetention/4
+	if prune && len(s.recentEventIDs) > 0 && s.dedupLatest.Before(cutoff) {
+		// A quiet connection can discard a whole expired window without
+		// walking the heap on the first message after the pause.
+		s.recentEventIDs = make(map[string]time.Time)
+		s.recentEvents = nil
+		s.dedupLatest = time.Time{}
+	}
+	if prune {
+		for len(s.recentEvents) > 0 && s.recentEvents[0].at.Before(cutoff) {
+			expired := s.recentEvents.pop()
+			if seenAt, ok := s.recentEventIDs[expired.id]; ok && seenAt.Equal(expired.at) {
+				delete(s.recentEventIDs, expired.id)
 			}
 		}
 		s.dedupPrunedAt = observedAt
+	}
+	if cap(s.recentEvents) > 1024 && len(s.recentEvents) < cap(s.recentEvents)/4 {
+		s.recentEvents = append(eventExpiryQueue(nil), s.recentEvents...)
 	}
 	if seenAt, ok := s.recentEventIDs[eventID]; ok && !seenAt.Before(cutoff) {
 		s.dedupDrops++
 		return true
 	}
 	s.recentEventIDs[eventID] = observedAt
+	s.recentEvents.push(eventExpiry{id: eventID, at: observedAt})
+	if observedAt.After(s.dedupLatest) {
+		s.dedupLatest = observedAt
+	}
 	return false
 }
 
@@ -222,6 +238,8 @@ func (s *Shell) resetDedup() {
 	s.dedupMu.Lock()
 	defer s.dedupMu.Unlock()
 	s.recentEventIDs = make(map[string]time.Time)
+	s.recentEvents = nil
+	s.dedupLatest = time.Time{}
 	s.dedupPrunedAt = time.Time{}
 }
 

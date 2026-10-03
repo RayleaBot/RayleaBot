@@ -228,7 +228,7 @@ func groupNameFromPayload(payload map[string]any) string {
 	if groupName := payloadStringValue(payload["group_name"]); groupName != "" {
 		return groupName
 	}
-	onebot := cloneOptionalMap(payload["onebot"])
+	onebot, _ := payload["onebot"].(map[string]any)
 	return payloadStringValue(onebot["group_name"])
 }
 
@@ -265,14 +265,15 @@ func cloneEventValue(value any) any {
 	}
 }
 
+// payload belongs to the enriched event; the input was already deeply cloned.
 func unifiedSenderPayload(payload map[string]any) map[string]any {
 	if len(payload) == 0 {
 		return map[string]any{}
 	}
 
-	sender := cloneOptionalMap(payload["sender"])
-	onebot := cloneOptionalMap(payload["onebot"])
-	onebotSender := cloneOptionalMap(onebot["sender"])
+	sender, _ := payload["sender"].(map[string]any)
+	onebot, _ := payload["onebot"].(map[string]any)
+	onebotSender, _ := onebot["sender"].(map[string]any)
 
 	if len(sender) == 0 {
 		sender = onebotSender
@@ -280,12 +281,10 @@ func unifiedSenderPayload(payload map[string]any) map[string]any {
 		mergeSenderFields(sender, onebotSender)
 	}
 
+	if sender == nil {
+		sender = make(map[string]any)
+	}
 	return sender
-}
-
-func cloneOptionalMap(value any) map[string]any {
-	typed, _ := value.(map[string]any)
-	return cloneEventMap(typed)
 }
 
 func mergeSenderFields(target map[string]any, source map[string]any) {
@@ -315,7 +314,7 @@ func syncSenderPayload(payload map[string]any, sender map[string]any) {
 	}
 
 	payload["sender"] = sender
-	onebot := cloneOptionalMap(payload["onebot"])
+	onebot, _ := payload["onebot"].(map[string]any)
 	if len(onebot) == 0 {
 		onebot = map[string]any{}
 	}

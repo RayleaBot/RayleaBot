@@ -2,7 +2,6 @@ package onebot11
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -185,21 +184,19 @@ func boundIdentityEntries[T any](entries map[string]*T, now time.Time, expiresAt
 			delete(entries, key)
 		}
 	}
-	excess := len(entries) - identityCacheMaxEntries
-	if excess <= 0 {
-		return
-	}
-	type candidate struct {
-		key       string
-		expiresAt time.Time
-	}
-	candidates := make([]candidate, 0, len(entries))
-	for key, entry := range entries {
-		candidates = append(candidates, candidate{key: key, expiresAt: expiresAt(entry)})
-	}
-	sort.Slice(candidates, func(i, j int) bool { return candidates[i].expiresAt.Before(candidates[j].expiresAt) })
-	for _, item := range candidates[:excess] {
-		delete(entries, item.key)
+	// Set adds at most one entry. Selecting the earliest expiry avoids
+	// allocating and sorting all 4097 entries for every new identity.
+	for len(entries) > identityCacheMaxEntries {
+		var oldestKey string
+		var oldest time.Time
+		found := false
+		for key, entry := range entries {
+			at := expiresAt(entry)
+			if !found || at.Before(oldest) {
+				oldestKey, oldest, found = key, at, true
+			}
+		}
+		delete(entries, oldestKey)
 	}
 }
 
@@ -352,14 +349,7 @@ func positiveIDString(value int64) string {
 
 func cachePayloadMap(value any) map[string]any {
 	typed, _ := value.(map[string]any)
-	if len(typed) == 0 {
-		return map[string]any{}
-	}
-	cloned := make(map[string]any, len(typed))
-	for key, item := range typed {
-		cloned[key] = item
-	}
-	return cloned
+	return typed
 }
 
 func cachePayloadString(value any) string {
