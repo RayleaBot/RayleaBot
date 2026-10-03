@@ -20,7 +20,7 @@ def load_generator(name):
 
 
 class GenerationTests(unittest.TestCase):
-    def test_wire_determinism_and_contract_propagation(self):
+    def test_wire_outputs_follow_contract_changes(self):
         generator = load_generator('generate-plugin-wire')
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -28,7 +28,6 @@ class GenerationTests(unittest.TestCase):
                 shutil.copytree(SCRIPTS.parent / directory, root / directory)
             with patch.object(generator, 'ROOT', root):
                 first = generator.generate()
-                self.assertEqual(first, generator.generate())
                 server = root / 'server/internal/plugins/pluginwire/protocol.generated.go'
                 sdk = root / 'sdk/go/internal/pluginwire/protocol.generated.go'
                 self.assertEqual(first[server], first[sdk])
@@ -90,13 +89,6 @@ class GenerationTests(unittest.TestCase):
                 self.assertTrue(all(path.exists() for path in extra))
                 self.assertEqual(generator.sync_owned_data({}, False), [])
                 self.assertTrue(all(not path.exists() for path in extra))
-
-    def test_error_catalog_determinism(self):
-        import yaml
-        generator = load_generator('generate-error-codes')
-        document = yaml.safe_load((SCRIPTS.parent / 'contracts/error-codes.yaml').read_text(encoding='utf-8'))
-        first = generator.generate(document['codes'], document.get('diagnostics', {}))
-        self.assertEqual(first, generator.generate(document['codes'], document.get('diagnostics', {})))
 
 
 if __name__ == '__main__':

@@ -514,13 +514,20 @@ export function resolveCorepackCliPath({
       continue;
     }
     seen.add(key);
-    const candidate = pathApi.join(directory, "node_modules", "corepack", "dist", "corepack.js");
-    if (fileExists(candidate)) {
-      return candidate;
+    const candidates = [pathApi.join(directory, "node_modules", "corepack", "dist", "corepack.js")];
+    if (platform !== "win32") {
+      // A POSIX `npm install -g corepack` keeps the CLI under <prefix>/lib/node_modules
+      // while <prefix>/bin holds node, so probe the lib directory beside each bin directory.
+      candidates.push(pathApi.join(directory, "..", "lib", "node_modules", "corepack", "dist", "corepack.js"));
+    }
+    for (const candidate of candidates) {
+      if (fileExists(candidate)) {
+        return candidate;
+      }
     }
   }
 
-  throw new Error("Corepack CLI was not found in the Node.js directory, PATH, or the user npm directory. Run python scripts/check-toolchain.py for installation guidance.");
+  throw new Error("Corepack CLI was not found in the Node.js directory, PATH, the npm global prefix, or the user npm directory. Run python scripts/check-toolchain.py for installation guidance.");
 }
 
 export function createTrustedChildEnvironment({

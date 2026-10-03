@@ -130,7 +130,7 @@ def license_documents(package_dir: Path, component: str, declared_expression: st
     return "\n\n".join(sections)
 
 
-def components_from_pnpm_payload(payload: dict[str, Any], project_dir: Path, ecosystem: str) -> list[Component]:
+def components_from_pnpm_payload(payload: dict[str, Any], ecosystem: str) -> list[Component]:
     components: dict[tuple[str, str, str], Component] = {}
     for reported_expression, entries in payload.items():
         expression = normalize_license_expression(reported_expression, f"{ecosystem} dependency group")
@@ -184,7 +184,7 @@ def collect_node_components(project_name: str) -> list[Component]:
         raise NoticeGenerationError(f"pnpm returned invalid license JSON for {project_name}: {exc}") from exc
     if not isinstance(payload, dict):
         raise NoticeGenerationError(f"pnpm returned a non-object license report for {project_name}")
-    return components_from_pnpm_payload(payload, project_dir, f"npm:{project_name}")
+    return components_from_pnpm_payload(payload, f"npm:{project_name}")
 
 
 def decode_json_stream(raw: str) -> list[dict[str, Any]]:

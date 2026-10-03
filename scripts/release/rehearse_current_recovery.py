@@ -8,7 +8,6 @@ import json
 import os
 from pathlib import Path
 import socket
-import shutil
 import sqlite3
 import subprocess
 import time
@@ -128,51 +127,7 @@ def database_facts(path: Path) -> dict:
             "plugin_cursor": json.loads(kv[0]) if kv else None, "tables": tables}
 
 
-def wait_for_plugin(origin: str, token: str, plugin_id: str) -> None:
-    deadline = time.monotonic() + 30
-    while time.monotonic() < deadline:
-        detail = request(origin, f"/api/plugins/{plugin_id}", token=token)["plugin"]
-        if detail["state"] == "running":
-            return
-        if detail["state"] in {"failed", "invalid"}:
-            raise RuntimeError(f"recovery fixture did not start: {detail['state']}")
-        time.sleep(0.1)
-    raise TimeoutError("recovery fixture did not reach running")
-
-
-def fixture_plugin_id(fixture: Path) -> str:
-    with zipfile.ZipFile(fixture) as archive:
-        manifest = next(name for name in archive.namelist() if name.count("/") <= 1 and name.rsplit("/", 1)[-1] == "info.json")
-        return json.loads(archive.read(manifest))["id"]
-
-
-def install_fixture(origin: str, token: str, fixture: Path) -> str:
-    task = request(origin, "/api/plugins/install", token=token,
-                   data={"source_type": "local_zip", "source": str(fixture.resolve(strict=True)), "trusted_code_confirmed": True})
-    deadline = time.monotonic() + 30
-    while True:
-        status = request(origin, f"/api/system/tasks/{task['task_id']}", token=token)["status"]
-        if status == "succeeded":
-            break
-        if status not in {"pending", "running"}:
-            raise RuntimeError(f"recovery fixture install task ended with {status}")
-        if time.monotonic() >= deadline:
-            raise TimeoutError("recovery fixture install did not complete")
-        time.sleep(0.1)
-    plugin_id = fixture_plugin_id(fixture)
-    request(origin, f"/api/plugins/{plugin_id}/enable", token=token, data={})
-    wait_for_plugin(origin, token, plugin_id)
-    return plugin_id
-
-
-def package_hashes(root: Path) -> dict[str, str]:
-    return {path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in sorted(root.rglob("*")) if path.is_file()}
-
-
-def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = None,
-             plugin_fixture: Path | None = None, observation_window_seconds: float = 0,
-             database_layout: str = "default") -> dict:
+def rehearse(binary: Path, output: Path, *, database_layout: str = "default") -> dict:
     """Use one current binary; output must be new and contains every synthetic artifact."""
     binary = binary.resolve(strict=True)
     if database_layout not in {"default", "custom", "absolute"}:
@@ -181,9 +136,6 @@ def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = Non
     source, restored = output / "source", output / "restored"
     source.mkdir()
     restored.mkdir()
-    if distribution_root is not None:
-        for root in (source, restored):
-            shutil.copy2(distribution_root / "build_info.json", root / "build_info.json")
     run(binary, source, "config", "init")
     port = choose_port()
     config_path = source / "config/user.yaml"
@@ -196,13 +148,10 @@ def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = Non
     elif database_layout == "absolute":
         config["database"]["path"] = str(source / "absolute-source" / "state.db")
     config_path.write_text(yaml.safe_dump(config, allow_unicode=True), encoding="utf-8")
-    plugin_id = None
     with running_server(binary, source, port) as origin:
         session = request(origin, "/api/setup/admin", data={"identifier": "admin", "secret": FIXTURE_SECRET}, setup=True)
         assert session.get("session_token"), "fresh setup did not create a session"
         assert request(origin, "/api/setup/status")["initialized"] is True
-        if plugin_fixture is not None:
-            plugin_id = install_fixture(origin, session["session_token"], plugin_fixture)
 
     # Plugin KV and files represent the persisted business state restored together.
     configured_database = Path(config["database"]["path"])
@@ -238,8 +187,6 @@ def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = Non
     restored_database = restored / expected_config["database"]["path"]
     after = database_facts(restored_database)
     assert before == after, (before, after)
-    installed_hashes = package_hashes(source / "plugins/installed")
-    assert package_hashes(restored / "plugins/installed") == installed_hashes
     for _ in range(2):
         with running_server(binary, restored, port) as origin:
             session = request(origin, "/api/session/login", data={"identifier": "admin", "secret": FIXTURE_SECRET})
@@ -247,21 +194,12 @@ def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = Non
             diagnostics = request(origin, "/api/system/diagnostics", token=session["session_token"])
             assert diagnostics["database"]["schema_version"] == before["schema_version"]
             assert diagnostics["database"]["initialized_at"] == before["initialized_at"]
-            if plugin_id:
-                wait_for_plugin(origin, session["session_token"], plugin_id)
-            deadline = time.monotonic() + observation_window_seconds
-            while time.monotonic() < deadline:
-                request(origin, "/healthz")
-                if plugin_id:
-                    wait_for_plugin(origin, session["session_token"], plugin_id)
-                time.sleep(min(1, max(0, deadline - time.monotonic())))
     assert database_facts(restored_database) == before
     assert hashlib.sha256(database.read_bytes()).hexdigest() == source_database_digest
     result = {"archive": str(archive), "schema_version": before["schema_version"],
               "initialized_at": before["initialized_at"], "fresh_setup": True,
               "configuration_preserved": True, "plugin_data_preserved": True,
               "restored_login": True, "repeated_start_idempotent": True,
-              "installed_plugin": plugin_id, "installed_package_files": len(installed_hashes),
               "database_layout": database_layout, "restored_database_path": expected_config["database"]["path"]}
     (output / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     return result

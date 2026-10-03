@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 import urllib.error
 import urllib.request
@@ -46,7 +45,6 @@ COLORS = {
     "area_top": "#58a6ff",
     "area_bottom": "#58a6ff33",
     "heat": ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"],
-    "heat_light": ["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"],
 }
 
 
@@ -155,11 +153,6 @@ def build_line_chart(monthly: Dict[str, int]) -> str:
     # Last 12 complete months + current month.
     today = date.today()
     months: List[str] = []
-    for i in range(11, -1, -1):
-        d = today.replace(day=1) - timedelta(days=i * 30)
-        months.append(d.strftime("%Y-%m"))
-    # Recompute from actual month boundaries.
-    months = []
     cursor = today.replace(day=1)
     for _ in range(12):
         months.append(cursor.strftime("%Y-%m"))

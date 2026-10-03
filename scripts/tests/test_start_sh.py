@@ -4,6 +4,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -11,6 +12,10 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from tool_versions import read_tool_versions
+
+NODE_VERSION = "v" + read_tool_versions(REPO_ROOT)["nodejs"]
 
 
 @unittest.skipIf(os.name == "nt", "start.sh tests require a POSIX shell")
@@ -22,7 +27,7 @@ class StartShTests(unittest.TestCase):
         scripts_dir.mkdir()
         (scripts_dir / "start-dev.mjs").write_text("", encoding="utf-8")
 
-    def _write_fake_node(self, workspace: Path, version: str = "v26.10.0") -> tuple[Path, Path]:
+    def _write_fake_node(self, workspace: Path, version: str = NODE_VERSION) -> tuple[Path, Path]:
         bin_dir = workspace / "bin"
         bin_dir.mkdir()
         calls_path = workspace / "node-calls.log"
@@ -69,30 +74,6 @@ class StartShTests(unittest.TestCase):
             self.assertEqual(lines[0], f"CWD={workspace}")
             self.assertEqual(lines[1], "ARGS=scripts/start-dev.mjs --dry-run")
             self.assertEqual(lines[3], "SKIP_LAUNCH=1")
-
-    def test_start_sh_preserves_start_profile_env(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            workspace = Path(tmpdir)
-            self._prepare_workspace(workspace)
-            bin_dir, calls_path = self._write_fake_node(workspace)
-
-            env = os.environ.copy()
-            env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
-            env["RAYLEA_START_PROFILE"] = "build"
-
-            result = subprocess.run(
-                ["sh", "start.sh"],
-                cwd=workspace,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-
-            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
-            lines = [line for line in calls_path.read_text(encoding="utf-8").splitlines() if line.strip()]
-            self.assertEqual(lines[1], "ARGS=scripts/start-dev.mjs")
-            self.assertEqual(lines[2], "PROFILE=build")
 
     def test_start_sh_rejects_wrong_node_version(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

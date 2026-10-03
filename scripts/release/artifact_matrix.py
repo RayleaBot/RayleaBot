@@ -37,4 +37,3 @@ ARTIFACT_MATRIX = {
 }
 
 REQUIRED_PATHS = {name: definition["required_paths"] for name, definition in ARTIFACT_MATRIX.items()}
-SERVER_BINARIES = {name: definition["server_binary"] for name, definition in ARTIFACT_MATRIX.items()}

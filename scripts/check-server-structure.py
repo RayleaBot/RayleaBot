@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -10,7 +9,6 @@ MODULE = "github.com/RayleaBot/RayleaBot/server"
 INTERNAL_PREFIX = MODULE + "/internal/"
 
 DISALLOWED_PACKAGE_DIR_NAMES = {"common", "utils", "helper", "helpers"}
-ALLOWED_GENERIC_PACKAGE_DIRS: set[str] = set()
 
 PACKAGE_DECL_RE = re.compile(r"^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)\b", re.MULTILINE)
 IMPORT_SINGLE_RE = re.compile(r'^\s*import\s+(?:[.\w]+\s+)?"([^"]+)"', re.MULTILINE)
@@ -149,8 +147,6 @@ def check_disallowed_dirs(server_internal: Path, root: Path, errors: list[str]) 
         if not path.is_dir():
             continue
         rel = path.relative_to(root).as_posix()
-        if rel in ALLOWED_GENERIC_PACKAGE_DIRS:
-            continue
         if path.name in DISALLOWED_PACKAGE_DIR_NAMES:
             errors.append(f"{rel} uses a disallowed generic package name")
 

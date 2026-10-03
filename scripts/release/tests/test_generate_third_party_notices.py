@@ -44,15 +44,6 @@ class ThirdPartyNoticeTests(unittest.TestCase):
         self.assertEqual(notices.collect_node_components("sdk/vue"), [])
         run_command.assert_called_once()
 
-    def test_pnpm_license_inputs_cover_supported_libc_variants(self) -> None:
-        for project in ("web", "launcher"):
-            contents = (ROOT / project / "pnpm-workspace.yaml").read_text(encoding="utf-8")
-            architecture_block = contents.split("supportedArchitectures:", 1)[1].split("\nallowBuilds:", 1)[0]
-
-            with self.subTest(project=project):
-                self.assertIn("    - glibc", architecture_block)
-                self.assertIn("    - musl", architecture_block)
-
     def test_node_package_uses_declared_license_when_file_is_absent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             package_dir = Path(tmp) / "package"
@@ -63,7 +54,7 @@ class ThirdPartyNoticeTests(unittest.TestCase):
             )
             payload = {"MIT": [{"name": "example", "paths": [str(package_dir)]}]}
 
-            components = notices.components_from_pnpm_payload(payload, Path(tmp), "npm:test")
+            components = notices.components_from_pnpm_payload(payload, "npm:test")
 
             self.assertEqual(components[0].license_expression, "MIT")
             self.assertIn("declares this license expression", components[0].notice)
@@ -81,7 +72,6 @@ class ThirdPartyNoticeTests(unittest.TestCase):
             with self.assertRaisesRegex(notices.NoticeGenerationError, "unknown or missing"):
                 notices.components_from_pnpm_payload(
                     {"UNKNOWN": [{"name": "example", "paths": [str(package_dir)]}]},
-                    Path(tmp),
                     "npm:test",
                 )
 

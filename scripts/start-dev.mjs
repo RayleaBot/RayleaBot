@@ -5,7 +5,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { createBuildCache, createGoInputRegistry, fingerprint, treeInputs, writeIfChanged, goInputTemplate, parseGoInputs } from "./dev-build-cache.mjs";
+import { createBuildCache, createGoInputRegistry, fingerprint, treeInputs, goInputTemplate, parseGoInputs } from "./dev-build-cache.mjs";
 import { developmentRequest, synchronizeDevelopmentPlugin } from "./development-client.mjs";
 import { redactLogLine } from "./log-redaction.mjs";
 import { createDevChildOutput, createDevConsole } from "./dev-console.mjs";

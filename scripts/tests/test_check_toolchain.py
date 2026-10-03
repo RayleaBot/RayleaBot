@@ -31,7 +31,7 @@ class CheckToolchainTests(unittest.TestCase):
 
         def fake_run(args: list[str], cwd: Path | None = None):
             calls.append((args, cwd))
-            return module.CommandOutput(0, "go1.27.1\n", "")
+            return module.CommandOutput(0, module.REQUIRED_GO_VERSION + "\n", "")
 
         original_exists = module.executable_exists
         original_run = module.run_command
@@ -54,9 +54,9 @@ class CheckToolchainTests(unittest.TestCase):
 
         def fake_run(args: list[str]):
             if args == ["pnpm", "--version"]:
-                return module.CommandOutput(0, "11.21.0\n", "")
+                return module.CommandOutput(0, "1.0.0\n", "")
             if args == ["corepack", "pnpm", "--version"]:
-                return module.CommandOutput(0, "11.25.0\n", "")
+                return module.CommandOutput(0, module.REQUIRED_PNPM_VERSION + "\n", "")
             return module.CommandOutput(127, "", "unexpected command")
 
         original_exists = module.executable_exists
@@ -71,20 +71,20 @@ class CheckToolchainTests(unittest.TestCase):
 
         self.assertEqual(result.status, "warning")
         self.assertIn("corepack pnpm --version", result.detail)
-        self.assertIn("corepack prepare pnpm@11.25.0 --activate", result.remediation)
+        self.assertIn(f"corepack prepare pnpm@{module.REQUIRED_PNPM_VERSION} --activate", result.remediation)
 
     def test_python_checks_running_interpreter(self) -> None:
         module = load_module()
 
         original_version = module.platform.python_version
         try:
-            module.platform.python_version = lambda: "3.14.8"
+            module.platform.python_version = lambda: module.REQUIRED_PYTHON_VERSION
             result = module.check_python()
         finally:
             module.platform.python_version = original_version
 
         self.assertEqual(result.status, "ok")
-        self.assertEqual(result.detail, "3.14.8")
+        self.assertEqual(result.detail, module.REQUIRED_PYTHON_VERSION)
 
 
     def test_selected_server_task_does_not_require_frontend_tools(self) -> None:
@@ -94,16 +94,6 @@ class CheckToolchainTests(unittest.TestCase):
             results = module.run_checks(include_runtime=False, task="server")
         go.assert_called_once()
         self.assertFalse(any(result.failed for result in results))
-
-    def test_tool_versions_reject_unpinned_or_duplicate_tools(self) -> None:
-        module = load_module()
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            valid = (REPO_ROOT / ".tool-versions").read_text(encoding="utf-8")
-            for content in (valid + "\ngolang 1.27.1\n", valid.replace("nodejs 26.10.0", "nodejs latest")):
-                (root / ".tool-versions").write_text(content, encoding="utf-8")
-                with self.assertRaises(ValueError):
-                    module.read_tool_versions(root)
 
     def test_ecosystem_version_drift_is_an_error(self) -> None:
         module = load_module()

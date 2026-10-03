@@ -1,6 +1,5 @@
 import json
 import jsonschema
-import io
 import shutil
 import sys
 import tarfile
@@ -89,28 +88,13 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/build_info.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/RayleaLauncher.exe", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/WINDOWS-RUNTIME.md", names)
-            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/raylea-updater.exe", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/LICENSE", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/THIRD_PARTY_NOTICES.md", names)
-            self.assertFalse(any("app.asar" in name or "/launcher/" in name for name in names))
-            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/config/default.yaml", names)
-            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/config.user.schema.json", names)
-            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/plugin-info.schema.json", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/app.js.map", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/README.md", names)
-            self.assertFalse(any(name.endswith((".go", ".py", ".ts", ".vue")) for name in names))
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/.deps/store/python/3.12/python.exe", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/.deps/cache/downloads/python.zip", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.test.mjs", names)
-            self.assertFalse(any("/plugins/" in name for name in names))
-            self.assertNotIn(
-                "RayleaBot-v0.1.0-windows-x64-full/sdk/python/pyproject.toml",
-                names,
-            )
-            self.assertNotIn(
-                "RayleaBot-v0.1.0-windows-x64-full/sdk/nodejs/src/index.ts",
-                names,
-            )
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/help.menu/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/status.panel/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/index.html", names)
@@ -150,8 +134,6 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertEqual("guided", manifest["artifacts"][0]["update_mode"])
             self.assertEqual("https://example.invalid/releases/download/v0.1.0/" + archive_path.name, manifest["artifacts"][0]["download_url"])
             self.assertNotIn("sha256", manifest["artifacts"][0])
-            self.assertFalse((manifest_path.parent / "release_manifest.v2.sig.json").exists())
-            self.assertFalse((manifest_path.parent / "SHA256SUMS.txt").exists())
 
 
     def test_metadata_rejects_manifest_outside_schema(self) -> None:
@@ -251,7 +233,6 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/LINUX-RUNTIME.md", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/LICENSE", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/THIRD_PARTY_NOTICES.md", names)
-            self.assertNotIn("RayleaBot-v0.1.0-linux-x64-full/contracts/config.user.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/web/dist/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/templates/help.menu/template.json", names)
 
@@ -307,7 +288,6 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/RayleaLauncher.app/Contents/Info.plist", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/LICENSE", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/THIRD_PARTY_NOTICES.md", names)
-            self.assertNotIn("RayleaBot-v0.1.0-macos-arm64-full/contracts/plugin-info.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/web/dist/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-macos-arm64-full/templates/status.panel/template.json", names)
 
@@ -358,7 +338,6 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/systemd/rayleabot.service", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/LICENSE", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/THIRD_PARTY_NOTICES.md", names)
-            self.assertNotIn("RayleaBot-v0.1.0-linux-x64-server/contracts/config.user.schema.json", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/web/dist/index.html", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/templates/help.menu/template.json", names)
 

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import http from "node:http";
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -23,14 +22,12 @@ import {
   createTrustedChildEnvironment,
   createLauncherGoArgs,
   describeCommandFailure,
-  formatUTCLogDate,
   loadStartEnvironmentFile,
   isDependencyInstallComplete,
   isProcessRunning,
   removeDependencyInstallState,
   parseDevelopmentServerLease,
   parseBackendEndpointFromConfigText,
-  resolveDatedLogPath,
   resolveBackendBaseUrl,
   resolveCorepackCliPath,
   resolveInstallMode,
@@ -65,30 +62,6 @@ test("loads the optional root environment file", () => {
       throw Object.assign(new Error("denied"), { code: "EACCES" });
     },
   }), /denied/);
-});
-
-test("formats UTC log dates", () => {
-  assert.equal(formatUTCLogDate(new Date(Date.UTC(2026, 5, 3, 12, 0, 0))), "2026-06-03");
-});
-
-test("resolves dated dev log paths by type", () => {
-  const rootDir = path.join("C:", "RayleaBot");
-  const date = new Date(Date.UTC(2026, 5, 13, 12, 0, 0));
-
-  assert.deepEqual(
-    ["server", "web", "launcher", "start"].map((type) => resolveDatedLogPath({
-      rootDir,
-      scope: "dev",
-      type,
-      date,
-    })),
-    [
-      path.join(rootDir, "logs", "dev", "server", "2026-06-13.log"),
-      path.join(rootDir, "logs", "dev", "web", "2026-06-13.log"),
-      path.join(rootDir, "logs", "dev", "launcher", "2026-06-13.log"),
-      path.join(rootDir, "logs", "dev", "start", "2026-06-13.log"),
-    ],
-  );
 });
 
 test("resolves start profile", () => {
@@ -360,6 +333,34 @@ test("does not resolve a Windows user Corepack installation from a relative APPD
   }), /Corepack CLI was not found/);
 });
 
+test("finds Corepack in the POSIX npm global prefix beside the Node and PATH bin directories", () => {
+  const nodeCorepack = "/opt/node/lib/node_modules/corepack/dist/corepack.js";
+  assert.equal(resolveCorepackCliPath({
+    nodeExecutablePath: "/opt/node/bin/node",
+    env: { PATH: "/usr/local/bin:/usr/bin" },
+    platform: "linux",
+    fileExists: (candidate) => candidate === nodeCorepack,
+  }), nodeCorepack);
+
+  const pathCorepack = "/usr/local/lib/node_modules/corepack/dist/corepack.js";
+  assert.equal(resolveCorepackCliPath({
+    nodeExecutablePath: "/opt/node/bin/node",
+    env: { PATH: "/usr/local/bin:/usr/bin" },
+    platform: "darwin",
+    fileExists: (candidate) => candidate === pathCorepack,
+  }), pathCorepack);
+});
+
+test("keeps the Windows Corepack lookup beside node_modules only", () => {
+  const libCorepack = String.raw`D:\toolchain\lib\node_modules\corepack\dist\corepack.js`;
+  assert.throws(() => resolveCorepackCliPath({
+    nodeExecutablePath: String.raw`D:\toolchain\bin\node.exe`,
+    env: { PATH: "" },
+    platform: "win32",
+    fileExists: (candidate) => candidate === libCorepack,
+  }), /Corepack CLI was not found/);
+});
+
 test("creates a minimal child environment with the selected Node and Go executables", () => {
   const nodeDirectory = String.raw`C:\toolchains\node-v26.7.0-win-x64`;
   const goDirectory = String.raw`D:\toolchains\Go\bin`;
@@ -536,18 +537,6 @@ test("checks transitive packages and command entrypoints while ignoring excluded
   assert.equal(await isDependencyInstallComplete(projectDir), false);
 });
 
-test("extends server readiness while runtime preparation reports progress", () => {
-  let current = 0;
-  const watch = createServerReadinessWatch({
-    timeoutMs: 30_000, prepareStallMs: 120_000, prepareMaxMs: 300_000, now: () => current,
-  });
-
-  assert.equal(watch.hasExpired(), false);
-  current = 30_000;
-  assert.equal(watch.hasExpired(), true);
-  assert.equal(watch.isPreparing(), false);
-});
-
 test("waits through server runtime preparation but not past a stall or the cap", () => {
   let current = 0;
   const watch = createServerReadinessWatch({
@@ -556,6 +545,11 @@ test("waits through server runtime preparation but not past a stall or the cap",
 
   assert.equal(watch.observe("server: preparing"), false);
   assert.equal(watch.isPreparing(), false);
+  current = 29_999;
+  assert.equal(watch.hasExpired(), false);
+  current = 30_000;
+  assert.equal(watch.hasExpired(), true);
+  current = 0;
   assert.equal(watch.observe('{"component":"runtime_prepare","stage":"download"}'), true);
   assert.equal(watch.isPreparing(), true);
 
