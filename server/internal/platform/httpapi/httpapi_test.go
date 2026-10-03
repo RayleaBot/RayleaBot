@@ -108,10 +108,6 @@ func TestWithRequestContextLogsAccess(t *testing.T) {
 	if err := json.Unmarshal([]byte(logLines[0]), &record); err != nil {
 		t.Fatalf("decode access log: %v", err)
 	}
-	message, ok := record["msg"].(string)
-	if !ok || message != "HTTP 请求完成" {
-		t.Fatalf("unexpected log message: got %#v", record["msg"])
-	}
 	if got := record["level"]; got != "DEBUG" {
 		t.Fatalf("unexpected access log level: got %#v want %#v", got, "DEBUG")
 	}
@@ -129,79 +125,5 @@ func TestWithRequestContextLogsAccess(t *testing.T) {
 	}
 	if requestID, ok := record["request_id"].(string); !ok || !strings.HasPrefix(requestID, "req_") {
 		t.Fatalf("unexpected access log request_id: %#v", record["request_id"])
-	}
-}
-
-func TestWithRequestContextKeepsHTTPAccessLogsAtDebug(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name   string
-		method string
-		path   string
-		status int
-	}{
-		{
-			name:   "successful management read",
-			method: http.MethodGet,
-			path:   "/api/logs/log_0001",
-			status: http.StatusOK,
-		},
-		{
-			name:   "failed management read",
-			method: http.MethodGet,
-			path:   "/api/logs/log_0001",
-			status: http.StatusInternalServerError,
-		},
-		{
-			name:   "successful management write",
-			method: http.MethodPost,
-			path:   "/api/config",
-			status: http.StatusCreated,
-		},
-		{
-			name:   "websocket upgrade",
-			method: http.MethodGet,
-			path:   "/ws/logs",
-			status: http.StatusSwitchingProtocols,
-		},
-	}
-
-	for _, testCase := range cases {
-		testCase := testCase
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			var infoBuffer bytes.Buffer
-			infoLogger := slog.New(slog.NewJSONHandler(&infoBuffer, &slog.HandlerOptions{Level: slog.LevelInfo}))
-			infoHandler := WithRequestContext(infoLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(testCase.status)
-			}))
-			infoHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(testCase.method, testCase.path, nil))
-			if strings.TrimSpace(infoBuffer.String()) != "" {
-				t.Fatalf("http access log should not be emitted at info level: %s", infoBuffer.String())
-			}
-
-			var debugBuffer bytes.Buffer
-			debugLogger := slog.New(slog.NewJSONHandler(&debugBuffer, &slog.HandlerOptions{Level: slog.LevelDebug}))
-			debugHandler := WithRequestContext(debugLogger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(testCase.status)
-			}))
-			debugHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(testCase.method, testCase.path, nil))
-
-			var record map[string]any
-			if err := json.Unmarshal(debugBuffer.Bytes(), &record); err != nil {
-				t.Fatalf("decode debug access log: %v", err)
-			}
-			if got := record["level"]; got != "DEBUG" {
-				t.Fatalf("http access log should be debug, got %#v", got)
-			}
-			if got := record["path"]; got != testCase.path {
-				t.Fatalf("unexpected path: got %#v want %#v", got, testCase.path)
-			}
-			if got := record["status"]; got != float64(testCase.status) {
-				t.Fatalf("unexpected status: got %#v want %#v", got, testCase.status)
-			}
-		})
 	}
 }

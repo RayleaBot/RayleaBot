@@ -112,45 +112,6 @@ func TestSystemSchedulerJobListHTTP(t *testing.T) {
 	}
 }
 
-func TestSystemSchedulerJobListHTTPEmpty(t *testing.T) {
-	t.Parallel()
-
-	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
-	if err != nil {
-		t.Fatalf("storage.Open: %v", err)
-	}
-	t.Cleanup(func() { _ = store.Close() })
-	repo, err := scheduler.NewSQLiteRepository(store)
-	if err != nil {
-		t.Fatalf("scheduler.NewSQLiteRepository: %v", err)
-	}
-	engine, err := scheduler.New(scheduler.Options{
-		Repository: repo,
-		Logger:     slog.Default(),
-		Timezone:   "Asia/Shanghai",
-	})
-	if err != nil {
-		t.Fatalf("scheduler.New: %v", err)
-	}
-
-	handler := newSchedulerTestHandlers(t, nil, engine).HandleSystemSchedulerJobList()
-	req := httptest.NewRequest(http.MethodGet, "/api/system/scheduler/jobs", nil)
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
-	}
-	var response scheduler.JobList
-	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if len(response.Items) != 0 {
-		t.Fatalf("len(items) = %d, want 0", len(response.Items))
-	}
-}
-
 func TestSystemSchedulerJobTriggerHTTP(t *testing.T) {
 	t.Parallel()
 
@@ -179,9 +140,9 @@ func TestSystemSchedulerJobTriggerHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scheduler.New: %v", err)
 	}
-	job, err := engine.UpsertTask(context.Background(), "raylea.subscription-hub", "subscription-hub-poll", "*/5 * * * *", nil)
+	job, err := engine.UpsertTaskWithLabel(context.Background(), "raylea.subscription-hub", "subscription-hub-poll", "", "*/5 * * * *", nil)
 	if err != nil {
-		t.Fatalf("UpsertTask: %v", err)
+		t.Fatalf("UpsertTaskWithLabel: %v", err)
 	}
 
 	handler := newSchedulerTestHandlers(t, nil, engine).HandleSystemSchedulerJobTrigger()
@@ -237,8 +198,8 @@ func TestSystemSchedulerJobTriggerHTTPDetachesRequestCancellation(t *testing.T) 
 	if err != nil {
 		t.Fatalf("scheduler.New: %v", err)
 	}
-	if _, err := engine.UpsertTask(context.Background(), "weather", "daily_report", "0 8 * * *", nil); err != nil {
-		t.Fatalf("UpsertTask: %v", err)
+	if _, err := engine.UpsertTaskWithLabel(context.Background(), "weather", "daily_report", "", "0 8 * * *", nil); err != nil {
+		t.Fatalf("UpsertTaskWithLabel: %v", err)
 	}
 
 	handler := newSchedulerTestHandlers(t, nil, engine).HandleSystemSchedulerJobTrigger()

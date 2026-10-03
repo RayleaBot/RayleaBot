@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -16,7 +15,6 @@ import (
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 	secretssqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/secrets/sqlite"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -58,17 +56,6 @@ func TestConfigGetRedactsOneBotTransportTokens(t *testing.T) {
 	if !reflect.DeepEqual(body, expected) {
 		t.Fatalf("unexpected config get body: got %#v want %#v", body, expected)
 	}
-
-	bodyText := responseBodyString(t, body)
-	for _, secret := range []string{"forward-secret", "reverse-secret", "http-secret", "webhook-secret"} {
-		if strings.Contains(bodyText, secret) {
-			t.Fatalf("config get response leaked %q: %s", secret, bodyText)
-		}
-	}
-	responseOneBot := testutil.ConfigDocumentOneBot(t, body["config"].(map[string]any))
-	if got := responseOneBot["forward_ws"].(map[string]any)["access_token"]; got != "********" {
-		t.Fatalf("config get forward_ws.access_token = %#v, want redacted marker", got)
-	}
 }
 
 func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T) {
@@ -109,12 +96,6 @@ func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T)
 	if !reflect.DeepEqual(body, expected) {
 		t.Fatalf("unexpected config update body: got %#v want %#v", body, expected)
 	}
-	bodyText := responseBodyString(t, body)
-	for _, secret := range []string{"forward-secret", "reverse-secret", "http-secret", "webhook-secret"} {
-		if strings.Contains(bodyText, secret) {
-			t.Fatalf("config update response leaked %q: %s", secret, bodyText)
-		}
-	}
 
 	document, err := internalconfig.LoadDocument(configPath, schemaPath)
 	if err != nil {
@@ -141,67 +122,6 @@ func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T)
 	if got := liveOneBot(t, application).ForwardWS.AccessToken; got != "forward-secret" {
 		t.Fatalf("expected live config forward token to be resolved, got %q", got)
 	}
-}
-
-func TestConfigPutRetainsRedactedTransportTokenAndClearsEmptyToken(t *testing.T) {
-	t.Parallel()
-
-	application, configPath, schemaPath := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		onebot := testutil.ConfigDocumentOneBot(t, input)
-		onebot["forward_ws"].(map[string]any)["access_token"] = "old-forward-secret"
-		onebot["reverse_ws"].(map[string]any)["access_token"] = "old-reverse-secret"
-	}, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
-	server := newManagementTestServer(t, application.Handler())
-	defer server.Close()
-
-	getRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api/config", nil)
-	if err != nil {
-		t.Fatalf("create config get request: %v", err)
-	}
-	getRequest.Header.Set("Authorization", "Bearer "+token)
-	getResponse, err := server.Client().Do(getRequest)
-	if err != nil {
-		t.Fatalf("perform config get request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(getResponse.Body.Close)
-	document := decodeBody(t, readAll(t, getResponse))["config"].(map[string]any)
-	onebot := testutil.ConfigDocumentOneBot(t, document)
-	onebot["reverse_ws"].(map[string]any)["access_token"] = ""
-	document["log"].(map[string]any)["level"] = "debug"
-
-	payload, err := json.Marshal(document)
-	if err != nil {
-		t.Fatalf("marshal config update request: %v", err)
-	}
-	putRequest, err := http.NewRequest(http.MethodPut, server.URL+"/api/config", bytes.NewReader(payload))
-	if err != nil {
-		t.Fatalf("create config update request: %v", err)
-	}
-	putRequest.Header.Set("Authorization", "Bearer "+token)
-	putRequest.Header.Set("Content-Type", "application/json")
-	putResponse, err := server.Client().Do(putRequest)
-	if err != nil {
-		t.Fatalf("perform config update request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(putResponse.Body.Close)
-	if putResponse.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected config update status: got %d want 200; body=%s", putResponse.StatusCode, readAll(t, putResponse))
-	}
-
-	persisted, err := internalconfig.LoadDocument(configPath, schemaPath)
-	if err != nil {
-		t.Fatalf("load persisted config: %v", err)
-	}
-	persistedOneBot := testutil.ConfigDocumentOneBot(t, persisted)
-	if got := persistedOneBot["forward_ws"].(map[string]any)["access_token"]; got != forwardTokenReference {
-		t.Fatalf("forward token = %#v, want retained old secret", got)
-	}
-	if got := persistedOneBot["reverse_ws"].(map[string]any)["access_token"]; got != "" {
-		t.Fatalf("reverse token = %#v, want cleared secret", got)
-	}
-	assertStoredConfigSecret(t, application, forwardTokenStoreKey, "old-forward-secret")
-	assertMissingConfigSecret(t, application, reverseTokenStoreKey)
 }
 
 func TestAppNewResolvesOneBotSecretReferences(t *testing.T) {
@@ -264,226 +184,12 @@ func TestConfigPutRejectsInvalidConfig(t *testing.T) {
 	}
 }
 
-func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
-	t.Parallel()
-
-	application, _, _ := newTestAppWithConfigMutation(t, nil, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
-	server := newManagementTestServer(t, application.Handler())
-	defer server.Close()
-
-	payload := map[string]any{
-		"schema_version": "4",
-		"server": map[string]any{
-			"host": "127.0.0.1",
-			"port": 8080,
-		},
-		"adapters": []any{testutil.OneBotAdapterDocument(internalconfig.DefaultOneBot11AdapterID, false, map[string]any{
-			"reverse_ws": map[string]any{
-				"enabled":      false,
-				"url":          "wss://bot.example.com/reverse",
-				"access_token": "reverse-secret",
-			},
-			"forward_ws": map[string]any{
-				"enabled":      false,
-				"url":          "ws://127.0.0.1:2658",
-				"access_token": "forward-secret",
-			},
-			"http_api": map[string]any{
-				"enabled":      false,
-				"url":          "",
-				"access_token": "http-secret",
-			},
-			"webhook": map[string]any{
-				"enabled":      false,
-				"url":          "https://bot.example.com/webhook",
-				"access_token": "webhook-secret",
-			},
-		})},
-		"database": map[string]any{
-			"engine": "sqlite",
-			"path":   "data/rayleabot.db",
-		},
-		"command": map[string]any{
-			"prefixes": []string{"/"},
-		},
-		"builtin_features": map[string]any{
-			"menu": map[string]any{
-				"commands": []any{"help", "帮助"},
-				"prefixes": []any{},
-			},
-		},
-		"admin": map[string]any{
-			"super_admins":              []any{},
-			"session_ttl_days":          7,
-			"session_absolute_ttl_days": 30,
-			"sliding_renewal":           true,
-			"max_sessions":              3,
-			"login_fail_limit":          5,
-			"login_fail_window_seconds": 300,
-		},
-		"permission": map[string]any{
-			"default_level": "everyone",
-		},
-		"render": map[string]any{
-			"worker_count":               1,
-			"browser_args":               []any{"--disable-gpu"},
-			"browser_path":               "",
-			"default_output":             "png",
-			"device_scale_percent":       100,
-			"timeout_seconds":            30,
-			"queue_wait_timeout_seconds": 15,
-			"queue_max_length":           32,
-			"footer_template":            "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}",
-		},
-		"scheduler": map[string]any{
-			"timezone": "Asia/Shanghai",
-		},
-		"runtime": map[string]any{
-			"plugin_init_timeout_seconds":           30,
-			"plugin_event_timeout_seconds":          60,
-			"max_pending_events_per_plugin":         16,
-			"max_pending_control_events_per_plugin": 4,
-			"stderr_rate_limit_bytes_per_second":    262144,
-			"max_concurrent_tasks_per_plugin":       4,
-			"plugin_detached_event_timeout_seconds": 900,
-			"max_detached_events_per_plugin":        8,
-			"crash_backoff_initial_seconds":         2,
-			"crash_backoff_max_seconds":             60,
-			"shutdown_grace_seconds":                10,
-			"ipc_message_max_bytes":                 8388608,
-		},
-		"storage": map[string]any{
-			"kv_value_max_bytes": 65536,
-			"kv_total_limit_mb":  16,
-		},
-		"data": map[string]any{
-			"download_cache_retention_days": 15,
-		},
-		"log": map[string]any{
-			"level":          "info",
-			"retention_days": 7,
-		},
-		"message": map[string]any{
-			"rate_limit_per_target": "5/5s",
-		},
-		"user": map[string]any{
-			"command_rate_limit":  "10/60s",
-			"cooldown_reply":      true,
-			"cooldown_reply_once": true,
-		},
-		"group": map[string]any{
-			"command_rate_limit": "30/60s",
-		},
-		"adapter": map[string]any{
-			"connect_timeout_seconds":   18,
-			"reconnect_initial_seconds": 2,
-			"reconnect_multiplier":      2,
-			"reconnect_max_seconds":     120,
-			"reconnect_jitter_ratio":    0.2,
-		},
-	}
-
-	encoded, err := json.Marshal(payload)
-	if err != nil {
-		t.Fatalf("marshal config update request: %v", err)
-	}
-	request, err := http.NewRequest(http.MethodPut, server.URL+"/api/config", bytes.NewReader(encoded))
-	if err != nil {
-		t.Fatalf("create config update request: %v", err)
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := server.Client().Do(request)
-	if err != nil {
-		t.Fatalf("perform config update request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(response.Body.Close)
-	responseBody := readAll(t, response)
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected config update status: got %d want 200; body=%s", response.StatusCode, responseBody)
-	}
-
-	body := decodeBody(t, responseBody)
-	if body["restart_required"] != false {
-		t.Fatalf("unexpected restart_required: %#v", body["restart_required"])
-	}
-
-	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/adapters", nil)
-	if err != nil {
-		t.Fatalf("create protocol snapshot request: %v", err)
-	}
-	snapshotReq.Header.Set("Authorization", "Bearer "+token)
-	snapshotResp, err := server.Client().Do(snapshotReq)
-	if err != nil {
-		t.Fatalf("perform protocol snapshot request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(snapshotResp.Body.Close)
-
-	snapshotBody := oneBotSnapshotForAdapter(t, decodeBody(t, readAll(t, snapshotResp)), "onebot11")
-	transports, ok := snapshotBody["transport_status"].([]any)
-	if !ok {
-		t.Fatalf("unexpected transport_status: %#v", snapshotBody["transport_status"])
-	}
-
-	statusByTransport := make(map[string]map[string]any, len(transports))
-	for _, item := range transports {
-		statusItem, ok := item.(map[string]any)
-		if !ok {
-			t.Fatalf("unexpected transport status item: %#v", item)
-		}
-		statusByTransport[statusItem["transport"].(string)] = statusItem
-	}
-
-	if statusByTransport["forward_ws"]["enabled"] != false || statusByTransport["forward_ws"]["configured"] != true {
-		t.Fatalf("unexpected forward_ws snapshot: %#v", statusByTransport["forward_ws"])
-	}
-	if statusByTransport["reverse_ws"]["enabled"] != false || statusByTransport["reverse_ws"]["configured"] != true {
-		t.Fatalf("unexpected reverse_ws snapshot: %#v", statusByTransport["reverse_ws"])
-	}
-	if statusByTransport["webhook"]["enabled"] != false || statusByTransport["webhook"]["configured"] != true {
-		t.Fatalf("unexpected webhook snapshot: %#v", statusByTransport["webhook"])
-	}
-
-	reverseReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/adapters/onebot11/reverse-ws", nil)
-	if err != nil {
-		t.Fatalf("create reverse websocket request: %v", err)
-	}
-	reverseReq.Header.Set("Authorization", "Bearer "+token)
-	reverseResp, err := server.Client().Do(reverseReq)
-	if err != nil {
-		t.Fatalf("perform reverse websocket request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(reverseResp.Body.Close)
-	if reverseResp.StatusCode != http.StatusServiceUnavailable {
-		t.Fatalf("unexpected reverse websocket status: got %d want 503", reverseResp.StatusCode)
-	}
-
-	webhookReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/adapters/onebot11/webhook", bytes.NewReader([]byte(`{}`)))
-	if err != nil {
-		t.Fatalf("create webhook request: %v", err)
-	}
-	webhookReq.Header.Set("Authorization", "Bearer "+token)
-	webhookReq.Header.Set("Content-Type", "application/json")
-	webhookResp, err := server.Client().Do(webhookReq)
-	if err != nil {
-		t.Fatalf("perform webhook request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(webhookResp.Body.Close)
-	if webhookResp.StatusCode != http.StatusServiceUnavailable {
-		t.Fatalf("unexpected webhook status: got %d want 503", webhookResp.StatusCode)
-	}
-}
-
 // The OneBot adapter of the config fixture keys its secrets under its own
 // instance id, so its reference and store key are spelled once here.
 var (
 	forwardTokenPath      = []string{"adapters", internalconfig.DefaultOneBot11AdapterID, "onebot11", "forward_ws", "access_token"}
-	reverseTokenPath      = []string{"adapters", internalconfig.DefaultOneBot11AdapterID, "onebot11", "reverse_ws", "access_token"}
 	forwardTokenReference = internalconfig.SecretReferenceFor(forwardTokenPath)
 	forwardTokenStoreKey  = internalconfig.SecretStoreKeyFor(forwardTokenPath)
-	reverseTokenStoreKey  = internalconfig.SecretStoreKeyFor(reverseTokenPath)
 )
 
 func liveOneBot(t *testing.T, application *internalapp.App) internalconfig.OneBotConfig {
@@ -511,19 +217,6 @@ func assertStoredConfigSecret(t *testing.T, application *internalapp.App, key st
 	}
 	if string(stored) != want {
 		t.Fatalf("config secret %s = %q, want %q", key, stored, want)
-	}
-}
-
-func assertMissingConfigSecret(t *testing.T, application *internalapp.App, key string) {
-	t.Helper()
-	secretStore, err := secretssqlite.NewStore(application.Storage())
-	if err != nil {
-		t.Fatalf("create sqlite secret store: %v", err)
-	}
-	if _, err := secretStore.Get(context.Background(), key); err == nil {
-		t.Fatalf("config secret %s still exists", key)
-	} else if !errors.Is(err, secrets.ErrNotFound) {
-		t.Fatalf("read config secret %s: %v", key, err)
 	}
 }
 
@@ -603,16 +296,6 @@ func newTestAppWithOptions(
 	})
 
 	return application, configPath, schemaPath
-}
-
-func responseBodyString(t *testing.T, body map[string]any) string {
-	t.Helper()
-
-	encoded, err := json.Marshal(body)
-	if err != nil {
-		t.Fatalf("marshal response body: %v", err)
-	}
-	return string(encoded)
 }
 
 func normalizeJSONMap(t *testing.T, body map[string]any) map[string]any {

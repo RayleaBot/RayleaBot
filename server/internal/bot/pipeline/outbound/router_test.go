@@ -2,10 +2,11 @@ package outbound
 
 import (
 	"context"
-	"strings"
+	"errors"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 type recordingSender struct {
@@ -59,10 +60,11 @@ func TestAdapterRouterRefusesToGuessBetweenAdapters(t *testing.T) {
 	if err == nil {
 		t.Fatal("an ambiguous active push was delivered")
 	}
-	// The error names the instances, because naming one is how the caller
-	// resolves the ambiguity.
-	if !strings.Contains(err.Error(), "onebot11") || !strings.Contains(err.Error(), "qq-official") {
-		t.Fatalf("error = %v, want it to name the connected adapters", err)
+	// Ambiguity is the caller's to resolve by naming an adapter, so it is a
+	// send failure rather than an unavailable transport.
+	var sendErr *chatevent.SendError
+	if !errors.As(err, &sendErr) || sendErr.Code != errorcodes.AdapterSendFailed {
+		t.Fatalf("error = %v, want code %s", err, errorcodes.AdapterSendFailed)
 	}
 	if len(sent) != 0 {
 		t.Fatalf("delivered %v despite the ambiguity", sent)
@@ -90,27 +92,6 @@ func TestAdapterRouterResolvesWhenOnlyOneAdapterIsConnected(t *testing.T) {
 	}
 	if len(sent) != 1 || sent[0] != "onebot11" {
 		t.Fatalf("delivered via %v, want the only connected adapter", sent)
-	}
-}
-
-func TestAdapterRouterHonoursAPluginNamedProtocol(t *testing.T) {
-	t.Parallel()
-
-	var sent []string
-	router := NewRouter(map[string]ActionSender{
-		"onebot11":    recordingSender{name: "onebot11", sent: &sent},
-		"qq-official": recordingSender{name: "qqofficial", sent: &sent},
-	}, map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"}, nil)
-
-	// With two adapters connected an active push is otherwise ambiguous; naming
-	// the protocol is how a plugin resolves it.
-	if _, err := router.SendMessage(context.Background(), chatevent.OutboundMessageSend{
-		SourceProtocol: "qqofficial", TargetType: "group", TargetID: "G1",
-	}); err != nil {
-		t.Fatalf("SendMessage: %v", err)
-	}
-	if len(sent) != 1 || sent[0] != "qqofficial" {
-		t.Fatalf("delivered via %v, want the named adapter", sent)
 	}
 }
 

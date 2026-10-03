@@ -84,7 +84,7 @@ func TestCloseCutsOffHungTaskAndRenderAtTheirPhaseBudget(t *testing.T) {
 				}
 				found = true
 				before := time.Now()
-				err, done := runShutdownPhase(phase.budget, phase.stop)
+				done, err := runShutdownPhase(phase.budget, phase.stop)
 				elapsed := time.Since(before)
 				if !errors.Is(err, context.DeadlineExceeded) {
 					t.Fatalf("phase returned %v", err)

@@ -2,7 +2,6 @@ package actions
 
 import (
 	"context"
-	"sort"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
@@ -19,15 +18,6 @@ type ActionRequest struct {
 type ActionHandler func(context.Context, ActionRequest) (map[string]any, error)
 
 type Registry struct{ handlers map[string]ActionHandler }
-
-func (r *Registry) Kinds() []string {
-	kinds := make([]string, 0, len(r.handlers))
-	for kind := range r.handlers {
-		kinds = append(kinds, kind)
-	}
-	sort.Strings(kinds)
-	return kinds
-}
 
 func (r *Registry) Dispatch(ctx context.Context, req ActionRequest) (map[string]any, bool, error) {
 	handler, ok := r.handlers[req.Action.Kind]

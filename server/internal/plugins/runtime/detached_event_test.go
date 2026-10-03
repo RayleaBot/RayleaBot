@@ -8,7 +8,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -502,9 +501,8 @@ func TestEventFrameDeadlineFollowsServiceDeadline(t *testing.T) {
 func TestParseEventDetachRejectsMalformedData(t *testing.T) {
 	t.Parallel()
 	for _, raw := range []string{`{"result":null}`, `{"result":[]}`, `{"propagation":"skip"}`, `{"timeout_seconds":60}`} {
-		if _, err := ParseLocalAction("event.detach", json.RawMessage(raw)); err == nil || !strings.Contains(err.Error(), "event.detach") {
-			t.Fatalf("malformed detach data %s accepted: %v", raw, err)
-		}
+		_, err := ParseLocalAction("event.detach", json.RawMessage(raw))
+		assertProtocolViolation(t, err)
 	}
 	action, err := ParseLocalAction("event.detach", json.RawMessage(`{"result":{"a":1},"propagation":"continue"}`))
 	if err != nil || action.DetachResult["a"] != float64(1) || action.DetachPropagation != "continue" {

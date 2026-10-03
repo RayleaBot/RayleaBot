@@ -137,14 +137,7 @@ func TestSessionLoginRejectsMalformedRequest(t *testing.T) {
 		t.Fatalf("unexpected status: got %d want 400", recorder.Code)
 	}
 
-	body := decodeBody(t, recorder.Body.Bytes())
-	assertErrorEnvelopeMatchesFixture(t, body, map[string]any{
-		"error": map[string]any{
-			"code":       "platform.invalid_request",
-			"message":    "请求参数不合法",
-			"request_id": "fixture_request_id_placeholder",
-		},
-	}, "platform.invalid_request")
+	assertErrorEnvelope(t, decodeBody(t, recorder.Body.Bytes()), "platform.invalid_request")
 }
 
 func TestSessionLoginRateLimitsAfterRepeatedFailuresFromSameSourceIP(t *testing.T) {
@@ -201,14 +194,7 @@ func TestSessionLoginRejectsOversizedBody(t *testing.T) {
 		t.Fatalf("unexpected status: got %d want 400", recorder.Code)
 	}
 
-	body := decodeBody(t, recorder.Body.Bytes())
-	assertErrorEnvelopeMatchesFixture(t, body, map[string]any{
-		"error": map[string]any{
-			"code":       "platform.invalid_request",
-			"message":    "请求参数不合法",
-			"request_id": "fixture_request_id_placeholder",
-		},
-	}, "platform.invalid_request")
+	assertErrorEnvelope(t, decodeBody(t, recorder.Body.Bytes()), "platform.invalid_request")
 }
 
 func TestSessionLoginUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
@@ -233,12 +219,5 @@ func TestSessionLoginUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 		t.Fatalf("unexpected status: got %d want 500", recorder.Code)
 	}
 
-	body := decodeBody(t, recorder.Body.Bytes())
-	assertErrorEnvelopeMatchesFixture(t, body, map[string]any{
-		"error": map[string]any{
-			"code":       "platform.internal_error",
-			"message":    "内部错误",
-			"request_id": "fixture_request_id_placeholder",
-		},
-	}, "platform.internal_error")
+	assertErrorEnvelope(t, decodeBody(t, recorder.Body.Bytes()), "platform.internal_error")
 }

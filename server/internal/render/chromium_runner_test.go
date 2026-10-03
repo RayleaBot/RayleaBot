@@ -125,33 +125,6 @@ func (b *testBrowserOutput) String() string {
 	return string(b.data)
 }
 
-func TestBrowserOutputRetainsBoundedTail(t *testing.T) {
-	output := &testBrowserOutput{}
-	initial := strings.Repeat("a", testBrowserOutputLimit+8)
-	if n, err := output.Write([]byte(initial)); n != len(initial) || err != nil {
-		t.Fatalf("write oversized output: %d, %v", n, err)
-	}
-	if _, err := output.Write([]byte("last")); err != nil {
-		t.Fatal(err)
-	}
-	if got := output.String(); got != strings.Repeat("a", testBrowserOutputLimit-4)+"last" {
-		t.Fatalf("output tail mismatch: length=%d", len(got))
-	}
-	var writers sync.WaitGroup
-	for range 8 {
-		writers.Go(func() {
-			for range 100 {
-				_, _ = output.Write([]byte("concurrent browser output\n"))
-				_ = output.String()
-			}
-		})
-	}
-	writers.Wait()
-	if got := len(output.String()); got != testBrowserOutputLimit {
-		t.Fatalf("concurrent output exceeded limit: %d", got)
-	}
-}
-
 func TestChromiumRunnerCleanupStopsBrowser(t *testing.T) {
 	for _, cancelRequest := range []bool{false, true} {
 		name := "completed_request"

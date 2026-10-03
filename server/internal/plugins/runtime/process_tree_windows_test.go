@@ -14,7 +14,7 @@ func assertTreeProcessExited(t *testing.T, pid int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer windows.CloseHandle(process)
+	defer func() { _ = windows.CloseHandle(process) }()
 	status, err := windows.WaitForSingleObject(process, 1000)
 	if err != nil || status != windows.WAIT_OBJECT_0 {
 		t.Fatalf("grandchild %d survived: wait=%d err=%v", pid, status, err)

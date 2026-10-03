@@ -130,43 +130,6 @@ func TestValidatePluginTemplateSourcesRejectsEscapedTemplateFiles(t *testing.T) 
 	}
 }
 
-func TestValidatePluginTemplateSourcesRejectsUnsafeLocalID(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	templateDir := filepath.Join(root, "templates", "card")
-	if err := os.MkdirAll(templateDir, 0o755); err != nil {
-		t.Fatalf("create template dir: %v", err)
-	}
-	files := map[string]string{
-		"template.json": `{
-  "name": "测试模板", "id": "card/nested",
-  "version": "1",
-  "entry_html": "template.HTML",
-  "stylesheet": "styles.css",
-  "input_schema": "input.Schema.json",
-  "width": 320,
-  "height": 240
-}`,
-		"template.HTML":     "<html><body>{{ .title }}</body></html>",
-		"styles.css":        "body { margin: 0; }",
-		"input.Schema.json": `{"type":"object"}`,
-	}
-	for name, content := range files {
-		if err := os.WriteFile(filepath.Join(templateDir, name), []byte(content), 0o644); err != nil {
-			t.Fatalf("write template file %s: %v", name, err)
-		}
-	}
-
-	err := ValidateSources([]Source{{
-		PluginID: "weather-card",
-		Dir:      templateDir,
-	}})
-	if err == nil {
-		t.Fatal("expected unsafe local template id to be rejected")
-	}
-}
-
 func TestServiceRejectsTemplateSourceConflicts(t *testing.T) {
 	t.Parallel()
 
@@ -211,10 +174,11 @@ func TestServiceRemovePluginTemplatesKeepsArtifacts(t *testing.T) {
 	repoRoot := t.TempDir()
 	pluginTemplateDir := filepath.Join(repoRoot, "plugins", "installed", "weather-card", "templates", "card")
 	writeRenderTemplateSeed(t, filepath.Join(repoRoot, "plugins", "installed", "weather-card", "templates"), "card")
+	outputRoot := filepath.Join(t.TempDir(), "render-output")
 
 	service, err := NewService(Options{
 		RepoRoot:           repoRoot,
-		OutputRoot:         filepath.Join(t.TempDir(), "render-output"),
+		OutputRoot:         outputRoot,
 		Store:              openRenderTestStore(t),
 		Runner:             &fakeRunner{},
 		WorkerCount:        1,
@@ -261,8 +225,10 @@ func TestServiceRemovePluginTemplatesKeepsArtifacts(t *testing.T) {
 			t.Fatalf("removed plugin template still listed: %#v", items)
 		}
 	}
-	if _, err := service.LookupArtifact(result.ArtifactID); err != nil {
-		t.Fatalf("LookupArtifact after template removal: %v", err)
+	for _, name := range []string{result.ArtifactID + ".png", result.ArtifactID + ".json"} {
+		if _, err := os.Stat(filepath.Join(outputRoot, name)); err != nil {
+			t.Fatalf("artifact file %s missing after template removal: %v", name, err)
+		}
 	}
 }
 

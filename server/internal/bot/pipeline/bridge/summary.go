@@ -112,7 +112,6 @@ func commandPolicyRejectedSummary(rejection chatevent.CommandPolicyRejection) st
 	if reasonSummary == "" {
 		reasonSummary = strings.TrimSpace(rejection.Reason)
 	}
-	reasonSummary = commandPolicyReasonLabel(reasonSummary)
 
 	switch {
 	case commandName == "" && reasonSummary == "":
@@ -131,25 +130,6 @@ func commandPolicyRejectedSummary(rejection chatevent.CommandPolicyRejection) st
 		return fmt.Sprintf("命令 %s 未执行", commandName)
 	}
 	return fmt.Sprintf("命令 %s 未执行：%s", commandName, reasonSummary)
-}
-
-func commandPolicyReasonLabel(reason string) string {
-	switch strings.TrimSpace(reason) {
-	case "actor is not whitelisted", "sender is not whitelisted":
-		return "发送者不在白名单中"
-	case "user is blacklisted":
-		return "用户在黑名单中"
-	case "group is blacklisted":
-		return "群在黑名单中"
-	case "insufficient permission level":
-		return "权限等级不足"
-	case "user command rate limited":
-		return "用户命令触发频率限制"
-	case "group command rate limited":
-		return "群命令触发频率限制"
-	default:
-		return strings.TrimSpace(reason)
-	}
 }
 
 func summarizeBridgeText(text string) string {

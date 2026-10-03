@@ -123,36 +123,6 @@ func (e *Executor) List() []Snapshot {
 	return e.registry.List()
 }
 
-func (e *Executor) Cancel(taskID string) bool {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.closed {
-		return false
-	}
-	snapshot, ok := e.registry.Get(taskID)
-	if !ok {
-		return false
-	}
-	if snapshot.Status != StatusPending && snapshot.Status != StatusRunning {
-		return false
-	}
-	cancel, ok := e.cancels[taskID]
-	if !ok || cancel == nil {
-		return false
-	}
-	cancel()
-	if snapshot.Status == StatusPending {
-		now := e.now().UTC()
-		e.registry.Update(taskID, Update{
-			Status:     statusPtr(StatusCancelled),
-			Summary:    strPtr("任务已取消"),
-			FinishedAt: &now,
-		})
-		delete(e.cancels, taskID)
-	}
-	return true
-}
-
 func (e *Executor) Close() error {
 	if e == nil {
 		return nil
@@ -197,12 +167,7 @@ func (e *Executor) execute(job executorJob) {
 	defer e.dropCancel(job.taskID)
 
 	e.mu.Lock()
-	snapshot, ok := e.registry.Get(job.taskID)
-	if !ok {
-		e.mu.Unlock()
-		return
-	}
-	if snapshot.Status == StatusCancelled {
+	if _, ok := e.registry.Get(job.taskID); !ok {
 		e.mu.Unlock()
 		return
 	}

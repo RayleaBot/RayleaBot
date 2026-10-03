@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/pubsub"
 )
 
 type Status string
@@ -69,7 +68,7 @@ var (
 )
 
 type persistRequest struct {
-	snapshot *Snapshot
+	snapshot Snapshot
 	done     chan error
 }
 
@@ -77,7 +76,6 @@ type Registry struct {
 	mu    sync.RWMutex
 	items map[string]Snapshot
 	order []string
-	hub   pubsub.Hub[Snapshot]
 	repo  Repository
 	logs  LogSink
 
@@ -186,7 +184,6 @@ func (r *Registry) Create(taskType string, summary string) (string, error) {
 	r.mu.Lock()
 	r.items[taskID] = snapshot
 	r.order = append(r.order, taskID)
-	r.broadcastLocked(snapshot)
 	logs := r.logs
 	r.mu.Unlock()
 
@@ -230,7 +227,6 @@ func (r *Registry) Update(taskID string, update Update) (Snapshot, bool) {
 	}
 
 	r.items[taskID] = snapshot
-	r.broadcastLocked(snapshot)
 	cloned := cloneSnapshot(snapshot)
 	logs := r.logs
 	if r.repo != nil {
@@ -243,38 +239,6 @@ func (r *Registry) Update(taskID string, update Update) (Snapshot, bool) {
 	}
 
 	return cloned, true
-}
-
-func (r *Registry) Subscribe(buffer int) (<-chan Snapshot, func()) {
-	return r.hub.Subscribe(buffer)
-}
-
-func (r *Registry) SubscriberCount() int {
-	return r.hub.SubscriberCount()
-}
-
-func (r *Registry) broadcastLocked(snapshot Snapshot) {
-	r.hub.PublishReplace(cloneSnapshot(snapshot))
-}
-
-func (r *Registry) Flush(ctx context.Context) error {
-	r.persistMu.Lock()
-	if !r.persistStarted {
-		err := r.persistErr
-		r.persistMu.Unlock()
-		return err
-	}
-	r.persistMu.Unlock()
-	done := make(chan error, 1)
-	if err := r.enqueuePersistence(persistRequest{done: done}); err != nil {
-		return err
-	}
-	select {
-	case err := <-done:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }
 
 func (r *Registry) Close() error {
@@ -305,8 +269,7 @@ func (r *Registry) persist(snapshot Snapshot, wait bool) error {
 	if wait {
 		done = make(chan error, 1)
 	}
-	cloned := cloneSnapshot(snapshot)
-	if err := r.enqueuePersistence(persistRequest{snapshot: &cloned, done: done}); err != nil {
+	if err := r.enqueuePersistence(persistRequest{snapshot: cloneSnapshot(snapshot), done: done}); err != nil {
 		return err
 	}
 	if done == nil {
@@ -362,14 +325,7 @@ func (r *Registry) runPersistence() {
 	}
 }
 
-func (r *Registry) savePersistedSnapshot(snapshot *Snapshot) error {
-	if snapshot == nil {
-		r.persistMu.Lock()
-		err := r.persistErr
-		r.persistMu.Unlock()
-		return err
-	}
-
+func (r *Registry) savePersistedSnapshot(snapshot Snapshot) error {
 	r.mu.RLock()
 	repo := r.repo
 	r.mu.RUnlock()
@@ -379,7 +335,7 @@ func (r *Registry) savePersistedSnapshot(snapshot *Snapshot) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return repo.SaveTask(ctx, *snapshot)
+	return repo.SaveTask(ctx, snapshot)
 }
 
 func cloneSnapshot(snapshot Snapshot) Snapshot {

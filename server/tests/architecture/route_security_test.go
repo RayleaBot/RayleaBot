@@ -34,7 +34,11 @@ func TestProtectedManagementRoutesDeclareOpenAPISecurity(t *testing.T) {
 			declared[method+" "+parameter.ReplaceAllString(path, "{parameter}")] = len(operation.Security) > 0
 		}
 	}
-	checked := 0
+	// Index every function in the package so route registration delegated to
+	// helpers such as registerSystemProtectedRoutes or registerPluginReadRoutes
+	// is followed instead of silently skipped.
+	functions := map[string][]*ast.FuncDecl{}
+	var registrars []*ast.FuncDecl
 	walkGoFiles(t, filepath.Join(root, "internal", "management"), func(path string) {
 		if strings.HasSuffix(path, "_test.go") {
 			return
@@ -45,32 +49,56 @@ func TestProtectedManagementRoutesDeclareOpenAPISecurity(t *testing.T) {
 		}
 		for _, declaration := range file.Decls {
 			function, ok := declaration.(*ast.FuncDecl)
-			if !ok || function.Name.Name != "RegisterProtectedRoutes" {
+			if !ok || function.Body == nil {
 				continue
 			}
-			ast.Inspect(function.Body, func(node ast.Node) bool {
-				call, ok := node.(*ast.CallExpr)
-				if !ok || len(call.Args) == 0 {
-					return true
-				}
-				method := strings.ToLower(selectorIdentName(call.Fun))
-				switch method {
-				case "get", "post", "put", "delete", "patch":
-				default:
-					return true
-				}
-				route, ok := stringLiteralValue(call.Args[0])
-				if !ok || !strings.HasPrefix(route, "/api/") {
-					return true
-				}
-				checked++
-				if !declared[method+" "+parameter.ReplaceAllString(route, "{parameter}")] {
-					t.Errorf("protected route %s %s has no OpenAPI security declaration", method, route)
-				}
-				return true
-			})
+			functions[function.Name.Name] = append(functions[function.Name.Name], function)
+			if function.Name.Name == "RegisterProtectedRoutes" {
+				registrars = append(registrars, function)
+			}
 		}
 	})
+
+	checked := 0
+	visited := map[*ast.FuncDecl]bool{}
+	var inspectRoutes func(function *ast.FuncDecl)
+	inspectRoutes = func(function *ast.FuncDecl) {
+		if visited[function] {
+			return
+		}
+		visited[function] = true
+		ast.Inspect(function.Body, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			name := selectorIdentName(call.Fun)
+			for _, callee := range functions[name] {
+				inspectRoutes(callee)
+			}
+			if len(call.Args) == 0 {
+				return true
+			}
+			method := strings.ToLower(name)
+			switch method {
+			case "get", "post", "put", "delete", "patch":
+			default:
+				return true
+			}
+			route, ok := stringLiteralValue(call.Args[0])
+			if !ok || !strings.HasPrefix(route, "/api/") {
+				return true
+			}
+			checked++
+			if !declared[method+" "+parameter.ReplaceAllString(route, "{parameter}")] {
+				t.Errorf("protected route %s %s has no OpenAPI security declaration", method, route)
+			}
+			return true
+		})
+	}
+	for _, registrar := range registrars {
+		inspectRoutes(registrar)
+	}
 	if checked == 0 {
 		t.Fatal("no protected management routes were inspected")
 	}

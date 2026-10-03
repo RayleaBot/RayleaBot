@@ -52,14 +52,14 @@ func TestRunningAppWritesStoppingBeforeClosingEveryEventSubscriber(t *testing.T)
 				instance["enabled"] = true
 				forward := instance["onebot11"].(map[string]any)["forward_ws"].(map[string]any)
 				forward["enabled"] = true
-				forward["url"] = websocketURL(peer.URL)
+				forward["url"] = testutil.WebSocketURL(peer.URL)
 			}, deterministicAuthOptions()...)
-			token := issueLoginToken(t, application)
+			token := testutil.IssueLoginToken(t, application)
 			server := newManagementTestServer(t, application.Handler())
 			defer server.Close()
 			connections := make([]*websocket.Conn, 3)
 			for i := range connections {
-				conn := dialEventsWebSocket(t, server.URL, token)
+				conn := testutil.DialEventsWebSocket(t, server.URL, token)
 				defer func() { _ = conn.CloseNow() }()
 				readProtocolReplayFrame(t, conn)
 				connections[i] = conn

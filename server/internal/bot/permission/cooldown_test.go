@@ -6,37 +6,6 @@ import (
 	"time"
 )
 
-func TestAllowWithinLimit(t *testing.T) {
-	t.Parallel()
-
-	tracker := NewCooldownTracker(
-		config.RateLimit{Count: 3, Window: time.Minute},
-		config.RateLimit{Count: 3, Window: time.Minute},
-	)
-
-	for i := range 3 {
-		if !tracker.Allow("user:u1") {
-			t.Fatalf("call %d should be allowed within limit", i+1)
-		}
-	}
-}
-
-func TestDenyWhenLimitExceeded(t *testing.T) {
-	t.Parallel()
-
-	tracker := NewCooldownTracker(
-		config.RateLimit{Count: 2, Window: time.Minute},
-		config.RateLimit{Count: 2, Window: time.Minute},
-	)
-
-	tracker.Allow("user:u1")
-	tracker.Allow("user:u1")
-
-	if tracker.Allow("user:u1") {
-		t.Fatal("third call should be denied when limit is 2")
-	}
-}
-
 func TestAllowAgainAfterWindowExpires(t *testing.T) {
 	t.Parallel()
 

@@ -134,9 +134,10 @@ func TestNormalizeAttachmentPromotesMediaOverThePlaceholder(t *testing.T) {
 func TestNormalizeDispatchIgnoresUndeliveredKinds(t *testing.T) {
 	t.Parallel()
 
-	for _, dispatchType := range []string{"READY", "GROUP_ADD_ROBOT", "GROUP_DEL_ROBOT", "RESUMED"} {
+	// Gateway session frames describe the connection, not a conversation.
+	for _, dispatchType := range []string{"READY", "RESUMED"} {
 		if _, ok := NormalizeDispatch("id", dispatchType, []byte(`{"group_openid":"g","timestamp":1788752606}`)); ok {
-			t.Fatalf("%s was delivered, but it has no formal event type yet", dispatchType)
+			t.Fatalf("%s was delivered as a chat event", dispatchType)
 		}
 	}
 }

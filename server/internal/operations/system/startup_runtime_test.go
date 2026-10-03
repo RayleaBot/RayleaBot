@@ -159,7 +159,7 @@ func TestStartupRuntimeChangesPublishReadableSnapshots(t *testing.T) {
 	service = &Service{
 		startupRuntimes: newStartupRuntimeStates(nil),
 		statusPublisher: readinessStatusPublisher(func() {
-			state, _ := service.StartupRuntimeState("ffmpeg")
+			state, _ := service.startupRuntimeState("ffmpeg")
 			states <- state
 		}),
 	}

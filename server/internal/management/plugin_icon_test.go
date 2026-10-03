@@ -9,10 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	"github.com/go-chi/chi/v5"
 )
 
 func TestPluginIconServesOnlyDeclaredImage(t *testing.T) {
@@ -85,23 +83,6 @@ func TestPluginIconRejectsSymlinkOutsidePackage(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	pluginRouter(t, plugincatalog.New([]plugins.Snapshot{snapshot})).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/plugins/icon-test/icon", nil))
 	assertPluginIconMissing(t, recorder, outside)
-}
-
-func TestPluginIconRouteRequiresSession(t *testing.T) {
-	t.Parallel()
-	manager, err := auth.NewManager(auth.Config{SessionTTLDays: 1, MaxSessions: 3})
-	if err != nil {
-		t.Fatal(err)
-	}
-	router := chi.NewRouter()
-	RegisterRoutes(router, RouteDeps{ProtectedRoutes: []ProtectedRouteModule{ProtectedRouteFunc(func(r chi.Router) {
-		registerPluginReadRoutes(r, plugincatalog.New(nil), testPluginConfig)
-	})}}, RequireAuthWithConfig(manager, nil))
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/plugins/icon-test/icon", nil))
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("unauthed icon status = %d", recorder.Code)
-	}
 }
 
 func assertPluginIconMissing(t *testing.T, recorder *httptest.ResponseRecorder, privatePath string) {

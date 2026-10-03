@@ -185,7 +185,7 @@ func (a *App) requestShutdown(intent systemsvc.StopIntent) {
 			runtimeConfig = a.state.CurrentConfig().Runtime
 		}
 		a.process.shutdownBudgets = runtimeConfig.ShutdownBudgets()
-		a.process.announcementErr, a.process.announcementDone = runShutdownPhase(a.process.shutdownBudgets.Announcement, func(ctx context.Context) error {
+		a.process.announcementDone, a.process.announcementErr = runShutdownPhase(a.process.shutdownBudgets.Announcement, func(ctx context.Context) error {
 			if a.services.System != nil {
 				a.services.System.PublishStatusSnapshot()
 			}

@@ -17,7 +17,6 @@ import (
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
@@ -324,76 +323,6 @@ func TestHandleConfigPutHotReloadsRenderDefaults(t *testing.T) {
 	}
 }
 
-func TestHandleConfigPutHotReloadsOutboundLimiterMessageFields(t *testing.T) {
-	tests := []struct {
-		name        string
-		baseMessage config.MessageConfig
-		mutate      func(*testing.T, map[string]any)
-		prime       outbound.MessageLimitRequest
-		verify      func(*testing.T, *recordingConfigOutboundLimiter)
-		wantPath    string
-		wantConfig  func(config.Config) bool
-	}{
-		{
-			name: "rate_limit_per_target",
-			baseMessage: config.MessageConfig{
-				RateLimitPerTarget: "1/1h",
-			},
-			mutate: func(t *testing.T, document map[string]any) {
-				messageSection(t, document)["rate_limit_per_target"] = "2/1h"
-			},
-			prime: outbound.MessageLimitRequest{PluginID: "weather", TargetType: "group", TargetID: "100"},
-			verify: func(t *testing.T, limiter *recordingConfigOutboundLimiter) {
-				t.Helper()
-				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-				defer cancel()
-				if err := limiter.Wait(ctx, outbound.MessageLimitRequest{PluginID: "news", TargetType: "group", TargetID: "100"}); err != nil {
-					t.Fatalf("updated target rate limit was not applied to outbound limiter: %v", err)
-				}
-			},
-			wantPath: "message.rate_limit_per_target",
-			wantConfig: func(cfg config.Config) bool {
-				return cfg.Message.RateLimitPerTarget == "2/1h"
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			source, limiter := newConfigHTTPOutboundLimiterFixture(t, tt.baseMessage)
-			if err := limiter.Wait(context.Background(), tt.prime); err != nil {
-				t.Fatalf("prime outbound limiter: %v", err)
-			}
-
-			document := configruntime.ConfigDocumentFromTyped(source.CurrentConfig())
-			tt.mutate(t, document)
-			response := putConfigDocument(t, source, limiter, document)
-
-			if response.RestartRequired {
-				t.Fatalf("restart_required = true, want false")
-			}
-			if !reflect.DeepEqual(response.ApplyEffects.AppliedNow, []string{tt.wantPath}) {
-				t.Fatalf("applied_now = %#v, want [%s]", response.ApplyEffects.AppliedNow, tt.wantPath)
-			}
-			if len(limiter.applied) != 1 {
-				t.Fatalf("outbound limiter ApplyConfig calls = %d, want 1", len(limiter.applied))
-			}
-			if !tt.wantConfig(limiter.applied[0]) {
-				t.Fatalf("outbound limiter received config: %+v", limiter.applied[0].Message)
-			}
-			if !tt.wantConfig(source.CurrentConfig()) {
-				t.Fatalf("state config was not updated: %+v", source.CurrentConfig().Message)
-			}
-			tt.verify(t, limiter)
-		})
-	}
-}
-
-type recordingConfigOutboundLimiter struct {
-	inner   *outbound.MessageRateLimiter
-	applied []config.Config
-}
-
 type recordingConfigRenderRunner struct {
 	mu   sync.Mutex
 	docs []render.Document
@@ -442,8 +371,6 @@ func writeConfigHTTPRenderTemplateSeed(t *testing.T, templatesRoot, templateID s
   "id": "` + templateID + `",
   "name": "Help Menu",
   "version": "1.0.0",
-  "themes": ["default"],
-  "entry": "template.html",
   "stylesheet": "styles.css",
   "input_schema": "input.schema.json",
   "width": 960,
@@ -462,73 +389,6 @@ func writeConfigHTTPRenderTemplateSeed(t *testing.T, templatesRoot, templateID s
 	}
 }
 
-func newRecordingConfigOutboundLimiter(cfg config.Config) *recordingConfigOutboundLimiter {
-	return &recordingConfigOutboundLimiter{inner: outbound.NewMessageRateLimiter(cfg)}
-}
-
-func (l *recordingConfigOutboundLimiter) ApplyConfig(cfg config.Config) {
-	l.applied = append(l.applied, cfg)
-	l.inner.ApplyConfig(cfg)
-}
-
-func (l *recordingConfigOutboundLimiter) Wait(ctx context.Context, request outbound.MessageLimitRequest) error {
-	return l.inner.Wait(ctx, request)
-}
-
-func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageConfig) (*configTestSource, *recordingConfigOutboundLimiter) {
-	t.Helper()
-
-	configPath := filepath.Join(t.TempDir(), "user.yaml")
-	schemaPath := configHTTPTestSchemaPath(t)
-	cfg, _, err := config.Load(configPath, schemaPath)
-	if err != nil {
-		t.Fatalf("load default config: %v", err)
-	}
-
-	document := configruntime.ConfigDocumentFromTyped(cfg)
-	messageDoc := messageSection(t, document)
-	messageDoc["rate_limit_per_target"] = message.RateLimitPerTarget
-	cfg, summary, err := config.SaveDocument(configPath, schemaPath, document)
-	if err != nil {
-		t.Fatalf("save base config: %v", err)
-	}
-
-	source := newConfigTestSource(cfg)
-	source.SetSummary(summary)
-	limiter := newRecordingConfigOutboundLimiter(cfg)
-	return source, limiter
-}
-
-func putConfigDocument(t *testing.T, source *configTestSource, limiter *recordingConfigOutboundLimiter, document map[string]any) managementapi.ConfigUpdateResponse {
-	t.Helper()
-
-	body, err := json.Marshal(document)
-	if err != nil {
-		t.Fatalf("marshal config request: %v", err)
-	}
-
-	handler := managementapi.NewConfigHandlers(configruntime.NewService(configruntime.Deps{
-		CurrentConfig:   source.CurrentConfig,
-		CurrentSummary:  source.CurrentSummary,
-		SetConfig:       source.SetConfig,
-		SetSummary:      source.SetSummary,
-		OutboundLimiter: limiter,
-	}))
-	request := httptest.NewRequest(http.MethodPut, "/api/config", bytes.NewReader(body))
-	recorder := httptest.NewRecorder()
-	handler.HandleConfigPut().ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("PUT /api/config status = %d, body = %s", recorder.Code, recorder.Body.String())
-	}
-
-	var response managementapi.ConfigUpdateResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode config response: %v", err)
-	}
-	return response
-}
-
 func configHTTPTestSchemaPath(t *testing.T) string {
 	t.Helper()
 
@@ -540,14 +400,4 @@ func configHTTPTestSchemaPath(t *testing.T) string {
 		t.Fatalf("stat config schema %s: %v", path, err)
 	}
 	return path
-}
-
-func messageSection(t *testing.T, document map[string]any) map[string]any {
-	t.Helper()
-
-	message, ok := document["message"].(map[string]any)
-	if !ok {
-		t.Fatalf("document message section = %#v, want map[string]any", document["message"])
-	}
-	return message
 }

@@ -13,7 +13,6 @@ type fakeTransport struct {
 	wsOK              bool
 	wsErr             error
 	httpResponse      APIResponse
-	httpErr           error
 	wsRequests        []SendMsgRequest
 	httpRequests      []APICallRequest
 	unsupportedLogged []string
@@ -33,7 +32,7 @@ func (t *fakeTransport) SendWebSocket(_ context.Context, request SendMsgRequest)
 
 func (t *fakeTransport) DoHTTPAPI(_ context.Context, request APICallRequest) (APIResponse, error) {
 	t.httpRequests = append(t.httpRequests, request)
-	return t.httpResponse, t.httpErr
+	return t.httpResponse, nil
 }
 
 func (t *fakeTransport) LogUnsupportedSegment(segmentType string) {

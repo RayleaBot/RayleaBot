@@ -2,9 +2,7 @@ package integration
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -18,7 +16,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"github.com/coder/websocket"
-	"gopkg.in/yaml.v3"
 )
 
 const sessionSigningKeySecret = "platform.auth.session_signing_key"
@@ -273,30 +270,4 @@ func (s *persistentDispatchStub) HasDeliverablePlugins() bool {
 
 func (s *persistentDispatchStub) Dispatch(context.Context, chatevent.Event, string) []dispatch.DeliveryResult {
 	return append([]dispatch.DeliveryResult(nil), s.results...)
-}
-
-func writePersistentYAMLConfig(t *testing.T, databasePath string) string {
-	t.Helper()
-
-	fixture := loadConfigFixture(t, testutil.RepoPath(t, "fixtures", "config", "ok.minimal.json"))
-
-	var input map[string]any
-	if err := json.Unmarshal(fixture.Input, &input); err != nil {
-		t.Fatalf("unmarshal config fixture input: %v", err)
-	}
-
-	database := input["database"].(map[string]any)
-	database["path"] = databasePath
-
-	yamlBytes, err := yaml.Marshal(input)
-	if err != nil {
-		t.Fatalf("marshal persistent yaml: %v", err)
-	}
-
-	configPath := filepath.Join(t.TempDir(), "user.yaml")
-	if err := os.WriteFile(configPath, yamlBytes, 0o644); err != nil {
-		t.Fatalf("write persistent config: %v", err)
-	}
-
-	return configPath
 }

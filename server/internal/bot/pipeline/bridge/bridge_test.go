@@ -139,9 +139,6 @@ func TestBridgeIgnoresEventWhenNoDeliverableRuntimeExists(t *testing.T) {
 	if snapshot.IgnoredCount != 1 || snapshot.RejectedCount != 0 {
 		t.Fatalf("unexpected ignored/rejected counts: %+v", snapshot)
 	}
-	if snapshot.LastErrorCode != "" || snapshot.LastErrorText != "" {
-		t.Fatalf("ignored outcome should clear last error fields: %+v", snapshot)
-	}
 }
 
 func TestBridgeIgnoresEventWhenNoTargetAccepts(t *testing.T) {

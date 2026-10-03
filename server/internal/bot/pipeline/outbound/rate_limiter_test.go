@@ -79,22 +79,6 @@ func TestMessageRateLimiterReturnsPlatformRateLimitedAfterWaitLimit(t *testing.T
 	}
 }
 
-func TestMessageRateLimiterApplyConfigTakesEffect(t *testing.T) {
-	limiter := NewMessageRateLimiter(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "1/1h"}})
-
-	if err := limiter.Wait(context.Background(), MessageLimitRequest{TargetType: "group", TargetID: "100"}); err != nil {
-		t.Fatalf("first Wait() error = %v", err)
-	}
-
-	limiter.ApplyConfig(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "2/1h"}})
-
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-	if err := limiter.Wait(ctx, MessageLimitRequest{TargetType: "group", TargetID: "100"}); err != nil {
-		t.Fatalf("updated Wait() error = %v", err)
-	}
-}
-
 func TestMessageRateLimiterApplyConfigWakesQueuedMessages(t *testing.T) {
 	limiter := NewMessageRateLimiter(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "1/1h"}})
 

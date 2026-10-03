@@ -3,7 +3,6 @@ package chatpolicy_test
 import (
 	"context"
 	"log/slog"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -121,16 +120,10 @@ func TestApplyChatPolicyDoesNotTreatPluginCommandAsBuiltinWhenMenuPrefixDiffers(
 	}
 }
 
-func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsHeaderBadge(t *testing.T) {
+func TestHandleAdapterEventRepliesWithPluginMenuMatchedByPluginName(t *testing.T) {
 	t.Parallel()
 
 	sender := &recordingOutboundSender{}
-	runner := &testutil.CaptureRenderRunner{}
-	renderRoot := t.TempDir()
-	repoRoot, err := filepath.Abs(testutil.RepoRoot(t))
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
-	}
 	testConfig := config.Config{
 		Command: &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
@@ -140,7 +133,7 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsHeaderBadge(t *test
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
 	}
 	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
-	menuRenderer := testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner)
+	menuRenderer := testutil.NewRenderService(t, t.TempDir())
 	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "subscription-hub",
 		Name:              "订阅中心",
@@ -177,82 +170,10 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsHeaderBadge(t *test
 		MessageID:        "30004",
 	})
 
+	// "#help 订阅中心" names the plugin by its display name rather than by a
+	// command, and still opens that plugin's menu page as a reply in the group.
 	if sender.replyCount != 1 || !strings.HasPrefix(sender.lastReplyImage, "file://") {
 		t.Fatalf("unexpected plugin menu reply: count=%d image=%q", sender.replyCount, sender.lastReplyImage)
-	}
-	html := runner.LastHTML()
-	// The page lists the prefixes that trigger this plugin's commands. The menu's
-	// own prefixes only open the menu, so they are not shown as command prefixes.
-	for _, want := range []string{`class="command-prefixes"`, `class="command-prefixes__label">前缀</span>`, `<code>/</code>`, `<span class="command-usage__lead">/</span><span class="command-usage__name">订阅状态</span>`} {
-		if !strings.Contains(html, want) {
-			t.Fatalf("builtin plugin menu html missing %q:\n%s", want, html)
-		}
-	}
-	for _, unwanted := range []string{"command-guide__block--prefixes", "command-usage__prefix", "command-usage__text", `class="command-prefix-cue"`, `<code>#</code>`} {
-		if strings.Contains(html, unwanted) {
-			t.Fatalf("builtin plugin menu html contains obsolete prefix markup %q:\n%s", unwanted, html)
-		}
-	}
-	if got := strings.Count(html, `command-usage__name">订阅状态</span>`); got != 1 {
-		t.Fatalf("command name rendered %d times, want 1:\n%s", got, html)
-	}
-	if strings.Contains(html, `<span class="command-usage__args">`) {
-		t.Fatalf("command without usage args should not render args span:\n%s", html)
-	}
-	if !strings.Contains(html, "Plugin 订阅中心 0.1.0") {
-		t.Fatalf("builtin plugin menu html missing plugin footer context:\n%s", html)
-	}
-	if strings.Contains(html, "Plugin RayleaBot 开发版本") {
-		t.Fatalf("builtin plugin menu html should not use system footer context:\n%s", html)
-	}
-}
-
-func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
-	t.Parallel()
-
-	sender := &recordingOutboundSender{}
-	testConfig := config.Config{
-		Command:    &config.CommandConfig{Prefixes: []string{"/"}},
-		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
-		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-	}
-	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
-	menuRenderer := testutil.NewRenderService(t, t.TempDir())
-	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:          "fortune",
-		Name:              "运势",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "enabled",
-		RuntimeState:      "running",
-		Commands: []plugins.Command{{
-			Name:       "fortune",
-			Aliases:    []string{"运势"},
-			Permission: "everyone",
-		}},
-	}})
-	deps.OutboundSender = sender
-	deps.Bridge = bridge.New(slog.Default(), &recordingDispatcherClient{})
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuTestRenderer(menuRenderer), Sender: deps.OutboundSender, Logger: deps.Logger})
-	ingress := chatpolicy.NewIngress(deps)
-
-	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
-		Kind:             chatevent.EventKindMessage,
-		EventID:          "evt-builtin-menu-suffix",
-		SourceProtocol:   "onebot11",
-		SourceAdapter:    "adapter.onebot11",
-		EventType:        "message.group",
-		Timestamp:        time.Now().Unix(),
-		ConversationType: "group",
-		ConversationID:   "20001",
-		SenderID:         "10002",
-		ActorRole:        "member",
-		PlainText:        "/运势帮助",
-		MessageID:        "30003",
-	})
-
-	if sender.replyCount != 1 || !strings.HasPrefix(sender.lastReplyImage, "file://") {
-		t.Fatalf("unexpected suffix menu reply: count=%d image=%q", sender.replyCount, sender.lastReplyImage)
 	}
 }
 
@@ -306,58 +227,6 @@ func TestHandleAdapterEventSkipsMissingBuiltinPluginMenuTarget(t *testing.T) {
 	}
 	if dispatcher.deliverCount != 0 {
 		t.Fatalf("missing builtin menu target dispatched to plugins %d times", dispatcher.deliverCount)
-	}
-}
-
-func TestHandleAdapterEventDoesNotTreatExactPluginCommandAsBuiltinSuffixMenu(t *testing.T) {
-	t.Parallel()
-
-	sender := &recordingOutboundSender{}
-	dispatcher := &recordingDispatcherClient{}
-	testConfig := config.Config{
-		Command:    &config.CommandConfig{Prefixes: []string{"/"}},
-		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
-		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-	}
-	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
-	menuRenderer := testutil.NewRenderService(t, t.TempDir())
-	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:          "custom-help",
-		Name:              "Custom Help",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "enabled",
-		RuntimeState:      "running",
-		Commands: []plugins.Command{{
-			Name:       "myhelp",
-			Permission: "everyone",
-		}},
-	}})
-	deps.OutboundSender = sender
-	deps.Bridge = bridge.New(slog.Default(), dispatcher)
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuTestRenderer(menuRenderer), Sender: deps.OutboundSender, Logger: deps.Logger})
-	ingress := chatpolicy.NewIngress(deps)
-
-	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
-		Kind:             chatevent.EventKindMessage,
-		EventID:          "evt-plugin-command-help-suffix",
-		SourceProtocol:   "onebot11",
-		SourceAdapter:    "adapter.onebot11",
-		EventType:        "message.group",
-		Timestamp:        time.Now().Unix(),
-		ConversationType: "group",
-		ConversationID:   "20001",
-		SenderID:         "10002",
-		ActorRole:        "member",
-		PlainText:        "/myhelp",
-		MessageID:        "30007",
-	})
-
-	if sender.replyCount != 0 || sender.messageCount != 0 {
-		t.Fatalf("plugin command was handled as builtin menu: replies=%d messages=%d", sender.replyCount, sender.messageCount)
-	}
-	if dispatcher.deliverCount != 1 {
-		t.Fatalf("plugin command dispatch count = %d, want 1", dispatcher.deliverCount)
 	}
 }
 

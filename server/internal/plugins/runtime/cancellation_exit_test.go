@@ -12,8 +12,8 @@ import (
 func TestInitCancellationKeepsCancellationIdentity(t *testing.T) {
 	manager := testManager()
 	reader, writer := io.Pipe()
-	defer reader.Close()
-	defer writer.Close()
+	defer func() { _ = reader.Close() }()
+	defer func() { _ = writer.Close() }()
 	handle := NewHandle(nil, inertProcessInput{}, bufio.NewReader(reader), ProcessSpec{PluginID: "fixture", InitTimeout: time.Second})
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -24,7 +24,7 @@ func TestInitCancellationKeepsCancellationIdentity(t *testing.T) {
 }
 func TestCanceledStartDoesNotPublishFailure(t *testing.T) {
 	manager := testManager()
-	spec := helperSpecWithTimings(t, "init-timeout", "", time.Second, time.Second, time.Second)
+	spec := helperSpecWithTimings(t, "timeout", "", time.Second, time.Second, time.Second)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() { done <- manager.Start(ctx, spec, testInitPayload()) }()

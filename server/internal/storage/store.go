@@ -43,7 +43,7 @@ func Open(path string) (*Store, error) {
 	lock, err := filelock.Acquire(lockPath)
 	if err != nil {
 		if errors.Is(err, filelock.ErrLocked) {
-			return nil, fmt.Errorf("sqlite database is already in use: %s", lockPath)
+			return nil, fmt.Errorf("sqlite database is already in use: %s: %w", lockPath, err)
 		}
 		return nil, fmt.Errorf("lock sqlite database: %w", err)
 	}

@@ -45,7 +45,7 @@ func TestAutomaticPreparationCancellationDoesNotPublishFailure(t *testing.T) {
 				t.Fatal(err)
 			}
 			s.AutoPrepareRuntimeEnvironments(ctx)
-			state, _ := s.StartupRuntimeState(kind)
+			state, _ := s.startupRuntimeState(kind)
 			if state.Phase == StartupRuntimePhaseFailed || state.Issue != nil {
 				t.Fatalf("state = %#v", state)
 			}

@@ -95,9 +95,6 @@ func taskQueueFullSystemHTTPError() *systemHTTPError {
 }
 
 func writeSystemHTTPError(w http.ResponseWriter, r *http.Request, err *systemHTTPError) {
-	if err == nil {
-		return
-	}
 	httpapi.WriteError(w, r, err.code, err.details)
 }
 

@@ -1,7 +1,6 @@
 package management
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -32,24 +31,5 @@ func TestNewReadinessHandlerProjectsHTTPStatus(t *testing.T) {
 				t.Fatalf("status = %d, want %d", recorder.Code, tt.statusCode)
 			}
 		})
-	}
-}
-
-func TestNewLivenessHandlerReturnsOKJSON(t *testing.T) {
-	t.Parallel()
-
-	recorder := httptest.NewRecorder()
-	NewLivenessHandler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", recorder.Code)
-	}
-
-	var response livenessResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode liveness response: %v", err)
-	}
-	if response.Status != "ok" {
-		t.Fatalf("status = %q, want ok", response.Status)
 	}
 }

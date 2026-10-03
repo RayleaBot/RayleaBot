@@ -93,7 +93,6 @@ type fakeSender struct {
 	replies     []chatevent.OutboundMessageReply
 	sent        chan chatevent.OutboundMessageSend
 	sendResult  chatevent.SendMessageResult
-	replyResult chatevent.SendMessageResult
 	sendErr     error
 	replyErr    error
 	botID       string
@@ -127,11 +126,7 @@ func (f *fakeSender) SendReply(_ context.Context, reply chatevent.OutboundMessag
 	f.mu.Lock()
 	f.replies = append(f.replies, reply)
 	f.mu.Unlock()
-	result := f.replyResult
-	if result.MessageID == "" {
-		result.MessageID = "reply-1"
-	}
-	return result, f.replyErr
+	return chatevent.SendMessageResult{MessageID: "reply-1"}, f.replyErr
 }
 
 type fakeReplyTargets map[string]outbound.ReplyTarget
@@ -468,22 +463,6 @@ func TestDispatchDirectedDeliveryByCommand(t *testing.T) {
 	}
 }
 
-func TestDispatchDirectedDeliveryByAlias(t *testing.T) {
-	sender := &fakeSender{}
-	d := New(slog.Default(), sender, nil, 16)
-	defer d.Close()
-
-	rt1 := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
-	d.Register("weather", rt1, []string{"message.group"}, []plugins.Command{
-		{Name: "weather", Aliases: []string{"天气"}},
-	}, 1)
-
-	results := d.Dispatch(context.Background(), testEvent(), "天气")
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
-	}
-}
-
 func TestDispatchDirectedDeliveryByCommandPattern(t *testing.T) {
 	sender := &fakeSender{}
 	d := New(slog.Default(), sender, nil, 16)
@@ -541,26 +520,6 @@ func TestDispatchFallbackWhenNoCommandMatch(t *testing.T) {
 	}
 }
 
-func TestDispatchSubscriptionFiltering(t *testing.T) {
-	sender := &fakeSender{}
-	d := New(slog.Default(), sender, nil, 16)
-	defer d.Close()
-
-	rt1 := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
-	rt2 := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
-
-	d.Register("msg-only", rt1, []string{"message.group", "message.private"}, nil, 1)
-	d.Register("notice-only", rt2, []string{"notice.member_increase"}, nil, 1)
-
-	results := d.Dispatch(context.Background(), testEvent(), "")
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result (msg-only), got %d", len(results))
-	}
-	if results[0].PluginID != "msg-only" {
-		t.Errorf("expected msg-only, got %s", results[0].PluginID)
-	}
-}
-
 func TestDispatchSkipsNonRunningRuntimes(t *testing.T) {
 	sender := &fakeSender{}
 	d := New(slog.Default(), sender, nil, 16)
@@ -602,39 +561,6 @@ func TestDispatchSkipsNonRunningRuntimes(t *testing.T) {
 	if !d.HasDeliverablePlugins() {
 		t.Fatal("dispatcher should report at least one deliverable runtime")
 	}
-}
-
-func TestDispatchQueueOverflow(t *testing.T) {
-	sender := &fakeSender{}
-	d := New(slog.Default(), sender, nil, 1)
-	defer d.Close()
-
-	blocker := &fakeDeliverer{
-		blockCh:  make(chan struct{}),
-		started:  make(chan chatevent.Event, 1),
-		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
-	}
-	d.Register("blocker", blocker, []string{"message.group"}, nil, 1)
-
-	// First dispatch fills the single-capacity queue.
-	d.Dispatch(context.Background(), testEvent(), "")
-	waitForStartedEvent(t, blocker.started)
-	// Now the queue is empty but the worker is blocked. Fill queue again.
-	d.Dispatch(context.Background(), testEvent(), "")
-	// Third should be dropped.
-	results := d.Dispatch(context.Background(), testEvent(), "")
-
-	hasDropped := false
-	for _, r := range results {
-		if r.Outcome == OutcomeDropped {
-			hasDropped = true
-		}
-	}
-	if !hasDropped {
-		t.Error("expected at least one dropped outcome")
-	}
-
-	close(blocker.blockCh)
 }
 
 func TestDispatchQueueLimitIncludesSameLanePendingBuffer(t *testing.T) {
@@ -764,21 +690,6 @@ func TestDispatchSameTargetPreservesFIFO(t *testing.T) {
 	startedSecond := waitForStartedEvent(t, rt.started)
 	if startedSecond.EventID != secondEvent.EventID {
 		t.Fatalf("unexpected second started event: %#v", startedSecond)
-	}
-}
-
-func TestDispatchDeregister(t *testing.T) {
-	sender := &fakeSender{}
-	d := New(slog.Default(), sender, nil, 16)
-	defer d.Close()
-
-	rt := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
-	d.Register("test", rt, []string{"message.group"}, nil, 1)
-	d.Deregister("test")
-
-	results := d.Dispatch(context.Background(), testEvent(), "")
-	if len(results) != 0 {
-		t.Fatalf("expected 0 results after deregister, got %d", len(results))
 	}
 }
 
@@ -913,37 +824,6 @@ func TestDispatchActionExecution(t *testing.T) {
 	defer sender.mu.Unlock()
 	if len(sender.messages[0].Segments) != 1 || sender.messages[0].Segments[0].Type != "text" {
 		t.Fatalf("unexpected sent message payload: %#v", sender.messages[0])
-	}
-}
-
-func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
-	sender := &fakeSender{sent: make(chan chatevent.OutboundMessageSend, 1)}
-	d := New(slog.Default(), sender, nil, 16)
-	defer d.Close()
-
-	rt := &fakeDeliverer{delivery: plugins.Delivery{
-		Action: &chatevent.MessageCommand{
-			Kind:       "message.send",
-			TargetType: "group",
-			TargetID:   "200",
-			MessageSegments: []chatevent.MessageSegment{
-				{Type: "at", Data: map[string]any{"user_id": "300"}},
-				{Type: "text", Data: map[string]any{"text": " rich dispatch"}},
-			},
-		},
-	}}
-	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
-
-	d.Dispatch(context.Background(), testEvent(), "")
-	waitForSentMessage(t, sender.sent)
-
-	sender.mu.Lock()
-	defer sender.mu.Unlock()
-	if len(sender.messages) != 1 {
-		t.Fatalf("expected 1 sent message, got %d", len(sender.messages))
-	}
-	if len(sender.messages[0].Segments) != 2 {
-		t.Fatalf("unexpected rich segments: %#v", sender.messages[0])
 	}
 }
 

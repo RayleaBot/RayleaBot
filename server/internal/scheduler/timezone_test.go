@@ -45,7 +45,7 @@ func TestHydrateUsesNewTimezoneForFutureJobsAndRetainsOverdueJobs(t *testing.T) 
 	}
 	now := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
 	before.now = func() time.Time { return now }
-	job, err := before.Register(ctx, "timezone-plugin", "0 9 * * *", nil)
+	job, err := before.UpsertTaskWithLabel(ctx, "timezone-plugin", "morning-job", "", "0 9 * * *", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

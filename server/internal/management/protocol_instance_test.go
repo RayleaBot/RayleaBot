@@ -58,7 +58,7 @@ func TestOneBotManagementQueriesStayWithinExplicitInstance(t *testing.T) {
 	service := newAdapterTestService(t, source, adapterservice.Instances{OneBot11: shells})
 	router := chi.NewRouter()
 	NewProtocolHandlers(service).RegisterProtectedRoutes(router)
-	query := func(method, id, suffix, body string, wantStatus int) string {
+	query := func(t *testing.T, method, id, suffix, body string, wantStatus int) string {
 		t.Helper()
 		recorder := httptest.NewRecorder()
 		request := httptest.NewRequest(method, "/api/adapters/"+id+"/onebot11/"+suffix, strings.NewReader(body))
@@ -70,11 +70,11 @@ func TestOneBotManagementQueriesStayWithinExplicitInstance(t *testing.T) {
 	}
 	for _, id := range []string{"second", "first"} {
 		beforeFirst, beforeSecond := calls["first"].Load(), calls["second"].Load()
-		body := query(http.MethodGet, id, "targets", "", http.StatusOK)
+		body := query(t, http.MethodGet, id, "targets", "", http.StatusOK)
 		if !strings.Contains(body, id+" group") || !strings.Contains(body, id+" friend") {
 			t.Fatalf("targets from wrong instance: %s", body)
 		}
-		body = query(http.MethodPost, id, "identities/resolve", `{"items":[{"target_type":"group","target_id":"200","user_id":"300"}]}`, http.StatusOK)
+		body = query(t, http.MethodPost, id, "identities/resolve", `{"items":[{"target_type":"group","target_id":"200","user_id":"300"}]}`, http.StatusOK)
 		if !strings.Contains(body, id+" member") {
 			t.Fatalf("identity from wrong instance: %s", body)
 		}
@@ -108,7 +108,7 @@ func TestOneBotManagementQueriesStayWithinExplicitInstance(t *testing.T) {
 				{http.MethodGet, "targets", ""},
 				{http.MethodPost, "identities/resolve", `{"items":[{"target_type":"group","target_id":"200","user_id":"300"}]}`},
 			} {
-				body := query(operation.method, tc.id, operation.suffix, operation.body, http.StatusBadRequest)
+				body := query(t, operation.method, tc.id, operation.suffix, operation.body, http.StatusBadRequest)
 				if !strings.Contains(body, `"code":"platform.invalid_request"`) {
 					t.Fatalf("missing stable selector error: %s", body)
 				}

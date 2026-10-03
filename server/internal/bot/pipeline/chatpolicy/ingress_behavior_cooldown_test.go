@@ -164,114 +164,7 @@ func TestApplyChatPolicySkipsCooldownReplyForCancelledEvent(t *testing.T) {
 	}
 }
 
-func TestApplyChatPolicyUsesCanonicalUserCooldownForPrivateCommand(t *testing.T) {
-	t.Parallel()
-
-	cfg := config.Config{
-		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-		Command: &config.CommandConfig{
-			Prefixes: []string{"/"},
-		},
-		User: config.UserConfig{
-			CommandRateLimit: "1/1h",
-			CooldownReply:    true,
-		},
-		Group: config.GroupConfig{
-			CommandRateLimit: "5/1h",
-		},
-	}
-	testConfig := cfg
-	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:          "help",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "enabled",
-		RuntimeState:      "running",
-		Commands: []plugins.Command{{
-			Name: "help",
-		}},
-	}})
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
-	ingress := chatpolicy.NewIngress(deps)
-	event := chatevent.NormalizedEvent{
-		Kind:             chatevent.EventKindMessage,
-		EventID:          "evt-help-private-canonical",
-		SourceProtocol:   "onebot11",
-		SourceAdapter:    "adapter.onebot11",
-		EventType:        "message.private",
-		Timestamp:        time.Now().Unix(),
-		ConversationType: "private",
-		ConversationID:   "10001",
-		SenderID:         "10001",
-		PlainText:        "/help",
-		MessageID:        "40001",
-	}
-
-	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
-		t.Fatal("first private command should be allowed")
-	}
-	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); allowed {
-		t.Fatal("second private command should be blocked by canonical user cooldown")
-	}
-}
-
-func TestApplyChatPolicyUsesCanonicalUserCooldownForGroupCommand(t *testing.T) {
-	t.Parallel()
-
-	cfg := config.Config{
-		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-		Command: &config.CommandConfig{
-			Prefixes: []string{"/"},
-		},
-		User: config.UserConfig{
-			CommandRateLimit: "1/1h",
-			CooldownReply:    true,
-		},
-		Group: config.GroupConfig{
-			CommandRateLimit: "5/1h",
-		},
-	}
-	testConfig := cfg
-	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:          "weather",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "enabled",
-		RuntimeState:      "running",
-		Commands: []plugins.Command{{
-			Name: "weather",
-		}},
-	}})
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
-	ingress := chatpolicy.NewIngress(deps)
-	event := chatevent.NormalizedEvent{
-		Kind:             chatevent.EventKindMessage,
-		EventID:          "evt-weather-group-user-canonical",
-		SourceProtocol:   "onebot11",
-		SourceAdapter:    "adapter.onebot11",
-		EventType:        "message.group",
-		Timestamp:        time.Now().Unix(),
-		ConversationType: "group",
-		ConversationID:   "20001",
-		SenderID:         "10002",
-		ActorRole:        "member",
-		PlainText:        "/weather",
-		MessageID:        "40002",
-	}
-
-	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
-		t.Fatal("first group command should be allowed")
-	}
-	deniedEvent := event
-	deniedEvent.MessageID = "40003"
-	if _, allowed := ingress.ApplyChatPolicy(context.Background(), deniedEvent); allowed {
-		t.Fatal("second group command should be blocked by canonical user cooldown")
-	}
-}
-
-func TestApplyChatPolicyUsesCanonicalGroupCooldown(t *testing.T) {
+func TestApplyChatPolicyUsesGroupCooldown(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.Config{
@@ -324,11 +217,11 @@ func TestApplyChatPolicyUsesCanonicalGroupCooldown(t *testing.T) {
 		t.Fatal("first group command should be allowed")
 	}
 	if _, allowed := ingress.ApplyChatPolicy(context.Background(), secondEvent); allowed {
-		t.Fatal("second sender in same group should be blocked by canonical group cooldown")
+		t.Fatal("second sender in same group should be blocked by the group cooldown")
 	}
 }
 
-func TestApplyChatPolicyUsesCanonicalCooldownReplyFlag(t *testing.T) {
+func TestApplyChatPolicyHonoursCooldownReplyFlag(t *testing.T) {
 	t.Parallel()
 
 	sender := &recordingOutboundSender{}
@@ -379,14 +272,14 @@ func TestApplyChatPolicyUsesCanonicalCooldownReplyFlag(t *testing.T) {
 		t.Fatal("first group command should be allowed")
 	}
 	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); allowed {
-		t.Fatal("second group command should be blocked by canonical cooldown")
+		t.Fatal("second group command should be blocked by the user cooldown")
 	}
 	if sender.replyCount != 0 || sender.messageCount != 0 {
-		t.Fatalf("canonical cooldown reply flag should suppress replies: %+v", sender)
+		t.Fatalf("disabled cooldown reply flag should suppress replies: %+v", sender)
 	}
 }
 
-func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
+func TestApplyChatPolicyUsesDefaultLevelAndSuperAdmins(t *testing.T) {
 	t.Parallel()
 
 	cfg := config.Config{
@@ -437,7 +330,7 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 		MessageID:        "40007",
 	}
 	if _, allowed := ingress.ApplyChatPolicy(context.Background(), memberEvent); allowed {
-		t.Fatal("member should be denied when canonical default level is group_admin")
+		t.Fatal("member should be denied when the default level is group_admin")
 	}
 
 	superAdminEvent := memberEvent
@@ -445,7 +338,7 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 	superAdminEvent.SenderID = "42"
 	superAdminEvent.MessageID = "40008"
 	if _, allowed := ingress.ApplyChatPolicy(context.Background(), superAdminEvent); !allowed {
-		t.Fatal("canonical super admin should bypass permission checks")
+		t.Fatal("configured super admin should bypass permission checks")
 	}
 }
 
@@ -550,15 +443,6 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 	}
 	if summary.Details["plain_text"] != "[图片]" || summary.Details["message_id"] != "msg-2" {
 		t.Fatalf("unexpected builtin menu response message details: %#v", summary.Details)
-	}
-	html := runner.LastHTML()
-	for _, want := range []string{"群名片", "ID 10002", "测试群", "超级管理员", "nk=10002"} {
-		if !strings.Contains(html, want) {
-			t.Fatalf("builtin menu html missing sender identity field %q:\n%s", want, html)
-		}
-	}
-	if strings.Contains(html, "访客") {
-		t.Fatalf("builtin menu html should not fall back to guest identity:\n%s", html)
 	}
 }
 

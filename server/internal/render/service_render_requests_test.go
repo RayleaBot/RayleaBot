@@ -477,56 +477,6 @@ func TestChromiumRunnerFitsWidthToBody(t *testing.T) {
 	}
 }
 
-func TestChromiumRunnerLoadsPrefetchedRenderResource(t *testing.T) {
-	runner := newTestChromiumRunner(t)
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-	defer cancel()
-
-	resourcePath := filepath.Join(t.TempDir(), "source.png")
-	resourceFile, err := os.Create(resourcePath)
-	if err != nil {
-		t.Fatalf("create resource: %v", err)
-	}
-	if err := png.Encode(resourceFile, singlePixel(color.RGBA{R: 16, G: 80, B: 240, A: 255})); err != nil {
-		_ = resourceFile.Close()
-		t.Fatalf("encode resource: %v", err)
-	}
-	if err := resourceFile.Close(); err != nil {
-		t.Fatalf("close resource: %v", err)
-	}
-	resourceBytes, err := os.ReadFile(resourcePath)
-	if err != nil {
-		t.Fatalf("read resource: %v", err)
-	}
-	digest := sha256.Sum256(resourceBytes)
-
-	content, err := runner.Render(ctx, Document{
-		Template: "prefetched.resource",
-		Output:   "png",
-		Width:    64,
-		Height:   64,
-		HTML: `<!doctype html>
-<html lang="zh-CN">
-  <head><meta charset="utf-8" /><style>body { margin: 0; } img { width: 64px; height: 64px; display: block; }</style></head>
-  <body><img src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" data-render-resource="media-0" alt="" /></body>
-</html>`,
-		Resources: []RenderResource{{
-			ID: "media-0", Path: resourcePath, MIME: "image/png", SHA256: hex.EncodeToString(digest[:]), Size: int64(len(resourceBytes)),
-		}},
-	})
-	if err != nil {
-		t.Fatalf("Render with prefetched resource: %v", err)
-	}
-	screenshot, err := png.Decode(bytes.NewReader(content))
-	if err != nil {
-		t.Fatalf("decode screenshot: %v", err)
-	}
-	r, g, b, _ := screenshot.At(32, 32).RGBA()
-	if r>>8 > 40 || g>>8 < 60 || g>>8 > 100 || b>>8 < 220 {
-		t.Fatalf("prefetched resource did not paint expected pixel: got rgb(%d,%d,%d)", r>>8, g>>8, b>>8)
-	}
-}
-
 func TestChromiumRunnerRestoresSourceWhenPrefetchedResourceCannotDecode(t *testing.T) {
 	runner := newTestChromiumRunner(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)

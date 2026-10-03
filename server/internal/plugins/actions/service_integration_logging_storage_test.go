@@ -312,50 +312,6 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	}
 }
 
-func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
-	t.Parallel()
-
-	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
-	if err != nil {
-		t.Fatalf("storage.Open: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(store.Close)
-
-	testConfig := config.Config{}
-	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	blacklistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
-	whitelistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
-	whitelistState := permissionsqlite.NewWhitelistStateRepository(store.Read, store.Write)
-	governanceEvents := managementevents.NewGovernanceService()
-	deps.Governance = governance.NewService(governance.Deps{CurrentConfig: deps.CurrentConfig, BlacklistRepo: blacklistRepo, WhitelistRepo: whitelistRepo, WhitelistState: whitelistState, NotifyChanged: governanceEvents.PublishChanged})
-	application := localaction.New(deps)
-
-	events, unsubscribe := governanceEvents.Subscribe(1)
-	defer unsubscribe()
-
-	if _, err := application.Execute(context.Background(), "governance-helper", "req_governance_publish", plugins.Action{
-		Kind:                "governance.blacklist.write",
-		GovernanceOperation: "upsert",
-		GovernanceScope:     chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"},
-		GovernanceEntryType: "user",
-		GovernanceTargetID:  "1001",
-		GovernanceReason:    "spam",
-	}, chatevent.Event{}); err != nil {
-		t.Fatalf("governance.blacklist.write upsert failed: %v", err)
-	}
-
-	select {
-	case frame := <-events:
-		data, ok := frame.Data.(managementevents.GenericPayload)
-		if !ok || data.EventType != "governance.changed" {
-			t.Fatalf("unexpected governance event: %#v", frame)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("expected governance.changed event")
-	}
-}
-
 func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 	t.Parallel()
 

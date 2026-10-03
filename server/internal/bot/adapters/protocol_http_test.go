@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 	"time"
 
@@ -129,7 +128,7 @@ func TestProtocolIssuesFromSnapshotSkipsClearedErrors(t *testing.T) {
 	}
 }
 
-func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
+func TestProtocolSnapshotProjectsRuntimeInfo(t *testing.T) {
 	t.Parallel()
 
 	requests := make(chan map[string]any, 2)
@@ -227,15 +226,6 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 		if item.Transport == "sse" {
 			t.Fatalf("unexpected transport in protocol snapshot: %#v", item)
 		}
-	}
-
-	data := service.Adapters()
-	if len(data.Adapters) != 1 {
-		t.Fatalf("unexpected adapters: %#v", data.Adapters)
-	}
-	projected := data.Adapters[0].OneBot11
-	if !reflect.DeepEqual(projected, snapshot) {
-		t.Fatalf("unexpected event projection: got %#v want %#v", projected, snapshot)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)

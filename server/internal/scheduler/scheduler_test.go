@@ -465,90 +465,6 @@ func TestCron_InvalidExpr(t *testing.T) {
 	}
 }
 
-func TestEngine_RegisterAndHydrate(t *testing.T) {
-	t.Parallel()
-	store := openTestStore(t)
-	repo, err := NewSQLiteRepository(store)
-	if err != nil {
-		t.Fatalf("new repository: %v", err)
-	}
-
-	logger := testLogger()
-	engine, err := New(Options{
-		Repository: repo,
-		Logger:     logger,
-		Timezone:   "Asia/Shanghai",
-	})
-	if err != nil {
-		t.Fatalf("new engine: %v", err)
-	}
-
-	ctx := context.Background()
-	job, err := engine.Register(ctx, "test-plugin", "*/15 * * * *", nil)
-	if err != nil {
-		t.Fatalf("register: %v", err)
-	}
-	if job.JobID == "" {
-		t.Fatal("job ID is empty")
-	}
-	if job.PluginID != "test-plugin" {
-		t.Errorf("PluginID = %q, want test-plugin", job.PluginID)
-	}
-
-	// Create a new engine and hydrate to verify persistence.
-	engine2, err := New(Options{
-		Repository: repo,
-		Logger:     logger,
-		Timezone:   "Asia/Shanghai",
-	})
-	if err != nil {
-		t.Fatalf("new engine2: %v", err)
-	}
-	if err := engine2.Hydrate(ctx); err != nil {
-		t.Fatalf("hydrate: %v", err)
-	}
-
-	jobs := engine2.Jobs()
-	if len(jobs) != 1 {
-		t.Fatalf("got %d jobs, want 1", len(jobs))
-	}
-	if jobs[0].JobID != job.JobID {
-		t.Errorf("hydrated job ID = %q, want %q", jobs[0].JobID, job.JobID)
-	}
-}
-
-func TestEngine_Unregister(t *testing.T) {
-	t.Parallel()
-	store := openTestStore(t)
-	repo, err := NewSQLiteRepository(store)
-	if err != nil {
-		t.Fatalf("new repository: %v", err)
-	}
-
-	engine, err := New(Options{
-		Repository: repo,
-		Logger:     testLogger(),
-		Timezone:   "Asia/Shanghai",
-	})
-	if err != nil {
-		t.Fatalf("new engine: %v", err)
-	}
-
-	ctx := context.Background()
-	job, err := engine.Register(ctx, "test-plugin", "0 * * * *", nil)
-	if err != nil {
-		t.Fatalf("register: %v", err)
-	}
-
-	if err := engine.Unregister(ctx, job.JobID); err != nil {
-		t.Fatalf("unregister: %v", err)
-	}
-
-	if len(engine.Jobs()) != 0 {
-		t.Fatal("expected 0 jobs after unregister")
-	}
-}
-
 func TestEngine_UpsertTask(t *testing.T) {
 	t.Parallel()
 
@@ -609,7 +525,7 @@ func TestEngine_DeletePluginTaskOnlyRemovesOwnTask(t *testing.T) {
 	}
 	ctx := context.Background()
 	if _, err := engine.UpsertTaskWithLabel(ctx, "weather", "daily_report", "每日早报", "0 8 * * *", nil); err != nil {
-		t.Fatalf("UpsertTask: %v", err)
+		t.Fatalf("UpsertTaskWithLabel: %v", err)
 	}
 	if deleted, err := engine.DeletePluginTask(ctx, "other", "daily_report"); err != nil || deleted {
 		t.Fatalf("another plugin deleted the task: %v %v", deleted, err)
@@ -702,9 +618,9 @@ func TestEngine_TriggerDoesNotAdvanceNextRun(t *testing.T) {
 	ctx := context.Background()
 	baseTime := time.Date(2026, 3, 22, 12, 0, 0, 0, time.UTC)
 	engine.now = func() time.Time { return baseTime }
-	job, err := engine.UpsertTask(ctx, "subscription-hub", "subscription-hub-poll", "*/30 * * * *", nil)
+	job, err := engine.UpsertTaskWithLabel(ctx, "subscription-hub", "subscription-hub-poll", "", "*/30 * * * *", nil)
 	if err != nil {
-		t.Fatalf("UpsertTask: %v", err)
+		t.Fatalf("UpsertTaskWithLabel: %v", err)
 	}
 
 	triggered, err := engine.Trigger(ctx, job.JobID)
@@ -765,9 +681,9 @@ func TestEngine_TickPreservesRunStateRecordedDuringTrigger(t *testing.T) {
 	}
 	engine.now = func() time.Time { return baseTime }
 
-	job, err := engine.Register(ctx, "weather", "*/30 * * * *", nil)
+	job, err := engine.UpsertTaskWithLabel(ctx, "weather", "half-hourly-report", "", "*/30 * * * *", nil)
 	if err != nil {
-		t.Fatalf("register: %v", err)
+		t.Fatalf("upsert: %v", err)
 	}
 	engine.now = func() time.Time { return job.NextRun.Add(time.Minute) }
 	engine.tick()
@@ -818,7 +734,7 @@ func TestEngineStaleTriggerCannotOverwriteUpsertedJob(t *testing.T) {
 
 	baseTime := time.Date(2026, 7, 10, 8, 0, 0, 0, time.UTC)
 	engine.now = func() time.Time { return baseTime }
-	original, err := engine.UpsertTask(ctx, "weather", "daily-report", "* * * * *", nil)
+	original, err := engine.UpsertTaskWithLabel(ctx, "weather", "daily-report", "", "* * * * *", nil)
 	if err != nil {
 		t.Fatalf("initial upsert: %v", err)
 	}
@@ -831,7 +747,7 @@ func TestEngineStaleTriggerCannotOverwriteUpsertedJob(t *testing.T) {
 	}()
 	stale := <-triggered
 
-	updated, err := engine.UpsertTask(ctx, "weather", original.JobID, "30 * * * *", json.RawMessage(`{"version":2}`))
+	updated, err := engine.UpsertTaskWithLabel(ctx, "weather", original.JobID, "", "30 * * * *", json.RawMessage(`{"version":2}`))
 	if err != nil {
 		t.Fatalf("replace job while trigger is running: %v", err)
 	}
@@ -861,7 +777,7 @@ func TestEngineStaleTriggerCannotOverwriteUpsertedJob(t *testing.T) {
 	}
 }
 
-func TestEngineStaleTriggerCannotResurrectUnregisteredJob(t *testing.T) {
+func TestEngineStaleTriggerCannotResurrectDeletedPluginTask(t *testing.T) {
 	store := openTestStore(t)
 	repo, err := NewSQLiteRepository(store)
 	if err != nil {
@@ -885,7 +801,7 @@ func TestEngineStaleTriggerCannotResurrectUnregisteredJob(t *testing.T) {
 	}
 	baseTime := time.Date(2026, 7, 10, 8, 0, 0, 0, time.UTC)
 	engine.now = func() time.Time { return baseTime }
-	job, err := engine.UpsertTask(ctx, "weather", "obsolete-job", "* * * * *", nil)
+	job, err := engine.UpsertTaskWithLabel(ctx, "weather", "obsolete-job", "", "* * * * *", nil)
 	if err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
@@ -897,8 +813,8 @@ func TestEngineStaleTriggerCannotResurrectUnregisteredJob(t *testing.T) {
 		engine.tick()
 	}()
 	<-triggered
-	if err := engine.Unregister(ctx, job.JobID); err != nil {
-		t.Fatalf("unregister while trigger is running: %v", err)
+	if deleted, err := engine.DeletePluginTask(ctx, "weather", job.JobID); err != nil || !deleted {
+		t.Fatalf("delete while trigger is running: deleted=%v err=%v", deleted, err)
 	}
 	close(release)
 	<-tickDone
@@ -912,55 +828,6 @@ func TestEngineStaleTriggerCannotResurrectUnregisteredJob(t *testing.T) {
 	}
 	if len(persisted) != 0 {
 		t.Fatalf("stale trigger resurrected persisted job: %#v", persisted)
-	}
-}
-
-func TestEngine_TickFiresDueJob(t *testing.T) {
-	t.Parallel()
-	store := openTestStore(t)
-	repo, err := NewSQLiteRepository(store)
-	if err != nil {
-		t.Fatalf("new repository: %v", err)
-	}
-
-	var mu sync.Mutex
-	var fired []string
-
-	engine, err := New(Options{
-		Repository: repo,
-		Logger:     testLogger(),
-		Timezone:   "Asia/Shanghai",
-		Trigger: func(_ context.Context, job Job) {
-			mu.Lock()
-			fired = append(fired, job.JobID)
-			mu.Unlock()
-		},
-	})
-	if err != nil {
-		t.Fatalf("new engine: %v", err)
-	}
-
-	// Fix the clock to a known time.
-	baseTime := time.Date(2026, 3, 22, 12, 0, 0, 0, time.UTC)
-	engine.now = func() time.Time { return baseTime }
-
-	ctx := context.Background()
-	job, err := engine.Register(ctx, "test-plugin", "*/30 * * * *", nil)
-	if err != nil {
-		t.Fatalf("register: %v", err)
-	}
-
-	// Advance clock past the next_run.
-	engine.now = func() time.Time { return job.NextRun.Add(time.Minute) }
-	engine.tick()
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(fired) != 1 {
-		t.Fatalf("fired %d jobs, want 1", len(fired))
-	}
-	if fired[0] != job.JobID {
-		t.Errorf("fired job = %q, want %q", fired[0], job.JobID)
 	}
 }
 

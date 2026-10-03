@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
 )
 
 func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
@@ -161,7 +163,7 @@ func TestOpenRejectsSecondHandleForSameDatabasePath(t *testing.T) {
 		_ = second.Close()
 		t.Fatal("expected second Open for the same database path to fail")
 	}
-	if !strings.Contains(err.Error(), "already in use") {
+	if !errors.Is(err, filelock.ErrLocked) {
 		t.Fatalf("unexpected lock error: %v", err)
 	}
 }
@@ -383,29 +385,4 @@ func assertIndexExists(t *testing.T, db *sql.DB, indexName string) {
 	if exists != 1 {
 		t.Fatalf("expected index %s to exist", indexName)
 	}
-}
-
-func readTables(t *testing.T, db *sql.DB) []string {
-	t.Helper()
-
-	rows, err := db.Query(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`)
-	if err != nil {
-		t.Fatalf("query sqlite_master tables: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(rows.Close)
-
-	var tables []string
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			t.Fatalf("scan sqlite_master row: %v", err)
-		}
-		tables = append(tables, name)
-	}
-
-	if err := rows.Err(); err != nil {
-		t.Fatalf("iterate sqlite_master rows: %v", err)
-	}
-
-	return tables
 }

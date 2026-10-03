@@ -84,7 +84,7 @@ func TestFailedFlushMergesConcurrentCountsAndMetadata(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			waits := s.store.Write.Stats().WaitCount
 			flushed := make(chan error, 1)
 			go func() { flushed <- s.Flush(t.Context()) }()
@@ -152,7 +152,7 @@ func TestFlushPreservesIntervalsClosedDuringIO(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			waits := s.store.Write.Stats().WaitCount
@@ -217,7 +217,7 @@ func TestStopRetriesFinalBatchAtOriginalStopTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	waits := s.store.Write.Stats().WaitCount
@@ -263,7 +263,7 @@ func TestQueryCopiesMemoryAfterDatabaseReads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	waits := s.store.Read.Stats().WaitCount
 	type result struct {
 		view Response

@@ -30,7 +30,6 @@ func TestExecutorCancellationOutcomes(t *testing.T) {
 		status Status
 		code   string
 	}{
-		{"operator", StatusCancelled, ""},
 		{"caller", StatusCancelled, ""},
 		{"shutdown", StatusInterrupted, ""},
 		{"timeout", StatusFailed, "platform.task_timeout"},
@@ -65,10 +64,6 @@ func TestExecutorCancellationOutcomes(t *testing.T) {
 			}
 			<-started
 			switch tc.name {
-			case "operator":
-				if !executor.Cancel(id) {
-					t.Fatal("cancel rejected")
-				}
 			case "shutdown", "real failure during shutdown", "cleanup failure during shutdown":
 				if err := executor.Close(); err != nil {
 					t.Fatal(err)
@@ -89,7 +84,7 @@ func TestExecutorCancellationOutcomes(t *testing.T) {
 	}
 }
 
-func TestExecutorShutdownSettlesQueuedTasksAndPreservesEarlierCancellation(t *testing.T) {
+func TestExecutorShutdownSettlesQueuedTasks(t *testing.T) {
 	registry := NewRegistry()
 	executor := NewExecutor(registry, time.Minute)
 	t.Cleanup(func() { _ = executor.Close() })
@@ -110,9 +105,6 @@ func TestExecutorShutdownSettlesQueuedTasksAndPreservesEarlierCancellation(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !executor.Cancel(running) {
-		t.Fatal("cancel rejected")
-	}
 	done := make(chan error, 1)
 	go func() { done <- executor.Close() }()
 	<-executor.baseCtx.Done()
@@ -120,7 +112,7 @@ func TestExecutorShutdownSettlesQueuedTasksAndPreservesEarlierCancellation(t *te
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
-	if got := awaitTerminalTask(t, registry, running); got.Status != StatusCancelled {
+	if got := awaitTerminalTask(t, registry, running); got.Status != StatusInterrupted {
 		t.Fatal(got)
 	}
 	if got := awaitTerminalTask(t, registry, queued); got.Status != StatusInterrupted {

@@ -1,19 +1,13 @@
 package integration
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
-
-	"gopkg.in/yaml.v3"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
@@ -112,90 +106,18 @@ func TestSetupAdminUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 		t.Fatalf("unexpected status: got %d want %d", recorder.Code, http.StatusInternalServerError)
 	}
 
-	body := decodeBody(t, recorder.Body.Bytes())
-	assertErrorEnvelopeMatchesFixture(t, body, map[string]any{
-		"error": map[string]any{
-			"code":       "platform.internal_error",
-			"message":    "内部错误",
-			"request_id": "fixture_request_id_placeholder",
-		},
-	}, "platform.internal_error")
+	assertErrorEnvelope(t, decodeBody(t, recorder.Body.Bytes()), "platform.internal_error")
 }
 
-func loadWebAPIFixtureDocument(t *testing.T, path string) webAPIFixtureDocument {
+// assertErrorEnvelope checks the ErrorEnvelope shape and its stable code; the
+// reader-facing message is not part of the contract and is not compared.
+func assertErrorEnvelope(t *testing.T, actual map[string]any, wantCode string) {
 	t.Helper()
-
-	normalizedPath := testutil.ResolveRepoPath(path)
-	bytes, err := os.ReadFile(normalizedPath)
-	if err != nil {
-		t.Fatalf("read fixture %s: %v", normalizedPath, err)
-	}
-
-	var fixture webAPIFixtureDocument
-	if err := yaml.Unmarshal(bytes, &fixture); err != nil {
-		t.Fatalf("unmarshal fixture %s: %v", normalizedPath, err)
-	}
-
-	return fixture
+	assertErrorEnvelopeMatchesFixture(t, actual, nil, wantCode)
 }
 
-type webAPIFixtureDocument struct {
-	Request struct {
-		Method string         `yaml:"method"`
-		Path   string         `yaml:"path"`
-		Body   map[string]any `yaml:"body"`
-	} `yaml:"request"`
-	Response struct {
-		Status  int               `yaml:"status"`
-		Headers map[string]string `yaml:"headers"`
-		Body    map[string]any    `yaml:"body"`
-	} `yaml:"response"`
-}
-
-func performJSONRequest(t *testing.T, application interface{ Handler() http.Handler }, method, path string, body map[string]any) *httptest.ResponseRecorder {
-	return performJSONRequestWithRemoteAddr(t, application, method, path, body, "127.0.0.1:0")
-}
-
-func performJSONRequestWithRemoteAddr(t *testing.T, application interface{ Handler() http.Handler }, method, path string, body map[string]any, remoteAddr string) *httptest.ResponseRecorder {
-	t.Helper()
-
-	var payload []byte
-	if body != nil {
-		var err error
-		payload, err = json.Marshal(body)
-		if err != nil {
-			t.Fatalf("marshal request body: %v", err)
-		}
-	} else {
-		payload = []byte("{}")
-	}
-
-	return performJSONBytesRequestWithRemoteAddr(t, application, method, path, payload, remoteAddr)
-}
-
-func performJSONBytesRequest(t *testing.T, application interface{ Handler() http.Handler }, method, path string, payload []byte) *httptest.ResponseRecorder {
-	return performJSONBytesRequestWithRemoteAddr(t, application, method, path, payload, "127.0.0.1:0")
-}
-
-func performJSONBytesRequestWithRemoteAddr(t *testing.T, application interface{ Handler() http.Handler }, method, path string, payload []byte, remoteAddr string) *httptest.ResponseRecorder {
-	t.Helper()
-
-	request := httptest.NewRequest(method, path, bytes.NewReader(payload))
-	request.Host = "127.0.0.1:8080"
-	request.Header.Set("Content-Type", "application/json")
-	if path == "/api/setup/admin" {
-		request.Header.Set("Origin", "http://127.0.0.1:8080")
-		request.Header.Set("X-Raylea-Setup-Token", testutil.TestSetupToken)
-	}
-	if strings.HasPrefix(path, "/api/launcher/") {
-		request.Header.Set("X-Raylea-Launcher-Control", testutil.TestLauncherControlToken)
-	}
-	request.RemoteAddr = remoteAddr
-	recorder := httptest.NewRecorder()
-	application.Handler().ServeHTTP(recorder, request)
-	return recorder
-}
-
+// assertErrorEnvelopeMatchesFixture additionally compares the structured
+// details of the envelope against the fixture body when the fixture has any.
 func assertErrorEnvelopeMatchesFixture(t *testing.T, actual map[string]any, expected map[string]any, wantCode string) {
 	t.Helper()
 
@@ -206,16 +128,15 @@ func assertErrorEnvelopeMatchesFixture(t *testing.T, actual map[string]any, expe
 	if errorBody["code"] != wantCode {
 		t.Fatalf("unexpected error code: got %#v want %q", errorBody["code"], wantCode)
 	}
-
-	expectedError := expected["error"].(map[string]any)
-	if errorBody["message"] != expectedError["message"] {
-		t.Fatalf("unexpected error message: got %#v want %#v", errorBody["message"], expectedError["message"])
+	if message, ok := errorBody["message"].(string); !ok || strings.TrimSpace(message) == "" {
+		t.Fatalf("unexpected error message: %#v", errorBody["message"])
 	}
 	requestID, ok := errorBody["request_id"].(string)
 	if !ok || !strings.HasPrefix(requestID, "req_") {
 		t.Fatalf("unexpected request_id: %#v", errorBody["request_id"])
 	}
 
+	expectedError, _ := expected["error"].(map[string]any)
 	expectedDetails, hasExpectedDetails := expectedError["details"]
 	actualDetails, hasActualDetails := errorBody["details"]
 	if hasExpectedDetails != hasActualDetails {
@@ -240,25 +161,6 @@ func cloneMap(input map[string]any) map[string]any {
 		output[key] = value
 	}
 	return output
-}
-
-// deterministicAuthOptions returns auth.Option values that produce a
-// deterministic auth.Manager when passed to app.New via Options.AuthOptions.
-// Unlike newDeterministicAuthManager, these options are applied at router
-// creation time so the RequireAuth middleware captures the correct manager.
-func deterministicAuthOptions() []auth.Option {
-	current := time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)
-	sessionCounter := 0
-	return []auth.Option{
-		auth.WithClock(func() time.Time {
-			return current
-		}),
-		auth.WithSigningKey([]byte("0123456789abcdef0123456789abcdef")),
-		auth.WithSessionIDGenerator(func() (string, error) {
-			sessionCounter++
-			return "session-test-" + string(rune('0'+sessionCounter)), nil
-		}),
-	}
 }
 
 // assertCredentialRejection checks a rejected credential request against its

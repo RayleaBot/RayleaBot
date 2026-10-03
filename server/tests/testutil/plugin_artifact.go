@@ -29,28 +29,7 @@ type testArtifactDocument struct {
 // no source-language runtime or install step is involved.
 func WriteEchoGoPluginArtifact(t testing.TB, repoRoot string) string {
 	t.Helper()
-	echoArtifactOnce.Do(func() {
-		sourceRoot := RepoPath(t, "server", "tests", "testutil", "testdata", "echo-plugin")
-		echoManifest, echoArtifactErr = os.ReadFile(filepath.Join(sourceRoot, "info.json"))
-		if echoArtifactErr != nil {
-			return
-		}
-		buildRoot, err := os.MkdirTemp("", "rayleabot-echo-go-fixture-")
-		if err != nil {
-			echoArtifactErr = err
-			return
-		}
-		echoBinaryPath = filepath.Join(buildRoot, "echo"+executableSuffix())
-		command := exec.Command("go", "build", "-trimpath", "-o", echoBinaryPath, "./cmd/echo")
-		command.Dir = sourceRoot
-		command.Env = append(os.Environ(), "CGO_ENABLED=0", "GOWORK=off")
-		if output, err := command.CombinedOutput(); err != nil {
-			echoArtifactErr = fmt.Errorf("build Go plugin fixture: %w: %s", err, output)
-		}
-	})
-	if echoArtifactErr != nil {
-		t.Fatalf("prepare Go plugin fixture: %v", echoArtifactErr)
-	}
+	ensureEchoFixture(t)
 
 	pluginRoot := filepath.Join(repoRoot, "plugins", "installed", "raylea.echo")
 	backendRelative := filepath.ToSlash(filepath.Join("bin", "echo"+executableSuffix()))

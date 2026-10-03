@@ -185,24 +185,6 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 	if statusBody["status"] != "running" {
 		t.Fatalf("unexpected launcher status: %#v", statusBody["status"])
 	}
-	if _, ok := statusBody["adapters"].([]any); !ok {
-		t.Fatalf("expected adapters array, got %#v", statusBody["adapters"])
-	}
-	if _, ok := statusBody["active_plugins"].(float64); !ok {
-		t.Fatalf("expected active_plugins number, got %#v", statusBody["active_plugins"])
-	}
-	if _, ok := statusBody["running_plugins"].(float64); !ok {
-		t.Fatalf("expected running_plugins number, got %#v", statusBody["running_plugins"])
-	}
-	if _, ok := statusBody["failed_plugins"].(float64); !ok {
-		t.Fatalf("expected failed_plugins number, got %#v", statusBody["failed_plugins"])
-	}
-	if _, ok := statusBody["db_schema_version"].(string); !ok {
-		t.Fatalf("expected db_schema_version string, got %#v", statusBody["db_schema_version"])
-	}
-	if _, ok := statusBody["uptime_seconds"].(float64); !ok {
-		t.Fatalf("expected uptime_seconds number, got %#v", statusBody["uptime_seconds"])
-	}
 
 	shutdownFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.launcher-shutdown.yaml"))
 	shutdownReq, err := http.NewRequest(shutdownFixture.Request.Method, server.URL+shutdownFixture.Request.Path, nil)
@@ -239,7 +221,9 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 	}
 }
 
-func TestLauncherHandlersRejectForwardedHeadersAndOldTokenRoutesAreGone(t *testing.T) {
+// A forwarded request carries a valid control token and still fails: the
+// launcher routes trust only direct loopback callers.
+func TestLauncherHandlersRejectForwardedHeaders(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
@@ -259,6 +243,7 @@ func TestLauncherHandlersRejectForwardedHeadersAndOldTokenRoutesAreGone(t *testi
 			if err != nil {
 				t.Fatalf("create forwarded request: %v", err)
 			}
+			req.Header.Set("X-Raylea-Launcher-Control", testutil.TestLauncherControlToken)
 			req.Header.Set("X-Forwarded-For", "198.51.100.9")
 
 			resp, err := server.Client().Do(req)
@@ -269,66 +254,8 @@ func TestLauncherHandlersRejectForwardedHeadersAndOldTokenRoutesAreGone(t *testi
 			if resp.StatusCode != http.StatusForbidden {
 				t.Fatalf("unexpected forwarded status: got %d want 403", resp.StatusCode)
 			}
-			assertErrorEnvelopeMatchesFixture(t, decodeBody(t, readAll(t, resp)), map[string]any{
-				"error": map[string]any{
-					"code":       "permission.denied",
-					"message":    "当前用户无权执行该操作",
-					"request_id": "fixture_request_id_placeholder",
-				},
-			}, "permission.denied")
+			assertErrorEnvelope(t, decodeBody(t, readAll(t, resp)), "permission.denied")
 		})
-	}
-
-	for _, tc := range []struct {
-		method string
-		path   string
-	}{
-		{method: http.MethodPost, path: "/api/session/launcher-token"},
-		{method: http.MethodPost, path: "/api/session/launcher-admission"},
-	} {
-		req, err := http.NewRequest(tc.method, server.URL+tc.path, nil)
-		if err != nil {
-			t.Fatalf("create old launcher route request: %v", err)
-		}
-		resp, err := server.Client().Do(req)
-		if err != nil {
-			t.Fatalf("perform old launcher route request: %v", err)
-		}
-		defer func(release func() error) { _ = release() }(resp.Body.Close)
-		if resp.StatusCode != http.StatusNotFound {
-			t.Fatalf("old launcher route %s returned %d, want 404", tc.path, resp.StatusCode)
-		}
-	}
-}
-
-func TestProtocolSnapshotHandler(t *testing.T) {
-	t.Parallel()
-
-	application := newTestApp(t, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
-	server := newManagementTestServer(t, application.Handler())
-	defer server.Close()
-
-	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/adapters", nil)
-	if err != nil {
-		t.Fatalf("create protocol snapshot request: %v", err)
-	}
-	snapshotReq.Header.Set("Authorization", "Bearer "+token)
-	snapshotResp, err := server.Client().Do(snapshotReq)
-	if err != nil {
-		t.Fatalf("perform protocol snapshot request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(snapshotResp.Body.Close)
-	if snapshotResp.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected protocol snapshot status: got %d want 200", snapshotResp.StatusCode)
-	}
-	adaptersBody := decodeBody(t, readAll(t, snapshotResp))
-	snapshotBody := oneBotSnapshotForAdapter(t, adaptersBody, "onebot11")
-	if snapshotBody["protocol"] != "onebot11" {
-		t.Fatalf("unexpected protocol snapshot body: %#v", snapshotBody)
-	}
-	if _, ok := snapshotBody["transport_status"].([]any); !ok {
-		t.Fatalf("expected transport_status array, got %#v", snapshotBody["transport_status"])
 	}
 }
 

@@ -143,9 +143,6 @@ func TestHotReloadConsumersOnlyReceiveOwnedChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load default config: %v", err)
 	}
-	next := current
-	next.Render.QueueMaxLength = current.Render.QueueMaxLength + 1
-	next.Message.RateLimitPerTarget = "7/5s"
 
 	renderer := &configApplyCounter{}
 	outbound := &configApplyCounter{}
@@ -156,9 +153,17 @@ func TestHotReloadConsumersOnlyReceiveOwnedChanges(t *testing.T) {
 		OutboundLimiter: outbound,
 	})
 
-	service.ApplyHotReloadableFields(next)
+	renderOnly := current
+	renderOnly.Render.QueueMaxLength = current.Render.QueueMaxLength + 1
+	service.ApplyHotReloadableFields(renderOnly)
+	if renderer.calls != 1 || outbound.calls != 0 {
+		t.Fatalf("after render change: renderer=%d outbound=%d, want only the renderer applied", renderer.calls, outbound.calls)
+	}
 
+	messageOnly := current
+	messageOnly.Message.RateLimitPerTarget = "7/5s"
+	service.ApplyHotReloadableFields(messageOnly)
 	if renderer.calls != 1 || outbound.calls != 1 {
-		t.Fatalf("renderer=%d outbound=%d, want one apply each", renderer.calls, outbound.calls)
+		t.Fatalf("after message change: renderer=%d outbound=%d, want only the outbound limiter applied", renderer.calls, outbound.calls)
 	}
 }

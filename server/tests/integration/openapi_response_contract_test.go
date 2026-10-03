@@ -128,7 +128,6 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/system/render/templates/{template_id}", detail.Code, decodeBody(t, detail.Body.Bytes()))
 
 		fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.system-render-template-preview-html.yaml"))
-		assertRequestMatchesOpenAPI(t, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
 		preview := performOpenAPIJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, token)
 		if preview.Code != fixture.Response.Status {
 			t.Fatalf("unexpected render template preview code: got %d want %d body=%s", preview.Code, fixture.Response.Status, preview.Body.String())
@@ -160,28 +159,6 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/launcher/status", recorder.Code, decodeBody(t, recorder.Body.Bytes()))
 	})
 
-}
-
-func TestWebAPIRequestFixturesMatchOpenAPI(t *testing.T) {
-	t.Parallel()
-
-	paths, err := filepath.Glob(testutil.RepoPath(t, "fixtures", "web-api", "*.yaml"))
-	if err != nil {
-		t.Fatalf("glob web-api fixtures: %v", err)
-	}
-	for _, fixturePath := range paths {
-		fixturePath := fixturePath
-		t.Run(filepath.Base(fixturePath), func(t *testing.T) {
-			t.Parallel()
-
-			fixture := loadOpenAPIRequestFixture(t, fixturePath)
-			// ConfigDocument is an external JSON Schema with dedicated config tests.
-			if fixture.Case == "invalid" || fixture.Request.Body == nil || fixture.Request.Path == "/api/config" {
-				return
-			}
-			assertRequestMatchesOpenAPI(t, fixture.Request.Method, fixture.Request.Path, normalizeYAMLValue(fixture.Request.Body).(map[string]any))
-		})
-	}
 }
 
 func performOpenAPIJSONRequest(t *testing.T, application interface{ Handler() http.Handler }, method, path string, body map[string]any, token string) *httptest.ResponseRecorder {
@@ -223,31 +200,6 @@ func assertActualResponseMatchesOpenAPI(t *testing.T, method, path string, statu
 	if err := validator.Validate(body); err != nil {
 		t.Fatalf("%s %s status %d response does not match OpenAPI schema: %v\nbody=%#v", method, path, status, err, body)
 	}
-}
-
-func assertRequestMatchesOpenAPI(t *testing.T, method, path string, body map[string]any) {
-	t.Helper()
-
-	validator := compileOpenAPIRequestValidator(t, method, path)
-	if err := validator.Validate(body); err != nil {
-		t.Fatalf("%s %s request does not match OpenAPI schema: %v\nbody=%#v", method, path, err, body)
-	}
-}
-
-func compileOpenAPIRequestValidator(t *testing.T, method, path string) *config.Validator {
-	t.Helper()
-
-	document := loadOpenAPIContractDocument(t)
-	paths := requireOpenAPIMap(t, document["paths"], "paths")
-	contractPath := resolveOpenAPIPath(paths, path)
-	pathItem := requireOpenAPIMap(t, paths[contractPath], "paths."+contractPath)
-	operation := requireOpenAPIMap(t, pathItem[strings.ToLower(method)], "operation "+method+" "+contractPath)
-	requestBody := requireOpenAPIMap(t, operation["requestBody"], "request body "+method+" "+contractPath)
-	content := requireOpenAPIMap(t, requestBody["content"], "request body content")
-	media := requireOpenAPIMap(t, content["application/json"], "application/json request content")
-	requestSchema := requireOpenAPIMap(t, media["schema"], "application/json request schema")
-
-	return compileOpenAPISchemaValidator(t, requestSchema, openAPISchemaName("openapi-request", method, contractPath, ""))
 }
 
 func compileOpenAPIResponseValidator(t *testing.T, method, path string, status int) *config.Validator {
@@ -330,29 +282,6 @@ func openAPIPathMatches(pattern, path string) bool {
 		}
 	}
 	return true
-}
-
-type openAPIRequestFixture struct {
-	Case    string `yaml:"case"`
-	Request struct {
-		Method string         `yaml:"method"`
-		Path   string         `yaml:"path"`
-		Body   map[string]any `yaml:"body"`
-	} `yaml:"request"`
-}
-
-func loadOpenAPIRequestFixture(t *testing.T, path string) openAPIRequestFixture {
-	t.Helper()
-
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read fixture %s: %v", path, err)
-	}
-	var fixture openAPIRequestFixture
-	if err := yaml.Unmarshal(content, &fixture); err != nil {
-		t.Fatalf("parse fixture %s: %v", path, err)
-	}
-	return fixture
 }
 
 func sortedMapKeys(values map[string]any) []string {

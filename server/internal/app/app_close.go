@@ -30,7 +30,7 @@ type shutdownPhase struct {
 
 // The caller stops waiting at the phase deadline even if a closer ignores
 // cancellation. done tracks its actual completion for dependent resources.
-func runShutdownPhase(budget time.Duration, stop func(context.Context) error) (error, <-chan struct{}) {
+func runShutdownPhase(budget time.Duration, stop func(context.Context) error) (<-chan struct{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
 	result := make(chan error, 1)
@@ -41,9 +41,9 @@ func runShutdownPhase(budget time.Duration, stop func(context.Context) error) (e
 	}()
 	select {
 	case err := <-result:
-		return err, done
+		return done, err
 	case <-ctx.Done():
-		return ctx.Err(), done
+		return done, ctx.Err()
 	}
 }
 
@@ -75,7 +75,7 @@ func (a *App) closeResources() error {
 		return nil
 	})
 	for i, phase := range phases {
-		err, done := runShutdownPhase(phase.budget, phase.stop)
+		done, err := runShutdownPhase(phase.budget, phase.stop)
 		if i < len(phases)-1 {
 			completed = append(completed, done)
 		}

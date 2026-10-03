@@ -95,15 +95,12 @@ func TestCreate_ListIncludesNewTask(t *testing.T) {
 	}
 }
 
-func TestUpdate_ReplacesTaskSnapshotAndPublishes(t *testing.T) {
+func TestUpdate_ReplacesTaskSnapshot(t *testing.T) {
 	registry := NewRegistry()
 	taskID, err := registry.Create("plugin.install", "install hello plugin")
 	if err != nil {
 		t.Fatalf("Create returned unexpected error: %v", err)
 	}
-
-	updates, unsubscribe := registry.Subscribe(2)
-	defer unsubscribe()
 
 	status := StatusRunning
 	progress := 40
@@ -133,18 +130,6 @@ func TestUpdate_ReplacesTaskSnapshotAndPublishes(t *testing.T) {
 	}
 	if snapshot.StartedAt == nil || !snapshot.StartedAt.Equal(startedAt) {
 		t.Fatalf("StartedAt = %v, want %v", snapshot.StartedAt, startedAt)
-	}
-
-	select {
-	case published := <-updates:
-		if published.TaskID != taskID {
-			t.Fatalf("published TaskID = %q, want %q", published.TaskID, taskID)
-		}
-		if published.Status != StatusRunning {
-			t.Fatalf("published Status = %q, want %q", published.Status, StatusRunning)
-		}
-	default:
-		t.Fatal("expected update to be published")
 	}
 }
 

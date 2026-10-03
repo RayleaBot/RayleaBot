@@ -112,10 +112,6 @@ func (s *Service) startupRuntimeState(kind string) (StartupRuntimeState, bool) {
 	return state, ok
 }
 
-func (s *Service) StartupRuntimeState(kind string) (StartupRuntimeState, bool) {
-	return s.startupRuntimeState(kind)
-}
-
 func (s *Service) startupRequiredRuntimeKinds() []string {
 	kinds := make([]string, 0, len(startupRuntimeKinds()))
 	if strings.TrimSpace(s.config().Render.BrowserPath) == "" {

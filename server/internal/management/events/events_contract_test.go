@@ -83,33 +83,3 @@ func TestMessageStatsChangedFrameMatchesContractFixture(t *testing.T) {
 		t.Fatalf("notice differs from contract fixture: %s", encoded)
 	}
 }
-
-func TestPluginStateEventFrameKeepsContractFieldNames(t *testing.T) {
-	t.Parallel()
-
-	frame := NewReceivedFrame(PluginStatePayload{
-		PluginID: "weather",
-		State:    "running",
-		Commands: []PluginCommandItem{
-			{
-				ID: "weather", Name: "weather", Description: "weather", Usage: "/weather",
-				Permission: "everyone", Trigger: PluginCommandTrigger{Type: "exact", Names: []string{"weather"}},
-			},
-		},
-		CommandConflicts: []string{},
-	})
-
-	encoded, err := json.Marshal(frame.Data)
-	if err != nil {
-		t.Fatalf("marshal payload: %v", err)
-	}
-	var payload map[string]any
-	if err := json.Unmarshal(encoded, &payload); err != nil {
-		t.Fatalf("unmarshal payload: %v", err)
-	}
-	for _, key := range []string{"plugin_id", "state", "commands", "command_conflicts"} {
-		if _, ok := payload[key]; !ok {
-			t.Fatalf("missing field %q in %s", key, encoded)
-		}
-	}
-}

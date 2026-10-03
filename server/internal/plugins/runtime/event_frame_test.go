@@ -35,40 +35,6 @@ func TestBuildEventFramePreservesEmptyIdentitySnapshot(t *testing.T) {
 	}
 }
 
-func TestBuildEventFrameProjectsOneBotPayload(t *testing.T) {
-	t.Parallel()
-
-	frame := BuildEventFrame(chatevent.Event{
-		EventID:        "evt-1",
-		SourceProtocol: "onebot11",
-		SourceAdapter:  "onebot",
-		EventType:      "message",
-		Timestamp:      1700000000,
-		MessageID:      "msg-1",
-		Actor:          &chatevent.Actor{ID: "10001", Nickname: "Alice"},
-		Target:         &chatevent.Target{Type: "group", ID: "20001"},
-		Message:        &chatevent.Message{PlainText: "hello"},
-		PayloadFields: map[string]any{
-			"onebot": map[string]any{
-				"post_type":    "message",
-				"message_type": "group",
-				"group_id":     "20001",
-				"user_id":      "10001",
-			},
-		},
-	}, "req-1", time.Now())
-
-	if frame.Type != "event" || frame.RequestID != "req-1" {
-		t.Fatalf("unexpected frame identity: %#v", frame)
-	}
-	if frame.Event.Payload == nil || frame.Event.Payload.OneBot == nil {
-		t.Fatalf("missing onebot payload: %#v", frame.Event.Payload)
-	}
-	if frame.Event.Payload.MessageID != "msg-1" || frame.Event.Payload.OneBot.GroupID != "20001" {
-		t.Fatalf("unexpected onebot payload: %#v", frame.Event.Payload.OneBot)
-	}
-}
-
 func TestBuildEventFrameProjectsSchedulerPayload(t *testing.T) {
 	t.Parallel()
 

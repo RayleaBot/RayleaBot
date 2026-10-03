@@ -8,6 +8,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
 
 func TestRuntimeResourceSelectionSurvivesReadinessProjectionWithoutAliasing(t *testing.T) {
@@ -71,11 +72,10 @@ func TestDiagnosticsUsesOneFFmpegIssue(t *testing.T) {
 			name = "dependency fallback before setup"
 		}
 		t.Run(name, func(t *testing.T) {
-			app := newTestAppState(config.Config{}, nil)
 			service, err := New(Deps{
-				CurrentConfig:  app.state.CurrentConfig,
+				CurrentConfig:  func() config.Config { return config.Config{} },
 				CurrentSummary: func() config.Summary { return config.Summary{} },
-				Plugins:        app.pluginStack.Plugins,
+				Plugins:        plugincatalog.New(nil),
 				RepoRoot:       t.TempDir(),
 				Auth:           readinessAuthState(bootstrapped),
 				Storage:        openReadinessStore(t),

@@ -49,9 +49,6 @@ ON CONFLICT(task_id) DO UPDATE SET
 SELECT task_id, task_type, status, progress, summary, started_at, finished_at, result_json, error_json
 FROM tasks ORDER BY created_at ASC;
 
--- name: DeleteTask :exec
-DELETE FROM tasks WHERE task_id = ?;
-
 -- name: InterruptInProgressTasks :exec
 UPDATE tasks
 SET status = 'interrupted',

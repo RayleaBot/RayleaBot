@@ -36,12 +36,6 @@ type eventSession struct {
 	detached   *detachedSession
 }
 
-type pingRequest struct {
-	done      chan error
-	err       error
-	completed bool
-}
-
 func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requestID string, event chatevent.Event) (*eventSession, *plugins.Error) {
 	sessionCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	// The deadline is sent in the event frame, bounds the delivery timer and
@@ -70,7 +64,7 @@ func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requ
 		cancel()
 		return nil, errorf(codePlatformInvalidRequest, "plugin runtime is not ready for event delivery", plugins.ErrRuntimeNotRunning)
 	}
-	if m.pendingEvents[requestID] != nil || m.pendingPings[requestID] != nil || m.eventExpiredLocked(requestID) {
+	if m.pendingEvents[requestID] != nil || m.eventExpiredLocked(requestID) {
 		cancel()
 		return nil, errorf(codePluginInternalError, "duplicate runtime request ID", nil)
 	}

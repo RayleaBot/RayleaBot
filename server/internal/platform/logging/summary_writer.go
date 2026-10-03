@@ -135,19 +135,6 @@ func redactJSONValue(value any, redact func(string) string) any {
 	}
 }
 
-func summaryFromJSONLine(line []byte) (Summary, bool) {
-	line = bytes.TrimSpace(line)
-	if len(line) == 0 {
-		return Summary{}, false
-	}
-
-	var body map[string]any
-	if err := json.Unmarshal(line, &body); err != nil {
-		return Summary{}, false
-	}
-	return summaryFromObject(body)
-}
-
 func summaryFromObject(body map[string]any) (Summary, bool) {
 	if body == nil {
 		return Summary{}, false

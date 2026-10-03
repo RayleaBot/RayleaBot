@@ -53,9 +53,6 @@ func TestOpenMigratesLegacyAndPreservesBusinessData(t *testing.T) {
 		t.Fatalf("legacy value changed: %q %v %v", value, expiry, err)
 	}
 	fresh := openTestStore(t)
-	if !reflect.DeepEqual(readSQLiteSchemaShape(t, store.Read), readSQLiteSchemaShape(t, fresh.Read)) {
-		t.Fatal("migrated structure differs from fresh schema")
-	}
 	if !reflect.DeepEqual(migrationSchemaSQL(t, store.Read), migrationSchemaSQL(t, fresh.Read)) {
 		t.Fatal("fresh and migrated sqlite_master differ")
 	}

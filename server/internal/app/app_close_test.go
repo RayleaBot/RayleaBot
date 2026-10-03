@@ -85,8 +85,8 @@ func TestStopRuntimeManagersReclaimsProcessesAfterDrainTimeout(t *testing.T) {
 	<-delivery.started
 	done := make(chan error, 1)
 	go func() {
-		drainErr, _ := runShutdownPhase(50*time.Millisecond, application.drainEvents)
-		stopErr, _ := runShutdownPhase(time.Second, application.stopRuntimeManagers)
+		_, drainErr := runShutdownPhase(50*time.Millisecond, application.drainEvents)
+		_, stopErr := runShutdownPhase(time.Second, application.stopRuntimeManagers)
 		done <- errors.Join(drainErr, stopErr)
 	}()
 	select {
@@ -130,30 +130,6 @@ func TestNewReleasesConfigLifecycleLockAfterBuildFailure(t *testing.T) {
 	}
 	if err := lock.Close(); err != nil {
 		t.Fatalf("close lock: %v", err)
-	}
-}
-
-func TestAppCloseReleasesConfigLifecycleLock(t *testing.T) {
-	t.Parallel()
-
-	path := filepath.Join(t.TempDir(), "user.yaml.runtime.lock")
-	lock, err := filelock.Acquire(path)
-	if err != nil {
-		t.Fatalf("acquire config lifecycle lock: %v", err)
-	}
-	application := &App{configLifecycleLock: lock}
-	if _, err := filelock.Acquire(path); !errors.Is(err, filelock.ErrLocked) {
-		t.Fatalf("overlapping lock error = %v, want ErrLocked", err)
-	}
-	if err := application.Close(); err != nil {
-		t.Fatalf("close app: %v", err)
-	}
-	reacquired, err := filelock.Acquire(path)
-	if err != nil {
-		t.Fatalf("reacquire released config lifecycle lock: %v", err)
-	}
-	if err := reacquired.Close(); err != nil {
-		t.Fatalf("close reacquired lock: %v", err)
 	}
 }
 

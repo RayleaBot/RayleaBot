@@ -5,7 +5,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"sync"
 	"testing"
 )
 
@@ -26,23 +25,4 @@ func TestQQCommandEnforcesSamePermissionAsOneBot(t *testing.T) {
 	if _, allowed := s.Apply(context.Background(), event); allowed {
 		t.Fatal("same non-admin command bypassed permission because kind=qqofficial.message")
 	}
-}
-
-func TestConcurrentAdaptersApplyChatPolicy(t *testing.T) {
-	ingress := NewIngress(IngressDeps{})
-	var workers sync.WaitGroup
-	start := make(chan struct{})
-	for _, protocol := range []string{"onebot11", "qqofficial"} {
-		workers.Go(func() {
-			<-start
-			for range 64 {
-				event := chatevent.NormalizedEvent{Kind: chatevent.EventKind(protocol, chatevent.FamilyMessage), SourceProtocol: protocol, SenderID: "fixture", ConversationType: "private", ConversationID: "fixture", PlainText: "hello"}
-				if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
-					t.Error("ordinary message rejected")
-				}
-			}
-		})
-	}
-	close(start)
-	workers.Wait()
 }

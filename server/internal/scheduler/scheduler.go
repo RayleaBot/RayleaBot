@@ -5,8 +5,6 @@ package scheduler
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -313,61 +311,9 @@ func (e *Engine) markRunning(delta int) {
 	}
 }
 
-// Register creates a new scheduled job and persists it.
-func (e *Engine) Register(ctx context.Context, pluginID, cronExpr string, payload json.RawMessage) (Job, error) {
-	return e.RegisterWithLabel(ctx, pluginID, "", cronExpr, payload)
-}
-
-func (e *Engine) RegisterWithLabel(ctx context.Context, pluginID, logLabel, cronExpr string, payload json.RawMessage) (Job, error) {
-	now := e.now().UTC()
-
-	nextRun, err := nextCronTime(cronExpr, now, e.location)
-	if err != nil {
-		return Job{}, fmt.Errorf("parse cron expression %q: %w", cronExpr, err)
-	}
-
-	jobID, err := generateJobID()
-	if err != nil {
-		return Job{}, err
-	}
-
-	if payload == nil {
-		payload = json.RawMessage("{}")
-	}
-
-	job := Job{
-		JobID:     jobID,
-		PluginID:  pluginID,
-		LogLabel:  logLabel,
-		CronExpr:  cronExpr,
-		Payload:   append(json.RawMessage(nil), payload...),
-		Enabled:   true,
-		NextRun:   nextRun,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	e.mutationMu.Lock()
-	defer e.mutationMu.Unlock()
-	job.Revision = e.nextJobRevision()
-
-	if err := e.repo.SaveJob(ctx, job); err != nil {
-		return Job{}, fmt.Errorf("persist scheduled job: %w", err)
-	}
-
-	e.mu.Lock()
-	e.jobs[job.JobID] = job
-	e.mu.Unlock()
-
-	return cloneJob(job), nil
-}
-
 // UpsertTask creates or updates a plugin-owned scheduled job keyed by task_id.
 // For plugin-created jobs the task_id is the persisted job_id, making the
 // operation idempotent across repeated scheduler.create calls.
-func (e *Engine) UpsertTask(ctx context.Context, pluginID, taskID, cronExpr string, payload json.RawMessage) (Job, error) {
-	return e.UpsertTaskWithLabel(ctx, pluginID, taskID, "", cronExpr, payload)
-}
-
 func (e *Engine) UpsertTaskWithLabel(ctx context.Context, pluginID, taskID, logLabel, cronExpr string, payload json.RawMessage) (Job, error) {
 	now := e.now().UTC()
 
@@ -416,20 +362,6 @@ func (e *Engine) UpsertTaskWithLabel(ctx context.Context, pluginID, taskID, logL
 	e.mu.Unlock()
 
 	return cloneJob(job), nil
-}
-
-// Unregister removes a scheduled job.
-func (e *Engine) Unregister(ctx context.Context, jobID string) error {
-	e.mutationMu.Lock()
-	defer e.mutationMu.Unlock()
-	if err := e.repo.DeleteJob(ctx, jobID); err != nil {
-		return fmt.Errorf("delete scheduled job %s: %w", jobID, err)
-	}
-	e.mu.Lock()
-	delete(e.jobs, jobID)
-	e.mu.Unlock()
-	e.nextJobRevision()
-	return nil
 }
 
 // DeletePluginTask removes a task a plugin created with scheduler.create. A
@@ -498,14 +430,6 @@ func (e *Engine) RunningCount() int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.running
-}
-
-func generateJobID() (string, error) {
-	var buf [12]byte
-	if _, err := rand.Read(buf[:]); err != nil {
-		return "", fmt.Errorf("generate job id: %w", err)
-	}
-	return "sched_" + hex.EncodeToString(buf[:]), nil
 }
 
 // Trigger fires a registered job immediately without advancing the scheduled

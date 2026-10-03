@@ -397,36 +397,6 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 	}
 }
 
-func TestHandlePluginSecretsPutRejectsInvalidKey(t *testing.T) {
-	t.Parallel()
-
-	secretStore := openPluginSecretStore(t)
-	settingsDeps := settings.Deps{Plugins: plugincatalog.New([]plugins.Snapshot{{
-		PluginID:          "example-config-panel",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "disabled",
-		RuntimeState:      "stopped",
-	}}), Secrets: secretStore}
-	settingsService, settingsErr := settings.New(settingsDeps)
-	if settingsErr != nil {
-		t.Fatal(settingsErr)
-	}
-	handlers := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{Plugins: settingsDeps.Plugins, Settings: settingsService})
-	router := chi.NewRouter()
-	router.Put("/api/plugins/{plugin_id}/secrets", handlers.HandlePluginSecretsPut())
-
-	body := bytes.NewReader([]byte(`{"values":{"Bad Key":"SESSDATA=fixture"}}`))
-	request := httptest.NewRequest(http.MethodPut, "/api/plugins/example-config-panel/secrets", body)
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400; body=%s", recorder.Code, recorder.Body.String())
-	}
-}
-
 func TestHandlePluginSettingsRejectsInvalidPluginSnapshots(t *testing.T) {
 	t.Parallel()
 

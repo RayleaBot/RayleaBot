@@ -137,8 +137,9 @@ func TestSchedulerRunDurationIncludesQueueWait(t *testing.T) {
 
 	d.Dispatch(t.Context(), testEvent(), "")
 	waitForStartedEvent(t, blocking.started)
-	d.DispatchScheduledEvent(t.Context(), "weather", schedulerTestEvent("run-1"), scheduler.RunContext{JobID: "daily", TaskName: "daily", StartedAt: time.Now(), Recorder: recorder})
-	time.Sleep(200 * time.Millisecond)
+	// The run was triggered before it reached the dispatcher; the recorded
+	// duration must count from that trigger, not from when delivery began.
+	d.DispatchScheduledEvent(t.Context(), "weather", schedulerTestEvent("run-1"), scheduler.RunContext{JobID: "daily", TaskName: "daily", StartedAt: time.Now().Add(-200 * time.Millisecond), Recorder: recorder})
 	close(blocking.blockCh)
 	waitForCondition(t, func() bool { return recorder.count() == 1 }, "the queued run should be recorded")
 	if got := recorder.results()[0]; got.Outcome != scheduler.RunOutcomeSuccess || got.Duration < 200*time.Millisecond {

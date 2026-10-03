@@ -219,7 +219,7 @@ func TestNotificationsDoNotWaitForIOAndStopDiscardsPendingChanges(t *testing.T) 
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			waits := s.store.Write.Stats().WaitCount
 			// The flush holds ioMu while waiting for the occupied connection.
 			time.Sleep(30 * time.Second)

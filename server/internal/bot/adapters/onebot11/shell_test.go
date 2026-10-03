@@ -446,7 +446,10 @@ func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
 
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
-	time.Sleep(150 * time.Millisecond)
+	// newTestShell clamps connectTimeout to 500ms. A connected read that wrongly
+	// fell back to that timeout would have dropped the session before this
+	// sleep ends; the correct connected read waits far longer for a heartbeat.
+	time.Sleep(700 * time.Millisecond)
 
 	snapshot := shell.Snapshot()
 	if snapshot.State != StateConnected {

@@ -7,21 +7,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
-func TestParseOneBotFamilyActionAcceptsObjectData(t *testing.T) {
-	t.Parallel()
-
-	action, err := parseOneBotFamilyAction("user.info.get", json.RawMessage(`{"user_id":"10001"}`))
-	if err != nil {
-		t.Fatalf("parseOneBotFamilyAction returned error: %v", err)
-	}
-	if action.Kind != "user.info.get" {
-		t.Fatalf("unexpected action kind: %q", action.Kind)
-	}
-	if action.RawData["user_id"] != "10001" {
-		t.Fatalf("unexpected raw data: %#v", action.RawData)
-	}
-}
-
 func TestParseOneBotFamilyActionRejectsNonObjectData(t *testing.T) {
 	t.Parallel()
 

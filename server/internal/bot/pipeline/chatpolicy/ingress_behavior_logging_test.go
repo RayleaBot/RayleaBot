@@ -2,7 +2,6 @@ package chatpolicy_test
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/tests/testutil/permissiontest"
 	"io"
 	"log/slog"
 	"reflect"
@@ -19,7 +18,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
@@ -130,17 +128,14 @@ type recordingOutboundSender struct {
 	lastReplyText    string
 	lastReplyImage   string
 	messageCount     int
-	lastMessageText  string
 	lastMessageImage string
 	replyErr         error
-	messageErr       error
 }
 
 func (s *recordingOutboundSender) SendMessage(_ context.Context, action chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
 	s.messageCount++
-	s.lastMessageText = firstTextSegment(action.Segments)
 	s.lastMessageImage = firstImageSegment(action.Segments)
-	return chatevent.SendMessageResult{MessageID: "msg-1"}, s.messageErr
+	return chatevent.SendMessageResult{MessageID: "msg-1"}, nil
 }
 
 func (s *recordingOutboundSender) SendReply(_ context.Context, action chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
@@ -282,30 +277,19 @@ func (s *stubBlacklistRepo) List(context.Context, string) ([]permission.Entry, e
 	return nil, nil
 }
 
-type stubWhitelistRepo struct {
-	allowed map[string]map[string]bool
-}
+// stubWhitelistRepo is an always-empty whitelist: with the whitelist enabled it
+// admits nobody.
+type stubWhitelistRepo struct{}
 
 func newStubWhitelistRepo() *stubWhitelistRepo {
-	return &stubWhitelistRepo{allowed: make(map[string]map[string]bool)}
+	return &stubWhitelistRepo{}
 }
 
-func (s *stubWhitelistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
-	if entries, ok := s.allowed[entryType]; ok {
-		return entries[targetID], nil
-	}
+func (s *stubWhitelistRepo) Contains(context.Context, chatevent.IdentityScope, string, string) (bool, error) {
 	return false, nil
 }
 
-func (s *stubWhitelistRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
-	if allowed, _ := s.Contains(context.Background(), scope, entryType, targetID); allowed {
-		return permission.Entry{
-			EntryType: entryType,
-			TargetID:  targetID,
-			Reason:    "allowed",
-			CreatedAt: "2026-04-19T00:00:00Z",
-		}, nil
-	}
+func (s *stubWhitelistRepo) Get(context.Context, chatevent.IdentityScope, string, string) (permission.Entry, error) {
 	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
@@ -353,12 +337,4 @@ func sameStringItems(actual any, expected []string) bool {
 	expectedCopy := append([]string(nil), expected...)
 	slices.Sort(expectedCopy)
 	return reflect.DeepEqual(got, expectedCopy)
-}
-
-func (s *stubBlacklistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
-	return permissiontest.Page(ctx, s.List, query, entryType)
-}
-
-func (s *stubWhitelistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
-	return permissiontest.Page(ctx, s.List, query, entryType)
 }

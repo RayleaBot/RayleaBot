@@ -25,7 +25,6 @@ type Manager struct {
 	proc          *Handle
 	snap          Snapshot
 	pendingEvents map[string]*eventSession
-	pendingPings  map[string]*pingRequest
 	expiredEvents map[string]time.Time
 
 	pendingLocalActions int
@@ -83,7 +82,6 @@ func newManager(logger *slog.Logger, deps managerDeps, options Options) *Manager
 		opts:          options,
 		lifecycleGate: make(chan struct{}, 1),
 		pendingEvents: make(map[string]*eventSession),
-		pendingPings:  make(map[string]*pingRequest),
 		expiredEvents: make(map[string]time.Time),
 		snap: Snapshot{
 			State: StateStopped,
@@ -127,18 +125,6 @@ func (m *Manager) abortPendingLocked(runtimeErr *plugins.Error) {
 		}
 		m.closeSessionLocked(session, plugins.Delivery{}, err)
 	}
-
-	for requestID, ping := range m.pendingPings {
-		if ping.completed {
-			delete(m.pendingPings, requestID)
-			continue
-		}
-		ping.completed = true
-		ping.err = runtimeErr
-		ping.done <- runtimeErr
-		close(ping.done)
-		delete(m.pendingPings, requestID)
-	}
 }
 
 func (m *Manager) signalPendingRequests(handle *Handle, runtimeErr *plugins.Error) {
@@ -149,7 +135,7 @@ func (m *Manager) signalPendingRequests(handle *Handle, runtimeErr *plugins.Erro
 	}
 	if m.snap.State == StateStopping {
 		runtimeErr = eventContextError(context.Canceled)
-	} else if len(m.pendingEvents)+len(m.pendingPings) > 0 {
+	} else if len(m.pendingEvents) > 0 {
 		m.reportExitFailureLocked(handle, runtimeErr)
 	}
 	m.abortPendingLocked(runtimeErr)

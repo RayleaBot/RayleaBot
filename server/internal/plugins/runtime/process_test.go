@@ -90,26 +90,6 @@ func TestProcessHandleWriteJSONLineSerializesConcurrentFrames(t *testing.T) {
 	}
 }
 
-func TestWriteJSONLineRejectsInvalidEmbeddedJSON(t *testing.T) {
-	t.Parallel()
-
-	writer := &chunkedWriteCloser{maxChunk: 8}
-	frame := map[string]any{
-		"type": "event",
-		"event": map[string]any{
-			"raw_payload": json.RawMessage(`{"broken":}`),
-		},
-	}
-
-	err := writeJSONLineWithLimit(writer, frame, 0)
-	if err == nil {
-		t.Fatal("expected writeJSONLine to reject invalid embedded json")
-	}
-	if got := writer.String(); got != "" {
-		t.Fatalf("expected no bytes to be written, got %q", got)
-	}
-}
-
 type chunkedWriteCloser struct {
 	maxChunk int
 	mu       sync.Mutex

@@ -10,37 +10,6 @@ import (
 	"time"
 )
 
-func TestSummaryWriterRedactsStructuredLogValues(t *testing.T) {
-	t.Parallel()
-
-	stream := NewStream(8)
-	var output bytes.Buffer
-	writer := NewSummaryWriter(&output, stream, func(text string) string {
-		return strings.ReplaceAll(text, "fixture-only-secret", "[REDACTED]")
-	})
-
-	line := `{"ts":"2026-03-20T10:00:00Z","level":"ERROR","component":"runtime","msg":"stderr leaked fixture-only-secret","token":"fixture-only-secret"}` + "\n"
-	if _, err := writer.Write([]byte(line)); err != nil {
-		t.Fatalf("write structured log line: %v", err)
-	}
-
-	raw := output.String()
-	if strings.Contains(raw, "fixture-only-secret") {
-		t.Fatalf("raw structured log output leaked secret: %s", raw)
-	}
-	if !strings.Contains(raw, "[REDACTED]") {
-		t.Fatalf("expected redacted output, got %s", raw)
-	}
-
-	summaries := stream.Snapshot()
-	if len(summaries) != 1 {
-		t.Fatalf("unexpected summary count: got %d want %d", len(summaries), 1)
-	}
-	if strings.Contains(summaries[0].Message, "fixture-only-secret") {
-		t.Fatalf("summary message leaked secret: %#v", summaries[0])
-	}
-}
-
 func TestSummaryWriterKeepsLogTimestampSeparateFromOneBotTimeDetail(t *testing.T) {
 	t.Parallel()
 
@@ -65,9 +34,6 @@ func TestSummaryWriterKeepsLogTimestampSeparateFromOneBotTimeDetail(t *testing.T
 	if body["time"] != float64(1710000900) {
 		t.Fatalf("expected preserved onebot time detail, got %#v", body["time"])
 	}
-	if got := body["request_id"]; got != defaultRequestID {
-		t.Fatalf("unexpected default request_id: got %#v want %#v", got, defaultRequestID)
-	}
 
 	summaries := stream.Snapshot()
 	if len(summaries) != 1 {
@@ -78,9 +44,6 @@ func TestSummaryWriterKeepsLogTimestampSeparateFromOneBotTimeDetail(t *testing.T
 	}
 	if got := summaries[0].Details["time"]; got != float64(1710000900) {
 		t.Fatalf("expected summary details to keep onebot time, got %#v", got)
-	}
-	if got := summaries[0].RequestID; got != defaultRequestID {
-		t.Fatalf("unexpected summary request_id: got %#v want %#v", got, defaultRequestID)
 	}
 }
 

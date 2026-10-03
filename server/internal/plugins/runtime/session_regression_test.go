@@ -47,9 +47,6 @@ func TestDuplicateSessionRegistrationPreservesOriginal(t *testing.T) {
 	if _, err := manager.registerEventSession(context.Background(), handle, "same", chatevent.Event{}); err == nil {
 		t.Fatal("duplicate event accepted")
 	}
-	if _, err := manager.registerPingRequest(handle, "same"); err == nil {
-		t.Fatal("ping collided with event")
-	}
 	manager.mu.Lock()
 	manager.completeEventLocked(first, plugins.Delivery{RequestID: "same"}, nil)
 	manager.mu.Unlock()

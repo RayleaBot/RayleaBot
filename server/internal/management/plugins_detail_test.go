@@ -32,25 +32,6 @@ func TestDetailHandlerReturnsGeneratedHelpMetadata(t *testing.T) {
 	}
 }
 
-func TestDetailHandlerReturnsSingleManagementUIEntry(t *testing.T) {
-	t.Parallel()
-	catalog := plugincatalog.New([]plugins.Snapshot{{
-		PluginID: "example-config-panel", Name: "Example Config Panel", Valid: true,
-		RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped",
-		ManagementUI: &plugins.ManagementUI{
-			Entry: "ui/index.html",
-			Pages: []plugins.ManagementUIPage{{ID: "config", Label: "配置"}, {ID: "secrets", Label: "密钥"}},
-		},
-	}})
-	response := requestPluginDetail(t, catalog, "example-config-panel")
-	if response.Plugin.ManagementUI == nil || response.Plugin.ManagementUI.Entry != "ui/index.html" {
-		t.Fatalf("management_ui = %#v", response.Plugin.ManagementUI)
-	}
-	if len(response.Plugin.ManagementUI.Pages) != 2 || response.Plugin.ManagementUI.Pages[1].ID != "secrets" {
-		t.Fatalf("management_ui.pages = %#v", response.Plugin.ManagementUI.Pages)
-	}
-}
-
 func requestPluginDetail(t *testing.T, catalog plugins.CatalogView, pluginID string) DetailResponse {
 	t.Helper()
 	router := chi.NewRouter()

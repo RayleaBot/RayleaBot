@@ -164,21 +164,6 @@ func TestManagerStartFailsOnEarlyExit(t *testing.T) {
 	assertRuntimeErrorCode(t, err, codePluginInternalError)
 }
 
-func TestManagerStartSucceedsWithLargeStderrOutput(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-	spec := helperSpec(t, "stderr-noise", "")
-
-	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
-		t.Fatalf("start runtime with stderr noise: %v", err)
-	}
-
-	if err := manager.Stop(context.Background()); err != nil {
-		t.Fatalf("stop runtime: %v", err)
-	}
-}
-
 func TestManagerGracefulStop(t *testing.T) {
 	t.Parallel()
 
@@ -676,24 +661,6 @@ func TestManagerDeliverEventWritesLocalActionErrorDetailsAndContinues(t *testing
 	if details["resource"] != "logger.write" {
 		t.Fatalf("unexpected local error details: %#v", details)
 	}
-
-	if err := manager.Stop(context.Background()); err != nil {
-		t.Fatalf("stop runtime: %v", err)
-	}
-}
-
-func TestManagerDeliverEventRejectsLocalActionWithoutParentRequestIDWhenConcurrent(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-	spec := concurrentHelperSpec(t, "event-local-action-missing-parent-request-id")
-
-	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
-		t.Fatalf("start runtime: %v", err)
-	}
-
-	_, err := manager.DeliverEvent(context.Background(), testRuntimeEvent())
-	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
 
 	if err := manager.Stop(context.Background()); err != nil {
 		t.Fatalf("stop runtime: %v", err)

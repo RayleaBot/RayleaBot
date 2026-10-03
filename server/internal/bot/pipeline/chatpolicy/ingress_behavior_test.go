@@ -2,7 +2,6 @@ package chatpolicy_test
 
 import (
 	"context"
-	"log/slog"
 	"reflect"
 	"testing"
 	"time"
@@ -16,105 +15,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
-
-func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
-	t.Parallel()
-
-	cfg := config.Config{
-		Permission: config.PermissionConfig{DefaultLevel: "group_admin"},
-		Command: &config.CommandConfig{
-			Prefixes: []string{"/"},
-		},
-	}
-	testConfig := cfg
-	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:          "weather",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "enabled",
-		RuntimeState:      "running",
-		Commands: []plugins.Command{{
-			Name: "weather-admin",
-		}},
-	}})
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
-	ingress := chatpolicy.NewIngress(deps)
-
-	info := ingress.Policy().CommandInfoForEvent(ingress.Policy().EnrichCommandEvent(chatevent.NormalizedEvent{
-		PlainText: "/weather-admin",
-	}))
-	if info == nil {
-		t.Fatal("commandInfoForEvent returned nil")
-		return
-	}
-	if info.Permission != "group_admin" {
-		t.Fatalf("permission = %q, want group_admin", info.Permission)
-	}
-}
-
-func TestResolveChatPolicyConfigUsesConfiguredFields(t *testing.T) {
-	t.Parallel()
-
-	settings := chatpolicy.ResolveConfig(config.Config{
-		Admin:      config.AdminConfig{SuperAdmins: []string{"canonical-admin"}},
-		Permission: config.PermissionConfig{DefaultLevel: "group_admin"},
-		User: config.UserConfig{
-			CommandRateLimit: "2/1h",
-			CooldownReply:    false,
-		},
-		Group: config.GroupConfig{
-			CommandRateLimit: "3/1h",
-		},
-	})
-
-	if !reflect.DeepEqual(settings.SuperAdmins, []string{"canonical-admin"}) {
-		t.Fatalf("unexpected super admins: %#v", settings.SuperAdmins)
-	}
-	if settings.DefaultLevel != "group_admin" {
-		t.Fatalf("DefaultLevel = %q, want group_admin", settings.DefaultLevel)
-	}
-	if settings.UserCommandRateLimit != "2/1h" {
-		t.Fatalf("UserCommandRateLimit = %q, want 2/1h", settings.UserCommandRateLimit)
-	}
-	if settings.GroupCommandRateLimit != "3/1h" {
-		t.Fatalf("GroupCommandRateLimit = %q, want 3/1h", settings.GroupCommandRateLimit)
-	}
-	if settings.CooldownReplyEnabled {
-		t.Fatal("CooldownReplyEnabled = true, want false")
-	}
-}
-
-func TestHandleAdapterEventBlocksBlacklistedMessageBeforeBridge(t *testing.T) {
-	t.Parallel()
-
-	repo := newStubBlacklistRepo()
-	repo.blockUser("bad-user")
-	dispatcherClient := &recordingDispatcherClient{}
-	testConfig := config.Config{}
-	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.BlacklistRepo = repo
-	deps.Bridge = bridge.New(slog.Default(), dispatcherClient)
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
-	ingress := chatpolicy.NewIngress(deps)
-
-	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
-		Kind:             chatevent.EventKindMessage,
-		EventID:          "evt-1",
-		SourceProtocol:   "onebot11",
-		SourceAdapter:    "adapter.onebot11",
-		EventType:        "message.private",
-		Timestamp:        time.Now().Unix(),
-		ConversationType: "private",
-		ConversationID:   "10001",
-		SenderID:         "bad-user",
-		PlainText:        "hello",
-	})
-
-	if dispatcherClient.deliverCount != 0 {
-		t.Fatalf("deliverCount = %d, want 0", dispatcherClient.deliverCount)
-	}
-}
 
 func TestHandleAdapterEventKeepsBlacklistedNonCommandMessageSilent(t *testing.T) {
 	t.Parallel()
@@ -149,51 +49,6 @@ func TestHandleAdapterEventKeepsBlacklistedNonCommandMessageSilent(t *testing.T)
 	}
 	if len(stream.Snapshot()) != 0 {
 		t.Fatalf("non-command blacklist rejection should not write logs: %#v", stream.Snapshot())
-	}
-}
-
-func TestHandleAdapterEventBlocksCommandWhenNotWhitelistedBeforeBridge(t *testing.T) {
-	t.Parallel()
-
-	dispatcherClient := &recordingDispatcherClient{}
-	cfg := config.Config{
-		Command: &config.CommandConfig{
-			Prefixes: []string{"/"},
-		},
-	}
-	testConfig := cfg
-	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:          "weather",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "enabled",
-		RuntimeState:      "running",
-		Commands: []plugins.Command{{
-			Name: "weather",
-		}},
-	}})
-	deps.WhitelistRepo = newStubWhitelistRepo()
-	deps.WhitelistState = &stubWhitelistStateRepo{enabled: true}
-	deps.Bridge = bridge.New(slog.Default(), dispatcherClient)
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
-	ingress := chatpolicy.NewIngress(deps)
-
-	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
-		Kind:             chatevent.EventKindMessage,
-		EventID:          "evt-white-1",
-		SourceProtocol:   "onebot11",
-		SourceAdapter:    "adapter.onebot11",
-		EventType:        "message.private",
-		Timestamp:        time.Now().Unix(),
-		ConversationType: "private",
-		ConversationID:   "10001",
-		SenderID:         "10001",
-		PlainText:        "/weather",
-	})
-
-	if dispatcherClient.deliverCount != 0 {
-		t.Fatalf("deliverCount = %d, want 0", dispatcherClient.deliverCount)
 	}
 }
 
@@ -322,66 +177,6 @@ func TestHandleAdapterEventLogsBlacklistedCommandRejection(t *testing.T) {
 	}
 }
 
-func TestHandleAdapterEventUsesMostStrictMatchingCommandPermission(t *testing.T) {
-	t.Parallel()
-
-	dispatcherClient := &recordingDispatcherClient{}
-	cfg := config.Config{
-		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-		Command: &config.CommandConfig{
-			Prefixes: []string{"/"},
-		},
-	}
-	testConfig := cfg
-	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Plugins = plugincatalog.New([]plugins.Snapshot{
-		{
-			PluginID:          "weather",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "enabled",
-			RuntimeState:      "running",
-			Commands: []plugins.Command{{
-				Name:       "ops",
-				Permission: "everyone",
-			}},
-		},
-		{
-			PluginID:          "admin",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "enabled",
-			RuntimeState:      "running",
-			Commands: []plugins.Command{{
-				Name:       "ops",
-				Permission: "group_admin",
-			}},
-		},
-	})
-	deps.Bridge = bridge.New(slog.Default(), dispatcherClient)
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
-	ingress := chatpolicy.NewIngress(deps)
-
-	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
-		Kind:             chatevent.EventKindMessage,
-		EventID:          "evt-ops",
-		SourceProtocol:   "onebot11",
-		SourceAdapter:    "adapter.onebot11",
-		EventType:        "message.group",
-		Timestamp:        time.Now().Unix(),
-		ConversationType: "group",
-		ConversationID:   "20001",
-		SenderID:         "10002",
-		ActorRole:        "member",
-		PlainText:        "/ops",
-		MessageID:        "30001",
-	})
-
-	if dispatcherClient.deliverCount != 0 {
-		t.Fatalf("deliverCount = %d, want 0", dispatcherClient.deliverCount)
-	}
-}
-
 func TestHandleAdapterEventLogsPermissionDeniedCommandRejection(t *testing.T) {
 	t.Parallel()
 
@@ -491,6 +286,10 @@ func TestHandleAdapterEventLogsConflictingCommandRejectionWithoutPluginID(t *tes
 		PlainText:        "/ops",
 	})
 
+	// The stricter of the two matching commands wins, so a member is denied.
+	if dispatcherClient.deliverCount != 0 {
+		t.Fatalf("deliverCount = %d, want 0", dispatcherClient.deliverCount)
+	}
 	summary := waitForIngressLog(t, stream, func(summary logging.Summary) bool {
 		return summary.Details["command_name"] == "ops" && summary.Details["error_code"] == "permission.denied"
 	})

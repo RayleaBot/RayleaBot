@@ -39,7 +39,7 @@ func TestFailedRuntimeRetainsHandleUntilExitIsConfirmed(t *testing.T) {
 	if manager.Snapshot().State != StateStopping {
 		t.Fatal("snapshot reset hid a live process")
 	}
-	if err := manager.Start(context.Background(), helperSpec(t, "ready", ""), testInitPayload()); err == nil {
+	if err := manager.Start(context.Background(), helperSpec(t, "success", ""), testInitPayload()); err == nil {
 		t.Fatal("replacement started before old process exit")
 	}
 	handle.SetExit(errors.New("terminated"))

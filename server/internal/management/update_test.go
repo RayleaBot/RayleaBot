@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,18 +65,9 @@ func TestUpdateCheckHandlerDoesNotLeakInternalFailure(t *testing.T) {
 	if recorder.Code != http.StatusBadGateway {
 		t.Fatalf("status code = %d", recorder.Code)
 	}
-	if body := recorder.Body.String(); body == "" || contains(body, "private upstream details") {
+	if body := recorder.Body.String(); body == "" || strings.Contains(body, "private upstream details") {
 		t.Fatalf("unsafe error response: %s", body)
 	}
-}
-
-func contains(value, substring string) bool {
-	for index := 0; index+len(substring) <= len(value); index++ {
-		if value[index:index+len(substring)] == substring {
-			return true
-		}
-	}
-	return false
 }
 
 func newUpdateTestHandler(t *testing.T, service UpdateService) *UpdateHandlers {

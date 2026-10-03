@@ -25,7 +25,7 @@ func TestResolveCommandMatches(t *testing.T) {
 	}
 	genshin := CommandEntry{PluginID: "genshin", Commands: []Command{exact("note", "体力"), pattern("panel", `^.+面板$`)}}
 	starrail := CommandEntry{PluginID: "starrail", Commands: []Command{exact("note", "体力"), pattern("panel", `^.+面板$`)},
-		Prefixes: CommandPrefixes{Dedicated: SortCommandPrefixes([]string{"*", "星", "星穹铁道", "星铁"}), IgnoreGlobal: true}}
+		Prefixes: CommandPrefixes{Dedicated: []string{"星穹铁道", "星铁", "星", "*"}, IgnoreGlobal: true}}
 	zzz := CommandEntry{PluginID: "zzz", Commands: []Command{exact("note", "体力")},
 		Prefixes: CommandPrefixes{Dedicated: []string{"%"}, IgnoreGlobal: true}}
 	echo := CommandEntry{PluginID: "echo", Commands: []Command{exact("echo", "echo")}}

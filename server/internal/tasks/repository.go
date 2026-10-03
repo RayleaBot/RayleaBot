@@ -16,7 +16,6 @@ import (
 type Repository interface {
 	SaveTask(ctx context.Context, snapshot Snapshot) error
 	LoadTasks(ctx context.Context) ([]Snapshot, error)
-	DeleteTask(ctx context.Context, taskID string) error
 	InterruptInProgressTasks(ctx context.Context, finishedAt time.Time) error
 }
 
@@ -102,14 +101,6 @@ func (r *SQLiteRepository) LoadTasks(ctx context.Context) ([]Snapshot, error) {
 	return snapshots, nil
 }
 
-// DeleteTask removes a task snapshot from the database.
-func (r *SQLiteRepository) DeleteTask(ctx context.Context, taskID string) error {
-	if err := r.writeQ.DeleteTask(ctx, taskID); err != nil {
-		return fmt.Errorf("delete task %s: %w", taskID, err)
-	}
-	return nil
-}
-
 func (r *SQLiteRepository) InterruptInProgressTasks(ctx context.Context, finishedAt time.Time) error {
 	if finishedAt.IsZero() {
 		finishedAt = time.Now().UTC()
@@ -123,7 +114,9 @@ func (r *SQLiteRepository) InterruptInProgressTasks(ctx context.Context, finishe
 	return nil
 }
 
-func marshalOptionalJSON(v any) (string, error) {
+// marshalOptionalJSON encodes an optional summary and reports an absent one as
+// an empty string so SaveTask stores NULL instead of the JSON literal "null".
+func marshalOptionalJSON[T any](v *T) (string, error) {
 	if v == nil {
 		return "", nil
 	}

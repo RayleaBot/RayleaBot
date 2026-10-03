@@ -13,8 +13,8 @@ import (
 func TestServiceWritesNotifyGovernanceChangedOnce(t *testing.T) {
 	t.Parallel()
 
-	blacklist := newStubBlacklistRepo()
-	whitelist := newStubWhitelistRepo()
+	blacklist := newStubEntryRepo()
+	whitelist := newStubEntryRepo()
 	whitelistState := &stubWhitelistStateRepo{}
 	notifications := 0
 

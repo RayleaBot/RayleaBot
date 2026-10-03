@@ -64,8 +64,6 @@ func NewEventsHandler(sources managementevents.Sources) (*EventsHandler, error) 
 	return &EventsHandler{stream: stream}, nil
 }
 
-func (h *EventsHandler) Close() { h.stream.Close() }
-
 func (h *EventsHandler) Shutdown(ctx context.Context) { h.stream.Shutdown(ctx) }
 
 type LogsHandler struct {

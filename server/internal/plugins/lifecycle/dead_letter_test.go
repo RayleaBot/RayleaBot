@@ -104,7 +104,7 @@ func TestRecoverFromDeadLetterRejectsRunning(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when plugin is not in dead_letter")
 	}
-	if err.Error() != plugins.ErrPluginNotInDeadLetter.Error() {
+	if !errors.Is(err, plugins.ErrPluginNotInDeadLetter) {
 		t.Fatalf("err = %v, want ErrPluginNotInDeadLetter", err)
 	}
 }

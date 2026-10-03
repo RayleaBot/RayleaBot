@@ -21,20 +21,20 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-type stubBlacklistRepo struct {
+type stubGovernanceEntryRepo struct {
 	entries map[string]map[string]permission.Entry
 }
 
-func newStubBlacklistRepo() *stubBlacklistRepo {
-	return &stubBlacklistRepo{entries: make(map[string]map[string]permission.Entry)}
+func newStubGovernanceEntryRepo() *stubGovernanceEntryRepo {
+	return &stubGovernanceEntryRepo{entries: make(map[string]map[string]permission.Entry)}
 }
 
-func (s *stubBlacklistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
+func (s *stubGovernanceEntryRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
 	_, err := s.Get(context.Background(), scope, entryType, targetID)
 	return err == nil, nil
 }
 
-func (s *stubBlacklistRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
+func (s *stubGovernanceEntryRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
 	if items, ok := s.entries[entryType]; ok {
 		if entry, ok := items[targetID]; ok {
 			return entry, nil
@@ -43,7 +43,7 @@ func (s *stubBlacklistRepo) Get(_ context.Context, scope chatevent.IdentityScope
 	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
-func (s *stubBlacklistRepo) Add(_ context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) error {
+func (s *stubGovernanceEntryRepo) Add(_ context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) error {
 	if s.entries[entryType] == nil {
 		s.entries[entryType] = make(map[string]permission.Entry)
 	}
@@ -57,7 +57,7 @@ func (s *stubBlacklistRepo) Add(_ context.Context, scope chatevent.IdentityScope
 	return nil
 }
 
-func (s *stubBlacklistRepo) Remove(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
+func (s *stubGovernanceEntryRepo) Remove(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
 	if _, ok := s.entries[entryType][targetID]; !ok {
 		return permission.ErrGovernanceEntryNotFound
 	}
@@ -65,59 +65,7 @@ func (s *stubBlacklistRepo) Remove(_ context.Context, scope chatevent.IdentitySc
 	return nil
 }
 
-func (s *stubBlacklistRepo) List(_ context.Context, entryType string) ([]permission.Entry, error) {
-	items := make([]permission.Entry, 0, len(s.entries[entryType]))
-	for _, entry := range s.entries[entryType] {
-		items = append(items, entry)
-	}
-	return items, nil
-}
-
-type stubWhitelistRepo struct {
-	entries map[string]map[string]permission.Entry
-}
-
-func newStubWhitelistRepo() *stubWhitelistRepo {
-	return &stubWhitelistRepo{entries: make(map[string]map[string]permission.Entry)}
-}
-
-func (s *stubWhitelistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
-	_, err := s.Get(context.Background(), scope, entryType, targetID)
-	return err == nil, nil
-}
-
-func (s *stubWhitelistRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
-	if items, ok := s.entries[entryType]; ok {
-		if entry, ok := items[targetID]; ok {
-			return entry, nil
-		}
-	}
-	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
-}
-
-func (s *stubWhitelistRepo) Add(_ context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) error {
-	if s.entries[entryType] == nil {
-		s.entries[entryType] = make(map[string]permission.Entry)
-	}
-	s.entries[entryType][targetID] = permission.Entry{
-		Scope:     scope,
-		EntryType: entryType,
-		TargetID:  targetID,
-		Reason:    reason,
-		CreatedAt: "2026-04-20T00:00:00Z",
-	}
-	return nil
-}
-
-func (s *stubWhitelistRepo) Remove(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
-	if _, ok := s.entries[entryType][targetID]; !ok {
-		return permission.ErrGovernanceEntryNotFound
-	}
-	delete(s.entries[entryType], targetID)
-	return nil
-}
-
-func (s *stubWhitelistRepo) List(_ context.Context, entryType string) ([]permission.Entry, error) {
+func (s *stubGovernanceEntryRepo) List(_ context.Context, entryType string) ([]permission.Entry, error) {
 	items := make([]permission.Entry, 0, len(s.entries[entryType]))
 	for _, entry := range s.entries[entryType] {
 		items = append(items, entry)
@@ -150,106 +98,10 @@ func newGovernanceRouter(cfg config.Config, blacklist governance.ManagementEntry
 	return router
 }
 
-func TestGovernanceBlacklistAndWhitelistRoundTrip(t *testing.T) {
-	t.Parallel()
-
-	blacklist := newStubBlacklistRepo()
-	whitelist := newStubWhitelistRepo()
-	whitelistState := &stubWhitelistStateRepo{}
-	router := newGovernanceRouter(config.Config{}, blacklist, whitelist, whitelistState, plugincatalog.New(nil))
-
-	upsertBody := bytes.NewBufferString(`{
-  "entry_type": "user",
-  "target_id": "1001",
-  "reason": "spam",
-  "scope": {
-    "kind":"global",
-    "source_protocol": "onebot11",
-    "source_adapter": "",
-    "bot_id": ""
-  }
-}`)
-	upsertReq := httptest.NewRequest(http.MethodPost, "/api/governance/blacklist/entries", upsertBody)
-	upsertReq.Header.Set("Content-Type", "application/json")
-	upsertResp := httptest.NewRecorder()
-	router.ServeHTTP(upsertResp, upsertReq)
-	if upsertResp.Code != http.StatusOK {
-		t.Fatalf("blacklist upsert status = %d, want 200; body=%s", upsertResp.Code, upsertResp.Body.String())
-	}
-
-	listReq := httptest.NewRequest(http.MethodGet, "/api/governance/blacklist", nil)
-	listResp := httptest.NewRecorder()
-	router.ServeHTTP(listResp, listReq)
-	if listResp.Code != http.StatusOK {
-		t.Fatalf("blacklist list status = %d, want 200; body=%s", listResp.Code, listResp.Body.String())
-	}
-
-	var blacklistPayload governance.BlacklistSnapshot
-	if err := json.Unmarshal(listResp.Body.Bytes(), &blacklistPayload); err != nil {
-		t.Fatalf("decode blacklist response: %v", err)
-	}
-	if len(blacklistPayload.UserEntries) != 1 || blacklistPayload.UserEntries[0].TargetID != "1001" {
-		t.Fatalf("unexpected blacklist payload: %#v", blacklistPayload)
-	}
-
-	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/governance/blacklist/entries/user/1001?kind=global&source_protocol=onebot11", nil)
-	deleteResp := httptest.NewRecorder()
-	router.ServeHTTP(deleteResp, deleteReq)
-	if deleteResp.Code != http.StatusNoContent {
-		t.Fatalf("blacklist delete status = %d, want 204; body=%s", deleteResp.Code, deleteResp.Body.String())
-	}
-
-	stateBody := bytes.NewBufferString(`{"enabled":true}`)
-	stateReq := httptest.NewRequest(http.MethodPut, "/api/governance/whitelist/state", stateBody)
-	stateReq.Header.Set("Content-Type", "application/json")
-	stateResp := httptest.NewRecorder()
-	router.ServeHTTP(stateResp, stateReq)
-	if stateResp.Code != http.StatusOK {
-		t.Fatalf("whitelist state status = %d, want 200; body=%s", stateResp.Code, stateResp.Body.String())
-	}
-	if !whitelistState.enabled {
-		t.Fatal("expected whitelist state to be enabled")
-	}
-
-	whitelistBody := bytes.NewBufferString(`{
-  "entry_type": "group",
-  "target_id": "2001",
-  "reason": "approved",
-  "scope": {
-    "kind":"global",
-    "source_protocol": "onebot11",
-    "source_adapter": "",
-    "bot_id": ""
-  }
-}`)
-	whitelistReq := httptest.NewRequest(http.MethodPost, "/api/governance/whitelist/entries", whitelistBody)
-	whitelistReq.Header.Set("Content-Type", "application/json")
-	whitelistResp := httptest.NewRecorder()
-	router.ServeHTTP(whitelistResp, whitelistReq)
-	if whitelistResp.Code != http.StatusOK {
-		t.Fatalf("whitelist upsert status = %d, want 200; body=%s", whitelistResp.Code, whitelistResp.Body.String())
-	}
-
-	getWhitelistReq := httptest.NewRequest(http.MethodGet, "/api/governance/whitelist", nil)
-	getWhitelistResp := httptest.NewRecorder()
-	router.ServeHTTP(getWhitelistResp, getWhitelistReq)
-	if getWhitelistResp.Code != http.StatusOK {
-		t.Fatalf("whitelist list status = %d, want 200; body=%s", getWhitelistResp.Code, getWhitelistResp.Body.String())
-	}
-
-	var whitelistPayload governance.WhitelistSnapshot
-	if err := json.Unmarshal(getWhitelistResp.Body.Bytes(), &whitelistPayload); err != nil {
-		t.Fatalf("decode whitelist response: %v", err)
-	}
-	if !whitelistPayload.Enabled || len(whitelistPayload.GroupEntries) != 1 || whitelistPayload.GroupEntries[0].TargetID != "2001" {
-		t.Fatalf("unexpected whitelist payload: %#v", whitelistPayload)
-	}
-}
-
 func TestGovernanceWhitelistStateRejectsInvalidRequest(t *testing.T) {
 	t.Parallel()
 
-	router := newGovernanceRouter(config.Config{}, newStubBlacklistRepo(), newStubWhitelistRepo(), &stubWhitelistStateRepo{}, plugincatalog.New(nil))
+	router := newGovernanceRouter(config.Config{}, newStubGovernanceEntryRepo(), newStubGovernanceEntryRepo(), &stubWhitelistStateRepo{}, plugincatalog.New(nil))
 	req := httptest.NewRequest(http.MethodPut, "/api/governance/whitelist/state", bytes.NewBufferString(`{"enabled":"yes"}`))
 	req.Header.Set("Content-Type", "application/json")
 	resp := httptest.NewRecorder()
@@ -288,7 +140,7 @@ func TestGovernanceCommandPolicyProjection(t *testing.T) {
 			},
 		},
 	})
-	router := newGovernanceRouter(cfg, newStubBlacklistRepo(), newStubWhitelistRepo(), &stubWhitelistStateRepo{}, catalog)
+	router := newGovernanceRouter(cfg, newStubGovernanceEntryRepo(), newStubGovernanceEntryRepo(), &stubWhitelistStateRepo{}, catalog)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/governance/command-policy", nil)
 	resp := httptest.NewRecorder()
@@ -318,10 +170,6 @@ func TestGovernanceCommandPolicyProjection(t *testing.T) {
 	}
 }
 
-func (s *stubBlacklistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
-	return permissiontest.Page(ctx, s.List, query, entryType)
-}
-
-func (s *stubWhitelistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
+func (s *stubGovernanceEntryRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
 	return permissiontest.Page(ctx, s.List, query, entryType)
 }

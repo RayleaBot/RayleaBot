@@ -75,7 +75,25 @@ func NewPreparedTestRuntimeRoot(t testing.TB) string {
 	return root
 }
 
+// WriteTestDepsManifest writes a .deps manifest with fixed "-test" resource ids
+// for tests that address the entries directly.
 func WriteTestDepsManifest(t testing.TB, root string) {
+	t.Helper()
+	writeDepsManifest(t, root, "chromium-test", "ffmpeg-test")
+}
+
+// WritePlatformDepsManifest writes a .deps manifest whose resource ids carry
+// the current platform suffix, matching the ids the runtime bootstrap flow
+// resolves for the host platform, plus the builtin render template fixtures.
+func WritePlatformDepsManifest(t testing.TB, repoRoot string) {
+	t.Helper()
+	platform := deps.CurrentPlatform()
+	writeDepsManifest(t, repoRoot, "chromium-"+platform, "ffmpeg-"+platform)
+	WriteTestTemplate(t, repoRoot, "help.menu", 640)
+	WriteTestTemplate(t, repoRoot, "status.panel", 540)
+}
+
+func writeDepsManifest(t testing.TB, root, chromiumID, ffmpegID string) {
 	t.Helper()
 
 	manifestPath := filepath.Join(root, ".deps", "manifest.json")
@@ -87,7 +105,7 @@ func WriteTestDepsManifest(t testing.TB, root string) {
   "manifest_version": 5,
   "resources": [
     {
-      "id": "chromium-test",
+      "id": "` + chromiumID + `",
       "kind": "chromium",
       "version": "152.0.7977.42",
       "platform": "` + platform + `",
@@ -97,7 +115,7 @@ func WriteTestDepsManifest(t testing.TB, root string) {
       "entrypoints": {"browser": ["chrome-win64/chrome.exe"]}
     },
     {
-      "id": "ffmpeg-test",
+      "id": "` + ffmpegID + `",
       "kind": "ffmpeg",
       "version": "9.0.1",
       "platform": "` + platform + `",

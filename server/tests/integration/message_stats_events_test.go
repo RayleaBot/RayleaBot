@@ -21,7 +21,7 @@ func TestMessageStatsNoticeReachesWebSocketAndRefetchSeesCount(t *testing.T) {
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 	conn := dialEventsWebSocket(t, server.URL, token)
-	defer conn.CloseNow()
+	defer func() { _ = conn.CloseNow() }()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	// Receiving the initial snapshots proves that all live sources are subscribed.

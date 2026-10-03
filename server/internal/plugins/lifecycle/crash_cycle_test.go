@@ -95,7 +95,9 @@ func TestCrashAfterSuccessfulInitReachesDeadLetterWithoutRestartingPeer(t *testi
 	controller := newTestController(t, Deps{RepoRoot: root, PluginDataRoot: filepath.Join(root, "data"), Logger: logger, Plugins: cat, Runtimes: runtimes,
 		CurrentConfig: func() config.Config {
 			return config.Config{Scheduler: config.SchedulerConfig{Timezone: "UTC"}, Runtime: config.RuntimeConfig{
-				PluginInitTimeoutSeconds: 2, ShutdownGraceSeconds: 1, CrashBackoffInitialSeconds: 1, CrashBackoffMaxSeconds: 1,
+				// Each probe is a copy of this (possibly race-instrumented) test binary; on a
+				// loaded machine a short init timeout turns "crash after init" into "init timed out".
+				PluginInitTimeoutSeconds: 10, ShutdownGraceSeconds: 1, CrashBackoffInitialSeconds: 1, CrashBackoffMaxSeconds: 1,
 			}}
 		}})
 	runtimes.SetOnCrash(controller.HandleCrash)
@@ -110,7 +112,7 @@ func TestCrashAfterSuccessfulInitReachesDeadLetterWithoutRestartingPeer(t *testi
 	manager, _ := runtimes.Get(broken.PluginID)
 	waitForState := func(state pluginruntime.State) {
 		t.Helper()
-		deadline := time.Now().Add(12 * time.Second)
+		deadline := time.Now().Add(40 * time.Second)
 		for time.Now().Before(deadline) {
 			if manager.Snapshot().State == state {
 				return

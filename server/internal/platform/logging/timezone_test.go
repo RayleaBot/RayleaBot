@@ -31,7 +31,7 @@ func TestLogOutputAndStorageUseUTCWithoutChangingSourceTime(t *testing.T) {
 			if body["ts"] != "2026-01-15T20:30:00.123456789Z" || body["event_timestamp"] != float64(1768508990) {
 				t.Fatalf("log timestamps = %#v", body)
 			}
-			summary, ok := summaryFromJSONLine(output.Bytes())
+			summary, ok := summaryFromObject(body)
 			if !ok || summary.Timestamp != body["ts"] || summary.Details["event_timestamp"] != body["event_timestamp"] {
 				t.Fatalf("stored timestamps = %+v", summary)
 			}

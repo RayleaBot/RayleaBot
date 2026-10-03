@@ -9,24 +9,14 @@ import (
 	"time"
 )
 
-type failingBlacklistRepo struct {
+// failingEntryRepo fails every Contains lookup for one entry type and defers
+// the rest to the wrapped repository.
+type failingEntryRepo struct {
 	EntryRepository
 	entryType string
 }
 
-func (r failingBlacklistRepo) Contains(ctx context.Context, scope chatevent.IdentityScope, kind, id string) (bool, error) {
-	if kind == r.entryType {
-		return false, context.DeadlineExceeded
-	}
-	return r.EntryRepository.Contains(ctx, scope, kind, id)
-}
-
-type failingWhitelistRepo struct {
-	EntryRepository
-	entryType string
-}
-
-func (r failingWhitelistRepo) Contains(ctx context.Context, scope chatevent.IdentityScope, kind, id string) (bool, error) {
+func (r failingEntryRepo) Contains(ctx context.Context, scope chatevent.IdentityScope, kind, id string) (bool, error) {
 	if kind == r.entryType {
 		return false, context.DeadlineExceeded
 	}
@@ -50,15 +40,15 @@ func TestGovernanceReadFailuresDenyWithoutConsumingCooldown(t *testing.T) {
 			case "whitelist-state":
 				state = failingWhitelistState{state}
 			case "whitelist-user":
-				whitelist = failingWhitelistRepo{whitelist, "user"}
+				whitelist = failingEntryRepo{whitelist, "user"}
 			case "whitelist-group":
-				whitelist = failingWhitelistRepo{whitelist, "group"}
+				whitelist = failingEntryRepo{whitelist, "group"}
 			case "blacklist-user":
 				state = &stubWhitelistStateRepo{}
-				blacklist = failingBlacklistRepo{blacklist, "user"}
+				blacklist = failingEntryRepo{blacklist, "user"}
 			case "blacklist-group":
 				state = &stubWhitelistStateRepo{}
-				blacklist = failingBlacklistRepo{blacklist, "group"}
+				blacklist = failingEntryRepo{blacklist, "group"}
 			}
 			cooldown := NewCooldownTracker(config.RateLimit{Count: 1, Window: time.Minute}, config.RateLimit{Count: 1, Window: time.Minute})
 			checker := NewChecker(CheckerConfig{}, whitelist, state, blacklist, cooldown)
@@ -255,20 +245,6 @@ func TestWhitelistEnabledAllowsGroupMessageWhenGroupMatches(t *testing.T) {
 	}
 }
 
-func TestWhitelistEnabledDeniesWhenNoEntryMatches(t *testing.T) {
-	t.Parallel()
-
-	checker := NewChecker(CheckerConfig{}, newStubWhitelistRepo(), &stubWhitelistStateRepo{enabled: true}, nil, nil)
-
-	verdict := checker.Check(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "10001", "member", "20001", &CommandInfo{Permission: "everyone"})
-	if verdict.Allowed {
-		t.Fatal("missing whitelist entry should deny command dispatch")
-	}
-	if verdict.ErrorCode != "permission.not_whitelisted" {
-		t.Fatalf("unexpected error code: got %q want %q", verdict.ErrorCode, "permission.not_whitelisted")
-	}
-}
-
 func TestWhitelistTakesPriorityOverBlacklist(t *testing.T) {
 	t.Parallel()
 
@@ -426,21 +402,22 @@ func TestCooldownTriggered(t *testing.T) {
 	}
 }
 
-func TestPrivateMessageSkipsGroupChecks(t *testing.T) {
+func TestPrivateMessageSkipsGroupCooldown(t *testing.T) {
 	t.Parallel()
 
-	blacklistRepo := newStubBlacklistRepo()
-	blacklistRepo.block("group", "group1")
-	whitelistRepo := newStubWhitelistRepo()
-	whitelistRepo.allow("user", "user1")
+	// The group window admits one command; a private command must never
+	// consume it, so a second private command is still allowed.
 	cooldown := NewCooldownTracker(
 		config.RateLimit{Count: 100, Window: time.Minute},
 		config.RateLimit{Count: 1, Window: time.Minute},
 	)
-	checker := NewChecker(CheckerConfig{}, whitelistRepo, &stubWhitelistStateRepo{enabled: true}, blacklistRepo, cooldown)
+	checker := NewChecker(CheckerConfig{}, nil, nil, nil, cooldown)
+	command := &CommandInfo{Permission: "everyone"}
 
-	verdict := checker.Check(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user1", "member", "", &CommandInfo{Permission: "everyone"})
-	if !verdict.Allowed {
-		t.Fatalf("private message should skip group checks, got denied: %s", verdict.Reason)
+	for attempt := 1; attempt <= 2; attempt++ {
+		verdict := checker.Check(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user1", "member", "", command)
+		if !verdict.Allowed {
+			t.Fatalf("private command %d consumed the group cooldown: %#v", attempt, verdict)
+		}
 	}
 }

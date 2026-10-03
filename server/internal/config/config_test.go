@@ -136,23 +136,6 @@ func TestNormalizeBootstrapsUserConfigWhenMissing(t *testing.T) {
 	}
 }
 
-func TestInitWritesCanonicalConfig(t *testing.T) {
-	t.Parallel()
-
-	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
-	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
-
-	if _, _, err := Init(configPath, schemaPath); err != nil {
-		t.Fatalf("Init() error = %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(filepath.Dir(configPath), "default.yaml")); !os.IsNotExist(err) {
-		t.Fatalf("unexpected default.yaml: %v", err)
-	}
-	if _, err := os.Stat(configPath); err != nil {
-		t.Fatalf("user.yaml was not created: %v", err)
-	}
-}
-
 func TestValidateDoesNotRewriteConfig(t *testing.T) {
 	t.Parallel()
 

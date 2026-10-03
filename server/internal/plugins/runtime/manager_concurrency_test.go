@@ -275,18 +275,6 @@ func TestParseConfigWriteAction(t *testing.T) {
 	}
 }
 
-func TestParseGovernanceBlacklistReadAction(t *testing.T) {
-	t.Parallel()
-
-	action, err := ParseLocalAction("governance.blacklist.read", json.RawMessage(`{}`))
-	if err != nil {
-		t.Fatalf("parseGovernanceBlacklistReadAction: %v", err)
-	}
-	if action.Kind != "governance.blacklist.read" {
-		t.Fatalf("unexpected governance.blacklist.read action: %#v", action)
-	}
-}
-
 func TestParseGovernanceBlacklistWriteAction(t *testing.T) {
 	t.Parallel()
 
@@ -322,18 +310,6 @@ func TestParseGovernanceWhitelistWriteAction(t *testing.T) {
 	}
 	if action.Kind != "governance.whitelist.write" || action.GovernanceOperation != "set_enabled" || action.GovernanceEnabled == nil || !*action.GovernanceEnabled {
 		t.Fatalf("unexpected governance.whitelist.write action: %#v", action)
-	}
-}
-
-func TestParseGovernanceCommandPolicyReadAction(t *testing.T) {
-	t.Parallel()
-
-	action, err := ParseLocalAction("governance.command_policy.read", json.RawMessage(`{}`))
-	if err != nil {
-		t.Fatalf("parseGovernanceCommandPolicyReadAction: %v", err)
-	}
-	if action.Kind != "governance.command_policy.read" {
-		t.Fatalf("unexpected governance.command_policy.read action: %#v", action)
 	}
 }
 
@@ -535,81 +511,6 @@ func TestManagerDeliverEventTimeoutKeepsRuntimeRunningAndIgnoresLateResult(t *te
 	}
 }
 
-func TestManagerPingReturnsPong(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-	spec := helperSpec(t, "ping-pong", "")
-
-	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
-		t.Fatalf("start runtime: %v", err)
-	}
-
-	if err := manager.Ping(context.Background()); err != nil {
-		t.Fatalf("ping: %v", err)
-	}
-
-	if err := manager.Stop(context.Background()); err != nil {
-		t.Fatalf("stop runtime: %v", err)
-	}
-}
-
-func TestManagerPingFailsWhenRuntimeIsNotRunning(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-
-	err := manager.Ping(context.Background())
-	assertRuntimeErrorCode(t, err, codePlatformInvalidRequest)
-}
-
-func TestManagerPingTimeoutStopsRuntime(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-	spec := helperSpecWithEventTimeout(t, "ping-timeout", "", 80*time.Millisecond)
-
-	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
-		t.Fatalf("start runtime: %v", err)
-	}
-
-	err := manager.Ping(context.Background())
-	assertRuntimeErrorCode(t, err, codePluginEventTimeout)
-
-	waitForRuntimeState(t, manager, StateStopped)
-}
-
-func TestManagerPingRejectsProtocolViolation(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-	spec := helperSpec(t, "ping-wrong-type", "")
-
-	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
-		t.Fatalf("start runtime: %v", err)
-	}
-
-	err := manager.Ping(context.Background())
-	assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
-}
-
-func TestManagerStopIgnoresPluginThatAlreadyExited(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-	spec := helperSpec(t, "exit-after-ready", "")
-
-	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
-		t.Fatalf("start runtime: %v", err)
-	}
-
-	waitForRuntimeState(t, manager, StateCrashed)
-
-	if err := manager.Stop(context.Background()); err != nil {
-		t.Fatalf("stop runtime after plugin exit: %v", err)
-	}
-}
-
 // helperSpec leaves generous budgets because helper processes start while the
 // rest of the suite competes for CPU; a test asserting a timeout sets its own
 // short budget instead of relying on these defaults.
@@ -806,39 +707,6 @@ func TestManagerCrashCountIncrementsAcrossMultipleCrashes(t *testing.T) {
 	}
 }
 
-func TestManagerResetCrashCount(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-	manager.mu.Lock()
-	manager.snap.CrashCount = 3
-	manager.mu.Unlock()
-
-	manager.ResetCrashCount()
-
-	snapshot := manager.Snapshot()
-	if snapshot.CrashCount != 0 {
-		t.Errorf("crash count after reset: got %d want 0", snapshot.CrashCount)
-	}
-}
-
-func TestManagerSetBackoffState(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-	nextRetry := time.Now().Add(10 * time.Second)
-
-	manager.SetBackoffState(nextRetry)
-
-	snapshot := manager.Snapshot()
-	if snapshot.State != StateBackoff {
-		t.Errorf("state after SetBackoffState: got %q want %q", snapshot.State, StateBackoff)
-	}
-	if snapshot.NextRetryAt == nil {
-		t.Fatal("NextRetryAt should not be nil after SetBackoffState")
-	}
-}
-
 func TestManagerSetDeadLetterState(t *testing.T) {
 	t.Parallel()
 
@@ -954,20 +822,6 @@ func recordedFrames(t *testing.T, path string) []map[string]any {
 	}
 
 	return frames
-}
-
-func waitForRuntimeState(t *testing.T, manager *Manager, want State) {
-	t.Helper()
-
-	deadline := time.Now().Add(runtimeTestDuration(500 * time.Millisecond))
-	for time.Now().Before(deadline) {
-		if snapshot := manager.Snapshot(); snapshot.State == want {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	t.Fatalf("runtime did not reach state %q; last snapshot: %+v", want, manager.Snapshot())
 }
 
 func runtimeTestDuration(base time.Duration) time.Duration {

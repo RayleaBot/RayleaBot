@@ -12,11 +12,11 @@ func TestCollectionTraversalRejectsUnboundedOrAmbiguousInputs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Parse(values); err == nil {
+		if _, err := ParseWithLimits(values, Limits{}); err == nil {
 			t.Errorf("accepted %q", raw)
 		}
 	}
-	query, err := Parse(url.Values{})
+	query, err := ParseWithLimits(url.Values{}, Limits{})
 	if err != nil || query.Limit != 100 {
 		t.Fatalf("default query: %#v %v", query, err)
 	}

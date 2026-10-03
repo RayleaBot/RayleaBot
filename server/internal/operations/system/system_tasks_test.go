@@ -17,20 +17,22 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
-func TestChromiumTaskProgressSummarizesSourceProbe(t *testing.T) {
-	percent, summary := managedRuntimeTaskProgress(1, 0, deps.PrepareProgress{
-		Kind:     "chromium",
-		Label:    deps.ManagedResourceLabel("chromium"),
-		Stage:    "probe",
-		Status:   "running",
-		Progress: 0,
-	})
-
-	if percent != 0 {
-		t.Fatalf("unexpected probe percent: got %d want 0", percent)
-	}
-	if summary != "正在测试 图片渲染 Chromium 下载来源" {
-		t.Fatalf("unexpected probe summary: %q", summary)
+func TestManagedRuntimeTaskProgressHoldsBelowCompletionUntilSucceeded(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		total, index, progress int
+		status                 string
+		want                   int
+	}{
+		{1, 0, 100, "running", 99},
+		{1, 0, 100, "succeeded", 100},
+		{2, 1, 50, "running", 75},
+		{2, 0, 100, "succeeded", 50},
+	} {
+		got, _ := managedRuntimeTaskProgress(tt.total, tt.index, deps.PrepareProgress{Kind: "chromium", Progress: tt.progress, Status: tt.status})
+		if got != tt.want {
+			t.Fatalf("managedRuntimeTaskProgress(%d, %d, progress=%d, %s) = %d, want %d", tt.total, tt.index, tt.progress, tt.status, got, tt.want)
+		}
 	}
 }
 
@@ -197,7 +199,7 @@ func TestRuntimeBootstrapPublishesSharedReadinessState(t *testing.T) {
 			case <-time.After(2 * time.Second):
 				t.Fatal("preparation completion was not published")
 			}
-			state, ok := service.StartupRuntimeState("ffmpeg")
+			state, ok := service.startupRuntimeState("ffmpeg")
 			if !ok || state.Phase != wantPhase {
 				t.Fatalf("shared startup state = %#v", state)
 			}

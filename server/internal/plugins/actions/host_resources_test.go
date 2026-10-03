@@ -26,14 +26,6 @@ func (s browserStub) Launch(context.Context, string, browser.LaunchRequest) (bro
 }
 func (s browserStub) Close(string, string) (bool, error) { return true, s.err }
 
-func requireActionCode(t *testing.T, err error, want string) {
-	t.Helper()
-	var actionError *plugins.Error
-	if !errors.As(err, &actionError) || actionError.Code != want {
-		t.Fatalf("action error = %v, want code %s", err, want)
-	}
-}
-
 func TestBrowserActionErrors(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"browser.launch", "browser.close"} {
@@ -50,7 +42,7 @@ func TestBrowserActionErrors(t *testing.T) {
 			t.Run(kind+"/"+tc.name, func(t *testing.T) {
 				service := actions.New(actions.Deps{Browser: browserStub{tc.err}})
 				_, err := service.Execute(t.Context(), "fixture", "request", plugins.Action{Kind: kind}, chatevent.Event{})
-				requireActionCode(t, err, tc.code)
+				assertRuntimeErrorCode(t, err, tc.code)
 			})
 		}
 	}
@@ -97,13 +89,13 @@ func TestSecretMutationsKeepNamespacesAndReturnChangedKeys(t *testing.T) {
 	}
 	for _, action := range []plugins.Action{{Kind: "secret.write"}, {Kind: "secret.delete"}, {Kind: "secret.delete", SecretKeys: []string{"a", "a"}}} {
 		_, err := host.Execute(t.Context(), "fixture", "request", action, chatevent.Event{})
-		requireActionCode(t, err, errorcodes.PluginProtocolViolation)
+		assertRuntimeErrorCode(t, err, errorcodes.PluginProtocolViolation)
 	}
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
 	_, err = host.Execute(t.Context(), "fixture", "request", plugins.Action{Kind: "secret.write", SecretValues: map[string]string{"a": "fixture"}}, chatevent.Event{})
-	requireActionCode(t, err, errorcodes.PluginInternalError)
+	assertRuntimeErrorCode(t, err, errorcodes.PluginInternalError)
 }
 
 func TestBrowserActionLifetimeUsesRuntimeOwner(t *testing.T) {
@@ -122,7 +114,7 @@ func TestBrowserActionLifetimeUsesRuntimeOwner(t *testing.T) {
 	}
 	cancel()
 	_, err := host.Execute(t.Context(), "fixture", "second", action, chatevent.Event{})
-	requireActionCode(t, err, errorcodes.PlatformResourceBusy)
+	assertRuntimeErrorCode(t, err, errorcodes.PlatformResourceBusy)
 	close(owner)
 	deadline := time.Now().Add(time.Second)
 	for {
@@ -130,7 +122,7 @@ func TestBrowserActionLifetimeUsesRuntimeOwner(t *testing.T) {
 		if err == nil {
 			break
 		}
-		requireActionCode(t, err, errorcodes.PlatformResourceBusy)
+		assertRuntimeErrorCode(t, err, errorcodes.PlatformResourceBusy)
 		if time.Now().After(deadline) {
 			t.Fatal("session outlived its runtime owner")
 		}

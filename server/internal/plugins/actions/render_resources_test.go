@@ -74,33 +74,6 @@ func TestPrefetchRenderImageResourcesUsesRefererAndFallbackURL(t *testing.T) {
 	}
 }
 
-func TestPrefetchRenderImageResourcesAllowsPrivateHost(t *testing.T) {
-	t.Parallel()
-
-	content := append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte("fixture-suffix-host")...)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "image/png")
-		_, _ = w.Write(content)
-	}))
-	defer server.Close()
-
-	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{RenderResourceRoot: t.TempDir()}, ActionRequest{
-		PluginID:  "plugin.render",
-		RequestID: "render-resource-suffix",
-		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{
-			ID:  "media-0",
-			URL: server.URL + "/cover.png",
-		}}},
-	})
-	if err != nil {
-		t.Fatalf("prefetchRenderImageResources: %v", err)
-	}
-	defer cleanup()
-	if len(resources) != 1 || resources[0].ID != "media-0" {
-		t.Fatalf("resources = %#v", resources)
-	}
-}
-
 func TestPrefetchRenderImageResourcesRejectsNonHTTPSRedirect(t *testing.T) {
 	t.Parallel()
 

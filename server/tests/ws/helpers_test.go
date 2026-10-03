@@ -155,14 +155,6 @@ func issueExistingBootstrapLoginToken(t *testing.T, application interface{ Handl
 	return testutil.IssueExistingBootstrapLoginToken(t, application)
 }
 
-func loadWebAPIFixtureDocument(t *testing.T, path string) testutil.WebAPIFixtureDocument {
-	return testutil.LoadWebAPIFixtureDocument(t, path)
-}
-
-func performJSONRequest(t *testing.T, application interface{ Handler() http.Handler }, method, path string, body map[string]any) *httptest.ResponseRecorder {
-	return testutil.PerformJSONRequest(t, application, method, path, body)
-}
-
 func decodeBody(t *testing.T, raw []byte) map[string]any {
 	return testutil.DecodeBody(t, raw)
 }
@@ -183,7 +175,7 @@ func assertWebSocketRejectsUnauthorized(t *testing.T, path string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+path, &websocket.DialOptions{
+	conn, response, err := websocket.Dial(ctx, testutil.WebSocketURL(server.URL)+path, &websocket.DialOptions{
 		Host:       testManagementAuthority,
 		HTTPHeader: http.Header{"Origin": []string{testManagementOrigin}},
 	})

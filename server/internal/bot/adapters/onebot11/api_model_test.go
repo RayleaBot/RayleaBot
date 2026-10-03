@@ -14,9 +14,8 @@ type fakeCaller struct {
 }
 
 type apiRequest struct {
-	action    string
-	params    map[string]any
-	transport string
+	action string
+	params map[string]any
 }
 
 func (c *fakeCaller) CallAPI(_ context.Context, action string, params map[string]any) (map[string]any, error) {
@@ -35,8 +34,8 @@ func (c *fakeCaller) CallAPIAny(_ context.Context, action string, params map[str
 	return nil, errors.New("missing response")
 }
 
-func (c *fakeCaller) CallAPIOnTransport(_ context.Context, transport string, action string, params map[string]any) (map[string]any, error) {
-	c.requests = append(c.requests, apiRequest{action: action, params: params, transport: transport})
+func (c *fakeCaller) CallAPIOnTransport(_ context.Context, _ string, action string, params map[string]any) (map[string]any, error) {
+	c.requests = append(c.requests, apiRequest{action: action, params: params})
 	if data, ok := c.data[action]; ok {
 		return data, nil
 	}

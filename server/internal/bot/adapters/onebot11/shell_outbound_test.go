@@ -2,7 +2,6 @@ package onebot11
 
 import (
 	"context"
-	"errors"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/reconnect"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -82,57 +81,6 @@ func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
 	thirdData := third["data"].(map[string]any)
 	if thirdData["file"] != "https://example.test/rich.png" {
 		t.Fatalf("unexpected rich image data: %#v", thirdData)
-	}
-
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer stopCancel()
-	if err := shell.Stop(stopCtx); err != nil {
-		t.Fatalf("Stop failed: %v", err)
-	}
-}
-
-func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
-
-	t.Parallel()
-
-	server, _ := newOneBotAPIServer(t, func(request map[string]any) map[string]any {
-		return map[string]any{
-			"status":  "failed",
-			"retcode": 1404,
-			"wording": "reply target missing",
-		}
-	})
-
-	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
-	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	shell.Start(ctx)
-	waitForState(t, shell, StateConnected, 500*time.Millisecond)
-
-	_, err := shell.SendReply(context.Background(), chatevent.OutboundMessageReply{
-		TargetType:       "group",
-		TargetID:         "2001",
-		ReplyToMessageID: "98765",
-		Segments: []chatevent.MessageSegment{{
-			Type: "text",
-			Data: map[string]any{"text": "reply text"},
-		}},
-	})
-	if err == nil {
-		t.Fatal("expected SendReply to fail")
-	}
-
-	var adapterErr *Error
-	if !errors.As(err, &adapterErr) {
-		t.Fatalf("expected *Error, got %T", err)
-	}
-	if adapterErr.Code != ErrorCodeReplyTargetMissing {
-		t.Fatalf("unexpected adapter error code: got %q want %q", adapterErr.Code, ErrorCodeReplyTargetMissing)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)

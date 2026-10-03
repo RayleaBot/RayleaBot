@@ -80,24 +80,6 @@ func TestRenderTemplateHandlersExposePreviewWorkspaceOnly(t *testing.T) {
 	}
 }
 
-func TestRenderTemplateDetailUsesSingleSnapshotRead(t *testing.T) {
-	t.Parallel()
-
-	renderer := &snapshotRenderService{}
-	handlers := NewRenderHandlers(renderer, nil)
-	router := chi.NewRouter()
-	router.Get("/api/system/render/templates/{template_id}", handlers.HandleSystemRenderTemplateDetail())
-
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/system/render/templates/help.menu", nil))
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("detail status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
-	}
-	if renderer.detailReads != 1 {
-		t.Fatalf("detail snapshot reads = %d, want 1", renderer.detailReads)
-	}
-}
-
 func TestRenderTemplateHandlersRejectUnknownTemplate(t *testing.T) {
 	t.Parallel()
 
@@ -197,35 +179,8 @@ func TestRenderTemplateAssetHandlerStreamsAllowedResourceAndRejectsSources(t *te
 	}
 }
 
-func TestRenderTemplateEditorRoutesAreRemoved(t *testing.T) {
-	t.Parallel()
-
-	fixture := newRenderHTTPFixture(t)
-
-	requests := []struct {
-		method string
-		path   string
-		body   any
-	}{
-		{method: http.MethodGet, path: "/api/system/render/templates/help.menu/source"},
-		{method: http.MethodPut, path: "/api/system/render/templates/help.menu/source", body: map[string]any{}},
-		{method: http.MethodPost, path: "/api/system/render/templates/help.menu/validate", body: map[string]any{}},
-		{method: http.MethodGet, path: "/api/system/render/templates/help.menu/versions"},
-		{method: http.MethodPost, path: "/api/system/render/templates/help.menu/rollback", body: map[string]any{}},
-	}
-
-	for _, tc := range requests {
-		recorder := fixture.request(tc.method, tc.path, tc.body)
-		if recorder.Code != http.StatusNotFound {
-			t.Fatalf("%s %s status = %d, want 404", tc.method, tc.path, recorder.Code)
-		}
-	}
-}
-
 type renderHTTPFixture struct {
-	router   http.Handler
-	renderer *render.Service
-	cleanup  func()
+	router http.Handler
 }
 
 func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
@@ -257,25 +212,15 @@ func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
 		_ = store.Close()
 		t.Fatalf("create render service: %v", err)
 	}
-	handlers := NewRenderHandlers(renderer, nil)
-
-	router := chi.NewRouter()
-	router.Get("/api/system/render/templates", handlers.HandleSystemRenderTemplateList())
-	router.Post("/api/system/render/templates/{template_id}/preview-html", handlers.HandleSystemRenderTemplatePreviewHTML())
-	router.Get("/api/system/render/templates/{template_id}/asset", handlers.HandleSystemRenderTemplateAsset())
-	router.Get("/api/system/render/templates/{template_id}", handlers.HandleSystemRenderTemplateDetail())
-
-	cleanup := func() {
+	t.Cleanup(func() {
 		_ = renderer.Close()
 		_ = store.Close()
-	}
-	t.Cleanup(cleanup)
+	})
 
-	return renderHTTPFixture{
-		router:   router,
-		renderer: renderer,
-		cleanup:  cleanup,
-	}
+	router := chi.NewRouter()
+	NewRenderHandlers(renderer, nil).RegisterProtectedRoutes(router)
+
+	return renderHTTPFixture{router: router}
 }
 
 func (f renderHTTPFixture) request(method, target string, body any) *httptest.ResponseRecorder {
@@ -293,43 +238,4 @@ func (f renderHTTPFixture) request(method, target string, body any) *httptest.Re
 	recorder := httptest.NewRecorder()
 	f.router.ServeHTTP(recorder, request)
 	return recorder
-}
-
-type snapshotRenderService struct {
-	detailReads int
-}
-
-func (s *snapshotRenderService) PreviewHTML(context.Context, render.Request) (render.PreviewHTML, error) {
-	return render.PreviewHTML{}, nil
-}
-
-func (s *snapshotRenderService) LookupTemplateAsset(context.Context, string, string) (render.TemplateAsset, error) {
-	return render.TemplateAsset{}, nil
-}
-
-func (s *snapshotRenderService) ListTemplates(context.Context) ([]render.TemplateSummary, error) {
-	return nil, nil
-}
-
-func (s *snapshotRenderService) GetTemplateDetailSnapshot(context.Context, string) (render.TemplateDetailSnapshot, error) {
-	s.detailReads++
-	return render.TemplateDetailSnapshot{
-		Detail: render.TemplateDetail{
-			TemplateSummary: render.TemplateSummary{
-				ID:             "help.menu",
-				Version:        "1.0.0",
-				Width:          960,
-				Height:         640,
-				HasInputSchema: true,
-				UpdatedAt:      "2026-06-29T00:00:00Z",
-				Source: render.TemplateSourceInfo{
-					Type: "system",
-				},
-			},
-		},
-		Source: render.TemplateSource{
-			InputSchemaJSON: map[string]any{"type": "object"},
-		},
-		PreviewData: map[string]any{"title": "preview"},
-	}, nil
 }

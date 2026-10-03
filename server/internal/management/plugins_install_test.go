@@ -11,7 +11,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
-	"pgregory.net/rapid"
 )
 
 type queueFullInstaller struct{}
@@ -24,10 +23,12 @@ func (queueFullInstaller) Cancel(string) bool { return false }
 func (queueFullInstaller) Close() error       { return nil }
 
 type recordingInstaller struct {
-	request plugins.InstallRequest
+	accepted int
+	request  plugins.InstallRequest
 }
 
 func (installer *recordingInstaller) Accept(_ context.Context, request plugins.InstallRequest) (string, error) {
+	installer.accepted++
 	installer.request = request
 	return "task_recorded", nil
 }
@@ -71,8 +72,7 @@ func TestInstallHandlerRequiresTrustedCodeConfirmation(t *testing.T) {
 	}
 }
 
-func TestInstallHandlerMapsQueueFullWithoutCreatingTask(t *testing.T) {
-	registry := tasks.NewRegistry()
+func TestInstallHandlerMapsQueueFull(t *testing.T) {
 	body, _ := json.Marshal(trustedInstallRequest())
 	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
@@ -86,65 +86,35 @@ func TestInstallHandlerMapsQueueFullWithoutCreatingTask(t *testing.T) {
 	if envelope := decodeErrorEnvelope(t, recorder.Body.Bytes()); envelope.Error.Code != "platform.task_queue_full" {
 		t.Fatalf("error code = %q, want platform.task_queue_full", envelope.Error.Code)
 	}
-	if len(registry.List()) != 0 {
-		t.Fatal("queue-full handler created a pending task")
-	}
 }
 
-func TestInstallCreatesQueryableTask(t *testing.T) {
-	router, taskRegistry := setupInstallRouter()
+func TestInstallHandlerRejectsInvalidRequestBeforeInstaller(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{name: "missing source", body: `{"source_type":"local_zip","trusted_code_confirmed":true}`},
+		{name: "unsupported source type", body: `{"source_type":"catalog","source":"official","trusted_code_confirmed":true}`},
+		{name: "unknown field", body: `{"source_type":"local_zip","source":"C:/plugins/weather.zip","trusted_code_confirmed":true,"allow_install_scripts":true}`},
+		{name: "malformed json", body: `{not valid json`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			installer := &recordingInstaller{}
+			request := httptest.NewRequest(http.MethodPost, "/api/plugins/install", strings.NewReader(tc.body))
+			request.Header.Set("Content-Type", "application/json")
+			recorder := httptest.NewRecorder()
 
-	reqBody, _ := json.Marshal(trustedInstallRequest())
-	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
+			newInstallHandler(installer).ServeHTTP(recorder, request)
 
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusAccepted {
-		t.Fatalf("status = %d, want 202; body = %s", rec.Code, rec.Body.String())
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400: %s", recorder.Code, recorder.Body.String())
+			}
+			if envelope := decodeErrorEnvelope(t, recorder.Body.Bytes()); envelope.Error.Code != pluginCodeInvalidRequest {
+				t.Fatalf("error code = %q, want %q", envelope.Error.Code, pluginCodeInvalidRequest)
+			}
+			if installer.accepted != 0 {
+				t.Fatalf("invalid request reached the installer: %#v", installer.request)
+			}
+		})
 	}
-
-	var resp pluginTaskAcceptedResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	snap, ok := taskRegistry.Get(resp.TaskID)
-	if !ok {
-		t.Fatalf("task %q not found in registry", resp.TaskID)
-	}
-	if snap.TaskType != "plugin.install" || snap.Status != tasks.StatusPending {
-		t.Fatalf("unexpected task snapshot: %#v", snap)
-	}
-}
-
-// Feature: plugin-write-api, Property 2: 无效安装请求被拒绝
-func TestProperty_InvalidInstallRequestRejected(t *testing.T) {
-	rapid.Check(t, func(t *rapid.T) {
-		router, taskRegistry := setupInstallRouter()
-		tasksBefore := len(taskRegistry.List())
-
-		body := rapid.SampledFrom([]string{
-			`{"source_type":"local_zip","trusted_code_confirmed":true}`,
-			`{"source_type":"catalog","source":"official","trusted_code_confirmed":true}`,
-			`{"source_type":"local_zip","source":"C:/plugins/weather.zip","trusted_code_confirmed":true,"allow_install_scripts":true}`,
-			`{not valid json`,
-		}).Draw(t, "body")
-
-		req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		rec := httptest.NewRecorder()
-
-		router.ServeHTTP(rec, req)
-
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body.String())
-		}
-		if env := decodeErrorEnvelope(t, rec.Body.Bytes()); env.Error.Code != pluginCodeInvalidRequest {
-			t.Fatalf("error.code = %q, want %q", env.Error.Code, pluginCodeInvalidRequest)
-		}
-		if tasksAfter := len(taskRegistry.List()); tasksAfter != tasksBefore {
-			t.Fatalf("tasks count changed from %d to %d; no task should be created for invalid request", tasksBefore, tasksAfter)
-		}
-	})
 }

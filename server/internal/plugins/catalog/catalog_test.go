@@ -8,83 +8,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"pgregory.net/rapid"
 )
-
-// --- Property-Based Tests ---
-
-// Feature: plugin-write-api, Property 3: 启用状态更新与正确响应
-// Validates: Requirements 2.1, 7.2
-func TestProperty_SetDesiredState_Enable(t *testing.T) {
-	rapid.Check(t, func(t *rapid.T) {
-		id := rapid.StringMatching("[a-z][a-z0-9_]{2,30}").Draw(t, "pluginID")
-		name := rapid.StringMatching("[A-Za-z][A-Za-z0-9 ]{0,20}").Draw(t, "name")
-		version := rapid.StringMatching("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}").Draw(t, "version")
-
-		catalog := New([]plugins.Snapshot{{
-			PluginID:          id,
-			Name:              name,
-			Version:           version,
-			RegistrationState: "installed",
-			DesiredState:      "disabled",
-		}})
-
-		snap, err := catalog.SetDesiredState(id, "enabled")
-		if err != nil {
-			t.Fatalf("SetDesiredState(%q, enabled) error: %v", id, err)
-		}
-		if snap.DesiredState != "enabled" {
-			t.Fatalf("plugins.Snapshot.DesiredState = %q, want %q", snap.DesiredState, "enabled")
-		}
-		if snap.PluginID != id {
-			t.Fatalf("plugins.Snapshot.PluginID = %q, want %q", snap.PluginID, id)
-		}
-	})
-}
-
-// Feature: plugin-write-api, Property 4: 禁用状态更新与正确响应
-// Validates: Requirements 3.1, 7.2
-func TestProperty_SetDesiredState_Disable(t *testing.T) {
-	rapid.Check(t, func(t *rapid.T) {
-		id := rapid.StringMatching("[a-z][a-z0-9_]{2,30}").Draw(t, "pluginID")
-		name := rapid.StringMatching("[A-Za-z][A-Za-z0-9 ]{0,20}").Draw(t, "name")
-		version := rapid.StringMatching("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}").Draw(t, "version")
-
-		catalog := New([]plugins.Snapshot{{
-			PluginID:          id,
-			Name:              name,
-			Version:           version,
-			RegistrationState: "installed",
-			DesiredState:      "enabled",
-		}})
-
-		snap, err := catalog.SetDesiredState(id, "disabled")
-		if err != nil {
-			t.Fatalf("SetDesiredState(%q, disabled) error: %v", id, err)
-		}
-		if snap.DesiredState != "disabled" {
-			t.Fatalf("plugins.Snapshot.DesiredState = %q, want %q", snap.DesiredState, "disabled")
-		}
-		if snap.PluginID != id {
-			t.Fatalf("plugins.Snapshot.PluginID = %q, want %q", snap.PluginID, id)
-		}
-	})
-}
-
-// Feature: plugin-write-api, Property 5: 不存在的插件返回 plugins.ErrPluginNotFound
-// Validates: Requirements 7.3
-func TestProperty_SetDesiredState_NotFound(t *testing.T) {
-	rapid.Check(t, func(t *rapid.T) {
-		id := rapid.StringMatching("[a-z][a-z0-9_]{2,30}").Draw(t, "pluginID")
-
-		catalog := New(nil)
-
-		_, err := catalog.SetDesiredState(id, "enabled")
-		if !errors.Is(err, plugins.ErrPluginNotFound) {
-			t.Fatalf("SetDesiredState(%q, enabled) on empty catalog: got err=%v, want plugins.ErrPluginNotFound", id, err)
-		}
-	})
-}
 
 func TestCatalogConcurrentUpdatesPreserveMembershipAndSnapshots(t *testing.T) {
 	const count = 10
@@ -141,8 +65,6 @@ func TestCatalogConcurrentUpdatesPreserveMembershipAndSnapshots(t *testing.T) {
 		}
 	}
 }
-
-// --- Unit Tests ---
 
 // Validates: Requirements 7.3
 func TestSetDesiredState_NotFound(t *testing.T) {

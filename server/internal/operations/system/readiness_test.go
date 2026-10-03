@@ -12,17 +12,17 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func TestCurrentReadinessDoesNotRequireOneBotAdapter(t *testing.T) {
 	t.Parallel()
 
-	app := newTestAppState(config.Config{}, nil)
 	service, err := New(Deps{
-		Plugins:        app.pluginStack.Plugins,
-		CurrentConfig:  app.state.CurrentConfig,
-		CurrentSummary: func() config.Summary { return app.state.Summary },
+		Plugins:        plugincatalog.New(nil),
+		CurrentConfig:  func() config.Config { return config.Config{} },
+		CurrentSummary: func() config.Summary { return config.Summary{} },
 		Auth:           initializedReadinessAuth(t),
 		Storage:        openReadinessStore(t),
 	})
@@ -158,7 +158,7 @@ func TestReadinessDatabaseProbeTimesOut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	service := &Service{storage: store}
 	started := time.Now()
 	if service.databaseAvailable() {

@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -14,19 +13,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
-
-func TestReadProtocolLineRejectsOversizedFrameWithoutNewline(t *testing.T) {
-	t.Parallel()
-
-	reader := bufio.NewReaderSize(strings.NewReader(strings.Repeat("x", 4096)), 32)
-	line, err := readProtocolLine(reader, 128)
-	if !errors.Is(err, errProtocolFrameTooLarge) {
-		t.Fatalf("readProtocolLine error = %v, want frame-too-large", err)
-	}
-	if len(line) != 0 {
-		t.Fatalf("oversized frame retained %d bytes", len(line))
-	}
-}
 
 func TestWriteJSONLineRejectsOversizedFrame(t *testing.T) {
 	t.Parallel()

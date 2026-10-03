@@ -120,46 +120,6 @@ func TestExecutor_SubmitGenericError(t *testing.T) {
 	}
 }
 
-func TestExecutor_Cancel(t *testing.T) {
-	t.Parallel()
-
-	registry := NewRegistry()
-	executor := NewExecutor(registry, 30*time.Second)
-	defer func(release func() error) { _ = release() }(executor.Close)
-
-	started := make(chan struct{})
-	blocked := make(chan struct{})
-
-	// Submit a blocking task first to hold the executor.
-	_, _ = executor.Submit("backup.create", "blocker", func(ctx context.Context, p ProgressReporter) (*ResultSummary, error) {
-		close(started)
-		<-blocked
-		return &ResultSummary{Summary: "done"}, nil
-	})
-
-	<-started
-
-	// Submit a second task that will be pending.
-	taskID, err := executor.Submit("backup.create", "to cancel", func(ctx context.Context, p ProgressReporter) (*ResultSummary, error) {
-		return &ResultSummary{Summary: "should not run"}, nil
-	})
-	if err != nil {
-		t.Fatalf("submit: %v", err)
-	}
-
-	ok := executor.Cancel(taskID)
-	if !ok {
-		t.Fatal("cancel returned false")
-	}
-
-	snap, _ := registry.Get(taskID)
-	if snap.Status != StatusCancelled {
-		t.Fatalf("status = %s, want cancelled", snap.Status)
-	}
-
-	close(blocked)
-}
-
 func TestExecutor_Close(t *testing.T) {
 	t.Parallel()
 

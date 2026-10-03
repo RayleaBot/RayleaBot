@@ -19,6 +19,8 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		path   string
 		want   int
 	}{
+		{method: http.MethodGet, path: "/healthz", want: http.StatusOK},
+		{method: http.MethodGet, path: "/readyz", want: http.StatusServiceUnavailable},
 		{method: http.MethodPost, path: "/api/setup/admin", want: http.StatusForbidden},
 		{method: http.MethodGet, path: "/api/setup/status", want: http.StatusOK},
 		{method: http.MethodPost, path: "/api/session/login", want: http.StatusBadRequest},
@@ -41,6 +43,9 @@ func TestAuthShellDoesNotAddPublicRoutes(t *testing.T) {
 		{method: http.MethodPost, path: "/api/system/shutdown", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/logs", want: http.StatusUnauthorized},
 		{method: http.MethodGet, path: "/api/logs/log_test_0001", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/api/plugins", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/api/plugins/raylea.echo", want: http.StatusUnauthorized},
+		{method: http.MethodGet, path: "/api/plugins/raylea.echo/icon", want: http.StatusUnauthorized},
 		{method: http.MethodPost, path: "/api/plugins/install", want: http.StatusUnauthorized},
 		{method: http.MethodPost, path: "/api/plugins/raylea.echo/enable", want: http.StatusUnauthorized},
 		{method: http.MethodPost, path: "/api/plugins/raylea.echo/disable", want: http.StatusUnauthorized},

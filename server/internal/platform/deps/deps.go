@@ -137,23 +137,14 @@ func NewRuntime(repoRoot string) *Runtime {
 }
 
 func (r *Runtime) ResolveEntrypoint(ctx context.Context, kind, name string) (string, error) {
-	if r.manager == nil {
-		return "", errManagerRequired()
-	}
 	return r.manager.ResolveEntrypoint(ctx, kind, name)
 }
 
 func (r *Runtime) ResolvePreparedEntrypoint(kind, name string) (string, error) {
-	if r.manager == nil {
-		return "", errManagerRequired()
-	}
 	return r.manager.ResolvePreparedEntrypoint(kind, name)
 }
 
 func (r *Runtime) PrepareWithReportOptions(ctx context.Context, kind string, options PrepareOptions) (*PrepareReport, error) {
-	if r.manager == nil {
-		return nil, errManagerRequired()
-	}
 	return r.manager.PrepareWithReportOptions(ctx, kind, options)
 }
 
@@ -167,14 +158,7 @@ func NewDiagnostics(repoRoot string) *Diagnostics {
 }
 
 func (d *Diagnostics) InspectRuntime(kind string) (*BootstrapInspection, error) {
-	if d.manager == nil {
-		return nil, errManagerRequired()
-	}
 	return d.manager.Inspect(kind)
-}
-
-func errManagerRequired() error {
-	return errors.New("deps manager is required")
 }
 
 func StoreRoot(repoRoot string, resource *Resource) string {

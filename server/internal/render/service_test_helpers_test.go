@@ -18,24 +18,18 @@ import (
 var testPNGBytes, _ = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=")
 
 type fakeRunner struct {
-	mu      sync.Mutex
-	calls   int
-	closes  int
-	delay   time.Duration
-	waitCh  chan struct{}
-	content []byte
-	err     error
-	docs    []Document
+	mu     sync.Mutex
+	calls  int
+	closes int
+	waitCh chan struct{}
+	docs   []Document
 }
 
 func (f *fakeRunner) Render(ctx context.Context, doc Document) ([]byte, error) {
 	f.mu.Lock()
 	f.calls++
 	f.docs = append(f.docs, doc)
-	delay := f.delay
 	waitCh := f.waitCh
-	content := append([]byte(nil), f.content...)
-	err := f.err
 	f.mu.Unlock()
 
 	if waitCh != nil {
@@ -46,24 +40,10 @@ func (f *fakeRunner) Render(ctx context.Context, doc Document) ([]byte, error) {
 		}
 	}
 
-	if delay > 0 {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(delay):
-		}
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	if len(content) == 0 {
-		content = append([]byte(nil), testPNGBytes...)
-	}
 	if doc.Output == "jpeg" {
 		return []byte{0xff, 0xd8, 0xff, 0xd9}, nil
 	}
-	return content, nil
+	return append([]byte(nil), testPNGBytes...), nil
 }
 
 func (f *fakeRunner) callCount() int {

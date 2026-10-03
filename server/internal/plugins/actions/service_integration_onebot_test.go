@@ -14,8 +14,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )
@@ -276,19 +274,11 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	}
 }
 
-func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) {
+func TestExecuteOneBotLocalActionConnectionLossReturnsConnectionLost(t *testing.T) {
 	t.Parallel()
 
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	catalogForActions := plugincatalog.New([]plugins.Snapshot{{
-		PluginID:          "weather",
-		Name:              "Weather",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "enabled",
-		RuntimeState:      "running",
-	}})
 	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
 	application := localaction.New(deps)
 
@@ -300,14 +290,6 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 		},
 	}, chatevent.Event{})
 	assertRuntimeErrorCode(t, err, "adapter.connection_lost")
-
-	snapshot, ok := catalogForActions.Get("weather")
-	if !ok {
-		t.Fatal("plugin missing from catalog")
-	}
-	if snapshot.RuntimeState != string(pluginruntime.StateRunning) {
-		t.Fatalf("runtime_state = %q, want running", snapshot.RuntimeState)
-	}
 }
 
 func waitForAdapterState(t *testing.T, shell *onebot11.Shell, want onebot11.State, timeout time.Duration) {

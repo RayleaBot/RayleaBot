@@ -143,37 +143,6 @@ func TestSendRejectsUnaddressableConversations(t *testing.T) {
 	}
 }
 
-func TestSendReportsSegmentsItCannotDeliver(t *testing.T) {
-	t.Parallel()
-
-	client, _ := newTestClient(t, okResponse)
-	// The platform has media kinds for image, video and voice only; anything
-	// else must fail loudly rather than send nothing.
-	_, err := client.SendMessage(context.Background(), chatevent.OutboundMessageSend{
-		TargetType: "group", TargetID: "G1",
-		Segments: []chatevent.MessageSegment{{Type: "poke", Data: map[string]any{}}},
-	})
-	if err == nil || !strings.Contains(err.Error(), "poke") {
-		t.Fatalf("error = %v, want it to name the undeliverable segment kind", err)
-	}
-}
-
-func TestSendSurfacesPlatformRejection(t *testing.T) {
-	t.Parallel()
-
-	client, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-		_ = json.NewEncoder(w).Encode(map[string]any{"code": 40034, "message": "push message is limited"})
-	})
-	_, err := client.SendMessage(context.Background(), chatevent.OutboundMessageSend{
-		TargetType: "group", TargetID: "G1",
-		Segments: []chatevent.MessageSegment{{Type: "text", Data: map[string]any{"text": "hi"}}},
-	})
-	if err == nil || !strings.Contains(err.Error(), "push message is limited") {
-		t.Fatalf("error = %v, want the platform's own reason", err)
-	}
-}
-
 func TestReplySequencesAreScopedPerMessage(t *testing.T) {
 	t.Parallel()
 

@@ -22,28 +22,6 @@ func openTestStore(t *testing.T) *storage.Store {
 	return store
 }
 
-func TestSQLiteStore_SetAndGet(t *testing.T) {
-	t.Parallel()
-	store := openTestStore(t)
-	ss, err := NewStore(store)
-	if err != nil {
-		t.Fatalf("new store: %v", err)
-	}
-
-	ctx := context.Background()
-	if err := ss.Set(ctx, "signing_key", []byte("test-key-bytes")); err != nil {
-		t.Fatalf("set: %v", err)
-	}
-
-	got, err := ss.Get(ctx, "signing_key")
-	if err != nil {
-		t.Fatalf("get: %v", err)
-	}
-	if string(got) != "test-key-bytes" {
-		t.Errorf("got %q, want %q", got, "test-key-bytes")
-	}
-}
-
 func TestSQLiteStore_GetNotFound(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)

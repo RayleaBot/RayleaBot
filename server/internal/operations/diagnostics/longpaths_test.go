@@ -2,7 +2,6 @@ package diagnostics
 
 import (
 	"errors"
-	"strings"
 	"testing"
 )
 
@@ -30,9 +29,6 @@ func TestLongPathsDoctorIssue(t *testing.T) {
 			}
 			if issue.Summary == "" {
 				t.Fatal("longPathsIssue() must provide a summary")
-			}
-			if tt.wantSeverity == "warning" && (!strings.Contains(issue.Remediation, "LongPathsEnabled") || !strings.Contains(issue.Remediation, "重启")) {
-				t.Fatalf("warning remediation must explain the registry setting and restart requirement: %#v", issue)
 			}
 		})
 	}

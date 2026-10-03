@@ -7,7 +7,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
-	"github.com/go-chi/chi/v5"
 )
 
 type testInstallCoordinator struct {
@@ -20,13 +19,6 @@ func (c testInstallCoordinator) Accept(_ context.Context, _ plugins.InstallReque
 
 func (testInstallCoordinator) Cancel(string) bool { return false }
 func (testInstallCoordinator) Close() error       { return nil }
-
-func setupInstallRouter() (chi.Router, *tasks.Registry) {
-	registry := tasks.NewRegistry()
-	router := chi.NewRouter()
-	router.Post("/api/plugins/install", newInstallHandler(testInstallCoordinator{registry: registry}))
-	return router, registry
-}
 
 func trustedInstallRequest() pluginInstallRequest {
 	return pluginInstallRequest{

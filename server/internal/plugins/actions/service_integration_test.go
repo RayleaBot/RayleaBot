@@ -16,40 +16,11 @@ import (
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
-	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func boolPointer(value bool) *bool {
 	return &value
-}
-
-func TestExecutePluginPrivateKVReadsMissingKey(t *testing.T) {
-	t.Parallel()
-
-	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
-	if err != nil {
-		t.Fatalf("storage.Open: %v", err)
-	}
-	t.Cleanup(func() { _ = store.Close() })
-	repo, err := pluginstore.NewKVSQLiteRepository(store)
-	if err != nil {
-		t.Fatalf("NewKVSQLiteRepository: %v", err)
-	}
-	testConfig := config.Config{}
-	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.PluginKV = repo
-	application := localaction.New(deps)
-
-	result, err := application.Execute(context.Background(), "notice-logger", "req_local_1", plugins.Action{
-		Kind:             "storage.kv",
-		StorageOperation: "get",
-		StorageKey:       "notice:last_join",
-	}, chatevent.Event{})
-	if err != nil || result["exists"] != false {
-		t.Fatalf("implicit KV access result = %#v, err = %v", result, err)
-	}
 }
 
 func TestExecutePluginListReturnsCatalogPlugins(t *testing.T) {
@@ -202,47 +173,53 @@ func TestExecutePluginListCallerVisibilityFiltersCommands(t *testing.T) {
 func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 	t.Parallel()
 
+	everyoneConfig := config.Config{
+		Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
+		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
+	}
 	tests := []struct {
-		name           string
-		config         config.Config
-		event          chatevent.Event
-		wantHelpTitles []string
+		name      string
+		config    config.Config
+		event     chatevent.Event
+		pluginID  string
+		wantTitle string
 	}{
 		{
-			config: config.Config{
-				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
-				Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-			},
-			name:           "member sees public help",
-			event:          pluginListCallerEvent("1001", "member", "group"),
-			wantHelpTitles: []string{"Tools"},
+			name:      "member sees help of plugin with visible commands",
+			config:    everyoneConfig,
+			event:     pluginListCallerEvent("1001", "member", "group"),
+			pluginID:  "raylea.tools",
+			wantTitle: "Tools",
 		},
 		{
-			config: config.Config{
-				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
-				Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-			},
-			name:           "admin sees group admin help",
-			event:          pluginListCallerEvent("1002", "admin", "group"),
-			wantHelpTitles: []string{"Tools"},
+			name:     "member does not see help when every command is hidden",
+			config:   everyoneConfig,
+			event:    pluginListCallerEvent("1001", "member", "group"),
+			pluginID: "raylea.staff",
 		},
 		{
-			config: config.Config{
-				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
-				Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-			},
-			name:           "super admin sees all help",
-			event:          pluginListCallerEvent("9001", "member", "private"),
-			wantHelpTitles: []string{"Tools"},
+			name:      "admin sees group admin help",
+			config:    everyoneConfig,
+			event:     pluginListCallerEvent("1002", "admin", "group"),
+			pluginID:  "raylea.staff",
+			wantTitle: "Staff",
 		},
 		{
-			name: "independent help without permission defaults to everyone",
+			name:      "super admin sees all help",
+			config:    everyoneConfig,
+			event:     pluginListCallerEvent("9001", "member", "private"),
+			pluginID:  "raylea.staff",
+			wantTitle: "Staff",
+		},
+		{
+			name: "default permission keeps help of explicitly public commands",
 			config: config.Config{
 				Admin:      config.AdminConfig{SuperAdmins: []string{"9001"}},
 				Permission: config.PermissionConfig{DefaultLevel: "group_admin"},
 			},
-			event:          pluginListCallerEvent("1001", "member", "group"),
-			wantHelpTitles: []string{"Tools"},
+			event:     pluginListCallerEvent("1001", "member", "group"),
+			pluginID:  "raylea.tools",
+			wantTitle: "Tools",
 		},
 	}
 
@@ -260,9 +237,8 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 				t.Fatalf("plugin.list failed: %v", err)
 			}
 
-			gotTitles := pluginListHelpTitlesForPlugin(t, result, "raylea.tools")
-			if strings.Join(gotTitles, ",") != strings.Join(tc.wantHelpTitles, ",") {
-				t.Fatalf("visible help titles = %#v, want %#v", gotTitles, tc.wantHelpTitles)
+			if gotTitle := pluginListHelpTitleForPlugin(t, result, tc.pluginID); gotTitle != tc.wantTitle {
+				t.Fatalf("visible help title = %q, want %q", gotTitle, tc.wantTitle)
 			}
 		})
 	}
@@ -300,6 +276,21 @@ func newPluginListVisibilityService(cfg config.Config) *localaction.Service {
 				Summary: "工具说明",
 			},
 			CommandGroups: []plugins.CommandGroup{{ID: "tools", Title: "工具", Commands: []string{"public", "admin", "super", "defaulted"}}},
+		},
+		{
+			PluginID:          "raylea.staff",
+			Name:              "Staff",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Commands: []plugins.Command{
+				{ID: "audit", Name: "audit", DisplayName: "audit", TriggerType: "exact", TriggerNames: []string{"audit"}, Permission: "group_admin"},
+			},
+			Help: &plugins.Help{
+				Title:   "Staff",
+				Summary: "管理员工具说明",
+			},
 		},
 	})
 	deps.Plugins = catalogForActions
@@ -355,7 +346,9 @@ func pluginListCommandNamesForPlugin(t *testing.T, result map[string]any, plugin
 	return nil
 }
 
-func pluginListHelpTitlesForPlugin(t *testing.T, result map[string]any, pluginID string) []string {
+// pluginListHelpTitleForPlugin returns the projected help title, or "" when the
+// plugin item carries no help for the caller.
+func pluginListHelpTitleForPlugin(t *testing.T, result map[string]any, pluginID string) string {
 	t.Helper()
 
 	items, ok := result["items"].([]map[string]any)
@@ -366,15 +359,19 @@ func pluginListHelpTitlesForPlugin(t *testing.T, result map[string]any, pluginID
 		if item["id"] != pluginID {
 			continue
 		}
-		help, ok := item["help"].(map[string]any)
-		if !ok {
-			t.Fatalf("unexpected help for %s: %#v", pluginID, item["help"])
+		help, present := item["help"]
+		if !present {
+			return ""
 		}
-		title, _ := help["title"].(string)
-		return []string{title}
+		helpView, ok := help.(map[string]any)
+		if !ok {
+			t.Fatalf("unexpected help for %s: %#v", pluginID, help)
+		}
+		title, _ := helpView["title"].(string)
+		return title
 	}
 	t.Fatalf("plugin %s not found in result: %#v", pluginID, result)
-	return nil
+	return ""
 }
 
 func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {

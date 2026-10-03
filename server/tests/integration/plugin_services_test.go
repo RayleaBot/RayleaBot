@@ -441,7 +441,7 @@ func TestPluginServiceLifecycleEdges(t *testing.T) {
 		}
 		select {
 		case err := <-finished:
-			assertCode(t, err, "plugin.service_unavailable")
+			_ = assertCode(t, err, "plugin.service_unavailable")
 		case <-time.After(3 * time.Second):
 			t.Fatal("call did not settle after the provider exited")
 		}
@@ -469,7 +469,7 @@ func TestPluginServiceLifecycleEdges(t *testing.T) {
 		}
 		select {
 		case err := <-finished:
-			assertCode(t, err, "plugin.event_canceled")
+			_ = assertCode(t, err, "plugin.event_canceled")
 		case <-time.After(time.Second):
 			t.Fatal("caller event did not settle")
 		}

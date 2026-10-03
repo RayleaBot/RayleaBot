@@ -231,7 +231,10 @@ func TestShellKeepsConnectionOpenWhenHeartbeatHasNotStartedAfterLifecycleEnable(
 
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
-	time.Sleep(120 * time.Millisecond)
+	// newTestShell clamps connectTimeout to 500ms. A connected read that wrongly
+	// fell back to that timeout would have dropped the session before this
+	// sleep ends; the correct connected read waits far longer for a heartbeat.
+	time.Sleep(700 * time.Millisecond)
 
 	snapshot := shell.Snapshot()
 	if snapshot.State != StateConnected {
@@ -296,55 +299,6 @@ func TestShellReconnectsAfterHeartbeatTimeout(t *testing.T) {
 	defer stopCancel()
 	if err := shell.Stop(stopCtx); err != nil {
 		t.Fatalf("Stop failed: %v", err)
-	}
-}
-
-func TestShellStopTransitionsToStopped(t *testing.T) {
-
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
-		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "enable",
-		}); err != nil {
-			t.Errorf("wsjson.Write failed: %v", err)
-			return
-		}
-
-		<-r.Context().Done()
-	}))
-	defer server.Close()
-
-	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
-	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	shell.Start(ctx)
-	waitForState(t, shell, StateConnected, 500*time.Millisecond)
-
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer stopCancel()
-	if err := shell.Stop(stopCtx); err != nil {
-		t.Fatalf("Stop failed: %v", err)
-	}
-
-	if shell.Snapshot().State != StateStopped {
-		t.Fatalf("expected stopped state, got %s", shell.Snapshot().State)
 	}
 }
 

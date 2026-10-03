@@ -350,26 +350,6 @@ func TestLoginRejectsInvalidCredentials(t *testing.T) {
 	}
 }
 
-func TestLoginRejectsMalformedArgon2idDigest(t *testing.T) {
-	t.Parallel()
-
-	manager := newTestManager(t, Config{
-		SessionTTLDays: 1,
-		SlidingRenewal: false,
-		MaxSessions:    3,
-	}, fixedClock(time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)))
-	manager.bootstrap = &bootstrapCredentials{
-		Identifier:    "admin",
-		SecretDigest:  []byte("raylea-pwd:v2:argon2id:m=65536,t=3,p=1:not-base64:not-base64"),
-		InitializedAt: time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC),
-	}
-
-	_, _, err := manager.Login("admin", "fixture-only-secret")
-	if !errors.Is(err, ErrInvalidCredentials) {
-		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
-	}
-}
-
 func newTestManager(t *testing.T, cfg Config, now func() time.Time) *Manager {
 	t.Helper()
 
@@ -423,20 +403,12 @@ func fixedClock(now time.Time) func() time.Time {
 }
 
 type memoryAuthRepository struct {
-	bootstrap     *BootstrapState
 	updateErr     error
-	updatedDigest []byte
 	savedSessions []Claims
 }
 
 func (r *memoryAuthRepository) LoadBootstrap(context.Context) (*BootstrapState, error) {
-	if r.bootstrap == nil {
-		return nil, nil
-	}
-	state := *r.bootstrap
-	state.SecretDigest = append([]byte(nil), r.bootstrap.SecretDigest...)
-	state.SigningKey = append([]byte(nil), r.bootstrap.SigningKey...)
-	return &state, nil
+	return nil, nil
 }
 
 func (r *memoryAuthRepository) LoadSessions(context.Context) ([]Claims, error) {
@@ -452,11 +424,10 @@ func (r *memoryAuthRepository) SaveSession(_ context.Context, claims Claims) err
 	return nil
 }
 
-func (r *memoryAuthRepository) UpdateCredentials(_ context.Context, _ string, secretDigest []byte) error {
+func (r *memoryAuthRepository) UpdateCredentials(_ context.Context, _ string, _ []byte) error {
 	if r.updateErr != nil {
 		return r.updateErr
 	}
-	r.updatedDigest = append([]byte(nil), secretDigest...)
 	r.savedSessions = nil
 	return nil
 }

@@ -37,26 +37,6 @@ func TestReloadPluginReturnsUpdatedSnapshot(t *testing.T) {
 	}
 }
 
-func TestReloadPluginRejectsDisabledPlugin(t *testing.T) {
-	t.Parallel()
-
-	catalog := plugincatalog.New([]plugins.Snapshot{
-		{PluginID: "weather", Valid: true, RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped"},
-	})
-	controller := &stubReloadController{
-		reloadErr: plugins.ErrStateConflict,
-	}
-	router := pluginRouterWithController(t, catalog, controller, nil)
-
-	request := httptest.NewRequest("POST", "/api/plugins/weather/reload", nil)
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
-	if recorder.Code != 409 {
-		t.Fatalf("unexpected status: got %d want 409", recorder.Code)
-	}
-}
-
 func TestReloadPluginRejectsNotFound(t *testing.T) {
 	t.Parallel()
 
@@ -72,29 +52,6 @@ func TestReloadPluginRejectsNotFound(t *testing.T) {
 
 	if recorder.Code != 404 {
 		t.Fatalf("unexpected status: got %d want 404", recorder.Code)
-	}
-}
-
-func TestUninstallPluginReturnsTaskAccepted(t *testing.T) {
-	t.Parallel()
-
-	catalog := plugincatalog.New([]plugins.Snapshot{
-		{PluginID: "weather", Valid: true, RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped"},
-	})
-	uninstaller := &stubUninstallCoordinator{taskID: "task_plugin_uninstall_0001"}
-	router := pluginRouterWithController(t, catalog, nil, uninstaller)
-
-	request := httptest.NewRequest("DELETE", "/api/plugins/weather", nil)
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
-	if recorder.Code != 202 {
-		t.Fatalf("unexpected status: got %d want 202", recorder.Code)
-	}
-
-	body := decodeBody(t, recorder.Body.Bytes())
-	if body["task_id"] != "task_plugin_uninstall_0001" {
-		t.Fatalf("unexpected task_id: %v", body["task_id"])
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
@@ -45,7 +46,7 @@ func TestReloadRefreshesManifestCommands(t *testing.T) {
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 
-		newPluginWebhookRegistry(),
+		pluginwebhook.NewRegistry(),
 	)
 	app.services.pluginLifecycle.refreshManifest = func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
 		return RefreshPluginManifest(ctx, catalog, nil, pluginID, func() ([]plugins.Snapshot, error) {
@@ -148,7 +149,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 
-		newPluginWebhookRegistry(),
+		pluginwebhook.NewRegistry(),
 	)
 	app.services.pluginLifecycle.syncRenderTemplates = func(ctx context.Context) error {
 		return renderer.SyncPluginTemplateDeclarations(ctx, testRenderTemplateDeclarations(catalog.List()))
@@ -206,7 +207,7 @@ func TestReloadReturnsTemplateSyncErrorBeforeStartingRuntime(t *testing.T) {
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 
-		newPluginWebhookRegistry(),
+		pluginwebhook.NewRegistry(),
 	)
 	syncErr := errors.New("sync plugin templates")
 	app.services.pluginLifecycle.syncRenderTemplates = func(context.Context) error {
@@ -253,7 +254,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 
-		newPluginWebhookRegistry(),
+		pluginwebhook.NewRegistry(),
 	)
 
 	spec, payload, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card")
@@ -297,7 +298,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	if pending.Timezone != "Asia/Shanghai" {
 		t.Fatalf("pending setting changed plugin timezone before restart: %q", pending.Timezone)
 	}
-	app.setTestLifecycle(t, catalog, nil, pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}), dispatch.New(slog.Default(), nil, nil, 16), newPluginWebhookRegistry())
+	app.setTestLifecycle(t, catalog, nil, pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}), dispatch.New(slog.Default(), nil, nil, 16), pluginwebhook.NewRegistry())
 	_, restarted, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card")
 	if err != nil {
 		t.Fatal(err)

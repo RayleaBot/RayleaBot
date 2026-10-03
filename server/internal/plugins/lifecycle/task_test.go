@@ -12,6 +12,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -28,14 +29,13 @@ func TestReloadCreatesPluginReloadTask(t *testing.T) {
 		RuntimeState:      "running",
 	}})
 	app := newTestAppState(config.Config{}, slog.Default())
-	app.setTestSystem(registry, nil, nil, nil)
+	app.setTestSystem(registry)
 	app.setTestLifecycle(t,
 		catalog,
 		nil,
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
-
-		newPluginWebhookRegistry(),
+		pluginwebhook.NewRegistry(),
 	)
 
 	if _, err := app.services.pluginLifecycle.Reload(context.Background(), "weather"); err != nil {
@@ -69,14 +69,13 @@ func TestReloadRejectedBeforeAcceptanceDoesNotCreateTask(t *testing.T) {
 		RuntimeState:      "stopped",
 	}})
 	app := newTestAppState(config.Config{}, slog.Default())
-	app.setTestSystem(registry, nil, nil, nil)
+	app.setTestSystem(registry)
 	app.setTestLifecycle(t,
 		catalog,
 		nil,
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
-
-		newPluginWebhookRegistry(),
+		pluginwebhook.NewRegistry(),
 	)
 
 	if _, err := app.services.pluginLifecycle.Reload(context.Background(), "weather"); err == nil {

@@ -10,15 +10,6 @@ import (
 	"database/sql"
 )
 
-const deleteTask = `-- name: DeleteTask :exec
-DELETE FROM tasks WHERE task_id = ?
-`
-
-func (q *Queries) DeleteTask(ctx context.Context, taskID string) error {
-	_, err := q.db.ExecContext(ctx, deleteTask, taskID)
-	return err
-}
-
 const interruptInProgressTasks = `-- name: InterruptInProgressTasks :exec
 UPDATE tasks
 SET status = 'interrupted',

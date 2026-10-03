@@ -33,11 +33,11 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	}, deterministicAuthOptions()...)
 	eventBridge := application.Bridge()
 
-	token := issueLoginToken(t, application)
+	token := testutil.IssueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	conn := dialEventsWebSocket(t, server.URL, token)
+	conn := testutil.DialEventsWebSocket(t, server.URL, token)
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForObservabilitySubscriber(t, eventBridge)
@@ -106,11 +106,11 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	}, deterministicAuthOptions()...)
 	eventBridge := application.Bridge()
 
-	token := issueLoginToken(t, application)
+	token := testutil.IssueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	conn := dialEventsWebSocket(t, server.URL, token)
+	conn := testutil.DialEventsWebSocket(t, server.URL, token)
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForObservabilitySubscriber(t, eventBridge)
@@ -118,21 +118,6 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	assertServiceStatusReplayFrame(t, firstStatus, "running")
 	first := readProtocolReplayFrame(t, conn)
 	assertProtocolReplayFrame(t, first, "adapters")
-}
-
-func TestEventsWebSocketReplaysServiceStatusOnConnect(t *testing.T) {
-	t.Parallel()
-
-	application := newTestApp(t, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
-	server := newManagementTestServer(t, application.Handler())
-	defer server.Close()
-
-	conn := dialEventsWebSocket(t, server.URL, token)
-	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
-
-	frame := readServiceStatusReplayFrame(t, conn)
-	assertServiceStatusReplayFrame(t, frame, "running")
 }
 
 func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
@@ -148,7 +133,7 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 		reverseWS["url"] = "ws://127.0.0.1:8080/onebot/reverse"
 		reverseWS["access_token"] = "fixture-token"
 	}, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
+	token := testutil.IssueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -180,7 +165,7 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 	}
 	httpSnapshot := decodeBody(t, readAll(t, snapshotResp))
 
-	conn := dialEventsWebSocket(t, server.URL, token)
+	conn := testutil.DialEventsWebSocket(t, server.URL, token)
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 	readServiceStatusReplayFrame(t, conn)
 	first := readProtocolReplayFrame(t, conn)
@@ -203,11 +188,11 @@ func TestEventsWebSocketDeliversPluginStateFrame(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
+	token := testutil.IssueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	conn := dialEventsWebSocket(t, server.URL, token)
+	conn := testutil.DialEventsWebSocket(t, server.URL, token)
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForPluginSubscriber(t, application.Plugins())
@@ -241,11 +226,11 @@ func TestEventsWebSocketPublishesGovernanceChangedAfterGovernanceWrite(t *testin
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
+	token := testutil.IssueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	conn := dialEventsWebSocket(t, server.URL, token)
+	conn := testutil.DialEventsWebSocket(t, server.URL, token)
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	readServiceStatusReplayFrame(t, conn)
@@ -307,42 +292,6 @@ func (s *eventsDispatchStub) HasDeliverablePlugins() bool {
 
 func (s *eventsDispatchStub) Dispatch(context.Context, chatevent.Event, string) []dispatch.DeliveryResult {
 	return append([]dispatch.DeliveryResult(nil), s.results...)
-}
-
-func issueLoginToken(t *testing.T, application interface{ Handler() http.Handler }) string {
-	t.Helper()
-
-	setupFixture := loadWebAPIFixtureDocument(t, "..\\fixtures\\web-api\\ok.setup-admin.yaml")
-	loginFixture := loadWebAPIFixtureDocument(t, "..\\fixtures\\web-api\\ok.session-login.yaml")
-
-	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
-	if setup.Code != setupFixture.Response.Status {
-		t.Fatalf("unexpected bootstrap status: got %d want %d", setup.Code, setupFixture.Response.Status)
-	}
-
-	login := performJSONRequest(t, application, loginFixture.Request.Method, loginFixture.Request.Path, loginFixture.Request.Body)
-	if login.Code != loginFixture.Response.Status {
-		t.Fatalf("unexpected login status: got %d want %d", login.Code, loginFixture.Response.Status)
-	}
-
-	body := decodeBody(t, login.Body.Bytes())
-	token, ok := body["session_token"].(string)
-	if !ok || token == "" {
-		t.Fatalf("expected opaque session_token, got %#v", body["session_token"])
-	}
-
-	return token
-}
-
-func dialEventsWebSocket(t *testing.T, baseURL, token string) *websocket.Conn {
-	return dialProtectedWebSocket(t, baseURL, "/ws/events", token)
-}
-
-func websocketURL(httpURL string) string {
-	if strings.HasPrefix(httpURL, "https://") {
-		return "wss://" + strings.TrimPrefix(httpURL, "https://")
-	}
-	return "ws://" + strings.TrimPrefix(httpURL, "http://")
 }
 
 func testBridgeEvent() chatevent.NormalizedEvent {
@@ -467,12 +416,12 @@ func waitForPluginSubscriber(t *testing.T, catalog interface{ SubscriberCount() 
 
 func TestEventsWebSocketApplicationCloseReleasesConnectionAndSubscriptions(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
+	token := testutil.IssueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 	initialBridgeSubscribers := application.Bridge().ObservabilitySubscriberCount()
 	initialPluginSubscribers := application.Plugins().SubscriberCount()
-	conn := dialEventsWebSocket(t, server.URL, token)
+	conn := testutil.DialEventsWebSocket(t, server.URL, token)
 	defer func() { _ = conn.CloseNow() }()
 	readProtocolReplayFrame(t, conn)
 	if application.Bridge().ObservabilitySubscriberCount() != initialBridgeSubscribers+1 || application.Plugins().SubscriberCount() != initialPluginSubscribers+1 {

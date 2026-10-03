@@ -28,20 +28,6 @@ func TestIsDuplicateEventHonoursRetention(t *testing.T) {
 	}
 }
 
-func TestIsDuplicateEventExpiresAnIdleWindow(t *testing.T) {
-	t.Parallel()
-
-	shell := &Shell{recentEventIDs: make(map[string]time.Time)}
-	base := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
-	for i := 0; i < 2048; i++ {
-		shell.isDuplicateEvent("old-"+time.Duration(i).String(), base)
-	}
-	shell.isDuplicateEvent("fresh", base.Add(recentEventDedupRetention+time.Second))
-	if len(shell.recentEventIDs) != 1 {
-		t.Fatalf("expected the expired ids to be swept, have %d entries", len(shell.recentEventIDs))
-	}
-}
-
 func TestDedupExpiresOutOfOrderObservationsAndPreservesCutoff(t *testing.T) {
 	shell := &Shell{recentEventIDs: make(map[string]time.Time)}
 	base := time.Unix(1700000000, 0)

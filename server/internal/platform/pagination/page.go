@@ -42,10 +42,6 @@ func (l Limits) normalized() Limits {
 	return l
 }
 
-func Parse(values url.Values) (Query, error) {
-	return ParseWithLimits(values, Limits{})
-}
-
 // ParseWithLimits reads the query, limit and offset cursor parameters with
 // endpoint-specific page bounds.
 func ParseWithLimits(values url.Values, limits Limits) (Query, error) {

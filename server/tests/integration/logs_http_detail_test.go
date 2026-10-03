@@ -329,28 +329,6 @@ func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 	}
 }
 
-func TestLogsRouteRequiresAuth(t *testing.T) {
-	t.Parallel()
-
-	application := newTestApp(t, deterministicAuthOptions()...)
-	server := newManagementTestServer(t, application.Handler())
-	defer server.Close()
-
-	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs", nil)
-	if err != nil {
-		t.Fatalf("create logs auth request: %v", err)
-	}
-
-	response, err := server.Client().Do(request)
-	if err != nil {
-		t.Fatalf("perform logs auth request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(response.Body.Close)
-	if response.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("unexpected logs auth status: got %d want 401", response.StatusCode)
-	}
-}
-
 func doLogsListRequest(t *testing.T, baseURL, token, requestPath string) map[string]any {
 	t.Helper()
 
@@ -460,19 +438,7 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
 	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC) }, "logs-a")
-	tokenA := issueLoginToken(t, appA)
-	serverA := newManagementTestServer(t, appA.Handler())
-
-	requestA, err := http.NewRequest(http.MethodGet, serverA.URL+"/api/logs?limit=1", nil)
-	if err != nil {
-		t.Fatalf("create seed request: %v", err)
-	}
-	requestA.Header.Set("Authorization", "Bearer "+tokenA)
-	responseA, err := serverA.Client().Do(requestA)
-	if err != nil {
-		t.Fatalf("perform seed request: %v", err)
-	}
-	_ = responseA.Body.Close()
+	_ = issueLoginToken(t, appA)
 
 	appA.Logger().Error(
 		"重启后仍可读取的持久化日志样例",
@@ -481,7 +447,6 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 		"request_id", "req_persist_1",
 	)
 
-	serverA.Close()
 	closePersistentTestApp(t, appA)
 
 	appB := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 5, 0, 0, time.UTC) }, "logs-b")

@@ -2,15 +2,8 @@ package management
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 
-	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 )
 
 type diagnosticsTestSystem struct {
@@ -39,44 +32,4 @@ func (s diagnosticsTestSystem) SubmitSystemBackupTask() (string, error) {
 
 func (s diagnosticsTestSystem) SubmitRuntimeBootstrapTask([]string) (string, error) {
 	return "", nil
-}
-
-func TestSystemDiagnosticsHTTP(t *testing.T) {
-	t.Parallel()
-
-	handler := NewSystemHandlers(diagnosticsTestSystem{
-		snapshot: systemsvc.DiagnosticsSnapshot{
-			GeneratedAt: "2026-06-25T00:00:00Z",
-			Build:       systemsvc.DiagnosticsBuild{CoreVersion: "0.1.0"},
-			System:      systemsvc.DiagnosticsSystem{Status: "running", UptimeSeconds: 10},
-			Config:      systemsvc.DiagnosticsConfig{SchemaVersion: "2"},
-			Secrets:     systemsvc.DiagnosticsSecrets{UnresolvedRefs: []string{}},
-			Database: systemsvc.DiagnosticsDatabase{
-				SchemaVersion: "000004",
-				InitializedAt: "",
-			},
-			Adapters:     []adapterservice.Status{{ID: "onebot11", Protocol: "onebot11", Enabled: true, State: "connected"}},
-			Plugins:      systemsvc.DiagnosticsPlugins{},
-			Render:       systemsvc.DiagnosticsIssueGroup{Status: "ok", Issues: []health.DiagnosticIssue{}},
-			Dependencies: []systemsvc.DiagnosticsDependency{},
-			Filesystem:   []systemsvc.DiagnosticsPathPermission{},
-			RecentErrors: []logging.Summary{},
-			Issues:       []health.DiagnosticIssue{},
-		},
-	}).HandleSystemDiagnostics()
-	req := httptest.NewRequest(http.MethodGet, "/api/system/diagnostics", nil)
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
-	}
-	var response map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if response["generated_at"] != "2026-06-25T00:00:00Z" {
-		t.Fatalf("unexpected diagnostics response: %#v", response)
-	}
 }

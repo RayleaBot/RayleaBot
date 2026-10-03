@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -61,7 +60,7 @@ func newTestAppState(cfg config.Config, logger *slog.Logger) *testApp {
 	}
 }
 
-func (a *testApp) setTestSystem(taskRegistry *tasks.Registry, _ any, _ any, _ any) {
+func (a *testApp) setTestSystem(taskRegistry *tasks.Registry) {
 	if a == nil {
 		return
 	}
@@ -69,10 +68,6 @@ func (a *testApp) setTestSystem(taskRegistry *tasks.Registry, _ any, _ any, _ an
 }
 
 func (a *testApp) setTestLifecycle(t *testing.T, catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, runtimes *pluginruntime.Registry, dispatcher *dispatch.Dispatcher, webhooks *pluginwebhook.Registry) {
-	var adapterShell *onebot11.Shell = nil
-
-	var pluginConfigRepo pluginstore.ConfigRepository = nil
-
 	if a == nil {
 		return
 	}
@@ -90,16 +85,7 @@ func (a *testApp) setTestLifecycle(t *testing.T, catalog *plugincatalog.Catalog,
 		Webhooks:         webhooks,
 		Tasks:            a.platform.Tasks,
 	}
-	// Assign the adapter only when non-nil so the interface dep stays nil
-	// instead of holding a typed nil.
-	if adapterShell != nil {
-		deps.Identities = testAdapterIdentities{shell: adapterShell}
-	}
-	a.services.pluginLifecycle = newTestController(t, deps, pluginConfigRepo)
-}
-
-func newPluginWebhookRegistry() *pluginwebhook.Registry {
-	return pluginwebhook.NewRegistry()
+	a.services.pluginLifecycle = newTestController(t, deps)
 }
 
 type capturingRuntime struct {
@@ -121,10 +107,7 @@ func (r *capturingRuntime) Snapshot() pluginruntime.Snapshot {
 	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
 }
 
-var (
-	testRenderPNGBytes, _  = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=")
-	testRenderJPEGBytes, _ = base64.StdEncoding.DecodeString("/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxAQEBAQEA8PDw8PDw8PDw8PDw8PDw8QFREWFhURFRUYHSggGBolGxUVITEhJSkrLi4uFx8zODMsNygtLisBCgoKDg0OGxAQGy0lICYtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAAEAAQMBEQACEQEDEQH/xAAXAAEBAQEAAAAAAAAAAAAAAAAAAQID/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEAMQAAAB6gD/xAAXEAEBAQEAAAAAAAAAAAAAAAABEQAh/9oACAEBAAEFAjQ2qf/EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQMBAT8BP//EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQIBAT8BP//EABYQAQEBAAAAAAAAAAAAAAAAAAERIf/aAAgBAQAGPwIhZ//EABgQAQEBAQEAAAAAAAAAAAAAAAERACEx/9oACAEBAAE/IZmBliTFkY2l/9oADAMBAAIAAwAAABAP/8QAFBEBAAAAAAAAAAAAAAAAAAAAEP/aAAgBAwEBPxA//8QAFBEBAAAAAAAAAAAAAAAAAAAAEP/aAAgBAgEBPxA//8QAGBABAAMBAAAAAAAAAAAAAAAAAQARITFR/9oACAEBAAE/EKQhNQIfY0x0KGLX/9k=")
-)
+var testRenderPNGBytes, _ = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2W4n8AAAAASUVORK5CYII=")
 
 type captureRenderRunner struct {
 	mu   sync.Mutex
@@ -135,9 +118,6 @@ func (r *captureRenderRunner) Render(_ context.Context, doc render.Document) ([]
 	r.mu.Lock()
 	r.docs = append(r.docs, doc)
 	r.mu.Unlock()
-	if doc.Output == "jpeg" {
-		return append([]byte(nil), testRenderJPEGBytes...), nil
-	}
 	return append([]byte(nil), testRenderPNGBytes...), nil
 }
 
@@ -223,15 +203,6 @@ func waitTask(t *testing.T, registry *tasks.Registry, taskID string, want tasks.
 	snapshot, _ := registry.Get(taskID)
 	t.Fatalf("task %s did not reach %s: %#v", taskID, want, snapshot)
 	return tasks.Snapshot{}
-}
-
-type testAdapterIdentities struct{ shell *onebot11.Shell }
-
-func (source testAdapterIdentities) BotIdentities() []chatevent.BotIdentity {
-	if id := source.shell.CurrentBotID(); id != "" {
-		return []chatevent.BotIdentity{{SourceAdapter: "onebot11", SourceProtocol: "onebot11", ID: id}}
-	}
-	return []chatevent.BotIdentity{}
 }
 
 // ReadyForEvents reports whether this target can accept a plugin event.

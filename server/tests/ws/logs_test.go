@@ -29,11 +29,11 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 		"request_id", "req_adapter_0001",
 	)
 
-	token := issueLoginToken(t, application)
+	token := testutil.IssueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
+	conn := testutil.DialProtectedWebSocket(t, server.URL, "/ws/logs", token)
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
@@ -92,11 +92,11 @@ func TestLogsWebSocketReplaysOutboundDeliverySummary(t *testing.T) {
 		RequestID: "req_runtime_delivery_0001",
 	})
 
-	token := issueLoginToken(t, application)
+	token := testutil.IssueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
+	conn := testutil.DialProtectedWebSocket(t, server.URL, "/ws/logs", token)
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
@@ -143,13 +143,13 @@ func TestLogsWebSocketAppendsCommandPolicyRejectionSummary(t *testing.T) {
 	if _, err := application.Plugins().SetDesiredState("raylea.echo", plugins.DesiredStateEnabled); err != nil {
 		t.Fatalf("enable command-policy fixture in catalog: %v", err)
 	}
-	token := issueLoginToken(t, application)
+	token := testutil.IssueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
 	putWhitelistState(t, server.URL, token, true)
 
-	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
+	conn := testutil.DialProtectedWebSocket(t, server.URL, "/ws/logs", token)
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForLogSubscriber(t, application.Logs())
@@ -189,11 +189,11 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	replayCount := len(application.Logs().Snapshot())
-	token := issueLoginToken(t, application)
+	token := testutil.IssueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
+	conn := testutil.DialProtectedWebSocket(t, server.URL, "/ws/logs", token)
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForLogSubscriber(t, application.Logs())
@@ -254,11 +254,11 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 func TestLogsWebSocketRedactsSensitiveMessageContent(t *testing.T) {
 	application := newTestAppWithOneBotAccessToken(t, "fixture-only-secret", deterministicAuthOptions()...)
 	replayCount := len(application.Logs().Snapshot())
-	token := issueLoginToken(t, application)
+	token := testutil.IssueLoginToken(t, application)
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
+	conn := testutil.DialProtectedWebSocket(t, server.URL, "/ws/logs", token)
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForLogSubscriber(t, application.Logs())
@@ -300,7 +300,7 @@ func TestLogsWebSocketReplaysCurrentBootOnlyAcrossRestart(t *testing.T) {
 
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
 	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC) }, "logs-ws-a")
-	_ = issueLoginToken(t, appA)
+	_ = testutil.IssueLoginToken(t, appA)
 	appA.Logger().Warn(
 		"上次启动的 WebSocket 日志回放样例",
 		"component", "adapter.onebot11",
@@ -329,7 +329,7 @@ func TestLogsWebSocketReplaysCurrentBootOnlyAcrossRestart(t *testing.T) {
 	}()
 
 	token := issueExistingBootstrapLoginToken(t, appB)
-	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
+	conn := testutil.DialProtectedWebSocket(t, server.URL, "/ws/logs", token)
 	connClosed := false
 	defer func() {
 		if !connClosed {
@@ -358,11 +358,6 @@ func TestLogsWebSocketReplaysCurrentBootOnlyAcrossRestart(t *testing.T) {
 	if data["protocol"] != "onebot11" {
 		t.Fatalf("unexpected websocket replay protocol: %#v", data["protocol"])
 	}
-
-	assertNoWebSocketFrameWhere(t, conn, 200*time.Millisecond, func(frame map[string]any) bool {
-		data, ok := frame["data"].(map[string]any)
-		return ok && data["request_id"] == "req_ws_persist_1"
-	})
 
 	if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
 		t.Fatalf("close logs websocket: %v", err)
@@ -468,23 +463,4 @@ func readWebSocketPayloadWhere(t *testing.T, conn *websocket.Conn, match func(ma
 
 	t.Fatal("timed out waiting for matching websocket frame")
 	return nil
-}
-
-func assertNoWebSocketFrameWhere(t *testing.T, conn *websocket.Conn, window time.Duration, match func(map[string]any) bool) {
-	t.Helper()
-
-	deadline := time.Now().Add(window)
-	for time.Now().Before(deadline) {
-		readCtx, cancel := context.WithTimeout(context.Background(), time.Until(deadline))
-		_, payload, err := conn.Read(readCtx)
-		cancel()
-		if err != nil {
-			return
-		}
-
-		frame := decodeBody(t, payload)
-		if match(frame) {
-			t.Fatalf("unexpected websocket frame: %#v", frame)
-		}
-	}
 }

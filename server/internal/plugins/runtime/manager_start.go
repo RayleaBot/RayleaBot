@@ -285,19 +285,12 @@ func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRe
 	if m.proc != handle {
 		return nil, nil
 	}
-	if ping := m.pendingPings[frame.RequestID]; ping != nil {
-		if frame.Type != "pong" {
-			return nil, errorf(codePluginProtocolViolation, "plugin returned unexpected frame type in response to ping", nil)
-		}
-		m.completePingLocked(frame.RequestID, ping, nil)
-		return nil, nil
-	}
 
 	if session := m.pendingEvents[frame.RequestID]; session != nil {
 		return nil, m.routeTerminalFrameLocked(session, frame)
 	}
 
-	if m.eventExpiredLocked(frame.RequestID) && (frame.Type == "result" || frame.Type == "error" || frame.Type == "pong") {
+	if m.eventExpiredLocked(frame.RequestID) && (frame.Type == "result" || frame.Type == "error") {
 		return nil, nil
 	}
 

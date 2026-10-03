@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -199,38 +198,6 @@ func TestSQLiteRepository_DoesNotDowngradeTerminalSnapshot(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepository_Delete(t *testing.T) {
-	t.Parallel()
-	store := openTestStore(t)
-	repo, err := NewSQLiteRepository(store)
-	if err != nil {
-		t.Fatalf("new repository: %v", err)
-	}
-
-	ctx := context.Background()
-	snapshot := Snapshot{
-		TaskID:   "task_del1",
-		TaskType: "plugin.reload",
-		Status:   StatusSucceeded,
-		Summary:  "done",
-	}
-
-	if err := repo.SaveTask(ctx, snapshot); err != nil {
-		t.Fatalf("save: %v", err)
-	}
-	if err := repo.DeleteTask(ctx, "task_del1"); err != nil {
-		t.Fatalf("delete: %v", err)
-	}
-
-	loaded, err := repo.LoadTasks(ctx)
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
-	if len(loaded) != 0 {
-		t.Fatalf("loaded %d tasks, want 0", len(loaded))
-	}
-}
-
 func TestSQLiteRepository_ErrorSummary(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)
@@ -261,6 +228,28 @@ func TestSQLiteRepository_ErrorSummary(t *testing.T) {
 	}
 	if loaded[0].Error == nil || loaded[0].Error.Code != "plugin.install_failed" {
 		t.Errorf("Error = %+v, want code 'plugin.install_failed'", loaded[0].Error)
+	}
+}
+
+func TestSQLiteRepository_KeepsAbsentResultAndErrorNil(t *testing.T) {
+	t.Parallel()
+	store := openTestStore(t)
+	repo, err := NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	if err := repo.SaveTask(ctx, Snapshot{TaskID: "task_bare", TaskType: "plugin.reload", Status: StatusSucceeded, Summary: "done"}); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	loaded, err := repo.LoadTasks(ctx)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(loaded) != 1 || loaded[0].Result != nil || loaded[0].Error != nil {
+		t.Fatalf("task without result or error hydrated as %#v", loaded)
 	}
 }
 
@@ -380,7 +369,6 @@ func (r *recordingRepository) SaveTask(_ context.Context, snapshot Snapshot) err
 }
 
 func (*recordingRepository) LoadTasks(context.Context) ([]Snapshot, error) { return nil, nil }
-func (*recordingRepository) DeleteTask(context.Context, string) error      { return nil }
 func (*recordingRepository) InterruptInProgressTasks(context.Context, time.Time) error {
 	return nil
 }
@@ -444,32 +432,5 @@ func TestRegistryCloseDrainsUpdatesInOrder(t *testing.T) {
 		if snapshot.Progress != index {
 			t.Fatalf("save[%d].Progress = %d, want %d", index, snapshot.Progress, index)
 		}
-	}
-}
-
-func TestSQLiteRepository_EmptyDB(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "empty.db")
-	_ = os.Remove(dbPath)
-
-	store, err := storage.Open(dbPath)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(store.Close)
-
-	repo, err := NewSQLiteRepository(store)
-	if err != nil {
-		t.Fatalf("new repository: %v", err)
-	}
-
-	loaded, err := repo.LoadTasks(context.Background())
-	if err != nil {
-		t.Fatalf("load from empty: %v", err)
-	}
-	if len(loaded) != 0 {
-		t.Fatalf("expected empty slice, got %d items", len(loaded))
 	}
 }

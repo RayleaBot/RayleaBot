@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"slices"
-	"sort"
 	"strings"
 )
 
@@ -191,14 +190,6 @@ func longestPrefix(text string, prefixes []string) (string, string) {
 		return "", ""
 	}
 	return best, strings.TrimSpace(text[len(best):])
-}
-
-// SortCommandPrefixes orders prefixes longest first, keeping declaration order
-// among equal lengths, so a longer prefix is never hidden by a shorter one.
-func SortCommandPrefixes(prefixes []string) []string {
-	result := append([]string(nil), prefixes...)
-	sort.SliceStable(result, func(i, j int) bool { return len(result[i]) > len(result[j]) })
-	return result
 }
 
 func containsString(values []string, target string) bool {

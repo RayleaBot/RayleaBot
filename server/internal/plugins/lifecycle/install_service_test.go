@@ -650,7 +650,7 @@ func TestValidatePluginDownloadRedirect(t *testing.T) {
 	}
 }
 
-func TestInstallServiceRejectsInvalidRenderTemplatePackage(t *testing.T) {
+func TestInstallServiceRejectsPackageWhenRenderTemplateValidatorFails(t *testing.T) {
 	t.Parallel()
 
 	registry := tasks.NewRegistry()
@@ -658,74 +658,10 @@ func TestInstallServiceRejectsInvalidRenderTemplatePackage(t *testing.T) {
 	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-src"), "template-weather")
 	addRenderTemplateDeclarationToManifest(t, sourceDir, "templates/card")
 
-	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
-	service.SetRenderTemplateValidator(func(snapshot plugins.Snapshot) error {
-		return validateInstallRenderTemplates(snapshot)
-	})
-	defer func(release func() error) { _ = release() }(service.Close)
-
-	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
-		SourceType: "local_directory",
-		Source:     sourceDir,
-	})
-	if err != nil {
-		t.Fatalf("Accept failed: %v", err)
-	}
-
-	snapshot := waitForTaskCompletion(t, registry, taskID)
-	if snapshot.Status != tasks.StatusFailed {
-		t.Fatalf("unexpected task status: got %q want %q", snapshot.Status, tasks.StatusFailed)
-	}
-	if snapshot.Error == nil || snapshot.Error.Code != codePluginInstallFailed {
-		t.Fatalf("unexpected task error: %#v", snapshot.Error)
-	}
-}
-
-func TestInstallServiceInstallsRenderTemplatePackage(t *testing.T) {
-	t.Parallel()
-
-	registry := tasks.NewRegistry()
-	repoRoot := t.TempDir()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-ok-src"), "template-ok-weather")
-	addRenderTemplateDeclarationToManifest(t, sourceDir, "templates/card")
-	writeInstallRenderTemplate(t, filepath.Join(sourceDir, "templates", "card"), "card")
-
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
-	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
-	defer func(release func() error) { _ = release() }(service.Close)
-
-	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
-		SourceType: "local_directory",
-		Source:     sourceDir,
+	service.SetRenderTemplateValidator(func(plugins.Snapshot) error {
+		return errors.New("fixture render template rejected")
 	})
-	if err != nil {
-		t.Fatalf("Accept failed: %v", err)
-	}
-
-	snapshot := waitForTaskCompletion(t, registry, taskID)
-	if snapshot.Status != tasks.StatusSucceeded {
-		t.Fatalf("unexpected task status: got %q want %q (%#v)", snapshot.Status, tasks.StatusSucceeded, snapshot.Error)
-	}
-	installed, ok := catalog.Get("template-ok-weather")
-	if !ok {
-		t.Fatal("expected installed plugin in refreshed catalog")
-	}
-	if len(installed.RenderTemplates) != 1 || installed.RenderTemplates[0].Path != "templates/card" {
-		t.Fatalf("unexpected render_templates: %#v", installed.RenderTemplates)
-	}
-}
-
-func TestInstallServiceRejectsInvalidRenderTemplateManifest(t *testing.T) {
-	t.Parallel()
-
-	registry := tasks.NewRegistry()
-	repoRoot := t.TempDir()
-	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "template-bad-src"), "template-bad-weather")
-	addRenderTemplateDeclarationToManifest(t, sourceDir, "templates/card")
-	writeInstallRenderTemplate(t, filepath.Join(sourceDir, "templates", "card"), "card/escaped")
-
-	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
-	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
 	defer func(release func() error) { _ = release() }(service.Close)
 
 	taskID, err := acceptInstall(t, service, plugins.InstallRequest{
@@ -742,6 +678,12 @@ func TestInstallServiceRejectsInvalidRenderTemplateManifest(t *testing.T) {
 	}
 	if snapshot.Error == nil || snapshot.Error.Code != codePluginInstallFailed {
 		t.Fatalf("unexpected task error: %#v", snapshot.Error)
+	}
+	if _, ok := catalog.Get("template-weather"); ok {
+		t.Fatal("rejected plugin was added to the catalog")
+	}
+	if _, err := os.Stat(filepath.Join(repoRoot, "plugins", "installed", "template-weather")); !os.IsNotExist(err) {
+		t.Fatalf("rejected plugin was left in the installed directory: %v", err)
 	}
 }
 
@@ -1188,58 +1130,6 @@ func addRenderTemplateDeclarationToManifest(t *testing.T, pluginRoot, templatePa
 	if err := os.WriteFile(filepath.Join(templateDir, "template.json"), []byte("{}"), 0o644); err != nil {
 		t.Fatalf("write placeholder template manifest: %v", err)
 	}
-}
-
-func writeInstallRenderTemplate(t *testing.T, templateDir, templateID string) {
-	t.Helper()
-
-	if err := os.MkdirAll(templateDir, 0o755); err != nil {
-		t.Fatalf("create template dir: %v", err)
-	}
-	html := "<html><body>{{ .title }}</body></html>"
-	files := map[string]string{
-		"template.json": fmt.Sprintf(`{
-  "id": %q,
-  "name": "测试模板",
-  "version": "1",
-  "entry_html": "template.html",
-  "stylesheet": "styles.css",
-  "input_schema": "input.schema.json",
-  "width": 320,
-  "height": 240
-}`, templateID),
-		"template.html":     html,
-		"styles.css":        "body { margin: 0; }",
-		"input.schema.json": `{"type":"object","additionalProperties":true}`,
-	}
-	for name, content := range files {
-		if err := os.WriteFile(filepath.Join(templateDir, name), []byte(content), 0o644); err != nil {
-			t.Fatalf("write template %s: %v", name, err)
-		}
-	}
-}
-
-func validateInstallRenderTemplates(snapshot plugins.Snapshot) error {
-	for _, declared := range snapshot.RenderTemplates {
-		templateDir := filepath.Join(snapshot.PackageRootPath, filepath.FromSlash(declared.Path))
-		if info, err := os.Stat(templateDir); err != nil || !info.IsDir() {
-			return fmt.Errorf("load plugin render template %s: template directory is missing", snapshot.PluginID)
-		}
-		manifestPath := filepath.Join(templateDir, "template.json")
-		document, err := config.LoadJSONFile(manifestPath)
-		if err != nil {
-			return fmt.Errorf("load plugin render template %s: %w", snapshot.PluginID, err)
-		}
-		manifest, ok := document.(map[string]any)
-		if !ok {
-			return fmt.Errorf("load plugin render template %s: manifest must be an object", snapshot.PluginID)
-		}
-		id, ok := manifest["id"].(string)
-		if !ok || id == "" || strings.Contains(id, "/") || strings.Contains(id, "\\") {
-			return fmt.Errorf("load plugin render template %s: template id is invalid", snapshot.PluginID)
-		}
-	}
-	return nil
 }
 
 func writePluginZip(t *testing.T, archivePath, sourceDir string) {

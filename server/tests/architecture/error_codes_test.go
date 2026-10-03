@@ -274,18 +274,9 @@ func managementReportedErrorCodes(fileSet *token.FileSet, parsed *ast.File, path
 }
 
 func errorWriterCodeArgIndex(fun ast.Expr) (int, bool) {
-	switch typed := fun.(type) {
-	case *ast.Ident:
-		switch typed.Name {
-		case "writeAuthError", "writeCoreAuthError", "writeError":
-			return 2, true
-		default:
-			return 0, false
-		}
-	case *ast.SelectorExpr:
-		if selectorIdentName(typed.X) == "httpapi" && (typed.Sel.Name == "WriteError" || typed.Sel.Name == "WriteErrorWithMessage") {
-			return 2, true
-		}
+	selector, ok := fun.(*ast.SelectorExpr)
+	if ok && selectorIdentName(selector.X) == "httpapi" && (selector.Sel.Name == "WriteError" || selector.Sel.Name == "WriteErrorWithMessage") {
+		return 2, true
 	}
 	return 0, false
 }
@@ -375,7 +366,7 @@ func isDomainErrorType(expr ast.Expr) bool {
 
 func isSystemHTTPErrorType(expr ast.Expr) bool {
 	ident, ok := expr.(*ast.Ident)
-	return ok && ident.Name == "SystemHTTPError"
+	return ok && ident.Name == "systemHTTPError"
 }
 
 func selectorIdentName(expr ast.Expr) string {

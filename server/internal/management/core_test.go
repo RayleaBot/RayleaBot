@@ -80,8 +80,6 @@ func (s coreTestSystem) StatusSnapshot() systemsvc.StatusSnapshot {
 	return s.snapshot
 }
 
-func (s coreTestSystem) PublishStatusSnapshot() {}
-
 func TestIsLoopbackRequest(t *testing.T) {
 	t.Parallel()
 
