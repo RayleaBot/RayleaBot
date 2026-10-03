@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -105,7 +106,8 @@ func TestManagementClientReturnsStructuredError(t *testing.T) {
 	defer server.Close()
 
 	_, err := NewManagementClient(func() string { return "bad" }).GetLauncherStatus(context.Background(), ServerEndpoint{BaseURL: server.URL + "/"})
-	if err == nil || err.Error() != "launcher.control_denied: denied" {
+	var serverErr *ServerError
+	if !errors.As(err, &serverErr) || serverErr.Code != "launcher.control_denied" || serverErr.StatusCode != http.StatusForbidden {
 		t.Fatalf("GetLauncherStatus() error = %v", err)
 	}
 }

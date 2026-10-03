@@ -67,7 +67,7 @@ export function normalizeWailsSnapshot(snapshot: desktopModels.LauncherSnapshot)
   };
 }
 
-export function createWailsDesktopApi(): LauncherDesktopApi {
+function createWailsDesktopApi(): LauncherDesktopApi {
   return {
     getPlatform: () => desktop.GetPlatform(),
     getSnapshot: async () => normalizeWailsSnapshot(await desktop.GetSnapshot()),

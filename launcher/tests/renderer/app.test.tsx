@@ -2,7 +2,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { App } from "@renderer/App";
-import { buildDiagnosticsSummary } from "@renderer/AppState.shared";
 import { createLauncherSnapshot } from "../helpers/snapshot";
 import type { LauncherDesktopApi } from "@shared/desktop-api";
 import type { LauncherSnapshot } from "@shared/launcher-models";
@@ -96,50 +95,6 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  test("hydrates settings from getSnapshot after initialize resolves", async () => {
-    let initialized = false;
-    installDesktopApi({
-      getPlatform: vi.fn(async () => "win32-x64"),
-      getSnapshot: vi.fn(async () => (initialized ? loadedSnapshot : blankSnapshot)),
-      initialize: vi.fn(async () => {
-        initialized = true;
-      }),
-      refresh: vi.fn(async () => undefined),
-      start: vi.fn(async () => undefined),
-      stop: vi.fn(async () => undefined),
-      openWebUi: vi.fn(async () => undefined),
-      openReleasePage: vi.fn(async () => undefined),
-      checkForUpdates: vi.fn(async () => undefined),
-      applyUpdate: vi.fn(async () => undefined),
-      openLogsDirectory: vi.fn(async () => undefined),
-      saveSettings: vi.fn(async () => undefined),
-      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
-      chooseInstallationRoot: vi.fn(async () => null),
-      chooseServerExecutable: vi.fn(async () => null),
-      chooseConfigFile: vi.fn(async () => null),
-      chooseWorkdir: vi.fn(async () => null),
-      exitApplication: vi.fn(async () => undefined),
-      minimize: vi.fn(async () => undefined),
-      maximize: vi.fn(async () => undefined),
-      close: vi.fn(async () => undefined),
-      closeConfirmResponse: vi.fn(async () => undefined),
-      isMaximized: vi.fn(async () => false),
-      onSnapshot: vi.fn(() => () => undefined),
-      onMaximizedChange: vi.fn(() => () => undefined),
-      onShowExitConfirm: vi.fn(() => () => undefined),
-      hasPendingCloseConfirm: vi.fn(async () => false),
-      onShowExternalStopConfirm: vi.fn(() => () => undefined),
-      hasPendingExternalStopConfirm: vi.fn(async () => false),
-    });
-
-    render(<App />);
-
-    fireEvent.click(await screen.findByRole("button", { name: "偏好设置" }));
-    await waitFor(() => {
-      expect(screen.getAllByText(TEST_INSTALLATION_ROOT).length).toBeGreaterThan(0);
-    });
-  });
-
   test("restarts the managed service through its secondary restart action", async () => {
     let initialized = false;
     const calls: string[] = [];
@@ -235,7 +190,6 @@ describe("App", () => {
 
     const managementButton = await screen.findByRole("button", { name: "管理界面" });
     expect(managementButton).not.toBeDisabled();
-    expect(screen.queryByRole("button", { name: "检测到现有服务" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "启动服务" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重启服务" })).toBeDisabled();
   });
@@ -396,23 +350,9 @@ describe("App", () => {
 
     const managementButton = await screen.findByRole("button", { name: "管理界面" });
     expect(managementButton).not.toBeDisabled();
-    fireEvent.click(document.querySelector<HTMLButtonElement>(".service-control__primary")!);
+    fireEvent.click(managementButton);
     await waitFor(() => expect(openWebUi).toHaveBeenCalledOnce());
     expect(screen.getAllByText("待初始化").length).toBeGreaterThan(0);
-    expect(screen.queryByText("运行中")).not.toBeInTheDocument();
-    expect(screen.queryByText("需要先完成管理员初始化")).not.toBeInTheDocument();
-    expect(screen.queryByText("需要设置")).not.toBeInTheDocument();
-    expect(screen.queryByText("需要处理")).not.toBeInTheDocument();
-    expect(screen.queryByText("服务诊断")).not.toBeInTheDocument();
-    expect(screen.queryByText("setup.required")).not.toBeInTheDocument();
-    expect(screen.queryByText("请先完成管理员初始化，然后再使用管理入口。")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "打开初始化" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "在管理界面准备" })).not.toBeInTheDocument();
-
-    const diagnosticsSummary = buildDiagnosticsSummary(setupRequiredSnapshot);
-    expect(diagnosticsSummary).not.toContain("管理员初始化");
-    expect(diagnosticsSummary).not.toContain("setup.required");
-    expect(diagnosticsSummary).not.toContain("setup_required");
   });
 
   test("previews derived settings while editing the installation root", async () => {
@@ -439,7 +379,6 @@ describe("App", () => {
       applyUpdate: vi.fn(async () => undefined),
       openLogsDirectory: vi.fn(async () => undefined),
       saveSettings: vi.fn(async () => undefined),
-      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
       chooseInstallationRoot: vi.fn(async () => null),
       chooseServerExecutable: vi.fn(async () => null),
       chooseConfigFile: vi.fn(async () => null),

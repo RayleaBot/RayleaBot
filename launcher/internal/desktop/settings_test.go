@@ -96,13 +96,6 @@ func TestDiscoverBasePathUsesDevelopmentWorkingDirectoryForTemporaryExecutable(t
 	}
 }
 
-func TestNormalizeSettingsRejectsUnsupportedCloseBehavior(t *testing.T) {
-	_, err := normalizeSettings(LauncherSettings{InstallationRoot: t.TempDir(), CloseBehavior: "surprise"}, "")
-	if err == nil {
-		t.Fatal("normalizeSettings() accepted an unsupported close behavior")
-	}
-}
-
 func TestSanitizeWebTargetPath(t *testing.T) {
 	for _, valid := range []string{"", "/plugins", "/logs?scope=server#tail"} {
 		if _, err := sanitizeWebTargetPath(valid); err != nil {

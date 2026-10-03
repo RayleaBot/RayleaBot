@@ -48,7 +48,7 @@ export const workspaceOpacity = motionValue(1);
 const workspaceEntryOpacity = 0.88;
 let workspaceAnimation: ReturnType<typeof animate> | null = null;
 
-export function prefersReducedMotion(): boolean {
+function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" &&
     Boolean(window.matchMedia?.(reducedMotionQuery).matches);
 }

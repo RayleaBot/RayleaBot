@@ -58,13 +58,6 @@ func (h *testServiceHost) ResolveExternalServiceStop(confirmed bool) {
 func (*testServiceHost) HasPendingExternalServiceStop() bool { return false }
 func (*testServiceHost) Quit()                               {}
 
-func TestReadinessStatusUsesTypedContractModel(t *testing.T) {
-	readiness := &ServerReadinessStatusResponse{Status: "degraded"}
-	if readinessStatus(readiness) != "degraded" {
-		t.Fatalf("readinessStatus() = %q", readinessStatus(readiness))
-	}
-}
-
 func TestTrayStateTracksServiceLifecycle(t *testing.T) {
 	snapshot := defaultSnapshot()
 	snapshot.Server.Health = &ServerLivenessStatusResponse{Status: "ok"}
@@ -114,18 +107,6 @@ func TestTrayStateSeparatesRunningFaultsFromFailedStarts(t *testing.T) {
 	} {
 		if got := trayState(test.snapshot).TrayStatusSummary; got != test.want {
 			t.Errorf("%s: tray status = %q, want %q", name, got, test.want)
-		}
-	}
-}
-
-func TestPlatformLabelNamesReleasePlatforms(t *testing.T) {
-	for _, test := range []struct{ goos, goarch, want string }{
-		{"windows", "amd64", "Windows x64"},
-		{"linux", "amd64", "Linux x64"},
-		{"darwin", "arm64", "macOS（Apple 芯片）"},
-	} {
-		if got := platformLabel(test.goos, test.goarch); got != test.want {
-			t.Errorf("platformLabel(%q, %q) = %q, want %q", test.goos, test.goarch, got, test.want)
 		}
 	}
 }

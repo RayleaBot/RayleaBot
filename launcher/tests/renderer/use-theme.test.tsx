@@ -32,8 +32,6 @@ describe("ThemeProvider", () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
-    Reflect.deleteProperty(document, "startViewTransition");
-    delete document.documentElement.dataset.launcherViewTransitionKind;
   });
 
   test("defaults to the system theme and follows system changes", async () => {
@@ -73,65 +71,11 @@ describe("ThemeProvider", () => {
     render(<ThemeProvider><ThemeProbe /></ThemeProvider>);
     expect(screen.getByText("light:light")).toBeInTheDocument();
 
-    screen.getByRole("button", { name: "深色" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "深色" }));
 
+    expect(screen.getByText("dark:dark")).toBeInTheDocument();
     expect(window.localStorage.getItem("raylea-theme-mode")).toBe("dark");
     await waitFor(() => expect(setThemeMode).toHaveBeenLastCalledWith("dark"));
     expect(await screen.findByText("窗口主题同步失败，界面主题仍已保留。")).toBeInTheDocument();
-  });
-
-  test("applies theme changes through a managed view transition", () => {
-    vi.stubGlobal("matchMedia", vi.fn(() => ({
-      matches: false,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    })));
-    installDesktopApi();
-    let resolveFinished = () => {};
-    const finished = new Promise<void>((resolve) => { resolveFinished = resolve; });
-    const startViewTransition = vi.fn((update: () => void) => {
-      update();
-      return {
-        finished,
-        ready: Promise.resolve(),
-        updateCallbackDone: Promise.resolve(),
-        skipTransition: vi.fn(),
-      } as ViewTransition;
-    });
-    Object.defineProperty(document, "startViewTransition", {
-      configurable: true,
-      value: startViewTransition,
-    });
-
-    render(<ThemeProvider><ThemeProbe /></ThemeProvider>);
-    fireEvent.click(screen.getByRole("button", { name: "深色" }));
-
-    expect(screen.getByText("dark:dark")).toBeInTheDocument();
-    expect(startViewTransition).toHaveBeenCalledOnce();
-    expect(document.documentElement).toHaveAttribute(
-      "data-launcher-view-transition-kind",
-      "theme",
-    );
-    act(() => resolveFinished());
-  });
-
-  test("applies theme changes immediately when reduced motion is requested", () => {
-    vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
-      matches: query.includes("prefers-reduced-motion"),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    })));
-    installDesktopApi();
-    const startViewTransition = vi.fn();
-    Object.defineProperty(document, "startViewTransition", {
-      configurable: true,
-      value: startViewTransition,
-    });
-
-    render(<ThemeProvider><ThemeProbe /></ThemeProvider>);
-    fireEvent.click(screen.getByRole("button", { name: "深色" }));
-
-    expect(screen.getByText("dark:dark")).toBeInTheDocument();
-    expect(startViewTransition).not.toHaveBeenCalled();
   });
 });

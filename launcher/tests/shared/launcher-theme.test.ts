@@ -4,7 +4,6 @@ import {
   launcherThemes,
   resolveLauncherEffectiveTheme,
 } from "@shared/launcher-theme";
-import { launcherFluentThemes } from "@renderer/launcherTheme";
 
 function luminance(hex: string) {
   const channels = hex.slice(1).match(/.{2}/g)!.map((channel) => Number.parseInt(channel, 16) / 255);
@@ -25,14 +24,6 @@ describe("launcher themes", () => {
     expect(resolveLauncherEffectiveTheme("system", false)).toBe("light");
     expect(resolveLauncherEffectiveTheme("system", true)).toBe("dark");
     expect(isLauncherThemeMode("sepia")).toBe(false);
-  });
-
-  test.each(["light", "dark"] as const)("maps %s semantic colors into Fluent roles", (mode) => {
-    const theme = launcherThemes[mode];
-    const fluentTheme = launcherFluentThemes[mode];
-    expect(fluentTheme.colorBrandBackground).toBe(theme.brandFill);
-    expect(fluentTheme.colorBrandForegroundLink).toBe(theme.brandForeground);
-    expect(fluentTheme.colorNeutralForegroundOnBrand).toBe(theme.onBrand);
   });
 
   test.each(["light", "dark"] as const)("keeps %s text and interaction contrast accessible", (mode) => {

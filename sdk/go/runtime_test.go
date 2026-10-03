@@ -398,9 +398,6 @@ func writeRuntimeEvent(t *testing.T, encoder *json.Encoder, requestID string, ev
 	if event.Payload != nil {
 		raw["payload"] = event.Payload
 	}
-	if event.Webhook != nil {
-		raw["webhook"] = event.Webhook
-	}
 	payload, err := json.Marshal(raw)
 	if err != nil {
 		t.Fatal(err)

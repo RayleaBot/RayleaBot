@@ -11,25 +11,25 @@ describe("Launcher presentation", () => {
         server: { health: { status: "ok" }, readiness: { status: "failed" } },
         launcher: { processLifecycle: "running", processOwnership: "launcher_managed" },
       }),
-      "运行异常",
+      "unhealthy",
     ],
     [
       "a reachable service whose readiness cannot be read",
       createLauncherSnapshot({ server: { health: { status: "ok" } }, launcher: { processOwnership: "external", lastLocalError: "timeout" } }),
-      "运行异常",
+      "unhealthy",
     ],
     [
       "a live process that fails its health check",
       createLauncherSnapshot({ launcher: { processLifecycle: "running", processOwnership: "launcher_managed", lastLocalError: "健康检查失败。" } }),
-      "运行异常",
+      "unhealthy",
     ],
     [
       "a start that left nothing running",
       createLauncherSnapshot({ launcher: { lastLocalError: "服务进程在通过健康检查前退出。" } }),
-      "启动失败",
+      "failed",
     ],
-  ])("labels %s", (_name, snapshot, label) => {
-    expect(deriveLauncherPresentation(snapshot).label).toBe(label);
+  ])("classifies %s", (_name, snapshot, state) => {
+    expect(deriveLauncherPresentation(snapshot).state).toBe(state);
   });
 
   test("explains a running service the Launcher cannot control instead of reporting a fault", () => {

@@ -137,18 +137,6 @@ func lifecycleFor(running bool) LauncherProcessLifecycle {
 	return "stopped"
 }
 
-func serviceAvailable(snapshot LauncherSnapshot) bool {
-	if snapshot.Server.Health == nil || snapshot.Server.Health.Status != "ok" {
-		return false
-	}
-	switch readinessStatus(snapshot.Server.Readiness) {
-	case "ready", "degraded", "setup_required":
-		return true
-	default:
-		return false
-	}
-}
-
 func ownershipFor(managed, reachable bool) LauncherProcessOwnership {
 	if managed {
 		return "launcher_managed"

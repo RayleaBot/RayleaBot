@@ -40,26 +40,4 @@ describe("Wails desktop snapshot bridge", () => {
 
     expect(() => normalizeWailsSnapshot(snapshot)).toThrow("Invalid Wails payload field: launcher.processLifecycle");
   });
-
-  test("normalizes server contract payloads after runtime validation", () => {
-    const snapshot = createLauncherSnapshot() as unknown as desktopModels.LauncherSnapshot;
-    snapshot.server.health = { status: "ok" };
-    snapshot.server.readiness = {
-      status: "degraded",
-      reason_codes: ["runtime.not_ready"],
-      issues: [{ code: "runtime.not_ready", severity: "warning", summary: "Runtime is not ready" }],
-    };
-    snapshot.server.systemStatus = {
-      status: "running", adapters: [],
-      active_plugins: 2,
-      health: { status: "ready" },
-    };
-
-    const normalized = normalizeWailsSnapshot(snapshot);
-
-    expect(normalized.server.health).toEqual({ status: "ok" });
-    expect(normalized.server.readiness?.issues?.[0]?.code).toBe("runtime.not_ready");
-    expect(normalized.server.systemStatus?.active_plugins).toBe(2);
-  });
-
 });

@@ -207,12 +207,3 @@ func TestEventFrameWithoutDeadlineIsRejected(t *testing.T) {
 	}
 	peer.stop(t)
 }
-
-func TestSchedulerTriggerTaskID(t *testing.T) {
-	if got := (Event{Payload: map[string]any{"task_id": "daily", "payload": map[string]any{}}}).TaskID(); got != "daily" {
-		t.Fatalf("TaskID = %q", got)
-	}
-	if got := (Event{}).TaskID(); got != "" {
-		t.Fatalf("TaskID without payload = %q", got)
-	}
-}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -101,18 +102,9 @@ func TestMacOSChromiumCandidatesIncludeUserApplications(t *testing.T) {
 	home := filepath.Join(string(filepath.Separator), "Users", "developer")
 	candidates := systemChromiumCandidates("darwin", func(string) string { return "" }, home)
 	want := filepath.Join(home, "Applications", "Google Chrome.app", "Contents", "MacOS", "Google Chrome")
-	if !containsString(candidates, want) {
+	if !slices.Contains(candidates, want) {
 		t.Fatalf("macOS candidates = %#v, want %q", candidates, want)
 	}
-}
-
-func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }
 
 func TestPassiveWorkdirInspectionDoesNotRecreateMissingDirectory(t *testing.T) {

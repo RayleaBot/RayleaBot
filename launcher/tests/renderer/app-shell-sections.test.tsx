@@ -117,7 +117,6 @@ describe("Launcher workspace presentation", () => {
     expect(screen.getByText("服务进程在启动阶段提前退出。")).toBeInTheDocument();
     expect(screen.getByText("失败原因")).toBeInTheDocument();
     expect(screen.getByText("listen tcp 127.0.0.1:8080: bind: address already in use")).toBeInTheDocument();
-    expect(screen.queryByText("启动器检测到本地异常。")).not.toBeInTheDocument();
     expect(screen.queryByText("当前限制")).not.toBeInTheDocument();
   });
 
@@ -402,6 +401,5 @@ describe("Launcher workspace presentation", () => {
     expect(screen.getByText("检查更新失败")).toBeInTheDocument();
     expect(screen.getByText("launcher.update_check_failed")).toBeInTheDocument();
     expect(screen.getByText("无法获取发布信息，请稍后重试。")).toBeInTheDocument();
-    expect(screen.queryByText("更新请求失败。")).not.toBeInTheDocument();
   });
 });

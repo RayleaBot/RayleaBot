@@ -221,7 +221,7 @@ func TestPackAndInspectAlreadyBuiltNativeExecutable(t *testing.T) {
 	}
 }
 
-func TestInspectProjectAcceptsManifestV3AndRejectsLegacyManifest(t *testing.T) {
+func TestInspectProjectAcceptsManifestV4AndRejectsLegacyManifest(t *testing.T) {
 	pluginDir := t.TempDir()
 	manifest := map[string]any{
 		"id": "project-plugin", "name": "Project", "version": "0.4.0", "manifest_version": "4",
