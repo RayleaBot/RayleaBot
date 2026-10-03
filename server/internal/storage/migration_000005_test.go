@@ -51,7 +51,7 @@ func TestLogIndexMigrationPreservesHistoricalRows(t *testing.T) {
 		}
 	}
 	metadata, err := store.SchemaMetadata(t.Context())
-	if err != nil || metadata.Version != "000005" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
+	if err != nil || metadata.Version != "000006" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
 		t.Fatalf("metadata = %+v, %v", metadata, err)
 	}
 	fresh := openTestStore(t)

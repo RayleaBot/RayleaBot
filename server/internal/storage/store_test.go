@@ -62,7 +62,9 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertIndexExists(t, store.Read, "idx_management_logs_log_id")
 	assertIndexExists(t, store.Read, "idx_management_logs_boot_ts")
 	assertIndexExists(t, store.Read, "idx_management_logs_source")
-	assertIndexExists(t, store.Read, "idx_plugin_kv_plugin_id")
+	assertIndexExists(t, store.Read, "idx_plugin_kv_metadata")
+	assertIndexExists(t, store.Read, "idx_plugin_kv_size_anomaly")
+	assertIndexExists(t, store.Read, "idx_plugin_kv_expiry")
 	assertIndexExists(t, store.Read, "idx_system_configs_namespace")
 
 }

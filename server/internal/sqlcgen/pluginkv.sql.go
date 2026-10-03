@@ -69,35 +69,85 @@ func (q *Queries) GetKV(ctx context.Context, arg GetKVParams) (GetKVRow, error) 
 	return i, err
 }
 
-const getKVSize = `-- name: GetKVSize :one
-SELECT COALESCE(size_bytes, 0) FROM plugin_kv
-WHERE plugin_id = ?1 AND key = ?2
-AND (expires_at_ms IS NULL OR expires_at_ms > ?3)
-`
-
-type GetKVSizeParams struct {
-	PluginID string
-	Key      string
-	NowMs    sql.NullInt64
-}
-
-func (q *Queries) GetKVSize(ctx context.Context, arg GetKVSizeParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getKVSize, arg.PluginID, arg.Key, arg.NowMs)
-	var size_bytes int64
-	err := row.Scan(&size_bytes)
-	return size_bytes, err
-}
-
 const getKVTotalSize = `-- name: GetKVTotalSize :one
-SELECT CAST(COALESCE(SUM(size_bytes), 0) AS INTEGER) FROM plugin_kv
-WHERE expires_at_ms IS NULL OR expires_at_ms > ?1
+SELECT CAST(CASE WHEN EXISTS (
+    SELECT 1 FROM plugin_kv AS anomaly INDEXED BY idx_plugin_kv_size_anomaly
+    WHERE (typeof(anomaly.size_bytes) <> 'integer' OR anomaly.size_bytes < 0)
+    AND (anomaly.expires_at_ms IS NULL OR anomaly.expires_at_ms > ?1)
+) THEN (
+    SELECT COALESCE(SUM(legacy.size_bytes), 0) FROM plugin_kv AS legacy NOT INDEXED
+    WHERE legacy.expires_at_ms IS NULL OR legacy.expires_at_ms > ?1
+) ELSE (
+    SELECT COALESCE(SUM(current.size_bytes), 0) FROM plugin_kv AS current
+    WHERE current.expires_at_ms IS NULL OR current.expires_at_ms > ?1
+) END AS INTEGER)
 `
 
+// Nonnegative integer sizes sum identically in any order. Historical signed or
+// noninteger sizes retain the original table scan's aggregate/overflow behavior.
 func (q *Queries) GetKVTotalSize(ctx context.Context, nowMs sql.NullInt64) (int64, error) {
 	row := q.db.QueryRowContext(ctx, getKVTotalSize, nowMs)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const getKVWriteState = `-- name: GetKVWriteState :one
+SELECT COALESCE(size_bytes, 0) AS size_bytes,
+    CAST(typeof(size_bytes) = 'integer' AND size_bytes = ?1
+        AND typeof(expires_at_ms) = typeof(?2)
+        AND expires_at_ms IS ?2 AS INTEGER) AS metadata_matches
+FROM plugin_kv
+WHERE plugin_id = ?3 AND key = ?4
+AND (expires_at_ms IS NULL OR expires_at_ms > ?5)
+`
+
+type GetKVWriteStateParams struct {
+	NextSize   int64
+	NextExpiry interface{}
+	PluginID   string
+	Key        string
+	NowMs      sql.NullInt64
+}
+
+type GetKVWriteStateRow struct {
+	SizeBytes       int64
+	MetadataMatches int64
+}
+
+func (q *Queries) GetKVWriteState(ctx context.Context, arg GetKVWriteStateParams) (GetKVWriteStateRow, error) {
+	row := q.db.QueryRowContext(ctx, getKVWriteState,
+		arg.NextSize,
+		arg.NextExpiry,
+		arg.PluginID,
+		arg.Key,
+		arg.NowMs,
+	)
+	var i GetKVWriteStateRow
+	err := row.Scan(&i.SizeBytes, &i.MetadataMatches)
+	return i, err
+}
+
+const updateKVValue = `-- name: UpdateKVValue :exec
+UPDATE plugin_kv SET value_json = ?1, updated_at = ?2
+WHERE plugin_id = ?3 AND key = ?4
+`
+
+type UpdateKVValueParams struct {
+	ValueJson string
+	UpdatedAt string
+	PluginID  string
+	Key       string
+}
+
+func (q *Queries) UpdateKVValue(ctx context.Context, arg UpdateKVValueParams) error {
+	_, err := q.db.ExecContext(ctx, updateKVValue,
+		arg.ValueJson,
+		arg.UpdatedAt,
+		arg.PluginID,
+		arg.Key,
+	)
+	return err
 }
 
 const upsertKV = `-- name: UpsertKV :exec

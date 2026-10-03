@@ -53,13 +53,30 @@ func TestKVExpiryBoundaryOverwriteAndPrefix(t *testing.T) {
 	if _, err := repo.SetWithOptions(ctx, "p", "overwrite", 1, KVLimits{}, KVSetOptions{TTLSeconds: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.Set(ctx, "p", "overwrite", 2, KVLimits{}); err != nil {
+	clock.Store(1001500)
+	renewed, err := repo.SetWithOptions(ctx, "p", "overwrite", 2, KVLimits{}, KVSetOptions{TTLSeconds: 1})
+	if err != nil || renewed.ExpiresAtMS == nil || *renewed.ExpiresAtMS != 1002500 {
+		t.Fatalf("equal-sized overwrite did not renew TTL: %+v %v", renewed, err)
+	}
+	clock.Store(1002000)
+	entry, err = repo.GetEntry(ctx, "p", "overwrite")
+	if err != nil || !entry.Exists || entry.Value != float64(2) {
+		t.Fatalf("renewed entry expired at its old deadline: %+v %v", entry, err)
+	}
+	if err := repo.Set(ctx, "p", "overwrite", 3, KVLimits{}); err != nil {
 		t.Fatal(err)
 	}
 	clock.Store(2000000)
 	entry, err = repo.GetEntry(ctx, "p", "overwrite")
-	if err != nil || !entry.Exists || entry.Value != float64(2) || entry.ExpiresAtMS != nil {
+	if err != nil || !entry.Exists || entry.Value != float64(3) || entry.ExpiresAtMS != nil {
 		t.Fatal("permanent overwrite retained TTL")
+	}
+	if err := repo.Set(ctx, "p", "%_\\:one", 2, KVLimits{}); err != nil {
+		t.Fatal(err)
+	}
+	entry, err = repo.GetEntry(ctx, "p", "%_\\:one")
+	if err != nil || !entry.Exists || entry.Value != float64(2) || entry.ExpiresAtMS != nil {
+		t.Fatalf("expired row was not rebuilt as permanent: %+v %v", entry, err)
 	}
 }
 

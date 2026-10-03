@@ -177,8 +177,12 @@ CREATE TABLE IF NOT EXISTS plugin_kv (
 CREATE INDEX IF NOT EXISTS idx_plugin_kv_expiry
     ON plugin_kv(expires_at_ms) WHERE expires_at_ms IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_plugin_kv_plugin_id
-    ON plugin_kv (plugin_id);
+CREATE INDEX IF NOT EXISTS idx_plugin_kv_metadata
+    ON plugin_kv(plugin_id, key, expires_at_ms, size_bytes);
+
+CREATE INDEX IF NOT EXISTS idx_plugin_kv_size_anomaly
+    ON plugin_kv(expires_at_ms)
+    WHERE typeof(size_bytes) <> 'integer' OR size_bytes < 0;
 
 CREATE TABLE IF NOT EXISTS system_configs (
     namespace TEXT NOT NULL,

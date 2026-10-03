@@ -11,7 +11,7 @@ import (
 )
 
 // currentSchemaVersion identifies the structure in schema.sql.
-const currentSchemaVersion = "000005"
+const currentSchemaVersion = "000006"
 
 // schemaMigration runs sql, then apply when set, in one transaction.
 type schemaMigration struct {
@@ -27,6 +27,7 @@ CREATE INDEX idx_plugin_kv_expiry ON plugin_kv(expires_at_ms) WHERE expires_at_m
 		{from: "000002", to: "000003", apply: decryptLegacySecrets},
 		{from: "000003", to: "000004", sql: messageStatsSchema},
 		{from: "000004", to: "000005", sql: logTimeIndexesSchema},
+		{from: "000005", to: "000006", sql: kvMetadataIndexesSchema},
 	}
 }
 

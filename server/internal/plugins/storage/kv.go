@@ -116,11 +116,17 @@ func (r *KVSQLiteRepository) SetWithOptions(ctx context.Context, pluginID, key s
 	err = storage.WithTx(ctx, r.write, nil, func(tx *sql.Tx) error {
 		now := r.now()
 		nowMS := sql.NullInt64{Int64: now.UnixMilli(), Valid: true}
+		expiry := sql.NullInt64{}
+		if options.TTLSeconds > 0 {
+			expiry = sql.NullInt64{Int64: now.Add(time.Duration(options.TTLSeconds) * time.Second).UnixMilli(), Valid: true}
+		}
 		q := r.writeQ.WithTx(tx)
-		previousSize, err := q.GetKVSize(ctx, sqlcgen.GetKVSizeParams{
-			PluginID: pluginID,
-			Key:      key,
-			NowMs:    nowMS,
+		previous, err := q.GetKVWriteState(ctx, sqlcgen.GetKVWriteStateParams{
+			PluginID:   pluginID,
+			Key:        key,
+			NowMs:      nowMS,
+			NextSize:   int64(sizeBytes),
+			NextExpiry: expiry,
 		})
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("query previous plugin kv size: %w", err)
@@ -129,15 +135,17 @@ func (r *KVSQLiteRepository) SetWithOptions(ctx context.Context, pluginID, key s
 		if err != nil {
 			return fmt.Errorf("query global plugin kv total size: %w", err)
 		}
-		nextTotal := totalSize - previousSize + int64(sizeBytes)
+		nextTotal := totalSize - previous.SizeBytes + int64(sizeBytes)
 		if limits.TotalMaxBytes > 0 && nextTotal > int64(limits.TotalMaxBytes) {
 			return ErrKVQuotaExceeded
 		}
-		expiry := sql.NullInt64{}
-		if options.TTLSeconds > 0 {
-			expiry = sql.NullInt64{Int64: now.Add(time.Duration(options.TTLSeconds) * time.Second).UnixMilli(), Valid: true}
+		updatedAt := now.UTC().Format(time.RFC3339Nano)
+		if previous.MetadataMatches != 0 {
+			err = q.UpdateKVValue(ctx, sqlcgen.UpdateKVValueParams{PluginID: pluginID, Key: key, ValueJson: string(valueJSON), UpdatedAt: updatedAt})
+		} else {
+			err = q.UpsertKV(ctx, sqlcgen.UpsertKVParams{PluginID: pluginID, Key: key, ValueJson: string(valueJSON), SizeBytes: int64(sizeBytes), UpdatedAt: updatedAt, ExpiresAtMs: expiry})
 		}
-		if err := q.UpsertKV(ctx, sqlcgen.UpsertKVParams{PluginID: pluginID, Key: key, ValueJson: string(valueJSON), SizeBytes: int64(sizeBytes), UpdatedAt: now.UTC().Format(time.RFC3339Nano), ExpiresAtMs: expiry}); err != nil {
+		if err != nil {
 			return fmt.Errorf("upsert plugin kv value: %w", err)
 		}
 		result.ExpiresAtMS = kvExpiry(expiry)
