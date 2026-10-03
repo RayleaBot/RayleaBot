@@ -115,10 +115,14 @@ func (s *Stream) Run(ctx context.Context, write func(context.Context, any) error
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	stopCancel := context.AfterFunc(s.ctx, cancel)
-	defer stopCancel()
 	transportClosed := make(chan struct{})
-	stopClose := context.AfterFunc(s.ctx, func() { defer close(transportClosed); closeTransport() })
+	stopClose := context.AfterFunc(s.ctx, func() {
+		defer close(transportClosed)
+		// A cancelled writer must not return and stop transport closure before
+		// it starts, so both shutdown actions belong to the same callback.
+		cancel()
+		closeTransport()
+	})
 	defer func() {
 		if !stopClose() {
 			<-transportClosed
