@@ -18,12 +18,15 @@ const identityCacheMaxEntries = 4096
 // identityCacheMaxEntries evicts expired entries first, then the ones
 // closest to expiry.
 type IdentityCache struct {
-	ttl       time.Duration
-	mu        sync.RWMutex
-	login     *cachedLogin
-	groups    map[string]*cachedGroupInfo
-	members   map[string]*cachedGroupMemberInfo
-	strangers map[string]*cachedStrangerInfo
+	ttl            time.Duration
+	mu             sync.RWMutex
+	login          *cachedLogin
+	groups         map[string]*cachedIdentity[GroupInfo]
+	members        map[string]*cachedIdentity[GroupMemberInfo]
+	strangers      map[string]*cachedIdentity[StrangerInfo]
+	groupExpiry    identityExpiryQueue
+	memberExpiry   identityExpiryQueue
+	strangerExpiry identityExpiryQueue
 }
 
 type cachedLogin struct {
@@ -31,28 +34,13 @@ type cachedLogin struct {
 	expiresAt time.Time
 }
 
-type cachedGroupInfo struct {
-	value     GroupInfo
-	expiresAt time.Time
-}
-
-type cachedGroupMemberInfo struct {
-	value     GroupMemberInfo
-	expiresAt time.Time
-}
-
-type cachedStrangerInfo struct {
-	value     StrangerInfo
-	expiresAt time.Time
-}
-
 // NewIdentityCache creates a new cache with the given entry TTL.
 func NewIdentityCache(ttl time.Duration) *IdentityCache {
 	return &IdentityCache{
 		ttl:       ttl,
-		groups:    make(map[string]*cachedGroupInfo),
-		members:   make(map[string]*cachedGroupMemberInfo),
-		strangers: make(map[string]*cachedStrangerInfo),
+		groups:    make(map[string]*cachedIdentity[GroupInfo]),
+		members:   make(map[string]*cachedIdentity[GroupMemberInfo]),
+		strangers: make(map[string]*cachedIdentity[StrangerInfo]),
 	}
 }
 
@@ -62,9 +50,10 @@ func (c *IdentityCache) Clear() {
 	defer c.mu.Unlock()
 
 	c.login = nil
-	c.groups = make(map[string]*cachedGroupInfo)
-	c.members = make(map[string]*cachedGroupMemberInfo)
-	c.strangers = make(map[string]*cachedStrangerInfo)
+	c.groups = make(map[string]*cachedIdentity[GroupInfo])
+	c.members = make(map[string]*cachedIdentity[GroupMemberInfo])
+	c.strangers = make(map[string]*cachedIdentity[StrangerInfo])
+	c.groupExpiry, c.memberExpiry, c.strangerExpiry = nil, nil, nil
 }
 
 // GetStrangerInfo returns the cached stranger info if present and not expired.
@@ -84,12 +73,7 @@ func (c *IdentityCache) SetStrangerInfo(userID string, info StrangerInfo) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	now := time.Now()
-	c.strangers[userID] = &cachedStrangerInfo{
-		value:     info,
-		expiresAt: now.Add(c.ttl),
-	}
-	boundIdentityEntries(c.strangers, now, func(entry *cachedStrangerInfo) time.Time { return entry.expiresAt })
+	setIdentityEntry(c.strangers, &c.strangerExpiry, userID, info, time.Now(), c.ttl)
 }
 
 // GetLogin returns the cached login info if present and not expired.
@@ -131,19 +115,14 @@ func (c *IdentityCache) SetGroupInfo(groupID string, info GroupInfo) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	now := time.Now()
-	c.groups[groupID] = &cachedGroupInfo{
-		value:     info,
-		expiresAt: now.Add(c.ttl),
-	}
-	boundIdentityEntries(c.groups, now, func(entry *cachedGroupInfo) time.Time { return entry.expiresAt })
+	setIdentityEntry(c.groups, &c.groupExpiry, groupID, info, time.Now(), c.ttl)
 }
 
 func (c *IdentityCache) InvalidateGroupInfo(groupID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	delete(c.groups, groupID)
+	deleteIdentityEntry(c.groups, &c.groupExpiry, groupID)
 }
 
 // GetGroupMemberInfo returns the cached group member info if present and
@@ -165,46 +144,14 @@ func (c *IdentityCache) SetGroupMemberInfo(groupID, userID string, info GroupMem
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	now := time.Now()
-	c.members[groupID+":"+userID] = &cachedGroupMemberInfo{
-		value:     info,
-		expiresAt: now.Add(c.ttl),
-	}
-	boundIdentityEntries(c.members, now, func(entry *cachedGroupMemberInfo) time.Time { return entry.expiresAt })
-}
-
-// boundIdentityEntries keeps entries within identityCacheMaxEntries: expired
-// entries go first, then the ones expiring soonest.
-func boundIdentityEntries[T any](entries map[string]*T, now time.Time, expiresAt func(*T) time.Time) {
-	if len(entries) <= identityCacheMaxEntries {
-		return
-	}
-	for key, entry := range entries {
-		if now.After(expiresAt(entry)) {
-			delete(entries, key)
-		}
-	}
-	// Set adds at most one entry. Selecting the earliest expiry avoids
-	// allocating and sorting all 4097 entries for every new identity.
-	for len(entries) > identityCacheMaxEntries {
-		var oldestKey string
-		var oldest time.Time
-		found := false
-		for key, entry := range entries {
-			at := expiresAt(entry)
-			if !found || at.Before(oldest) {
-				oldestKey, oldest, found = key, at, true
-			}
-		}
-		delete(entries, oldestKey)
-	}
+	setIdentityEntry(c.members, &c.memberExpiry, groupID+":"+userID, info, time.Now(), c.ttl)
 }
 
 func (c *IdentityCache) InvalidateGroupMemberInfo(groupID, userID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	delete(c.members, groupID+":"+userID)
+	deleteIdentityEntry(c.members, &c.memberExpiry, groupID+":"+userID)
 }
 
 func (c *IdentityCache) InvalidateGroupMembers(groupID string) {
@@ -214,7 +161,7 @@ func (c *IdentityCache) InvalidateGroupMembers(groupID string) {
 	prefix := groupID + ":"
 	for key := range c.members {
 		if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
-			delete(c.members, key)
+			deleteIdentityEntry(c.members, &c.memberExpiry, key)
 		}
 	}
 }
