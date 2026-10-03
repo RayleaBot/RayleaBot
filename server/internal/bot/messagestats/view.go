@@ -139,8 +139,10 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 			view.Previous.add(value)
 		}
 	}
-	for _, row := range snapshot.hours {
-		add(row.HourStart, row.AdapterID, Counts{row.Received, row.Sent})
+	for _, chunk := range snapshot.hours {
+		for _, row := range chunk {
+			add(row.HourStart, row.AdapterID, Counts{row.Received, row.Sent})
+		}
 	}
 	for key, value := range snapshot.pending {
 		add(key.start, key.adapter, value)
@@ -191,7 +193,7 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 
 type querySnapshot struct {
 	asOf            time.Time
-	hours           []sqlcgen.MessageStatsHour
+	hours           [][]sqlcgen.MessageStatsHour
 	metadata        []sqlcgen.MessageStatsAdapter
 	offline         []sqlcgen.MessageStatsOffline
 	stops           []sqlcgen.ListMessageStatsStopsRow
@@ -209,7 +211,7 @@ func (s *Service) querySnapshot(ctx context.Context, from, start, end time.Time)
 	q := sqlcgen.New(s.store.Read)
 	var snapshot querySnapshot
 	var err error
-	snapshot.hours, err = q.ListMessageStatsHours(ctx, sqlcgen.ListMessageStatsHoursParams{StartHour: from.Unix(), EndHour: endSecond})
+	snapshot.hours, err = s.queryHours(ctx, from.Unix(), endSecond)
 	if err != nil {
 		return querySnapshot{}, err
 	}

@@ -36,9 +36,6 @@ ON CONFLICT(hour_start, adapter_id) DO UPDATE SET
 INSERT INTO message_stats_offline(run_id, adapter_id, started_at_ms, ended_at_ms) VALUES (?, ?, ?, ?)
 ON CONFLICT(run_id, adapter_id, started_at_ms) DO UPDATE SET ended_at_ms = excluded.ended_at_ms;
 
--- name: ListMessageStatsHours :many
-SELECT * FROM message_stats_hours WHERE hour_start >= sqlc.arg(start_hour) AND hour_start < sqlc.arg(end_hour);
-
 -- name: ListMessageStatsAdapters :many
 SELECT * FROM message_stats_adapters;
 

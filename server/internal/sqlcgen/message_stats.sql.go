@@ -72,43 +72,6 @@ func (q *Queries) ListMessageStatsAdapters(ctx context.Context) ([]MessageStatsA
 	return items, nil
 }
 
-const listMessageStatsHours = `-- name: ListMessageStatsHours :many
-SELECT hour_start, adapter_id, received, sent FROM message_stats_hours WHERE hour_start >= ?1 AND hour_start < ?2
-`
-
-type ListMessageStatsHoursParams struct {
-	StartHour int64
-	EndHour   int64
-}
-
-func (q *Queries) ListMessageStatsHours(ctx context.Context, arg ListMessageStatsHoursParams) ([]MessageStatsHour, error) {
-	rows, err := q.db.QueryContext(ctx, listMessageStatsHours, arg.StartHour, arg.EndHour)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []MessageStatsHour{}
-	for rows.Next() {
-		var i MessageStatsHour
-		if err := rows.Scan(
-			&i.HourStart,
-			&i.AdapterID,
-			&i.Received,
-			&i.Sent,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listMessageStatsOffline = `-- name: ListMessageStatsOffline :many
 SELECT run_id, adapter_id, started_at_ms, ended_at_ms FROM message_stats_offline
 WHERE started_at_ms < ?1

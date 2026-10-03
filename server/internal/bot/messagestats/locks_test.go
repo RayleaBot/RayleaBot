@@ -258,45 +258,66 @@ func TestStopRetriesFinalBatchAtOriginalStopTime(t *testing.T) {
 }
 
 func TestQueryCopiesMemoryAfterDatabaseReads(t *testing.T) {
-	s, clock, _ := newStats(t, "UTC", "2026-10-01T00:00:00Z")
-	clock.add(time.Second)
-	receive(s, "bot")
-	if err := s.Flush(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	s.store.Read.SetMaxOpenConns(1)
-	conn, err := s.store.Read.Conn(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = conn.Close() }()
-	waits := s.store.Read.Stats().WaitCount
-	type result struct {
-		view Response
-		err  error
-	}
-	queried := make(chan result, 1)
-	go func() {
-		view, err := s.Query(t.Context(), Query{"2026-10-01T00:00:00Z", "2026-10-01T02:00:00Z", "hour"})
-		queried <- result{view, err}
-	}()
-	waitForStatsDBWait(t, s.store.Read, waits)
-	clock.add(time.Hour)
-	statsUpdateWithin(t, func() {
-		receive(s, "bot")
-		s.Sent("bot", "onebot11")
-		s.ObserveAdapters([]Adapter{{ID: "bot", Enabled: true, Connected: true}})
-		s.ReloadAdapter("bot")
-	})
-	if err := conn.Close(); err != nil {
-		t.Fatal(err)
-	}
-	got := <-queried
-	if got.err != nil {
-		t.Fatal(got.err)
-	}
-	if got.view.Totals != (Counts{2, 1}) || !got.view.AsOf.Equal(clock.now()) || got.view.Connections[0].LastReceivedAt == nil || !got.view.Connections[0].LastReceivedAt.Equal(clock.now()) || len(got.view.Incidents) != 1 || got.view.Incidents[0].EndedAt == nil {
-		t.Fatalf("query missed updates during reads: %+v", got.view)
+	for _, granularity := range []string{"hour", "day"} {
+		t.Run(granularity, func(t *testing.T) {
+			s, clock, _ := newStats(t, "UTC", "2026-09-29T00:00:00Z")
+			end := "2026-10-01T02:00:00Z"
+			advance := time.Hour
+			if granularity == "day" {
+				end = "2026-10-03T00:00:00Z"
+				advance = 25 * time.Hour
+				for _, at := range []string{"2026-09-30T00:00:00Z", "2026-09-30T01:00:00Z", "2026-09-30T02:00:00Z"} {
+					clock.set(at)
+					receive(s, "previous")
+				}
+			}
+			clock.set("2026-10-01T00:00:00Z")
+			clock.add(time.Second)
+			receive(s, "bot")
+			if err := s.Flush(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			s.store.Read.SetMaxOpenConns(1)
+			conn, err := s.store.Read.Conn(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = conn.Close() }()
+			waits := s.store.Read.Stats().WaitCount
+			type result struct {
+				view Response
+				err  error
+			}
+			queried := make(chan result, 1)
+			go func() {
+				view, err := s.Query(t.Context(), Query{"2026-10-01T00:00:00Z", end, granularity})
+				queried <- result{view, err}
+			}()
+			waitForStatsDBWait(t, s.store.Read, waits)
+			clock.add(advance)
+			statsUpdateWithin(t, func() {
+				receive(s, "bot")
+				s.Sent("bot", "onebot11")
+				s.ObserveAdapters([]Adapter{{ID: "bot", Enabled: true, Connected: true}})
+				s.ReloadAdapter("bot")
+			})
+			if err := conn.Close(); err != nil {
+				t.Fatal(err)
+			}
+			got := <-queried
+			if got.err != nil {
+				t.Fatal(got.err)
+			}
+			if got.view.Totals != (Counts{2, 1}) || !got.view.AsOf.Equal(clock.now()) || got.view.Connections[0].LastReceivedAt == nil || !got.view.Connections[0].LastReceivedAt.Equal(clock.now()) || len(got.view.Incidents) != 1 || got.view.Incidents[0].EndedAt == nil {
+				t.Fatalf("query missed updates during reads: %+v", got.view)
+			}
+			if granularity == "day" && (got.view.Previous == nil || *got.view.Previous != (Counts{Received: 2})) {
+				t.Fatalf("comparison did not follow the read-complete time: %+v", got.view.Previous)
+			}
+			if !reflect.DeepEqual(got.view.Connections[0].Received, []int64{1, 1}) {
+				t.Fatalf("updates after a bucket boundary were misplaced: %+v", got.view.Connections[0])
+			}
+		})
 	}
 }
 
