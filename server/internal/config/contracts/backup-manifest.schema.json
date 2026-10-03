@@ -49,9 +49,10 @@
         "000002",
         "000003",
         "000004",
+        "000005",
         "absent"
       ],
-      "description": "Actual archived SQLite version: 000001, 000002, 000003 or 000004; absent means no database. Restore accepts versions registered in the forward migration chain, and first startup migrates old structures. Never relabel archived data. Downgrades are not supported."
+      "description": "Actual archived SQLite version: 000001, 000002, 000003, 000004 or 000005; absent means no database. Restore accepts versions registered in the forward migration chain, and first startup migrates old structures. Never relabel archived data. Downgrades are not supported."
     },
     "plugin_manifest_version": {
       "type": "string",
@@ -229,6 +230,7 @@
     "fixtures/backup-manifest/edge.plugin-inventory.json",
     "fixtures/backup-manifest/ok.schema-000002.json",
     "fixtures/backup-manifest/ok.schema-000003.json",
-    "fixtures/backup-manifest/ok.schema-000004.json"
+    "fixtures/backup-manifest/ok.schema-000004.json",
+    "fixtures/backup-manifest/ok.schema-000005.json"
   ]
 }

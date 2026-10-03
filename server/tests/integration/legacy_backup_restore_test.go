@@ -63,8 +63,8 @@ func TestLegacyBackupRestoreMigratesSecretsAndKeepsSessions(t *testing.T) {
 	restored := newPersistentTestApp(t, targetConfig, now, "legacy-restored")
 	defer closePersistentTestApp(t, restored)
 	metadata, err := restored.Storage().SchemaMetadata(context.Background())
-	if err != nil || metadata.Version != "000004" {
-		t.Fatalf("restored schema = %#v, %v; want 000004", metadata, err)
+	if err != nil || metadata.Version != "000005" {
+		t.Fatalf("restored schema = %#v, %v; want 000005", metadata, err)
 	}
 	var legacyRows int
 	if err := restored.Storage().Read.QueryRow(
@@ -120,7 +120,8 @@ func writeRuntimeRootConfig(t *testing.T, root string) string {
 }
 
 // sealSecretsAsSchema000002 rewrites a current database into the 000002 form:
-// Drop statistics added by 000004; 000003 only changed secret values.
+// Drop statistics added by 000004 and restore the indexes replaced by 000005;
+// 000003 only changed secret values.
 func sealSecretsAsSchema000002(t *testing.T, databasePath string) {
 	t.Helper()
 	store, err := storage.Open(databasePath)
@@ -129,7 +130,15 @@ func sealSecretsAsSchema000002(t *testing.T, databasePath string) {
 	}
 	defer func() { _ = store.Close() }()
 	if _, err := store.Write.Exec(`DROP TABLE message_stats_offline; DROP TABLE message_stats_runs;
-		DROP TABLE message_stats_hours; DROP TABLE message_stats_adapters; DROP TABLE message_stats_tracking;`); err != nil {
+		DROP TABLE message_stats_hours; DROP TABLE message_stats_adapters; DROP TABLE message_stats_tracking;
+		DROP INDEX idx_management_logs_ts; DROP INDEX idx_management_logs_plugin;
+		DROP INDEX idx_management_logs_request; DROP INDEX idx_management_logs_source;
+		DROP INDEX idx_management_logs_boot_ts; DROP INDEX idx_management_logs_prune;
+		CREATE INDEX idx_management_logs_ts ON management_logs(ts DESC,id DESC);
+		CREATE INDEX idx_management_logs_plugin ON management_logs(plugin_id,ts DESC,id DESC);
+		CREATE INDEX idx_management_logs_request ON management_logs(request_id,ts DESC,id DESC);
+		CREATE INDEX idx_management_logs_source ON management_logs(source,ts DESC,id DESC);
+		CREATE INDEX idx_management_logs_boot_ts ON management_logs(boot_id,ts DESC,id DESC);`); err != nil {
 		t.Fatal(err)
 	}
 

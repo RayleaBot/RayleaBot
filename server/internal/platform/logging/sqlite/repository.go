@@ -144,11 +144,11 @@ func (r *Repository) ListPage(ctx context.Context, query logging.PageQuery) (log
 	if cursor != nil {
 		switch direction {
 		case logging.PageDirectionOlder:
-			clauses = append(clauses, "("+logTimestampExpr+" < ? OR ("+logTimestampExpr+" = ? AND id < ?))")
-			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
+			clauses = append(clauses, logBoundaryClause(logBoundaryOlder))
+			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
 		case logging.PageDirectionNewer:
-			clauses = append(clauses, "("+logTimestampExpr+" > ? OR ("+logTimestampExpr+" = ? AND id > ?))")
-			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
+			clauses = append(clauses, logBoundaryClause(logBoundaryNewer))
+			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
 		default:
 			return logging.PageResult{}, fmt.Errorf("%w: unsupported direction %q", logging.ErrInvalidCursor, direction)
 		}
@@ -286,14 +286,7 @@ type filterSpec struct {
 	EndAt     string
 }
 
-// 旧记录可能含偏移或可变小数精度。只把整秒交给 SQLite 转 UTC，
-// 小数部分独立补齐，避免 julianday 的毫秒精度吞掉纳秒顺序或边界。
-const logTimestampExpr = `(CASE WHEN length(ts) = 30 AND substr(ts, -1) = 'Z' THEN ts ELSE
- strftime('%Y-%m-%dT%H:%M:%S', substr(ts, 1, 19) ||
-   CASE WHEN substr(ts, -1) = 'Z' THEN 'Z' ELSE substr(ts, -6) END) || '.' ||
- substr((CASE WHEN substr(ts, 20, 1) = '.' THEN
-   substr(ts, 21, length(ts) - 20 - CASE WHEN substr(ts, -1) = 'Z' THEN 1 ELSE 6 END)
-   ELSE '' END) || '000000000', 1, 9) || 'Z' END)`
+const logTimestampExpr = storage.LogTimestampExpression
 
 func normalizeLogQueryTimestamp(value string) string {
 	instant, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(value))
@@ -466,14 +459,12 @@ func scanPagedSummary(scanner interface{ Scan(...any) error }) (pagedSummary, er
 func (r *Repository) hasRows(ctx context.Context, spec filterSpec, boundary logBoundary, marker logCursor) (bool, error) {
 	clauses, args := buildLogFilterClauses(spec)
 	switch boundary {
-	case logBoundaryOlder:
-		clauses = append(clauses, "("+logTimestampExpr+" < ? OR ("+logTimestampExpr+" = ? AND id < ?))")
-	case logBoundaryNewer:
-		clauses = append(clauses, "("+logTimestampExpr+" > ? OR ("+logTimestampExpr+" = ? AND id > ?))")
+	case logBoundaryOlder, logBoundaryNewer:
+		clauses = append(clauses, logBoundaryClause(boundary))
 	default:
 		return false, fmt.Errorf("unsupported log boundary %q", boundary)
 	}
-	args = append(args, marker.Timestamp, marker.Timestamp, marker.RowID)
+	args = append(args, marker.Timestamp, marker.Timestamp, marker.Timestamp, marker.RowID)
 
 	var exists int
 	if err := r.read.QueryRowContext(
@@ -490,6 +481,16 @@ func (r *Repository) hasRows(ctx context.Context, spec filterSpec, boundary logB
 		return false, fmt.Errorf("query management log boundary: %w", err)
 	}
 	return true, nil
+}
+
+func logBoundaryClause(boundary logBoundary) string {
+	comparison := "<"
+	if boundary == logBoundaryNewer {
+		comparison = ">"
+	}
+	// The inclusive bound lets SQLite seek into the expression index before
+	// checking the exact timestamp and row ID boundary.
+	return logTimestampExpr + " " + comparison + "= ? AND (" + logTimestampExpr + " " + comparison + " ? OR (" + logTimestampExpr + " = ? AND id " + comparison + " ?))"
 }
 
 func filterSpecFromPageQuery(q logging.PageQuery) filterSpec {

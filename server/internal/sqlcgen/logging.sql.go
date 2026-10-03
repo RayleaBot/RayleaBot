@@ -79,9 +79,12 @@ func (q *Queries) InsertLogSummary(ctx context.Context, arg InsertLogSummaryPara
 
 const pruneLogsBefore = `-- name: PruneLogsBefore :exec
 DELETE FROM management_logs
-WHERE julianday(ts) < julianday(CAST(?1 AS TEXT))
+WHERE (CASE WHEN ts GLOB '[0-9]*' THEN julianday(ts) ELSE -1 END) < julianday(CAST(?1 AS TEXT))
+    AND julianday(ts) < julianday(CAST(?1 AS TEXT))
 `
 
+// Non-numeric timestamps may be SQLite's dynamic "now" or "subsec" values.
+// Keep them as candidates without evaluating them inside a persistent index.
 func (q *Queries) PruneLogsBefore(ctx context.Context, cutoff string) error {
 	_, err := q.db.ExecContext(ctx, pruneLogsBefore, cutoff)
 	return err

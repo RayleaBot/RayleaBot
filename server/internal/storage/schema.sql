@@ -122,19 +122,47 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_management_logs_log_id
     ON management_logs (log_id);
 
 CREATE INDEX IF NOT EXISTS idx_management_logs_ts
-    ON management_logs (ts DESC, id DESC);
+    ON management_logs ((CASE WHEN length(ts) = 30 AND substr(ts, -1) = 'Z' THEN ts ELSE
+ strftime('%Y-%m-%dT%H:%M:%S', substr(ts, 1, 19) ||
+   CASE WHEN substr(ts, -1) = 'Z' THEN 'Z' ELSE substr(ts, -6) END) || '.' ||
+ substr((CASE WHEN substr(ts, 20, 1) = '.' THEN
+   substr(ts, 21, length(ts) - 20 - CASE WHEN substr(ts, -1) = 'Z' THEN 1 ELSE 6 END)
+   ELSE '' END) || '000000000', 1, 9) || 'Z' END) DESC, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_management_logs_plugin
-    ON management_logs (plugin_id, ts DESC, id DESC);
+    ON management_logs (plugin_id, (CASE WHEN length(ts) = 30 AND substr(ts, -1) = 'Z' THEN ts ELSE
+ strftime('%Y-%m-%dT%H:%M:%S', substr(ts, 1, 19) ||
+   CASE WHEN substr(ts, -1) = 'Z' THEN 'Z' ELSE substr(ts, -6) END) || '.' ||
+ substr((CASE WHEN substr(ts, 20, 1) = '.' THEN
+   substr(ts, 21, length(ts) - 20 - CASE WHEN substr(ts, -1) = 'Z' THEN 1 ELSE 6 END)
+   ELSE '' END) || '000000000', 1, 9) || 'Z' END) DESC, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_management_logs_request
-    ON management_logs (request_id, ts DESC, id DESC);
+    ON management_logs (request_id, (CASE WHEN length(ts) = 30 AND substr(ts, -1) = 'Z' THEN ts ELSE
+ strftime('%Y-%m-%dT%H:%M:%S', substr(ts, 1, 19) ||
+   CASE WHEN substr(ts, -1) = 'Z' THEN 'Z' ELSE substr(ts, -6) END) || '.' ||
+ substr((CASE WHEN substr(ts, 20, 1) = '.' THEN
+   substr(ts, 21, length(ts) - 20 - CASE WHEN substr(ts, -1) = 'Z' THEN 1 ELSE 6 END)
+   ELSE '' END) || '000000000', 1, 9) || 'Z' END) DESC, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_management_logs_source
-    ON management_logs (source, ts DESC, id DESC);
+    ON management_logs (source, (CASE WHEN length(ts) = 30 AND substr(ts, -1) = 'Z' THEN ts ELSE
+ strftime('%Y-%m-%dT%H:%M:%S', substr(ts, 1, 19) ||
+   CASE WHEN substr(ts, -1) = 'Z' THEN 'Z' ELSE substr(ts, -6) END) || '.' ||
+ substr((CASE WHEN substr(ts, 20, 1) = '.' THEN
+   substr(ts, 21, length(ts) - 20 - CASE WHEN substr(ts, -1) = 'Z' THEN 1 ELSE 6 END)
+   ELSE '' END) || '000000000', 1, 9) || 'Z' END) DESC, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_management_logs_boot_ts
-    ON management_logs (boot_id, ts DESC, id DESC);
+    ON management_logs (boot_id, (CASE WHEN length(ts) = 30 AND substr(ts, -1) = 'Z' THEN ts ELSE
+ strftime('%Y-%m-%dT%H:%M:%S', substr(ts, 1, 19) ||
+   CASE WHEN substr(ts, -1) = 'Z' THEN 'Z' ELSE substr(ts, -6) END) || '.' ||
+ substr((CASE WHEN substr(ts, 20, 1) = '.' THEN
+   substr(ts, 21, length(ts) - 20 - CASE WHEN substr(ts, -1) = 'Z' THEN 1 ELSE 6 END)
+   ELSE '' END) || '000000000', 1, 9) || 'Z' END) DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_management_logs_prune
+    ON management_logs ((CASE WHEN ts GLOB '[0-9]*' THEN julianday(ts) ELSE -1 END));
 
 CREATE TABLE IF NOT EXISTS plugin_kv (
     plugin_id TEXT NOT NULL,
