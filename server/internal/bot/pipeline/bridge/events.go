@@ -23,13 +23,17 @@ func (b *Bridge) QueueAdapterEvent(ctx context.Context, event chatevent.Normaliz
 	if !isSupportedEvent(event) {
 		return chatevent.DeliveryOutcomeIgnored, func() {
 			b.recordIgnored(event, now)
-			b.logEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, "reason", "event shape or source is outside the supported adapter contract")
+			if b.logger.Enabled(ctx, slog.LevelDebug) {
+				b.logEnabledEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, slog.String("reason", "event shape or source is outside the supported adapter contract"))
+			}
 		}
 	}
 	if b.dispatcher == nil || !b.dispatcher.HasDeliverablePlugins() {
 		return chatevent.DeliveryOutcomeIgnored, func() {
 			b.recordIgnored(event, now)
-			b.logEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, "reason", "no deliverable plugin runtime is registered")
+			if b.logger.Enabled(ctx, slog.LevelDebug) {
+				b.logEnabledEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, slog.String("reason", "no deliverable plugin runtime is registered"))
+			}
 		}
 	}
 	runtimeEvent := chatevent.FromAdapter(event)
@@ -38,39 +42,45 @@ func (b *Bridge) QueueAdapterEvent(ctx context.Context, event chatevent.Normaliz
 	if len(results) == 0 {
 		return chatevent.DeliveryOutcomeIgnored, func() {
 			b.recordIgnored(event, now)
-			b.logEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, appendCommandName([]any{"reason", "no plugin subscription accepted the event"}, commandName)...)
+			if b.logger.Enabled(ctx, slog.LevelDebug) {
+				b.logEnabledEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, appendCommandName([]slog.Attr{slog.String("reason", "no plugin subscription accepted the event")}, commandName)...)
+			}
 		}
 	}
 	if bridgeDispatchDelivered(results) {
 		return chatevent.DeliveryOutcomeDelivered, func() {
 			b.recordDelivered(event, now)
-			b.logEvent(ctx, slog.LevelInfo, bridgeEventSummary("queued for dispatcher", event), event, appendCommandName(bridgeDispatchLogAttrs(results), commandName)...)
+			if b.logger.Enabled(ctx, slog.LevelInfo) {
+				b.logEnabledEvent(ctx, slog.LevelInfo, bridgeEventSummary("queued for dispatcher", event), event, appendCommandName(bridgeDispatchLogAttrs(results), commandName)...)
+			}
 		}
 	}
 	return chatevent.DeliveryOutcomeError, func() {
 		b.recordError(event, now, codePluginInternalError, "eligible plugin runtimes did not accept the event")
-		extra := append(bridgeDispatchLogAttrs(results), "error_code", codePluginInternalError)
-		b.logEvent(ctx, slog.LevelWarn, bridgeEventSummary("failed to queue for dispatcher", event), event, appendCommandName(extra, commandName)...)
+		if !b.logger.Enabled(ctx, slog.LevelWarn) {
+			return
+		}
+		extra := append(bridgeDispatchLogAttrs(results), slog.String("error_code", codePluginInternalError))
+		b.logEnabledEvent(ctx, slog.LevelWarn, bridgeEventSummary("failed to queue for dispatcher", event), event, appendCommandName(extra, commandName)...)
 	}
 }
 
-// logEvent emits one bridge log line with the shared event attributes. The
-// attribute set clones adapter payloads, so it is only built when the level
-// is enabled.
-func (b *Bridge) logEvent(ctx context.Context, level slog.Level, message string, event chatevent.NormalizedEvent, extra ...any) {
-	if !b.logger.Enabled(ctx, level) {
-		return
-	}
-	attrs := append([]any{"component", "bridge." + chatevent.ProtocolLabel(event.SourceProtocol), "source_protocol", event.SourceProtocol, "source_adapter", event.SourceAdapter}, bridgeEventLogAttrs(event)...)
+// logEnabledEvent requires the caller to check the level before building the
+// summary and extra fields. Its shared attributes also clone adapter payloads.
+func (b *Bridge) logEnabledEvent(ctx context.Context, level slog.Level, message string, event chatevent.NormalizedEvent, extra ...slog.Attr) {
+	eventAttrs := bridgeEventLogAttrs(event)
+	attrs := make([]slog.Attr, 0, 3+len(eventAttrs)+len(extra))
+	attrs = append(attrs, slog.String("component", "bridge."+chatevent.ProtocolLabel(event.SourceProtocol)), slog.String("source_protocol", event.SourceProtocol), slog.String("source_adapter", event.SourceAdapter))
+	attrs = append(attrs, eventAttrs...)
 	attrs = append(attrs, extra...)
-	b.logger.Log(ctx, level, message, attrs...)
+	b.logger.LogAttrs(ctx, level, message, attrs...)
 }
 
-func appendCommandName(attrs []any, commandName string) []any {
+func appendCommandName(attrs []slog.Attr, commandName string) []slog.Attr {
 	if commandName == "" {
 		return attrs
 	}
-	return append(attrs, "command_name", commandName)
+	return append(attrs, slog.String("command_name", commandName))
 }
 
 func (b *Bridge) LogCommandPolicyRejected(event chatevent.NormalizedEvent, rejection chatevent.CommandPolicyRejection) {
@@ -79,26 +89,30 @@ func (b *Bridge) LogCommandPolicyRejected(event chatevent.NormalizedEvent, rejec
 	errorCode := strings.TrimSpace(rejection.ErrorCode)
 	reason := strings.TrimSpace(rejection.Reason)
 	b.recordRejected(event, now, errorCode, reason)
+	ctx := context.Background()
+	if !b.logger.Enabled(ctx, slog.LevelWarn) {
+		return
+	}
 
-	var attrs []any
+	var attrs []slog.Attr
 	if pluginID := strings.TrimSpace(rejection.PluginID); pluginID != "" {
-		attrs = append(attrs, "plugin_id", pluginID)
+		attrs = append(attrs, slog.String("plugin_id", pluginID))
 	}
 	if commandName := strings.TrimSpace(rejection.CommandName); commandName != "" {
-		attrs = append(attrs, "command_name", commandName)
+		attrs = append(attrs, slog.String("command_name", commandName))
 	}
 	if policyStage := strings.TrimSpace(rejection.PolicyStage); policyStage != "" {
-		attrs = append(attrs, "policy_stage", policyStage)
+		attrs = append(attrs, slog.String("policy_stage", policyStage))
 	}
 	if errorCode != "" {
-		attrs = append(attrs, "error_code", errorCode)
+		attrs = append(attrs, slog.String("error_code", errorCode))
 	}
 	if reason != "" {
-		attrs = append(attrs, "reason", reason)
+		attrs = append(attrs, slog.String("reason", reason))
 	}
-	attrs = append(attrs, "matched_plugin_ids", cloneStringSlice(rejection.MatchedPluginIDs))
+	attrs = append(attrs, slog.Any("matched_plugin_ids", cloneStringSlice(rejection.MatchedPluginIDs)))
 
-	b.logEvent(context.Background(), slog.LevelWarn, commandPolicyRejectedSummary(rejection), event, attrs...)
+	b.logEnabledEvent(ctx, slog.LevelWarn, commandPolicyRejectedSummary(rejection), event, attrs...)
 }
 
 func bridgeCommandName(event chatevent.Event) string {
@@ -118,7 +132,7 @@ func bridgeDispatchDelivered(results []dispatch.DeliveryResult) bool {
 	return false
 }
 
-func bridgeDispatchLogAttrs(results []dispatch.DeliveryResult) []any {
+func bridgeDispatchLogAttrs(results []dispatch.DeliveryResult) []slog.Attr {
 	targetCount := len(results)
 	deliveredCount := 0
 	droppedCount := 0
@@ -139,14 +153,14 @@ func bridgeDispatchLogAttrs(results []dispatch.DeliveryResult) []any {
 		}
 	}
 
-	attrs := []any{
-		"target_count", targetCount,
-		"queued_count", deliveredCount,
-		"dropped_count", droppedCount,
-		"failed_count", errorCount,
+	attrs := []slog.Attr{
+		slog.Int("target_count", targetCount),
+		slog.Int("queued_count", deliveredCount),
+		slog.Int("dropped_count", droppedCount),
+		slog.Int("failed_count", errorCount),
 	}
 	if lastErrorCode != "" {
-		attrs = append(attrs, "dispatch_error_code", lastErrorCode)
+		attrs = append(attrs, slog.String("dispatch_error_code", lastErrorCode))
 	}
 	return attrs
 }

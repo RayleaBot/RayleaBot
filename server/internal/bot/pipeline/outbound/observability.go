@@ -34,8 +34,15 @@ type SendLogContext struct {
 	TargetLabel string
 }
 
-func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAttempt, result SendResult, err error) {
+func LogSendOutcome(logger *slog.Logger, logContext SendLogContext, attempt SendAttempt, result SendResult, err error) {
 	if logger == nil {
+		return
+	}
+	level := slog.LevelInfo
+	if err != nil {
+		level = slog.LevelWarn
+	}
+	if !logger.Enabled(context.Background(), level) {
 		return
 	}
 
@@ -59,12 +66,12 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 		plainText = "[empty message]"
 	}
 
-	pluginID := strings.TrimSpace(context.PluginID)
-	requestID := strings.TrimSpace(context.RequestID)
-	commandName := strings.TrimSpace(context.CommandName)
-	botID := strings.TrimSpace(context.BotID)
-	botNickname := strings.TrimSpace(redact.SanitizeString(context.BotNickname))
-	targetLabel := strings.TrimSpace(context.TargetLabel)
+	pluginID := strings.TrimSpace(logContext.PluginID)
+	requestID := strings.TrimSpace(logContext.RequestID)
+	commandName := strings.TrimSpace(logContext.CommandName)
+	botID := strings.TrimSpace(logContext.BotID)
+	botNickname := strings.TrimSpace(redact.SanitizeString(logContext.BotNickname))
+	targetLabel := strings.TrimSpace(logContext.TargetLabel)
 	if targetLabel == "" {
 		targetLabel = formatTargetLabel(targetType, targetID, "")
 	}
@@ -83,54 +90,55 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 	if adapter == "" {
 		adapter = attempt.SourceAdapter
 	}
-	fields := []any{
-		"component", "adapter." + chatevent.ProtocolLabel(protocol),
-		"source_protocol", protocol,
-		"source_adapter", adapter,
-		"target_label", targetLabel,
-		"outcome", chatevent.SendOutcome(err),
-		"direction", "outbound",
-		"action_kind", strings.TrimSpace(attempt.ActionKind),
-		"delivery_kind", deliveryKind,
-		"target_type", targetType,
-		"target_id", targetID,
-		"plain_text", plainText,
-		"segments", cloneOutboundSegments(attempt.Segments),
-	}
+	fields := make([]slog.Attr, 0, 19)
+	fields = append(fields,
+		slog.String("component", "adapter."+chatevent.ProtocolLabel(protocol)),
+		slog.String("source_protocol", protocol),
+		slog.String("source_adapter", adapter),
+		slog.String("target_label", targetLabel),
+		slog.String("outcome", chatevent.SendOutcome(err)),
+		slog.String("direction", "outbound"),
+		slog.String("action_kind", strings.TrimSpace(attempt.ActionKind)),
+		slog.String("delivery_kind", deliveryKind),
+		slog.String("target_type", targetType),
+		slog.String("target_id", targetID),
+		slog.String("plain_text", plainText),
+		slog.Any("segments", cloneOutboundSegments(attempt.Segments)),
+	)
 	if botID != "" {
-		fields = append(fields, "self_id", botID)
+		fields = append(fields, slog.String("self_id", botID))
 	}
 	if botNickname != "" {
-		fields = append(fields, "self_nickname", botNickname)
+		fields = append(fields, slog.String("self_nickname", botNickname))
 	}
 	if pluginID != "" {
-		fields = append(fields, "plugin_id", pluginID)
+		fields = append(fields, slog.String("plugin_id", pluginID))
 	}
 	if requestID != "" {
-		fields = append(fields, "request_id", requestID)
+		fields = append(fields, slog.String("request_id", requestID))
 	}
 	if commandName != "" {
-		fields = append(fields, "command_name", commandName)
+		fields = append(fields, slog.String("command_name", commandName))
 	}
 
 	if err == nil {
 		if messageID := strings.TrimSpace(result.MessageID); messageID != "" {
-			fields = append(fields, "message_id", messageID)
+			fields = append(fields, slog.String("message_id", messageID))
 		}
-		logger.Info("消息已发送："+summary, fields...)
+		logger.LogAttrs(context.Background(), slog.LevelInfo, "消息已发送："+summary, fields...)
 		return
 	}
 
 	errorCode, reason := errorDetails(err)
 	if errorCode != "" {
-		fields = append(fields, "error_code", errorCode)
+		fields = append(fields, slog.String("error_code", errorCode))
 	}
-	fields = append(fields, "reason", reason)
+	fields = append(fields, slog.String("reason", reason))
 	if errorCode == errorcodes.AdapterSendUnconfirmed {
-		logger.Warn("消息发送状态未确认，不自动重发："+summary, fields...)
+		logger.LogAttrs(context.Background(), slog.LevelWarn, "消息发送状态未确认，不自动重发："+summary, fields...)
 		return
 	}
-	logger.Warn("消息发送失败："+summary, fields...)
+	logger.LogAttrs(context.Background(), slog.LevelWarn, "消息发送失败："+summary, fields...)
 }
 
 func errorDetails(err error) (string, string) {

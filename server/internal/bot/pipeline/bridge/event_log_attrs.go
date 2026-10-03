@@ -1,90 +1,92 @@
 package bridge
 
 import (
+	"log/slog"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/redact"
 )
 
-func bridgeEventLogAttrs(event chatevent.NormalizedEvent) []any {
-	attrs := []any{
-		"direction", "inbound",
-		"event_kind", event.Kind,
-		"event_type", event.EventType,
-		"event_timestamp", event.Timestamp,
-		"conversation_type", event.ConversationType,
-		"conversation_id", event.ConversationID,
-		"sender_id", event.SenderID,
-	}
+func bridgeEventLogAttrs(event chatevent.NormalizedEvent) []slog.Attr {
+	attrs := make([]slog.Attr, 0, 30)
+	attrs = append(attrs,
+		slog.String("direction", "inbound"),
+		slog.String("event_kind", event.Kind),
+		slog.String("event_type", event.EventType),
+		slog.Int64("event_timestamp", event.Timestamp),
+		slog.String("conversation_type", event.ConversationType),
+		slog.String("conversation_id", event.ConversationID),
+		slog.String("sender_id", event.SenderID),
+	)
 	if event.BotID != "" {
-		attrs = append(attrs, "self_id", event.BotID)
+		attrs = append(attrs, slog.String("self_id", event.BotID))
 	}
 	if nickname := strings.TrimSpace(redact.SanitizeString(event.BotNickname)); nickname != "" {
-		attrs = append(attrs, "self_nickname", nickname)
+		attrs = append(attrs, slog.String("self_nickname", nickname))
 	}
 	if event.TargetType != "" {
-		attrs = append(attrs, "target_type", event.TargetType)
+		attrs = append(attrs, slog.String("target_type", event.TargetType))
 	}
 	if event.TargetID != "" {
-		attrs = append(attrs, "target_id", event.TargetID)
+		attrs = append(attrs, slog.String("target_id", event.TargetID))
 	}
 	if event.TargetName != "" && event.ConversationType == "group" {
-		attrs = append(attrs, "group_name", redact.SanitizeString(event.TargetName))
+		attrs = append(attrs, slog.String("group_name", redact.SanitizeString(event.TargetName)))
 	}
 	if event.MessageID != "" {
-		attrs = append(attrs, "message_id", event.MessageID)
+		attrs = append(attrs, slog.String("message_id", event.MessageID))
 	}
 	if event.PlainText != "" {
-		attrs = append(attrs, "plain_text", event.PlainText)
+		attrs = append(attrs, slog.String("plain_text", event.PlainText))
 	}
 	if len(event.Segments) > 0 {
-		attrs = append(attrs, "segments", bridgeSegmentsToAny(event.Segments))
+		attrs = append(attrs, slog.Any("segments", bridgeSegmentsToAny(event.Segments)))
 	}
 	if onebot := bridgeEventOneBotPayload(event); len(onebot) > 0 {
 		if value, ok := onebot["post_type"]; ok {
-			attrs = append(attrs, "post_type", value)
+			attrs = append(attrs, slog.Any("post_type", value))
 		}
 		if value, ok := onebot["message_type"]; ok {
-			attrs = append(attrs, "message_type", value)
+			attrs = append(attrs, slog.Any("message_type", value))
 		}
 		if value, ok := onebot["time"]; ok {
-			attrs = append(attrs, "time", value)
+			attrs = append(attrs, slog.Any("time", value))
 		}
 		if value, ok := onebot["user_id"]; ok {
-			attrs = append(attrs, "user_id", value)
+			attrs = append(attrs, slog.Any("user_id", value))
 		}
 		if value, ok := onebot["group_id"]; ok {
-			attrs = append(attrs, "group_id", value)
+			attrs = append(attrs, slog.Any("group_id", value))
 		}
 		if value, ok := onebot["real_id"]; ok {
-			attrs = append(attrs, "real_id", value)
+			attrs = append(attrs, slog.Any("real_id", value))
 		}
 		if value, ok := onebot["message_seq"]; ok {
-			attrs = append(attrs, "message_seq", value)
+			attrs = append(attrs, slog.Any("message_seq", value))
 		}
 		if value, ok := onebot["raw_message"]; ok {
-			attrs = append(attrs, "raw_message", value)
+			attrs = append(attrs, slog.Any("raw_message", value))
 		}
 		if value, ok := onebot["message_format"]; ok {
-			attrs = append(attrs, "message_format", value)
+			attrs = append(attrs, slog.Any("message_format", value))
 		}
 		if value, ok := onebot["font"]; ok {
-			attrs = append(attrs, "font", value)
+			attrs = append(attrs, slog.Any("font", value))
 		}
 		if sender, ok := onebot["sender"].(map[string]any); ok && len(sender) > 0 {
-			attrs = append(attrs, "sender", cloneBridgeData(sender))
+			attrs = append(attrs, slog.Any("sender", cloneBridgeData(sender)))
 			if value, ok := sender["nickname"]; ok {
-				attrs = append(attrs, "sender_nickname", value)
+				attrs = append(attrs, slog.Any("sender_nickname", value))
 			}
 			if value, ok := sender["card"]; ok {
-				attrs = append(attrs, "sender_card", value)
+				attrs = append(attrs, slog.Any("sender_card", value))
 			}
 			if value, ok := sender["role"]; ok {
-				attrs = append(attrs, "sender_role", value)
+				attrs = append(attrs, slog.Any("sender_role", value))
 			}
 			if value, ok := sender["title"]; ok {
-				attrs = append(attrs, "sender_title", value)
+				attrs = append(attrs, slog.Any("sender_title", value))
 			}
 		}
 	}

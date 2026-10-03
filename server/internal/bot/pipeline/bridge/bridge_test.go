@@ -1,7 +1,9 @@
 package bridge
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"reflect"
@@ -32,6 +34,73 @@ func TestObservabilitySubscriptionIncludesEarlierUnobservedCounts(t *testing.T) 
 		}
 	case <-time.After(time.Second):
 		t.Fatal("subscriber did not receive the current counters")
+	}
+}
+
+func TestFilteredLogsPreserveOutcomesAndFollowLevelChanges(t *testing.T) {
+	var output bytes.Buffer
+	var level slog.LevelVar
+	level.Set(slog.LevelError)
+	logger := slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{Level: &level}))
+	client := &recordingDispatcher{deliverable: true, results: []dispatch.DeliveryResult{{PluginID: "fixture", Outcome: dispatch.OutcomeDelivered}}}
+	pipeline := New(logger, client)
+	frames, unsubscribe := pipeline.SubscribeObservability(4)
+	defer unsubscribe()
+	event := supportedAdapterEvent()
+	pipeline.HandleAdapterEvent(t.Context(), event)
+	client.results[0].Outcome = dispatch.OutcomeError
+	pipeline.HandleAdapterEvent(t.Context(), event)
+	client.deliverable = false
+	pipeline.HandleAdapterEvent(t.Context(), event)
+	pipeline.LogCommandPolicyRejected(event, chatevent.CommandPolicyRejection{Reason: "fixture", ErrorCode: "fixture.rejected"})
+	stats := pipeline.Snapshot()
+	if output.Len() != 0 || stats.AcceptedCount != 3 || stats.DeliveredCount != 1 || stats.ResultCount != 1 || stats.ErrorCount != 1 || stats.IgnoredCount != 1 || stats.RejectedCount != 1 {
+		t.Fatalf("filtered logging changed outcomes: %+v, output=%q", stats, output.String())
+	}
+	for _, want := range []chatevent.DeliveryOutcome{chatevent.DeliveryOutcomeDelivered, chatevent.DeliveryOutcomeError} {
+		select {
+		case frame := <-frames:
+			if got := frame.Data.(ObservabilityData); got.LastDeliveryOutcome != want || got.DeliveredCount != 1 {
+				t.Fatalf("filtered logging changed observability: %+v", got)
+			}
+		default:
+			t.Fatal("filtered logging skipped an observability frame")
+		}
+	}
+	level.Set(slog.LevelInfo)
+	client.deliverable = true
+	client.results[0].Outcome = dispatch.OutcomeDelivered
+	pipeline.HandleAdapterEvent(t.Context(), event)
+	var record map[string]any
+	if err := json.Unmarshal(output.Bytes(), &record); err != nil || record["level"] != "INFO" || record["event_type"] != event.EventType {
+		t.Fatalf("level update did not restore the event log: %s, %v", output.Bytes(), err)
+	}
+}
+
+type fixtureBridgeLogValue struct{}
+
+func (fixtureBridgeLogValue) LogValue() slog.Value {
+	return slog.GroupValue(slog.Int("number", 7), slog.String("text", "fixture"))
+}
+
+func TestBridgeLogsKeepScopedAttributesAndDynamicValues(t *testing.T) {
+	var output bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&output, nil)).With("scope", "fixture").WithGroup("event").With("sender_id", "shadowed")
+	client := &recordingDispatcher{deliverable: true, results: []dispatch.DeliveryResult{{PluginID: "fixture", Outcome: dispatch.OutcomeDelivered}}}
+	event := supportedAdapterEvent()
+	event.PayloadFields["onebot"].(map[string]any)["font"] = fixtureBridgeLogValue{}
+	New(logger, client).HandleAdapterEvent(t.Context(), event)
+	var record map[string]any
+	if err := json.Unmarshal(output.Bytes(), &record); err != nil {
+		t.Fatal(err)
+	}
+	details := record["event"].(map[string]any)
+	font := details["font"].(map[string]any)
+	if record["scope"] != "fixture" || details["sender_id"] != event.SenderID || details["queued_count"] != float64(1) || font["number"] != float64(7) || font["text"] != "fixture" {
+		t.Fatalf("scoped log attributes changed: %s", output.Bytes())
+	}
+	if strings.Count(output.String(), `"sender_id":`) != 2 || strings.Index(output.String(), `"sender_id":"shadowed"`) > strings.Index(output.String(), `"sender_id":"`+event.SenderID+`"`) {
+		t.Fatalf("duplicate attribute order changed: %s", output.Bytes())
 	}
 }
 
@@ -596,9 +665,8 @@ func TestBridgeEventLogAttrsIncludeBotNickname(t *testing.T) {
 	})
 
 	attrMap := make(map[string]any, len(attrs)/2)
-	for index := 0; index+1 < len(attrs); index += 2 {
-		key, _ := attrs[index].(string)
-		attrMap[key] = attrs[index+1]
+	for _, attr := range attrs {
+		attrMap[attr.Key] = attr.Value.Any()
 	}
 
 	if attrMap["self_id"] != "10001" || attrMap["self_nickname"] != "测试机器人" {
@@ -703,9 +771,8 @@ func TestBridgeEventLogAttrsIncludeBotIDAndGroupName(t *testing.T) {
 	})
 
 	attrMap := make(map[string]any, len(attrs)/2)
-	for index := 0; index+1 < len(attrs); index += 2 {
-		key, _ := attrs[index].(string)
-		attrMap[key] = attrs[index+1]
+	for _, attr := range attrs {
+		attrMap[attr.Key] = attr.Value.Any()
 	}
 
 	if attrMap["self_id"] != "10001" {

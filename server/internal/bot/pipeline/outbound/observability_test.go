@@ -1,7 +1,9 @@
 package outbound
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"testing"
@@ -11,6 +13,47 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 )
+
+type countedSendFailure struct{ formatted *int }
+
+func (failure countedSendFailure) Error() string {
+	(*failure.formatted)++
+	return "fixture failure"
+}
+
+func TestSendLoggingFollowsLevelChangesWithoutFormattingFilteredFailures(t *testing.T) {
+	var output bytes.Buffer
+	var level slog.LevelVar
+	level.Set(slog.LevelError)
+	logger := slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{Level: &level})).WithGroup("send").With("target_id", "shadowed")
+	attempt := SendAttempt{ActionKind: "message.send", TargetType: "group", TargetID: "200", Segments: []chatevent.MessageSegment{{Type: "text", Data: map[string]any{"text": "fixture"}}}}
+	formatted := 0
+	failure := countedSendFailure{formatted: &formatted}
+	LogSendOutcome(logger, SendLogContext{}, attempt, SendResult{}, failure)
+	if output.Len() != 0 || formatted != 0 {
+		t.Fatalf("filtered failure was formatted: output=%q calls=%d", output.String(), formatted)
+	}
+	level.Set(slog.LevelWarn)
+	LogSendOutcome(logger, SendLogContext{}, attempt, SendResult{}, nil)
+	if output.Len() != 0 {
+		t.Fatal("INFO send log escaped the WARN threshold")
+	}
+	LogSendOutcome(logger, SendLogContext{}, attempt, SendResult{}, failure)
+	var record map[string]any
+	if err := json.Unmarshal(output.Bytes(), &record); err != nil {
+		t.Fatal(err)
+	}
+	details := record["send"].(map[string]any)
+	if record["level"] != "WARN" || details["target_id"] != "200" || details["reason"] != "fixture failure" || formatted != 1 {
+		t.Fatalf("enabled failure log changed: %s, formatted=%d", output.Bytes(), formatted)
+	}
+	output.Reset()
+	level.Set(slog.LevelInfo)
+	LogSendOutcome(logger, SendLogContext{}, attempt, SendResult{}, nil)
+	if err := json.Unmarshal(output.Bytes(), &record); err != nil || record["level"] != "INFO" {
+		t.Fatalf("INFO logging was not restored: %s, %v", output.Bytes(), err)
+	}
+}
 
 func newObservabilityTestLogger() (*slog.Logger, *logging.Stream) {
 	stream := logging.NewStream(16)
