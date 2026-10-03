@@ -100,19 +100,26 @@ func TestQueryCombinesPersistedAndPendingHours(t *testing.T) {
 	}{
 		{"hour", "UTC", "2026-05-02T05:00:00Z", "2026-05-02T06:00:00Z", "hour"},
 		{"day", "America/New_York", "2026-03-08T05:00:00Z", "2026-03-09T04:00:00Z", "day"},
+		{"fractional_day", "Asia/Kolkata", "2026-09-30T18:30:00Z", "2026-10-01T18:30:00Z", "day"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, clock, _ := newStats(t, tc.zone, "2026-01-01T00:00:00Z")
 			start, _ := time.Parse(time.RFC3339, tc.start)
 			end, _ := time.Parse(time.RFC3339, tc.end)
 			previous := start.Add(-end.Sub(start))
+			offsets := []time.Duration{30 * time.Minute}
+			if tc.unit == "day" {
+				offsets = append(offsets, end.Sub(start)-30*time.Minute)
+			}
 			for batch := range 2 {
 				for _, at := range []time.Time{previous, start} {
-					clock.ms.Store(at.Add(30 * time.Minute).UnixMilli())
-					for _, id := range []string{"bot", "removed"} {
-						receive(s, id)
-						if batch == 1 {
-							s.Sent(id, "onebot11")
+					for _, offset := range offsets {
+						clock.ms.Store(at.Add(offset).UnixMilli())
+						for _, id := range []string{"bot", "removed"} {
+							receive(s, id)
+							if batch == 1 {
+								s.Sent(id, "onebot11")
+							}
 						}
 					}
 				}
@@ -124,11 +131,12 @@ func TestQueryCombinesPersistedAndPendingHours(t *testing.T) {
 			}
 			clock.ms.Store(end.UnixMilli())
 			before := queryStats(t, s, tc.start, tc.end, tc.unit)
-			if before.Totals != (Counts{4, 2}) || before.Previous == nil || *before.Previous != (Counts{4, 2}) || len(before.Connections) != 2 {
+			hours := int64(len(offsets))
+			if before.Totals != (Counts{4 * hours, 2 * hours}) || before.Previous == nil || *before.Previous != (Counts{4 * hours, 2 * hours}) || len(before.Connections) != 2 {
 				t.Fatalf("lost persisted or pending counts: %+v", before)
 			}
 			for _, connection := range before.Connections {
-				if connection.Totals != (Counts{2, 1}) || connection.Previous == nil || *connection.Previous != (Counts{2, 1}) || !reflect.DeepEqual(connection.Received, []int64{2}) || !reflect.DeepEqual(connection.Sent, []int64{1}) {
+				if connection.Totals != (Counts{2 * hours, hours}) || connection.Previous == nil || *connection.Previous != (Counts{2 * hours, hours}) || !reflect.DeepEqual(connection.Received, []int64{2 * hours}) || !reflect.DeepEqual(connection.Sent, []int64{hours}) {
 					t.Fatalf("mixed connection or hour aggregates: %+v", connection)
 				}
 			}
@@ -139,6 +147,33 @@ func TestQueryCombinesPersistedAndPendingHours(t *testing.T) {
 				t.Fatalf("flush changed combined counts: before=%+v after=%+v", before, after)
 			}
 		})
+	}
+}
+
+func TestPartialDayQueryKeepsPendingHoursWithinDisplayedBuckets(t *testing.T) {
+	s, clock, _ := newStats(t, "UTC", "2026-09-20T00:00:00Z")
+	for _, input := range []struct{ at, adapter string }{
+		{"2026-10-01T10:00:00Z", "bot"},
+		{"2026-10-02T12:00:00Z", "bot"},
+		{"2026-10-03T10:00:00Z", "future"},
+		{"2026-09-29T12:00:00Z", "previous"},
+		{"2026-09-29T13:00:00Z", "outside"},
+	} {
+		clock.set(input.at)
+		receive(s, input.adapter)
+	}
+	clock.set("2026-10-02T12:00:00.001Z")
+	view := queryStats(t, s, "2026-10-01T00:00:00Z", "2026-10-04T00:00:00Z", "day")
+	if len(view.Buckets) != 2 || view.Totals != (Counts{Received: 2}) || view.Previous == nil || *view.Previous != (Counts{Received: 1}) || len(view.Connections) != 2 || view.Connections[1].AdapterID != "previous" {
+		t.Fatalf("pending hours escaped the partial range: %+v", view)
+	}
+	if !reflect.DeepEqual(view.Connections[0].Received, []int64{1, 1}) {
+		t.Fatalf("pending hours crossed day buckets: %+v", view.Connections[0])
+	}
+	clock.set("2026-10-02T12:00:00Z")
+	view = queryStats(t, s, "2026-10-01T00:00:00Z", "2026-10-04T00:00:00Z", "day")
+	if view.Previous == nil || *view.Previous != (Counts{}) || len(view.Connections) != 1 {
+		t.Fatalf("previous interval included its exclusive end: %+v", view)
 	}
 }
 

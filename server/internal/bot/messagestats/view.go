@@ -69,14 +69,18 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 	view := Response{Granularity: r.granularity, Timezone: s.location.String(), StartAt: r.start, EndAt: r.end, AsOf: now, TrackingStartedAt: s.tracking,
 		Buckets: []time.Time{}, Connections: []Connection{}, Incidents: []Incident{}}
 	first := floor(s.tracking, r.granularity, s.location)
-	bucketIndex := make(map[int64]int)
-	for _, b := range r.buckets {
+	var bucketEnd int64
+	for index, b := range r.buckets {
 		if !b.Before(first) && b.Before(now) {
-			bucketIndex[b.Unix()] = len(view.Buckets)
 			view.Buckets = append(view.Buckets, b)
+			bucketEnd = r.end.Unix()
+			if index+1 < len(r.buckets) {
+				bucketEnd = r.buckets[index+1].Unix()
+			}
 		}
 	}
 	previousEnd := minTime(r.end, now).Add(-length)
+	previousFrom, previousThrough := ceilUnixSecond(previousStart), ceilUnixSecond(previousEnd)
 	if hasPrevious {
 		view.Previous = &Counts{}
 	}
@@ -92,31 +96,45 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 		connections[id] = c
 		return c
 	}
-	type hourPosition struct {
-		index               int
-		inRange, inPrevious bool
+	var bucketStart, cachedStart, cachedEnd int64
+	if len(view.Buckets) > 0 {
+		bucketStart = view.Buckets[0].Unix()
 	}
-	positions := make(map[int64]hourPosition)
-	add := func(start int64, adapter string, value Counts) {
-		position, known := positions[start]
-		if !known {
-			hour := time.Unix(start, 0).UTC()
-			bucket := floor(hour, r.granularity, s.location)
-			position.index, position.inRange = bucketIndex[bucket.Unix()]
-			position.inPrevious = hasPrevious && !hour.Before(previousStart) && hour.Before(previousEnd)
-			positions[start] = position
+	cachedIndex := 0
+	locate := func(start int64) (int, bool) {
+		if len(view.Buckets) == 0 || start < bucketStart || start >= bucketEnd {
+			return 0, false
 		}
-		if !position.inRange && !position.inPrevious {
+		if r.granularity == "hour" {
+			return int((start - bucketStart) / 3600), true
+		}
+		if start < cachedStart || start >= cachedEnd {
+			// Reuse the calendar boundaries from alignment, including short/long
+			// days. The fallback also handles unordered pending hours.
+			cachedIndex = sort.Search(len(view.Buckets), func(index int) bool {
+				return view.Buckets[index].Unix() > start
+			}) - 1
+			cachedStart, cachedEnd = view.Buckets[cachedIndex].Unix(), bucketEnd
+			if cachedIndex+1 < len(view.Buckets) {
+				cachedEnd = view.Buckets[cachedIndex+1].Unix()
+			}
+		}
+		return cachedIndex, true
+	}
+	add := func(start int64, adapter string, value Counts) {
+		index, inRange := locate(start)
+		inPrevious := hasPrevious && start >= previousFrom && start < previousThrough
+		if !inRange && !inPrevious {
 			return
 		}
 		c := connection(adapter)
-		if position.inRange {
-			c.Received[position.index] += value.Received
-			c.Sent[position.index] += value.Sent
+		if inRange {
+			c.Received[index] += value.Received
+			c.Sent[index] += value.Sent
 			c.Totals.add(value)
 			view.Totals.add(value)
 		}
-		if position.inPrevious {
+		if inPrevious {
 			c.Previous.add(value)
 			view.Previous.add(value)
 		}
@@ -187,10 +205,7 @@ func (s *Service) querySnapshot(ctx context.Context, from, start, end time.Time)
 	defer s.ioMu.Unlock()
 	now := s.timeNow()
 	through := minTime(end, now)
-	endSecond := through.Unix()
-	if through.Nanosecond() != 0 {
-		endSecond++
-	}
+	endSecond := ceilUnixSecond(through)
 	q := sqlcgen.New(s.store.Read)
 	var snapshot querySnapshot
 	var err error
@@ -270,4 +285,12 @@ func minTime(a, b time.Time) time.Time {
 		return a
 	}
 	return b
+}
+
+func ceilUnixSecond(instant time.Time) int64 {
+	second := instant.Unix()
+	if instant.Nanosecond() != 0 {
+		second++
+	}
+	return second
 }
