@@ -20,9 +20,11 @@ type Entry struct {
 }
 
 type pluginStream struct {
-	history     []Entry
-	historySize int
-	hub         pubsub.Hub[Entry]
+	history      []Entry
+	historyHead  int
+	historyCount int
+	historySize  int
+	hub          pubsub.Hub[Entry]
 }
 
 type Stream struct {
@@ -56,8 +58,8 @@ func (s *Stream) Snapshot(pluginID string) []Entry {
 		return nil
 	}
 
-	cloned := make([]Entry, len(state.history))
-	copy(cloned, state.history)
+	cloned := make([]Entry, state.historyCount)
+	state.copyHistory(cloned)
 	return cloned
 }
 
@@ -71,28 +73,43 @@ func (s *Stream) Append(entry Entry) {
 		entry.Timestamp = time.Now().UTC()
 	}
 
-	entrySize := len([]byte(entry.Text))
-	if entrySize <= 0 {
-		return
-	}
+	entrySize := len(entry.Text)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	state := s.ensurePluginLocked(entry.PluginID)
-	for len(state.history) >= s.maxEntries || state.historySize+entrySize > s.maxBytes {
-		if len(state.history) == 0 {
+	for state.historyCount >= s.maxEntries || state.historySize+entrySize > s.maxBytes {
+		if state.historyCount == 0 {
 			break
 		}
-		removed := state.history[0]
-		state.history = append([]Entry(nil), state.history[1:]...)
-		state.historySize -= len([]byte(removed.Text))
+		state.historySize -= len(state.history[state.historyHead].Text)
+		state.history[state.historyHead] = Entry{}
+		state.historyHead = (state.historyHead + 1) % len(state.history)
+		state.historyCount--
 	}
 
-	state.history = append(state.history, entry)
+	if state.historyCount == len(state.history) {
+		history := make([]Entry, min(s.maxEntries, max(1, len(state.history)*2)))
+		state.copyHistory(history)
+		state.history, state.historyHead = history, 0
+	}
+	state.history[(state.historyHead+state.historyCount)%len(state.history)] = entry
+	state.historyCount++
 	state.historySize += entrySize
 
 	state.hub.PublishReplace(entry)
+}
+
+// copyHistory keeps snapshots chronological even after the bounded buffer wraps.
+// Callers hold the owning Stream's lock.
+func (state *pluginStream) copyHistory(destination []Entry) {
+	if state.historyCount == 0 {
+		return
+	}
+	first := min(state.historyCount, len(state.history)-state.historyHead)
+	copy(destination, state.history[state.historyHead:state.historyHead+first])
+	copy(destination[first:], state.history[:state.historyCount-first])
 }
 
 func (s *Stream) Subscribe(pluginID string, buffer int) (<-chan Entry, func()) {
