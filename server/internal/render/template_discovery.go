@@ -13,6 +13,10 @@ import (
 )
 
 func DiscoverSeeds(repoRoot, root string, logger *slog.Logger) (map[string]Seed, error) {
+	return discoverSeeds(repoRoot, root, logger, CompileBundle)
+}
+
+func discoverSeeds(repoRoot, root string, logger *slog.Logger, compile func(SourceBundle) (*CompiledTemplate, []TemplateValidationIssue, error)) (map[string]Seed, error) {
 	if root == "" {
 		return map[string]Seed{}, nil
 	}
@@ -40,7 +44,7 @@ func DiscoverSeeds(repoRoot, root string, logger *slog.Logger) (map[string]Seed,
 		}
 
 		templateDir := filepath.Join(root, entry.Name())
-		seed, err := LoadSeed(templateDir)
+		seed, err := loadSeed(templateDir, compile)
 		if err != nil {
 			if logger != nil {
 				templateDirDisplay := logpath.Display(repoRoot, templateDir)
@@ -61,6 +65,10 @@ func DiscoverSeeds(repoRoot, root string, logger *slog.Logger) (map[string]Seed,
 }
 
 func LoadSeed(templateDir string) (Seed, error) {
+	return loadSeed(templateDir, CompileBundle)
+}
+
+func loadSeed(templateDir string, compile func(SourceBundle) (*CompiledTemplate, []TemplateValidationIssue, error)) (Seed, error) {
 	manifestPath := filepath.Join(templateDir, ManifestFilename)
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
@@ -121,7 +129,7 @@ func LoadSeed(templateDir string) (Seed, error) {
 	if err != nil {
 		return Seed{}, err
 	}
-	compiled, issues, err := CompileBundle(bundle)
+	compiled, issues, err := compile(bundle)
 	if err != nil {
 		return Seed{}, err
 	}

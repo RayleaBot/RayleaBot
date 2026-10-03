@@ -159,12 +159,19 @@ func TestServiceRejectsTemplateSourceConflicts(t *testing.T) {
 		}
 	})
 
+	request := Request{Template: "plugin.weather-card.card", Data: map[string]any{"title": "system owner"}}
+	if _, err := service.Render(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
 	err = service.SyncPluginTemplates(context.Background(), []Source{{
 		PluginID: "weather-card",
 		Dir:      pluginTemplateDir,
 	}})
 	if err == nil {
 		t.Fatal("expected source conflict to be rejected")
+	}
+	if _, err := service.Render(context.Background(), request); err != nil {
+		t.Fatalf("source conflict affected the current owner: %v", err)
 	}
 }
 
@@ -214,6 +221,12 @@ func TestServiceRemovePluginTemplatesKeepsArtifacts(t *testing.T) {
 	}
 	if err := service.RemovePluginTemplates(context.Background(), "weather-card"); err != nil {
 		t.Fatalf("RemovePluginTemplates: %v", err)
+	}
+	service.templateCompiler.mu.Lock()
+	_, retained := service.templateCompiler.entries["plugin.weather-card.card"]
+	service.templateCompiler.mu.Unlock()
+	if retained {
+		t.Fatal("removed plugin template retains its compiled source")
 	}
 
 	items, err := service.ListTemplates(context.Background())

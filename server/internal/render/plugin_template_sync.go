@@ -58,22 +58,46 @@ func (s *Service) SyncPluginTemplates(ctx context.Context, sources []Source) err
 		}
 	}
 
-	for pluginID, keepIDs := range prepared.KeepByPlugin {
-		if err := s.templateRepo.RemovePluginTemplatesExcept(ctx, pluginID, keepIDs); err != nil {
-			return err
-		}
-	}
-	if err := s.templateRepo.RemovePluginTemplatesNotIn(ctx, prepared.ActivePluginIDs); err != nil {
+	if err := s.removeUnregisteredPluginTemplates(ctx, prepared); err != nil {
 		return err
 	}
 	s.logTemplateSync(updated, "plugin")
 	return nil
 }
 
+func (s *Service) removeUnregisteredPluginTemplates(ctx context.Context, prepared PreparedSync) error {
+	s.templateCompiler.mu.Lock()
+	defer s.templateCompiler.mu.Unlock()
+	for pluginID, keepIDs := range prepared.KeepByPlugin {
+		if err := s.templateRepo.RemovePluginTemplatesExcept(ctx, pluginID, keepIDs); err != nil {
+			return err
+		}
+		keep := make(map[string]struct{}, len(keepIDs))
+		for _, id := range keepIDs {
+			keep[id] = struct{}{}
+		}
+		s.templateCompiler.removeExceptLocked("plugin", pluginID, keep)
+	}
+	if err := s.templateRepo.RemovePluginTemplatesNotIn(ctx, prepared.ActivePluginIDs); err != nil {
+		return err
+	}
+	keep := make(map[string]struct{}, len(prepared.Templates))
+	for _, item := range prepared.Templates {
+		keep[item.TemplateID] = struct{}{}
+	}
+	s.templateCompiler.removeExceptLocked("plugin", "", keep)
+	return nil
+}
+
 func (s *Service) RemovePluginTemplates(ctx context.Context, pluginID string) error {
+	s.templateSyncMu.Lock()
+	defer s.templateSyncMu.Unlock()
+	s.templateCompiler.mu.Lock()
+	defer s.templateCompiler.mu.Unlock()
 	if err := s.templateRepo.RemovePluginTemplatesExcept(ctx, pluginID, nil); err != nil {
 		return err
 	}
+	s.templateCompiler.removeExceptLocked("plugin", pluginID, nil)
 
 	prefix := Prefix(pluginID)
 	s.templateRoots.RemovePrefix(prefix)

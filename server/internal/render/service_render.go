@@ -136,7 +136,12 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 }
 
 func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) (*CompiledTemplate, string, string, string, error) {
-	if _, err := s.getTemplate(ctx, request.Template); err != nil {
+	// Keep the database read and cache publication together with deletion so an
+	// in-flight render cannot repopulate a removed template's compilation.
+	s.templateCompiler.mu.Lock()
+	defer s.templateCompiler.mu.Unlock()
+	detail, err := s.getTemplate(ctx, request.Template)
+	if err != nil {
 		return nil, "", "", "", err
 	}
 	sourceDigest, source, err := s.templateRepo.GetCurrentSource(ctx, request.Template)
@@ -158,7 +163,7 @@ func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) 
 			Err:     err,
 		}
 	}
-	compiled, issues, err := CompileBundle(bundle)
+	compiled, issues, err := s.templateCompiler.compileLocked(bundle, detail.Source)
 	if err != nil {
 		return nil, "", "", "", fmt.Errorf("compile current render template %s: %w", request.Template, err)
 	}

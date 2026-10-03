@@ -149,7 +149,7 @@ func (s *Service) LookupTemplateAsset(ctx context.Context, templateID string, re
 	if relativePath == "" {
 		return TemplateAsset{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
-	if _, err := s.GetTemplate(ctx, templateID); err != nil {
+	if _, err := s.getTemplate(ctx, templateID); err != nil {
 		return TemplateAsset{}, err
 	}
 

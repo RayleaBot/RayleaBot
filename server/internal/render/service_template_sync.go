@@ -10,7 +10,7 @@ import (
 func (s *Service) syncTemplatesFromFiles(ctx context.Context) error {
 	s.templateSyncMu.Lock()
 	defer s.templateSyncMu.Unlock()
-	seeds, err := DiscoverSeeds(s.repoRoot, s.templatesRoot, s.logger)
+	seeds, err := discoverSeeds(s.repoRoot, s.templatesRoot, s.logger, s.templateCompiler.compileSystem)
 	if err != nil {
 		return err
 	}
@@ -25,10 +25,24 @@ func (s *Service) syncTemplatesFromFiles(ctx context.Context) error {
 			updated++
 		}
 	}
-	if err := s.templateRepo.RemoveSystemTemplatesExcept(ctx, ids); err != nil {
+	if err := s.removeSystemTemplatesExcept(ctx, ids); err != nil {
 		return err
 	}
 	s.logTemplateSync(updated, "system")
+	return nil
+}
+
+func (s *Service) removeSystemTemplatesExcept(ctx context.Context, ids []string) error {
+	s.templateCompiler.mu.Lock()
+	defer s.templateCompiler.mu.Unlock()
+	if err := s.templateRepo.RemoveSystemTemplatesExcept(ctx, ids); err != nil {
+		return err
+	}
+	keep := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		keep[id] = struct{}{}
+	}
+	s.templateCompiler.removeExceptLocked("system", "", keep)
 	return nil
 }
 
@@ -38,6 +52,9 @@ func (s *Service) syncTemplateSeed(ctx context.Context, id string, seed Seed, ow
 		Source: seed.Compiled.Bundle.Source, Owner: owner,
 	})
 	if err != nil {
+		s.templateCompiler.mu.Lock()
+		delete(s.templateCompiler.entries, id)
+		s.templateCompiler.mu.Unlock()
 		return false, err
 	}
 	s.rememberTemplateRoot(id, templateDir, resourceRoot)

@@ -138,17 +138,18 @@ type TemplateAsset struct {
 }
 
 type Service struct {
-	repoRoot       string
-	templatesRoot  string
-	outputRoot     string
-	browserPath    string
-	browserArgs    []string
-	worker         *Worker
-	logger         *slog.Logger
-	templateRepo   *templateRepository
-	templateSyncMu sync.Mutex
-	templateRoots  *Roots
-	inspectRuntime func(string) (*deps.BootstrapInspection, error)
+	repoRoot         string
+	templatesRoot    string
+	outputRoot       string
+	browserPath      string
+	browserArgs      []string
+	worker           *Worker
+	logger           *slog.Logger
+	templateRepo     *templateRepository
+	templateSyncMu   sync.Mutex
+	templateCompiler templateCompiler
+	templateRoots    *Roots
+	inspectRuntime   func(string) (*deps.BootstrapInspection, error)
 
 	mu sync.RWMutex
 
