@@ -103,7 +103,6 @@ func (s *Stream) Append(summary Summary) {
 	if summary.BootID == "" {
 		summary.BootID = bootID
 	}
-	summary = NormalizeSummary(summary)
 
 	if repository == nil {
 		s.appendInMemory(summary)

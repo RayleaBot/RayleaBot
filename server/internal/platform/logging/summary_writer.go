@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/redact"
 )
@@ -48,13 +49,13 @@ func (w *SummaryWriter) Write(p []byte) (int, error) {
 			break
 		}
 
-		line := append([]byte(nil), buffered[:index+1]...)
+		line := buffered[:index+1]
 		w.buf.Next(index + 1)
-		line = w.normalizeLine(line)
+		line, body := w.normalizeLine(line)
 		if _, err := w.out.Write(line); err != nil {
 			return len(p), err
 		}
-		if summary, ok := summaryFromJSONLine(line); ok {
+		if summary, ok := summaryFromObject(body); ok {
 			if w.stream != nil {
 				w.stream.Append(summary)
 			}
@@ -64,30 +65,36 @@ func (w *SummaryWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (w *SummaryWriter) normalizeLine(line []byte) []byte {
+func (w *SummaryWriter) normalizeLine(line []byte) ([]byte, map[string]any) {
 	redactor := func(text string) string {
 		if w.redact != nil {
 			text = w.redact(text)
 		}
-		return redact.SensitiveText(text)
+		text = redact.SensitiveText(text)
+		// Match encoding/json's replacement of invalid UTF-8 before the same
+		// decoded object is used for both the output and the management view.
+		if !utf8.ValidString(text) {
+			text = string([]rune(text))
+		}
+		return text
 	}
-	if redacted, ok := redactJSONLine(line, redactor); ok {
-		return redacted
+	if redacted, body, ok := normalizeJSONLine(line, redactor); ok {
+		return redacted, body
 	}
 
 	trimmed := strings.TrimRight(string(line), "\r\n")
-	return append([]byte(redactor(trimmed)), '\n')
+	return append([]byte(redactor(trimmed)), '\n'), nil
 }
 
-func redactJSONLine(line []byte, redact func(string) string) ([]byte, bool) {
+func normalizeJSONLine(line []byte, redact func(string) string) ([]byte, map[string]any, bool) {
 	trimmed := bytes.TrimSpace(line)
 	if len(trimmed) == 0 {
-		return line, false
+		return line, nil, false
 	}
 
 	var body any
 	if err := json.Unmarshal(trimmed, &body); err != nil {
-		return nil, false
+		return nil, nil, false
 	}
 
 	redacted := redactJSONValue(body, redact)
@@ -96,10 +103,11 @@ func redactJSONLine(line []byte, redact func(string) string) ([]byte, bool) {
 	}
 	encoded, err := json.Marshal(redacted)
 	if err != nil {
-		return nil, false
+		return nil, nil, false
 	}
 
-	return append(encoded, '\n'), true
+	object, _ := redacted.(map[string]any)
+	return append(encoded, '\n'), object, true
 }
 
 func redactJSONValue(value any, redact func(string) string) any {
@@ -137,7 +145,13 @@ func summaryFromJSONLine(line []byte) (Summary, bool) {
 	if err := json.Unmarshal(line, &body); err != nil {
 		return Summary{}, false
 	}
+	return summaryFromObject(body)
+}
 
+func summaryFromObject(body map[string]any) (Summary, bool) {
+	if body == nil {
+		return Summary{}, false
+	}
 	summary := Summary{
 		LogID:     toString(body["log_id"]),
 		Timestamp: toString(body["ts"]),

@@ -38,7 +38,7 @@ func cloneValue(value any) any {
 }
 
 func EncodeJSON(details map[string]any) (string, error) {
-	normalized := sanitizeMap(CloneMap(details))
+	normalized := sanitizeMap(details)
 	if len(normalized) == 0 {
 		return "{}", nil
 	}
@@ -64,7 +64,7 @@ func DecodeJSON(raw string) (map[string]any, error) {
 }
 
 func NormalizeProtocol(protocol string, details map[string]any) map[string]any {
-	normalized := sanitizeMap(CloneMap(details))
+	normalized := sanitizeMap(details)
 	switch strings.TrimSpace(protocol) {
 	case "onebot11":
 		return compactOneBot11LogDetails(normalized)
@@ -133,7 +133,7 @@ func ExtractSummary(body map[string]any) map[string]any {
 		case "ts", "level", "component", "msg", "plugin_id", "request_id", "protocol", "log_id":
 			continue
 		default:
-			details[key] = cloneValue(value)
+			details[key] = value
 		}
 	}
 	return sanitizeMap(details)
