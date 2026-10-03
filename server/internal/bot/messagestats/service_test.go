@@ -94,6 +94,54 @@ func TestHourlyPendingCountsPersistExactlyOnce(t *testing.T) {
 	}
 }
 
+func TestQueryCombinesPersistedAndPendingHours(t *testing.T) {
+	for _, tc := range []struct {
+		name, zone, start, end, unit string
+	}{
+		{"hour", "UTC", "2026-05-02T05:00:00Z", "2026-05-02T06:00:00Z", "hour"},
+		{"day", "America/New_York", "2026-03-08T05:00:00Z", "2026-03-09T04:00:00Z", "day"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, clock, _ := newStats(t, tc.zone, "2026-01-01T00:00:00Z")
+			start, _ := time.Parse(time.RFC3339, tc.start)
+			end, _ := time.Parse(time.RFC3339, tc.end)
+			previous := start.Add(-end.Sub(start))
+			for batch := range 2 {
+				for _, at := range []time.Time{previous, start} {
+					clock.ms.Store(at.Add(30 * time.Minute).UnixMilli())
+					for _, id := range []string{"bot", "removed"} {
+						receive(s, id)
+						if batch == 1 {
+							s.Sent(id, "onebot11")
+						}
+					}
+				}
+				if batch == 0 {
+					if err := s.Flush(t.Context()); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			clock.ms.Store(end.UnixMilli())
+			before := queryStats(t, s, tc.start, tc.end, tc.unit)
+			if before.Totals != (Counts{4, 2}) || before.Previous == nil || *before.Previous != (Counts{4, 2}) || len(before.Connections) != 2 {
+				t.Fatalf("lost persisted or pending counts: %+v", before)
+			}
+			for _, connection := range before.Connections {
+				if connection.Totals != (Counts{2, 1}) || connection.Previous == nil || *connection.Previous != (Counts{2, 1}) || !reflect.DeepEqual(connection.Received, []int64{2}) || !reflect.DeepEqual(connection.Sent, []int64{1}) {
+					t.Fatalf("mixed connection or hour aggregates: %+v", connection)
+				}
+			}
+			if err := s.Flush(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			if after := queryStats(t, s, tc.start, tc.end, tc.unit); !reflect.DeepEqual(before, after) {
+				t.Fatalf("flush changed combined counts: before=%+v after=%+v", before, after)
+			}
+		})
+	}
+}
+
 func TestReceivedKinds(t *testing.T) {
 	s, clock, _ := newStats(t, "UTC", "2026-10-01T00:00:00Z")
 	for _, kind := range []string{chatevent.FamilyMessageText, chatevent.FamilyMessage, chatevent.FamilyMessageSent, chatevent.FamilyNotice, chatevent.FamilyRequest, chatevent.FamilyMeta} {

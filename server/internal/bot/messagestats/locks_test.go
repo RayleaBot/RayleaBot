@@ -4,9 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"path/filepath"
 	"reflect"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func statsUpdateWithin(t *testing.T, update func()) {
@@ -291,5 +297,71 @@ func TestQueryCopiesMemoryAfterDatabaseReads(t *testing.T) {
 	}
 	if got.view.Totals != (Counts{2, 1}) || !got.view.AsOf.Equal(clock.now()) || got.view.Connections[0].LastReceivedAt == nil || !got.view.Connections[0].LastReceivedAt.Equal(clock.now()) || len(got.view.Incidents) != 1 || got.view.Incidents[0].EndedAt == nil {
 		t.Fatalf("query missed updates during reads: %+v", got.view)
+	}
+}
+
+func TestQueryResponseAssemblyDoesNotBlockFlush(t *testing.T) {
+	store, err := storage.Open(filepath.Join(t.TempDir(), "stats.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	clock := &testClock{}
+	clock.set("2026-10-01T00:00:00Z")
+	var blockQuery atomic.Bool
+	readingConfig, releaseConfig := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(releaseConfig) }) }
+	s, err := New(t.Context(), Options{
+		Store: store, Now: clock.now, Timezone: "UTC",
+		CurrentConfig: func() config.Config {
+			if blockQuery.CompareAndSwap(true, false) {
+				close(readingConfig)
+				<-releaseConfig
+			}
+			return config.Config{Adapters: []config.AdapterInstance{{ID: "bot", Type: "onebot11"}}}
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.loopCancel(); <-s.loopDone })
+	t.Cleanup(release)
+	clock.add(time.Second)
+	receive(s, "bot")
+	blockQuery.Store(true)
+	type result struct {
+		view Response
+		err  error
+	}
+	queried := make(chan result, 1)
+	go func() {
+		view, err := s.Query(t.Context(), Query{"2026-10-01T00:00:00Z", "2026-10-01T01:00:00Z", "hour"})
+		queried <- result{view, err}
+	}()
+	select {
+	case <-readingConfig:
+	case <-time.After(2 * time.Second):
+		t.Fatal("query did not reach response assembly")
+	}
+	clock.add(time.Second)
+	receive(s, "bot")
+	flushed := make(chan error, 1)
+	go func() { flushed <- s.Flush(t.Context()) }()
+	select {
+	case err := <-flushed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("response assembly blocked persistence")
+	}
+	release()
+	got := <-queried
+	if got.err != nil || got.view.Totals != (Counts{Received: 1}) || got.view.AsOf.Equal(clock.now()) {
+		t.Fatalf("response changed after its snapshot: %+v, %v", got.view, got.err)
+	}
+	if next := queryStats(t, s, "2026-10-01T00:00:00Z", "2026-10-01T01:00:00Z", "hour"); next.Totals != (Counts{Received: 2}) {
+		t.Fatalf("flush lost or duplicated pending counts: %+v", next)
 	}
 }

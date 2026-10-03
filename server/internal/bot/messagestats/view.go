@@ -53,9 +53,6 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 	if err != nil {
 		return Response{}, err
 	}
-	s.ioMu.Lock()
-	defer s.ioMu.Unlock()
-	now := s.timeNow()
 	length := r.end.Sub(r.start)
 	previousStart := r.start.Add(-length)
 	hasPrevious := !previousStart.Before(s.tracking)
@@ -63,33 +60,11 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 	if hasPrevious {
 		from = previousStart
 	}
-	through := minTime(r.end, now)
-	endSecond := through.Unix()
-	if through.Nanosecond() != 0 {
-		endSecond++
-	}
-	q := sqlcgen.New(s.store.Read)
-	rows, err := q.ListMessageStatsHours(ctx, sqlcgen.ListMessageStatsHoursParams{StartHour: from.Unix(), EndHour: endSecond})
+	snapshot, err := s.querySnapshot(ctx, from, r.start, r.end)
 	if err != nil {
 		return Response{}, err
 	}
-	metadata, err := q.ListMessageStatsAdapters(ctx)
-	if err != nil {
-		return Response{}, err
-	}
-	offline, err := q.ListMessageStatsOffline(ctx, sqlcgen.ListMessageStatsOfflineParams{AsOfMs: now.UnixMilli(), CurrentRunID: s.runID, StartMs: sql.NullInt64{Int64: r.start.UnixMilli(), Valid: true}})
-	if err != nil {
-		return Response{}, err
-	}
-	stops, err := q.ListMessageStatsStops(ctx, sqlcgen.ListMessageStatsStopsParams{AsOfMs: sql.NullInt64{Int64: now.UnixMilli(), Valid: true}, StartMs: r.start.UnixMilli()})
-	if err != nil {
-		return Response{}, err
-	}
-	s.mu.Lock()
-	now = s.timeNow()
-	pending, pendingMetadata := maps.Clone(s.pending), maps.Clone(s.metadata)
-	intervals := s.openOffline(now)
-	s.mu.Unlock()
+	now := snapshot.asOf
 
 	view := Response{Granularity: r.granularity, Timezone: s.location.String(), StartAt: r.start, EndAt: r.end, AsOf: now, TrackingStartedAt: s.tracking,
 		Buckets: []time.Time{}, Connections: []Connection{}, Incidents: []Incident{}}
@@ -105,15 +80,6 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 	if hasPrevious {
 		view.Previous = &Counts{}
 	}
-	counts := make(map[hourKey]Counts, len(rows)+len(pending))
-	for _, row := range rows {
-		counts[hourKey{row.HourStart, row.AdapterID}] = Counts{row.Received, row.Sent}
-	}
-	for key, value := range pending {
-		total := counts[key]
-		total.add(value)
-		counts[key] = total
-	}
 	connections := make(map[string]*Connection)
 	connection := func(id string) *Connection {
 		if c, ok := connections[id]; ok {
@@ -126,25 +92,40 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 		connections[id] = c
 		return c
 	}
-	for key, value := range counts {
-		hour := time.Unix(key.start, 0).UTC()
-		bucket := floor(hour, r.granularity, s.location)
-		index, inRange := bucketIndex[bucket.Unix()]
-		inPrevious := hasPrevious && !hour.Before(previousStart) && hour.Before(previousEnd)
-		if !inRange && !inPrevious {
-			continue
+	type hourPosition struct {
+		index               int
+		inRange, inPrevious bool
+	}
+	positions := make(map[int64]hourPosition)
+	add := func(start int64, adapter string, value Counts) {
+		position, known := positions[start]
+		if !known {
+			hour := time.Unix(start, 0).UTC()
+			bucket := floor(hour, r.granularity, s.location)
+			position.index, position.inRange = bucketIndex[bucket.Unix()]
+			position.inPrevious = hasPrevious && !hour.Before(previousStart) && hour.Before(previousEnd)
+			positions[start] = position
 		}
-		c := connection(key.adapter)
-		if inRange {
-			c.Received[index] += value.Received
-			c.Sent[index] += value.Sent
+		if !position.inRange && !position.inPrevious {
+			return
+		}
+		c := connection(adapter)
+		if position.inRange {
+			c.Received[position.index] += value.Received
+			c.Sent[position.index] += value.Sent
 			c.Totals.add(value)
 			view.Totals.add(value)
 		}
-		if inPrevious {
+		if position.inPrevious {
 			c.Previous.add(value)
 			view.Previous.add(value)
 		}
+	}
+	for _, row := range snapshot.hours {
+		add(row.HourStart, row.AdapterID, Counts{row.Received, row.Sent})
+	}
+	for key, value := range snapshot.pending {
+		add(key.start, key.adapter, value)
 	}
 	cfg := s.config()
 	for _, a := range cfg.Adapters {
@@ -166,10 +147,10 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 			}
 		}
 	}
-	for _, meta := range metadata {
+	for _, meta := range snapshot.metadata {
 		setMetadata(meta.AdapterID, meta.Protocol, meta.LastReceivedAtMs)
 	}
-	for _, meta := range pendingMetadata {
+	for _, meta := range snapshot.pendingMetadata {
 		setMetadata(meta.AdapterID, meta.Protocol, meta.LastReceivedAtMs)
 	}
 	for _, a := range cfg.Adapters {
@@ -186,8 +167,57 @@ func (s *Service) Query(ctx context.Context, query Query) (Response, error) {
 	for _, id := range ids {
 		view.Connections = append(view.Connections, *connections[id])
 	}
-	view.Incidents, view.IncidentsTruncated = s.incidents(offline, stops, intervals, r.start, now)
+	view.Incidents, view.IncidentsTruncated = s.incidents(snapshot.offline, snapshot.stops, snapshot.intervals, r.start, now)
 	return view, nil
+}
+
+type querySnapshot struct {
+	asOf            time.Time
+	hours           []sqlcgen.MessageStatsHour
+	metadata        []sqlcgen.MessageStatsAdapter
+	offline         []sqlcgen.MessageStatsOffline
+	stops           []sqlcgen.ListMessageStatsStopsRow
+	pending         map[hourKey]Counts
+	pendingMetadata map[string]sqlcgen.UpsertMessageStatsAdapterParams
+	intervals       map[offlineKey]sql.NullInt64
+}
+
+func (s *Service) querySnapshot(ctx context.Context, from, start, end time.Time) (querySnapshot, error) {
+	s.ioMu.Lock()
+	defer s.ioMu.Unlock()
+	now := s.timeNow()
+	through := minTime(end, now)
+	endSecond := through.Unix()
+	if through.Nanosecond() != 0 {
+		endSecond++
+	}
+	q := sqlcgen.New(s.store.Read)
+	var snapshot querySnapshot
+	var err error
+	snapshot.hours, err = q.ListMessageStatsHours(ctx, sqlcgen.ListMessageStatsHoursParams{StartHour: from.Unix(), EndHour: endSecond})
+	if err != nil {
+		return querySnapshot{}, err
+	}
+	snapshot.metadata, err = q.ListMessageStatsAdapters(ctx)
+	if err != nil {
+		return querySnapshot{}, err
+	}
+	snapshot.offline, err = q.ListMessageStatsOffline(ctx, sqlcgen.ListMessageStatsOfflineParams{AsOfMs: now.UnixMilli(), CurrentRunID: s.runID, StartMs: sql.NullInt64{Int64: start.UnixMilli(), Valid: true}})
+	if err != nil {
+		return querySnapshot{}, err
+	}
+	snapshot.stops, err = q.ListMessageStatsStops(ctx, sqlcgen.ListMessageStatsStopsParams{AsOfMs: sql.NullInt64{Int64: now.UnixMilli(), Valid: true}, StartMs: start.UnixMilli()})
+	if err != nil {
+		return querySnapshot{}, err
+	}
+	// The database rows and pending batch must share one flush boundary. Once
+	// copied, response assembly no longer needs to delay another query or flush.
+	s.mu.Lock()
+	snapshot.asOf = s.timeNow()
+	snapshot.pending, snapshot.pendingMetadata = maps.Clone(s.pending), maps.Clone(s.metadata)
+	snapshot.intervals = s.openOffline(snapshot.asOf)
+	s.mu.Unlock()
+	return snapshot, nil
 }
 
 func (s *Service) incidents(rows []sqlcgen.MessageStatsOffline, stops []sqlcgen.ListMessageStatsStopsRow, intervals map[offlineKey]sql.NullInt64, start, now time.Time) ([]Incident, bool) {
