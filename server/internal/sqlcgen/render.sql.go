@@ -32,6 +32,30 @@ func (q *Queries) GetRenderTemplate(ctx context.Context, templateID string) (Ren
 	return i, err
 }
 
+const getRenderTemplateSyncState = `-- name: GetRenderTemplateSyncState :one
+SELECT source_digest, source_type, source_plugin_id, source_local_id
+FROM render_templates WHERE template_id = ?
+`
+
+type GetRenderTemplateSyncStateRow struct {
+	SourceDigest   string
+	SourceType     string
+	SourcePluginID sql.NullString
+	SourceLocalID  sql.NullString
+}
+
+func (q *Queries) GetRenderTemplateSyncState(ctx context.Context, templateID string) (GetRenderTemplateSyncStateRow, error) {
+	row := q.db.QueryRowContext(ctx, getRenderTemplateSyncState, templateID)
+	var i GetRenderTemplateSyncStateRow
+	err := row.Scan(
+		&i.SourceDigest,
+		&i.SourceType,
+		&i.SourcePluginID,
+		&i.SourceLocalID,
+	)
+	return i, err
+}
+
 const listRenderTemplates = `-- name: ListRenderTemplates :many
 SELECT template_id, source_digest, updated_at, source_type, source_plugin_id, source_local_id, manifest_json, html, stylesheet, input_schema_json FROM render_templates ORDER BY template_id
 `

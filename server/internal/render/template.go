@@ -2,8 +2,6 @@ package render
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"html/template"
 	"os"
@@ -187,21 +185,13 @@ func isManagedTemplateSourcePath(ctx context.Context, repository *templateReposi
 	if err != nil {
 		return false, err
 	}
-	items, err := repository.ListTemplateSummaries(ctx)
+	items, err := repository.ListTemplateDetails(ctx)
 	if err != nil {
 		return false, fmt.Errorf("list render templates for asset lookup: %w", err)
 	}
 
-	for _, item := range items {
-		detail, err := repository.GetTemplateDetail(ctx, item.ID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				continue
-			}
-			return false, fmt.Errorf("get render template %s for asset lookup: %w", item.ID, err)
-		}
-
-		root := roots.TemplateRoot(item.ID)
+	for _, detail := range items {
+		root := roots.TemplateRoot(detail.ID)
 		if root.TemplateDir == "" {
 			continue
 		}

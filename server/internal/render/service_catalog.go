@@ -39,17 +39,26 @@ func (s *Service) GetTemplate(ctx context.Context, templateID string) (TemplateD
 }
 
 func (s *Service) getTemplate(ctx context.Context, templateID string) (TemplateDetail, error) {
-	detail, err := s.templateRepo.GetTemplateDetail(ctx, strings.TrimSpace(templateID))
+	_, detail, err := s.getTemplateRecord(ctx, templateID)
+	return detail, err
+}
+
+func (s *Service) getTemplateRecord(ctx context.Context, templateID string) (templateRecord, TemplateDetail, error) {
+	record, err := s.templateRepo.getTemplateRecord(ctx, strings.TrimSpace(templateID))
+	var detail TemplateDetail
+	if err == nil {
+		detail, err = record.detail()
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return TemplateDetail{}, &Error{
+			return templateRecord{}, TemplateDetail{}, &Error{
 				Code:    errorcodes.PlatformTemplateNotFound,
 				Message: "render template was not found",
 			}
 		}
-		return TemplateDetail{}, fmt.Errorf("get render template %s: %w", templateID, err)
+		return templateRecord{}, TemplateDetail{}, fmt.Errorf("get render template %s: %w", templateID, err)
 	}
-	return detail, nil
+	return record, detail, nil
 }
 
 func (s *Service) GetTemplateSource(ctx context.Context, templateID string) (string, TemplateSource, error) {
@@ -83,13 +92,16 @@ func (s *Service) GetTemplateDetailSnapshot(ctx context.Context, templateID stri
 		return TemplateDetailSnapshot{}, err
 	}
 	templateID = strings.TrimSpace(templateID)
-	detail, err := s.getTemplate(ctx, templateID)
+	record, detail, err := s.getTemplateRecord(ctx, templateID)
 	if err != nil {
 		return TemplateDetailSnapshot{}, err
 	}
-	_, source, err := s.getTemplateSource(ctx, templateID)
+	if err := ctx.Err(); err != nil {
+		return TemplateDetailSnapshot{}, fmt.Errorf("get render template source %s: %w", templateID, err)
+	}
+	_, source, err := record.source()
 	if err != nil {
-		return TemplateDetailSnapshot{}, err
+		return TemplateDetailSnapshot{}, fmt.Errorf("get render template source %s: %w", templateID, err)
 	}
 	previewData, err := s.readTemplatePreviewData(templateID)
 	if err != nil {

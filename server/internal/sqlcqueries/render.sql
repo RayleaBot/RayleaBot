@@ -1,6 +1,10 @@
 -- name: GetRenderTemplate :one
 SELECT * FROM render_templates WHERE template_id = ?;
 
+-- name: GetRenderTemplateSyncState :one
+SELECT source_digest, source_type, source_plugin_id, source_local_id
+FROM render_templates WHERE template_id = ?;
+
 -- name: ListRenderTemplates :many
 SELECT * FROM render_templates ORDER BY template_id;
 

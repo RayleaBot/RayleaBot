@@ -3,7 +3,6 @@ package render
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -140,18 +139,15 @@ func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) 
 	// in-flight render cannot repopulate a removed template's compilation.
 	s.templateCompiler.mu.Lock()
 	defer s.templateCompiler.mu.Unlock()
-	detail, err := s.getTemplate(ctx, request.Template)
+	record, detail, err := s.getTemplateRecord(ctx, request.Template)
 	if err != nil {
 		return nil, "", "", "", err
 	}
-	sourceDigest, source, err := s.templateRepo.GetCurrentSource(ctx, request.Template)
+	if err := ctx.Err(); err != nil {
+		return nil, "", "", "", fmt.Errorf("get current render template %s: %w", request.Template, err)
+	}
+	sourceDigest, source, err := record.source()
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, "", "", "", &Error{
-				Code:    errorcodes.PlatformTemplateNotFound,
-				Message: "render template was not found",
-			}
-		}
 		return nil, "", "", "", fmt.Errorf("get current render template %s: %w", request.Template, err)
 	}
 

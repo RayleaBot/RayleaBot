@@ -14,6 +14,7 @@ import (
 
 type templateRepository struct {
 	readQ *sqlcgen.Queries
+	read  *sql.DB
 	write *sql.DB
 }
 
@@ -29,7 +30,7 @@ func newTemplateRepository(store *storage.Store) (*templateRepository, error) {
 	if store == nil || store.Read == nil || store.Write == nil {
 		return nil, errors.New("sqlite store is required")
 	}
-	return &templateRepository{readQ: sqlcgen.New(store.Read), write: store.Write}, nil
+	return &templateRepository{readQ: sqlcgen.New(store.Read), read: store.Read, write: store.Write}, nil
 }
 
 func (r *templateRepository) SyncTemplate(ctx context.Context, item currentTemplate) (bool, error) {
@@ -45,13 +46,24 @@ func (r *templateRepository) SyncTemplate(ctx context.Context, item currentTempl
 		}
 		schema = sql.NullString{String: string(encoded), Valid: true}
 	}
+	current, err := r.readQ.GetRenderTemplateSyncState(ctx, item.ID)
+	if err == nil {
+		if err := checkTemplateOwner(item, current.SourceType, current.SourcePluginID.String, current.SourceLocalID.String); err != nil {
+			return false, err
+		}
+		if current.SourceDigest == item.SourceDigest {
+			return false, nil
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return false, err
+	}
 	changed := false
 	err = storage.WithTx(ctx, r.write, nil, func(tx *sql.Tx) error {
 		queries := sqlcgen.New(tx)
 		current, err := queries.GetRenderTemplate(ctx, item.ID)
 		if err == nil {
-			if current.SourceType != item.Owner.Type || current.SourcePluginID.String != item.Owner.PluginID || current.SourceLocalID.String != item.Owner.LocalID {
-				return fmt.Errorf("render template %s is already registered by another source", item.ID)
+			if err := checkTemplateOwner(item, current.SourceType, current.SourcePluginID.String, current.SourceLocalID.String); err != nil {
+				return err
 			}
 			if current.SourceDigest == item.SourceDigest {
 				return nil
@@ -70,6 +82,13 @@ func (r *templateRepository) SyncTemplate(ctx context.Context, item currentTempl
 		return nil
 	})
 	return changed, err
+}
+
+func checkTemplateOwner(item currentTemplate, sourceType, pluginID, localID string) error {
+	if sourceType != item.Owner.Type || pluginID != item.Owner.PluginID || localID != item.Owner.LocalID {
+		return fmt.Errorf("render template %s is already registered by another source", item.ID)
+	}
+	return nil
 }
 
 func nullable(value string) sql.NullString {
@@ -124,19 +143,37 @@ func (r *templateRepository) ListTemplateSummaries(ctx context.Context) ([]Templ
 }
 
 func (r *templateRepository) GetTemplateDetail(ctx context.Context, id string) (TemplateDetail, error) {
-	row, err := r.readQ.GetRenderTemplate(ctx, id)
+	record, err := r.getTemplateRecord(ctx, id)
 	if err != nil {
 		return TemplateDetail{}, err
 	}
-	return decodeDetail(row)
+	return record.detail()
 }
 
 func (r *templateRepository) GetCurrentSource(ctx context.Context, id string) (string, TemplateSource, error) {
-	var source TemplateSource
-	row, err := r.readQ.GetRenderTemplate(ctx, id)
+	record, err := r.getTemplateRecord(ctx, id)
 	if err != nil {
-		return "", source, err
+		return "", TemplateSource{}, err
 	}
+	return record.source()
+}
+
+type templateRecord struct {
+	row sqlcgen.RenderTemplate
+}
+
+func (r *templateRepository) getTemplateRecord(ctx context.Context, id string) (templateRecord, error) {
+	row, err := r.readQ.GetRenderTemplate(ctx, id)
+	return templateRecord{row: row}, err
+}
+
+func (record templateRecord) detail() (TemplateDetail, error) {
+	return decodeDetail(record.row)
+}
+
+func (record templateRecord) source() (string, TemplateSource, error) {
+	var source TemplateSource
+	row := record.row
 	source.HTML, source.Stylesheet = row.Html, row.Stylesheet
 	if err := json.Unmarshal([]byte(row.ManifestJson), &source.ManifestJSON); err != nil {
 		return "", source, err
@@ -149,17 +186,40 @@ func (r *templateRepository) GetCurrentSource(ctx context.Context, id string) (s
 	return row.SourceDigest, source, nil
 }
 
+func (r *templateRepository) ListTemplateDetails(ctx context.Context) ([]TemplateDetail, error) {
+	rows, err := r.readQ.ListRenderTemplates(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]TemplateDetail, 0, len(rows))
+	for _, row := range rows {
+		detail, err := decodeDetail(row)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, detail)
+	}
+	return items, nil
+}
+
 // removeExcept builds its NOT IN clause by hand because the keep list has a
 // variable length.
 func (r *templateRepository) removeExcept(ctx context.Context, condition string, args []any, column string, keep []string) error {
-	query := `DELETE FROM render_templates WHERE ` + condition
+	query := `FROM render_templates WHERE ` + condition
 	if len(keep) > 0 {
 		query += ` AND ` + column + ` NOT IN (` + strings.TrimRight(strings.Repeat("?,", len(keep)), ",") + `)`
 		for _, value := range keep {
 			args = append(args, value)
 		}
 	}
-	_, err := r.write.ExecContext(ctx, query, args...)
+	var exists bool
+	if err := r.read.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 `+query+`)`, args...).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	_, err := r.write.ExecContext(ctx, `DELETE `+query, args...)
 	return err
 }
 
