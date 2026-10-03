@@ -97,11 +97,30 @@ func (s *stagedSecrets) persist(ctx context.Context, saveDocument func() error) 
 		keys = append(keys, key)
 	}
 	slices.Sort(keys)
-	written := make([]string, 0, len(keys))
-	for _, key := range keys {
-		written = append(written, key)
-		if err := s.write(ctx, key, s.pending[key]); err != nil {
+	var written []string
+	if batch, ok := s.base.(secrets.BatchStore); ok && len(keys) > 0 {
+		values := make(map[string][]byte, len(keys))
+		var deleted []string
+		for _, key := range keys {
+			if value := s.pending[key]; value.present {
+				values[key] = value.value
+			} else {
+				deleted = append(deleted, key)
+			}
+		}
+		// A store can report an error after committing. Every candidate must
+		// remain eligible for the same best-effort compensation as single writes.
+		written = keys
+		if err := batch.Apply(ctx, values, deleted); err != nil {
 			return errors.Join(fmt.Errorf("persist config credentials: %w", err), s.rollback(ctx, written))
+		}
+	} else {
+		written = make([]string, 0, len(keys))
+		for _, key := range keys {
+			written = append(written, key)
+			if err := s.write(ctx, key, s.pending[key]); err != nil {
+				return errors.Join(fmt.Errorf("persist config credentials: %w", err), s.rollback(ctx, written))
+			}
 		}
 	}
 	if err := ctx.Err(); err != nil {
