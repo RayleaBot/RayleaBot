@@ -98,13 +98,21 @@ func (s *View) TriggerJob(ctx context.Context, jobID string) (TriggerResult, err
 }
 
 func (s *View) jobSummary(job Job) JobSummary {
-	pluginName := strings.TrimSpace(job.PluginID)
+	return s.jobSummaryWithPayload(job, s.pluginLabel(job.PluginID), summarizeSchedulerPayload(job.Payload))
+}
+
+func (s *View) pluginLabel(pluginID string) string {
+	pluginName := strings.TrimSpace(pluginID)
 	if s.pluginName != nil {
-		pluginName = DisplayLabel(s.pluginName(job.PluginID), pluginName)
+		pluginName = DisplayLabel(s.pluginName(pluginID), pluginName)
 	}
 	if pluginName == "" {
 		pluginName = "未知插件"
 	}
+	return pluginName
+}
+
+func (s *View) jobSummaryWithPayload(job Job, pluginName string, payload JobPayloadSummary) JobSummary {
 	lastRun := formatOptionalTime(job.LastRun)
 	var lastError *JobLastError
 	if job.LastError != nil && (job.LastError.Code != "" || job.LastError.Message != "") {
@@ -131,7 +139,7 @@ func (s *View) jobSummary(job Job) JobSummary {
 		LastRun:        lastRun,
 		LastDurationMS: job.LastDurationMS,
 		LastError:      lastError,
-		PayloadSummary: summarizeSchedulerPayload(job.Payload),
+		PayloadSummary: payload,
 		Stats: JobRunStats{
 			Total:   job.RunStats.Total(),
 			Success: job.RunStats.Success,
@@ -211,46 +219,82 @@ type JobQuery struct {
 }
 
 func (s *View) ListJobsPage(query JobQuery) JobList {
-	list := s.ListJobs()
-	filtered := make([]JobSummary, 0, len(list.Items))
-	for _, item := range list.Items {
-		if query.Status == "success" && item.LastError != nil || query.Status == "error" && item.LastError == nil {
+	// Jobs replace their payload and run metadata on mutation. These references
+	// stay inside the view; returned summaries contain no engine-owned pointers.
+	s.engine.mu.Lock()
+	jobs := make([]Job, 0, len(s.engine.jobs))
+	for _, job := range s.engine.jobs {
+		jobs = append(jobs, job)
+	}
+	s.engine.mu.Unlock()
+
+	type pageJob struct {
+		job                                       *Job
+		pluginName, pluginSort, taskSort, lastRun string
+		payload                                   JobPayloadSummary
+		payloadRead                               bool
+	}
+	type pluginLabel struct{ display, sort string }
+	labels := make(map[string]pluginLabel)
+	text := strings.ToLower(strings.TrimSpace(query.Text))
+	filtered := make([]pageJob, 0, len(jobs))
+	for i := range jobs {
+		job := &jobs[i]
+		hasError := job.LastError != nil && (job.LastError.Code != "" || job.LastError.Message != "")
+		if query.Status == "success" && hasError || query.Status == "error" && !hasError {
 			continue
 		}
-		if pagination.Matches(query.Text, item.JobID, item.PluginID, item.PluginName, item.TaskName, item.LogLabel, item.PayloadSummary.Content) {
-			filtered = append(filtered, item)
+		label, ok := labels[job.PluginID]
+		if !ok {
+			label.display = s.pluginLabel(job.PluginID)
+			label.sort = strings.ToLower(label.display)
+			labels[job.PluginID] = label
 		}
+		taskName := DisplayLabel(job.JobID, "未命名任务")
+		item := pageJob{job: job, pluginName: label.display, pluginSort: label.sort, taskSort: strings.ToLower(taskName)}
+		if text != "" && !pagination.Matches(text, job.JobID, job.PluginID, label.display, taskName, DisplayLabel(job.LogLabel)) {
+			item.payload = summarizeSchedulerPayload(job.Payload)
+			item.payloadRead = true
+			if !pagination.Matches(text, item.payload.Content) {
+				continue
+			}
+		}
+		if query.Sort == "last_run" && job.LastRun != nil {
+			item.lastRun = job.LastRun.UTC().Format(time.RFC3339)
+		}
+		filtered = append(filtered, item)
 	}
 	sort.SliceStable(filtered, func(i, j int) bool {
 		left, right := filtered[i], filtered[j]
 		switch query.Sort {
 		case "last_run":
-			if left.LastRun == nil && right.LastRun != nil {
-				return false
-			}
-			if right.LastRun == nil && left.LastRun != nil {
-				return true
-			}
-			if left.LastRun != nil && right.LastRun != nil && *left.LastRun != *right.LastRun {
-				return *left.LastRun > *right.LastRun
+			if left.lastRun != right.lastRun {
+				return left.lastRun > right.lastRun
 			}
 		case "duration":
-			if left.LastDurationMS != right.LastDurationMS {
-				return left.LastDurationMS > right.LastDurationMS
+			if left.job.LastDurationMS != right.job.LastDurationMS {
+				return left.job.LastDurationMS > right.job.LastDurationMS
 			}
 		default:
-			if a, b := strings.ToLower(left.PluginName), strings.ToLower(right.PluginName); a != b {
-				return a < b
+			if left.pluginSort != right.pluginSort {
+				return left.pluginSort < right.pluginSort
 			}
-			if a, b := strings.ToLower(left.TaskName), strings.ToLower(right.TaskName); a != b {
-				return a < b
+			if left.taskSort != right.taskSort {
+				return left.taskSort < right.taskSort
 			}
 		}
-		if left.PluginID != right.PluginID {
-			return left.PluginID < right.PluginID
+		if left.job.PluginID != right.job.PluginID {
+			return left.job.PluginID < right.job.PluginID
 		}
-		return left.JobID < right.JobID
+		return left.job.JobID < right.job.JobID
 	})
-	items, meta := pagination.Slice(filtered, query.Query)
+	page, meta := pagination.Slice(filtered, query.Query)
+	items := make([]JobSummary, 0, len(page))
+	for _, item := range page {
+		if !item.payloadRead {
+			item.payload = summarizeSchedulerPayload(item.job.Payload)
+		}
+		items = append(items, s.jobSummaryWithPayload(*item.job, item.pluginName, item.payload))
+	}
 	return JobList{Metadata: meta, Items: items}
 }
