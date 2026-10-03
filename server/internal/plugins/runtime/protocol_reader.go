@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -22,7 +23,7 @@ func readProtocolLine(reader *bufio.Reader, maxBytes int) ([]byte, error) {
 	if maxBytes <= 0 {
 		maxBytes = pluginwire.DefaultMaxFrameBytes
 	}
-	line := make([]byte, 0, min(maxBytes, 64*1024))
+	var line []byte
 	for {
 		fragment, err := reader.ReadSlice('\n')
 		contentBytes := len(fragment)
@@ -31,6 +32,15 @@ func readProtocolLine(reader *bufio.Reader, maxBytes int) ([]byte, error) {
 		}
 		if len(line)+contentBytes > maxBytes {
 			return nil, fmt.Errorf("%w: limit %d bytes", errProtocolFrameTooLarge, maxBytes)
+		}
+		if line == nil {
+			if err == nil {
+				return bytes.Clone(fragment), nil
+			}
+			if !errors.Is(err, bufio.ErrBufferFull) {
+				return nil, err
+			}
+			line = make([]byte, 0, min(maxBytes, 64*1024))
 		}
 		line = append(line, fragment...)
 		if err == nil {

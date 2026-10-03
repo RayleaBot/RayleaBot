@@ -5,13 +5,8 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/command"
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
-
-func newCommandParser(cfg config.Config) *command.Parser {
-	return command.NewParser(cfg.CommandPrefixes())
-}
 
 // commandResolution is how one message addresses commands. A builtin menu match
 // and plugin matches are exclusive: the menu sits in the global tier, so it
@@ -22,15 +17,16 @@ type commandResolution struct {
 	matches []plugins.CommandMatch
 }
 
-func (s *Service) resolveCommand(event chatevent.NormalizedEvent) commandResolution {
-	parser := s.CommandParser()
+func (s *Service) resolveCommand(event chatevent.NormalizedEvent, engine *policyEngine) commandResolution {
 	text := chatevent.CommandText(event)
-	if parser == nil || strings.TrimSpace(text) == "" {
+	if engine == nil || engine.parser == nil || strings.TrimSpace(text) == "" {
 		return commandResolution{}
 	}
+	var entries []plugins.CommandEntry
 	var matches []plugins.CommandMatch
 	if s.plugins != nil {
-		matches = plugins.ResolveCommandMatches(s.plugins.Commands(), text, s.config().CommandPrefixes())
+		entries = s.plugins.Commands()
+		matches = plugins.ResolveCommandMatches(entries, text, engine.prefixes)
 	}
 	if s.menu != nil && !plugins.HasDedicatedMatch(matches) {
 		if builtin := s.menu.Match(event); builtin.Delegate != nil {
@@ -46,20 +42,23 @@ func (s *Service) resolveCommand(event chatevent.NormalizedEvent) commandResolut
 		}
 	}
 	if len(matches) == 0 && s.plugins != nil {
-		matches = plugins.ResolveFallbackMatches(s.plugins.Commands(), text, s.config().CommandPrefixes())
+		matches = plugins.ResolveFallbackMatches(entries, text, engine.prefixes)
 	}
 	if len(matches) > 0 {
 		first := matches[0]
 		return commandResolution{matches: matches, parsed: command.ParseResult{IsCommand: true, Command: first.Command, Args: first.Args, Prefix: first.Prefix}}
 	}
-	return commandResolution{parsed: parser.Parse(text)}
+	return commandResolution{parsed: engine.parser.Parse(text)}
 }
 
 // EnrichCommandEvent records the command interpretation on the event. The
 // payload carries the first match for logging and policy; delivery replaces it
 // with each target's own parse.
 func (s *Service) EnrichCommandEvent(event chatevent.NormalizedEvent) chatevent.NormalizedEvent {
-	resolution := s.resolveCommand(event)
+	return enrichCommandEvent(event, s.resolveCommand(event, s.currentEngine()))
+}
+
+func enrichCommandEvent(event chatevent.NormalizedEvent, resolution commandResolution) chatevent.NormalizedEvent {
 	if !resolution.parsed.IsCommand {
 		return event
 	}

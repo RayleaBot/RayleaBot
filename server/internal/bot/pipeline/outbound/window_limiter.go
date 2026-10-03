@@ -2,10 +2,11 @@ package outbound
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 type windowLimiter struct {
@@ -46,7 +47,17 @@ func pruneWindowRecords(entries []time.Time, now time.Time, window time.Duration
 	for index < len(entries) && entries[index].Before(cutoff) {
 		index++
 	}
-	return append([]time.Time(nil), entries[index:]...)
+	if index == 0 {
+		return entries
+	}
+	// Release burst-sized storage after expiry or a lower configured limit.
+	// Small, frequently reused windows keep their capacity without allocating.
+	if cap(entries) > 64 && len(entries)-index < cap(entries)/4 {
+		return append([]time.Time(nil), entries[index:]...)
+	}
+	remaining := copy(entries, entries[index:])
+	clear(entries[remaining:])
+	return entries[:remaining]
 }
 
 func (l *windowLimiter) SetLimit(limit config.RateLimit) {
@@ -69,7 +80,10 @@ func (l *windowLimiter) Wait(ctx context.Context, key string) error {
 		return nil
 	}
 
-	waiter := l.enqueue(key)
+	waiter, err := l.reserveOrEnqueue(ctx, key)
+	if err != nil || waiter == nil {
+		return err
+	}
 	select {
 	case <-waiter.ready:
 	case <-ctx.Done():
@@ -78,8 +92,12 @@ func (l *windowLimiter) Wait(ctx context.Context, key string) error {
 	}
 
 	for {
-		waitFor, updated, ok := l.tryReserve(key, waiter)
-		if ok {
+		waitFor, updated, err := l.tryReserve(ctx, key, waiter)
+		if err != nil {
+			l.cancelWaiter(key, waiter)
+			return err
+		}
+		if waitFor == 0 {
 			return nil
 		}
 
@@ -106,32 +124,47 @@ func (l *windowLimiter) Wait(ctx context.Context, key string) error {
 	}
 }
 
-func (l *windowLimiter) enqueue(key string) *windowWaiter {
-	waiter := &windowWaiter{ready: make(chan struct{})}
-
+func (l *windowLimiter) reserveOrEnqueue(ctx context.Context, key string) (*windowWaiter, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	state := l.windows[key]
 	if state == nil {
 		state = &windowState{}
 		l.windows[key] = state
 	}
 	wasEmpty := len(state.queue) == 0
+	// Admission and the queue check share one lock so new arrivals cannot
+	// bypass an older waiter when a window expires or the limit changes.
+	if wasEmpty {
+		now := l.now().UTC()
+		state.records = pruneWindowRecords(state.records, now, l.limit.Window)
+		if len(state.records) < l.limit.Count {
+			state.records = append(state.records, now)
+			return nil, nil
+		}
+	}
+	waiter := &windowWaiter{ready: make(chan struct{})}
 	state.queue = append(state.queue, waiter)
 	if wasEmpty {
 		close(waiter.ready)
 	}
-	return waiter
+	return waiter, nil
 }
 
-func (l *windowLimiter) tryReserve(key string, waiter *windowWaiter) (time.Duration, <-chan struct{}, bool) {
+func (l *windowLimiter) tryReserve(ctx context.Context, key string, waiter *windowWaiter) (time.Duration, <-chan struct{}, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	if err := ctx.Err(); err != nil {
+		return 0, nil, err
+	}
 	state := l.windows[key]
 	if state == nil || len(state.queue) == 0 || state.queue[0] != waiter {
-		return time.Millisecond, l.updated, false
+		return time.Millisecond, l.updated, nil
 	}
 
 	now := l.now().UTC()
@@ -139,7 +172,7 @@ func (l *windowLimiter) tryReserve(key string, waiter *windowWaiter) (time.Durat
 	if len(state.records) < l.limit.Count {
 		state.records = append(state.records, now)
 		l.popHead(key, state)
-		return 0, l.updated, true
+		return 0, l.updated, nil
 	}
 
 	waitUntil := state.records[0].Add(l.limit.Window)
@@ -147,7 +180,7 @@ func (l *windowLimiter) tryReserve(key string, waiter *windowWaiter) (time.Durat
 	if waitFor <= 0 {
 		waitFor = time.Millisecond
 	}
-	return waitFor, l.updated, false
+	return waitFor, l.updated, nil
 }
 
 func (l *windowLimiter) cancelWaiter(key string, waiter *windowWaiter) {
@@ -162,7 +195,9 @@ func (l *windowLimiter) cancelWaiter(key string, waiter *windowWaiter) {
 		if candidate != waiter {
 			continue
 		}
-		state.queue = append(state.queue[:index], state.queue[index+1:]...)
+		copy(state.queue[index:], state.queue[index+1:])
+		state.queue[len(state.queue)-1] = nil
+		state.queue = state.queue[:len(state.queue)-1]
 		if index == 0 && len(state.queue) > 0 {
 			close(state.queue[0].ready)
 		}
@@ -177,7 +212,12 @@ func (l *windowLimiter) cancelWaiter(key string, waiter *windowWaiter) {
 
 func (l *windowLimiter) popHead(key string, state *windowState) {
 	if len(state.queue) > 0 {
-		state.queue = state.queue[1:]
+		state.queue[0] = nil
+		if len(state.queue) == 1 {
+			state.queue = state.queue[:0]
+		} else {
+			state.queue = state.queue[1:]
+		}
 	}
 	if len(state.queue) > 0 {
 		close(state.queue[0].ready)

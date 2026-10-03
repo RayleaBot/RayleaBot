@@ -28,6 +28,18 @@ func (s *Service) CommandInfoForEvent(event chatevent.NormalizedEvent) *permissi
 }
 
 func (s *Service) commandPolicyContextForEvent(event chatevent.NormalizedEvent) *commandPolicyContext {
+	if commandNameFromEvent(event) == "" {
+		return nil
+	}
+	engine := s.currentEngine()
+	defaultLevel := "everyone"
+	if engine != nil {
+		defaultLevel = engine.snapshot.DefaultLevel
+	}
+	return commandPolicyContextForResolution(event, s.resolveCommand(event, engine), defaultLevel)
+}
+
+func commandPolicyContextForResolution(event chatevent.NormalizedEvent, resolution commandResolution, defaultLevel string) *commandPolicyContext {
 	commandName := commandNameFromEvent(event)
 	if commandName == "" {
 		return nil
@@ -38,21 +50,14 @@ func (s *Service) commandPolicyContextForEvent(event chatevent.NormalizedEvent) 
 		CommandName:    commandName,
 		PermissionInfo: &permission.CommandInfo{Permission: requiredLevel},
 	}
-	defaultLevel := "everyone"
-	if s != nil {
-		if engine := s.currentEngine(); engine != nil {
-			defaultLevel = normalizePermissionLevel(engine.snapshot.DefaultLevel)
-		}
-	}
-	if s != nil {
-		// The strictest level among the plugins that will actually receive the
-		// command; a plugin shadowed by a dedicated prefix does not count.
-		for _, match := range s.resolveCommand(event).matches {
-			context.MatchedPluginIDs = append(context.MatchedPluginIDs, match.PluginID)
-			level := effectiveCommandPermissionLevel(match.Declaration.Permission, defaultLevel)
-			if commandPermissionRank(level) > commandPermissionRank(requiredLevel) {
-				requiredLevel = level
-			}
+	defaultLevel = normalizePermissionLevel(defaultLevel)
+	// The strictest level among the plugins that will actually receive the
+	// command; a plugin shadowed by a dedicated prefix does not count.
+	for _, match := range resolution.matches {
+		context.MatchedPluginIDs = append(context.MatchedPluginIDs, match.PluginID)
+		level := effectiveCommandPermissionLevel(match.Declaration.Permission, defaultLevel)
+		if commandPermissionRank(level) > commandPermissionRank(requiredLevel) {
+			requiredLevel = level
 		}
 	}
 

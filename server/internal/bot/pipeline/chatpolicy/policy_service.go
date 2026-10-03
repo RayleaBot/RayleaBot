@@ -55,6 +55,7 @@ type Deps struct {
 // goroutines keep reading a consistent set.
 type policyEngine struct {
 	parser   *command.Parser
+	prefixes []string
 	checker  *permission.Checker
 	cooldown *permission.CooldownTracker
 	snapshot ConfigSnapshot
@@ -117,8 +118,10 @@ func (s *Service) UpdateConfig(cfg config.Config) {
 		DefaultLevel: settings.DefaultLevel,
 	}, s.whitelistRepo, s.whitelistState, s.blacklistRepo, cooldown)
 
+	prefixes := cfg.CommandPrefixes()
 	s.engine.Store(&policyEngine{
-		parser:   newCommandParser(cfg),
+		parser:   command.NewParser(prefixes),
+		prefixes: prefixes,
 		checker:  checker,
 		cooldown: cooldown,
 		snapshot: settings,
@@ -153,13 +156,14 @@ func (s *Service) config() config.Config {
 }
 
 func (s *Service) Apply(ctx context.Context, event chatevent.NormalizedEvent) (chatevent.NormalizedEvent, bool) {
-	enriched := s.EnrichCommandEvent(event)
 	engine := s.currentEngine()
+	resolution := s.resolveCommand(event, engine)
+	enriched := enrichCommandEvent(event, resolution)
 	if engine == nil || !shouldEvaluateChatPolicy(enriched) {
 		return enriched, true
 	}
 	checker := engine.checker
-	commandContext := s.commandPolicyContextForEvent(enriched)
+	commandContext := commandPolicyContextForResolution(enriched, resolution, engine.snapshot.DefaultLevel)
 
 	var permissionInfo *permission.CommandInfo
 	if commandContext != nil {
