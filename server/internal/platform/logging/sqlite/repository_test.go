@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -536,6 +537,12 @@ func TestRepositoryReturnsNotFoundForMissingLogID(t *testing.T) {
 
 func openLoggingRepository(t *testing.T) *Repository {
 	t.Helper()
+	repository, _ := openLoggingRepositoryStore(t)
+	return repository
+}
+
+func openLoggingRepositoryStore(t *testing.T) (*Repository, *storage.Store) {
+	t.Helper()
 
 	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
 	if err != nil {
@@ -551,7 +558,24 @@ func openLoggingRepository(t *testing.T) *Repository {
 	if err != nil {
 		t.Fatalf("create sqlite logging repository: %v", err)
 	}
-	return repository
+	return repository, store
+}
+
+func TestRepositoryNormalizesEmptyHistoricalDetails(t *testing.T) {
+	t.Parallel()
+	repository := openLoggingRepository(t)
+	for index, raw := range []string{"", " \n ", "null", "{}"} {
+		id := fmt.Sprintf("fixture-%d", index)
+		if err := repository.writeQ.InsertLogSummary(t.Context(), sqlcgen.InsertLogSummaryParams{
+			LogID: id, Ts: "2026-10-03T00:00:00Z", Level: "info", Source: "fixture", Message: "fixture", DetailsJson: raw,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		got, err := repository.GetSummary(t.Context(), id)
+		if err != nil || got.Details == nil || len(got.Details) != 0 {
+			t.Fatalf("historical details %q = %+v, %v", raw, got.Details, err)
+		}
+	}
 }
 
 func equalStrings(got, want []string) bool {

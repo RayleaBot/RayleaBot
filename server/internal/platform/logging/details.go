@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"slices"
@@ -38,32 +37,6 @@ func cloneValue(value any) any {
 	default:
 		return typed
 	}
-}
-
-func EncodeJSON(details map[string]any) (string, error) {
-	normalized := sanitizeMap(details)
-	if len(normalized) == 0 {
-		return "{}", nil
-	}
-
-	encoded, err := json.Marshal(normalized)
-	if err != nil {
-		return "", err
-	}
-	return string(encoded), nil
-}
-
-func DecodeJSON(raw string) (map[string]any, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return map[string]any{}, nil
-	}
-
-	var details map[string]any
-	if err := json.Unmarshal([]byte(raw), &details); err != nil {
-		return nil, err
-	}
-	return sanitizeMap(details), nil
 }
 
 func NormalizeProtocol(protocol string, details map[string]any) map[string]any {

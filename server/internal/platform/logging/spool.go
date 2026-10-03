@@ -266,7 +266,7 @@ func spoolRecordFromSummary(summary Summary) spoolRecord {
 		Protocol:  normalized.Protocol,
 		PluginID:  normalized.PluginID,
 		RequestID: normalized.RequestID,
-		Details:   CloneMap(normalized.Details),
+		Details:   normalized.Details,
 	}
 }
 
@@ -285,6 +285,6 @@ func decodeSpoolRecord(line []byte) (Summary, error) {
 		Protocol:  record.Protocol,
 		PluginID:  record.PluginID,
 		RequestID: record.RequestID,
-		Details:   CloneMap(record.Details),
+		Details:   record.Details,
 	}), nil
 }

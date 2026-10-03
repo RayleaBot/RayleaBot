@@ -49,11 +49,11 @@ func TestMessageDetailCompactionRetainsCanonicalTextAndMasksSignedURL(t *testing
 	if _, exists := details["raw_message"]; exists {
 		t.Fatal("identical message text persisted twice")
 	}
-	encoded, err := EncodeJSON(details)
+	encoded, err := json.Marshal(details)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(encoded, "fixture-access") || !strings.Contains(encoded, "size=1") {
+	if bytes.Contains(encoded, []byte("fixture-access")) || !bytes.Contains(encoded, []byte("size=1")) {
 		t.Fatal("signed URL was not safely redacted")
 	}
 }

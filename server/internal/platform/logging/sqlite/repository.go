@@ -28,13 +28,13 @@ func NewRepository(store *storage.Store) (*Repository, error) {
 	return &Repository{
 		read:   store.Read,
 		readQ:  sqlcgen.New(store.Read),
-		writeQ: sqlcgen.New(store.Write),
+		writeQ: sqlcgen.New(&preparedLogWrites{DB: store.Write, statements: make(map[string]*sql.Stmt, 2)}),
 	}, nil
 }
 
 func (r *Repository) SaveSummary(ctx context.Context, summary logging.Summary) error {
 	summary = logging.NormalizeSummary(summary)
-	detailsJSON, err := logging.EncodeJSON(summary.Details)
+	detailsJSON, err := json.Marshal(summary.Details)
 	if err != nil {
 		return fmt.Errorf("encode management log details: %w", err)
 	}
@@ -43,12 +43,12 @@ func (r *Repository) SaveSummary(ctx context.Context, summary logging.Summary) e
 		LogID:       summary.LogID,
 		BootID:      summary.BootID,
 		Ts:          summary.Timestamp,
-		Level:       strings.ToLower(strings.TrimSpace(summary.Level)),
-		Source:      strings.TrimSpace(summary.Source),
-		Message:     strings.TrimSpace(summary.Message),
-		PluginID:    strings.TrimSpace(summary.PluginID),
-		RequestID:   strings.TrimSpace(summary.RequestID),
-		DetailsJson: detailsJSON,
+		Level:       summary.Level,
+		Source:      summary.Source,
+		Message:     summary.Message,
+		PluginID:    summary.PluginID,
+		RequestID:   summary.RequestID,
+		DetailsJson: string(detailsJSON),
 	}); err != nil {
 		return fmt.Errorf("insert management log summary: %w", err)
 	}
@@ -244,9 +244,11 @@ func (r *Repository) GetSummary(ctx context.Context, logID string) (logging.Summ
 		return logging.Summary{}, fmt.Errorf("query management log detail: %w", err)
 	}
 
-	details, err := logging.DecodeJSON(item.DetailsJson)
-	if err != nil {
-		return logging.Summary{}, fmt.Errorf("decode management log detail %s: %w", item.LogID, err)
+	var details map[string]any
+	if raw := strings.TrimSpace(item.DetailsJson); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &details); err != nil {
+			return logging.Summary{}, fmt.Errorf("decode management log detail %s: %w", item.LogID, err)
+		}
 	}
 
 	return logging.NormalizeSummary(logging.Summary{
@@ -484,13 +486,14 @@ func (r *Repository) hasRows(ctx context.Context, spec filterSpec, boundary logB
 }
 
 func logBoundaryClause(boundary logBoundary) string {
-	comparison := "<"
-	if boundary == logBoundaryNewer {
-		comparison = ">"
-	}
 	// The inclusive bound lets SQLite seek into the expression index before
 	// checking the exact timestamp and row ID boundary.
-	return logTimestampExpr + " " + comparison + "= ? AND (" + logTimestampExpr + " " + comparison + " ? OR (" + logTimestampExpr + " = ? AND id " + comparison + " ?))"
+	const older = logTimestampExpr + " <= ? AND (" + logTimestampExpr + " < ? OR (" + logTimestampExpr + " = ? AND id < ?))"
+	const newer = logTimestampExpr + " >= ? AND (" + logTimestampExpr + " > ? OR (" + logTimestampExpr + " = ? AND id > ?))"
+	if boundary == logBoundaryNewer {
+		return newer
+	}
+	return older
 }
 
 func filterSpecFromPageQuery(q logging.PageQuery) filterSpec {
