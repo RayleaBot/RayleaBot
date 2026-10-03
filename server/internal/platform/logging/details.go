@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -32,6 +33,8 @@ func cloneValue(value any) any {
 			items = append(items, cloneValue(item))
 		}
 		return items
+	case []string:
+		return slices.Clone(typed)
 	default:
 		return typed
 	}

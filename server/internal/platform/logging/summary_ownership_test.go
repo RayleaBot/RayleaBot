@@ -114,4 +114,8 @@ func TestStreamAppendOwnsAndNormalizesCallerDetails(t *testing.T) {
 	if stored["nested"].([]any)[0].(map[string]any)["value"] != "token=[REDACTED]" || stored["strings"].([]string)[0] != "fixture-value" {
 		t.Fatalf("stored details = %+v", stored)
 	}
+	stored["strings"].([]string)[0] = "changed through snapshot"
+	if got := stream.Snapshot()[0].Details["strings"].([]string)[0]; got != "fixture-value" {
+		t.Fatalf("snapshot changed stored string slice: %q", got)
+	}
 }
