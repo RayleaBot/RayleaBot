@@ -48,7 +48,7 @@ flowchart TB
 | Management handlers | transport、鉴权、参数校验和错误映射；只向客户端返回稳定 `code` 与安全 `message` | 业务状态机和 runtime / storage 内部模型 |
 | Config | 配置读取、schema 校验、运行快照与需重启字段 | 让插件或客户端直接写配置文件 |
 | Adapter | OneBot11 与 QQ 官方的实例启停、transport、鉴权、归一化和动作转换 | 业务持久化和插件治理 |
-| Chat Policy Ingress | 元数据补齐、按插件生效前缀的命令解析与目标确定、黑白名单、命令权限、冷却和 reply target | 插件进程管理或治理数据突变 |
+| Chat Policy Ingress | 按会话 lane 处理入站事件、元数据补齐、按插件生效前缀的命令解析与目标确定、黑白名单、命令权限、冷却和 reply target | 插件进程管理或治理数据突变 |
 | Bridge | 统一事件结构校验与观测 | 平台内部事件的重复转发层 |
 | Message Statistics | 入口收信、确认发送的小时计数，连接离线与服务运行记录，按有效时区生成查询视图 | 从日志反推计数或让客户端累计业务状态 |
 | Dispatcher | 按 Ingress 确定的命令目标或事件订阅选择插件、按会话 lane 排队、优先级分层和出站动作执行 | 直接访问插件私有存储；脱离前缀按命令名重新匹配 |
@@ -115,6 +115,7 @@ sequenceDiagram
     AD->>OB: protocol WebSocket / HTTP API
 ```
 
+- Adapter 把归一化事件交给 Ingress 的会话 lane 后立即返回：同一连接的同一会话保持 FIFO，不同会话在 Ingress 共享并发度内并行，一个会话的等待不阻塞其他会话；单个会话积压超过上限时丢弃新事件并记录日志。
 - 同一 `event.target` lane 保持 FIFO，不同目标在插件并发度内并行；队列满时丢弃该次投递并计入观测摘要。
 - 插件以 `event.detach` 把消息、计划任务触发或管理动作事件转入后台时，Runtime 以转入结果完成投递，Dispatcher 随即释放 lane 与并发槽；事件 session 留在 Runtime Manager，直到终态、后台期限或进程停止，计划任务的结果在事件真正结束时记录。
 - 命令声明优先选择目标插件，其余事件按订阅匹配。消息候选按 manifest `priority` 分层，同层并发；成功终态的 `propagation` 覆盖静态 `block`，未处理、失败和队列拒绝继续后续层。

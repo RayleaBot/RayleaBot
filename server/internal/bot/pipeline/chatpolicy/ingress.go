@@ -60,11 +60,19 @@ type Ingress struct {
 	metadataEnricher MetadataEnricher
 	policy           *Service
 	conversations    *conversation.Registry
+	logger           *slog.Logger
+	lanesMu          sync.Mutex
+	lanesClosed      bool
+	lanes            map[string]*inboundLane
+	slots            chan struct{}
 }
 
 func NewIngress(deps IngressDeps) *Ingress {
 	if deps.MessageReceived == nil {
 		deps.MessageReceived = func(chatevent.NormalizedEvent) {}
+	}
+	if deps.Logger == nil {
+		deps.Logger = slog.Default()
 	}
 	currentConfig := deps.CurrentConfig
 	if currentConfig == nil {
@@ -80,6 +88,9 @@ func NewIngress(deps IngressDeps) *Ingress {
 		lifecycle:        deps.Lifecycle,
 		metadataEnricher: deps.MetadataEnricher,
 		conversations:    deps.Conversations,
+		logger:           deps.Logger,
+		lanes:            make(map[string]*inboundLane),
+		slots:            make(chan struct{}, inboundConcurrency),
 	}
 	policyDeps := Deps{
 		CurrentConfig:   currentConfig,
@@ -122,6 +133,8 @@ func (s *Ingress) Policy() *Service {
 	return s.policy
 }
 
+// HandleAdapterEvent processes one event on the caller's goroutine. Adapters
+// feed events through EnqueueAdapterEvent, which orders them per conversation.
 func (s *Ingress) HandleAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) {
 	s.messageReceived(event)
 	s.admissionMu.Lock()
@@ -196,6 +209,7 @@ func (s *Ingress) HandleAdapterEvent(ctx context.Context, event chatevent.Normal
 
 // StopAdmission leaves accepted handlers and outbound transports alive.
 func (s *Ingress) StopAdmission() {
+	s.closeLanes()
 	s.admissionMu.Lock()
 	defer s.admissionMu.Unlock()
 	if s.stopping {

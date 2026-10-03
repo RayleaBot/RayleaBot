@@ -344,12 +344,12 @@ func configureAppRuntimeCallbacks(application *App) {
 		lifecycle.SyncBotIdentities(context.Background())
 	}
 	for _, shell := range application.eventStack.OneBotShells {
-		shell.SetEventHandler(eventIngress.HandleAdapterEvent)
+		shell.SetEventHandler(eventIngress.EnqueueAdapterEvent)
 		shell.SetReadyHandler(eventIngress.HandleAdapterReady)
 		shell.SetStateHandler(func(onebot11.Snapshot) { publishAdapterState() })
 	}
 	for _, client := range application.eventStack.QQOfficial {
-		client.SetEventHandler(eventIngress.HandleAdapterEvent)
+		client.SetEventHandler(eventIngress.EnqueueAdapterEvent)
 		client.SetReadyHandler(eventIngress.HandleAdapterReady)
 		// The QQ adapter has no transport snapshot of its own, so its state
 		// reaches the management surface through the adapters listing.
