@@ -407,302 +407,254 @@ type Frame struct {
 	Reason          string          `json:"reason,omitempty"`
 }
 
+// MarshalJSON keeps all supplied fields and includes the selected frame's
+// required fields even when they have zero, empty or null values.
 func (frame Frame) MarshalJSON() ([]byte, error) {
 	type plain Frame
-	encoded, err := json.Marshal(plain(frame))
-	if err != nil {
-		return nil, err
-	}
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(encoded, &object); err != nil {
-		return nil, err
-	}
 	switch frame.Type {
 	case "init":
-		if _, present := object["bots"]; !present {
-			value, err := json.Marshal(frame.Bots)
-			if err != nil {
-				return nil, err
-			}
-			object["bots"] = value
+		type projection struct {
+			Type            string          `json:"type"`
+			RequestID       string          `json:"request_id"`
+			Timezone        string          `json:"timezone"`
+			CommandPrefixes []string        `json:"command_prefixes"`
+			ProtocolVersion string          `json:"protocol_version"`
+			PluginID        string          `json:"plugin_id"`
+			Config          map[string]any  `json:"config"`
+			SuperAdmins     []string        `json:"super_admins"`
+			Concurrency     int             `json:"concurrency"`
+			Bots            *[]BotIdentity  `json:"bots"`
+			Summary         string          `json:"summary,omitempty"`
+			Status          string          `json:"status,omitempty"`
+			ErrorMessage    string          `json:"error_message,omitempty"`
+			DeadlineAtMs    int64           `json:"deadline_at_ms,omitempty"`
+			Event           json.RawMessage `json:"event,omitempty"`
+			ParentRequestID string          `json:"parent_request_id,omitempty"`
+			Action          string          `json:"action,omitempty"`
+			Data            json.RawMessage `json:"data,omitempty"`
+			Propagation     string          `json:"propagation,omitempty"`
+			Code            string          `json:"code,omitempty"`
+			Message         string          `json:"message,omitempty"`
+			Details         map[string]any  `json:"details,omitempty"`
+			Reason          string          `json:"reason,omitempty"`
 		}
-		if _, present := object["command_prefixes"]; !present {
-			value, err := json.Marshal(frame.CommandPrefixes)
-			if err != nil {
-				return nil, err
-			}
-			object["command_prefixes"] = value
-		}
-		if _, present := object["concurrency"]; !present {
-			value, err := json.Marshal(frame.Concurrency)
-			if err != nil {
-				return nil, err
-			}
-			object["concurrency"] = value
-		}
-		if _, present := object["config"]; !present {
-			value, err := json.Marshal(frame.Config)
-			if err != nil {
-				return nil, err
-			}
-			object["config"] = value
-		}
-		if _, present := object["plugin_id"]; !present {
-			value, err := json.Marshal(frame.PluginID)
-			if err != nil {
-				return nil, err
-			}
-			object["plugin_id"] = value
-		}
-		if _, present := object["protocol_version"]; !present {
-			value, err := json.Marshal(frame.ProtocolVersion)
-			if err != nil {
-				return nil, err
-			}
-			object["protocol_version"] = value
-		}
-		if _, present := object["request_id"]; !present {
-			value, err := json.Marshal(frame.RequestID)
-			if err != nil {
-				return nil, err
-			}
-			object["request_id"] = value
-		}
-		if _, present := object["super_admins"]; !present {
-			value, err := json.Marshal(frame.SuperAdmins)
-			if err != nil {
-				return nil, err
-			}
-			object["super_admins"] = value
-		}
-		if _, present := object["timezone"]; !present {
-			value, err := json.Marshal(frame.Timezone)
-			if err != nil {
-				return nil, err
-			}
-			object["timezone"] = value
-		}
-		if _, present := object["type"]; !present {
-			value, err := json.Marshal(frame.Type)
-			if err != nil {
-				return nil, err
-			}
-			object["type"] = value
-		}
+		return json.Marshal(projection(frame))
 	case "init_progress":
-		if _, present := object["request_id"]; !present {
-			value, err := json.Marshal(frame.RequestID)
-			if err != nil {
-				return nil, err
-			}
-			object["request_id"] = value
+		type projection struct {
+			Type            string          `json:"type"`
+			RequestID       string          `json:"request_id"`
+			Timezone        string          `json:"timezone,omitempty"`
+			CommandPrefixes []string        `json:"command_prefixes,omitempty"`
+			ProtocolVersion string          `json:"protocol_version,omitempty"`
+			PluginID        string          `json:"plugin_id,omitempty"`
+			Config          map[string]any  `json:"config,omitempty"`
+			SuperAdmins     []string        `json:"super_admins,omitempty"`
+			Concurrency     int             `json:"concurrency,omitempty"`
+			Bots            *[]BotIdentity  `json:"bots,omitempty"`
+			Summary         string          `json:"summary"`
+			Status          string          `json:"status,omitempty"`
+			ErrorMessage    string          `json:"error_message,omitempty"`
+			DeadlineAtMs    int64           `json:"deadline_at_ms,omitempty"`
+			Event           json.RawMessage `json:"event,omitempty"`
+			ParentRequestID string          `json:"parent_request_id,omitempty"`
+			Action          string          `json:"action,omitempty"`
+			Data            json.RawMessage `json:"data,omitempty"`
+			Propagation     string          `json:"propagation,omitempty"`
+			Code            string          `json:"code,omitempty"`
+			Message         string          `json:"message,omitempty"`
+			Details         map[string]any  `json:"details,omitempty"`
+			Reason          string          `json:"reason,omitempty"`
 		}
-		if _, present := object["summary"]; !present {
-			value, err := json.Marshal(frame.Summary)
-			if err != nil {
-				return nil, err
-			}
-			object["summary"] = value
-		}
-		if _, present := object["type"]; !present {
-			value, err := json.Marshal(frame.Type)
-			if err != nil {
-				return nil, err
-			}
-			object["type"] = value
-		}
+		return json.Marshal(projection(frame))
 	case "init_ack":
-		if _, present := object["request_id"]; !present {
-			value, err := json.Marshal(frame.RequestID)
-			if err != nil {
-				return nil, err
-			}
-			object["request_id"] = value
+		type projection struct {
+			Type            string          `json:"type"`
+			RequestID       string          `json:"request_id"`
+			Timezone        string          `json:"timezone,omitempty"`
+			CommandPrefixes []string        `json:"command_prefixes,omitempty"`
+			ProtocolVersion string          `json:"protocol_version,omitempty"`
+			PluginID        string          `json:"plugin_id,omitempty"`
+			Config          map[string]any  `json:"config,omitempty"`
+			SuperAdmins     []string        `json:"super_admins,omitempty"`
+			Concurrency     int             `json:"concurrency,omitempty"`
+			Bots            *[]BotIdentity  `json:"bots,omitempty"`
+			Summary         string          `json:"summary,omitempty"`
+			Status          string          `json:"status"`
+			ErrorMessage    string          `json:"error_message,omitempty"`
+			DeadlineAtMs    int64           `json:"deadline_at_ms,omitempty"`
+			Event           json.RawMessage `json:"event,omitempty"`
+			ParentRequestID string          `json:"parent_request_id,omitempty"`
+			Action          string          `json:"action,omitempty"`
+			Data            json.RawMessage `json:"data,omitempty"`
+			Propagation     string          `json:"propagation,omitempty"`
+			Code            string          `json:"code,omitempty"`
+			Message         string          `json:"message,omitempty"`
+			Details         map[string]any  `json:"details,omitempty"`
+			Reason          string          `json:"reason,omitempty"`
 		}
-		if _, present := object["status"]; !present {
-			value, err := json.Marshal(frame.Status)
-			if err != nil {
-				return nil, err
-			}
-			object["status"] = value
-		}
-		if _, present := object["type"]; !present {
-			value, err := json.Marshal(frame.Type)
-			if err != nil {
-				return nil, err
-			}
-			object["type"] = value
-		}
+		return json.Marshal(projection(frame))
 	case "event":
-		if _, present := object["deadline_at_ms"]; !present {
-			value, err := json.Marshal(frame.DeadlineAtMs)
-			if err != nil {
+		if frame.Event != nil && len(frame.Event) == 0 {
+			// Empty raw fields were omitted before required-field encoding.
+			// Preserve earlier field errors and marshal custom values only once.
+			if _, err := json.Marshal(plain(frame)); err != nil {
 				return nil, err
 			}
-			object["deadline_at_ms"] = value
+			return json.Marshal(frame.Event)
 		}
-		if _, present := object["event"]; !present {
-			value, err := json.Marshal(frame.Event)
-			if err != nil {
-				return nil, err
-			}
-			object["event"] = value
+		type projection struct {
+			Type            string          `json:"type"`
+			RequestID       string          `json:"request_id"`
+			Timezone        string          `json:"timezone,omitempty"`
+			CommandPrefixes []string        `json:"command_prefixes,omitempty"`
+			ProtocolVersion string          `json:"protocol_version,omitempty"`
+			PluginID        string          `json:"plugin_id,omitempty"`
+			Config          map[string]any  `json:"config,omitempty"`
+			SuperAdmins     []string        `json:"super_admins,omitempty"`
+			Concurrency     int             `json:"concurrency,omitempty"`
+			Bots            *[]BotIdentity  `json:"bots,omitempty"`
+			Summary         string          `json:"summary,omitempty"`
+			Status          string          `json:"status,omitempty"`
+			ErrorMessage    string          `json:"error_message,omitempty"`
+			DeadlineAtMs    int64           `json:"deadline_at_ms"`
+			Event           json.RawMessage `json:"event"`
+			ParentRequestID string          `json:"parent_request_id,omitempty"`
+			Action          string          `json:"action,omitempty"`
+			Data            json.RawMessage `json:"data,omitempty"`
+			Propagation     string          `json:"propagation,omitempty"`
+			Code            string          `json:"code,omitempty"`
+			Message         string          `json:"message,omitempty"`
+			Details         map[string]any  `json:"details,omitempty"`
+			Reason          string          `json:"reason,omitempty"`
 		}
-		if _, present := object["request_id"]; !present {
-			value, err := json.Marshal(frame.RequestID)
-			if err != nil {
-				return nil, err
-			}
-			object["request_id"] = value
-		}
-		if _, present := object["type"]; !present {
-			value, err := json.Marshal(frame.Type)
-			if err != nil {
-				return nil, err
-			}
-			object["type"] = value
-		}
+		return json.Marshal(projection(frame))
 	case "action":
-		if _, present := object["action"]; !present {
-			value, err := json.Marshal(frame.Action)
-			if err != nil {
+		if frame.Data != nil && len(frame.Data) == 0 {
+			// Empty raw fields were omitted before required-field encoding.
+			// Preserve earlier field errors and marshal custom values only once.
+			if _, err := json.Marshal(plain(frame)); err != nil {
 				return nil, err
 			}
-			object["action"] = value
+			return json.Marshal(frame.Data)
 		}
-		if _, present := object["data"]; !present {
-			value, err := json.Marshal(frame.Data)
-			if err != nil {
-				return nil, err
-			}
-			object["data"] = value
+		type projection struct {
+			Type            string          `json:"type"`
+			RequestID       string          `json:"request_id"`
+			Timezone        string          `json:"timezone,omitempty"`
+			CommandPrefixes []string        `json:"command_prefixes,omitempty"`
+			ProtocolVersion string          `json:"protocol_version,omitempty"`
+			PluginID        string          `json:"plugin_id,omitempty"`
+			Config          map[string]any  `json:"config,omitempty"`
+			SuperAdmins     []string        `json:"super_admins,omitempty"`
+			Concurrency     int             `json:"concurrency,omitempty"`
+			Bots            *[]BotIdentity  `json:"bots,omitempty"`
+			Summary         string          `json:"summary,omitempty"`
+			Status          string          `json:"status,omitempty"`
+			ErrorMessage    string          `json:"error_message,omitempty"`
+			DeadlineAtMs    int64           `json:"deadline_at_ms,omitempty"`
+			Event           json.RawMessage `json:"event,omitempty"`
+			ParentRequestID string          `json:"parent_request_id,omitempty"`
+			Action          string          `json:"action"`
+			Data            json.RawMessage `json:"data"`
+			Propagation     string          `json:"propagation,omitempty"`
+			Code            string          `json:"code,omitempty"`
+			Message         string          `json:"message,omitempty"`
+			Details         map[string]any  `json:"details,omitempty"`
+			Reason          string          `json:"reason,omitempty"`
 		}
-		if _, present := object["request_id"]; !present {
-			value, err := json.Marshal(frame.RequestID)
-			if err != nil {
-				return nil, err
-			}
-			object["request_id"] = value
-		}
-		if _, present := object["type"]; !present {
-			value, err := json.Marshal(frame.Type)
-			if err != nil {
-				return nil, err
-			}
-			object["type"] = value
-		}
+		return json.Marshal(projection(frame))
 	case "result":
-		if _, present := object["data"]; !present {
-			value, err := json.Marshal(frame.Data)
-			if err != nil {
+		if frame.Data != nil && len(frame.Data) == 0 {
+			// Empty raw fields were omitted before required-field encoding.
+			// Preserve earlier field errors and marshal custom values only once.
+			if _, err := json.Marshal(plain(frame)); err != nil {
 				return nil, err
 			}
-			object["data"] = value
+			return json.Marshal(frame.Data)
 		}
-		if _, present := object["request_id"]; !present {
-			value, err := json.Marshal(frame.RequestID)
-			if err != nil {
-				return nil, err
-			}
-			object["request_id"] = value
+		type projection struct {
+			Type            string          `json:"type"`
+			RequestID       string          `json:"request_id"`
+			Timezone        string          `json:"timezone,omitempty"`
+			CommandPrefixes []string        `json:"command_prefixes,omitempty"`
+			ProtocolVersion string          `json:"protocol_version,omitempty"`
+			PluginID        string          `json:"plugin_id,omitempty"`
+			Config          map[string]any  `json:"config,omitempty"`
+			SuperAdmins     []string        `json:"super_admins,omitempty"`
+			Concurrency     int             `json:"concurrency,omitempty"`
+			Bots            *[]BotIdentity  `json:"bots,omitempty"`
+			Summary         string          `json:"summary,omitempty"`
+			Status          string          `json:"status"`
+			ErrorMessage    string          `json:"error_message,omitempty"`
+			DeadlineAtMs    int64           `json:"deadline_at_ms,omitempty"`
+			Event           json.RawMessage `json:"event,omitempty"`
+			ParentRequestID string          `json:"parent_request_id,omitempty"`
+			Action          string          `json:"action,omitempty"`
+			Data            json.RawMessage `json:"data"`
+			Propagation     string          `json:"propagation,omitempty"`
+			Code            string          `json:"code,omitempty"`
+			Message         string          `json:"message,omitempty"`
+			Details         map[string]any  `json:"details,omitempty"`
+			Reason          string          `json:"reason,omitempty"`
 		}
-		if _, present := object["status"]; !present {
-			value, err := json.Marshal(frame.Status)
-			if err != nil {
-				return nil, err
-			}
-			object["status"] = value
-		}
-		if _, present := object["type"]; !present {
-			value, err := json.Marshal(frame.Type)
-			if err != nil {
-				return nil, err
-			}
-			object["type"] = value
-		}
+		return json.Marshal(projection(frame))
 	case "error":
-		if _, present := object["code"]; !present {
-			value, err := json.Marshal(frame.Code)
-			if err != nil {
-				return nil, err
-			}
-			object["code"] = value
+		type projection struct {
+			Type            string          `json:"type"`
+			RequestID       string          `json:"request_id"`
+			Timezone        string          `json:"timezone,omitempty"`
+			CommandPrefixes []string        `json:"command_prefixes,omitempty"`
+			ProtocolVersion string          `json:"protocol_version,omitempty"`
+			PluginID        string          `json:"plugin_id,omitempty"`
+			Config          map[string]any  `json:"config,omitempty"`
+			SuperAdmins     []string        `json:"super_admins,omitempty"`
+			Concurrency     int             `json:"concurrency,omitempty"`
+			Bots            *[]BotIdentity  `json:"bots,omitempty"`
+			Summary         string          `json:"summary,omitempty"`
+			Status          string          `json:"status,omitempty"`
+			ErrorMessage    string          `json:"error_message,omitempty"`
+			DeadlineAtMs    int64           `json:"deadline_at_ms,omitempty"`
+			Event           json.RawMessage `json:"event,omitempty"`
+			ParentRequestID string          `json:"parent_request_id,omitempty"`
+			Action          string          `json:"action,omitempty"`
+			Data            json.RawMessage `json:"data,omitempty"`
+			Propagation     string          `json:"propagation,omitempty"`
+			Code            string          `json:"code"`
+			Message         string          `json:"message"`
+			Details         map[string]any  `json:"details,omitempty"`
+			Reason          string          `json:"reason,omitempty"`
 		}
-		if _, present := object["message"]; !present {
-			value, err := json.Marshal(frame.Message)
-			if err != nil {
-				return nil, err
-			}
-			object["message"] = value
-		}
-		if _, present := object["request_id"]; !present {
-			value, err := json.Marshal(frame.RequestID)
-			if err != nil {
-				return nil, err
-			}
-			object["request_id"] = value
-		}
-		if _, present := object["type"]; !present {
-			value, err := json.Marshal(frame.Type)
-			if err != nil {
-				return nil, err
-			}
-			object["type"] = value
-		}
-	case "ping":
-		if _, present := object["request_id"]; !present {
-			value, err := json.Marshal(frame.RequestID)
-			if err != nil {
-				return nil, err
-			}
-			object["request_id"] = value
-		}
-		if _, present := object["type"]; !present {
-			value, err := json.Marshal(frame.Type)
-			if err != nil {
-				return nil, err
-			}
-			object["type"] = value
-		}
-	case "pong":
-		if _, present := object["request_id"]; !present {
-			value, err := json.Marshal(frame.RequestID)
-			if err != nil {
-				return nil, err
-			}
-			object["request_id"] = value
-		}
-		if _, present := object["type"]; !present {
-			value, err := json.Marshal(frame.Type)
-			if err != nil {
-				return nil, err
-			}
-			object["type"] = value
-		}
+		return json.Marshal(projection(frame))
 	case "shutdown":
-		if _, present := object["reason"]; !present {
-			value, err := json.Marshal(frame.Reason)
-			if err != nil {
-				return nil, err
-			}
-			object["reason"] = value
+		type projection struct {
+			Type            string          `json:"type"`
+			RequestID       string          `json:"request_id"`
+			Timezone        string          `json:"timezone,omitempty"`
+			CommandPrefixes []string        `json:"command_prefixes,omitempty"`
+			ProtocolVersion string          `json:"protocol_version,omitempty"`
+			PluginID        string          `json:"plugin_id,omitempty"`
+			Config          map[string]any  `json:"config,omitempty"`
+			SuperAdmins     []string        `json:"super_admins,omitempty"`
+			Concurrency     int             `json:"concurrency,omitempty"`
+			Bots            *[]BotIdentity  `json:"bots,omitempty"`
+			Summary         string          `json:"summary,omitempty"`
+			Status          string          `json:"status,omitempty"`
+			ErrorMessage    string          `json:"error_message,omitempty"`
+			DeadlineAtMs    int64           `json:"deadline_at_ms,omitempty"`
+			Event           json.RawMessage `json:"event,omitempty"`
+			ParentRequestID string          `json:"parent_request_id,omitempty"`
+			Action          string          `json:"action,omitempty"`
+			Data            json.RawMessage `json:"data,omitempty"`
+			Propagation     string          `json:"propagation,omitempty"`
+			Code            string          `json:"code,omitempty"`
+			Message         string          `json:"message,omitempty"`
+			Details         map[string]any  `json:"details,omitempty"`
+			Reason          string          `json:"reason"`
 		}
-		if _, present := object["request_id"]; !present {
-			value, err := json.Marshal(frame.RequestID)
-			if err != nil {
-				return nil, err
-			}
-			object["request_id"] = value
-		}
-		if _, present := object["type"]; !present {
-			value, err := json.Marshal(frame.Type)
-			if err != nil {
-				return nil, err
-			}
-			object["type"] = value
-		}
+		return json.Marshal(projection(frame))
+	default:
+		return json.Marshal(plain(frame))
 	}
-	return json.Marshal(object)
 }
 
 const ProtocolVersion = "4"

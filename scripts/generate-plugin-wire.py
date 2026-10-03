@@ -235,19 +235,36 @@ class GoModels:
             for name, property_schema in node["properties"].items():
                 fields.setdefault(name, (variant, property_schema))
         lines.append("type Frame struct {")
+        frame_types = {}
         for name, (variant, property_schema) in fields.items():
             go_type = "json.RawMessage" if name in {"event", "data"} else self.field_type(variant, name, property_schema, True)
             if name == "bots":
                 go_type = "*[]BotIdentity"
+            frame_types[name] = go_type
             suffix = "" if name in {"type", "request_id"} else ",omitempty"
             lines.append(f' {go_name(name)} {go_type} `json:"{name}{suffix}"`')
         lines.append("}\n")
-        lines += ["func (frame Frame) MarshalJSON() ([]byte, error) {", " type plain Frame", " encoded, err := json.Marshal(plain(frame)); if err != nil { return nil, err }", " var object map[string]json.RawMessage; if err := json.Unmarshal(encoded, &object); err != nil { return nil, err }", " switch frame.Type {"]
+        lines += ["// MarshalJSON keeps all supplied fields and includes the selected frame's",
+                  "// required fields even when they have zero, empty or null values.",
+                  "func (frame Frame) MarshalJSON() ([]byte, error) {", " type plain Frame", " switch frame.Type {"]
         for discriminator, required in required_by_type.items():
+            overrides = [field for field in required if field not in {"type", "request_id"}]
+            if not overrides:
+                continue
             lines.append(f" case {json.dumps(discriminator)}:")
             for field in required:
-                lines.append(f'  if _, present := object[{json.dumps(field)}]; !present {{ value, err := json.Marshal(frame.{go_name(field)}); if err != nil {{ return nil, err }}; object[{json.dumps(field)}] = value }}')
-        lines += [" }", " return json.Marshal(object)", "}\n"]
+                if frame_types[field] == "json.RawMessage":
+                    lines += [f"  if frame.{go_name(field)} != nil && len(frame.{go_name(field)}) == 0 {{",
+                              "   // Empty raw fields were omitted before required-field encoding.",
+                              "   // Preserve earlier field errors and marshal custom values only once.",
+                              "   if _, err := json.Marshal(plain(frame)); err != nil { return nil, err }",
+                              f"   return json.Marshal(frame.{go_name(field)})", "  }"]
+            lines.append("  type projection struct {")
+            for field in fields:
+                suffix = "" if field in required or field in {"type", "request_id"} else ",omitempty"
+                lines.append(f'   {go_name(field)} {frame_types[field]} `json:"{field}{suffix}"`')
+            lines += ["  }", "  return json.Marshal(projection(frame))"]
+        lines += [" default:", "  return json.Marshal(plain(frame))", " }", "}\n"]
         return "\n".join(lines)
 
 
