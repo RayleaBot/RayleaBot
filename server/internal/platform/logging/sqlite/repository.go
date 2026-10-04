@@ -186,13 +186,13 @@ func (r *Repository) ListPage(ctx context.Context, query logging.PageQuery) (log
 		return logging.PageResult{}, fmt.Errorf("iterate management log page: %w", err)
 	}
 
+	if len(entries) > limit {
+		entries = entries[:limit]
+	}
 	if direction == logging.PageDirectionNewer {
 		for left, right := 0, len(entries)-1; left < right; left, right = left+1, right-1 {
 			entries[left], entries[right] = entries[right], entries[left]
 		}
-	}
-	if len(entries) > limit {
-		entries = entries[:limit]
 	}
 
 	result := logging.PageResult{

@@ -330,6 +330,73 @@ func TestRepositoryPagesWithinBootIDScope(t *testing.T) {
 	}
 }
 
+func TestRepositoryNewerPagesDoNotSkipAdjacentEntries(t *testing.T) {
+	for _, sameTimestamp := range []bool{false, true} {
+		t.Run(fmt.Sprintf("same_timestamp_%t", sameTimestamp), func(t *testing.T) {
+			t.Parallel()
+			repository := openLoggingRepository(t)
+			base := time.Date(2026, 3, 20, 10, 0, 0, 0, time.UTC)
+			for index := 1; index <= 9; index++ {
+				timestamp := base
+				if !sameTimestamp {
+					timestamp = base.Add(time.Duration(index) * time.Second)
+				}
+				if err := repository.SaveSummary(t.Context(), logging.Summary{
+					LogID: fmt.Sprintf("current-%02d", index), BootID: "boot-current",
+					Timestamp: logging.FormatTimestamp(timestamp), Level: "info", Source: "fixture", Message: fmt.Sprint(index),
+				}); err != nil {
+					t.Fatal(err)
+				}
+				if err := repository.SaveSummary(t.Context(), logging.Summary{
+					LogID: fmt.Sprintf("old-%02d", index), BootID: "boot-old",
+					Timestamp: logging.FormatTimestamp(timestamp), Level: "info", Source: "fixture", Message: "old boot",
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			query := logging.PageQuery{BootID: "boot-current", Limit: 2}
+			page, err := repository.ListPage(t.Context(), query)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for count := 0; page.Page.HasOlder; count++ {
+				if count >= 5 || page.Page.OlderCursor == nil {
+					t.Fatal("older pagination did not reach the first entry")
+				}
+				query.Cursor = *page.Page.OlderCursor
+				page, err = repository.ListPage(t.Context(), query)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if len(page.Items) != 1 || page.Items[0].Message != "1" {
+				t.Fatalf("unexpected oldest page: %+v", page)
+			}
+			query.Direction = logging.PageDirectionNewer
+			for next := 2; next <= 8; next += 2 {
+				if page.Page.NewerCursor == nil {
+					t.Fatalf("missing cursor before entry %d", next)
+				}
+				query.Cursor = *page.Page.NewerCursor
+				page, err = repository.ListPage(t.Context(), query)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var messages []string
+				for _, item := range page.Items {
+					messages = append(messages, item.Message)
+				}
+				if !equalStrings(messages, []string{fmt.Sprint(next + 1), fmt.Sprint(next)}) {
+					t.Fatalf("newer page skipped or repeated an adjacent entry: %v", messages)
+				}
+				if !page.Page.HasOlder || page.Page.HasNewer != (next < 8) || (page.Page.NewerCursor != nil) != (next < 8) {
+					t.Fatalf("incorrect continuation after entry %d: %+v", next+1, page.Page)
+				}
+			}
+		})
+	}
+}
+
 func TestRepositoryRejectsInvalidCursor(t *testing.T) {
 	t.Parallel()
 
