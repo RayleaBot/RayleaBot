@@ -46,6 +46,7 @@ const displayDetail = computed(() => props.open ? props.detail : retained.value.
 const displayLoading = computed(() => props.open ? props.loading : retained.value.loading)
 const displayError = computed(() => props.open ? props.error : retained.value.error)
 let floatingTrigger: HTMLElement | null = null
+let focusVersion = 0
 function finishClose() {
   if (props.open) return
   retained.value = { summary: null, detail: null, loading: false, error: null }
@@ -102,10 +103,13 @@ const summaryChips = computed<SummaryChip[]>(() => {
 })
 
 async function focusFloatingWindow() {
+  const version = ++focusVersion
   updateHostMetrics()
   restorePosition()
   await nextTick()
-  panelRef.value?.focus()
+  if (version === focusVersion && props.open && useFloatingWindow.value && panelRef.value?.isConnected) {
+    panelRef.value.focus({ preventScroll: true })
+  }
 }
 
 useEventListener(window, 'keydown', (event: KeyboardEvent) => {
@@ -118,6 +122,7 @@ watch(
   () => props.open,
   async (open) => {
     if (!open) {
+      focusVersion += 1
       stopDragging()
       return
     }

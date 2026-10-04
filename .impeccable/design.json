@@ -1647,7 +1647,7 @@
       },
       {
         "name": "The Log Row Density Rule",
-        "body": "实时与历史日志的行级标签使用 AppTag 的 small 尺寸。虚拟列表以常规行高作为估算值，并测量实际行高；换行正文允许自然增高，虚拟列表维护滚动锚点与底部跟随。暂停跟随的实时列表统一使用 [`AppJumpToLatest`](web/src/components/AppJumpToLatest.vue) 返回最新条目，新条目数量是蓝色按钮上的白色计数，不使用错误色。",
+        "body": "实时与历史日志的行级标签使用 AppTag 的 small 尺寸。虚拟列表以常规行高作为估算值，并测量实际行高；换行正文允许自然增高，虚拟列表维护滚动锚点与底部跟随。两页在列表实际离开底部时使用 [`AppJumpToLatest`](web/src/components/AppJumpToLatest.vue) 返回当前范围的最新条目；打开实时日志详情只暂停跟随，不改变实际位置。实时新条目数量是蓝色按钮上的白色计数，不使用错误色。",
         "section": "components"
       },
       {

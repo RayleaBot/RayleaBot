@@ -141,7 +141,6 @@ const summaryFields = computed(() => {
 }
 
 .log-detail-section__inset--message {
-  max-height: min(28vh, 240px);
   font-family: var(--font-sans);
   font-size: 14px;
 }

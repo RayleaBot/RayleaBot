@@ -1,4 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { defineComponent, h, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
@@ -598,12 +599,14 @@ describe('VirtualDataViewport', () => {
 
     expect(scroller.scrollTop).toBe(220)
 
+    const physicalEvents = wrapper.emitted('bottom-position-change')?.length ?? 0
     await wrapper.get('.data-viewport__scroller').trigger('wheel', {
       deltaY: -120,
     })
     await wrapper.vm.$nextTick()
 
     expect(wrapper.emitted('at-bottom-change')?.at(-1)).toEqual([false])
+    expect(wrapper.emitted('bottom-position-change')?.length ?? 0).toBe(physicalEvents)
 
     await wrapper.setProps({
       items: Array.from({ length: 11 }, (_, index) => ({ id: `row-${index}`, label: `Row ${index}` })),
@@ -613,6 +616,40 @@ describe('VirtualDataViewport', () => {
     await wrapper.vm.$nextTick()
 
     expect(scroller.scrollTop).toBe(220)
+    expect(wrapper.emitted('bottom-position-change')?.at(-1)).toEqual([false])
+  })
+
+  it('reports a new bottom gap after an in-place append while following is paused', async () => {
+    const Host = defineComponent({
+      setup() {
+        const items = ref(Array.from({ length: 10 }, (_, index) => ({ id: index })))
+        const following = ref(false)
+        return { items, following }
+      },
+      render() {
+        return h(VirtualDataViewport, { items: this.items, itemHeight: fallbackRowHeight, viewportHeight, followBottom: this.following }, {
+          default: ({ item }: { item: { id: number } }) => String(item.id),
+        })
+      },
+    })
+    const host = mount(Host)
+    const viewport = host.findComponent(VirtualDataViewport)
+    await flushPromises()
+    const scroller = viewport.get('.data-viewport__scroller').element as HTMLElement
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: viewportHeight })
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, get: () => host.vm.items.length * fallbackRowHeight })
+    host.vm.following = true
+    await flushPromises()
+    expect(scroller.scrollTop).toBe(220)
+    host.vm.following = false
+    await flushPromises()
+    const events = viewport.emitted('bottom-position-change')?.length ?? 0
+    expect(scroller.scrollTop).toBe(220)
+    host.vm.items.push({ id: 10 })
+    await flushPromises()
+    expect(scroller.scrollTop).toBe(220)
+    expect(viewport.emitted('bottom-position-change')?.length).toBeGreaterThan(events)
+    expect(viewport.emitted('bottom-position-change')?.at(-1)).toEqual([false])
   })
 
   it('does not snap back to the bottom when the user scrolls upward without any new rows', async () => {

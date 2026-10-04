@@ -42,6 +42,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   const detail = useLogDetailController()
   const { readyToRenderHeavyContent, waitUntilReady } = useHeavyContentGate()
   const restoringLatest = ref(false)
+  const viewportAtBottom = ref(true)
   const historyFollowBottom = ref(false)
   const operationError = ref<string | null>(null)
   const error = computed(() => operationError.value ?? store.error)
@@ -54,8 +55,9 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   // Why the edited history range cannot be queried, shown under the field to fix instead of querying.
   const timeRangeIssue = computed(() => historyStore?.timeRangeIssue() ?? null)
   let applyTimer: ReturnType<typeof setTimeout> | undefined
-  const showJumpToLatest = computed(() => !history && readyToRenderHeavyContent.value
-    && initialized.value && !restoringLatest.value && !atBottom.value)
+  const showJumpToLatest = computed(() => readyToRenderHeavyContent.value
+    && initialized.value && items.value.length > 0 && !restoringLatest.value
+    && !followBottom.value && !viewportAtBottom.value)
   let routeSyncing = false
   let routeVersion = 0
   let viewportVersion = 0
@@ -100,12 +102,12 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
     restoringLatest.value = false
   }
 
-  function canFollowLatest() {
-    return route.name === routeName && (!history || (items.value.length > 0 && !routeState().logId))
+  function canFollowLatest(explicit: boolean) {
+    return route.name === routeName && (!history || (items.value.length > 0 && (explicit || !routeState().logId)))
   }
 
-  async function scrollToLatest() {
-    if (!canFollowLatest()) {
+  async function scrollToLatest(explicit = true) {
+    if (!canFollowLatest(explicit)) {
       cancelViewportSync()
       return
     }
@@ -114,7 +116,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
     historyFollowBottom.value = history
     liveStore?.setViewportAtBottom(true)
     liveStore?.acknowledgePendingNew()
-    const current = () => version === viewportVersion && canFollowLatest()
+    const current = () => version === viewportVersion && canFollowLatest(explicit)
     let stablePasses = 0
     try {
       if (!await waitUntilReady()) return
@@ -135,13 +137,14 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
           continue
         }
         const distance = Math.max(0, metrics.scrollHeight - metrics.clientHeight - metrics.scrollTop)
+        viewportAtBottom.value = distance <= 24
         stablePasses = distance <= 1 ? stablePasses + 1 : 0
         if (stablePasses >= 2) return
       }
     } finally {
       if (version === viewportVersion) {
         restoringLatest.value = false
-        historyFollowBottom.value = history && canFollowLatest()
+        historyFollowBottom.value = history && canFollowLatest(explicit)
       }
     }
   }
@@ -221,7 +224,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
       await syncFromRoute()
       // An edit still waiting when the page was left is applied on return instead of sitting unapplied.
       scheduleApply()
-      await scrollToLatest()
+      await scrollToLatest(false)
     }).then(() => undefined)
     try { await activation } finally { activation = null }
   }
@@ -236,7 +239,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
       await store.applyFilters()
       detail.closeDetail()
       await replaceRouteState(null)
-      await scrollToLatest()
+      await scrollToLatest(false)
     })
   }
 
@@ -251,7 +254,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
     return run(async () => {
       await historyStore.refreshAnchor()
       await replaceRouteState()
-      await scrollToLatest()
+      await scrollToLatest(false)
     })
   }
 
@@ -260,8 +263,7 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   }
 
   async function openLogDetail(summary: LogSummary) {
-    // Reading an entry stops following the newest logs, so arrivals do not push the selected row out of view;
-    // the paused tag and the jump button then lead back to the latest.
+    // Reading an entry pauses following without changing its measured position.
     cancelViewportSync()
     liveStore?.setViewportAtBottom(false)
     const request = detail.openDetail(summary).catch(() => undefined)
@@ -275,18 +277,24 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   }
 
   function onViewportBottomChange(value: boolean) {
-    if (!restoringLatest.value || value) liveStore?.setViewportAtBottom(value)
+    if (restoringLatest.value && !value) return
+    if (liveStore) liveStore.setViewportAtBottom(value)
+    else historyFollowBottom.value = value
+  }
+
+  function onViewportPositionChange(value: boolean) {
+    viewportAtBottom.value = value
   }
 
   function deactivate() {
     routeVersion += 1
     cancelScheduledApply()
     cancelViewportSync()
+    detail.closeDetail()
     if (!liveStore) return
     liveStore.setViewportActive(false)
     liveStore.setViewportAtBottom(true)
     liveStore.acknowledgePendingNew()
-    detail.closeDetail()
   }
 
   watch(filters, value => {
@@ -300,12 +308,12 @@ export function useLogWorkspace(scope: LogWorkspaceScope, viewportRef: Ref<LogVi
   })
   onMounted(() => { void activatePage() })
   onActivated(() => { void activatePage() })
-  if (!history) onBeforeRouteLeave(() => { deactivate() })
+  onBeforeRouteLeave(() => { deactivate() })
   onDeactivated(() => { deactivate() })
   onUnmounted(() => { deactivate() })
 
   return { historyStore, filters, draftFilters, timeRangeIssue, initialized, items, loading, error, detail,
     readyToRenderHeavyContent, atBottom, followBottom, pendingNewCount, showJumpToLatest,
     activatePage, useRecentDays, loadOlder, scrollToLatest,
-    openLogDetail, closeLogDetail, onViewportBottomChange }
+    openLogDetail, closeLogDetail, onViewportBottomChange, onViewportPositionChange }
 }

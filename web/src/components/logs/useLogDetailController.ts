@@ -16,6 +16,7 @@ export function useLogDetailController() {
 
   const cache = new Map<string, LogDetailResponse>()
   let requestVersion = 0
+  let requestController: AbortController | null = null
 
   const selectedLogId = computed(() => selectedSummary.value?.log_id ?? null)
 
@@ -28,6 +29,10 @@ export function useLogDetailController() {
     open.value = true
     selectedSummary.value = summary
     error.value = null
+    loading.value = false
+    const currentVersion = ++requestVersion
+    requestController?.abort()
+    requestController = null
 
     const cached = getCachedDetail(nextLogId)
     currentDetail.value = cached ?? null
@@ -36,11 +41,11 @@ export function useLogDetailController() {
     }
 
     loading.value = true
-    requestVersion += 1
-    const currentVersion = requestVersion
+    const controller = new AbortController()
+    requestController = controller
 
     try {
-      const detail = await apiRequest<LogDetailResponse>(apiPath('/api/logs/{log_id}', { log_id: nextLogId }))
+      const detail = await apiRequest<LogDetailResponse>(apiPath('/api/logs/{log_id}', { log_id: nextLogId }), { signal: controller.signal })
       if (currentVersion !== requestVersion || selectedLogId.value !== nextLogId) {
         return detail
       }
@@ -56,11 +61,15 @@ export function useLogDetailController() {
     } finally {
       if (currentVersion === requestVersion) {
         loading.value = false
+        requestController = null
       }
     }
   }
 
   function closeDetail() {
+    requestVersion += 1
+    requestController?.abort()
+    requestController = null
     open.value = false
     loading.value = false
     error.value = null

@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, ref, watch, type Ref } from 'vue'
+import { computed, onBeforeUnmount, onDeactivated, ref, watch, type Ref } from 'vue'
 import { useResizeObserver } from '@vueuse/core'
 
 import {
@@ -10,7 +10,6 @@ import {
 const safeInset = 12
 const preferredWidth = 680
 const maxWidth = 720
-const maxHeight = 860
 // The window may only be dragged a short way left from the right edge, never over the list's left half.
 const horizontalDrift = 72
 
@@ -45,18 +44,7 @@ export function useFloatingLogWindow(options: FloatingLogWindowOptions) {
 
     return Math.min(preferredWidth, maxWidth, availableWidth)
   })
-  const height = computed(() => {
-    const availableHeight = hostHeight.value - safeInset * 2
-    if (availableHeight <= 0) {
-      return maxHeight
-    }
-
-    if (availableHeight < 220) {
-      return availableHeight
-    }
-
-    return Math.min(maxHeight, availableHeight)
-  })
+  const height = computed(() => Math.max(0, hostHeight.value - safeInset * 2))
   const defaultLeft = computed(() => Math.max(safeInset, hostWidth.value - width.value - safeInset))
   const leftBounds = computed(() => {
     const rightEdge = defaultLeft.value
@@ -74,8 +62,8 @@ export function useFloatingLogWindow(options: FloatingLogWindowOptions) {
   }))
   const floating = computed(() => (
     Boolean(options.hostElement())
-    && hostWidth.value > 0
-    && hostHeight.value > 0
+    && hostWidth.value > safeInset * 2
+    && hostHeight.value > safeInset * 2
   ))
   const windowStyle = computed(() => ({
     left: `${position.value.left}px`,
@@ -215,6 +203,7 @@ export function useFloatingLogWindow(options: FloatingLogWindowOptions) {
   })
 
   onBeforeUnmount(() => stopDragging())
+  onDeactivated(() => stopDragging())
 
   return {
     dragging,

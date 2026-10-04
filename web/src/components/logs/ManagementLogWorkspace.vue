@@ -16,6 +16,7 @@ import { useLogWorkspace, type LogViewport, type LogWorkspaceScope } from './use
 import { managementTimeZone } from '@/lib/format'
 import { useConfigStore } from '@/stores/config'
 import { t } from '@/i18n'
+import type { LogSummary } from '@/types/api'
 
 const props = defineProps<{ scope: LogWorkspaceScope }>()
 const history = props.scope === 'history'
@@ -25,7 +26,7 @@ const {
   historyStore, draftFilters, timeRangeIssue, initialized, items, loading, error, detail,
   readyToRenderHeavyContent, atBottom, followBottom, pendingNewCount, showJumpToLatest,
   activatePage, useRecentDays, loadOlder, scrollToLatest,
-  openLogDetail, closeLogDetail, onViewportBottomChange,
+  openLogDetail, closeLogDetail, onViewportBottomChange, onViewportPositionChange,
 } = useLogWorkspace(props.scope, viewportRef)
 const { currentDetail, error: detailError, loading: detailLoading, open: detailOpen,
   selectedLogId, selectedSummary } = detail
@@ -52,6 +53,7 @@ const pageDescription = computed(() => history && configStore.logRetentionDays
   : t(`${labelPrefix}.description`))
 // No segment is selected while the list uses a hand-edited range.
 const recentRange = computed(() => historyStore?.recentDays ? String(historyStore.recentDays) : '')
+const logItemKey = (item: LogSummary) => item.log_id
 </script>
 
 <template>
@@ -130,9 +132,10 @@ const recentRange = computed(() => historyStore?.recentDays ? String(historyStor
             :follow-bottom="followBottom"
             :bottom-threshold="24"
             :empty-label="t(`${labelPrefix}.empty`)"
-            :get-item-key="(item) => item.log_id"
+            :get-item-key="logItemKey"
             @reach-top="loadOlder"
             @at-bottom-change="onViewportBottomChange"
+            @bottom-position-change="onViewportPositionChange"
           >
             <template #default="{ item }">
               <ManagementLogRow :item="item" :selected="selectedLogId === item.log_id" @select="openLogDetail" />

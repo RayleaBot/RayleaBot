@@ -176,6 +176,7 @@ describe('LogsPage', () => {
     const acknowledgeSpy = vi.spyOn(store, 'acknowledgePendingNew')
     const bottomSpy = vi.spyOn(store, 'setViewportAtBottom')
     store.setViewportAtBottom(false)
+    wrapper.findComponent(VirtualDataViewport).vm.$emit('bottom-position-change', false)
     store.pendingNewCount = 2
     await nextTick()
 
@@ -273,6 +274,7 @@ describe('LogsPage', () => {
     // Opening an entry pauses following, so new logs cannot scroll the selected row away.
     expect(store.atBottom).toBe(false)
     expect(wrapper.text()).toContain('已暂停跟随')
+    expect(wrapper.find('.logs-jump-latest').exists()).toBe(false)
 
     store.pendingNewCount = 1
     await router.push('/protocols')

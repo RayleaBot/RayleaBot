@@ -382,9 +382,9 @@ Web 持续提示使用 [`AppAlert`](web/src/components/AppAlert.vue) 的紧凑�
 
 实时与历史日志保持各自的列表、筛选和滚动职责。筛选修改在停止输入后自动生效，不设应用按钮；协议、插件和请求标识在筛选栏放得下时与级别、模块排在同一行，放不下的从末尾依次收进“更多筛选”弹层，历史范围使用本地日期时间输入。清除筛选、分页、底部跟随和手动滚动沿用现有工作区状态，持续新增日志不逐条播放入场动画。
 
-**The Log Row Density Rule.** 实时与历史日志的行级标签使用 AppTag 的 small 尺寸。虚拟列表以常规行高作为估算值，并测量实际行高；换行正文允许自然增高，虚拟列表维护滚动锚点与底部跟随。暂停跟随的实时列表统一使用 [`AppJumpToLatest`](web/src/components/AppJumpToLatest.vue) 返回最新条目，新条目数量是蓝色按钮上的白色计数，不使用错误色。
+**The Log Row Density Rule.** 实时与历史日志的行级标签使用 AppTag 的 small 尺寸。虚拟列表以常规行高作为估算值，并测量实际行高；换行正文允许自然增高，虚拟列表维护滚动锚点与底部跟随。两页在列表实际离开底部时使用 [`AppJumpToLatest`](web/src/components/AppJumpToLatest.vue) 返回当前范围的最新条目；打开实时日志详情只暂停跟随，不改变实际位置。实时新条目数量是蓝色按钮上的白色计数，不使用错误色。
 
-[`ManagementLogDetailDrawer`](web/src/components/logs/ManagementLogDetailDrawer.vue) 在宿主尺寸可用时呈现非模态桌面窗口，位置与拖动范围按宿主可用尺寸约束。页头使用普通二级标题“日志详情”，来源、级别、协议和时间排列在其下；正文在窗口内滚动，原日志列表继续可操作。缺少有效宿主尺寸时使用右侧 AppDrawer，并沿用模态抽屉的退出和焦点规则。
+[`ManagementLogDetailDrawer`](web/src/components/logs/ManagementLogDetailDrawer.vue) 在宿主尺寸可用时呈现非模态桌面窗口，高度填满宿主保留边距后的可用空间，位置与拖动范围按宿主可用尺寸约束。页头使用普通二级标题“日志详情”，来源、级别、协议和时间排列在其下；正文统一在窗口内滚动，原日志列表继续可操作。缺少有效宿主尺寸时使用右侧 AppDrawer，并沿用模态抽屉的退出和焦点规则。离开所属日志页时关闭详情，不随缓存页面的宿主隐藏转为另一页的抽屉。
 
 **The Log Detail Exit Rule.** 日志详情的展示层保留关闭前最后一份摘要、正文、加载或错误内容，直到桌面窗口的 after-leave 或回退抽屉的 afterClose 完成后清理；控制器继续独立管理正式选中状态与请求缓存。关闭后恢复到仍有效的日志行；非模态桌面窗口不夺走用户已转移到其他控件的焦点。
 

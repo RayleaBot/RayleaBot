@@ -28,6 +28,7 @@ const props = withDefaults(defineProps<Props<T>>(), {
 
 const emit = defineEmits<{
   'at-bottom-change': [value: boolean]
+  'bottom-position-change': [value: boolean]
   'reach-top': []
 }>()
 
@@ -37,6 +38,7 @@ const measuredViewportHeight = ref<number | null>(null)
 const measurementsSettled = ref(!props.dynamicItemHeight)
 let measurementsSettledToken = 0
 let lastAtBottom = true
+let lastBottomPosition = true
 let topReachArmed = false
 let followBottomPausedByUser = false
 let pendingProgrammaticScrollEvents = 0
@@ -277,7 +279,16 @@ function isNearBottom(scroller: HTMLElement) {
   return scrollHeight - clientHeight - scroller.scrollTop <= props.bottomThreshold
 }
 
+function syncBottomPosition(scroller: HTMLElement | null) {
+  const nextAtBottom = scroller ? isNearBottom(scroller) : true
+  if (nextAtBottom !== lastBottomPosition) {
+    lastBottomPosition = nextAtBottom
+    emit('bottom-position-change', nextAtBottom)
+  }
+}
+
 function syncViewportState(scroller: HTMLElement, options: { userInitiated?: boolean } = {}) {
+  syncBottomPosition(scroller)
   const nextAtBottom = isNearBottom(scroller)
   if (options.userInitiated && props.followBottom && !nextAtBottom) {
     followBottomPausedByUser = true
@@ -600,10 +611,17 @@ watch(
   },
 )
 
+// Geometry changes without a scroll event when rows arrive or are remeasured.
+// This position signal stays separate from the upward-wheel pause intent.
+watch([totalHeight, effectiveViewportHeight], () => {
+  void nextTick(() => syncBottomPosition(scrollerRef.value))
+}, { flush: 'post' })
+
 watch(
   scrollerRef,
   (scroller) => {
     if (!scroller) {
+      syncBottomPosition(null)
       return
     }
 
