@@ -24,6 +24,23 @@ describe('log timestamp ordering', () => {
     const repeated = log('a-repeated', '2026-11-01T01:30:00.1-05:00')
     expect(sortLogItemsAsc([repeated, first, same])).toEqual([same, first, repeated])
   })
+
+  it('deduplicates initial batches and replaces an existing ID even when its timestamp changes', () => {
+    const first = log('first', '2026-09-22T00:00:01Z')
+    const second = log('second', '2026-09-22T00:00:02Z')
+    const updated = { ...first, timestamp: '2026-09-22T00:00:03Z', message: 'updated' }
+    expect(mergeSortedLogItemsAsc([], [first, first, second])).toEqual([first, second])
+    expect(mergeSortedLogItemsAsc([first, second], [updated])).toEqual([second, updated])
+    expect(canAppendInPlace([second], second)).toBe(false)
+  })
+
+  it('invalidates a cached comparison when the same row receives a new timestamp', () => {
+    const first = log('first', '2026-09-22T00:00:01Z')
+    const second = log('second', '2026-09-22T00:00:02Z')
+    expect(sortLogItemsAsc([second, first])).toEqual([first, second])
+    first.timestamp = '2026-09-22T00:00:03Z'
+    expect(sortLogItemsAsc([first, second])).toEqual([second, first])
+  })
 })
 
 describe('log request correlation', () => {

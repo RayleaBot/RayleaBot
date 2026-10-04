@@ -1,6 +1,6 @@
 import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useLogsStore } from '@/stores/logs'
 import { useSocketStore } from '@/stores/sockets'
@@ -38,13 +38,17 @@ vi.mock('@/lib/ws', () => ({
 
 describe('socket store', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     MockManagedSocket.instances = []
     setActivePinia(createPinia())
   })
 
+  afterEach(() => { vi.useRealTimers() })
+
   it('routes live log frames through the public socket store wiring', async () => {
     const store = useSocketStore()
     const logsStore = useLogsStore()
+    logsStore.setViewportActive(true)
 
     store.ensureManagementSockets()
     MockManagedSocket.instances[1].options.onFrame?.({
@@ -60,8 +64,27 @@ describe('socket store', () => {
       },
     })
 
+    await vi.advanceTimersByTimeAsync(16)
     await flushPromises()
 
     expect(logsStore.items.map((item) => item.log_id)).toEqual(['log_0001'])
+  })
+
+  it('drops the old connection batch before accepting frames from a new connection', async () => {
+    const store = useSocketStore()
+    const logsStore = useLogsStore()
+    logsStore.setViewportActive(true)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], page: { has_older: false } }), { headers: { 'Content-Type': 'application/json' } })))
+    const logs = MockManagedSocket.instances[1]!
+    const frame = (id: string) => ({ channel: 'logs', type: 'logs.appended', timestamp: '2026-04-05T08:00:01Z', data: { log_id: id, timestamp: '2026-04-05T08:00:01Z', level: 'info', source: 'runtime', message: id } })
+    logs.options.onFrame?.(frame('old'))
+    logs.emitStatus('reconnecting')
+    logs.emitStatus('connected')
+    logs.options.onFrame?.(frame('new'))
+    await vi.advanceTimersByTimeAsync(16)
+    await flushPromises()
+    expect(logsStore.items.map(log => log.log_id)).toEqual(['new'])
+    store.disconnectAll()
+    logsStore.$dispose()
   })
 })

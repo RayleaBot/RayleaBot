@@ -22,14 +22,20 @@ export function createSocketFrameRouter(
   const statusRefresh = createRefreshScheduler(dependencies.system.refreshStatus, statusRefreshDebounceMs)
   const governanceRefresh = createRefreshScheduler(dependencies.governance.refresh, statusRefreshDebounceMs)
   let pendingLiveLogs: LogSummary[] = []
-  let flushLiveLogsScheduled = false
+  let liveLogsTimer: ReturnType<typeof setTimeout> | undefined
 
   function clearPendingStatusRefresh() {
     statusRefresh.cancel()
     governanceRefresh.cancel()
     dependencies.schedulerJobs.cancelPendingRefresh?.()
     dependencies.plugins.cancelPendingRefresh?.()
+    clearPendingLiveLogs()
+  }
+
+  function clearPendingLiveLogs() {
     pendingLiveLogs = []
+    if (liveLogsTimer !== undefined) clearTimeout(liveLogsTimer)
+    liveLogsTimer = undefined
   }
 
   function handleEventsFrame(frame: WebSocketFrame<EventsPayload>) {
@@ -73,7 +79,8 @@ export function createSocketFrameRouter(
   }
 
   function flushPendingLiveLogs() {
-    flushLiveLogsScheduled = false
+    if (liveLogsTimer !== undefined) clearTimeout(liveLogsTimer)
+    liveLogsTimer = undefined
     if (pendingLiveLogs.length === 0) {
       return
     }
@@ -86,14 +93,11 @@ export function createSocketFrameRouter(
   }
 
   function scheduleFlushLiveLogs() {
-    if (flushLiveLogsScheduled) {
-      return
-    }
-    flushLiveLogsScheduled = true
-    if (typeof queueMicrotask === 'function') {
-      queueMicrotask(flushPendingLiveLogs)
-    } else {
-      Promise.resolve().then(flushPendingLiveLogs)
+    if (pendingLiveLogs.length >= 256) {
+      flushPendingLiveLogs()
+    } else if (liveLogsTimer === undefined) {
+      // WebSocket frames arrive in separate tasks; a microtask would flush each one separately.
+      liveLogsTimer = setTimeout(flushPendingLiveLogs, 16)
     }
   }
 
@@ -115,6 +119,7 @@ export function createSocketFrameRouter(
 
   return {
     clearPendingStatusRefresh,
+    clearPendingLiveLogs,
     handleEventsFrame,
     handleLogsFrame,
     handleConsoleFrame,

@@ -69,6 +69,10 @@ export const useSocketStore = defineStore('sockets', () => {
     if (status === 'authenticated') void configStore.refreshSharedSettings().catch(() => undefined)
   })
 
+  watch(() => controller.snapshots.logs.status, status => {
+    if (status === 'connected') logsStore.onStreamConnected()
+  }, { flush: 'sync' })
+
   onScopeDispose(controller.disconnectAll)
 
   return {

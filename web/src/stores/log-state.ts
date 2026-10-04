@@ -1,3 +1,4 @@
+import { toRaw } from 'vue'
 import { timestampMilliseconds } from '@/lib/timestamp'
 import type { LogLevel, LogListResponse, LogPageDirection, LogProtocol, LogSummary } from '@/types/api'
 
@@ -76,25 +77,31 @@ export function buildLogListPath(options: BuildLogListPathOptions): `/api/logs?$
 }
 
 export function matchesLogFilters(log: LogSummary, filters: LogFilters) {
+  return createLogFilterMatcher(filters)(log)
+}
+
+export function createLogFilterMatcher(filters: LogFilters) {
   const levels = normalizeFilterValues(filters.levels)
   const pluginIds = normalizeFilterValues(filters.pluginIds)
 
-  if (levels.length > 0 && !levels.includes(log.level)) {
-    return false
+  return (log: LogSummary) => {
+    if (levels.length > 0 && !levels.includes(log.level)) {
+      return false
+    }
+    if (filters.source && log.source !== filters.source) {
+      return false
+    }
+    if (filters.protocol && log.protocol !== filters.protocol) {
+      return false
+    }
+    if (pluginIds.length > 0 && !pluginIds.includes(log.plugin_id ?? '')) {
+      return false
+    }
+    if (filters.requestId && log.request_id !== filters.requestId) {
+      return false
+    }
+    return true
   }
-  if (filters.source && log.source !== filters.source) {
-    return false
-  }
-  if (filters.protocol && log.protocol !== filters.protocol) {
-    return false
-  }
-  if (pluginIds.length > 0 && !pluginIds.includes(log.plugin_id ?? '')) {
-    return false
-  }
-  if (filters.requestId && log.request_id !== filters.requestId) {
-    return false
-  }
-  return true
 }
 
 export function normalizeLogLimit(limit: number | undefined, fallback = DEFAULT_LOG_PAGE_LIMIT) {
@@ -107,98 +114,67 @@ export function normalizeLogLimit(limit: number | undefined, fallback = DEFAULT_
   return Math.min(MAX_LOG_PAGE_LIMIT, Math.floor(limit))
 }
 
+const timestampCache = new WeakMap<LogSummary, { source: string; value: bigint }>()
+
+function logTimestamp(log: LogSummary) {
+  const raw = toRaw(log)
+  const cached = timestampCache.get(raw)
+  if (cached?.source === raw.timestamp) return cached.value
+  const value = toComparableTimestamp(raw.timestamp)
+  timestampCache.set(raw, { source: raw.timestamp, value })
+  return value
+}
+
+export function compareLogTimestamps(left: LogSummary, right: LogSummary) {
+  const leftTimestamp = logTimestamp(left)
+  const rightTimestamp = logTimestamp(right)
+  return leftTimestamp === rightTimestamp ? 0 : leftTimestamp < rightTimestamp ? -1 : 1
+}
+
+export function compareLogItems(left: LogSummary, right: LogSummary) {
+  const timestampOrder = compareLogTimestamps(left, right)
+  if (timestampOrder !== 0) return timestampOrder
+  return getLogIdentityKey(left).localeCompare(getLogIdentityKey(right))
+}
+
 export function sortLogItemsAsc(items: LogSummary[]) {
-  return [...items].sort((left, right) => {
-    const leftTimestamp = toComparableTimestamp(left.timestamp)
-    const rightTimestamp = toComparableTimestamp(right.timestamp)
-    if (leftTimestamp !== rightTimestamp) {
-      return leftTimestamp < rightTimestamp ? -1 : 1
-    }
-    return getLogIdentityKey(left).localeCompare(getLogIdentityKey(right))
-  })
+  return [...toRaw(items)].sort(compareLogItems)
 }
 
 export function mergeSortedLogItemsAsc(existingItems: LogSummary[], nextItems: LogSummary[]) {
-  if (existingItems.length === 0) {
-    return sortLogItemsAsc(nextItems)
-  }
-  if (nextItems.length === 0) {
-    return [...existingItems]
-  }
-
+  const existing = toRaw(existingItems)
   const nextMap = new Map<string, LogSummary>()
-  for (const item of nextItems) {
-    nextMap.set(getLogIdentityKey(item), item)
-  }
+  for (const item of toRaw(nextItems)) nextMap.set(getLogIdentityKey(item), item)
   const sortedNext = sortLogItemsAsc(Array.from(nextMap.values()))
+  if (existing.length === 0) return sortedNext
+  if (sortedNext.length === 0) return [...existing]
 
   const result: LogSummary[] = []
   let i = 0
   let j = 0
-
-  while (i < existingItems.length && j < sortedNext.length) {
-    const left = existingItems[i]!
-    const right = sortedNext[j]!
-    const leftTs = toComparableTimestamp(left.timestamp)
-    const rightTs = toComparableTimestamp(right.timestamp)
-
-    if (leftTs < rightTs) {
-      result.push(left)
-      i++
-    } else if (leftTs > rightTs) {
-      result.push(right)
-      j++
-    } else {
-      const leftKey = getLogIdentityKey(left)
-      const rightKey = getLogIdentityKey(right)
-      const cmp = leftKey.localeCompare(rightKey)
-      if (cmp < 0) {
-        result.push(left)
-        i++
-      } else if (cmp > 0) {
-        result.push(right)
-        j++
-      } else {
-        result.push(right)
-        i++
-        j++
-      }
+  while (i < existing.length) {
+    const left = existing[i++]!
+    // A repeated ID replaces the row even if its timestamp changed.
+    if (nextMap.has(getLogIdentityKey(left))) continue
+    while (j < sortedNext.length && compareLogItems(sortedNext[j]!, left) < 0) {
+      result.push(sortedNext[j++]!)
     }
+    result.push(left)
   }
-
-  while (i < existingItems.length) {
-    result.push(existingItems[i]!)
-    i++
-  }
-  while (j < sortedNext.length) {
-    result.push(sortedNext[j]!)
-    j++
-  }
-
+  while (j < sortedNext.length) result.push(sortedNext[j++]!)
   return result
 }
 
 export function canAppendInPlace(items: LogSummary[], log: LogSummary): boolean {
-  if (items.length === 0) {
-    return true
-  }
-  const last = items[items.length - 1]!
-  const lastTs = toComparableTimestamp(last.timestamp)
-  const logTs = toComparableTimestamp(log.timestamp)
-  if (logTs > lastTs) {
-    return true
-  }
-  if (logTs < lastTs) {
-    return false
-  }
-  return getLogIdentityKey(log).localeCompare(getLogIdentityKey(last)) >= 0
+  const raw = toRaw(items)
+  return raw.length === 0 || compareLogItems(raw[raw.length - 1]!, log) < 0
 }
 
 export function normalizeLogListResponseItems(response: LogListResponse | null | undefined) {
-  return sortLogItemsAsc(response?.items ?? [])
+  return mergeSortedLogItemsAsc([], response?.items ?? [])
 }
 
-function getLogIdentityKey(log: LogSummary) {
+export function getLogIdentityKey(log: LogSummary) {
   if (log.log_id) {
     return log.log_id
   }

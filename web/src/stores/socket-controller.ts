@@ -32,11 +32,15 @@ export function createSocketController(options: SocketControllerOptions): Socket
     onFrame: options.router.handleEventsFrame,
   })
 
+  const updateLogsSnapshot = createSnapshotUpdater(snapshots, 'logs')
   const logsSocket = new ManagedSocket<LogSummary>({
     name: 'logs',
     path: () => webSocketPaths.logs,
     runtime: options.runtime,
-    onStatusChange: createSnapshotUpdater(snapshots, 'logs'),
+    onStatusChange(status, detail) {
+      if (status !== 'authenticated') options.router.clearPendingLiveLogs()
+      updateLogsSnapshot(status, detail)
+    },
     onFrame: options.router.handleLogsFrame,
   })
 

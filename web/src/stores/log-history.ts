@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
@@ -46,6 +46,8 @@ export const useLogHistoryStore = defineStore('log-history', () => {
   const initialized = ref(false)
 
   let requestVersion = 0
+  let requestController = new AbortController()
+  onScopeDispose(() => requestController.abort())
 
   watch(managementTimeZone, (next, previous) => {
     for (const key of ['startLocal', 'endLocal'] as const) {
@@ -116,10 +118,12 @@ export const useLogHistoryStore = defineStore('log-history', () => {
   }
 
   async function loadOlder() {
-    if (!olderCursor.value || loadingOlder.value) {
+    if (!olderCursor.value || loadingOlder.value || loading.value) {
       return items.value
     }
 
+    const currentVersion = requestVersion
+    const signal = requestController.signal
     loadingOlder.value = true
     error.value = null
 
@@ -131,7 +135,8 @@ export const useLogHistoryStore = defineStore('log-history', () => {
         cursor: olderCursor.value,
         direction: 'older',
         limit: pageLimit.value,
-      }))
+      }), { signal })
+      if (currentVersion !== requestVersion || signal.aborted) return items.value
 
       items.value = mergeSortedLogItemsAsc(items.value, normalizeLogListResponseItems(response))
       olderCursor.value = response.page?.older_cursor ?? null
@@ -139,10 +144,11 @@ export const useLogHistoryStore = defineStore('log-history', () => {
       initialized.value = true
       return items.value
     } catch (err) {
+      if (currentVersion !== requestVersion || signal.aborted) return items.value
       error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
     } finally {
-      loadingOlder.value = false
+      if (currentVersion === requestVersion) loadingOlder.value = false
     }
   }
 
@@ -150,6 +156,10 @@ export const useLogHistoryStore = defineStore('log-history', () => {
     loading.value = true
     error.value = null
     requestVersion += 1
+    requestController.abort()
+    requestController = new AbortController()
+    const signal = requestController.signal
+    loadingOlder.value = false
     const currentVersion = requestVersion
     appliedRange.value = currentUtcRange()
 
@@ -159,8 +169,8 @@ export const useLogHistoryStore = defineStore('log-history', () => {
         filters: filters.value,
         timeRange: appliedRange.value,
         limit: pageLimit.value,
-      }))
-      if (currentVersion !== requestVersion) {
+      }), { signal })
+      if (currentVersion !== requestVersion || signal.aborted) {
         return items.value
       }
 
@@ -170,9 +180,8 @@ export const useLogHistoryStore = defineStore('log-history', () => {
       initialized.value = true
       return items.value
     } catch (err) {
-      if (currentVersion === requestVersion) {
-        error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
-      }
+      if (currentVersion !== requestVersion || signal.aborted) return items.value
+      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
     } finally {
       if (currentVersion === requestVersion) {

@@ -208,6 +208,7 @@ describe('socket frame router', () => {
       },
     })
 
+    await vi.advanceTimersByTimeAsync(16)
     await flushPromises()
 
     expect(dependencies.logs.appendBatch).toHaveBeenCalledTimes(1)
@@ -275,6 +276,7 @@ describe('socket frame router', () => {
       },
     })
 
+    await vi.advanceTimersByTimeAsync(16)
     await flushPromises()
 
     expect(dependencies.schedulerJobs.scheduleDataSourceRefresh).toHaveBeenCalledTimes(1)
@@ -447,13 +449,14 @@ describe('socket frame router', () => {
     expect(refreshSpy).toHaveBeenCalledTimes(1)
 
     resolveRefresh?.()
+    await vi.advanceTimersByTimeAsync(16)
     await flushPromises()
     await vi.advanceTimersByTimeAsync(120)
 
     expect(refreshSpy).toHaveBeenCalledTimes(2)
   })
 
-  it('batches multiple log frames into a single appendBatch call', async () => {
+  it('batches log frames from separate browser tasks into a single appendBatch call', async () => {
     const dependencies = {
       system: {
         applyEvent: vi.fn(),
@@ -493,6 +496,7 @@ describe('socket frame router', () => {
         message: 'first',
       },
     })
+    await vi.advanceTimersByTimeAsync(5)
     router.handleLogsFrame({
       channel: 'logs',
       type: 'logs.appended',
@@ -508,6 +512,7 @@ describe('socket frame router', () => {
 
     expect(dependencies.logs.appendBatch).not.toHaveBeenCalled()
 
+    await vi.advanceTimersByTimeAsync(16)
     await flushPromises()
 
     expect(dependencies.logs.appendBatch).toHaveBeenCalledTimes(1)

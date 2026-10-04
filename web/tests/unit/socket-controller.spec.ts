@@ -46,6 +46,7 @@ describe('socket controller', () => {
       },
       router: {
         clearPendingStatusRefresh: vi.fn(),
+        clearPendingLiveLogs: vi.fn(),
         handleEventsFrame: vi.fn(),
         handleLogsFrame: vi.fn(),
         handleConsoleFrame: vi.fn(),
@@ -72,6 +73,7 @@ describe('socket controller', () => {
   it('reconnects and stops management plus console sockets independently', () => {
     const router = {
       clearPendingStatusRefresh: vi.fn(),
+      clearPendingLiveLogs: vi.fn(),
       handleEventsFrame: vi.fn(),
       handleLogsFrame: vi.fn(),
       handleConsoleFrame: vi.fn(),

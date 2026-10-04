@@ -64,6 +64,7 @@ export interface SocketFrameRouterDependencies {
 
 export interface SocketFrameRouter {
   clearPendingStatusRefresh: () => void
+  clearPendingLiveLogs: () => void
   handleEventsFrame: (frame: WebSocketFrame<EventsPayload>) => void
   handleLogsFrame: (frame: WebSocketFrame<LogSummary>) => void
   handleConsoleFrame: (frame: WebSocketFrame<PluginConsoleFrameData>) => void

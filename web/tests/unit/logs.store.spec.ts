@@ -43,6 +43,7 @@ describe('logs store', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const store = useLogsStore()
+    store.setViewportActive(true)
     await store.ensureLoaded()
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -80,6 +81,7 @@ describe('logs store', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const store = useLogsStore()
+    store.setViewportActive(true)
     store.items = [
       {
         log_id: 'log_stale_0001',
@@ -152,6 +154,7 @@ describe('logs store', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const store = useLogsStore()
+    store.setViewportActive(true)
     await store.ensureLoaded()
     await store.loadOlder()
 
@@ -170,11 +173,12 @@ describe('logs store', () => {
 
   it('tracks pending live rows away from the bottom and ignores mismatched filters', () => {
     const store = useLogsStore()
+    store.setViewportActive(true)
     store.filters = {
       levels: ['warn', 'error'],
       source: 'adapter',
     }
-    store.setViewportActive(false)
+    store.setViewportActive(true)
     store.setViewportAtBottom(false)
 
     const accepted = store.append({
@@ -234,6 +238,7 @@ describe('logs store', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const store = useLogsStore()
+    store.setViewportActive(true)
     const loading = store.ensureLoaded()
     store.append({
       log_id: 'log_live_0001',
@@ -265,14 +270,16 @@ describe('logs store', () => {
     }, 500)))
 
     const store = useLogsStore()
+    store.setViewportActive(true)
     await expect(store.ensureLoaded()).rejects.toMatchObject({ code: 'platform.unknown' })
     expect(store.error).toBe(t('errors.common.loadFailed'))
     expect(store.error).not.toBe('读取日志失败')
   })
 
-  it('trims live logs to the maximum limit and keeps the newest rows', () => {
+  it('retains the live window beyond 5000 rows without a hidden pagination gap', () => {
     const store = useLogsStore()
-    store.setViewportActive(false)
+    store.setViewportActive(true)
+    store.setViewportActive(true)
     store.setViewportAtBottom(false)
 
     const baseTime = new Date('2026-04-05T08:00:00Z').getTime()
@@ -287,13 +294,14 @@ describe('logs store', () => {
       })
     }
 
-    expect(store.items.length).toBe(5000)
-    expect(store.items[0]!.log_id).toBe('log_0005')
+    expect(store.items.length).toBe(5005)
+    expect(store.items[0]!.log_id).toBe('log_0000')
     expect(store.items[store.items.length - 1]!.log_id).toBe('log_5004')
   })
 
   it('uses the fast append path when the new log is newer than the last item', () => {
     const store = useLogsStore()
+    store.setViewportActive(true)
     store.setViewportActive(true)
     store.setViewportAtBottom(true)
 
@@ -317,7 +325,8 @@ describe('logs store', () => {
 
   it('appends a batch of live logs in one update', () => {
     const store = useLogsStore()
-    store.setViewportActive(false)
+    store.setViewportActive(true)
+    store.setViewportActive(true)
     store.setViewportAtBottom(false)
     store.filters = {
       levels: ['info'],
@@ -390,6 +399,7 @@ describe('logs store', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const store = useLogsStore()
+    store.setViewportActive(true)
     await store.ensureLoaded()
     await store.loadOlder()
 
