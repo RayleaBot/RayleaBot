@@ -966,19 +966,23 @@
 
 ## 7. 校验中顺带发现的现存缺陷（与选型无关）
 
-| 问题 | 位置 | 发现来源 |
-|---|---|---|
-| golangci-lint v2.12.2 不支持 Go 1.27（v2.13.0 起才支持，2026-08-19）。golangci-lint-action 默认安装预编译二进制，lint 步骤会因“构建 golangci-lint 的 Go 版本低于目标版本”而失败。目前被 race 测试失败掩盖：nightly run 37152171913 中 lint 步骤为 skipped，最近 5 次 nightly 全部失败 | `.github/workflows/nightly.yml:131-145` | 质量工具 / golangci 建议的事实核查票 |
-| macOS FFmpeg 来源 vanloctech 的 build.yml 启用了 `--enable-nonfree`，FFmpeg 因此把许可证标为“nonfree and unredistributable”，与仓库“full GPL”的表述冲突；同时用了 `--disable-autodetect`（关闭 VideoToolbox）并默认构建 master；该仓库最新发布停在 2026-06-11 | `.deps/manifest.json` 的 ffmpeg-macos-arm64 条目；`docs/engineering/baseline.md:41` | 渲染与媒体 / macOS FFmpeg 来源三票 |
-| WS 契约 `logs.appended.protocol` 未包含 qqofficial，但服务端实际会推送 | `contracts/websocket-events.yaml:108-110` | 契约 / C1 的稳态价值票 |
-| Python 依赖未声明：devcontainer 未安装 pyyaml/jsonschema，与 `baseline.md`“预装全部工具”不符；`generate-error-codes.py`、`generate-plugin-wire.py` 缺依赖时直接抛 ImportError；CI 未装 format 扩展，date-time 与 uri 的 format 校验被静默跳过 | `.devcontainer/Dockerfile`；`scripts/ci/validate_contracts.py:14-26`；`nightly.yml:51,447`；`release-build.yml:98,223,309` | 仓库工具 / uv 与脚本迁移两条建议的票 |
-| `sdk/go/pluginbuild/build.go:500` 只在 node.exe 同级目录找 corepack.js，而 Node 26 已不随附 Corepack，Windows 回退路径实际失效。可就地修补：删除 doctor 的 check_corepack 与 CI 中的 Install Corepack 步骤（该步骤只为满足这项检查），并修正 build.go 的查找路径 | `sdk/go/pluginbuild/build.go`；`scripts/check-toolchain.py` 的 check_corepack；`nightly.yml` 的 Install Corepack 步骤 | 仓库工具 / mise 建议的三票 |
-| 官方插件仓库的工作流引用 `RAYLEABOT_SDK_REF=sdk/go/v0.7.0`，但 origin 上 sdk/go 的 tag 最高只到 v0.5.0；插件的 `ui/package.json` 写 `link:../.rayleabot/sdk/vue`，在没有检出主仓库的 fresh clone 中无法 pnpm install | 各插件仓库的 release.yml 与 ui/package.json | 插件 SDK / plugin-ui 两票 |
-| `check-toolchain.py` 的 glob `examples/plugins/*/web/package.json` 匹配不到 `example-config-panel/ui/package.json`，示例 UI 实际未被核对 | `scripts/check-toolchain.py` | 仓库工具 / 根 workspace 建议的稳态价值票 |
-| linux-x64-server 包没有 Chromium 共享库（libnss3、libgbm 等）说明，LINUX-RUNTIME.md 只随 full 包分发；doctor 也没有渲染依赖检查 | `scripts/release/release_tool.py`；`server/internal/cli/doctor_report.go` | CI 与发布 / 容器镜像建议三票 |
-| Launcher 镜像的 server 日志按日追加，没有保留清理 | `launcher/internal/desktop/process.go` 中的 appendLogAt | 可观测性维度 keep_as_is |
+处理状态（2026-10-06）：下表缺陷已修复；选型替换建议仍按各自条目单独评估。
 
-R3 涉及的写连接 PRAGMA 失效、R4 涉及的签名密钥“轮换”无效、R7 涉及的首启阻塞与反复 ForceKill、C5、C6，同样是现存缺陷，已在对应条目中说明。
+| 问题 | 修复结果 | 主要位置 |
+|---|---|---|
+| golangci-lint 与 Go 1.27 不兼容 | 两个 lint 步骤固定为 v2.13.0，同步工程基线 | `.github/workflows/nightly.yml`；`docs/engineering/baseline.md` |
+| macOS FFmpeg 构建启用 nonfree | 改为 Martin Riedl 固定的 9.0.2 GPL 发布构建，保留 libx264/libx265；FFmpeg 与 FFprobe 分包下载、独立校验并一起启用 | `.deps/manifest.json`；`contracts/deps-manifest.schema.json`；`server/internal/platform/deps/` |
+| WS 日志协议枚举遗漏 qqofficial | 补齐协议枚举和有效样例，与 HTTP 日志摘要一致 | `contracts/websocket-events.yaml`；`fixtures/websocket/ok.logs-appended.protocol-qqofficial.json` |
+| Python 依赖与 format 校验缺失 | 统一使用 requirements；CI 与 devcontainer 安装 format 扩展，校验器在缺少格式检查能力时拒绝运行，生成器给出安装指引；修复严格校验暴露的时间戳样例 | `scripts/requirements.txt`；`scripts/ci/validate_contracts.py`；`.devcontainer/Dockerfile` |
+| Windows 插件构建器只能查找 Node 同目录 Corepack | 同时查找 PATH、用户 npm 目录及独立 pnpm CLI；删除 doctor 的冗余 Corepack 检查和 Server job 安装步骤，保留实际调用 Corepack 的工作流步骤 | `sdk/go/pluginbuild/build.go`；`scripts/check-toolchain.py`；`.github/workflows/nightly.yml` |
+| 官方插件依赖不存在的 SDK tag，fresh clone 缺少 Vue SDK | 6 个已有发布工作流的独立插件仓库固定到远端可获取的 SDK 提交与对应 Go 伪版本；fortune 与 subscription-hub 的 UI 安装前自动准备 Vue SDK | 各插件仓库的 `.rayleabot-sdk-ref`、`go.mod`、`release.yml` 和 UI 安装脚本 |
+| 示例 UI 未参与工具链检查 | 使用实际的 `examples/plugins/*/ui/package.json` 路径，并增加版本漂移回归测试 | `scripts/check-toolchain.py`；`scripts/tests/test_check_toolchain.py` |
+| Linux server 包没有渲染共享库说明与诊断 | 两种 Linux 包均分发运行库说明；doctor 检查当前架构的 Chromium 共享库，并输出修复指引 | `scripts/release/release_tool.py`；`server/internal/operations/diagnostics/`；`docs/release/linux-desktop-runtime.md` |
+| Launcher 镜像日志无限累积 | `logs/server/` 与 `logs/launcher/` 保留最近 7 个 UTC 日期，新日期首次写入清理过期日志 | `launcher/internal/desktop/process.go`；`docs/dev/logging.md` |
+
+本节末尾引用的缺陷也按原有选型修复：R3 的连接 PRAGMA 覆盖全部池连接和替换连接；R4 的签名密钥更新与会话撤销在同一事务完成，reset-admin 清除旧签名密钥；R7 的 FFmpeg 改为管理面按需准备，不阻塞首次启动；C5 在创建 Wails 窗口前检查 WebView2，并在缺失时显示原生安装提示；C6 在部署文档补充 macOS 解压目录的 quarantine 放行步骤。依照根目录 AGENTS 的发布约束，本次不引入签名；macOS Gatekeeper 与媒体工具的原生运行仍需实机验收。
+
+验证结果：Server、Launcher、Go SDK、全部 Go 示例及 6 个官方插件仓库的全量 race 测试通过，浏览器用例使用系统 Edge。Launcher Go vet、Windows/Linux 目标 lint、Web 类型检查、strict contracts、生成物与 sqlc 漂移、仓库及发布脚本测试通过。两个插件 UI 均从不含 SDK 镜像的新目录完成安装、类型检查、测试与构建。此前记录的 subscription-hub 微博临时目录清理失败在本轮 race 中未复现；macOS 原生运行与 Gatekeeper 尚未实机验证。
 
 ## 8. 证据与方法
 
