@@ -34,7 +34,7 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
 	issues = append(issues, databaseIssues...)
 	for _, issue := range dependencyIssues {
 		// Prefer the reason and remediation from readiness when FFmpeg preparation fails.
-		if issue.Code == "dependency.ffmpeg" && readiness.Checks["runtime"] == "resource_missing" {
+		if issue.Code == errorcodes.DiagnosticDependencyFfmpeg && readiness.Checks["runtime"] == "resource_missing" {
 			continue
 		}
 		issues = append(issues, issue)
@@ -179,6 +179,15 @@ func (s *Service) diagnosticsDependencies() ([]DiagnosticsDependency, []health.D
 		item.PreparedStorePresent = inspection.PreparedStorePresent
 		item.SystemBrowser = strings.TrimSpace(inspection.SystemBrowserPath) != ""
 		item.Status = dependencyStatus(inspection)
+		state, hasState := s.startupRuntimeState(kind)
+		if kind == "ffmpeg" && !inspection.PreparedStorePresent && (!hasState || state.Phase == StartupRuntimePhaseNotRequired) {
+			issues = append(issues, health.DiagnosticIssue{
+				RuntimeResources: []string{kind},
+				Code:             errorcodes.DiagnosticDependencyFfmpeg, Severity: "warning",
+				Summary:     "媒体工具尚未准备。",
+				Remediation: "需要媒体处理时，请在仪表盘准备 FFmpeg 与 FFprobe，然后重新启动相关插件。",
+			})
+		}
 		items = append(items, item)
 	}
 	return items, issues

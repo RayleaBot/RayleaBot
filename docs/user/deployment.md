@@ -22,6 +22,8 @@ GitHub 自动生成的源代码压缩包不是正式运行时产物。
 Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Microsoft Edge WebView2 Runtime；窗口未出现且系统未安装该运行库时，先按包内 `WINDOWS-RUNTIME.md` 或 [Windows Desktop Runtime](../release/windows-desktop-runtime.md) 完成安装。请勿单独移动 Launcher，完整安装根应作为一个单元保留。
 
 
+Chromium 会在首次启动时准备；FFmpeg / FFprobe 在管理面仪表盘的运行环境入口按需准备，不阻塞 Server 启动。媒体插件需要这两个工具；准备完成后重新启动相关插件，让新进程取得工具路径。
+
 ## 运行根目录
 
 解压目录同时是安装根和默认运行根，各子目录的职责见[配置说明](./configuration.md)。图片渲染也可使用配置允许的系统 Chrome、Chromium 或 Edge。

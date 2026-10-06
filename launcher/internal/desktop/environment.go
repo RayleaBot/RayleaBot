@@ -203,12 +203,11 @@ func inspectFFmpegState(root string, ffmpeg depsResource) EnvironmentCheckResult
 	if ready {
 		return EnvironmentCheckResult{Scope: "preflight", Code: "ffmpeg.ready", Title: "媒体工具 FFmpeg", Severity: "ok", Summary: "已找到 FFmpeg 与 FFprobe。", Detail: strings.Join(paths, "；")}
 	}
-	code, summary, detail := pendingRuntimeState(root, ffmpeg, storeRoot)
-	return EnvironmentCheckResult{Scope: "preflight", Code: "ffmpeg." + code, Title: "媒体工具 FFmpeg", Severity: "ok", Summary: summary, Detail: detail}
+	code, _, detail := pendingRuntimeState(root, ffmpeg, storeRoot)
+	return EnvironmentCheckResult{Scope: "preflight", Code: "ffmpeg." + code, Title: "媒体工具 FFmpeg", Severity: "ok", Summary: "媒体工具尚未就绪，可在管理面仪表盘按需准备。", Detail: detail}
 }
 
-// pendingRuntimeState describes a declared resource that is not prepared yet. The service prepares it each
-// time it starts, so these states pass the preflight; the code suffix keeps the exact state for diagnostics.
+// pendingRuntimeState describes local files without treating a missing cache as a startup failure.
 func pendingRuntimeState(root string, resource depsResource, storeRoot string) (code, summary, detail string) {
 	archivePath := filepath.Join(root, "cache", "downloads", "runtime", resource.ID+"-"+resource.Version+runtimeArchiveSuffix(resource.ArchiveFormat))
 	tempRoots := findRuntimeTempRoots(filepath.Dir(storeRoot), resource.ID, resource.Version)

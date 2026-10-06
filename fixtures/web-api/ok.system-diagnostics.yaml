@@ -1,6 +1,6 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: System diagnostics returns an aggregated operations snapshot.
+description: System diagnostics keeps a manual preparation action for optional media tools while the service is running.
 request:
   method: GET
   path: /api/system/diagnostics
@@ -60,10 +60,10 @@ response:
         prepared_store_present: true
         system_browser: false
       - kind: ffmpeg
-        status: ready
+        status: on_demand
         metadata_complete: true
         cached_archive_present: false
-        prepared_store_present: true
+        prepared_store_present: false
         system_browser: false
     filesystem:
       - label: config
@@ -71,6 +71,11 @@ response:
         status: ok
         is_dir: false
     recent_errors: []
-    issues: []
+    issues:
+      - code: dependency.ffmpeg
+        severity: warning
+        summary: 媒体工具尚未准备。
+        remediation: 在仪表盘准备 FFmpeg 与 FFprobe 后重新启动相关插件。
+        runtime_resources: [ffmpeg]
 expect:
   valid: true

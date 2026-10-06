@@ -36,16 +36,16 @@ func TestAutoPrepareRuntimeEnvironmentsPreparesManagedRuntimes(t *testing.T) {
 	}
 	service.autoPrepareRuntimeEnvironments(context.Background())
 
-	if !slices.Equal(preparedKinds, []string{"chromium", "ffmpeg"}) {
-		t.Fatalf("prepared kinds = %#v, want Chromium and FFmpeg", preparedKinds)
+	if !slices.Equal(preparedKinds, []string{"chromium"}) {
+		t.Fatalf("prepared kinds = %#v, want only Chromium", preparedKinds)
 	}
 	state, ok := service.startupRuntimeState("chromium")
 	if !ok || state.Phase != StartupRuntimePhaseReady {
 		t.Fatalf("Chromium state = %#v, want ready", state)
 	}
 	state, ok = service.startupRuntimeState("ffmpeg")
-	if !ok || state.Phase != StartupRuntimePhaseReady {
-		t.Fatalf("FFmpeg state = %#v, want ready", state)
+	if !ok || state.Phase != StartupRuntimePhaseNotRequired {
+		t.Fatalf("FFmpeg state = %#v, want not required", state)
 	}
 }
 
@@ -137,7 +137,7 @@ func TestAutoPrepareRuntimeEnvironmentsLogsChromiumProgress(t *testing.T) {
 	}
 }
 
-func TestStartupRequiredRuntimeKindsKeepsFFmpegWhenBrowserPathConfigured(t *testing.T) {
+func TestStartupRequiredRuntimeKindsSkipsDownloadsWhenBrowserPathConfigured(t *testing.T) {
 	t.Parallel()
 	service, err := New(Deps{
 		CurrentConfig: func() config.Config {
@@ -147,8 +147,8 @@ func TestStartupRequiredRuntimeKindsKeepsFFmpegWhenBrowserPathConfigured(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := service.startupRequiredRuntimeKinds(); !slices.Equal(got, []string{"ffmpeg"}) {
-		t.Fatalf("startupRequiredRuntimeKinds() = %#v, want FFmpeg", got)
+	if got := service.startupRequiredRuntimeKinds(); len(got) != 0 {
+		t.Fatalf("startupRequiredRuntimeKinds() = %#v, want no downloads", got)
 	}
 }
 

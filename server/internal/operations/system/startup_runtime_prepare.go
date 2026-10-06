@@ -117,7 +117,6 @@ func (s *Service) startupRequiredRuntimeKinds() []string {
 	if strings.TrimSpace(s.config().Render.BrowserPath) == "" {
 		kinds = append(kinds, "chromium")
 	}
-	kinds = append(kinds, "ffmpeg")
 	return kinds
 }
 

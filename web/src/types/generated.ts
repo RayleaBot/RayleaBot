@@ -1608,7 +1608,7 @@ export interface components {
                  */
                 database?: "ok" | "unavailable";
                 /**
-                 * @description 服务托管的 FFmpeg 准备状态，读取启动与手动准备共用的内存状态；已准备或不需要时为 ok，准备中为 preparing 且不改变整体状态，失败或缺失时为 resource_missing。
+                 * @description 服务托管的 FFmpeg 准备状态，读取手动准备的内存状态。FFmpeg 按需准备，不参与首次启动等待；尚未请求或已准备时为 ok，准备中为 preparing 且不改变整体状态，准备失败时为 resource_missing。尚未请求且文件未准备时，诊断快照仍提供 dependency.ffmpeg 提示及 runtime_resources，供管理面展示准备入口。
                  * @enum {string}
                  */
                 runtime?: "ok" | "preparing" | "resource_missing";

@@ -897,6 +897,8 @@ diagnostics:
     description: The configured database path cannot be resolved.
   database.ping_failed:
     description: The database health check failed.
+  dependency.ffmpeg:
+    description: Optional FFmpeg media tools are not prepared or their runtime manifest is unavailable; the diagnostic identifies the ffmpeg resource for manual preparation.
   deps.manifest:
     description: The runtime dependency manifest was loaded.
   deps.manifest_invalid:

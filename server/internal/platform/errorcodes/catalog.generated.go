@@ -89,6 +89,7 @@ const (
 	DiagnosticDatabaseOk                       = "database.ok"
 	DiagnosticDatabasePathUnresolvable         = "database.path_unresolvable"
 	DiagnosticDatabasePingFailed               = "database.ping_failed"
+	DiagnosticDependencyFfmpeg                 = "dependency.ffmpeg"
 	DiagnosticDepsManifest                     = "deps.manifest"
 	DiagnosticDepsManifestInvalid              = "deps.manifest_invalid"
 	DiagnosticDepsManifestMissing              = "deps.manifest_missing"

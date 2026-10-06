@@ -2,14 +2,54 @@ package system
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
+
+func TestOptionalFFmpegKeepsManualPreparationAction(t *testing.T) {
+	root := t.TempDir()
+	resource := deps.Resource{
+		ID: "ffmpeg-test", Kind: "ffmpeg", Platform: deps.CurrentPlatform(), Version: "1",
+		Sources: []deps.ResourceSource{{URL: "https://example.invalid/ffmpeg.zip", Kind: "upstream"}},
+		SHA256:  strings.Repeat("a", 64), ArchiveFormat: "zip",
+		Entrypoints: map[string][]string{"ffmpeg": {"ffmpeg"}, "ffprobe": {"ffprobe"}},
+	}
+	payload, err := json.Marshal(deps.Manifest{ManifestVersion: deps.ManifestVersion, Resources: []deps.Resource{resource}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".deps"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".deps", "manifest.json"), payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service, err := New(Deps{
+		CurrentConfig:  func() config.Config { return config.Config{} },
+		CurrentSummary: func() config.Summary { return config.Summary{} },
+		Plugins:        plugincatalog.New(nil), RepoRoot: root,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.resetStartupRuntimeStates(nil)
+	_, issues := service.diagnosticsDependencies()
+	for _, issue := range issues {
+		if issue.Code == "dependency.ffmpeg" && len(issue.RuntimeResources) == 1 && issue.RuntimeResources[0] == "ffmpeg" {
+			return
+		}
+	}
+	t.Fatalf("optional missing media tools lost their preparation action: %#v", issues)
+}
 
 func TestRuntimeResourceSelectionSurvivesReadinessProjectionWithoutAliasing(t *testing.T) {
 	t.Parallel()
