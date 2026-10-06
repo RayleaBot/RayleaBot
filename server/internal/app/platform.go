@@ -88,28 +88,12 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 	if err != nil {
 		return abort(fmt.Errorf("create secret store: %w", err))
 	}
-	sessionSigningKey, signingKeyCreated, err := auth.EnsureSessionSigningKey(ctx, secretStore)
+	sessionSigningKey, _, err := auth.EnsureSessionSigningKey(ctx, secretStore)
 	if err != nil {
 		return abort(fmt.Errorf("prepare session signing key: %w", err))
 	}
-	if signingKeyCreated {
-		persistedSessions, err := authRepository.LoadSessions(ctx)
-		if err != nil {
-			return abort(fmt.Errorf("load persisted sessions for signing key rotation: %w", err))
-		}
-		if len(persistedSessions) > 0 {
-			sessionIDs := make([]string, 0, len(persistedSessions))
-			for _, session := range persistedSessions {
-				if session.SessionID != "" {
-					sessionIDs = append(sessionIDs, session.SessionID)
-				}
-			}
-			if len(sessionIDs) > 0 {
-				if err := authRepository.DeleteSessions(ctx, sessionIDs); err != nil {
-					return abort(fmt.Errorf("invalidate persisted sessions after signing key rotation: %w", err))
-				}
-			}
-		}
+	if err := authRepository.ReconcileSigningKey(ctx, sessionSigningKey); err != nil {
+		return abort(fmt.Errorf("reconcile session signing key: %w", err))
 	}
 	authOptions := append([]auth.Option{
 		auth.WithRepository(authRepository),

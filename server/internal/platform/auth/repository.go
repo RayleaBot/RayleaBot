@@ -109,6 +109,24 @@ func (r *SQLiteRepository) UpdateCredentials(ctx context.Context, identifier str
 	})
 }
 
+// ReconcileSigningKey updates the bootstrap copy and revokes sessions together,
+// before any Manager can hydrate the previous key from that copy.
+func (r *SQLiteRepository) ReconcileSigningKey(ctx context.Context, signingKey []byte) error {
+	return storage.WithTx(ctx, r.write, nil, func(tx *sql.Tx) error {
+		q := r.writeQ.WithTx(tx)
+		changed, err := q.UpdateBootstrapSigningKey(ctx, signingKey)
+		if err != nil {
+			return fmt.Errorf("update bootstrap signing key: %w", err)
+		}
+		if changed > 0 {
+			if err := q.DeleteAllAdminSessions(ctx); err != nil {
+				return fmt.Errorf("revoke sessions after signing key rotation: %w", err)
+			}
+		}
+		return nil
+	})
+}
+
 func (r *SQLiteRepository) LoadSessions(ctx context.Context) ([]Claims, error) {
 	rows, err := r.readQ.LoadSessions(ctx)
 	if err != nil {

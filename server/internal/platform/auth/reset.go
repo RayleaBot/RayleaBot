@@ -42,6 +42,9 @@ func resetCredentials(ctx context.Context, database *sql.DB) error {
 		if err := queries.DeleteBootstrapState(ctx); err != nil {
 			return fmt.Errorf("clear bootstrap credentials: %w", err)
 		}
+		if err := queries.DeleteSecret(ctx, sessionSigningKeySecret); err != nil {
+			return fmt.Errorf("clear session signing key: %w", err)
+		}
 		return nil
 	})
 }

@@ -17,6 +17,11 @@ WHERE singleton_id = 1;
 -- name: DeleteAllAdminSessions :exec
 DELETE FROM admin_sessions;
 
+-- name: UpdateBootstrapSigningKey :execrows
+UPDATE auth_bootstrap_state
+SET signing_key = sqlc.arg(signing_key)
+WHERE singleton_id = 1 AND signing_key <> sqlc.arg(signing_key);
+
 -- name: LoadSessions :many
 SELECT session_id, subject, issued_at, expires_at FROM admin_sessions;
 
