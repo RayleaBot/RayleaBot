@@ -22,3 +22,24 @@ func TestLogsUseUTCDateAndTimestampAcrossSourceTimezones(t *testing.T) {
 		}
 	}
 }
+
+func TestLogsPruneExpiredDatesAndPreserveOtherFiles(t *testing.T) {
+	directory := t.TempDir()
+	for _, name := range []string{"2026-09-29.log", "2026-09-30.log", "2026-10-01.log", "2026-10-07.log", "notes.log", "2026-99-01.log"} {
+		if err := os.WriteFile(filepath.Join(directory, name), []byte("fixture"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Mkdir(filepath.Join(directory, "2026-09-28.log"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	appendLogAt(directory, "stdout", "today\n", time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC))
+	if _, err := os.Stat(filepath.Join(directory, "2026-09-29.log")); !os.IsNotExist(err) {
+		t.Fatalf("expired log remains: %v", err)
+	}
+	for _, name := range []string{"2026-09-30.log", "2026-10-01.log", "2026-10-06.log", "2026-10-07.log", "notes.log", "2026-99-01.log", "2026-09-28.log"} {
+		if _, err := os.Stat(filepath.Join(directory, name)); err != nil {
+			t.Fatalf("retained entry %s: %v", name, err)
+		}
+	}
+}

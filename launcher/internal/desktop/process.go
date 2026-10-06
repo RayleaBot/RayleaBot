@@ -18,7 +18,10 @@ import (
 	"time"
 )
 
-const maxRecentDiagnostics = 40
+const (
+	maxRecentDiagnostics     = 40
+	launcherLogRetentionDays = 7
+)
 
 type ProcessController struct {
 	mu sync.RWMutex
@@ -494,12 +497,32 @@ func appendLogAt(directory, stream, text string, instant time.Time) {
 	}
 	now := instant.UTC()
 	filePath := filepath.Join(directory, now.Format("2006-01-02")+".log")
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		pruneLogsAt(directory, now)
+	}
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return
 	}
 	defer file.Close()
 	_, _ = fmt.Fprintf(file, "[%s] [%s] %s", now.Format("2006-01-02T15:04:05.000000000Z"), stream, text)
+}
+
+func pruneLogsAt(directory string, now time.Time) {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return
+	}
+	cutoff := now.UTC().Truncate(24*time.Hour).AddDate(0, 0, 1-launcherLogRetentionDays)
+	for _, entry := range entries {
+		if !entry.Type().IsRegular() {
+			continue
+		}
+		date, err := time.Parse("2006-01-02.log", entry.Name())
+		if err == nil && date.Before(cutoff) {
+			_ = os.Remove(filepath.Join(directory, entry.Name()))
+		}
+	}
 }
 
 func secureToken() (string, error) {
