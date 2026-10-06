@@ -175,6 +175,8 @@ def stage_release_root(
     copy_release_tree(templates_dir, stage_root / "templates")
     copy_file(license_file, stage_root / "LICENSE")
     copy_file(third_party_notices, stage_root / "THIRD_PARTY_NOTICES.md")
+    if matrix["platform"].startswith("linux-"):
+        copy_file(Path(__file__).resolve().parents[2] / "docs/release/linux-desktop-runtime.md", stage_root / "LINUX-RUNTIME.md")
 
     build_info = {
         "version": version,

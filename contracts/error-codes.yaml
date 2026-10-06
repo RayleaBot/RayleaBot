@@ -907,6 +907,12 @@ diagnostics:
     description: The runtime dependency manifest is absent.
   deps.manifest_platform_missing:
     description: The runtime manifest has no resources for this platform.
+  render.libraries_ok:
+    description: The Linux shared library cache contains the Chromium runtime dependencies for the current architecture.
+  render.libraries_missing:
+    description: Linux is missing shared libraries required by Chromium rendering.
+  render.libraries_unavailable:
+    description: The Linux shared library cache could not be inspected.
   html.compile_failed:
     description: A render template HTML source could not be compiled.
   input_schema.compile_failed:

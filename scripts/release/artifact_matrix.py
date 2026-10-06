@@ -32,7 +32,7 @@ ARTIFACT_MATRIX = {
         "platform": "linux-x64", "support_level": "first_class", "smoke_profile": "linux_server_smoke",
         "extension": ".tar.gz", "archive_type": "tar.gz", "launcher_required": False,
         "server_binary": "raylea-server",
-        "required_paths": COMMON_PATHS | {"raylea-server", "systemd/rayleabot.service"},
+        "required_paths": COMMON_PATHS | {"raylea-server", "systemd/rayleabot.service", "LINUX-RUNTIME.md"},
     },
 }
 

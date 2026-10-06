@@ -64,6 +64,6 @@ raylea-server -config <config/user.yaml> -config-schema <config.user.schema.json
 
 ## 当前环境检查重点
 
-- `doctor` 会检查配置文件可访问性与配置 schema 可用性、SQLite `quick_check`、`.deps/manifest.json` 当前平台的 Chromium 与 FFmpeg 元数据。
+- `doctor` 会检查配置文件可访问性与配置 schema 可用性、SQLite `quick_check`、`.deps/manifest.json` 当前平台的 Chromium 与 FFmpeg 元数据。Linux 还检查 Chromium 所需共享库；缺少库或无法读取共享库缓存时输出安装指引，并返回退出码 1。
 - Windows 上还会读取 `HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled`。禁用或无法读取时返回 warning；可通过组策略或把该 DWORD 设为 `1` 启用。注册表值可能已被进程缓存，修改后可能需要重启 Windows。
 - 长路径支持可避免 `plugins/installed/`、`.deps/store/` 和 `cache/downloads/` 下的深层 artifact 路径超过传统限制。

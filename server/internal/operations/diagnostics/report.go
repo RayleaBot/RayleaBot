@@ -111,6 +111,7 @@ func Build(ctx context.Context, options Options) Report {
 		issues = append(issues, managedRuntimeMetadataIssue(manifest, currentPlatform, "ffmpeg"))
 	}
 	issues = append(issues, platformIssues()...)
+	issues = append(issues, renderLibraryIssues(ctx)...)
 
 	return Report{Issues: issues}
 }

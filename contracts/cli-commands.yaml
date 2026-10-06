@@ -309,12 +309,24 @@ commands:
     description: >
       检查配置文件可访问性、配置 schema 可用性、SQLite quick_check、
       .deps/ v5 清单的当前平台项、Chromium 与 FFmpeg 元数据。
+      Linux 上检查当前架构的 Chromium 共享库；缺失或无法检查时给出安装指引。
       Windows 上额外检查
       LongPathsEnabled 注册表项。
     exit_codes:
       0: 所有检查通过
       1: 存在 WARN 或 ERROR 级别问题
     x-doctor-issues:
+      linux_render_libraries:
+        outcomes:
+          available:
+            code: render.libraries_ok
+            severity: ok
+          missing:
+            code: render.libraries_missing
+            severity: warning
+          unavailable:
+            code: render.libraries_unavailable
+            severity: warning
       windows_long_paths:
         registry_key: HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled
         outcomes:
@@ -332,6 +344,7 @@ commands:
       - fixtures/cli/edge.doctor.offline-exit-code-1.yaml
       - fixtures/cli/ok.doctor.windows-long-paths-enabled.yaml
       - fixtures/cli/edge.doctor.windows-long-paths-disabled.yaml
+      - fixtures/cli/edge.doctor.linux-render-libraries-missing.yaml
 
   cleanup:
     name: cleanup

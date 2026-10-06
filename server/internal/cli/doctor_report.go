@@ -12,7 +12,7 @@ func runDoctor(cmd Command) int {
 	hasProblems := false
 	for _, issue := range report.Issues {
 		if issue.Severity != "ok" {
-			cmd.Logger.Warn(issue.Summary, "code", issue.Code)
+			cmd.Logger.Warn(issue.Summary, "code", issue.Code, "remediation", issue.Remediation)
 			hasProblems = true
 		} else {
 			cmd.Logger.Info(issue.Summary, "code", issue.Code)

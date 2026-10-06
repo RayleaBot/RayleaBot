@@ -336,6 +336,7 @@ class ReleaseToolTests(unittest.TestCase):
             with tarfile.open(archive_path, "r:gz") as tf:
                 names = set(tf.getnames())
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/systemd/rayleabot.service", names)
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-server/LINUX-RUNTIME.md", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/LICENSE", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/THIRD_PARTY_NOTICES.md", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-server/web/dist/index.html", names)

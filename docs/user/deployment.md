@@ -32,7 +32,7 @@ Chromium 会在首次启动时准备；FFmpeg / FFprobe 在管理面仪表盘的
 
 Launcher 在后台检查更新，发现新版本后可在“关于应用”中一键更新；更新前由 Launcher 管理且正在运行的服务，会在新版 Launcher 初始化后自动恢复，原本已停止的服务保持停止。服务端包停服后执行 `raylea-server update apply`。更新流程、手动覆盖步骤与更新策略见 [Delivery and Upgrade](../release/delivery-and-upgrade.md)。
 
-Linux Launcher 使用系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，完整包不内嵌这些发行版组件。启动前按包内 `LINUX-RUNTIME.md` 或 [Linux Desktop Runtime](../release/linux-desktop-runtime.md) 安装所需系统包；无桌面环境时使用 `linux-x64-server`。
+Linux 的完整包与 server 包都包含 `LINUX-RUNTIME.md`，按其中的 [Linux Runtime](../release/linux-desktop-runtime.md) 说明安装 Chromium 所需共享库与字体。Launcher 还需要 GTK 3、WebKit2GTK 4.1 和图形会话；无桌面环境时使用 `linux-x64-server`。
 
 恢复操作见 [Recovery](./recovery.md)。
 

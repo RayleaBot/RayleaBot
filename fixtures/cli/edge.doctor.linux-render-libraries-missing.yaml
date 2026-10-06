@@ -1,0 +1,13 @@
+contract: contracts/cli-commands.yaml#commands.doctor
+case: edge
+input:
+  command: raylea doctor
+  mode: offline
+  platform: linux
+  missing_libraries: [libnss3.so, libgbm.so.1]
+expect:
+  valid: true
+  exit_code: 1
+  issue:
+    code: render.libraries_missing
+    severity: warning
