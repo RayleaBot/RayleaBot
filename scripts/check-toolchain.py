@@ -183,34 +183,6 @@ def check_npm() -> CheckResult:
     return CheckResult("npm", "ok", actual)
 
 
-def check_corepack() -> CheckResult:
-    if not executable_exists("corepack"):
-        return CheckResult(
-            "Corepack",
-            "error",
-            f"Corepack is not on PATH; required {REQUIRED_COREPACK_VERSION}.",
-            f"Node.js 26 no longer bundles Corepack; install it with `{COREPACK_INSTALL}`.",
-        )
-
-    result = run_command(["corepack", "--version"])
-    if result.returncode != 0:
-        return CheckResult(
-            "Corepack",
-            "error",
-            f"Unable to read Corepack version: {command_failure_detail(result)}.",
-            f"Reinstall it with `{COREPACK_INSTALL}`.",
-        )
-    actual = first_line(result.stdout)
-    if actual != REQUIRED_COREPACK_VERSION:
-        return CheckResult(
-            "Corepack",
-            "error",
-            f"Found {actual}; required {REQUIRED_COREPACK_VERSION}.",
-            f"Install the pinned version with `{COREPACK_INSTALL}`.",
-        )
-    return CheckResult("Corepack", "ok", actual)
-
-
 def check_pnpm() -> CheckResult:
     pnpm_actual = ""
     if executable_exists("pnpm"):
@@ -413,10 +385,10 @@ def check_runtime_paths() -> list[CheckResult]:
 
 
 TASK_TOOLS = {
-    "all": ("go", "node", "npm", "corepack", "pnpm", "python", "sqlc"),
+    "all": ("go", "node", "npm", "pnpm", "python", "sqlc"),
     "server": ("go",),
-    "web": ("node", "npm", "corepack", "pnpm"),
-    "launcher": ("go", "node", "npm", "corepack", "pnpm"),
+    "web": ("node", "npm", "pnpm"),
+    "launcher": ("go", "node", "npm", "pnpm"),
     "contracts": ("go", "node", "python"),
     "sql": ("sqlc",),
     "runtime": (),
@@ -449,7 +421,7 @@ def check_version_files(tool_names: tuple[str, ...], root: Path = REPO_ROOT) -> 
 
 def run_checks(include_runtime: bool, task: str = "all") -> list[CheckResult]:
     selected = TASK_TOOLS[task]
-    checks = {"go": check_go, "node": check_node, "npm": check_npm, "corepack": check_corepack, "pnpm": check_pnpm, "python": check_python, "sqlc": check_sqlc}
+    checks = {"go": check_go, "node": check_node, "npm": check_npm, "pnpm": check_pnpm, "python": check_python, "sqlc": check_sqlc}
     results = [check_version_files(selected), *(checks[name]() for name in selected)]
     if include_runtime:
         results.extend(check_runtime_paths())
@@ -467,7 +439,7 @@ def print_results(results: list[CheckResult]) -> None:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Check RayleaBot development toolchain.")
-    parser.add_argument("--task", choices=TASK_TOOLS, default="all", help="Check tools needed for the selected task; default checks the complete frozen toolchain.")
+    parser.add_argument("--task", choices=TASK_TOOLS, default="all", help="Check tools needed for the selected task; default checks build and contract tools.")
     parser.add_argument(
         "--toolchain-only",
         action="store_true",

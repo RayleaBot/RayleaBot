@@ -497,11 +497,33 @@ func resolvePNPMCommand(config Config) (string, []string, error) {
 	if err != nil {
 		return "", nil, fmt.Errorf("pluginbuild: locate Node.js for UI build: %w", err)
 	}
-	corepackCLI = filepath.Join(filepath.Dir(nodeCommand), "node_modules", "corepack", "dist", "corepack.js")
-	if err := requireRegularFile(corepackCLI); err != nil {
-		return "", nil, fmt.Errorf("pluginbuild: locate Corepack CLI next to Node.js: %w", err)
+	cli, prefix, err := findWindowsPNPMCLI(nodeCommand, os.Getenv("PATH"), os.Getenv("APPDATA"))
+	if err != nil {
+		return "", nil, err
 	}
-	return nodeCommand, []string{corepackCLI, "pnpm"}, nil
+	return nodeCommand, append([]string{cli}, prefix...), nil
+}
+
+func findWindowsPNPMCLI(nodeCommand, pathValue, appData string) (string, []string, error) {
+	directories := append([]string{filepath.Dir(nodeCommand)}, strings.Split(pathValue, ";")...)
+	if filepath.IsAbs(appData) {
+		directories = append(directories, filepath.Join(appData, "npm"))
+	}
+	for _, directory := range directories {
+		directory = strings.Trim(directory, "\"")
+		if !filepath.IsAbs(directory) {
+			continue
+		}
+		pnpmCLI := filepath.Join(directory, "node_modules", "pnpm", "bin", "pnpm.cjs")
+		if requireRegularFile(pnpmCLI) == nil {
+			return pnpmCLI, nil, nil
+		}
+		corepackCLI := filepath.Join(directory, "node_modules", "corepack", "dist", "corepack.js")
+		if requireRegularFile(corepackCLI) == nil {
+			return corepackCLI, []string{"pnpm"}, nil
+		}
+	}
+	return "", nil, fmt.Errorf("pluginbuild: pnpm or Corepack CLI was not found beside Node.js, on PATH, or in the user npm directory; install pnpm or Corepack with npm install --global")
 }
 
 func requireRegularFile(path string) error {

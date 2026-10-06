@@ -106,9 +106,6 @@ jobs:
         with:
           python-version: ${{ steps.toolchain.outputs.python }}
 
-      - name: Install Corepack
-        run: npm install --global corepack@${{ steps.toolchain.outputs.corepack }}
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:

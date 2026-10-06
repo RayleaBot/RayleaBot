@@ -49,7 +49,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 ## 工具链获取
 
 - 仓库根目录的 `.tool-versions` 固定七种工具的版本。doctor 核对已安装工具、各 Go module 与 JS package 的声明；CI 与开发容器安装步骤从该文件读取版本。Docker 的 Go/Python 基础镜像标签需要在解析 Dockerfile 时确定，保留显式声明，由严格契约门禁检查一致性。
-- `python scripts/check-toolchain.py --task server --toolchain-only` 只检查服务端编译工具；`web`、`launcher`、`contracts`、`sql`、`runtime` 可选择对应任务。默认 `all` 保持完整冻结工具链门禁，版本错误仍失败。
+- `python scripts/check-toolchain.py --task server --toolchain-only` 只检查服务端编译工具；`web`、`launcher`、`contracts`、`sql`、`runtime` 可选择对应任务。默认 `all` 检查全部构建与契约工具，版本错误仍失败；已安装可用 pnpm 时不另要求 Corepack，开发启动脚本仍通过 Corepack 选择工程锁定的 pnpm。
 - `server/go.mod` 的 `go` 指令是 Go 工具识别的最低版本声明，与 `.tool-versions` 保持一致；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装同一 Go 版本，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
 - npm 随 Node.js 提供；Corepack 单独安装：按 `.tool-versions` 中的版本执行 `npm install --global corepack@<version>`，再执行 `corepack enable` 与 `corepack prepare pnpm@<version> --activate`。
 - sqlc 单独安装：按 `.tool-versions` 中的版本执行 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v<version>`。
