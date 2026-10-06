@@ -55,7 +55,8 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 - sqlc 单独安装：按 `.tool-versions` 中的版本执行 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v<version>`。
 - 无网络环境需要提前把 Go、Node.js、Corepack pnpm、sqlc 和 `.deps/manifest.json` 对应的 Chromium、FFmpeg 资源放入镜像或工作站。Chromium 可使用系统 Chrome / Chromium / Edge，也可使用 `.deps/store/` 中已展开的托管资源；FFmpeg 与 FFprobe 使用清单内固定的托管资源。
 - Linux 构建 Wails Launcher 固定使用 Wails v3.0.x 支持的 `gtk3` 兼容标签，需要 GTK 3 与 WebKit2GTK 4.1 开发包；Ubuntu 使用 `libgtk-3-dev` 和 `libwebkit2gtk-4.1-dev`。
-- 仓库提供 devcontainer，预装 `.tool-versions` 中的全部工具以及 Chromium、SQLite 与 `make doctor`。
+- Python 脚本依赖集中在 `scripts/requirements.txt`；首次运行执行 `python -m pip install -r scripts/requirements.txt`，其中 jsonschema 的 format 扩展用于日期与 URI 等格式校验。
+- 仓库提供 devcontainer，预装 `.tool-versions` 中的全部工具、上述 Python 依赖以及 Chromium、SQLite 和 make。
 - 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。
 
 ## 固定工程选型

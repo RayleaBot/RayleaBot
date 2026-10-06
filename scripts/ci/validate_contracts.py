@@ -15,14 +15,18 @@ from urllib.parse import parse_qs, unquote, urlsplit
 try:
     import yaml
 except ImportError as exc:  # pragma: no cover - exercised by CI environment setup.
-    raise SystemExit("PyYAML is required: python -m pip install pyyaml") from exc
+    raise SystemExit("Install repository Python dependencies: python -m pip install -r scripts/requirements.txt") from exc
 
 try:
     from jsonschema import Draft202012Validator, FormatChecker
     from referencing import Registry, Resource
     from referencing.jsonschema import DRAFT202012
 except ImportError as exc:  # pragma: no cover - exercised by CI environment setup.
-    raise SystemExit("jsonschema is required: python -m pip install jsonschema") from exc
+    raise SystemExit("Install repository Python dependencies: python -m pip install -r scripts/requirements.txt") from exc
+
+for required_format in ("date-time", "uri"):
+    if required_format not in FormatChecker.checkers:
+        raise SystemExit("JSON Schema format validation is unavailable: python -m pip install -r scripts/requirements.txt")
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

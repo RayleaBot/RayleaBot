@@ -14,7 +14,7 @@ response:
       url: https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.json
       official: true
       cached: true
-      refreshed_at: 2026-08-04 00:00:00+00:00
+      refreshed_at: 2026-08-04T00:00:00+00:00
       entry_count: 1
     - id: community
       name: 社区插件

@@ -8,7 +8,10 @@ import re
 import subprocess
 from pathlib import Path
 
-import yaml
+try:
+    import yaml
+except ImportError as exc:
+    raise SystemExit("Install repository Python dependencies: python -m pip install -r scripts/requirements.txt") from exc
 from generated_outputs import sync_outputs
 
 ROOT = Path(__file__).resolve().parents[1]

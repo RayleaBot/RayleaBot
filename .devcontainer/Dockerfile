@@ -4,6 +4,9 @@ FROM golang:1.27.1-bookworm
 
 COPY --from=python-runtime /usr/local /usr/local
 COPY .tool-versions scripts/read-tool-versions.sh /tmp/toolchain/
+COPY scripts/requirements.txt /tmp/toolchain/requirements.txt
+
+RUN python -m pip install --disable-pip-version-check --no-cache-dir -r /tmp/toolchain/requirements.txt
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
