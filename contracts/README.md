@@ -37,6 +37,7 @@
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
   - 图片渲染与插件浏览器会话共用 Chromium，以及受信本地插件共用 FFmpeg / FFprobe 的可信来源列表、SHA256、归档格式与相对入口
+  - FFmpeg 可用 `ffprobe_archive` 指定单独的 FFprobe 归档，单独校验摘要并解压到同一资源目录的 `ffprobe/` 下；两个归档与全部入口就绪后才启用资源。
 - `error-codes.yaml`
   - 统一错误码命名、HTTP 语义和适用范围
 - `web-api.openapi.yaml`

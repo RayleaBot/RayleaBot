@@ -191,6 +191,9 @@
         },
         "entrypoints": {
           "type": "object"
+        },
+        "ffprobe_archive": {
+          "$ref": "#/$defs/ffprobeArchive"
         }
       }
     },
@@ -211,6 +214,13 @@
             "entrypoints": {
               "$ref": "#/$defs/chromiumEntrypoints"
             }
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "ffprobe_archive"
+            ]
           }
         }
       ]
@@ -241,6 +251,27 @@
           "$ref": "#/$defs/ffmpegResource"
         }
       ]
+    },
+    "ffprobeArchive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sources",
+        "sha256",
+        "archive_format"
+      ],
+      "properties": {
+        "sources": {
+          "$ref": "#/$defs/resourceBase/properties/sources"
+        },
+        "sha256": {
+          "$ref": "#/$defs/resourceBase/properties/sha256"
+        },
+        "archive_format": {
+          "$ref": "#/$defs/resourceBase/properties/archive_format"
+        }
+      },
+      "description": "Optional separate FFprobe archive for an FFmpeg resource. Verify its own digest and unpack under ffprobe/ inside the same staged resource directory. Activate only after both archives are extracted and all entrypoints resolve. A primary archive must not contain this reserved ffprobe/ path."
     }
   },
   "x-fixtures": [
@@ -268,6 +299,8 @@
     "fixtures/deps-manifest/invalid.version-trailing-dot.json",
     "fixtures/deps-manifest/invalid.version-traversal.json",
     "fixtures/deps-manifest/ok.minimal.json",
-    "fixtures/deps-manifest/ok.multi-source.json"
+    "fixtures/deps-manifest/ok.multi-source.json",
+    "fixtures/deps-manifest/ok.ffprobe-archive.json",
+    "fixtures/deps-manifest/invalid.ffprobe-archive-source.json"
   ]
 }

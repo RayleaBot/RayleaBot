@@ -34,6 +34,9 @@ def semantic_errors(manifest: object) -> list[str]:
         sources = resource.get("sources")
         if not isinstance(sources, list):
             continue
+        archive = resource.get("ffprobe_archive")
+        if isinstance(archive, dict) and isinstance(archive.get("sources"), list):
+            sources = sources + archive["sources"]
         seen: set[str] = set()
         for source in sources:
             if not isinstance(source, dict) or not isinstance(source.get("url"), str):

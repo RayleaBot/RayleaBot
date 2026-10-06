@@ -25,14 +25,35 @@ type ResourceSource struct {
 }
 
 type Resource struct {
-	ID            string              `json:"id"`
-	Kind          string              `json:"kind"`
-	Version       string              `json:"version"`
-	Platform      string              `json:"platform"`
-	Sources       []ResourceSource    `json:"sources"`
-	SHA256        string              `json:"sha256"`
-	ArchiveFormat string              `json:"archive_format"`
-	Entrypoints   map[string][]string `json:"entrypoints"`
+	ID             string              `json:"id"`
+	Kind           string              `json:"kind"`
+	Version        string              `json:"version"`
+	Platform       string              `json:"platform"`
+	Sources        []ResourceSource    `json:"sources"`
+	SHA256         string              `json:"sha256"`
+	ArchiveFormat  string              `json:"archive_format"`
+	Entrypoints    map[string][]string `json:"entrypoints"`
+	FFprobeArchive *ResourceArchive    `json:"ffprobe_archive,omitempty"`
+}
+
+type ResourceArchive struct {
+	Sources       []ResourceSource `json:"sources"`
+	SHA256        string           `json:"sha256"`
+	ArchiveFormat string           `json:"archive_format"`
+}
+
+func (resource Resource) ffprobeResource() *Resource {
+	if resource.FFprobeArchive == nil {
+		return nil
+	}
+	archive := resource.FFprobeArchive
+	resource.Sources, resource.SHA256, resource.ArchiveFormat = archive.Sources, archive.SHA256, archive.ArchiveFormat
+	resource.FFprobeArchive = nil
+	return &resource
+}
+
+func ffprobeArchivePath(repoRoot string, resource *Resource) string {
+	return filepath.Join(CacheRoot(repoRoot), resource.ID+"-"+resource.Version+"-ffprobe"+archiveSuffix(resource.ArchiveFormat))
 }
 
 func Load(repoRoot string) (*Manifest, error) {

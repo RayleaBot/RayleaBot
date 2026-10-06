@@ -17,14 +17,21 @@ type depsManifest struct {
 }
 
 type depsResource struct {
-	ID            string               `json:"id"`
-	Kind          string               `json:"kind"`
-	Version       string               `json:"version"`
-	Platform      string               `json:"platform"`
+	ID             string               `json:"id"`
+	Kind           string               `json:"kind"`
+	Version        string               `json:"version"`
+	Platform       string               `json:"platform"`
+	Sources        []depsResourceSource `json:"sources"`
+	SHA256         string               `json:"sha256"`
+	ArchiveFormat  string               `json:"archive_format"`
+	Entrypoints    map[string][]string  `json:"entrypoints"`
+	FFprobeArchive *depsResourceArchive `json:"ffprobe_archive,omitempty"`
+}
+
+type depsResourceArchive struct {
 	Sources       []depsResourceSource `json:"sources"`
 	SHA256        string               `json:"sha256"`
 	ArchiveFormat string               `json:"archive_format"`
-	Entrypoints   map[string][]string  `json:"entrypoints"`
 }
 
 type depsResourceSource struct {
@@ -252,6 +259,19 @@ func resourceMetadataComplete(resource depsResource) bool {
 	}
 	if resource.ID == "" || resource.Version == "" || resource.ArchiveFormat == "" || len(resource.Sources) == 0 || len(required) == 0 {
 		return false
+	}
+	if archive := resource.FFprobeArchive; archive != nil {
+		if resource.Kind != "ffmpeg" || len(archive.Sources) == 0 || archive.ArchiveFormat == "" {
+			return false
+		}
+		if _, err := hex.DecodeString(archive.SHA256); err != nil || len(archive.SHA256) != 64 {
+			return false
+		}
+		for _, source := range archive.Sources {
+			if !strings.HasPrefix(source.URL, "https://") {
+				return false
+			}
+		}
 	}
 	for _, source := range resource.Sources {
 		if !strings.HasPrefix(source.URL, "https://") {

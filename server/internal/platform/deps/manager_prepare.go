@@ -151,6 +151,20 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 		}
 		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, stage, report.SelectedSource, report.AttemptedSources, err)
 	}
+	if probe := resource.ffprobeResource(); probe != nil {
+		probeArchive := ffprobeArchivePath(m.repoRoot, probe)
+		report.UsedCachedArchive = report.UsedCachedArchive && VerifyFileSHA256(probeArchive, probe.SHA256) == nil
+		selected, attempted, err := ensureDownloadedArchiveWithProgress(ctx, probeArchive, report.StoreRoot, probe, m.downloadFile, sourceSelector, options.Progress)
+		report.AttemptedSources = append(report.AttemptedSources, attempted...)
+		if err != nil {
+			stage := "download"
+			var verification *archiveVerificationError
+			if errors.As(err, &verification) {
+				stage = "verify"
+			}
+			return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, stage, selected, report.AttemptedSources, err)
+		}
+	}
 	if err := ensurePreparedResourceWithProgress(ctx, m.repoRoot, *resource, report.ArchivePath, m.extract, options.Progress); err != nil {
 		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "extract", report.SelectedSource, report.AttemptedSources, err)
 	}
@@ -244,6 +258,9 @@ func (m *Manager) Inspect(kind string) (*BootstrapInspection, error) {
 	}
 	if inspection.MetadataComplete && VerifyFileSHA256(inspection.ArchivePath, resource.SHA256) == nil {
 		inspection.CachedArchivePresent = true
+		if probe := resource.ffprobeResource(); probe != nil {
+			inspection.CachedArchivePresent = VerifyFileSHA256(ffprobeArchivePath(m.repoRoot, probe), probe.SHA256) == nil
+		}
 	}
 	if _, err := m.resolvePreparedManifestResource(manifest, resource); err == nil {
 		inspection.PreparedStorePresent = true

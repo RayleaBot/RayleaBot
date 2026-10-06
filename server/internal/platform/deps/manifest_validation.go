@@ -51,7 +51,11 @@ func validateManifestJSON(payload []byte) error {
 		}
 		ids[id], kinds[kind] = true, true
 		seen := map[string]bool{}
-		for _, rawSource := range resource["sources"].([]any) {
+		sources := append([]any(nil), resource["sources"].([]any)...)
+		if archive, ok := resource["ffprobe_archive"].(map[string]any); ok {
+			sources = append(sources, archive["sources"].([]any)...)
+		}
+		for _, rawSource := range sources {
 			value := rawSource.(map[string]any)["url"].(string)
 			parsed, err := url.Parse(value)
 			if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" {

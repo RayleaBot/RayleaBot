@@ -1,0 +1,37 @@
+{
+  "manifest_version": 5,
+  "resources": [
+    {
+      "id": "ffmpeg-macos-arm64",
+      "kind": "ffmpeg",
+      "version": "9.0.2",
+      "platform": "macos-arm64",
+      "sources": [
+        {
+          "url": "https://example.invalid/ffmpeg.zip",
+          "kind": "upstream"
+        }
+      ],
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "archive_format": "zip",
+      "entrypoints": {
+        "ffmpeg": [
+          "ffmpeg"
+        ],
+        "ffprobe": [
+          "ffprobe/ffprobe"
+        ]
+      },
+      "ffprobe_archive": {
+        "sources": [
+          {
+            "url": "https://example.invalid/ffprobe.zip",
+            "kind": "upstream"
+          }
+        ],
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "archive_format": "zip"
+      }
+    }
+  ]
+}

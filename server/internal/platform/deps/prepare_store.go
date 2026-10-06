@@ -144,6 +144,23 @@ func ensurePreparedResourceWithProgress(
 	}); err != nil {
 		return fmt.Errorf("extract deps resource %s: %w", resource.Kind, err)
 	}
+	if probe := resource.ffprobeResource(); probe != nil {
+		probeRoot := filepath.Join(tempRoot, "ffprobe")
+		if _, err := os.Lstat(probeRoot); err == nil {
+			return errors.New("primary archive occupies the separate FFprobe directory")
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("inspect separate FFprobe directory: %w", err)
+		}
+		if err := os.Mkdir(probeRoot, 0o755); err != nil {
+			return err
+		}
+		if err := extractWithProgress(ctx, ffprobeArchivePath(repoRoot, probe), probe.ArchiveFormat, probeRoot, extractor, nil); err != nil {
+			return fmt.Errorf("extract FFprobe archive: %w", err)
+		}
+	}
+	if _, err := resolvePreparedEntrypoints(tempRoot, &resource); err != nil {
+		return fmt.Errorf("validate staged resource entrypoints: %w", err)
+	}
 	emitPrepareProgress(reporter, PrepareProgress{
 		Stage:    "extract",
 		Status:   "succeeded",

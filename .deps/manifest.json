@@ -125,24 +125,35 @@
     {
       "id": "ffmpeg-macos-arm64",
       "kind": "ffmpeg",
-      "version": "2026.06.11",
+      "version": "9.0.2-1789931890",
       "platform": "macos-arm64",
       "sources": [
         {
-          "url": "https://github.com/vanloctech/ffmpeg-macos/releases/download/ffmpeg-2026.06.11/ffmpeg-macos-arm64.tar.gz",
+          "url": "https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip",
           "kind": "upstream",
-          "label": "vanloctech FFmpeg macOS"
+          "label": "Martin Riedl FFmpeg release builds"
         }
       ],
-      "sha256": "26f5133f88d5ab1254cc03499acef42dae2dbc574dd26e0dade8c968420127e9",
-      "archive_format": "tar.gz",
+      "sha256": "c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924",
+      "archive_format": "zip",
       "entrypoints": {
         "ffmpeg": [
           "ffmpeg"
         ],
         "ffprobe": [
-          "ffprobe"
+          "ffprobe/ffprobe"
         ]
+      },
+      "ffprobe_archive": {
+        "sources": [
+          {
+            "url": "https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffprobe.zip",
+            "kind": "upstream",
+            "label": "Martin Riedl FFmpeg release builds"
+          }
+        ],
+        "sha256": "fcbe839537485eaee7a7a8bc5cbc0f90d53617e80943e8a5b2e31cb851197ea6",
+        "archive_format": "zip"
       }
     }
   ],
