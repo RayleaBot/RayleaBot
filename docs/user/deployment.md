@@ -21,8 +21,14 @@ GitHub 自动生成的源代码压缩包不是正式运行时产物。
 
 Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Microsoft Edge WebView2 Runtime；缺失时会显示原生安装提示，并可打开微软下载页。离线设备按包内 `WINDOWS-RUNTIME.md` 或 [Windows Desktop Runtime](../release/windows-desktop-runtime.md) 安装。请勿单独移动 Launcher，完整安装根应作为一个单元保留。
 
+macOS 包未提供 Developer ID 签名与公证。若系统阻止启动，在确认下载来自上述正式 Release 后，打开终端，对本次解压目录执行以下命令，再打开目录内的 `RayleaLauncher.app`。路径须替换为实际安装根，命令同时处理 Launcher 与 `raylea-server`：
+
+```bash
+xattr -dr com.apple.quarantine "/实际路径/RayleaBot"
+```
 
 Chromium 会在首次启动时准备；FFmpeg / FFprobe 在管理面仪表盘的运行环境入口按需准备，不阻塞 Server 启动。媒体插件需要这两个工具；准备完成后重新启动相关插件，让新进程取得工具路径。
+
 
 ## 运行根目录
 
