@@ -107,7 +107,9 @@ func TestDisplayAndCountReadersObserveCompleteCatalogReplacements(t *testing.T) 
 			}
 			views[0].Commands[0].Aliases[0] = "caller mutation"
 			counts := catalog.StateCounts()
-			if counts.Total != 2 || !((counts.Running == 2 && counts.Failed == 0) || (counts.Running == 0 && counts.Failed == 2)) {
+			fullyRunning := counts.Running == 2 && counts.Failed == 0
+			fullyFailed := counts.Running == 0 && counts.Failed == 2
+			if counts.Total != 2 || (!fullyRunning && !fullyFailed) {
 				t.Errorf("counter observed a partial replacement: %+v", counts)
 				return
 			}

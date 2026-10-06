@@ -131,7 +131,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.12.2
+          version: v2.13.0
           working-directory: server
           args: --timeout=10m --default=none -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
 
@@ -140,7 +140,7 @@ jobs:
         env:
           GOOS: windows
         with:
-          version: v2.12.2
+          version: v2.13.0
           working-directory: server
           args: --timeout=10m --default=none -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
 

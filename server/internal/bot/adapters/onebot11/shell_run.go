@@ -164,9 +164,6 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 	}
 
 	err = s.readLoop(ctx, TransportForwardWS, conn)
-	if err == nil {
-		return true, true
-	}
 	if ctx.Err() != nil {
 		return true, true
 	}

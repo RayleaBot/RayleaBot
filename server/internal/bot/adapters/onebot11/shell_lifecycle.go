@@ -288,7 +288,7 @@ func (s *Shell) handleReverseSession(ctx context.Context, conn *websocket.Conn, 
 		s.startWorker(readyHandler)
 	}
 
-	if err := s.readLoop(ctx, TransportReverseWS, conn); err != nil && ctx.Err() == nil && !s.isStopping() {
+	if err := s.readLoop(ctx, TransportReverseWS, conn); ctx.Err() == nil && !s.isStopping() {
 		s.markTransportFailure(TransportReverseWS, TransportStateListening, errorCodeConnectionLost, err)
 	}
 }

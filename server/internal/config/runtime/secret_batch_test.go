@@ -138,9 +138,10 @@ func TestConfigSecretBatchFailureCompensatesEveryCandidate(t *testing.T) {
 			saved := false
 			err := staged.persist(ctx, func() error { saved = true; return documentFailure })
 			wantError := documentFailure
-			if mode == "committed error" {
+			switch mode {
+			case "committed error":
 				wantError = applyFailure
-			} else if mode == "cancelled after commit" {
+			case "cancelled after commit":
 				wantError = context.Canceled
 			}
 			if !errors.Is(err, wantError) || saved != (mode == "document error" || mode == "restore error") {

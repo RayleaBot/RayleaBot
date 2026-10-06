@@ -256,18 +256,7 @@ type spoolRecord struct {
 
 func spoolRecordFromSummary(summary Summary) spoolRecord {
 	normalized := NormalizeSummary(summary)
-	return spoolRecord{
-		BootID:    normalized.BootID,
-		LogID:     normalized.LogID,
-		Timestamp: normalized.Timestamp,
-		Level:     normalized.Level,
-		Source:    normalized.Source,
-		Message:   normalized.Message,
-		Protocol:  normalized.Protocol,
-		PluginID:  normalized.PluginID,
-		RequestID: normalized.RequestID,
-		Details:   normalized.Details,
-	}
+	return spoolRecord(normalized)
 }
 
 func decodeSpoolRecord(line []byte) (Summary, error) {
@@ -275,16 +264,5 @@ func decodeSpoolRecord(line []byte) (Summary, error) {
 	if err := json.Unmarshal(bytes.TrimSpace(line), &record); err != nil {
 		return Summary{}, fmt.Errorf("decode spool record: %w", err)
 	}
-	return NormalizeSummary(Summary{
-		BootID:    record.BootID,
-		LogID:     record.LogID,
-		Timestamp: record.Timestamp,
-		Level:     record.Level,
-		Source:    record.Source,
-		Message:   record.Message,
-		Protocol:  record.Protocol,
-		PluginID:  record.PluginID,
-		RequestID: record.RequestID,
-		Details:   record.Details,
-	}), nil
+	return NormalizeSummary(Summary(record)), nil
 }

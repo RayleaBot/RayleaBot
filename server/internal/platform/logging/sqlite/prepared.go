@@ -28,7 +28,7 @@ func (w *preparedLogWrites) ExecContext(ctx context.Context, query string, args 
 
 	// Preparing can wait for the single write connection. Do not hold the
 	// cache lock while waiting, so other callers retain their cancellation budget.
-	prepared, err := w.DB.PrepareContext(ctx, query)
+	prepared, err := w.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}

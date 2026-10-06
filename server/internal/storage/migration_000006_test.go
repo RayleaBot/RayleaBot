@@ -17,7 +17,7 @@ func createSchema000005(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if _, err := db.Exec(logTimeIndexesSchema + `UPDATE schema_metadata SET version='000005';`); err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func readKVMigrationRows(t *testing.T, db *sql.DB) []kvMigrationRow {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var result []kvMigrationRow
 	for rows.Next() {
 		var row kvMigrationRow
@@ -96,7 +96,7 @@ func TestKVIndexMigrationConflictRestoresOldSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if _, err := db.Exec(`CREATE INDEX idx_plugin_kv_size_anomaly ON plugin_kv(key)`); err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestKVIndexMigrationCancellationRollsBackCompletedDDL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	db.SetMaxOpenConns(1)
 	before := migrationSchemaSQL(t, db)
 	ctx, cancel := context.WithCancel(t.Context())
