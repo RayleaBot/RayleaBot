@@ -1,0 +1,19 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "frame": {
+    "channel": "logs",
+    "type": "logs.appended",
+    "timestamp": "2026-10-06T09:31:00.000000000Z",
+    "data": {
+      "log_id": "log_qqofficial_0001",
+      "timestamp": "2026-10-06T09:31:00.000000000Z",
+      "level": "info",
+      "source": "bridge",
+      "protocol": "qqofficial",
+      "message": "QQ official message received",
+      "request_id": "req_qqofficial_0001"
+    }
+  },
+  "expect": { "valid": true }
+}

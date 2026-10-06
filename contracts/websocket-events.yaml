@@ -9,6 +9,7 @@ x-fixtures:
   - fixtures/websocket/ok.logs-appended.outbound-onebot11.json
   - fixtures/websocket/ok.logs-appended.task.json
   - fixtures/websocket/ok.logs-appended.protocol-onebot11.json
+  - fixtures/websocket/ok.logs-appended.protocol-qqofficial.json
   - fixtures/websocket/ok.plugins-console-stderr.json
   - fixtures/websocket/ok.events-received-bridge-runtime-observability.json
   - fixtures/websocket/ok.events-received-dispatcher-runtime-observability.json
@@ -107,7 +108,7 @@ channels:
               description: OneBot11 bridge inbound message summaries may include bot, conversation, sender, and message preview context.
             protocol:
               type: string
-              enum: [onebot11]
+              enum: [onebot11, qqofficial]
             plugin_id:
               type: string
             request_id:
