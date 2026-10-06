@@ -41,6 +41,7 @@ Race 测试需要 CGO 与 C 编译器；本机缺少时由 nightly 覆盖，并�
 | 工作流 | 触发 | 平台 | 职责 |
 | --- | --- | --- | --- |
 | `nightly.yml` | 每日 18:00 UTC 与手动触发 | 主 jobs 为 `ubuntu-latest`；`repo-checks` 为两平台；`server-windows` 为 `windows-latest` | 下表所列的完整回归 |
+| `nightly-status.yml` | nightly 结束 | `ubuntu-latest` | 对默认分支最新运行维护一个失败 issue，失败时创建或重新打开，成功后关闭；不参与 nightly 验证结论 |
 | `release.yml` | `v*` tag | `windows-latest`、`ubuntu-latest`、`macos-26` | 通过 `release-build.yml` 构建四种正式 artifact，校验 release metadata 并对归档条目与运行环境准备前提做 smoke，再发布 GitHub Release |
 | `repo-stats.yml` | 推送到 `main` | `ubuntu-latest` | 生成 README 引用的提交活动图，不参与验证 |
 
@@ -58,6 +59,8 @@ Race 测试需要 CGO 与 C 编译器；本机缺少时由 nightly 覆盖，并�
 | `release-dry-run` | release 脚本测试、Server 构建、本版恢复演练、Web 构建与 Linux server 包打包 smoke |
 
 Nightly 的 Server 测试一次运行同时启用 race 和 atomic coverage，覆盖全部 Go 包。
+
+发布标签必须指向已有 nightly 成功记录的同一完整提交 SHA。发布工作流在构建前和上传前检查该提交最新运行的最后一次尝试；失败、取消、进行中、缺少记录或 API 不可用都阻止发布，其他提交或更早运行的成功不能替代。先推送代码与对应标签的发布说明，运行 nightly，再对通过的提交推送版本标签；具体步骤见[发布流程](../release/delivery-and-upgrade.md#发布流程与通道)。
 
 Web E2E 只运行 `real-server` project，独立使用临时目录、SQLite 和动态端口，覆盖静态路由、登录与账户更新、插件安装与启停、配置及密钥遮罩、插件全局设置、治理作用域与名单增删、调度列表、日志详情、状态页备份与诊断导出和实际示例插件 iframe；视觉细节不写 E2E。在 `web/` 执行 `corepack pnpm run test:e2e:production` 构建 Web 与示例插件 UI 并运行用例；需要安装本地插件包的用例写入临时 `build_info.json`，使最低 Core 版本检查可以执行。
 

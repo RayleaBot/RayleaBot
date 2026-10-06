@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | `windows-x64-full` | Windows 桌面完整包 | `first_class` | Launcher 一键更新 |
 | `linux-x64-full` | Linux 桌面完整包 | `first_class` | Launcher 一键更新 |
-| `macos-arm64-full` | macOS Apple Silicon 桌面完整包 | `first_class` | Launcher 一键更新 |
+| `macos-arm64-full` | macOS Apple Silicon 桌面完整包 | `experimental` | Launcher 一键更新 |
 | `linux-x64-server` | Linux 服务端包 | `first_class` | `raylea-server update apply` |
 
 ## 发布包目录
@@ -25,7 +25,7 @@ Windows 完整包以根目录的 Wails 程序 `RayleaLauncher.exe` 作为唯一�
 
 Linux 完整包使用根目录的 `RayleaLauncher`，macOS 完整包使用 `RayleaLauncher.app`。
 
-Linux 完整包还包含 `LINUX-RUNTIME.md`。Launcher 依赖系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，压缩包不内嵌这些发行版组件；安装要求见 [Linux Desktop Runtime](./linux-desktop-runtime.md)。
+两种 Linux 包都包含 `LINUX-RUNTIME.md`，说明 Chromium 共享库和字体要求。Launcher 还依赖 GTK 3 和 WebKit2GTK 4.1 动态库，压缩包不内嵌这些发行版组件；安装要求见 [Linux Runtime](./linux-desktop-runtime.md)。
 
 主程序 release workflow 不 checkout、不构建也不打包业务插件。正式归档中不得出现 `plugins/` 业务产物、插件 `.go`、`.py`、`.ts`、`.vue`、测试、源码 SDK、`node_modules` 或语言运行时；`.deps/manifest.json` v5 声明 Chromium 与 FFmpeg 资源。每个平台资源必须提供按顺序选择的 `sources`（`upstream` / `mirror`，可按测速结果选源）、归档格式和 SHA-256；Chromium 提供 `entrypoints.browser`，FFmpeg 资源同时提供 `entrypoints.ffmpeg` 与 `entrypoints.ffprobe`。FFmpeg 可另附 `ffprobe_archive`，独立声明来源、归档格式与摘要；其内容解压到资源根的 `ffprobe/`，所有入口验证通过后才启用整个资源目录。运行环境准备完成后，核心从这些相对入口定位可执行文件。
 
@@ -42,6 +42,23 @@ Linux 完整包还包含 `LINUX-RUNTIME.md`。Launcher 依赖系统提供的 GTK
 - `build_info.json` 记录当前安装版本、提交、产物标识、构建时间和插件格式版本。
 
 发布脚本严格按契约生成并校验清单。Server 读取时忽略未知字段，只使用版本、发布页地址和当前产物的文件名、下载地址、大小与更新方式；插件格式版本仅供展示，兼容性写在发布说明中。
+
+## 发布流程与通道
+
+按需发布，维护目标为每季度至少一个正式版；预发布不计作正式版，失败门禁与未完成的验收不能因发布节奏跳过。0.7 首次公开分发采用预发布，macOS arm64 保持 `experimental`，先验收安装与初始化。
+
+1. 完成目标版本代码和 `docs/release/notes/<完整标签>.md`，将它们提交到同一提交并推送主分支。
+2. 在 GitHub Actions 对该提交运行 `nightly`，或等待每日回归。记录完整提交 SHA 与运行链接；代码或发布说明再次变更后，必须对新提交重新运行。
+3. 对已通过 nightly 的提交打完整版本标签，例如 `v0.7.0-beta.1`，再推送该标签。预发布同样必须有对应标签的发布正文，不复用另一个标签的文件。
+4. `release.yml` 在构建前和发布前都检查该提交最新一次 nightly：必须来自本仓库的定时或手动运行，且状态为完成、结果为成功。其他提交的成功、旧运行的成功、进行中、取消、失败以及无法读取验证结果都不能放行。
+5. 构建四个平台包并执行原有 smoke 后发布。Server 产物固定 `CGO_ENABLED=0`；Launcher 使用各平台所需的原生构建环境。
+6. 从公开下载入口执行该版本支持的[实包验收](../engineering/manual-smoke.md#公开发行物)，登记真实结果与未执行项。正式版仍需补齐公开插件安装、更新和恢复的全流程记录。
+
+含 SemVer 预发布段的版本使用 `channel: beta`、GitHub `prerelease: true` 与 `make_latest: false`；普通版本使用 `stable`，latest 由 GitHub 的 `legacy` 策略决定。仅构建元数据含连字符（例如 `1.2.3+build-1`）仍是正式版本。生成清单时若显式 channel 与版本不一致，发布工具拒绝执行。自动更新只读取稳定版 latest，测试预发布需从对应 Release 页手动下载。
+
+通道不改变插件版本兼容性。当前 [manifest v4 契约](../../contracts/plugin-info.schema.json)要求 `min_core_version` 至少为 `0.7.0`，不接受 `0.7.0` 的预发布声明；因此 `0.7.0-beta.1` 不能安装 v4 插件。首个预发布先验收核心安装与初始化，插件流程在满足最低核心版本要求的产物上验收。
+
+`nightly-status.yml` 在 nightly 结束后维护同一个失败 issue。仅默认分支最新运行可以更新它，失败时创建或重新打开，恢复后关闭；旧运行、其他分支和取消的运行不改写状态。问题汇总使用独立工作流，不改变 nightly 本身的验证结论。
 
 ## 更新检查
 
@@ -77,6 +94,8 @@ sudo systemctl start rayleabot
 更新只写入发布包包含的文件，不触碰 `config/`、`data/`、`plugins/`、`logs/`、`backups/` 与 `.deps/store/`；新版本不再包含的旧文件保留。数据库在更新后的首次启动时前向迁移。
 
 ## 手动更新
+
+以下覆盖更新步骤适用于配置与备份格式仍受本版支持的安装。0.3.x 与 0.7 不兼容，需要全新安装，见[兼容性说明](./notes/v0.7.0.md#03x-兼容性)。
 
 1. 从发布页下载对应平台的包。
 2. 停止服务。建议先执行 `backup` 保存配置、数据库和插件数据。

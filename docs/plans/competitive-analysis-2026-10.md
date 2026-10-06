@@ -1,6 +1,6 @@
 # RayleaBot 竞品分析（2026-10-04）
 
-状态：评估结论，尚未进入实施。维护者决定采纳的条目按本目录规则转为执行计划，落地并写入现行文档后删除本文件。报告由多代理只读分析与联网调研产出，未修改仓库文件，也未运行构建、测试或任何竞品；仓库事实以文中引用的文件为准，基线为主仓库 `9ac71c35` 与同级 RayleaBotPlugins 工作区。竞品数字是 2026-10-04 至 10-05 的时点数据。2026-10-05 与两份同期独立竞品分析（astra、DeepSeek）逐条交叉核实，成立的内容已并入正文，被推翻的说法列在第 10 节；G78 及之后的编号与 T14–T16 为这一轮新增。
+状态：评估结论；G1 的发布门禁、通道与失败跟踪已落实，公开发布及实包验收仍待执行，见 G1。其余条目尚未进入实施。维护者决定采纳的条目按本目录规则转为执行计划，落地并写入现行文档后删除本文件。原始报告由多代理只读分析与联网调研产出，未运行构建、测试或任何竞品；未另标状态的仓库事实以文中引用的文件为准，基线为主仓库 `9ac71c35` 与同级 RayleaBotPlugins 工作区。竞品数字是 2026-10-04 至 10-05 的时点数据。2026-10-05 与两份同期独立竞品分析（astra、DeepSeek）逐条交叉核实，成立的内容已并入正文，被推翻的说法列在第 10 节；G78 及之后的编号与 T14–T16 为这一轮新增。
 
 ## 总体结论
 
@@ -118,7 +118,15 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 
 ### G1 核心公开发布链
 
-**现状与仓库证据**
+**状态（2026-10-06）**
+
+发布工作流已要求标签所指完整提交 SHA 的最新 nightly 成功，并在上传前重新检查；失败跟踪由独立的 `nightly-status.yml` 维护同一个 issue。预发布段决定 beta 通道与 GitHub prerelease，不覆盖 latest；macOS 产物标为 experimental，Server 发布构建固定关闭 CGO。Corepack 安装允许替换 runner 已有的工具入口，golangci-lint 已固定为支持 Go 1.27 的 2.13.0。
+
+操作步骤与发布节奏见[交付与升级](../release/delivery-and-upgrade.md#发布流程与通道)，首个预发布正文见 [v0.7.0-beta.1](../release/notes/v0.7.0-beta.1.md)。0.3.x 与 0.7 不兼容，只提供全新安装说明，不提供旧格式迁移，也不恢复签名资产。
+
+仍需推送待发布提交并对该提交运行远程 nightly，再发布预发布包，按[公开发行物验收](../engineering/manual-smoke.md#公开发行物)登记结果。现行 manifest v4 契约要求最低核心版本至少为 `0.7.0`，因此 `0.7.0-beta.1` 不能安装 v4 插件，只先验收核心安装与初始化。完整插件流程需要满足该版本下限的公开核心与 G2 提供的兼容公开包；工作流与本地测试通过不代表这部分已完成。
+
+**原始问题与仓库证据（2026-10-05）**
 - 公开 tag 只有 v0.3.0、v0.3.1（2026-08-16）。0.5.0 与 0.7.0 都标为“候选版本，尚未公开分发”（`docs/release/notes/v0.7.0.md`）。选型复核记录的 Release 下载量：Windows 约 4 次，macOS 0 次。
 - v0.3.1 的更新器要读取签名资产 `release_manifest.v2.sig.json`，0.7 已删除签名体系。如果 0.7 成为 GitHub 的 latest，v0.3.1 检查更新会返回 `release.manifest_invalid`；以 prerelease 发布时，`/releases/latest` 仍指向 v0.3.1，旧用户只会看到“已是最新”。
 - `.github/workflows/release.yml:48-58` 没有 prerelease 参数，release-build 也不传 channel。推送 `v0.7.0-beta.1` 这类 tag 会生成非 prerelease 的 Release 并成为 latest。
@@ -127,13 +135,6 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 **竞品对照**
 - AstrBot 约两周一个 minor、每周有补丁；LangBot 补丁约每周一个；NapCat 跟随 QQ 版本，常一天多版。NoneBot2 虽已 6 个月未发版，但始终有可安装的稳定版。Yunzai 不发 Release，git 主干滚动。
 - AstrBot 的 beta 只体现在 tag 命名和 WebUI 开关上，GitHub 上 `prerelease=false`。RayleaBot 不能照搬：旧更新器读 `/releases/latest`，必须真正勾选 prerelease。
-
-**建议**
-1. 先推送本地提交并复测 nightly，再按失败点逐项修复：race、Windows 测试、生产 E2E、Corepack（Node 26 起不再附带 Corepack，见选型复核第 7 节）。golangci-lint 升到 v2.13.0 或更高（最新 v2.14.0）。
-2. nightly 失败时自动开或更新同一个 issue（工作流需要 `issues: write`）；release.yml 发布前检查最近一次 nightly 是否成功。
-3. release.yml 按 tag 是否含 `-` 设置 prerelease，并把 channel=beta 透传给 release-build；0.7.0 先以 prerelease 发出，macOS 产物标 experimental。这是工作流改动，不需要改契约。
-4. v0.7.0 发布说明写“从 0.3.x 迁移”：旧更新器无法自动升级，需要先备份再手动安装；v3 插件需要重新安装 v4 包。不为旧更新器补发签名资产（AGENTS 硬规则与 `docs/release/delivery-and-upgrade.md` 均禁止恢复签名）。
-5. 发布节奏定为“按需发布，且至少每季度一个正式版”，比按月 minor 更适合单人维护。
 
 **核实中被更正的事实**
 - 原稿写“最近 5 次 nightly 失败”“release-dry-run 需要恢复可信”，实际是连续 20 余次失败，而 release-dry-run 本身成功。
@@ -162,13 +163,13 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 
 ### G1 与 G2 的验收
 
-现有门禁覆盖归档 smoke、SDK 全新环境安装、E2E 中的本地包安装和 nightly 的本版恢复演练（`docs/engineering/quality-gates.md:64-75`），人工 smoke 只登记了 QQ 官方的网关握手和媒体回复（`docs/engineering/manual-smoke.md`）。没有任何一步从公开下载入口出发，所以“目录可装数为 0”这类问题现有门禁发现不了。建议把下面的端到端验收作为 G1、G2 的完成条件：
+自动门禁覆盖归档 smoke、SDK 全新环境安装、E2E 中的本地包安装和 nightly 的本版恢复演练（[质量门禁](../engineering/quality-gates.md)）。从公开下载入口开始的验收已登记在[人工 Smoke](../engineering/manual-smoke.md#公开发行物)，尚未执行；“目录可装数为 0”这类问题不能由本地包测试排除。以下端到端验收是 G1、G2 的完成条件：
 
 - 发布后从公开 Release 页和公开 catalog 出发，在干净目录完成：安装 → 初始化 → 经 NapCat 的 OneBot11 真实命令回复 → 商店安装插件 → 插件更新 → 备份并恢复到空目录。
 - Windows 完整包与 linux-x64 server 包走全流程；macOS arm64 标 experimental，只验安装与初始化；QQ 官方按 G3 的决定处理。
 - 0.7 首次公开时目录里每个插件只有一个 v4 版本，“插件更新”一步在首个插件补丁版上执行，或专门发一个 echo 补丁版来演练。
 - 备份恢复可以直接在下载的产物上运行现有的恢复演练脚本。
-- 结果按 `manual-smoke.md` 的格式登记时间、提交、平台与观察结果；可选加一步“从 v0.3.1 手动迁移”。这份记录同时是 G83 推荐组合中“最近验证版本”的来源。
+- 结果按 `manual-smoke.md` 的格式登记时间、提交、平台与观察结果。0.3.x 与 0.7 不兼容，验收采用全新安装。这份记录同时是 G83 推荐组合中“最近验证版本”的来源。
 
 ### G3 QQ 官方路径可用性
 
@@ -630,8 +631,6 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | `plugin.list` 判断超级管理员时没有像权限检查那样限定 `source_protocol==onebot11`，只影响可见性 | `server/internal/plugins/actions/plugin_list.go:116`；`server/internal/bot/permission/checker.go:66` |
 | README 仍写官方插件页面“运行在独立插件域”，独立插件域已在 0.7 删除 | `README.md:15`（以 HEAD 为准） |
 | 插件仓库工作流 `GO_VERSION: 1.26.6`，`sdk/go/go.mod` 要求 go 1.27.1（未实跑） | 各插件仓库 `.github/workflows/release.yml`；`sdk/go/go.mod` |
-| 发布构建没有显式设置 `CGO_ENABLED=0`，Linux 服务端二进制可能动态链接 runner 的 glibc（需用 ldd 核实） | `.github/workflows/release-build.yml` |
-| 发布工作流没有 prerelease 支持，推送带 `-` 的 tag 会成为 latest | `.github/workflows/release.yml:48-58` |
 | 脱敏规则缺 `e_hk4e_token` | `server/internal/platform/redact/sensitive_text.go` |
 | Launcher 写入的 `logs/server/` 镜像日志只做凭据脱敏、含完整聊天正文，且没有清理逻辑，不受 7 天保留期约束 | `launcher/internal/desktop/process.go:485-502`；见 G81 |
 | 设计规范把 1920×1080 写成“最低分辨率”并排除更小的桌面窗口，`PRODUCT.md:77` 又要求支持浏览器缩放，两处口径冲突 | `docs/design/web-management-ui.md:153`；`PRODUCT.md:34,77`；见 G80 |
