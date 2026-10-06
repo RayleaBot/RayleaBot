@@ -4,7 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
 )
@@ -35,6 +39,16 @@ func openWithProtection(path string, lock *filelock.Lock) (*Store, error) {
 }
 
 func openConfigured(path string, lock *filelock.Lock) (*Store, error) {
+	writeDSN, err := configuredDSN(path, false)
+	if err != nil {
+		return nil, err
+	}
+	readDSN, err := configuredDSN(path, true)
+	if err != nil {
+		return nil, err
+	}
+	// Validate and migrate before enabling persistent WAL mode. A refused schema
+	// must leave the original database unchanged.
 	writeDB, err := sql.Open(sqliteDriverName, path)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite write handle: %w", err)
@@ -42,7 +56,7 @@ func openConfigured(path string, lock *filelock.Lock) (*Store, error) {
 	writeDB.SetMaxOpenConns(1)
 	writeDB.SetMaxIdleConns(1)
 
-	readDB, err := sql.Open(sqliteDriverName, path)
+	readDB, err := sql.Open(sqliteDriverName, readDSN)
 	if err != nil {
 		_ = writeDB.Close()
 		return nil, fmt.Errorf("open sqlite read handle: %w", err)
@@ -59,14 +73,21 @@ func openConfigured(path string, lock *filelock.Lock) (*Store, error) {
 	if err := initializeSchema(context.Background(), writeDB); err != nil {
 		return cleanup(fmt.Errorf("initialize sqlite schema: %w", err))
 	}
-	if err := configureHandle(context.Background(), writeDB); err != nil {
+	if err := writeDB.Close(); err != nil {
+		return cleanup(fmt.Errorf("close sqlite schema handle: %w", err))
+	}
+	configuredWriteDB, err := sql.Open(sqliteDriverName, writeDSN)
+	if err != nil {
+		return cleanup(fmt.Errorf("open configured sqlite write handle: %w", err))
+	}
+	writeDB = configuredWriteDB
+	writeDB.SetMaxOpenConns(1)
+	writeDB.SetMaxIdleConns(1)
+	if err := writeDB.PingContext(context.Background()); err != nil {
 		return cleanup(fmt.Errorf("configure sqlite write handle: %w", err))
 	}
-	if err := configureHandle(context.Background(), readDB); err != nil {
+	if err := readDB.PingContext(context.Background()); err != nil {
 		return cleanup(fmt.Errorf("configure sqlite read handle: %w", err))
-	}
-	if _, err := readDB.ExecContext(context.Background(), "PRAGMA query_only = ON"); err != nil {
-		return cleanup(fmt.Errorf("set sqlite read handle to query_only: %w", err))
 	}
 
 	return &Store{
@@ -77,31 +98,28 @@ func openConfigured(path string, lock *filelock.Lock) (*Store, error) {
 	}, nil
 }
 
-func configureHandle(ctx context.Context, db *sql.DB) error {
-	if err := db.PingContext(ctx); err != nil {
-		return err
+func configuredDSN(path string, readOnly bool) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolve sqlite path: %w", err)
 	}
-
-	if _, err := db.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
-		return fmt.Errorf("enable foreign_keys: %w", err)
+	uriPath := filepath.ToSlash(absolute)
+	if filepath.VolumeName(absolute) != "" && !strings.HasPrefix(uriPath, "/") {
+		uriPath = "/" + uriPath
 	}
-
-	var journalMode string
-	if err := db.QueryRowContext(ctx, "PRAGMA journal_mode = WAL").Scan(&journalMode); err != nil {
-		return fmt.Errorf("enable WAL mode: %w", err)
+	// DSN options are applied to every connection, including replacements after cancellation.
+	query := url.Values{
+		"_busy_timeout": {strconv.FormatInt(defaultBusyTimeout.Milliseconds(), 10)},
+		"_foreign_keys": {"on"},
+		"_journal_mode": {"wal"},
+		"_synchronous":  {"full"},
+		"_pragma":       {fmt.Sprintf("wal_autocheckpoint=%d", defaultWALAutoCheckpointPage)},
 	}
-	if _, err := db.ExecContext(ctx, "PRAGMA synchronous = FULL"); err != nil {
-		return fmt.Errorf("set synchronous: %w", err)
+	if readOnly {
+		query.Set("_query_only", "on")
 	}
-
-	if _, err := db.ExecContext(ctx, fmt.Sprintf("PRAGMA busy_timeout = %d", defaultBusyTimeout.Milliseconds())); err != nil {
-		return fmt.Errorf("set busy_timeout: %w", err)
-	}
-	if _, err := db.ExecContext(ctx, fmt.Sprintf("PRAGMA wal_autocheckpoint = %d", defaultWALAutoCheckpointPage)); err != nil {
-		return fmt.Errorf("set wal_autocheckpoint: %w", err)
-	}
-
-	return nil
+	dsn := url.URL{Scheme: "file", Path: uriPath, RawQuery: query.Encode()}
+	return dsn.String(), nil
 }
 
 func databaseLockPath(databasePath string) string {
