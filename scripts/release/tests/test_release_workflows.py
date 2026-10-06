@@ -34,11 +34,47 @@ class ReleaseWorkflowTests(unittest.TestCase):
             for step in job.get("steps", []):
                 self.assertFalse(step.get("uses", "").startswith("softprops/action-gh-release"))
         publisher = release["jobs"]["publish"]
-        self.assertEqual(publisher["permissions"], {"contents": "write"})
-        self.assertEqual(publisher["needs"], "build")
+        self.assertEqual(publisher["permissions"], {"contents": "write", "actions": "read"})
+        self.assertEqual(set(publisher["needs"]), {"version", "build"})
         self.assertIn("github.event_name == 'push'", publisher["if"])
         self.assertIn("'refs/tags/v'", publisher["if"])
         self.assertEqual(release["on"], {"push": {"tags": ["v*"]}})
+
+    def test_nightly_gates_check_the_checked_out_commit_before_build_and_publish(self):
+        jobs = workflow("release.yml")["jobs"]
+        self.assertEqual(jobs["build"]["needs"], "version")
+        for job_name, step_name in (("version", "Require successful nightly for the release commit"),
+                                    ("publish", "Recheck nightly before publication")):
+            job = jobs[job_name]
+            gate = step_named(job, step_name)
+            self.assertIn('nightly_status.py check --sha "$(git rev-parse HEAD)"', gate["run"])
+            self.assertEqual(job["permissions"]["actions"], "read")
+            if job_name == "publish":
+                self.assertLess(job["steps"].index(gate), job["steps"].index(step_named(job, "Publish GitHub release")))
+
+    def test_channel_and_prerelease_outputs_reach_metadata_and_publication(self):
+        release, build = workflow("release.yml"), workflow("release-build.yml")
+        self.assertEqual(release["jobs"]["build"]["with"]["channel"], "${{ needs.version.outputs.channel }}")
+        publisher = step_named(release["jobs"]["publish"], "Publish GitHub release")["with"]
+        self.assertEqual(publisher["prerelease"], "${{ needs.version.outputs.prerelease == 'true' }}")
+        self.assertEqual(publisher["make_latest"], "${{ needs.version.outputs.make_latest }}")
+        self.assertEqual(build["on"]["workflow_call"]["inputs"]["channel"]["required"], "true")
+        self.assertEqual(build["env"]["RELEASE_CHANNEL"], "${{ inputs.channel }}")
+        self.assertIn('--channel "$RELEASE_CHANNEL"', step_named(build["jobs"]["assemble"], "Generate release metadata")["run"])
+
+    def test_nightly_reporting_is_separate_and_only_checks_out_the_trusted_branch(self):
+        reporter = workflow("nightly-status.yml")
+        self.assertEqual(reporter["on"], {"workflow_run": {"workflows": ["nightly"], "types": ["completed"]}})
+        self.assertEqual(reporter["permissions"], {"contents": "read", "actions": "read", "issues": "write"})
+        self.assertEqual(reporter["concurrency"]["cancel-in-progress"], "false")
+        checkout = step_named(reporter["jobs"]["reconcile"], "Checkout trusted default branch")
+        self.assertEqual(checkout["with"]["ref"], "${{ github.event.repository.default_branch }}")
+
+    def test_server_artifacts_disable_cgo_without_disabling_desktop_builds(self):
+        build = workflow("release-build.yml")
+        self.assertNotIn("CGO_ENABLED", build.get("env", {}))
+        for name in ("build-full", "build-linux-server"):
+            self.assertEqual(step_named(build["jobs"][name], "Build server")["env"]["CGO_ENABLED"], "0")
 
     def test_every_formal_artifact_keeps_native_runner_and_full_validation_budgets(self):
         jobs = workflow("release-build.yml")["jobs"]

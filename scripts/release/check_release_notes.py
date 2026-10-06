@@ -11,12 +11,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def validate_release_notes(tag: str, notes_dir: Path) -> Path:
+def validate_release_tag(tag: str) -> str:
     schema = json.loads((ROOT / "contracts/release-manifest.schema.json").read_text(encoding="utf-8"))
     version_pattern = schema["$defs"]["semver"]["pattern"]
     if not tag.startswith("v") or not re.fullmatch(version_pattern, tag[1:]):
         raise ValueError("release tag must be v followed by a version accepted by the release contract")
+    return tag[1:]
 
+
+def validate_release_notes(tag: str, notes_dir: Path) -> Path:
+    validate_release_tag(tag)
     path = notes_dir / f"{tag}.md"
     body = path.read_text(encoding="utf-8-sig")
     placeholder = re.search(r"\{\{.*?\}\}", body, flags=re.DOTALL)

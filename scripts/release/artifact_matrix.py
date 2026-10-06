@@ -23,7 +23,7 @@ ARTIFACT_MATRIX = {
         "required_paths": COMMON_PATHS | {"raylea-server", "RayleaLauncher", "LINUX-RUNTIME.md"},
     },
     ARTIFACT_MACOS_ARM64_FULL: {
-        "platform": "macos-arm64", "support_level": "first_class", "smoke_profile": "macos_full_smoke",
+        "platform": "macos-arm64", "support_level": "experimental", "smoke_profile": "macos_full_smoke",
         "extension": ".tar.gz", "archive_type": "tar.gz", "launcher_required": True,
         "server_binary": "raylea-server",
         "required_paths": COMMON_PATHS | {"raylea-server", "RayleaLauncher.app/Contents/MacOS/RayleaLauncher"},

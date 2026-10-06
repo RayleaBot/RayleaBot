@@ -17,6 +17,7 @@ from artifact_ids_generated import ARTIFACT_WINDOWS_X64_FULL, ARTIFACT_LINUX_X64
 from artifact_matrix import ARTIFACT_MATRIX
 from release_content import FORBIDDEN_DIRECTORY_NAMES, find_forbidden_paths, is_forbidden_file_name, should_skip_release_path
 from contract_versions_generated import PLUGIN_MANIFEST_VERSION
+from release_policy import release_channel
 
 
 RELEASE_METADATA_SCHEMA = Path(__file__).resolve().parents[2] / "contracts" / "release-manifest.schema.json"
@@ -286,12 +287,11 @@ def build_release_metadata(
     download_base_url: str,
     sidecars: list[ArtifactSidecar],
     output_dir: Path,
-    channel: str = "stable",
+    channel: str | None = None,
     published_at: str | None = None,
 ) -> Path:
+    channel = release_channel(version, channel)
     output_dir.mkdir(parents=True, exist_ok=True)
-    if channel not in {"stable", "beta"}:
-        raise ValueError("release channel must be stable or beta")
     publication = parse_release_time(published_at or built_at)
     artifacts = []
     for sidecar in sorted(sidecars, key=lambda item: item.artifact_id):
@@ -426,7 +426,7 @@ def build_parser() -> argparse.ArgumentParser:
     metadata.add_argument("--plugin-protocol-version", required=True)
     metadata.add_argument("--release-notes-ref", required=True)
     metadata.add_argument("--download-base-url", required=True)
-    metadata.add_argument("--channel", default="stable", choices=["stable", "beta"])
+    metadata.add_argument("--channel", choices=["stable", "beta"], help="Must match the version; inferred when omitted.")
     metadata.add_argument("--published-at")
     metadata.add_argument("--sidecar", action="append", required=True)
     metadata.add_argument("--output-dir", required=True)

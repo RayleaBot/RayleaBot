@@ -46,7 +46,7 @@
         "expanded_size_bytes": 314572800,
         "file_count": 1200,
         "update_mode": "guided",
-        "support_level": "first_class",
+        "support_level": "experimental",
         "smoke_profile": "macos_full_smoke"
       },
       {

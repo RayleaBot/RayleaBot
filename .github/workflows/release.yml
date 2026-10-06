@@ -11,30 +11,61 @@ permissions:
 jobs:
   version:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     outputs:
       value: ${{ steps.version.outputs.value }}
+      channel: ${{ steps.version.outputs.channel }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      make_latest: ${{ steps.version.outputs.make_latest }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ steps.toolchain.outputs.python }}
       - name: Resolve tag version
         id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         shell: bash
-        run: printf 'value=%s\n' "${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: python scripts/release/release_policy.py --tag "$RELEASE_TAG"
+      - name: Require successful nightly for the release commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: python scripts/ci/nightly_status.py check --sha "$(git rev-parse HEAD)"
 
   build:
     needs: version
     uses: ./.github/workflows/release-build.yml
     with:
       version: ${{ needs.version.outputs.value }}
+      channel: ${{ needs.version.outputs.channel }}
       release_notes_ref: ${{ format('https://github.com/{0}/releases/tag/{1}', github.repository, github.ref_name) }}
 
   publish:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [version, build]
     permissions:
       contents: write
+      actions: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ steps.toolchain.outputs.python }}
       - name: Download verified release packages
         uses: actions/download-artifact@v8
         with:
@@ -45,10 +76,18 @@ jobs:
         with:
           name: release-metadata
           path: dist/release
+      - name: Recheck nightly before publication
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: python scripts/ci/nightly_status.py check --sha "$(git rev-parse HEAD)"
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
         with:
           name: RayleaBot ${{ github.ref_name }}
+          prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.version.outputs.make_latest }}
+          fail_on_unmatched_files: true
           body_path: docs/release/notes/${{ github.ref_name }}.md
           files: |
             dist/downloads/package-windows-x64-full/*.zip
