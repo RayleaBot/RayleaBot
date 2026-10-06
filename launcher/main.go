@@ -81,6 +81,9 @@ func main() {
 	if pid, ok := relaunchWaitPID(os.Args[1:]); ok {
 		desktop.WaitForProcessExit(pid)
 	}
+	if !ensureWebViewRuntime() {
+		os.Exit(1)
+	}
 	devServerURL, err := frontend.ResolveDevServer(os.Getenv("FRONTEND_DEVSERVER_URL"), frontend.ProductionBuild)
 	if err != nil {
 		log.Fatal(err)

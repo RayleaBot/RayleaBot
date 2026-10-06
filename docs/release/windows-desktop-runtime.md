@@ -2,7 +2,7 @@
 
 `windows-x64-full` 中的 `RayleaLauncher.exe` 使用系统安装的 Microsoft Edge WebView2 Runtime。发布包不内嵌该运行库，Microsoft Edge 浏览器本身也不能替代生产环境所需的 WebView2 Runtime。
 
-Windows 11 包含 Evergreen WebView2 Runtime，绝大多数 Windows 10 设备也已安装。离线、精简或受企业更新策略管理的系统仍可能缺少该运行库；此时 Launcher 可能在显示窗口前退出。
+Windows 11 包含 Evergreen WebView2 Runtime，绝大多数 Windows 10 设备也已安装。离线、精简或受企业更新策略管理的系统仍可能缺少该运行库；Launcher 会在创建窗口前检查用户和机器级安装，缺失时弹出原生提示，可选择打开微软下载页，然后退出。
 
 联网设备从 Microsoft 的 [WebView2 Runtime 下载页](https://developer.microsoft.com/microsoft-edge/webview2/) 获取并运行 Evergreen Bootstrapper。离线设备在可联网设备上下载 x64 Evergreen Standalone Installer，传输到目标设备后安装。安装完成后重新启动 `RayleaLauncher.exe`。
 

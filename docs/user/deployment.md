@@ -19,7 +19,7 @@ GitHub 自动生成的源代码压缩包不是正式运行时产物。
 2. 解压到固定目录。该目录是安装根和默认运行根。
 3. 启动 Launcher 或 server，按一次性初始化入口创建管理员。
 
-Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Microsoft Edge WebView2 Runtime；窗口未出现且系统未安装该运行库时，先按包内 `WINDOWS-RUNTIME.md` 或 [Windows Desktop Runtime](../release/windows-desktop-runtime.md) 完成安装。请勿单独移动 Launcher，完整安装根应作为一个单元保留。
+Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Microsoft Edge WebView2 Runtime；缺失时会显示原生安装提示，并可打开微软下载页。离线设备按包内 `WINDOWS-RUNTIME.md` 或 [Windows Desktop Runtime](../release/windows-desktop-runtime.md) 安装。请勿单独移动 Launcher，完整安装根应作为一个单元保留。
 
 
 Chromium 会在首次启动时准备；FFmpeg / FFprobe 在管理面仪表盘的运行环境入口按需准备，不阻塞 Server 启动。媒体插件需要这两个工具；准备完成后重新启动相关插件，让新进程取得工具路径。
