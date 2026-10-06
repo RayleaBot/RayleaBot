@@ -45,7 +45,7 @@ jobs:
           node-version: ${{ steps.toolchain.outputs.nodejs }}
 
       - name: Install Corepack
-        run: npm install --global corepack@${{ steps.toolchain.outputs.corepack }}
+        run: npm install --global --force corepack@${{ steps.toolchain.outputs.corepack }}
 
       - name: Install contract validators
         run: python -m pip install --disable-pip-version-check -r scripts/requirements.txt
@@ -200,7 +200,7 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Install Corepack
-        run: npm install --global corepack@${{ steps.toolchain.outputs.corepack }}
+        run: npm install --global --force corepack@${{ steps.toolchain.outputs.corepack }}
 
       - name: Install web dependencies
         working-directory: web

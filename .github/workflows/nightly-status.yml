@@ -1,0 +1,38 @@
+name: nightly-status
+
+on:
+  workflow_run:
+    workflows: [nightly]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: nightly-status
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ steps.toolchain.outputs.python }}
+      - name: Reconcile nightly tracking issue
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NIGHTLY_RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: python scripts/ci/nightly_status.py report --run-id "$NIGHTLY_RUN_ID"
