@@ -120,6 +120,20 @@ class CheckToolchainTests(unittest.TestCase):
         self.assertEqual(result.status, "ok")
         self.assertIn("Google Chrome.app", result.detail)
 
+    def test_example_ui_version_drift_is_checked(self) -> None:
+        module = load_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("web", "launcher", "sdk/vue", "examples/plugins/example-config-panel/ui"):
+                target = root / name / "package.json"
+                target.parent.mkdir(parents=True)
+                target.write_text(json.dumps({"packageManager": f"pnpm@{module.REQUIRED_PNPM_VERSION}"}), encoding="utf-8")
+            self.assertFalse(module.check_version_files(("pnpm",), root).failed)
+            target.write_text(json.dumps({"packageManager": "pnpm@1.0.0"}), encoding="utf-8")
+            result = module.check_version_files(("pnpm",), root)
+            self.assertTrue(result.failed)
+            self.assertIn("example-config-panel", result.detail)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -406,7 +406,7 @@ def check_version_files(tool_names: tuple[str, ...], root: Path = REPO_ROOT) -> 
                 errors.append(f"{path.relative_to(root)}: expected go {TOOL_VERSIONS['golang']}")
     if "node" in tool_names or "pnpm" in tool_names:
         packages = [root / name / "package.json" for name in ("web", "launcher", "sdk/vue")]
-        packages.extend(sorted((root / "examples/plugins").glob("*/web/package.json")))
+        packages.extend(sorted((root / "examples/plugins").glob("*/ui/package.json")))
         for path in packages:
             document = json.loads(path.read_text(encoding="utf-8"))
             engines = document.get("engines", {})
