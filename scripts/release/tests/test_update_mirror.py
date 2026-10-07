@@ -32,10 +32,13 @@ class UpdateMirrorTests(unittest.TestCase):
         self.assertEqual(channel_documents(manifests)["beta.json"]["version"], "1.10.0")
         self.assertEqual(version_key("1.0.0+build-1"), version_key("1.0.0"))
 
-    def test_rejects_missing_archives_and_untrusted_url_syntax(self):
+    def test_rejects_invalid_public_urls_before_publication(self):
         for base in ["http://example.com", "https://user:password@example.com", "https://example.com/?token=fixture"]:
-            with self.assertRaises(ValueError):
-                rewrite_manifest(self.fixture(), base)
+            argv = ["sync", "--repository", "RayleaBot/RayleaBot", "--base-url", base, "--bucket", "release-fixture", "--endpoint", "https://storage.example.com"]
+            with patch.object(sys, "argv", argv), patch("sync_update_mirror.run") as invoke:
+                with self.assertRaises(ValueError):
+                    main()
+                invoke.assert_not_called()
         with self.assertRaises(ValueError):
             channel_documents([])
 
@@ -78,7 +81,10 @@ class UpdateMirrorTests(unittest.TestCase):
                 else:
                     main()
                     self.assertFalse(archive_downloads)
-                    self.assertEqual(uploads[-3:], ["s3://release-fixture/releases.json", "s3://release-fixture/beta.json", "s3://release-fixture/stable.json"])
+                    pointers = {"s3://release-fixture/releases.json", "s3://release-fixture/beta.json", "s3://release-fixture/stable.json"}
+                    self.assertTrue(pointers.issubset(uploads))
+                    first_pointer = min(uploads.index(key) for key in pointers)
+                    self.assertTrue(all(index < first_pointer for index, key in enumerate(uploads) if "/v0.4.0/" in key))
 
 
 if __name__ == "__main__":

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -488,32 +487,13 @@ func TestOfflineCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
 				artifact := testutil.WriteGoPluginArtifact(t, filepath.Join(t.TempDir(), "artifact"), "development.fixture", "0.4.0")
 				command.Args = []string{"dev-sync", "--artifact", artifact, "--source", t.TempDir()}
 			case "update":
-				payload, err := os.ReadFile("../../../fixtures/release-manifest/ok.release-manifest-minimal.json")
-				if err != nil {
-					t.Fatal(err)
-				}
-				var fixture struct {
-					Input json.RawMessage `json:"input"`
-				}
-				if err := json.Unmarshal(payload, &fixture); err != nil {
-					t.Fatal(err)
-				}
-				var manifest struct {
-					Version string `json:"version"`
-				}
-				if err := json.Unmarshal(fixture.Input, &manifest); err != nil {
-					t.Fatal(err)
-				}
 				writeCLIJSON(t, filepath.Join(root, "build_info.json"), releaseupdate.BuildInfo{
-					Version: manifest.Version, GitCommit: "0123456789abcdef0123456789abcdef01234567", ArtifactID: "windows-x64-full",
+					Version: "1.0.0", GitCommit: "0123456789abcdef0123456789abcdef01234567", ArtifactID: "windows-x64-full",
+				})
+				writeCLIJSON(t, filepath.Join(root, "cache", "update", "prepared.json"), map[string]any{
+					"staging": "staging-fixture", "result": releaseupdate.CheckResult{CurrentVersion: "0.9.0", AvailableVersion: "1.0.0", Artifact: releaseupdate.Artifact{ArtifactID: "windows-x64-full", FileName: "release.zip"}},
 				})
 				command.Args = []string{"apply"}
-				writeCLIJSON(t, filepath.Join(root, "cache", "update", "prepared.json"), map[string]any{
-					"staging": "staging-fixture", "result": releaseupdate.CheckResult{CurrentVersion: "0.0.1", AvailableVersion: manifest.Version, Artifact: releaseupdate.Artifact{ArtifactID: "windows-x64-full", FileName: "release.zip"}},
-				})
-				command.UpdateHTTPClient = &http.Client{Transport: cliRoundTripFunc(func(request *http.Request) (*http.Response, error) {
-					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(fixture.Input)), Header: make(http.Header), Request: request}, nil
-				})}
 			}
 			lockPath, err := runtimepaths.ResolveConfigLifecycleLockPath(configPath)
 			if err != nil {

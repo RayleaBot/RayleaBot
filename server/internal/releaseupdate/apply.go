@@ -41,34 +41,51 @@ func (c *Checker) Download(ctx context.Context, installRoot string) (CheckResult
 		return result, "", err
 	}
 	c.report("probe", "", 0, 0)
+	routes := c.downloadRoutes(ctx, result.Artifact, result.AvailableVersion)
 	var lastErr error
 	for attempt := 0; attempt < 2; attempt++ {
-		for _, raw := range c.downloadRoutes(ctx, result.Artifact, result.AvailableVersion) {
+		for _, raw := range routes {
 			if err := ctx.Err(); err != nil {
 				return result, "", err
 			}
 			artifact := result.Artifact
 			artifact.DownloadURL = raw
 			archivePath, err := c.ensureArchive(ctx, installRoot, artifact)
-			if err == nil {
-				err = c.prepareArchive(ctx, installRoot, archivePath, result)
-			}
-			if err == nil {
-				prepared, readErr := readPrepared(installRoot)
-				if readErr != nil {
-					return result, "", readErr
+			if err != nil {
+				if ctx.Err() != nil || localFileError(err) {
+					return result, "", err
 				}
-				result.PreparedID = prepared.Staging
-				return result, archivePath, nil
+				lastErr = err
+				continue
+			}
+			prepared, err := c.prepareArchive(ctx, installRoot, archivePath, result)
+			if err == nil {
+				return prepared, archivePath, nil
+			}
+			var invalid *invalidArchiveError
+			if ctx.Err() != nil || !errors.As(err, &invalid) {
+				return result, "", err
 			}
 			lastErr = err
-			if archivePath != "" {
-				_ = os.Remove(archivePath)
+			if err := os.Remove(archivePath); err != nil {
+				return result, "", err
 			}
 		}
 	}
-	return result, "", archiveFailure(lastErr)
+	return result, "", fmt.Errorf("all update download routes failed: %w", lastErr)
 }
+
+// Switching network routes cannot repair a local filesystem failure.
+func localFileError(err error) bool {
+	var pathError *os.PathError
+	var linkError *os.LinkError
+	return errors.As(err, &pathError) || errors.As(err, &linkError)
+}
+
+type invalidArchiveError struct{ cause error }
+
+func (e *invalidArchiveError) Error() string { return e.cause.Error() }
+func (e *invalidArchiveError) Unwrap() error { return e.cause }
 
 // Apply installs a newer release over installRoot file by file. The caller must
 // hold the service lifecycle lock.
@@ -97,10 +114,6 @@ func (c *Checker) ApplyPrepared(ctx context.Context, installRoot, expectedID str
 	}
 	if current != result.CurrentVersion {
 		return result, errors.New("installation changed since the update was prepared")
-	}
-	comparison, err := compareSemanticVersions(result.AvailableVersion, current)
-	if err != nil || comparison <= 0 {
-		return result, errors.New("prepared version must be newer than installed version")
 	}
 	replacedRoot := filepath.Join(installRoot, "cache", "update", "replaced")
 	// Windows keeps executables replaced by the previous update until they exit.
@@ -199,10 +212,19 @@ func stageRelease(ctx context.Context, archivePath, staging string, result Check
 		return "", fmt.Errorf("unsupported release archive %s", filepath.Base(archivePath))
 	}
 	if err := deps.ExtractWithProgress(ctx, archivePath, format, staging, nil); err != nil {
-		return "", fmt.Errorf("extract release archive: %w", err)
+		if ctx.Err() != nil || localFileError(err) {
+			return "", err
+		}
+		return "", &invalidArchiveError{cause: fmt.Errorf("extract release archive: %w", err)}
 	}
 	releaseRoot := filepath.Join(staging, "RayleaBot-v"+result.AvailableVersion+"-"+result.Artifact.ArtifactID)
-	return releaseRoot, validateStagedRelease(releaseRoot, result)
+	if err := validateStagedRelease(releaseRoot, result); err != nil {
+		if localFileError(err) && !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
+		return "", &invalidArchiveError{cause: err}
+	}
+	return releaseRoot, nil
 }
 
 func validateStagedRelease(releaseRoot string, result CheckResult) error {

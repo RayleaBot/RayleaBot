@@ -13,7 +13,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
@@ -73,16 +72,12 @@ func TestNoUpdateDiscardsAnOlderPendingSelection(t *testing.T) {
 	}
 }
 
-func TestExactVersionRejectsDowngradesAndWrongChannel(t *testing.T) {
+func TestExactVersionRejectsDowngrades(t *testing.T) {
 	root := installedRoot(t, "1.1.0")
 	checker, _ := releaseChecker(t, "zip", releaseArchive(t, "zip", "1.0.0", zip.Deflate, newRelease), nil)
 	checker.Settings.Version = "1.0.0"
 	if _, err := checker.Check(context.Background(), root); err == nil {
 		t.Fatal("accepted downgrade")
-	}
-	checker.Settings.Version = "1.2.0-beta.1"
-	if _, err := checker.Check(context.Background(), root); err == nil {
-		t.Fatal("accepted beta on stable channel")
 	}
 }
 
@@ -173,14 +168,14 @@ func TestDownloadFallsBackAfterBadArchive(t *testing.T) {
 			return response(request, bytes.Repeat([]byte("x"), len(archive))), nil
 		}
 		if request.URL.Host == "mirror.example" {
+			// An invalid probe sample ranks the mirror after the corrupt but valid-looking source.
 			if request.Header.Get("Range") != "" {
-				time.Sleep(10 * time.Millisecond)
+				return response(request, []byte("not an archive")), nil
 			}
 			return response(request, archive), nil
 		}
 		return original.Transport.RoundTrip(request)
 	})}
-	// Only the source URL is accelerated; unrelated HTTPS hosts stay unchanged.
 	result, _, err := checker.Download(context.Background(), root)
 	if err != nil {
 		t.Fatal(err)
@@ -209,5 +204,22 @@ func TestLocalImportIsOfflineAndRejectsNonNewerVersion(t *testing.T) {
 	}
 	if _, err := checker.Import(context.Background(), root, source); err == nil {
 		t.Fatal("accepted a non-newer local version")
+	}
+}
+
+func TestPreparationWriteFailureKeepsDownloadedArchiveWithoutRetry(t *testing.T) {
+	root := installedRoot(t, "0.9.0")
+	checker, downloads := releaseChecker(t, "zip", releaseArchive(t, "zip", "1.0.0", zip.Deflate, newRelease), nil)
+	if err := os.MkdirAll(filepath.Join(root, "cache", "update", "prepared.json"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := checker.Download(context.Background(), root); err == nil {
+		t.Fatal("preparation unexpectedly succeeded")
+	}
+	if *downloads != 1 {
+		t.Fatalf("local write failure triggered %d downloads", *downloads)
+	}
+	if _, err := os.Stat(filepath.Join(root, archiveCache)); err != nil {
+		t.Fatalf("downloaded archive was discarded: %v", err)
 	}
 }

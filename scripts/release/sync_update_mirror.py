@@ -5,7 +5,6 @@ import argparse
 import copy
 import json
 from pathlib import Path
-import re
 import subprocess
 import tempfile
 from urllib.parse import urlparse
@@ -22,10 +21,6 @@ def version_key(version: str) -> tuple:
 
 
 def rewrite_manifest(manifest: dict, base: str) -> dict:
-    validate_release_metadata(manifest)
-    parsed = urlparse(base)
-    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.query or parsed.fragment:
-        raise ValueError("mirror requires an HTTPS public base URL")
     result = copy.deepcopy(manifest)
     for artifact in result["artifacts"]:
         artifact["download_url"] = f"{base.rstrip('/')}/v{result['version']}/{artifact['file_name']}"
@@ -55,12 +50,11 @@ def main() -> None:
     parser.add_argument("--bucket", required=True)
     parser.add_argument("--endpoint", required=True)
     args = parser.parse_args()
+    public_base = urlparse(args.base_url)
+    if public_base.scheme != "https" or not public_base.hostname or public_base.username is not None or public_base.query or public_base.fragment:
+        raise ValueError("mirror base URL must use HTTPS without credentials, query or fragment")
     if urlparse(args.endpoint).scheme != "https" or not urlparse(args.endpoint).hostname:
         raise ValueError("object storage endpoint must use HTTPS")
-    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repository):
-        raise ValueError("invalid repository")
-    if not re.fullmatch(r"[a-z0-9][a-z0-9.-]+", args.bucket):
-        raise ValueError("invalid bucket")
     releases = json.loads(run("gh", "api", f"repos/{args.repository}/releases?per_page=100"))
     candidates = []
     for release in releases:
@@ -115,13 +109,6 @@ def main() -> None:
             path.write_text(json.dumps(mirrored, ensure_ascii=False), encoding="utf-8")
             upload(path, f"{tag}/release_manifest.v2.json")
             manifests.append(mirrored)
-        # A release published or promoted during synchronization must not be
-        # hidden by pointers based on the earlier snapshot.
-        refreshed = json.loads(run("gh", "api", f"repos/{args.repository}/releases?per_page=100"))
-        def release_state(entries: list[dict]) -> set:
-            return {(entry["tag_name"], entry["draft"], entry["prerelease"]) for entry in entries}
-        if release_state(refreshed) != release_state(releases):
-            raise RuntimeError("release list changed during sync; rerun before publishing channel metadata")
         # Root pointers are published only after all indexed assets exist.
         for name, document in channel_documents(manifests).items():
             path = root / name

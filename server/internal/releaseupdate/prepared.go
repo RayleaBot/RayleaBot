@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,9 +25,6 @@ func readPrepared(root string) (preparedUpdate, error) {
 	payload, err := os.ReadFile(filepath.Join(root, "cache", "update", "prepared.json"))
 	if err != nil {
 		return prepared, err
-	}
-	if len(payload) > int(MaxManifestBytes) {
-		return prepared, errors.New("prepared update is too large")
 	}
 	if err = json.Unmarshal(payload, &prepared); err != nil {
 		return prepared, err
@@ -59,10 +55,10 @@ func writePrepared(root string, prepared preparedUpdate) error {
 	return fsguard.WriteFileAtomic(filepath.Join(root, "cache", "update", "prepared.json"), payload, 0600)
 }
 
-func (c *Checker) prepareArchive(ctx context.Context, root, archive string, result CheckResult) error {
+func (c *Checker) prepareArchive(ctx context.Context, root, archive string, result CheckResult) (CheckResult, error) {
 	directory, err := os.MkdirTemp(filepath.Join(root, "cache", "update"), "staging-")
 	if err != nil {
-		return err
+		return result, err
 	}
 	keep := false
 	defer func() {
@@ -72,14 +68,19 @@ func (c *Checker) prepareArchive(ctx context.Context, root, archive string, resu
 	}()
 	c.report("verify", "", 0, 0)
 	if _, err := stageRelease(ctx, archive, directory, result); err != nil {
-		return err
+		return result, err
 	}
+	prepared, err := c.recordPrepared(root, directory, result)
+	keep = err == nil
+	return prepared, err
+}
+
+func (c *Checker) recordPrepared(root, directory string, result CheckResult) (CheckResult, error) {
 	previous, _ := readPrepared(root)
 	prepared := preparedUpdate{Result: result, Staging: filepath.Base(directory)}
 	if err := writePrepared(root, prepared); err != nil {
-		return err
+		return result, err
 	}
-	keep = true
 	if previous.Staging != "" && previous.Staging != prepared.Staging {
 		_ = os.RemoveAll(filepath.Join(root, "cache", "update", previous.Staging))
 		if previous.Result.Artifact.FileName != result.Artifact.FileName {
@@ -87,7 +88,8 @@ func (c *Checker) prepareArchive(ctx context.Context, root, archive string, resu
 		}
 	}
 	c.report("ready", "", result.Artifact.ArchiveSizeBytes, result.Artifact.ArchiveSizeBytes)
-	return nil
+	result.PreparedID = prepared.Staging
+	return result, nil
 }
 
 func discardPrepared(root string) error {
@@ -121,23 +123,56 @@ func (c *Checker) Import(ctx context.Context, root, source string) (CheckResult,
 	} else if !strings.HasSuffix(source, ".zip") {
 		return CheckResult{}, errors.New("expected .zip or .tar.gz release archive")
 	}
-	info, err := os.Stat(source)
+	input, err := os.Open(source)
+	if err != nil {
+		return CheckResult{}, err
+	}
+	defer input.Close()
+	info, err := input.Stat()
 	if err != nil {
 		return CheckResult{}, err
 	}
 	if !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > 2<<30 {
 		return CheckResult{}, errors.New("invalid release archive size")
 	}
-	stage, err := os.MkdirTemp(filepath.Join(root, "cache", "update"), "import-")
+	directory := filepath.Join(root, "cache", "downloads", "update")
+	if err := os.MkdirAll(directory, 0755); err != nil {
+		return CheckResult{}, err
+	}
+	output, err := os.CreateTemp(directory, "import-*."+format)
 	if err != nil {
 		return CheckResult{}, err
 	}
-	defer os.RemoveAll(stage)
-	if err := deps.ExtractWithProgress(ctx, source, format, stage, nil); err != nil {
+	temporary := output.Name()
+	defer os.Remove(temporary)
+	// Validate the cached copy so preparation and later retries use the same
+	// bytes even if the user replaces the source archive during import.
+	written, copyErr := fsguard.CopyAtMost(ctx, output, input, info.Size())
+	if err := errors.Join(copyErr, input.Close(), output.Sync(), output.Close()); err != nil {
+		return CheckResult{}, err
+	}
+	if written != info.Size() {
+		return CheckResult{}, errors.New("local archive changed while copying")
+	}
+	stage, err := os.MkdirTemp(filepath.Join(root, "cache", "update"), "staging-")
+	if err != nil {
+		return CheckResult{}, err
+	}
+	keep := false
+	defer func() {
+		if !keep {
+			_ = os.RemoveAll(stage)
+		}
+	}()
+	c.report("verify", "", 0, 0)
+	if err := deps.ExtractWithProgress(ctx, temporary, format, stage, nil); err != nil {
 		return CheckResult{}, err
 	}
 	entries, err := os.ReadDir(stage)
-	if err != nil || len(entries) != 1 || !entries[0].IsDir() {
+	if err != nil {
+		return CheckResult{}, err
+	}
+	if len(entries) != 1 || !entries[0].IsDir() {
 		return CheckResult{}, errors.New("release must have one root directory")
 	}
 	payload, err := os.ReadFile(filepath.Join(stage, entries[0].Name(), "build_info.json"))
@@ -165,42 +200,17 @@ func (c *Checker) Import(ctx context.Context, root, source string) (CheckResult,
 		return CheckResult{}, errors.New("invalid release file name")
 	}
 	result := CheckResult{Status: "update_available", CurrentVersion: current.Version, AvailableVersion: target.Version, UpdateMode: "guided", ReleasePageURL: ReleaseRepositoryURL + "/releases/tag/v" + target.Version, Artifact: Artifact{ArtifactID: target.ArtifactID, FileName: name, ArchiveSizeBytes: info.Size(), UpdateMode: "guided"}}
-	if err := validateStagedRelease(filepath.Join(stage, entries[0].Name()), result); err != nil {
-		return result, err
-	}
 	if entries[0].Name() != strings.TrimSuffix(name, "."+format) {
 		return result, errors.New("release root does not match build information")
 	}
-	directory := filepath.Join(root, "cache", "downloads", "update")
-	if err := os.MkdirAll(directory, 0755); err != nil {
+	if err := validateStagedRelease(filepath.Join(stage, entries[0].Name()), result); err != nil {
 		return result, err
 	}
 	archive := filepath.Join(directory, name)
-	if same, err := os.Stat(archive); err != nil || !os.SameFile(info, same) {
-		input, err := os.Open(source)
-		if err != nil {
-			return result, err
-		}
-		defer input.Close()
-		output, err := os.CreateTemp(directory, "import-*")
-		if err != nil {
-			return result, err
-		}
-		temporary := output.Name()
-		defer os.Remove(temporary)
-		_, copyErr := fsguard.CopyAtMost(ctx, output, io.LimitReader(input, info.Size()+1), info.Size())
-		err = errors.Join(copyErr, output.Sync(), output.Close())
-		if err != nil {
-			return result, err
-		}
-		if err = os.Rename(temporary, archive); err != nil {
-			return result, fmt.Errorf("cache local archive: %w", err)
-		}
+	if err := os.Rename(temporary, archive); err != nil {
+		return result, fmt.Errorf("cache local archive: %w", err)
 	}
-	if err := c.prepareArchive(ctx, root, archive, result); err != nil {
-		return result, err
-	}
-	prepared, err := readPrepared(root)
-	result.PreparedID = prepared.Staging
-	return result, err
+	prepared, err := c.recordPrepared(root, stage, result)
+	keep = err == nil
+	return prepared, err
 }

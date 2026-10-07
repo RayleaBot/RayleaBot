@@ -1,18 +1,10 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
 )
-
-func DefaultUpdateConfig() UpdateConfig {
-	payload, _ := json.Marshal(defaultDocumentTemplate["update"])
-	var settings UpdateConfig
-	_ = json.Unmarshal(payload, &settings)
-	return settings
-}
 
 // NormalizeUpdatePrefix accepts the forms users copy from GitHub accelerators.
 // The stored value is always a base prefix, never a repository-specific URL.
@@ -80,19 +72,16 @@ func normalizeUpdateDocument(document map[string]any) error {
 	return nil
 }
 
-func configUpdateDocument(cfg Config) any {
+func configUpdateDocument(cfg Config) map[string]any {
 	settings := cfg.Update
 	if settings.Channel == "" {
-		settings = DefaultUpdateConfig()
+		return CloneDocument(defaultDocumentTemplate["update"].(map[string]any))
 	}
-	if settings.Proxies == nil {
-		settings.Proxies = []string{}
+	return map[string]any{
+		"channel": settings.Channel,
+		"version": settings.Version,
+		"mode":    settings.Mode,
+		"proxies": append([]string{}, settings.Proxies...),
+		"mirrors": append([]string{}, settings.Mirrors...),
 	}
-	if settings.Mirrors == nil {
-		settings.Mirrors = []string{}
-	}
-	payload, _ := json.Marshal(settings)
-	var document map[string]any
-	_ = json.Unmarshal(payload, &document)
-	return document
 }

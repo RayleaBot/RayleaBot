@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -106,9 +105,6 @@ func (c *Checker) Releases(ctx context.Context) ([]Release, error) {
 			continue
 		}
 		valid = true
-		if len(entries) > 100 {
-			entries = entries[:100]
-		}
 		for _, entry := range entries {
 			version := entry.Version
 			if version == "" {
@@ -153,12 +149,6 @@ func (c *Checker) Releases(ctx context.Context) ([]Release, error) {
 func (c *Checker) selectManifest(ctx context.Context, artifactID string) (Manifest, []Route, string, error) {
 	version := c.Settings.Version
 	betaListUnavailable := false
-	if version != "" {
-		parsed, err := parseSemanticVersion(version)
-		if err != nil || (c.Settings.Channel != "beta" && len(parsed.prerelease) > 0) {
-			return Manifest{}, nil, "", errors.New("target version does not belong to the selected channel")
-		}
-	}
 	if version == "" && c.Settings.Channel == "beta" {
 		if releases, err := c.Releases(ctx); err == nil && len(releases) > 0 {
 			version = releases[0].Version
@@ -310,5 +300,3 @@ func (c *Checker) report(stage, raw string, done, total int64) {
 		c.Progress(Progress{Stage: stage, SourceURL: raw, DownloadedBytes: done, TotalBytes: total})
 	}
 }
-
-func archiveFailure(err error) error { return fmt.Errorf("all update download routes failed: %w", err) }

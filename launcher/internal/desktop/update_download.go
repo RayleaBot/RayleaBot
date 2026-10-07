@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 type updateProgress struct {
@@ -73,7 +72,7 @@ func (r *ReleaseFeed) downloadUpdate(parent context.Context, goos string, progre
 	if prepared.Status == "up_to_date" {
 		return prepared, nil
 	}
-	if prepared.Status != "update_available" || !strings.HasPrefix(prepared.PreparedID, "staging-") || strings.ContainsAny(prepared.PreparedID, "/\\") || !semverPattern.MatchString(prepared.Version) {
+	if prepared.Status != "update_available" || prepared.PreparedID == "" {
 		return prepared, errors.New("update preparation did not return a valid result")
 	}
 	return prepared, nil
