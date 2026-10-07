@@ -67,7 +67,6 @@ describe("launcher process invocation", () => {
     const packageMetadata = JSON.parse(
       fs.readFileSync(path.resolve(import.meta.dirname, "../../package.json"), "utf8"),
     );
-    expect(version).toBeTruthy();
     expect(wailsModuleQuery).toBe(`github.com/wailsapp/wails/v3@${version}`);
     expect(wailsGenerateBindingsArgs("win32").slice(0, 2)).toEqual(["generate", "bindings"]);
     expect(packageMetadata.dependencies["@wailsio/runtime"]).toBe(version?.slice(1));

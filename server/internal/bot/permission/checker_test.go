@@ -56,8 +56,9 @@ func TestGovernanceReadFailuresDenyWithoutConsumingCooldown(t *testing.T) {
 			if verdict.Allowed || verdict.ErrorCode != "permission.unavailable" || !errors.Is(verdict.Err, context.DeadlineExceeded) {
 				t.Fatalf("unexpected failure verdict: %#v", verdict)
 			}
-			if !cooldown.Allow("user:user") || !cooldown.Allow("group:group") {
-				t.Fatal("failed admission consumed cooldown")
+			recovered := NewChecker(CheckerConfig{}, newStubWhitelistRepo(), &stubWhitelistStateRepo{}, newStubBlacklistRepo(), cooldown)
+			if verdict := recovered.Check(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "member", "group", &CommandInfo{Permission: "everyone"}); !verdict.Allowed {
+				t.Fatalf("failed admission consumed cooldown: %#v", verdict)
 			}
 		})
 	}

@@ -54,8 +54,16 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 	if err != nil || parsed.Scheme != "file" {
 		t.Fatalf("unexpected file url %q: %v", imagePath, err)
 	}
-	if _, err := filepath.Abs(filepath.FromSlash(parsed.Path)); err != nil {
-		t.Fatalf("unexpected render file path: %v", err)
+	localPath := filepath.FromSlash(parsed.Path)
+	if len(localPath) >= 3 && localPath[0] == filepath.Separator && localPath[2] == ':' {
+		localPath = localPath[1:]
+	}
+	info, err := os.Stat(localPath)
+	if err != nil {
+		t.Fatalf("stat render artifact: %v", err)
+	}
+	if !info.Mode().IsRegular() {
+		t.Fatalf("render artifact is not a regular file: %v", info.Mode())
 	}
 	if cacheKey, ok := result["cache_key"].(string); !ok || cacheKey == "" {
 		t.Fatalf("unexpected cache key: %#v", result["cache_key"])

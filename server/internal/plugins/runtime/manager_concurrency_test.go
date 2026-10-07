@@ -442,7 +442,7 @@ func TestParseRenderImageActionPathResources(t *testing.T) {
 		"17th url":     strings.Join(append(resources, `{"id": "remote-extra", "url": "https://example.com/extra.png"}`), ","),
 		"parent":       `{"id": "face", "path": "assets/../secret.png"}`,
 		"absolute":     `{"id": "face", "path": "/etc/secret.png"}`,
-		"backslash":    `{"id": "face", "path": "assets\secret.png"}`,
+		"backslash":    `{"id": "face", "path": "assets\\secret.png"}`,
 		"device":       `{"id": "face", "path": "assets/CON.png"}`,
 		"url and path": `{"id": "face", "url": "https://example.com/face.png", "path": "assets/face.png"}`,
 	} {

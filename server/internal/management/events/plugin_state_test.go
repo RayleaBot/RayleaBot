@@ -11,7 +11,7 @@ import (
 func TestPluginStateEventKeepsReceivedStateWithCurrentDisplayConflicts(t *testing.T) {
 	t.Parallel()
 	registry := catalog.New([]plugins.Snapshot{
-		{PluginID: "a", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running", Commands: []plugins.Command{{ID: "echo", Name: "echo", DisplayName: "Echo"}}, DefaultConfig: map[string]any{"key": "value"}},
+		{PluginID: "a", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running", Commands: []plugins.Command{{ID: "echo", Name: "echo", DisplayName: "Echo", TriggerNames: []string{"echo"}}}, DefaultConfig: map[string]any{"key": "value"}},
 		{PluginID: "b", Valid: true, RegistrationState: "installed", DesiredState: "disabled", Commands: []plugins.Command{{ID: "echo", Name: "echo", DisplayName: "Echo"}}},
 	})
 	updates, unsubscribe := registry.Subscribe(4)
@@ -31,8 +31,8 @@ func TestPluginStateEventKeepsReceivedStateWithCurrentDisplayConflicts(t *testin
 	if received.DefaultConfig["key"] != "value" || current[0].DefaultConfig != nil || current[0].RuntimeState != "running" {
 		t.Fatal("event payload was replaced or complete publication lost its declarations")
 	}
-	payload.Commands[0].EffectiveNames[0] = "mutated"
-	if got, _ := registry.Get("a"); got.Commands[0].Name != "echo" {
+	payload.Commands[0].Trigger.Names[0] = "mutated"
+	if got, _ := registry.Get("a"); !reflect.DeepEqual(got.Commands[0].TriggerNames, []string{"echo"}) {
 		t.Fatal("event projection exposed catalog command storage")
 	}
 }

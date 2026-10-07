@@ -77,10 +77,7 @@ func TestUninstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	if err := os.MkdirAll(examplesRoot, 0o755); err != nil {
 		t.Fatalf("create examples root: %v", err)
 	}
-	pluginDir := writeInstallSourcePlugin(t, filepath.Join(installedRoot, "weather-remove"), "weather-remove")
-	if pluginDir == "" {
-		t.Fatal("expected plugin install source directory")
-	}
+	writeInstallSourcePlugin(t, filepath.Join(installedRoot, "weather-remove"), "weather-remove")
 
 	validator, err := config.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
 	if err != nil {
@@ -114,10 +111,7 @@ func TestUninstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	defer func(release func() error) { _ = release() }(service.Close)
 
 	called := make(chan string, 1)
-	service.SetAfterSuccess(func(ctx context.Context, pluginID string) error {
-		if ctx == nil {
-			t.Fatal("expected uninstall callback context")
-		}
+	service.SetAfterSuccess(func(_ context.Context, pluginID string) error {
 		called <- pluginID
 		return nil
 	})

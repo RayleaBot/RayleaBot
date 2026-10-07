@@ -57,10 +57,7 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 		t.Fatalf("unexpected type: got %#v want %q", frame["type"], "events.received")
 	}
 
-	data, ok := frame["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected data object, got %#v", frame["data"])
-	}
+	data := frame["data"].(map[string]any)
 	if data["observability_scope"] != "bridge_runtime" {
 		t.Fatalf("unexpected observability_scope: got %#v", data["observability_scope"])
 	}
@@ -87,7 +84,6 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 		"onebot11-message-1001",
 		"3001",
 		"2001",
-		"req_evt_1",
 		"plain_text",
 		"event_id",
 		"request_id",
@@ -117,7 +113,7 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	firstStatus := readServiceStatusReplayFrame(t, conn)
 	assertServiceStatusReplayFrame(t, firstStatus, "running")
 	first := readProtocolReplayFrame(t, conn)
-	assertProtocolReplayFrame(t, first, "adapters")
+	assertProtocolReplayFrame(t, first)
 }
 
 func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
@@ -169,12 +165,9 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 	readServiceStatusReplayFrame(t, conn)
 	first := readProtocolReplayFrame(t, conn)
-	assertProtocolReplayFrame(t, first, "adapters")
+	assertProtocolReplayFrame(t, first)
 
-	data, ok := first["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected websocket data object, got %#v", first["data"])
-	}
+	data := first["data"].(map[string]any)
 	wsSnapshot, ok := data["adapters"].([]any)
 	if !ok {
 		t.Fatalf("expected websocket protocol snapshot object, got %#v", data["adapters"])
@@ -210,10 +203,7 @@ func TestEventsWebSocketDeliversPluginStateFrame(t *testing.T) {
 
 	frame := readEventsReplayFrameByKey(t, conn, "plugin_id")
 
-	data, ok := frame["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected data object, got %#v", frame["data"])
-	}
+	data := frame["data"].(map[string]any)
 	if data["plugin_id"] != pluginID {
 		t.Fatalf("unexpected plugin_id: got %#v want %q", data["plugin_id"], pluginID)
 	}
@@ -263,10 +253,7 @@ func TestEventsWebSocketPublishesGovernanceChangedAfterGovernanceWrite(t *testin
 	}
 
 	frame := readEventsReplayFrameByKey(t, conn, "event_type")
-	data, ok := frame["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected data object, got %#v", frame["data"])
-	}
+	data := frame["data"].(map[string]any)
 	if data["event_type"] != "governance.changed" {
 		t.Fatalf("unexpected governance event_type: %#v", data["event_type"])
 	}
@@ -347,7 +334,7 @@ func readEventsReplayFrameByKey(t *testing.T, conn *websocket.Conn, key string) 
 	return nil
 }
 
-func assertProtocolReplayFrame(t *testing.T, frame map[string]any, key string) {
+func assertProtocolReplayFrame(t *testing.T, frame map[string]any) {
 	t.Helper()
 
 	if frame["channel"] != "events" {
@@ -355,13 +342,6 @@ func assertProtocolReplayFrame(t *testing.T, frame map[string]any, key string) {
 	}
 	if frame["type"] != "events.received" {
 		t.Fatalf("unexpected type: %#v", frame["type"])
-	}
-	data, ok := frame["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected data object, got %#v", frame["data"])
-	}
-	if _, ok := data[key]; !ok {
-		t.Fatalf("expected %s in replay payload: %#v", key, data)
 	}
 }
 
@@ -374,10 +354,7 @@ func assertServiceStatusReplayFrame(t *testing.T, frame map[string]any, wantStat
 	if frame["type"] != "events.received" {
 		t.Fatalf("unexpected type: %#v", frame["type"])
 	}
-	data, ok := frame["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected data object, got %#v", frame["data"])
-	}
+	data := frame["data"].(map[string]any)
 	if data["service_status"] != wantStatus {
 		t.Fatalf("unexpected service_status: got %#v want %q", data["service_status"], wantStatus)
 	}

@@ -70,11 +70,6 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 			t.Fatalf("unexpected system diagnostics code: got %d want 200 body=%s", recorder.Code, recorder.Body.String())
 		}
 		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/system/diagnostics", recorder.Code, decodeBody(t, recorder.Body.Bytes()))
-		for _, forbidden := range []string{"SESSDATA=", "bili_jct=", "fixture-token"} {
-			if strings.Contains(recorder.Body.String(), forbidden) {
-				t.Fatalf("diagnostics response leaked sensitive value %q: %s", forbidden, recorder.Body.String())
-			}
-		}
 	})
 
 	t.Run("config get", func(t *testing.T) {

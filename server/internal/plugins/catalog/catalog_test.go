@@ -268,8 +268,15 @@ func TestCatalogCommandsFollowMutations(t *testing.T) {
 	if got := catalog.Commands(); len(got) != 0 {
 		t.Fatalf("disabled plugin must leave the index, got %+v", got)
 	}
-	if len(before) != 1 {
-		t.Fatal("a previously returned index must stay intact")
+	catalog.Replace([]plugins.Snapshot{{
+		PluginID: "fortune", Valid: true, RegistrationState: "installed", DesiredState: "enabled",
+		Commands: []plugins.Command{{ID: "fortune", Name: "fortune", TriggerType: "exact", TriggerNames: []string{"fortune"}}},
+	}})
+	if got := catalog.Commands(); len(got) != 1 || got[0].PluginID != "fortune" {
+		t.Fatalf("replacement plugin must enter the index, got %+v", got)
+	}
+	if before[0].PluginID != "weather" || before[0].Commands[0].Name != "weather" {
+		t.Fatalf("a previously returned index changed: %+v", before)
 	}
 
 	catalog.Replace([]plugins.Snapshot{enabled})

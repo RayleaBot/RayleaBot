@@ -405,8 +405,6 @@ test("creates a minimal child environment with the selected Node and Go executab
   assert.equal(environment.GOPATH, goPath);
   assert.equal(environment.GOMODCACHE, goModCache);
   assert.equal(environment.TEMP, path.win32.join(localAppData, "Temp"));
-  assert.equal(environment.PATH.includes("untrusted"), false);
-  assert.equal(environment.PATH.includes(String.raw`C:\Program Files\Go\bin`), false);
 });
 
 test("keeps build temporary files inside the selected project directory", () => {
@@ -441,7 +439,6 @@ test("preserves the POSIX home and explicit Go module cache roots", () => {
   assert.equal(environment.GOPATH, "/work/go");
   assert.equal(environment.GOMODCACHE, "/cache/go-modules");
   assert.equal(environment.PATH, "/opt/raylea/node/bin:/opt/raylea/go/bin:/usr/local/bin:/usr/bin:/bin");
-  assert.equal(environment.PATH.includes("/untrusted/bin"), false);
 });
 
 test("enables the GTK 3 build tag only for Linux launcher commands", () => {

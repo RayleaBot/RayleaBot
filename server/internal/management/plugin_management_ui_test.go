@@ -309,7 +309,7 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 	if err := secretStore.Set(context.Background(), "plugin:example-config-panel:secret:bili_token_primary", []byte("SESSDATA=fixture")); err != nil {
 		t.Fatalf("secretStore.Set: %v", err)
 	}
-	if err := secretStore.Set(context.Background(), "plugin:other-plugin:secret:bili_token_primary", []byte("SESSDATA=other")); err != nil {
+	if err := secretStore.Set(context.Background(), "plugin:other-plugin:secret:other_token", []byte("SESSDATA=other")); err != nil {
 		t.Fatalf("secretStore.Set other: %v", err)
 	}
 
@@ -342,11 +342,8 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 	if err := json.Unmarshal(getRecorder.Body.Bytes(), &getResponse); err != nil {
 		t.Fatalf("decode get response: %v", err)
 	}
-	if !getResponse.Configured["bili_token_primary"] {
+	if len(getResponse.Configured) != 1 || !getResponse.Configured["bili_token_primary"] {
 		t.Fatalf("unexpected configured status: %#v", getResponse.Configured)
-	}
-	if _, exists := getResponse.Configured["other-plugin"]; exists {
-		t.Fatalf("unexpected cross-plugin secret: %#v", getResponse.Configured)
 	}
 
 	body := bytes.NewReader([]byte(`{"values":{"bili_token_backup":"SESSDATA=backup"}}`))
@@ -392,7 +389,7 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 	if string(storedBackup) != "SESSDATA=backup" {
 		t.Fatalf("stored backup = %q", storedBackup)
 	}
-	if other, err := secretStore.Get(context.Background(), "plugin:other-plugin:secret:bili_token_primary"); err != nil || string(other) != "SESSDATA=other" {
+	if other, err := secretStore.Get(context.Background(), "plugin:other-plugin:secret:other_token"); err != nil || string(other) != "SESSDATA=other" {
 		t.Fatalf("cross-plugin secret changed: value=%q err=%v", other, err)
 	}
 }

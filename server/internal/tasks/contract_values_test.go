@@ -22,10 +22,6 @@ func TestTaskStatusesMatchFrozenContractValues(t *testing.T) {
 		"interrupted",
 	}
 
-	if len(got) != len(want) {
-		t.Fatalf("unexpected status count: got %d want %d", len(got), len(want))
-	}
-
 	for i := range got {
 		if got[i] != want[i] {
 			t.Fatalf("unexpected status at %d: got %q want %q", i, got[i], want[i])

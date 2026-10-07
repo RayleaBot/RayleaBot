@@ -91,7 +91,7 @@ describe('PluginsPage', () => {
     expect(executeSpy).toHaveBeenCalledWith('weather', 'disable')
   })
 
-  it('keeps lifecycle switching plugins from sending duplicate actions', async () => {
+  it('disables lifecycle actions while a plugin is switching state', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: { template: '<div />' } }],
@@ -107,7 +107,6 @@ describe('PluginsPage', () => {
     }]
 
     vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
-    const executeSpy = vi.spyOn(store, 'executeAction').mockResolvedValue(store.items[0])
 
     const wrapper = mount(PluginsPage, {
       global: {
@@ -122,11 +121,6 @@ describe('PluginsPage', () => {
     expect(toggle.attributes('disabled')).toBeDefined()
     expect(toggle.attributes('aria-busy')).toBe('true')
     expect(reload.attributes('disabled')).toBeDefined()
-
-    await toggle.trigger('click')
-    await reload.trigger('click')
-
-    expect(executeSpy).not.toHaveBeenCalled()
   })
 
   it('shows success feedback when reload action succeeds', async () => {

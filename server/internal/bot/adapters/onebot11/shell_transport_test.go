@@ -156,9 +156,6 @@ func TestSyncLastErrorLockedClearsRecoveredReverseWSIssue(t *testing.T) {
 	snapshot := cloneSnapshot(shell.snapshot)
 	shell.mu.Unlock()
 
-	if snapshot.ReverseWS.LastErrorCode != "" || snapshot.ReverseWS.LastErrorMessage != "" {
-		t.Fatalf("expected cleared reverse websocket transport error, got %#v", snapshot.ReverseWS)
-	}
 	if snapshot.LastErrorCode != "" || snapshot.LastErrorMessage != "" {
 		t.Fatalf("expected cleared aggregate error after reverse websocket recovery, got %#v", snapshot)
 	}

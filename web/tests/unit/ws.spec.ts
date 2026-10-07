@@ -274,7 +274,6 @@ describe('ManagedSocket', () => {
     socketA.start()
     socketB.start()
     const aFirst = FakeWebSocket.instances[0]
-    const bFirst = FakeWebSocket.instances[1]
     aFirst.emit('close')
 
     expect(latestUpdate(updatesA).detail.nextBackoffMs).toBe(500)
@@ -285,6 +284,6 @@ describe('ManagedSocket', () => {
     aSecond.emit('close')
 
     expect(latestUpdate(updatesA).detail.nextBackoffMs).toBe(1_000)
-    expect(bFirst.readyState).toBe(FakeWebSocket.OPEN)
+    expect(latestUpdate(updatesB).detail.nextBackoffMs).toBeUndefined()
   })
 })

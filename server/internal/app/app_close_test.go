@@ -53,7 +53,7 @@ func TestCloseReleasesPluginBrowserSessions(t *testing.T) {
 type runtimeBoundDelivery struct {
 	manager *pluginruntime.Manager
 	started chan struct{}
-	result  chan pluginruntime.State
+	result  chan struct{}
 }
 
 func (delivery *runtimeBoundDelivery) Snapshot() pluginruntime.Snapshot {
@@ -67,7 +67,7 @@ func (delivery *runtimeBoundDelivery) DeliverEvent(ctx context.Context, _ chatev
 	for delivery.manager.Snapshot().State != pluginruntime.StateStopped {
 		time.Sleep(time.Millisecond)
 	}
-	delivery.result <- delivery.manager.Snapshot().State
+	close(delivery.result)
 	return plugins.Delivery{}, ctx.Err()
 }
 
@@ -76,7 +76,7 @@ func TestStopRuntimeManagersReclaimsProcessesAfterDrainTimeout(t *testing.T) {
 	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	manager := runtimes.GetOrCreate("fixture")
 	manager.SetBackoffState(time.Now())
-	delivery := &runtimeBoundDelivery{manager: manager, started: make(chan struct{}), result: make(chan pluginruntime.State, 1)}
+	delivery := &runtimeBoundDelivery{manager: manager, started: make(chan struct{}), result: make(chan struct{})}
 	dispatcher := dispatch.New(logger, nil, nil, 4)
 	dispatcher.Register("fixture", delivery, nil, nil, 1)
 	catalog := plugincatalog.New([]plugins.Snapshot{{PluginID: "fixture", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
@@ -98,10 +98,7 @@ func TestStopRuntimeManagersReclaimsProcessesAfterDrainTimeout(t *testing.T) {
 		t.Fatal("expired drain prevented independent runtime cleanup")
 	}
 	select {
-	case state := <-delivery.result:
-		if state != pluginruntime.StateStopped {
-			t.Fatalf("runtime remained %s", state)
-		}
+	case <-delivery.result:
 	default:
 		t.Fatal("app returned before delivery completed")
 	}

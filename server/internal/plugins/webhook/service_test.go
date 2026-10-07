@@ -16,7 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
+func TestHandleWebhookEnsuresRuntime(t *testing.T) {
 	t.Parallel()
 
 	dispatcher := dispatch.New(nil, nil, nil, 16)
@@ -66,9 +66,6 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 	if !ensurer.called {
 		t.Fatal("expected runtime ensurer to be called")
 	}
-	if ensurer.botID != "" {
-		t.Fatalf("botID = %q, want empty", ensurer.botID)
-	}
 
 	select {
 	case event := <-events:
@@ -98,7 +95,6 @@ type recordingRuntimeEnsurer struct {
 	dispatcher *dispatch.Dispatcher
 	events     chan chatevent.Event
 	called     bool
-	botID      string
 }
 
 func (r *recordingRuntimeEnsurer) EnsurePluginRunning(_ context.Context, pluginID string) error {

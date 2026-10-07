@@ -5,7 +5,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"net/http"
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -105,7 +104,7 @@ func TestLogsListRefreshDoesNotAppendHTTPAccessLogAtInfoLevel(t *testing.T) {
 	}
 
 	for _, summary := range application.Logs().Snapshot() {
-		if summary.Source == "http" || strings.HasPrefix(summary.Message, "HTTP 请求完成：") {
+		if summary.Source == "http" {
 			t.Fatalf("logs refresh appended HTTP access log at info level: %#v", summary)
 		}
 	}

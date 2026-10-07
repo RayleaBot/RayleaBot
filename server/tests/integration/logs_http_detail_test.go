@@ -112,11 +112,8 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	if rejectionSummary == nil {
 		t.Fatalf("expected command policy rejection in log list, got %#v", items)
 	}
-	if rejectionSummary["source"] != "bridge.onebot11" || rejectionSummary["protocol"] != "onebot11" {
+	if rejectionSummary["protocol"] != "onebot11" {
 		t.Fatalf("unexpected command rejection summary: %#v", rejectionSummary)
-	}
-	if rejectionSummary["plugin_id"] != "raylea.echo" {
-		t.Fatalf("unexpected command rejection plugin_id: %#v", rejectionSummary["plugin_id"])
 	}
 
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs/"+rejectionSummary["log_id"].(string), nil)

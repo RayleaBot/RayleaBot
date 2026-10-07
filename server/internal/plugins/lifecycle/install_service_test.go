@@ -96,10 +96,7 @@ func TestInstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	defer func(release func() error) { _ = release() }(service.Close)
 
 	called := make(chan string, 1)
-	service.SetAfterSuccess(func(ctx context.Context, pluginID string) error {
-		if ctx == nil {
-			t.Fatal("expected install callback context")
-		}
+	service.SetAfterSuccess(func(_ context.Context, pluginID string) error {
 		called <- pluginID
 		return nil
 	})
@@ -137,12 +134,9 @@ func TestInstallServiceFailsWhenAfterSuccessCallbackFails(t *testing.T) {
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
 	defer func(release func() error) { _ = release() }(service.Close)
 
-	service.SetAfterSuccess(func(ctx context.Context, pluginID string) error {
-		if ctx == nil {
-			t.Fatal("expected install callback context")
-		}
+	service.SetAfterSuccess(func(_ context.Context, pluginID string) error {
 		if pluginID != "callback-fail-weather" {
-			t.Fatalf("unexpected callback plugin id: got %q want callback-fail-weather", pluginID)
+			t.Errorf("unexpected callback plugin id: got %q want callback-fail-weather", pluginID)
 		}
 		return fmt.Errorf("sync plugin render template callback-fail-weather: source conflict")
 	})

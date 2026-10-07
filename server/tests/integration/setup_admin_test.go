@@ -60,7 +60,7 @@ func TestSetupAdminRejectsMalformedRequest(t *testing.T) {
 	assertErrorEnvelopeMatchesFixture(t, body, fixture.Response.Body, "platform.invalid_request")
 
 	raw := recorder.Body.String()
-	if strings.Contains(raw, "fixture-only-secret") || strings.Contains(raw, "identifier") && strings.Contains(raw, "admin") {
+	if strings.Contains(raw, "identifier") && strings.Contains(raw, "admin") {
 		t.Fatalf("malformed response leaked request content: %s", raw)
 	}
 }

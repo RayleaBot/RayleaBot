@@ -68,8 +68,7 @@ describe('ConfigPage', () => {
     await flushPromises()
 
     const saveButton = wrapper.get('[data-testid=config-save]')
-    expect(saveButton).toBeTruthy()
-    await saveButton!.trigger('click')
+    await saveButton.trigger('click')
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(saveSpy.mock.calls[0][0].server.host).toBe('0.0.0.0')
@@ -107,8 +106,7 @@ describe('ConfigPage', () => {
     await portInput.setValue('')
 
     const saveButton = wrapper.get('[data-testid=config-save]')
-    expect(saveButton).toBeTruthy()
-    await saveButton!.trigger('click')
+    await saveButton.trigger('click')
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(saveSpy.mock.calls[0][0].server.port).toBeUndefined()

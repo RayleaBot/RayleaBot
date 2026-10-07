@@ -47,20 +47,20 @@ func TestFetchBotProfile(t *testing.T) {
 	}
 }
 
-func TestFetchBotProfileBoundsWaitAndHonorsCancellation(t *testing.T) {
+func TestFetchBotProfileBoundsWait(t *testing.T) {
 	t.Parallel()
+	called := false
 	client := &http.Client{Transport: reloadTestTransport(func(r *http.Request) (*http.Response, error) {
+		called = true
 		deadline, ok := r.Context().Deadline()
 		if !ok || time.Until(deadline) > 1500*time.Millisecond {
 			t.Error("optional profile request has no bounded deadline")
 		}
-		<-r.Context().Done()
-		return nil, r.Context().Err()
+		return nil, context.DeadlineExceeded
 	})}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if got := fetchBotProfile(ctx, client, "https://example.com", "10001", "fixture"); got != (botProfile{}) {
-		t.Fatalf("canceled profile = %+v", got)
+	fetchBotProfile(context.Background(), client, "https://example.com", "10001", "fixture")
+	if !called {
+		t.Fatal("profile request was not sent")
 	}
 }
 

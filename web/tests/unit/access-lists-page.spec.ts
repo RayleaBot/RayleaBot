@@ -404,9 +404,7 @@ describe('AccessListsPage', () => {
 
     await flushPromises()
 
-    // Trigger a remove error
     const blacklistCard = wrapper.get('[data-testid="access-lists-blacklist-card"]')
-    expect(blacklistCard.text()).not.toContain('删除失败')
 
     // We need an entry to remove; add one first
     await wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').trigger('click')

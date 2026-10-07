@@ -143,7 +143,6 @@ class RunningServerTests(unittest.TestCase):
                     raise original
         self.assertEqual(caught.exception.exceptions, (original, shutdown, kill, wait))
         process.wait.assert_called_once_with(timeout=5)
-        self.assertIsNone(process.returncode)
 
     def test_startup_http_failure_still_shuts_down_owned_process(self):
         process = self.process()

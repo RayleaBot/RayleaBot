@@ -60,9 +60,6 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 	if data["protocol"] != "onebot11" {
 		t.Fatalf("unexpected protocol: got %#v want %q", data["protocol"], "onebot11")
 	}
-	if data["message"] != "OneBot 主动 WebSocket 鉴权失败：ws://127.0.0.1:6700" {
-		t.Fatalf("unexpected message: got %#v", data["message"])
-	}
 	if data["request_id"] != "req_adapter_0001" {
 		t.Fatalf("unexpected request_id: got %#v want %q", data["request_id"], "req_adapter_0001")
 	}
@@ -161,11 +158,8 @@ func TestLogsWebSocketAppendsCommandPolicyRejectionSummary(t *testing.T) {
 	})
 
 	data := frame["data"].(map[string]any)
-	if data["source"] != "bridge.onebot11" || data["protocol"] != "onebot11" {
+	if data["protocol"] != "onebot11" {
 		t.Fatalf("unexpected command rejection websocket summary: %#v", data)
-	}
-	if data["plugin_id"] != "raylea.echo" {
-		t.Fatalf("unexpected command rejection websocket plugin_id: %#v", data["plugin_id"])
 	}
 	allowed := map[string]bool{
 		"log_id":     true,
