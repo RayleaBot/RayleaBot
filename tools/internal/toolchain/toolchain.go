@@ -28,8 +28,8 @@ type Checker struct {
 }
 
 var tasks = map[string][]string{
-	"all": {"go", "node", "npm", "pnpm", "python", "sqlc"}, "server": {"go"}, "web": {"node", "npm", "pnpm"},
-	"launcher": {"go", "node", "npm", "pnpm"}, "contracts": {"go", "node", "python"}, "sql": {"sqlc"}, "runtime": {},
+	"all": {"go", "node", "npm", "pnpm", "sqlc"}, "server": {"go"}, "web": {"node", "npm", "pnpm"},
+	"launcher": {"go", "node", "npm", "pnpm"}, "contracts": {"go", "node"}, "sql": {"sqlc"}, "runtime": {},
 }
 
 func first(value string) string {
@@ -52,8 +52,6 @@ func (c Checker) tool(name string) (Result, error) {
 		label, key, prefix, args, dir = "Go", "golang", "go", []string{"go", "env", "GOVERSION"}, filepath.Join(c.Root, "server")
 	case "node":
 		label, key, prefix = "Node.js", "nodejs", "v"
-	case "python":
-		label = "Python"
 	case "sqlc":
 		prefix, args = "v", []string{"sqlc", "version"}
 	}
@@ -66,8 +64,6 @@ func (c Checker) tool(name string) (Result, error) {
 		fix = "Install Node.js " + c.Versions[key] + " from https://nodejs.org/dist/" + required + "/, then install Corepack with `npm install --global corepack@" + c.Versions["corepack"] + "`."
 	case "npm":
 		fix = "Reinstall Node.js from https://nodejs.org/dist/v" + c.Versions["nodejs"] + "/, or run `npm install --global npm@" + required + "`."
-	case "python":
-		fix = "Install Python " + required + " from https://www.python.org/downloads/release/python-" + strings.ReplaceAll(required, ".", "") + "/ and put it on PATH."
 	case "sqlc":
 		fix = "Install with `go install github.com/sqlc-dev/sqlc/cmd/sqlc@" + required + "` and ensure GOPATH/bin is before older sqlc binaries on PATH."
 	}
@@ -89,12 +85,6 @@ func (c Checker) tool(name string) (Result, error) {
 		return Result{label, "error", fmt.Sprintf("Unable to read %s version: %s.", label, detail), fix}, nil
 	}
 	actual := first(r.Stdout)
-	if name == "python" {
-		if actual == "" {
-			actual = first(r.Stderr)
-		}
-		actual = strings.TrimPrefix(actual, "Python ")
-	}
 	if name == "sqlc" && actual != "" && !strings.HasPrefix(actual, "v") {
 		actual = "v" + actual
 	}
@@ -319,9 +309,6 @@ func (c Checker) Checks(task string, includeRuntime bool) ([]Result, error) {
 	}
 	results := []Result{declarations}
 	for _, name := range selected {
-		if name == "python" && c.Versions["python"] == "" {
-			continue
-		}
 		r, err := c.tool(name)
 		if err != nil {
 			return nil, err

@@ -18,7 +18,7 @@
 /.deps/*
 !/.deps/manifest.json
 
-# Python tooling artifacts.
+# Local interpreter caches and compiled files.
 __pycache__/
 *.py[cod]
 *.pyo

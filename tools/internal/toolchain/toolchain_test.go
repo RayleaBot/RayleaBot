@@ -105,51 +105,6 @@ func TestVersionDrift(t *testing.T) {
 		})
 	}
 }
-func TestPythonDeclarationControlsCheck(t *testing.T) {
-	c := fixture(t)
-	c.Execute = func(args []string, _ string) (processoutput.Result, error) {
-		switch args[0] {
-		case "go":
-			return processoutput.Result{Stdout: "go" + c.Versions["golang"]}, nil
-		case "node":
-			return processoutput.Result{Stdout: "v" + c.Versions["nodejs"]}, nil
-		case "python":
-			return processoutput.Result{Stdout: "Python " + c.Versions["python"]}, nil
-		}
-		return processoutput.Result{}, fmt.Errorf("unexpected command")
-	}
-	r, err := c.tool("python")
-	if err != nil || r.Status != "ok" {
-		t.Fatalf("%+v %v", r, err)
-	}
-	c.Execute = func([]string, string) (processoutput.Result, error) {
-		return processoutput.Result{Stdout: "Python 0.0.0"}, nil
-	}
-	r, err = c.tool("python")
-	if err != nil || r.Status != "error" {
-		t.Fatalf("%+v %v", r, err)
-	}
-	delete(c.Versions, "python")
-	c.Execute = func(args []string, _ string) (processoutput.Result, error) {
-		if args[0] == "python" {
-			t.Fatal("Python queried without declaration")
-		}
-		v := "v" + c.Versions["nodejs"]
-		if args[0] == "go" {
-			v = "go" + c.Versions["golang"]
-		}
-		return processoutput.Result{Stdout: v}, nil
-	}
-	results, err := c.Checks("contracts", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, r := range results {
-		if r.Status != "ok" {
-			t.Fatalf("%+v", r)
-		}
-	}
-}
 func TestRuntimeResourcesAndDatabase(t *testing.T) {
 	c := fixture(t)
 	c.LookPath = func(string) (string, error) { return "", os.ErrNotExist }

@@ -270,7 +270,7 @@ func TestDevcontainerFollowsToolVersions(t *testing.T) {
 	if err := checked(func() { c.devcontainerVersions(versions) }); err != nil {
 		t.Fatal(err)
 	}
-	for _, tool := range []string{"golang", "python"} {
+	for _, tool := range []string{"golang"} {
 		original := versions[tool]
 		versions[tool] = "9.8.7"
 		assertFailure(t, func() { c.devcontainerVersions(versions) }, "base images must follow")

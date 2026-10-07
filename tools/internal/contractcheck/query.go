@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Python parse_qs uses '&' as the separator and preserves semicolons in values.
+// Query fixtures use '&' as the separator and preserve semicolons in values.
 // net/url.ParseQuery drops fields with unescaped semicolons instead.
 func requestQuery(raw string) url.Values {
 	values := url.Values{}

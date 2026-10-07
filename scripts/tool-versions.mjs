@@ -10,7 +10,7 @@ export function readToolVersions(url = new URL('../.tool-versions', import.meta.
     }
     versions[fields[0]] = fields[1]
   }
-  for (const tool of ['golang', 'nodejs', 'python', 'pnpm', 'npm', 'corepack', 'sqlc']) {
+  for (const tool of ['golang', 'nodejs', 'pnpm', 'npm', 'corepack', 'sqlc']) {
     if (!versions[tool]) throw new Error(`Missing tool version: ${tool}`)
   }
   return Object.freeze(versions)

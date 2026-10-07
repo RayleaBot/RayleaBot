@@ -12,7 +12,7 @@ func (c *checker) devcontainerVersions(versions map[string]string) {
 	for _, match := range regexp.MustCompile(`(?m)^FROM\s+(\S+)`).FindAllStringSubmatch(string(c.read(".devcontainer/Dockerfile")), -1) {
 		images = append(images, match[1])
 	}
-	expected := []string{"python:" + versions["python"] + "-bookworm", "golang:" + versions["golang"] + "-bookworm"}
+	expected := []string{"golang:" + versions["golang"] + "-bookworm"}
 	if !equal(images, expected) {
 		fail(".devcontainer/Dockerfile base images must follow .tool-versions")
 	}

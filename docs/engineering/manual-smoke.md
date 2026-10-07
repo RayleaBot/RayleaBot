@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | Windows 完整包、Linux server 全流程 | 在干净目录下载并安装，初始化管理员，连接 NapCat OneBot11，发送真实命令；从公开商店安装兼容插件，使用第二个公开插件版本执行更新，再备份并恢复到新的空目录 | 安装、初始化、命令回复、商店安装、插件更新和恢复均成功，恢复后的配置与数据一致 |
 | macOS arm64 实验性安装 | 在 Apple Silicon 实机从公开 Release 下载，按部署说明启动并初始化 | Launcher 与 Server 可启动、管理员可登录；此结果不代表完整平台验收 |
-| 下载产物的恢复演练 | 对下载包内的 Server 执行 `scripts/release/rehearse_current_recovery.py --server <下载的Server路径> --output <尚不存在的结果目录>` | 脚本成功，结果目录保存进程日志与演练结果 |
+| 下载产物的恢复演练 | 对下载包内的 Server 执行 `go run ./tools/cmd/rehearse-current-recovery --server <下载的Server路径> --output <尚不存在的结果目录>` | 脚本成功，结果目录保存进程日志与演练结果 |
 
 首个 v4 插件只有一个公开版本时，插件更新填写“未执行”；待兼容补丁版公开后补验。公开目录没有兼容包、缺少真实协议凭据或缺少平台实机时，同样保留“未执行”，不能用本地 fixture 代替。
 

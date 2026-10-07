@@ -36,7 +36,6 @@ func Parse(source string) (map[string]string, error) {
 		}
 		versions[fields[0]] = fields[1]
 	}
-	// Python is optional so removing its declaration retires the doctor check.
 	for _, name := range []string{"golang", "nodejs", "pnpm", "npm", "corepack", "sqlc"} {
 		if versions[name] == "" {
 			return nil, fmt.Errorf(".tool-versions must pin %s to an exact version", name)

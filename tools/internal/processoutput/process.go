@@ -13,6 +13,15 @@ type Result struct {
 	Stdout, Stderr string
 }
 
+// Command resolves executables and platform shims for tools which stream output.
+func Command(args ...string) (*exec.Cmd, error) {
+	executable, err := exec.LookPath(args[0])
+	if err != nil {
+		return nil, err
+	}
+	return newCommand(executable, args[1:]), nil
+}
+
 // Run captures both streams without hiding nonzero exits or invalid UTF-8.
 func Run(args []string, dir string) (Result, error) {
 	executable, err := exec.LookPath(args[0])

@@ -32,4 +32,4 @@ Server、Launcher 和发布脚本在使用清单前校验同一份 `contracts/de
 
 ZIP、tar.gz、tar.xz 在私有临时目录内逐项展开：最多 100,000 条目、单文件 2 GiB、累计 8 GiB；拒绝越界、重复路径和特殊设备文件，保留执行位。macOS Chromium framework 所需的归档内相对链接在普通文件写入结束后建立，并再次验证完整解析仍位于根内。插件包遵循插件 artifact 契约规定的文件数、大小和压缩比限制。
 
-XZ 使用纯 Go `github.com/xi2/xz` 固定版本 `v0.0.0-20171230120015-48954b6210f8`，替代外部 `tar`，使取消、逐条路径检查和字典上限可执行。解码字典最多 64 MiB；发布 Python 解码器另为解码状态保留 2 MiB。第三方声明收录上游 LICENSE 的 public-domain 声明。
+XZ 使用纯 Go `github.com/xi2/xz` 固定版本 `v0.0.0-20171230120015-48954b6210f8`，替代外部 `tar`，使取消、逐条路径检查和字典上限可执行。Server 与发布工具的解码字典上限均为 64 MiB。第三方声明收录上游 LICENSE 的 public-domain 声明。

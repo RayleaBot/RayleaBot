@@ -16,7 +16,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   seen="$seen$tool "
   output="$output$tool=$version"$'\n'
 done < "${1:-.tool-versions}"
-for tool in golang nodejs python pnpm npm corepack sqlc; do
+for tool in golang nodejs pnpm npm corepack sqlc; do
   case "$seen" in *" $tool "*) ;; *) echo "Missing tool: $tool" >&2; exit 1;; esac
 done
 printf '%s' "$output"

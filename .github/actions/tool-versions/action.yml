@@ -7,9 +7,6 @@ outputs:
   nodejs:
     description: Fixed nodejs version.
     value: ${{ steps.read.outputs.nodejs }}
-  python:
-    description: Fixed python version.
-    value: ${{ steps.read.outputs.python }}
   pnpm:
     description: Fixed pnpm version.
     value: ${{ steps.read.outputs.pnpm }}

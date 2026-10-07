@@ -142,8 +142,8 @@ func requireFixtureOutcome(path string, expected bool, errors []string) {
 	fail("%s: invalid fixture did not fail validation", path)
 }
 
-// The extension is checked along the same properties/items/allOf traversal as
-// the Python validator; ordinary schema validation handles other constraints.
+// Registry extensions follow properties/items/allOf; ordinary schema validation
+// handles other constraints.
 func (c *checker) registryCodeErrors(schema, instance any, base, pointer string) []string {
 	seen := map[string]bool{}
 	for m := obj(schema); m != nil && has(m, "$ref"); m = obj(schema) {

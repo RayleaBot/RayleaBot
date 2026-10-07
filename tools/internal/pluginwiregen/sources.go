@@ -1,0 +1,458 @@
+package pluginwiregen
+
+var models = [][2]string{
+	{"FrameEnvelope", "/$defs/common"},
+	{"InitFrame", "/$defs/init"},
+	{"InitProgressFrame", "/$defs/init_progress"},
+	{"InitAckFrame", "/$defs/init_ack"},
+	{"EventFrame", "/$defs/event"},
+	{"ProtocolEventFrame", "/$defs/event/allOf/1/properties/event"},
+	{"ProtocolActorFrame", "/$defs/event/allOf/1/properties/event" + "/properties/actor"},
+	{"ProtocolTargetFrame", "/$defs/event/allOf/1/properties/event" + "/properties/target"},
+	{"ProtocolMessageFrame", "/$defs/event/allOf/1/properties/event" + "/properties/message"},
+	{"ProtocolWebhookFrame", "/$defs/event/allOf/1/properties/event" + "/properties/webhook"},
+	{"ProtocolPayloadFrame", "/$defs/event/allOf/1/properties/event/properties/payload"},
+	{"ProtocolSessionFrame", "/$defs/session_context"},
+	{"ProtocolActionSessionWaitFrame", "/$defs/action_session_wait_data"},
+	{"ProtocolActionSessionFinishFrame", "/$defs/action_session_finish_data"},
+	{"ProtocolSessionWaitResultFrame", "/$defs/session_wait_result"},
+	{"ProtocolSessionFinishResultFrame", "/$defs/session_finish_result"},
+	{"ProtocolActionEventDetachFrame", "/$defs/action_event_detach_data"},
+	{"ProtocolEventDetachResultFrame", "/$defs/event_detach_result"},
+	{"ProtocolKVSetResultFrame", "/$defs/storage_kv_set_result"},
+	{"ProtocolKVGetResultFrame", "/$defs/storage_kv_get_result"},
+	{"ProtocolOneBotPayloadFrame", "/$defs/event/allOf/1/properties/event/properties/payload" + "/properties/onebot"},
+	{"ProtocolOneBotSenderFrame", "/$defs/event/allOf/1/properties/event/properties/payload" + "/properties/onebot/properties/sender"},
+	{"ProtocolQQOfficialPayloadFrame", "/$defs/event/allOf/1/properties/event/properties/payload" + "/properties/qq_official"},
+	{"BotIdentity", "/$defs/bot_identity"},
+	{"GovernanceScope", "/$defs/governance_scope"},
+	{"ProtocolSegmentFrame", "/$defs/outbound_message_segment"},
+	{"ProtocolOutboundMessageFrame", "/$defs/outbound_message"},
+	{"PingFrame", "/$defs/ping"},
+	{"PongFrame", "/$defs/pong"},
+	{"ShutdownFrame", "/$defs/shutdown"},
+	{"ErrorFrame", "/$defs/error"},
+	{"ResultFrame", "/$defs/result"},
+	{"ActionFrame", "/$defs/action"},
+	{"ProtocolActionMessageSendFrame", "/$defs/action_message_send_data"},
+	{"ProtocolActionLoggerWriteFrame", "/$defs/action_logger_write_data"},
+	{"ProtocolActionStorageKVFrame", "/$defs/action_storage_kv/allOf/1/properties/data"},
+	{"ProtocolActionPluginListFrame", "/$defs/action_plugin_list_data"},
+	{"ProtocolActionPluginCallFrame", "/$defs/action_plugin_call_data"},
+	{"ProtocolServiceRequestFrame", "/$defs/service_request"},
+	{"ProtocolServiceOriginFrame", "/$defs/service_origin"},
+	{"ProtocolActionSecretReadFrame", "/$defs/action_secret_read_data"},
+	{"ProtocolActionSecretWriteFrame", "/$defs/action_secret_write_data"},
+	{"ProtocolActionSecretDeleteFrame", "/$defs/action_secret_delete_data"},
+	{"ProtocolActionBrowserLaunchFrame", "/$defs/action_browser_launch_data"},
+	{"ProtocolActionBrowserCloseFrame", "/$defs/action_browser_close_data"},
+	{"ProtocolActionConfigWriteFrame", "/$defs/action_config_write_data"},
+	{"ProtocolActionGovernanceBlacklistWriteFrame", "/$defs/action_governance_blacklist_write_data"},
+	{"ProtocolActionGovernanceWhitelistWriteFrame", "/$defs/action_governance_whitelist_write_data"},
+	{"ProtocolActionSchedulerCreateFrame", "/$defs/action_scheduler_create_data"},
+	{"ProtocolActionSchedulerDeleteFrame", "/$defs/action_scheduler_delete_data"},
+	{"ProtocolActionRenderImageFrame", "/$defs/action_render_image_data"},
+	{"ProtocolRenderImageResourceFrame", "/$defs/render_image_resource"},
+}
+var rawFields = map[string]bool{
+	"ProtocolKVGetResultFrame:value":             true,
+	"ProtocolPayloadFrame:command":               true,
+	"ActionFrame:data":                           true,
+	"ProtocolActionStorageKVFrame:value":         true,
+	"ProtocolActionSchedulerCreateFrame:payload": true,
+	"ProtocolActionRenderImageFrame:data":        true,
+}
+var presenceFields = map[string]bool{
+	"ProtocolActionStorageKVFrame:ttl_seconds":               true,
+	"ProtocolKVSetResultFrame:expires_at_ms":                 true,
+	"ProtocolKVGetResultFrame:expires_at_ms":                 true,
+	"ProtocolActionSessionWaitFrame:notify_on_expire":        true,
+	"ProtocolActionSessionWaitFrame:timeout_seconds":         true,
+	"ProtocolPayloadFrame:bots":                              true,
+	"ProtocolPayloadFrame:config":                            true,
+	"ProtocolActionMessageSendFrame:source_adapter":          true,
+	"ProtocolActionMessageSendFrame:reply_to_event_id":       true,
+	"ProtocolActionMessageSendFrame:message":                 true,
+	"ProtocolActionGovernanceWhitelistWriteFrame:enabled":    true,
+	"ProtocolActionStorageKVFrame:key":                       true,
+	"ProtocolActionStorageKVFrame:prefix":                    true,
+	"ProtocolActionGovernanceBlacklistWriteFrame:entry_type": true,
+	"ProtocolActionGovernanceBlacklistWriteFrame:target_id":  true,
+	"ProtocolActionGovernanceBlacklistWriteFrame:reason":     true,
+	"ProtocolActionGovernanceWhitelistWriteFrame:entry_type": true,
+	"ProtocolActionGovernanceWhitelistWriteFrame:target_id":  true,
+	"ProtocolActionGovernanceWhitelistWriteFrame:reason":     true,
+}
+
+const codecSource = `package pluginwire
+import (
+ "bytes"
+ _ "embed"
+ "encoding/json"
+ "errors"
+ "fmt"
+ "io"
+ "sync"
+ jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
+)
+
+//go:embed protocol.schema.json
+var schemaJSON []byte
+var compileOnce sync.Once
+var compiled *jsonschema.Schema
+var compileError error
+var ErrFrameTooLarge = errors.New("plugin protocol frame exceeds byte limit")
+type ValidationError struct { Cause error }
+func (e *ValidationError) Error() string { return "plugin frame violates the protocol schema" }
+func (e *ValidationError) Unwrap() error { return e.Cause }
+
+func Validate(data []byte, maxBytes int) error {
+ data = bytes.TrimSuffix(data, []byte{'\n'})
+ if maxBytes <= 0 { maxBytes = DefaultMaxFrameBytes }
+ if len(data) > maxBytes { return fmt.Errorf("%w: limit=%d", ErrFrameTooLarge, maxBytes) }
+ compileOnce.Do(func(){
+  var document any
+  if compileError = json.Unmarshal(schemaJSON, &document); compileError != nil { return }
+  compiler := jsonschema.NewCompiler(); compiler.AssertFormat()
+  const location = "urn:rayleabot:plugin-protocol"
+  if compileError = compiler.AddResource(location, document); compileError != nil { return }
+  compiled, compileError = compiler.Compile(location)
+ })
+ if compileError != nil { return fmt.Errorf("compile plugin schema: %w", compileError) }
+ decoder := json.NewDecoder(bytes.NewReader(data)); decoder.UseNumber()
+ var value any
+ if err := decoder.Decode(&value); err != nil { return err }
+ if err := decoder.Decode(new(any)); err != io.EOF { return errors.New("plugin frame must contain exactly one JSON value") }
+ if err := compiled.Validate(value); err != nil { return &ValidationError{Cause: err} }
+ return nil
+}
+
+var actionResultOnce sync.Once
+var actionResultSchemas map[string]*jsonschema.Schema
+var actionResultCompileError error
+
+// ValidateActionResult checks data using the action associated with a result's
+// request ID. Generic event results have no action-specific data constraint.
+func ValidateActionResult(action string, data []byte) error {
+ actionResultOnce.Do(func() {
+  var document map[string]any
+  if actionResultCompileError = json.Unmarshal(schemaJSON, &document); actionResultCompileError != nil { return }
+  compiler := jsonschema.NewCompiler(); compiler.AssertFormat()
+  const location = "urn:rayleabot:plugin-action-results"
+  if actionResultCompileError = compiler.AddResource(location, document); actionResultCompileError != nil { return }
+  actionResultSchemas = make(map[string]*jsonschema.Schema)
+  references, _ := document["x-action-result-schemas"].(map[string]any)
+  for name, reference := range references {
+   value, ok := reference.(string); if !ok { actionResultCompileError = errors.New("invalid action result schema reference"); return }
+   schema, err := compiler.Compile(location+value); if err != nil { actionResultCompileError = err; return }
+   actionResultSchemas[name] = schema
+  }
+ })
+ if actionResultCompileError != nil { return fmt.Errorf("compile action result schema: %w", actionResultCompileError) }
+ schema := actionResultSchemas[action]; if schema == nil { return nil }
+ decoder := json.NewDecoder(bytes.NewReader(data)); decoder.UseNumber()
+ var value any
+ if err := decoder.Decode(&value); err != nil { return err }
+ if err := decoder.Decode(new(any)); err != io.EOF { return errors.New("action result must contain exactly one JSON value") }
+ if err := schema.Validate(value); err != nil { return &ValidationError{Cause:err} }
+ return nil
+}
+`
+const testSource = `package pluginwire
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"math"
+	"os"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+func TestContractFrames(t *testing.T) {
+	data, err := os.ReadFile("testdata/frames.generated.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cases []struct {
+		Name   string
+		Valid  bool
+		Frames []json.RawMessage
+	}
+	if err := json.Unmarshal(data, &cases); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			rejected := false
+			actions := make(map[string]string)
+			for _, frame := range c.Frames {
+				err := Validate(frame, 0)
+				var envelope Frame
+				if err == nil {
+					err = json.Unmarshal(frame, &envelope)
+				}
+				if err == nil && envelope.Type == "action" {
+					key := envelope.Action
+					if key == "storage.kv" {
+						var input ProtocolActionStorageKVFrame
+						err = json.Unmarshal(envelope.Data, &input)
+						key += "." + input.Operation
+					}
+					actions[envelope.RequestID] = key
+				}
+				if err == nil && envelope.Type == "result" {
+					if actions[envelope.RequestID] != "" && envelope.Propagation != "" {
+						err = errors.New("local action result cannot control propagation")
+					} else {
+						err = ValidateActionResult(actions[envelope.RequestID], envelope.Data)
+					}
+				}
+				if err != nil {
+					rejected = true
+					if c.Valid {
+						t.Fatalf("valid frame rejected: %v", err)
+					}
+				}
+			}
+			if !c.Valid && !rejected {
+				t.Fatal("all invalid fixture frames accepted")
+			}
+		})
+	}
+}
+
+func TestWireBoundaries(t *testing.T) {
+	cases := []struct {
+		name, frame string
+		valid       bool
+	}{
+		{"empty arrays", ` + "`" + `{"type":"init","request_id":"i","protocol_version":"4","plugin_id":"p","timezone":"UTC","config":{},"super_admins":[],"command_prefixes":["/"],"concurrency":1,"bots":[]}` + "`" + `, true},
+		{"missing result status", ` + "`" + `{"type":"result","request_id":"r","data":{}}` + "`" + `, false},
+		{"zero timestamp", ` + "`" + `{"type":"event","request_id":"e","deadline_at_ms":1,"event":{"event_id":"e","source_protocol":"system","source_adapter":"scheduler","event_type":"scheduler.trigger","timestamp":0,"payload":{"task_id":"t"}}}` + "`" + `, true},
+		{"decimal timestamp", ` + "`" + `{"type":"event","request_id":"e","deadline_at_ms":1,"event":{"event_id":"e","source_protocol":"system","source_adapter":"scheduler","event_type":"scheduler.trigger","timestamp":0.5,"payload":{"task_id":"t"}}}` + "`" + `, false},
+		{"explicit null value", ` + "`" + `{"type":"action","request_id":"a","action":"storage.kv","data":{"operation":"set","key":"k","value":null}}` + "`" + `, true},
+		{"absent value", ` + "`" + `{"type":"action","request_id":"a","action":"storage.kv","data":{"operation":"set","key":"k"}}` + "`" + `, false},
+		{"nested unknown", ` + "`" + `{"type":"action","request_id":"a","action":"logger.write","data":{"level":"info","message":"x","extra":true}}` + "`" + `, false},
+		{"unknown envelope", ` + "`" + `{"type":"ping","request_id":"p","extra":false}` + "`" + `, false},
+		{"double JSON", ` + "`" + `{"type":"ping","request_id":"p"}{}` + "`" + `, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if err := Validate([]byte(c.frame), 0); (err == nil) != c.valid {
+				t.Fatalf("valid=%v: %v", c.valid, err)
+			}
+		})
+	}
+}
+
+func TestWirePresenceRoundTrip(t *testing.T) {
+	var kv ProtocolActionStorageKVFrame
+	if err := json.Unmarshal([]byte(` + "`" + `{"operation":"set","key":"k","value":null}` + "`" + `), &kv); err != nil {
+		t.Fatal(err)
+	}
+	if string(kv.Value) != "null" {
+		t.Fatalf("null value lost: %s", kv.Value)
+	}
+	data, err := json.Marshal(kv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), ` + "`" + `"value":null` + "`" + `) {
+		t.Fatalf("null omitted: %s", data)
+	}
+	data, err = json.Marshal(ProtocolWebhookFrame{Route: "hook"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), ` + "`" + `"received_at":0` + "`" + `) {
+		t.Fatalf("zero omitted: %s", data)
+	}
+	disabled := false
+	data, err = json.Marshal(ProtocolActionGovernanceWhitelistWriteFrame{Enabled: &disabled})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), ` + "`" + `"enabled":false` + "`" + `) {
+		t.Fatalf("false omitted: %s", data)
+	}
+	frame := Frame{Type: "init", RequestID: "i", ProtocolVersion: ProtocolVersion, PluginID: "p", Timezone: "UTC", Config: map[string]any{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1, Bots: &[]BotIdentity{}}
+	data, err = json.Marshal(frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(data, 0); err != nil {
+		t.Fatalf("empty required arrays/maps lost: %s: %v", data, err)
+	}
+}
+
+func TestFrameByteLimit(t *testing.T) {
+	data := []byte(` + "`" + `{"type":"error","request_id":"r","code":"plugin.internal_error","message":"中文"}` + "`" + `)
+	if err := Validate(append(append([]byte{}, data...), '\n'), len(data)); err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(data, len(data)-1); !errors.Is(err, ErrFrameTooLarge) {
+		t.Fatalf("byte limit not enforced: %v", err)
+	}
+	if err := Validate([]byte(` + "`" + `{"type":"ping","request_id":"p","password":"fixture-sensitive"}` + "`" + `), 0); err == nil || strings.Contains(err.Error(), "fixture-sensitive") {
+		t.Fatalf("validation leaked input: %v", err)
+	}
+}
+
+func TestFrameMarshalKeepsRequiredZeroValues(t *testing.T) {
+	for _, test := range []struct {
+		kind, want string
+	}{
+		{"init", ` + "`" + `{"type":"init","request_id":"","bots":null,"command_prefixes":null,"concurrency":0,"config":null,"plugin_id":"","protocol_version":"","super_admins":null,"timezone":""}` + "`" + `},
+		{"init_progress", ` + "`" + `{"type":"init_progress","request_id":"","summary":""}` + "`" + `},
+		{"init_ack", ` + "`" + `{"type":"init_ack","request_id":"","status":""}` + "`" + `},
+		{"event", ` + "`" + `{"type":"event","request_id":"","deadline_at_ms":0,"event":null}` + "`" + `},
+		{"action", ` + "`" + `{"type":"action","request_id":"","action":"","data":null}` + "`" + `},
+		{"result", ` + "`" + `{"type":"result","request_id":"","status":"","data":null}` + "`" + `},
+		{"error", ` + "`" + `{"type":"error","request_id":"","code":"","message":""}` + "`" + `},
+		{"ping", ` + "`" + `{"type":"ping","request_id":""}` + "`" + `},
+		{"pong", ` + "`" + `{"type":"pong","request_id":""}` + "`" + `},
+		{"shutdown", ` + "`" + `{"type":"shutdown","request_id":"","reason":""}` + "`" + `},
+	} {
+		t.Run(test.kind, func(t *testing.T) {
+			encoded, err := json.Marshal(Frame{Type: test.kind})
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertFrameJSONDocument(t, encoded, test.want)
+			if err := Validate(encoded, 0); err == nil {
+				t.Fatal("empty required values bypassed protocol validation")
+			}
+		})
+	}
+}
+
+func TestFrameMarshalPreservesEmptyContainersAndExtraFields(t *testing.T) {
+	emptyBots := []BotIdentity{}
+	for _, test := range []struct {
+		name  string
+		frame Frame
+		want  string
+		valid bool
+	}{
+		{
+			name:  "required empty containers",
+			frame: Frame{Type: "init", RequestID: "i", Bots: &emptyBots, Config: map[string]any{}, CommandPrefixes: []string{}, SuperAdmins: []string{}},
+			want:  ` + "`" + `{"type":"init","request_id":"i","bots":[],"command_prefixes":[],"concurrency":0,"config":{},"plugin_id":"","protocol_version":"","super_admins":[],"timezone":""}` + "`" + `,
+		},
+		{
+			name:  "result values",
+			frame: Frame{Type: "result", RequestID: "r", Status: "success", Data: json.RawMessage(` + "`" + `{"nil":null,"object":{},"array":[],"zero":0,"integer":9007199254740993}` + "`" + `)},
+			want:  ` + "`" + `{"type":"result","request_id":"r","status":"success","data":{"nil":null,"object":{},"array":[],"zero":0,"integer":9007199254740993}}` + "`" + `,
+			valid: true,
+		},
+		{
+			name:  "other frame fields stay present",
+			frame: Frame{Type: "result", RequestID: "r", Status: "success", Data: json.RawMessage(` + "`" + `{}` + "`" + `), Action: "logger.write", Event: json.RawMessage(` + "`" + `{"extra":true}` + "`" + `), DeadlineAtMs: 1, Config: map[string]any{"keep": false}, Bots: &emptyBots, Reason: "fixture"},
+			want:  ` + "`" + `{"type":"result","request_id":"r","status":"success","data":{},"action":"logger.write","event":{"extra":true},"deadline_at_ms":1,"config":{"keep":false},"bots":[],"reason":"fixture"}` + "`" + `,
+		},
+		{
+			name:  "unknown type keeps supplied fields",
+			frame: Frame{Type: "fixture-unknown", RequestID: "r", Summary: "fixture", Concurrency: -1, Data: json.RawMessage(` + "`" + `null` + "`" + `), Bots: &emptyBots},
+			want:  ` + "`" + `{"type":"fixture-unknown","request_id":"r","summary":"fixture","concurrency":-1,"data":null,"bots":[]}` + "`" + `,
+		},
+		{
+			name:  "optional empty raw message stays omitted",
+			frame: Frame{Type: "ping", RequestID: "p", Data: json.RawMessage{}},
+			want:  ` + "`" + `{"type":"ping","request_id":"p"}` + "`" + `,
+			valid: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := json.Marshal(test.frame)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertFrameJSONDocument(t, encoded, test.want)
+			if err := Validate(encoded, 0); (err == nil) != test.valid {
+				t.Fatalf("schema acceptance changed: valid=%v, %v", test.valid, err)
+			}
+		})
+	}
+}
+
+func TestFrameMarshalPreservesEncodingErrors(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		frame Frame
+	}{
+		{"required empty raw message", Frame{Type: "result", RequestID: "r", Status: "success", Data: json.RawMessage{}}},
+		{"malformed required raw message", Frame{Type: "result", RequestID: "r", Status: "success", Data: json.RawMessage(` + "`" + `{` + "`" + `)}},
+		{"malformed extra raw message", Frame{Type: "result", RequestID: "r", Status: "success", Data: json.RawMessage(` + "`" + `{}` + "`" + `), Event: json.RawMessage(` + "`" + `{` + "`" + `)}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := json.Marshal(test.frame)
+			var syntax *json.SyntaxError
+			if !errors.As(err, &syntax) {
+				t.Fatalf("invalid raw JSON did not retain its syntax error: %v", err)
+			}
+		})
+	}
+	_, err := json.Marshal(Frame{Type: "result", RequestID: "r", Status: "success", Data: json.RawMessage(` + "`" + `{}` + "`" + `), Config: map[string]any{"extra": make(chan int)}})
+	var unsupported *json.UnsupportedTypeError
+	if !errors.As(err, &unsupported) {
+		t.Fatalf("unsupported extra field was ignored: %v", err)
+	}
+}
+
+func TestFrameMarshalPreservesFirstEncodingError(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		frame Frame
+		kind  string
+	}{
+		{"required map before invalid raw", Frame{Type: "init", Config: map[string]any{"bad": math.NaN()}, Event: json.RawMessage(` + "`" + `{` + "`" + `)}, "value"},
+		{"required raw before invalid details", Frame{Type: "result", Data: json.RawMessage(` + "`" + `{` + "`" + `), Details: map[string]any{"bad": make(chan int)}}, "syntax"},
+		{"empty required raw after invalid details", Frame{Type: "result", Data: json.RawMessage{}, Details: map[string]any{"bad": make(chan int)}}, "type"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := json.Marshal(test.frame)
+			var syntax *json.SyntaxError
+			var unsupportedType *json.UnsupportedTypeError
+			var unsupportedValue *json.UnsupportedValueError
+			matches := test.kind == "syntax" && errors.As(err, &syntax) ||
+				test.kind == "type" && errors.As(err, &unsupportedType) ||
+				test.kind == "value" && errors.As(err, &unsupportedValue)
+			if !matches {
+				t.Fatalf("first encoding error changed: want=%s, got=%v", test.kind, err)
+			}
+		})
+	}
+	var calls int
+	_, err := json.Marshal(Frame{Type: "event", Event: json.RawMessage{}, Config: map[string]any{"value": frameMarshalCounter{&calls}}})
+	var syntax *json.SyntaxError
+	if !errors.As(err, &syntax) || calls != 1 {
+		t.Fatalf("empty raw field retried custom encoding: calls=%d, error=%v", calls, err)
+	}
+}
+
+type frameMarshalCounter struct{ calls *int }
+
+func (value frameMarshalCounter) MarshalJSON() ([]byte, error) {
+	*value.calls = *value.calls + 1
+	return []byte(` + "`" + `true` + "`" + `), nil
+}
+
+func assertFrameJSONDocument(t *testing.T, encoded []byte, expected string) {
+	t.Helper()
+	decode := func(data []byte) any {
+		decoder := json.NewDecoder(bytes.NewReader(data))
+		decoder.UseNumber()
+		var value any
+		if err := decoder.Decode(&value); err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	if !reflect.DeepEqual(decode(encoded), decode([]byte(expected))) {
+		t.Fatalf("frame fields changed: got=%s want=%s", encoded, expected)
+	}
+}
+`

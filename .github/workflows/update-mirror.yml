@@ -23,11 +23,12 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/tool-versions
         id: toolchain
-      - uses: actions/setup-python@v7
+      - name: Setup Go for repository tools
+        uses: actions/setup-go@v7
         with:
-          python-version: ${{ steps.toolchain.outputs.python }}
-      - name: Install release validation dependencies
-        run: python -m pip install -r scripts/requirements.txt
+          go-version-file: tools/go.mod
+          cache-dependency-path: tools/go.sum
+
       - name: Publish complete releases before channel metadata
         env:
           GH_TOKEN: ${{ github.token }}
@@ -40,7 +41,7 @@ jobs:
           MIRROR_BUCKET: ${{ vars.UPDATE_MIRROR_BUCKET }}
           MIRROR_ENDPOINT: ${{ vars.UPDATE_MIRROR_ENDPOINT }}
         run: >-
-          python scripts/release/sync_update_mirror.py
+          go run ./tools/cmd/sync-update-mirror
           --repository "$GITHUB_REPOSITORY"
           --base-url "$MIRROR_BASE"
           --bucket "$MIRROR_BUCKET"

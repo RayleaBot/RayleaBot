@@ -15,14 +15,14 @@
 3. 在仓库根目录检查目标版本。以 `v0.4.0` 为例，先创建对应文件，再执行：
 
    ```text
-   python scripts/release/check_release_notes.py --tag v0.4.0
+   go run ./tools/cmd/check-release-notes --tag v0.4.0
    go run ./tools/cmd/check-doc-links
    ```
 
 4. 将审阅后的正文随版本代码一起提交，目标标签必须指向包含这份文件的提交，再按发布流程推送标签。
 5. [release 工作流](../../../.github/workflows/release.yml)先检查正文与同一提交的 nightly 成功记录，再构建平台包、执行打包与运行验证步骤；发布前重新检查 nightly，随后通过 `body_path` 读取正文，并上传发行包、发布清单。
 
-完整标签包含预发布段时，GitHub Release 标为 prerelease，发布清单使用 beta 通道且不更新 latest；构建元数据中的连字符不视为预发布。可以运行 `python scripts/release/release_policy.py --tag v0.4.0-beta.1` 同时检查正文并查看发布参数。推送顺序与发布节奏见[发布流程与通道](../delivery-and-upgrade.md#发布流程与通道)。
+完整标签包含预发布段时，GitHub Release 标为 prerelease，发布清单使用 beta 通道且不更新 latest；构建元数据中的连字符不视为预发布。可以运行 `go run ./tools/cmd/release-policy --tag v0.4.0-beta.1` 同时检查正文并查看发布参数。推送顺序与发布节奏见[发布流程与通道](../delivery-and-upgrade.md#发布流程与通道)。
 
 正文检查会拒绝：不符合 release contract 版本格式的标签、同名文件缺失、非 UTF-8 内容、空白或仅含标题/分隔线/HTML 注释的正文，以及残留的 `{{...}}` 占位符。标签版本格式直接读取[发布 contract](../../../contracts/release-manifest.schema.json)。检查失败时，平台构建与发布不会执行。
 

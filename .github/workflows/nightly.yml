@@ -34,11 +34,6 @@ jobs:
           go-version-file: tools/go.mod
           cache: false
 
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: ${{ steps.toolchain.outputs.python }}
-
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
@@ -47,17 +42,12 @@ jobs:
       - name: Install Corepack
         run: npm install --global --force corepack@${{ steps.toolchain.outputs.corepack }}
 
-      - name: Install contract validators
-        run: python -m pip install --disable-pip-version-check -r scripts/requirements.txt
-
       - name: Test repository scripts
         shell: bash
         run: |
           set -euo pipefail
           go vet ./tools/...
           go test -count=1 ./tools/...
-          python -m compileall -q scripts
-          python -m unittest discover -s scripts/tests -p "test_*.py"
           node --test "scripts/tests/*.test.mjs"
 
       - name: Validate contracts and generated outputs
@@ -68,7 +58,7 @@ jobs:
           go run ./tools/cmd/validate-contracts --mode=strict
           node scripts/generate-runtime-schemas.mjs --verify
           go run ./tools/cmd/generate-error-codes --verify
-          python scripts/generate-plugin-wire.py --verify
+          go run ./tools/cmd/generate-plugin-wire --verify
 
       - name: Check docs and design assets
         if: runner.os == 'Linux'
@@ -102,11 +92,6 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: ${{ steps.toolchain.outputs.nodejs }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -380,11 +365,6 @@ jobs:
         with:
           version: ${{ steps.toolchain.outputs.pnpm }}
 
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: ${{ steps.toolchain.outputs.python }}
-
       - name: Install web dependencies
         working-directory: web
         run: pnpm install --frozen-lockfile
@@ -406,7 +386,7 @@ jobs:
         run: go mod download
 
       - name: Check third-party notice drift
-        run: python scripts/release/generate_third_party_notices.py --check --output THIRD_PARTY_NOTICES.md
+        run: go run ./tools/cmd/generate-third-party-notices --check --output THIRD_PARTY_NOTICES.md
 
   release-dry-run:
     runs-on: ubuntu-latest
@@ -437,16 +417,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: ${{ steps.toolchain.outputs.python }}
-
-      - name: Install recovery rehearsal dependency
-        run: python -m pip install --disable-pip-version-check -r scripts/requirements.txt
-
       - name: Run release helper tests
-        run: python -m unittest discover -s scripts/release/tests
+        run: go test -count=1 ./tools/internal/release/... ./tools/internal/recovery/... ./tools/internal/notices/... ./tools/internal/archiveio/...
 
       - name: Build server
         run: |
@@ -454,7 +426,7 @@ jobs:
           (cd server && go build -o ../dist/server/raylea-server ./cmd/raylea-server)
 
       - name: Rehearse fresh initialization and current-format recovery
-        run: python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/current-recovery-rehearsal
+        run: go run ./tools/cmd/rehearse-current-recovery --server dist/server/raylea-server --output dist/current-recovery-rehearsal
 
       - name: Install web dependencies
         working-directory: web
@@ -468,7 +440,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/release/package_artifact.py \
+          go run ./tools/cmd/package-artifact \
             --artifact-id linux-x64-server \
             --version 9999.0.0-nightly \
             --git-commit "$(git rev-parse --short HEAD)" \

@@ -155,7 +155,7 @@ func releaseBasic(schema object) {
 	}
 }
 func releaseArtifactIDs(schema object) []string {
-	// The contract owns this matrix. Generated Python constants are checked by
+	// The contract owns this matrix. Generated artifact projections are checked by
 	// generate-plugin-wire --verify, not used as another source of expected IDs.
 	ids, ok := sortedStrings(obj(obj(schema["$defs"])["artifactId"])["enum"])
 	if !ok || len(ids) == 0 {

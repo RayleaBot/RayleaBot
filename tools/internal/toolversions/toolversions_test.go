@@ -83,15 +83,7 @@ func TestReadersUseChangedSource(t *testing.T) {
 			}
 		}
 	}
-	withoutPython := []string{}
-	for _, line := range strings.Split(changed, "\n") {
-		if !strings.HasPrefix(line, "python ") {
-			withoutPython = append(withoutPython, line)
-		}
-	}
-	if _, err := Parse(strings.Join(withoutPython, "\n")); err != nil {
-		t.Fatal(err)
-	}
+
 }
 
 func TestWorkflowVersionSources(t *testing.T) {
@@ -127,7 +119,7 @@ func TestWorkflowVersionSources(t *testing.T) {
 					}
 					available = true
 				}
-				for _, rule := range []struct{ action, field, tool string }{{"actions/setup-node@", "node-version", "nodejs"}, {"actions/setup-python@", "python-version", "python"}, {"pnpm/action-setup@", "version", "pnpm"}} {
+				for _, rule := range []struct{ action, field, tool string }{{"actions/setup-node@", "node-version", "nodejs"}, {"pnpm/action-setup@", "version", "pnpm"}} {
 					if value, ok := step.With[rule.field]; ok && strings.HasPrefix(step.Uses, rule.action) {
 						if !available || value != "${{ steps.toolchain.outputs."+rule.tool+" }}" {
 							t.Fatalf("%s/%s: %s version source drift", path, name, rule.action)

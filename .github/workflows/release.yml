@@ -25,10 +25,6 @@ jobs:
       - name: Read toolchain versions
         id: toolchain
         uses: ./.github/actions/tool-versions
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: ${{ steps.toolchain.outputs.python }}
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
@@ -39,7 +35,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         shell: bash
-        run: python scripts/release/release_policy.py --tag "$RELEASE_TAG"
+        run: go run ./tools/cmd/release-policy --tag "$RELEASE_TAG"
       - name: Require successful nightly for the release commit
         env:
           GITHUB_TOKEN: ${{ github.token }}

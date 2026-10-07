@@ -14,12 +14,13 @@ import (
 	"unicode"
 
 	"github.com/RayleaBot/RayleaBot/tools/internal/cli"
+	"github.com/RayleaBot/RayleaBot/tools/internal/generated"
 	"github.com/RayleaBot/RayleaBot/tools/internal/repo"
 	"go.yaml.in/yaml/v3"
 )
 
-// Keep the ownership marker stable so existing catalogs remain byte-identical.
-const marker = "by scripts/generate-error-codes.py"
+// The marker names this generator and identifies the files it owns.
+const marker = "by tools/cmd/generate-error-codes"
 
 type Entry struct {
 	Code       string
@@ -125,60 +126,7 @@ func Generate(doc Document) (map[string][]byte, error) {
 	return map[string][]byte{"server/internal/platform/errorcodes/catalog.generated.go": formatted, "web/src/types/error-codes.generated.ts": []byte(ts)}, nil
 }
 func Sync(root string, outputs map[string][]byte, verify bool) ([]string, error) {
-	parents := map[string]bool{}
-	for path := range outputs {
-		parents[filepath.ToSlash(filepath.Dir(path))] = true
-	}
-	var failures []string
-	for _, parent := range keys(parents) {
-		entries, err := os.ReadDir(filepath.Join(root, parent))
-		if os.IsNotExist(err) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		for _, entry := range entries {
-			path := parent + "/" + entry.Name()
-			if entry.IsDir() || outputs[path] != nil {
-				continue
-			}
-			b, err := os.ReadFile(filepath.Join(root, path))
-			if err != nil {
-				return nil, err
-			}
-			head := string(b[:min(256, len(b))])
-			if !strings.Contains(head, marker) {
-				continue
-			}
-			if verify {
-				failures = append(failures, path)
-			} else if err := os.Remove(filepath.Join(root, path)); err != nil {
-				return nil, err
-			}
-		}
-	}
-	for _, path := range keys(outputs) {
-		b, err := os.ReadFile(filepath.Join(root, path))
-		if err != nil && !os.IsNotExist(err) {
-			return nil, err
-		}
-		payload := outputs[path]
-		if verify {
-			if err != nil || !bytes.Equal(bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n")), payload) {
-				failures = append(failures, path)
-			}
-		} else if !bytes.Equal(b, payload) {
-			if err := os.MkdirAll(filepath.Dir(filepath.Join(root, path)), 0755); err != nil {
-				return nil, err
-			}
-			if err := os.WriteFile(filepath.Join(root, path), payload, 0644); err != nil {
-				return nil, err
-			}
-		}
-	}
-	sort.Strings(failures)
-	return failures, nil
+	return generated.Sync(root, outputs, marker, nil, verify)
 }
 func Run(args []string, out, stderr io.Writer) int {
 	fs := flag.NewFlagSet("generate-error-codes", flag.ContinueOnError)
