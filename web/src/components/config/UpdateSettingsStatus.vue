@@ -24,6 +24,8 @@ async function refresh() {
   } catch (failure) { listError.value = getDisplayErrorMessage(failure) }
   finally { loading.value = false }
 }
+
+function routeName(url: string) { return new URL(url).host }
 </script>
 
 <template>
@@ -37,7 +39,7 @@ async function refresh() {
     </div>
     <AppAlert v-if="error || listError" tone="danger" :title="error || listError" />
     <p v-if="status" role="status">
-      {{ t('config.update.current', { version: status.current_version }) }}
+      {{ t('config.update.current', { version: status.current_version === 'unknown' ? t('config.update.unknownVersion') : status.current_version }) }}
       <strong v-if="status.state === 'update_available'"> · {{ t('config.update.found', { version: status.available_version ?? '' }) }}</strong>
       <span v-else-if="status.state === 'up_to_date'"> · {{ t('config.update.upToDate') }}</span>
     </p>
@@ -46,12 +48,20 @@ async function refresh() {
         <caption>{{ t('config.update.routeHelp') }}</caption>
         <thead><tr><th scope="col">{{ t('config.update.route') }}</th><th scope="col">{{ t('config.update.latency') }}</th></tr></thead>
         <tbody><tr v-for="route in status.routes" :key="route.url">
-          <td><span class="update-routes__url">{{ route.url }}</span><strong v-if="route.selected">{{ t('config.update.selected') }}</strong></td>
+          <td><span class="update-routes__url" :title="route.url">{{ routeName(route.url) }}</span><strong v-if="route.selected">{{ t('config.update.selected') }}</strong></td>
           <td>{{ route.available ? `${route.latency_ms} ms` : t('config.update.unavailable') }}</td>
         </tr></tbody>
       </table>
     </template>
     <p>{{ t('config.update.guidance') }}</p>
+    <details class="update-instructions">
+      <summary>{{ t('config.update.serverInstructions') }}</summary>
+      <p>{{ t('config.update.prepareInstructions') }}</p>
+      <code>./raylea-server update download</code>
+      <p>{{ t('config.update.installInstructions') }}</p>
+      <code>./raylea-server update apply</code>
+      <p>{{ t('config.update.restartInstructions') }}</p>
+    </details>
   </div>
 </template>
 
@@ -65,4 +75,7 @@ async function refresh() {
 .update-routes th { font-weight: 600; color: var(--text); }
 .update-routes td:last-child { white-space: nowrap; padding-left: 16px; font-variant-numeric: tabular-nums; }
 .update-routes__url { display: block; overflow-wrap: anywhere; }
+.update-instructions summary { cursor: pointer; color: var(--text); }
+.update-instructions p { margin-block: 12px 4px; }
+.update-instructions code { color: var(--text); }
 </style>
