@@ -1,5 +1,19 @@
 <script setup lang="ts">
-import { FileCogIcon, FolderIcon, FolderOpenIcon, KeyRoundIcon, LogOutIcon, ServerIcon } from "@lucide/vue";
+import {
+  AppWindowIcon,
+  CheckIcon,
+  FileCogIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  FolderTreeIcon,
+  KeyRoundIcon,
+  LogOutIcon,
+  PencilIcon,
+  SaveIcon,
+  ServerIcon,
+  WrenchIcon,
+  XIcon,
+} from "@lucide/vue";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type {
   LauncherAdvancedOverrides,
@@ -7,8 +21,8 @@ import type {
   LauncherSettings,
   LauncherSnapshot,
 } from "@shared/launcher-models";
-import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot, type AcceptableValue } from "reka-ui";
-import { computed, type Component } from "vue";
+import { RadioGroupItem, RadioGroupRoot, TabsContent, TabsList, TabsRoot, TabsTrigger, type AcceptableValue } from "reka-ui";
+import { computed, ref, useId, type Component } from "vue";
 
 import { closeBehaviorOptions } from "./AppShell.shared";
 import DetailRow from "./DetailRow.vue";
@@ -19,30 +33,48 @@ const props = defineProps<{
   settingsDraft: LauncherSettings;
   resolvedSettings: LauncherResolvedSettings;
   editingSettings: boolean;
+  closeBehavior: LauncherSettings["closeBehavior"];
+  closeBehaviorError: string;
   busyAction: string | null;
   controlsDisabled: boolean;
 }>();
 const emit = defineEmits<{
+  beginEdit: [];
+  cancelEdit: [];
+  saveSettings: [];
   updateInstallationRoot: [value: string];
-  updateCloseBehavior: [value: LauncherSettings["closeBehavior"]];
   updateAdvancedOverride: [key: keyof LauncherAdvancedOverrides, value: string];
   chooseInstallationRoot: [];
   chooseServer: [];
   chooseConfig: [];
   chooseWorkdir: [];
+  selectCloseBehavior: [value: LauncherSettings["closeBehavior"]];
   resetAdmin: [];
   exit: [];
 }>();
 
+type SettingsTab = "paths" | "close" | "maintenance";
+
+const settingsTabs: Array<{ value: SettingsTab; label: string; icon: Component }> = [
+  { value: "paths", label: "路径", icon: FolderTreeIcon },
+  { value: "close", label: "关闭窗口", icon: AppWindowIcon },
+  { value: "maintenance", label: "维护", icon: WrenchIcon },
+];
+const activeTab = ref<SettingsTab>("paths");
+const optionId = useId();
+
 const serverExecutablePath = computed(() => props.settingsDraft.advancedOverrides?.serverExecutablePath || props.resolvedSettings.serverExecutablePath);
 const configPath = computed(() => props.settingsDraft.advancedOverrides?.configPath || props.resolvedSettings.configPath);
 const workdir = computed(() => props.settingsDraft.advancedOverrides?.workdir || props.resolvedSettings.workdir);
-const closeBehavior = computed(() =>
-  closeBehaviorOptions.find((option) => option.value === props.settingsDraft.closeBehavior) ?? closeBehaviorOptions[0]);
-const resetDisabled = computed(() => {
+// Saving settings cancels a startup in flight, so neither the reset nor a close behavior choice may run then.
+const serviceTransitioning = computed(() => {
   const state = deriveLauncherPresentation(props.snapshot).state;
-  return props.controlsDisabled || state === "starting" || state === "stopping";
+  return state === "starting" || state === "stopping";
 });
+const resetDisabled = computed(() => props.controlsDisabled || serviceTransitioning.value);
+// The options stay enabled through their own save, so the focused option keeps focus.
+const closeBehaviorDisabled = computed(() =>
+  serviceTransitioning.value || (props.controlsDisabled && props.busyAction !== "save-close-behavior"));
 
 const pathFields = computed((): Array<{
   icon: Component;
@@ -85,23 +117,40 @@ function displayPath(value: string) {
   return value.trim() || "未设置";
 }
 
-function updateCloseBehavior(value: AcceptableValue) {
+function selectCloseBehavior(value: AcceptableValue) {
   const option = closeBehaviorOptions.find((candidate) => candidate.value === value);
-  if (option) emit("updateCloseBehavior", option.value);
+  if (option) emit("selectCloseBehavior", option.value);
 }
 </script>
 
 <template>
-  <div class="settings-workspace" :data-busy="busyAction ?? 'idle'">
-    <div v-if="editingSettings" class="attention-note" role="status">
-      <strong>正在编辑设置</strong>
-      <span>当前内容是草稿，保存后生效。</span>
-    </div>
+  <TabsRoot v-model="activeTab" class="settings-tabs" activation-mode="automatic">
+    <TabsList class="settings-tabs__list" aria-label="偏好设置分类">
+      <TabsTrigger v-for="tab in settingsTabs" :key="tab.value" :value="tab.value" class="settings-tabs__trigger">
+        <component :is="tab.icon" aria-hidden="true" />
+        {{ tab.label }}
+      </TabsTrigger>
+    </TabsList>
 
-    <section class="workspace-group" aria-labelledby="settings-paths-title">
-      <div class="workspace-group__header">
-        <h3 id="settings-paths-title" class="workspace-group__title">路径设置</h3>
-        <p class="workspace-group__description">启动器当前使用的目录和文件位置。</p>
+    <TabsContent value="paths" class="settings-panel">
+      <div class="settings-panel__header">
+        <p class="settings-panel__description">
+          {{ editingSettings ? "当前内容是草稿，保存后生效。" : "启动器当前使用的目录和文件位置。" }}
+        </p>
+        <div class="settings-panel__actions">
+          <template v-if="editingSettings">
+            <LauncherButton :icon="XIcon" :disabled="controlsDisabled" @click="emit('cancelEdit')">放弃</LauncherButton>
+            <LauncherButton
+              :icon="SaveIcon"
+              :emphasis="controlsDisabled ? 'regular' : 'prominent'"
+              :disabled="controlsDisabled"
+              @click="emit('saveSettings')"
+            >
+              保存
+            </LauncherButton>
+          </template>
+          <LauncherButton v-else :icon="PencilIcon" :disabled="controlsDisabled" @click="emit('beginEdit')">编辑路径</LauncherButton>
+        </div>
       </div>
 
       <div v-if="editingSettings" class="field-list content-group">
@@ -133,47 +182,47 @@ function updateCloseBehavior(value: AcceptableValue) {
           :title="field.value || undefined"
         />
       </dl>
-    </section>
+    </TabsContent>
 
-    <section class="workspace-group" aria-labelledby="settings-close-title">
-      <div class="workspace-group__header">
-        <h3 id="settings-close-title" class="workspace-group__title">关闭行为</h3>
-        <p class="workspace-group__description">关闭窗口时采用的默认动作。</p>
+    <TabsContent value="close" class="settings-panel">
+      <div class="settings-panel__header">
+        <p :id="`${optionId}-description`" class="settings-panel__description">关闭启动器窗口时执行的操作，选择后立即生效。</p>
       </div>
 
       <RadioGroupRoot
-        v-if="editingSettings"
-        class="choice-list content-group"
-        :model-value="settingsDraft.closeBehavior"
-        :disabled="controlsDisabled"
-        aria-labelledby="settings-close-title"
-        @update:model-value="updateCloseBehavior"
+        class="close-options"
+        :model-value="closeBehavior"
+        :disabled="closeBehaviorDisabled"
+        aria-label="关闭窗口时的操作"
+        :aria-describedby="`${optionId}-description`"
+        @update:model-value="selectCloseBehavior"
       >
-        <label
+        <RadioGroupItem
           v-for="option in closeBehaviorOptions"
           :key="option.value"
-          class="choice-row"
-          :data-selected="settingsDraft.closeBehavior === option.value"
+          class="close-option"
+          :value="option.value"
+          :data-tone="option.tone"
+          :aria-labelledby="`${optionId}-${option.value}`"
+          :aria-describedby="`${optionId}-${option.value}-detail`"
         >
-          <RadioGroupItem class="choice-row__radio" :value="option.value">
-            <RadioGroupIndicator class="choice-row__radio-dot" />
-          </RadioGroupItem>
-          <span class="choice-row__body">
-            <span class="choice-row__title">{{ option.label }}</span>
-            <span class="choice-row__detail">{{ option.detail }}</span>
-          </span>
-        </label>
+          <span class="close-option__icon" aria-hidden="true"><component :is="option.icon" /></span>
+          <span class="close-option__mark" aria-hidden="true"><CheckIcon /></span>
+          <span :id="`${optionId}-${option.value}`" class="close-option__title">{{ option.label }}</span>
+          <span :id="`${optionId}-${option.value}-detail`" class="close-option__detail">{{ option.detail }}</span>
+        </RadioGroupItem>
       </RadioGroupRoot>
-      <div v-else class="choice-summary content-group">
-        <strong>{{ closeBehavior.label }}</strong>
-        <span>{{ closeBehavior.detail }}</span>
-      </div>
-    </section>
 
-    <section class="workspace-group" aria-labelledby="settings-maintenance-title">
-      <div class="workspace-group__header">
-        <h3 id="settings-maintenance-title" class="workspace-group__title">维护操作</h3>
-        <p class="workspace-group__description">用于重置管理员账号或退出启动器。</p>
+      <p v-if="serviceTransitioning" class="settings-panel__note">服务正在启动或停止，完成后才能更改。</p>
+      <div v-else-if="closeBehaviorError" class="attention-note" data-severity="danger" role="alert">
+        <strong>关闭方式没有保存</strong>
+        <span>{{ closeBehaviorError }}</span>
+      </div>
+    </TabsContent>
+
+    <TabsContent value="maintenance" class="settings-panel">
+      <div class="settings-panel__header">
+        <p class="settings-panel__description">重置管理员账号或退出启动器。</p>
       </div>
 
       <div class="action-list content-group">
@@ -194,6 +243,6 @@ function updateCloseBehavior(value: AcceptableValue) {
           <LauncherButton class="launcher-button--danger" :disabled="controlsDisabled" @click="emit('exit')">退出启动器</LauncherButton>
         </div>
       </div>
-    </section>
-  </div>
+    </TabsContent>
+  </TabsRoot>
 </template>

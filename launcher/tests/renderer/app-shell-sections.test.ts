@@ -11,7 +11,7 @@ import AppShellStatusSection from "@renderer/AppShellStatusSection.vue";
 import { isRuntimePreparationIssue } from "@renderer/AppShell.shared";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import { createLauncherSnapshot } from "../helpers/snapshot";
-import { elementsWithText, getButton, getTextbox, hasText, queryButton } from "../helpers/dom";
+import { elementsWithText, findButton, getButton, getTextbox, hasText, queryButton, selectTab } from "../helpers/dom";
 
 function mountStatusSection(snapshot: LauncherSnapshot) {
   return mount(AppShellStatusSection, {
@@ -26,6 +26,21 @@ function mountStatusSection(snapshot: LauncherSnapshot) {
 
 function mountAboutSection(snapshot: LauncherSnapshot) {
   return mount(AppShellAboutSection, { props: { snapshot, controlsDisabled: false } });
+}
+
+function mountSettingsSection(snapshot: LauncherSnapshot) {
+  return mount(AppShellSettingsSection, {
+    props: {
+      snapshot,
+      settingsDraft: snapshot.launcher.settings,
+      resolvedSettings: snapshot.launcher.resolvedSettings,
+      editingSettings: false,
+      closeBehavior: snapshot.launcher.settings.closeBehavior,
+      closeBehaviorError: "",
+      busyAction: null,
+      controlsDisabled: false,
+    },
+  });
 }
 
 describe("runtime preparation issue classification", () => {
@@ -167,25 +182,24 @@ describe("Launcher workspace presentation", () => {
   });
 
   test("separates settings reading mode from its editable controls", async () => {
-    const wrapper = mount(AppShellSettingsSection, {
-      props: {
-        snapshot: configuredSnapshot,
-        settingsDraft: configuredSnapshot.launcher.settings,
-        resolvedSettings: configuredSnapshot.launcher.resolvedSettings,
-        editingSettings: false,
-        busyAction: null,
-        controlsDisabled: false,
-      },
-    });
+    const wrapper = mountSettingsSection(configuredSnapshot);
 
     expect(wrapper.find("input").exists()).toBe(false);
-    expect(hasText("每次询问", wrapper.element)).toBe(true);
 
     await wrapper.setProps({ editingSettings: true });
 
     expect(getTextbox("安装目录", wrapper.element).value).toBe("C:\\RayleaBot");
-    const askEveryTime = wrapper.findAll("label.choice-row").find((row) => row.text().includes("每次询问"));
-    expect(askEveryTime?.get("[role=radio]").attributes("aria-checked")).toBe("true");
+  });
+
+  // Saving settings cancels a startup in flight, so the close behavior waits until the service settles.
+  test("locks the close behavior while the service is starting", async () => {
+    const wrapper = mountSettingsSection(createLauncherSnapshot({
+      launcher: { ...configuredSnapshot.launcher, processLifecycle: "starting", processOwnership: "launcher_managed" },
+    }));
+
+    selectTab("关闭窗口", wrapper.element);
+
+    expect((await findButton("隐藏到托盘", wrapper.element)).disabled).toBe(true);
   });
 
   test("keeps technical diagnostics collapsed and promotes real stderr", async () => {

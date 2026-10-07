@@ -15,7 +15,7 @@ export const auth = {
     title: '重置管理员账号',
     body: '在运行 RayleaBot 的设备上完成重置，然后重新创建管理员账号。',
     launcherTitle: '使用启动器',
-    launcherBody: '打开启动器的“偏好设置”，在“维护操作 → 重置管理员账号”中选择“立即重置”并确认。启动器会停止服务、完成重置并重新启动服务。',
+    launcherBody: '打开启动器的“偏好设置”，在“维护”页签的“重置管理员账号”中选择“立即重置”并确认。启动器会停止服务、完成重置并重新启动服务。',
     cliTitle: '使用命令行',
     cliWindows: 'Windows · PowerShell',
     cliUnix: 'macOS / Linux',

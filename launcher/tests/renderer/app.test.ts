@@ -5,7 +5,7 @@ import LauncherRoot from "@renderer/LauncherRoot.vue";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { createDesktopApi, installDesktopApi } from "../helpers/desktop-api";
-import { findButton, findDialog, getButton, getTextbox, hasText, queryButton, queryDialog } from "../helpers/dom";
+import { findButton, findDialog, getButton, getTextbox, hasText, queryButton, queryDialog, selectTab } from "../helpers/dom";
 import { createLauncherSnapshot } from "../helpers/snapshot";
 
 const TEST_INSTALLATION_ROOT = "C:\\RayleaBotTest\\workspace";
@@ -166,7 +166,7 @@ describe("App", () => {
     const api = mountLauncher({ getSnapshot: vi.fn(async () => loadedSnapshot) });
 
     (await findButton("偏好设置")).click();
-    (await findButton("编辑设置")).click();
+    (await findButton("编辑路径")).click();
     const installInput = await vi.waitFor(() => getTextbox("安装目录"));
     installInput.value = "D:\\RayleaPortable";
     installInput.dispatchEvent(new Event("input"));
@@ -176,6 +176,29 @@ describe("App", () => {
       expect(getTextbox("服务端程序").value).toBe("D:\\RayleaPortable\\server\\raylea-server.exe");
       expect(getTextbox("配置文件").value).toBe("D:\\RayleaPortable\\config\\user.yaml");
     });
+  });
+
+  test("saves a chosen close behavior at once without the path draft", async () => {
+    const api = mountLauncher({ getSnapshot: vi.fn(async () => loadedSnapshot) });
+
+    (await findButton("偏好设置")).click();
+    (await findButton("编辑路径")).click();
+    const installInput = await vi.waitFor(() => getTextbox("安装目录"));
+    installInput.value = "D:\\RayleaPortable";
+    installInput.dispatchEvent(new Event("input"));
+
+    selectTab("关闭窗口");
+    (await findButton("隐藏到托盘")).click();
+
+    await vi.waitFor(() => expect(api.saveSettings).toHaveBeenCalledWith({ ...loadedSnapshot.launcher.settings, closeBehavior: "hide_to_tray" }));
+    expect(getButton("隐藏到托盘").getAttribute("aria-checked")).toBe("true");
+
+    // Saving the draft later keeps the chosen behavior, although no snapshot has confirmed it yet.
+    selectTab("路径");
+    (await findButton("保存")).click();
+    await vi.waitFor(() => expect(api.saveSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({ installationRoot: "D:\\RayleaPortable", closeBehavior: "hide_to_tray" }),
+    ));
   });
 
   test("restores a pending close confirmation until cancellation succeeds", async () => {

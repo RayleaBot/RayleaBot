@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GlobeIcon, PencilIcon, RotateCwIcon, SaveIcon, XIcon } from "@lucide/vue";
+import { GlobeIcon, RotateCwIcon } from "@lucide/vue";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import { computed } from "vue";
@@ -17,9 +17,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   refresh: [];
   openWeb: [];
-  beginEdit: [];
-  cancelEdit: [];
-  saveSettings: [];
 }>();
 
 const sectionMeta = computed(() => sectionContent[props.renderedSection]);
@@ -56,20 +53,6 @@ const canPrepareRuntime = computed(() =>
         <LauncherButton v-if="canPrepareRuntime" :icon="GlobeIcon" emphasis="prominent" @click="emit('openWeb')">
           在管理界面准备
         </LauncherButton>
-      </template>
-      <template v-else-if="renderedSection === 'settings'">
-        <template v-if="editingSettings">
-          <LauncherButton :icon="XIcon" :disabled="controlsDisabled" @click="emit('cancelEdit')">放弃</LauncherButton>
-          <LauncherButton
-            :icon="SaveIcon"
-            :emphasis="controlsDisabled ? 'regular' : 'prominent'"
-            :disabled="controlsDisabled"
-            @click="emit('saveSettings')"
-          >
-            保存
-          </LauncherButton>
-        </template>
-        <LauncherButton v-else :icon="PencilIcon" :disabled="controlsDisabled" @click="emit('beginEdit')">编辑设置</LauncherButton>
       </template>
     </div>
   </header>

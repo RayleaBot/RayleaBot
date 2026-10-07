@@ -4,8 +4,13 @@ function normalizedText(value: string | null | undefined) {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
-/** The accessible name of a control: its aria-label, or its text. */
+/** The accessible name of a control: the text of the elements labelling it, its aria-label, or its text. */
 function controlName(element: Element) {
+  const labelIds = element.getAttribute("aria-labelledby")?.split(/\s+/).filter(Boolean) ?? [];
+  if (labelIds.length > 0) {
+    const root = element.getRootNode() as ParentNode;
+    return labelIds.map((id) => normalizedText(root.querySelector(`[id="${id}"]`)?.textContent)).join(" ");
+  }
   return element.getAttribute("aria-label") ?? normalizedText(element.textContent);
 }
 
@@ -37,6 +42,11 @@ export function getButton(name: string, root: ParentNode = document.body): HTMLB
 
 export function findButton(name: string, root: ParentNode = document.body) {
   return vi.waitFor(() => getButton(name, root));
+}
+
+/** Reka tabs activate on a primary-button press rather than on click. */
+export function selectTab(name: string, root: ParentNode = document.body) {
+  getButton(name, root).dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
 }
 
 /** The open dialog labelled by the given title, as Reka links them with aria-labelledby, or any open dialog. */

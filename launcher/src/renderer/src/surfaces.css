@@ -919,14 +919,12 @@
 
 .environment-workspace,
 .diagnostics-workspace,
-.settings-workspace,
 .about-workspace {
   display: grid;
   gap: 24px;
 }
 
 .check-list.content-group,
-.choice-list.content-group,
 .technical-disclosure.content-group {
   overflow: hidden;
 }
@@ -1278,9 +1276,246 @@
   white-space: pre;
 }
 
-/* Settings workspace */
-.settings-workspace > .attention-note {
+/* Settings workspace. Page tabs sit on the canvas under the page title, like the Web's page tabs: a neutral icon
+   before each label, and the active tab in the brand foreground with an underline. */
+.settings-tabs {
+  display: grid;
+  gap: 20px;
+}
+
+.settings-tabs__list {
+  display: flex;
+  gap: 24px;
+  padding-inline: 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-tabs__trigger {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: -1px;
+  padding: 8px 2px;
+  color: var(--color-text-muted);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.settings-tabs__trigger .lucide {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-tabs__trigger:hover {
+  color: var(--color-text);
+}
+
+.settings-tabs__trigger[data-state="active"] {
+  color: var(--color-brand-foreground);
+  border-bottom-color: var(--color-brand-foreground);
+  font-weight: 700;
+}
+
+.settings-tabs__trigger:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.settings-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-panel[hidden] {
+  display: none;
+}
+
+.settings-panel:focus-visible {
+  border-radius: 20px;
+  outline-offset: 6px;
+}
+
+.settings-panel__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  min-height: 36px;
+  padding-inline: 8px;
+}
+
+.settings-panel__description,
+.settings-panel__note {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.settings-panel__note {
+  padding-inline: 8px;
+}
+
+.settings-panel__actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.settings-panel > .attention-note {
   margin-top: 0;
+}
+
+/* Close behaviors are option cards on the canvas: the control fill lifted by the raised shadow. The chosen card
+   takes the brand-soft fill and a filled check; the others show the empty ring of a single choice. */
+.close-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.close-option {
+  display: grid;
+  grid-template-areas:
+    "icon . mark"
+    "title title title"
+    "detail detail detail";
+  grid-template-columns: 40px minmax(0, 1fr) 20px;
+  align-content: start;
+  padding: 16px 16px 18px;
+  color: var(--color-text);
+  border: 0;
+  border-radius: 20px;
+  background: var(--control-fill);
+  box-shadow: var(--shadow-raised);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color var(--motion-control) var(--ease-precision),
+    background-color var(--motion-control) var(--ease-precision),
+    box-shadow var(--motion-control) var(--ease-precision);
+}
+
+.close-option:enabled:hover {
+  background: var(--control-fill-hover);
+}
+
+.close-option:enabled:active {
+  background: var(--control-fill-pressed);
+  box-shadow: none;
+}
+
+.close-option[data-state="checked"],
+.close-option[data-state="checked"]:enabled:hover {
+  background: var(--color-brand-soft);
+}
+
+.close-option:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.close-option__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  grid-area: icon;
+  place-items: center;
+  color: var(--color-text-muted);
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+}
+
+.close-option[data-state="checked"] .close-option__icon {
+  color: var(--color-brand-foreground);
+}
+
+.close-option[data-tone="danger"] .close-option__icon {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.close-option__mark {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  grid-area: mark;
+  place-items: center;
+  color: var(--color-on-brand);
+  border: 1px solid var(--color-border-control);
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  transition:
+    border-color var(--motion-control) var(--ease-precision),
+    background-color var(--motion-control) var(--ease-precision);
+}
+
+.close-option__mark .lucide {
+  width: 12px;
+  height: 12px;
+  stroke-width: 3;
+  opacity: 0;
+  transition: opacity var(--motion-control) var(--ease-precision);
+}
+
+.close-option[data-state="checked"] .close-option__mark {
+  border-color: var(--color-brand-fill);
+  background: var(--color-brand-fill);
+}
+
+.close-option[data-state="checked"] .close-option__mark .lucide {
+  opacity: 1;
+}
+
+.close-option__title {
+  grid-area: title;
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.close-option__detail {
+  grid-area: detail;
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Secondary text on the chosen card is tinted from its brand-soft fill. */
+.close-option[data-state="checked"] .close-option__detail {
+  color: color-mix(in srgb, var(--color-text-muted) 70%, var(--color-brand-foreground));
+}
+
+/* A locked option keeps its fill and loses its lift, like a disabled button. */
+.launcher-theme .close-option:disabled {
+  color: var(--color-text-muted) !important;
+  background: var(--control-fill) !important;
+  box-shadow: none;
+  cursor: default;
+}
+
+.launcher-theme .close-option[data-state="checked"]:disabled {
+  background: var(--color-brand-soft) !important;
+}
+
+.close-option[data-state="checked"]:disabled .close-option__icon {
+  color: var(--color-text-muted);
+}
+
+.close-option:disabled .close-option__mark {
+  border-color: var(--color-border);
+}
+
+.close-option[data-state="checked"]:disabled .close-option__mark {
+  border-color: var(--color-text-muted);
+  background: var(--color-text-muted);
 }
 
 .field-list,
@@ -1331,99 +1566,19 @@
   font-size: 13px;
 }
 
-.choice-list {
-  display: grid;
-}
-
-.choice-row {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  min-height: 60px;
-  padding: 8px 18px 8px 10px;
-  cursor: pointer;
-}
-
-.choice-row + .choice-row::before {
-  position: absolute;
-  top: 0;
-  right: 18px;
-  left: 18px;
-  border-top: 1px solid var(--color-border);
-  content: "";
-}
-
-.choice-row:hover {
-  background: var(--color-nav-hover);
-}
-
-.choice-row[data-selected="true"] {
-  background: var(--color-brand-soft);
-}
-
-.choice-row:has(.choice-row__radio:disabled) {
-  cursor: default;
-}
-
-/* A ring that fills with a brand dot when chosen. */
-.choice-row__radio {
-  display: grid;
-  width: 20px;
-  height: 20px;
-  margin: 10px;
-  padding: 0;
-  place-items: center;
-  border: 1px solid var(--color-border-control);
-  border-radius: 50%;
-  background: var(--color-surface-raised);
-  cursor: inherit;
-}
-
-.choice-row__radio[data-state="checked"] {
-  border-color: var(--color-brand-fill);
-}
-
-.choice-row__radio:disabled {
-  border-color: var(--color-border);
-  background: var(--color-surface-soft);
-}
-
-.choice-row__radio-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-brand-fill);
-}
-
-.choice-row__radio:disabled .choice-row__radio-dot {
-  background: var(--color-text-muted);
-}
-
-.choice-row__body,
-.choice-summary,
 .action-row__copy {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.choice-row__title,
-.choice-summary strong,
 .action-row__copy strong {
   font-weight: 500;
 }
 
-.choice-row__detail,
-.choice-summary span,
 .action-row__copy span {
   color: var(--color-text-muted);
   font-size: 13px;
-}
-
-.choice-summary {
-  padding: 14px 18px;
 }
 
 .action-row {
@@ -1877,7 +2032,8 @@
   }
 
   .launcher-button,
-  .launcher-tile {
+  .launcher-tile,
+  .close-option {
     color: ButtonText;
     border: 1px solid ButtonText;
     background: ButtonFace;
@@ -1891,7 +2047,8 @@
     background: Highlight;
   }
 
-  .launcher-button:disabled {
+  .launcher-button:disabled,
+  .launcher-theme .close-option:disabled {
     color: GrayText !important;
     border-color: GrayText;
   }
@@ -1946,23 +2103,29 @@
   .check-row__icon,
   .action-row__icon,
   .launcher-tile__icon,
+  .close-option__icon,
   .check-row__remediation {
     border: 1px solid CanvasText;
   }
 
-  .choice-row[data-selected="true"] {
+  .close-option[data-state="checked"] {
     outline: 2px solid Highlight;
     outline-offset: -2px;
   }
 
-  .choice-row__radio,
+  .settings-tabs__trigger[data-state="active"] {
+    border-bottom-color: Highlight;
+  }
+
+  .close-option__mark,
   .launcher-checkbox {
     border-color: CanvasText;
   }
 
-  .choice-row__radio-dot,
+  .close-option[data-state="checked"] .close-option__mark,
   .launcher-checkbox[data-state="checked"] {
     forced-color-adjust: none;
+    color: HighlightText;
     background: Highlight;
   }
 
@@ -1971,8 +2134,7 @@
     outline-offset: -2px;
   }
 
-  .disclosure > summary:hover,
-  .choice-row:hover {
+  .disclosure > summary:hover {
     background: transparent;
   }
 }

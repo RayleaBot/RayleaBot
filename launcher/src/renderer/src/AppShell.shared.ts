@@ -5,6 +5,9 @@ import {
   FileTextIcon,
   HeartPulseIcon,
   InfoIcon,
+  LogOutIcon,
+  MessageCircleQuestionMarkIcon,
+  MinusIcon,
   PowerIcon,
   RefreshCwIcon,
   SettingsIcon,
@@ -102,14 +105,23 @@ export const busyActionLabels: Record<string, string> = {
   "reset-admin": "正在重置管理员账号",
 };
 
+/** The tray and exit options use the glyphs and tones of the close confirmation's choices. */
 export const closeBehaviorOptions: Array<{
   value: LauncherSettings["closeBehavior"];
   label: string;
   detail: string;
+  icon: Component;
+  tone?: "danger";
 }> = [
-  { value: "ask_every_time", label: "每次询问", detail: "每次关闭窗口时都显示确认选项。" },
-  { value: "hide_to_tray", label: "隐藏到托盘", detail: "关闭窗口后启动器留在托盘，服务继续运行。" },
-  { value: "exit_application", label: "完全退出", detail: "关闭窗口时退出启动器；由启动器启动的服务会一并停止。" },
+  { value: "ask_every_time", label: "每次询问", detail: "每次关闭窗口时都显示确认选项。", icon: MessageCircleQuestionMarkIcon },
+  { value: "hide_to_tray", label: "隐藏到托盘", detail: "关闭窗口后启动器留在托盘，服务继续运行。", icon: MinusIcon },
+  {
+    value: "exit_application",
+    label: "完全退出",
+    detail: "关闭窗口时退出启动器；由启动器启动的服务会一并停止。",
+    icon: LogOutIcon,
+    tone: "danger",
+  },
 ];
 
 /** A build without build_info.json has no version; while the first check runs the version may still arrive. */

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { motion } from "motion-v";
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef, watch } from "vue";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherAdvancedOverrides, LauncherSettings, LauncherSnapshot } from "@shared/launcher-models";
 
@@ -67,8 +67,29 @@ function updateInstallationRoot(installationRoot: string) {
   updateSettings((current) => ({ ...current, installationRoot }));
 }
 
-function updateCloseBehavior(closeBehavior: LauncherSettings["closeBehavior"]) {
-  updateSettings((current) => ({ ...current, closeBehavior }));
+// A chosen close behavior shows at once and saves on its own, without the path draft; the next snapshot that
+// changes the saved behavior replaces the choice, since the call result and the snapshot arrive in either order.
+const pendingCloseBehavior = shallowRef<LauncherSettings["closeBehavior"] | null>(null);
+const closeBehaviorError = ref("");
+const closeBehavior = computed(() => pendingCloseBehavior.value ?? snapshot.value.launcher.settings.closeBehavior);
+watch(() => snapshot.value.launcher.settings.closeBehavior, () => {
+  pendingCloseBehavior.value = null;
+  closeBehaviorError.value = "";
+});
+
+async function saveCloseBehavior(next: LauncherSettings["closeBehavior"]) {
+  if (busyAction.value !== null || next === closeBehavior.value) return;
+  pendingCloseBehavior.value = next;
+  closeBehaviorError.value = "";
+  busyAction.value = "save-close-behavior";
+  try {
+    await window.rayleaLauncher.saveSettings({ ...snapshot.value.launcher.settings, closeBehavior: next });
+  } catch (error) {
+    pendingCloseBehavior.value = null;
+    closeBehaviorError.value = describeLauncherError(error, "请稍后重试。");
+  } finally {
+    busyAction.value = null;
+  }
 }
 
 function updateAdvancedOverride(key: keyof LauncherAdvancedOverrides, value: string) {
@@ -89,7 +110,7 @@ async function saveSettings() {
   const draft = editingDraft.value;
   if (!draft) return;
   await runAction("save", async () => {
-    await window.rayleaLauncher.saveSettings(draft);
+    await window.rayleaLauncher.saveSettings({ ...draft, closeBehavior: closeBehavior.value });
     editingSettings.value = false;
     editingDraft.value = null;
   });
@@ -161,9 +182,6 @@ const desktop = () => window.rayleaLauncher;
             :editing-settings="editingSettings"
             @refresh="runAction('refresh', () => desktop().refresh())"
             @open-web="runAction('open-web', () => desktop().openWebUi())"
-            @begin-edit="beginEdit"
-            @cancel-edit="cancelEdit"
-            @save-settings="saveSettings"
           />
 
           <div :key="activeSection" class="section-shell__content">
@@ -195,15 +213,20 @@ const desktop = () => window.rayleaLauncher;
               :settings-draft="settingsDraft"
               :resolved-settings="resolvedSettings"
               :editing-settings="editingSettings"
+              :close-behavior="closeBehavior"
+              :close-behavior-error="closeBehaviorError"
               :busy-action="busyAction"
               :controls-disabled="controlsDisabled"
+              @begin-edit="beginEdit"
+              @cancel-edit="cancelEdit"
+              @save-settings="saveSettings"
               @update-installation-root="updateInstallationRoot"
-              @update-close-behavior="updateCloseBehavior"
               @update-advanced-override="updateAdvancedOverride"
               @choose-installation-root="choosePath(() => desktop().chooseInstallationRoot(), updateInstallationRoot)"
               @choose-server="choosePath(() => desktop().chooseServerExecutable(), (value) => updateAdvancedOverride('serverExecutablePath', value))"
               @choose-config="choosePath(() => desktop().chooseConfigFile(), (value) => updateAdvancedOverride('configPath', value))"
               @choose-workdir="choosePath(() => desktop().chooseWorkdir(), (value) => updateAdvancedOverride('workdir', value))"
+              @select-close-behavior="saveCloseBehavior"
               @reset-admin="confirmedAction = 'reset-admin'"
               @exit="desktop().exitApplication()"
             />
