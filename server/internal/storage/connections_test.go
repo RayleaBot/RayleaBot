@@ -3,9 +3,36 @@ package storage
 import (
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"path/filepath"
 	"testing"
+
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
+
+// A deferred transaction would take the write lock at its first write and could then fail with SQLITE_BUSY
+// halfway through; write transactions take it when they begin.
+func TestWriteTransactionsTakeTheWriteLockAtBegin(t *testing.T) {
+	store := mustOpenStore(t, filepath.Join(t.TempDir(), "state.db"))
+	t.Cleanup(func() { _ = store.Close() })
+	contender, err := sql.Open(sqliteDriverName, store.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = contender.Close() })
+
+	tx, err := store.Write.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	_, err = contender.ExecContext(t.Context(), "BEGIN IMMEDIATE")
+	var sqliteErr *sqlite.Error
+	if !errors.As(err, &sqliteErr) || sqliteErr.Code() != sqlite3.SQLITE_BUSY {
+		t.Fatalf("competing writer error = %v, want SQLITE_BUSY", err)
+	}
+}
 
 func TestAllConnectionsAndReplacementsKeepPragmas(t *testing.T) {
 	store := mustOpenStore(t, filepath.Join(t.TempDir(), "state # +.db"))
