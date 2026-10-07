@@ -12,7 +12,7 @@
     "version": { "$ref": "#/$defs/semver" },
     "manifest_version": { "type": "string", "const": "4" },
     "license": { "type": "string", "minLength": 1 },
-    "min_core_version": { "$ref": "#/$defs/semver", "description": "Manifest v4 requires RayleaBot 0.7.0 or later; earlier versions and 0.7.0 prereleases are rejected." },
+    "min_core_version": { "$ref": "#/$defs/semver", "description": "Manifest v4 requires RayleaBot 0.4.0 or later; earlier versions and 0.4.0 prereleases are rejected." },
     "metadata": { "$ref": "#/$defs/metadata" },
     "concurrency": { "type": "integer", "minimum": 1, "maximum": 128, "default": 1 },
     "priority": { "$ref": "#/$defs/message_priority" },
@@ -47,10 +47,10 @@
           "not": {
             "anyOf": [
               {
-                "pattern": "^0\\.[0-6]\\."
+                "pattern": "^0\\.[0-3]\\."
               },
               {
-                "pattern": "^0\\.7\\.0-"
+                "pattern": "^0\\.4\\.0-"
               }
             ]
           }

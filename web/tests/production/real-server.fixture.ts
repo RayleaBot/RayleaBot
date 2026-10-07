@@ -77,7 +77,7 @@ export const test = base.extend<{ server: Server; configPanel: boolean; buildInf
       await writeFile(configPath, YAML.stringify(config))
       await cp(path.join(repoRoot, 'web', 'dist'), path.join(root, 'web', 'dist'), { recursive: true })
       await cp(path.join(repoRoot, 'templates'), path.join(root, 'templates'), { recursive: true })
-      if (buildInfo) await writeFile(path.join(root, 'build_info.json'), JSON.stringify({ version: '0.7.0' }))
+      if (buildInfo) await writeFile(path.join(root, 'build_info.json'), JSON.stringify({ version: '0.4.0' }))
       if (configPanel) {
         const source = path.join(repoRoot, 'examples/plugins/example-config-panel')
         const destination = path.join(root, 'plugins/installed/example-config-panel')

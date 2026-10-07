@@ -11,7 +11,7 @@
 | `id`、`name`、`version` | 稳定插件 ID、展示名称和语义版本 |
 | `manifest_version` | 固定为 `"4"` |
 | `license` | 许可证标识 |
-| `min_core_version` | 能运行该插件的最低 RayleaBot 版本；manifest v4 插件声明 `0.7.0` 或更高，不接受 `0.7.0` 预发布版本；构建器与 Server 均会拒绝更低的声明 |
+| `min_core_version` | 能运行该插件的最低 RayleaBot 版本；manifest v4 插件声明 `0.4.0` 或更高，不接受 `0.4.0` 预发布版本；构建器与 Server 均会拒绝更低的声明 |
 
 常用可选字段：
 

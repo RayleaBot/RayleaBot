@@ -6,7 +6,7 @@
     "name": "通用服务提供者",
     "version": "1.0.0",
     "manifest_version": "4",
-    "min_core_version": "0.7.0",
+    "min_core_version": "0.4.0",
     "license": "MIT",
     "services": [
       {

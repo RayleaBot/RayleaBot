@@ -130,7 +130,7 @@ func runtimeTestArtifact(t *testing.T) (string, plugins.Snapshot) {
 	copyRuntimeTestFile(t, executable, backend)
 	manifest := map[string]any{
 		"id": "runtime-test", "name": "Runtime test", "version": "0.4.0", "manifest_version": "4",
-		"license": "MIT", "min_core_version": "0.7.0",
+		"license": "MIT", "min_core_version": "0.4.0",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 	manifestBytes = append(manifestBytes, '\n')

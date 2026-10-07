@@ -1511,7 +1511,7 @@
           "maximum": 31536000
         }
       },
-      "description": "Omitted TTL writes permanently and clears the previous deadline. Always validate key, value, single-value size and global live quota in the same write transaction; capture host time once. TTL requires min_core_version >= 0.6.0."
+      "description": "Omitted TTL writes permanently and clears the previous deadline. Always validate key, value, single-value size and global live quota in the same write transaction; capture host time once. TTL requires min_core_version >= 0.4.0."
     },
     "action_storage_kv_delete_data": {
       "type": "object",
@@ -2973,7 +2973,7 @@
         }
       ],
       "unevaluatedProperties": false,
-      "description": "Implicit plugin-private, parent-event-bound conversation action. Success result: #/$defs/session_wait_result. Requires min_core_version >= 0.6.0."
+      "description": "Implicit plugin-private, parent-event-bound conversation action. Success result: #/$defs/session_wait_result. Requires min_core_version >= 0.4.0."
     },
     "action_session_finish": {
       "allOf": [
@@ -3007,7 +3007,7 @@
         }
       ],
       "unevaluatedProperties": false,
-      "description": "Implicit plugin-private, parent-event-bound conversation action. Success result: #/$defs/session_finish_result. Requires min_core_version >= 0.6.0."
+      "description": "Implicit plugin-private, parent-event-bound conversation action. Success result: #/$defs/session_finish_result. Requires min_core_version >= 0.4.0."
     },
     "action_event_detach_data": {
       "type": "object",

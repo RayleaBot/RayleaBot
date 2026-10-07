@@ -832,7 +832,7 @@ func TestInstallServiceRejectsIncompatibleMinimumCoreVersion(t *testing.T) {
 
 func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Registry, initial []plugins.Snapshot, repository plugins.DesiredStateRepository, deps installerDeps) (*InstallService, *plugincatalog.Catalog) {
 	t.Helper()
-	testutil.WriteBuildInfo(t, repoRoot, "0.7.0")
+	testutil.WriteBuildInfo(t, repoRoot, "0.4.0")
 
 	validator, err := config.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
 	if err != nil {
@@ -895,7 +895,7 @@ func TestInstallRejectsUnknownCoreVersion(t *testing.T) {
 				t.Fatalf("unknown build accepted an installation: %v", err)
 			}
 			var versionErr *plugins.CoreVersionIncompatibleError
-			if !errors.As(err, &versionErr) || versionErr.Reason != plugins.CoreVersionUnknown || versionErr.MinCoreVersion != "0.7.0" {
+			if !errors.As(err, &versionErr) || versionErr.Reason != plugins.CoreVersionUnknown || versionErr.MinCoreVersion != "0.4.0" {
 				t.Fatalf("unknown build error = %#v", err)
 			}
 		}
@@ -1033,7 +1033,7 @@ func writeInstallSourcePlugin(t *testing.T, root, pluginID string) string {
 		"version":          "0.1.0",
 		"manifest_version": "4",
 		"license":          "MIT",
-		"min_core_version": "0.7.0",
+		"min_core_version": "0.4.0",
 		"metadata": map[string]any{
 			"description": "test plugin",
 			"author":      "raylea",

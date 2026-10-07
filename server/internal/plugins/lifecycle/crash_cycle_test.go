@@ -78,7 +78,7 @@ func TestCrashAfterSuccessfulInitReachesDeadLetterWithoutRestartingPeer(t *testi
 			t.Fatal(err)
 		}
 		entry := "probe" + filepath.Ext(executable)
-		manifest, _ := json.Marshal(map[string]any{"id": id, "name": id, "version": "1.0.0", "manifest_version": "4", "min_core_version": "0.7.0", "license": "MIT", "events": []string{"plugin.started"}})
+		manifest, _ := json.Marshal(map[string]any{"id": id, "name": id, "version": "1.0.0", "manifest_version": "4", "min_core_version": "0.4.0", "license": "MIT", "events": []string{"plugin.started"}})
 		artifactDoc, _ := json.Marshal(map[string]any{"artifact_version": "2", "target_platform": platform, "entry": entry})
 		for name, data := range map[string][]byte{entry: binary, "info.json": manifest, "artifact.json": artifactDoc, ".crash-cycle-probe": []byte(mode)} {
 			if err := os.WriteFile(filepath.Join(dir, name), data, 0o755); err != nil {

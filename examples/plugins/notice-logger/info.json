@@ -4,7 +4,7 @@
   "version": "0.2.0",
   "manifest_version": "4",
   "license": "MIT",
-  "min_core_version": "0.7.0",
+  "min_core_version": "0.4.0",
   "metadata": {
     "description": "Logs group member join and leave events",
     "author": "raylea"

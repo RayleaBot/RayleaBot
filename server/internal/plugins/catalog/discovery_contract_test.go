@@ -281,7 +281,7 @@ func compileSchema(t *testing.T) *config.Validator {
 func baseManifest(pluginID string) map[string]any {
 	return map[string]any{
 		"id": pluginID, "name": pluginID, "version": "0.4.0", "manifest_version": "4",
-		"license": "MIT", "min_core_version": "0.7.0",
+		"license": "MIT", "min_core_version": "0.4.0",
 		"metadata": map[string]any{"description": "fixture plugin", "author": "raylea"},
 		"events":   []string{},
 	}

@@ -4,7 +4,7 @@ import "testing"
 
 func TestBuildValidatesCommandPrefixes(t *testing.T) {
 	manifest := func(prefixes *ManifestCommandPrefixes) Manifest {
-		return Manifest{ID: "prefix-fixture", Name: "prefix", Version: "1.0.0", ManifestVersion: "4", MinCoreVersion: "0.7.0", License: "MIT", CommandPrefixes: prefixes}
+		return Manifest{ID: "prefix-fixture", Name: "prefix", Version: "1.0.0", ManifestVersion: "4", MinCoreVersion: "0.4.0", License: "MIT", CommandPrefixes: prefixes}
 	}
 	for name, scenario := range map[string]struct {
 		prefixes *ManifestCommandPrefixes

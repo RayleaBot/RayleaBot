@@ -3,7 +3,7 @@
   "name": "三轮会话示例",
   "version": "0.6.0",
   "manifest_version": "4",
-  "min_core_version": "0.7.0",
+  "min_core_version": "0.4.0",
   "license": "MIT",
   "concurrency": 1,
   "metadata": { "author": "RayleaBot", "description": "回调式三轮选择、错误输入重试与临时 KV 结果。" },

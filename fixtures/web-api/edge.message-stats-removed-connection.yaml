@@ -3,7 +3,7 @@ case: edge
 description: >
   Seven local days by day. onebot-old was deleted from the configuration on
   27 September but still has counts in range, so it follows the configured
-  connections with configured false. The 0.6.0 update stopped the server from
+  connections with configured false. A core update stopped the server from
   10:07 to 10:26 local time on 28 September, and onebot11 was offline overnight
   into today.
 request:

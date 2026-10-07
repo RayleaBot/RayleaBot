@@ -5,7 +5,7 @@
   "manifest_version": "4",
   "license": "MIT",
   "commands": [],
-  "min_core_version": "0.7.0",
+  "min_core_version": "0.4.0",
   "metadata": {
     "description": "Go example plugin demonstrating route-forwarded webhooks with request headers and the raw body.",
     "author": "raylea"

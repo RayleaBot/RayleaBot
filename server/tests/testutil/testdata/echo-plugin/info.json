@@ -19,7 +19,7 @@
       }
     }
   ],
-  "min_core_version": "0.7.0",
+  "min_core_version": "0.4.0",
   "metadata": {
     "description": "Compiled test fixture for runtime and recovery tests",
     "author": "raylea"

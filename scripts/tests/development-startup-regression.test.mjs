@@ -28,7 +28,7 @@ test('standalone plugin builder can invoke Go inside the sanitized development e
   await fs.writeFile(path.join(plugin, 'main.go'), 'package main\nfunc main() {}\n')
   await fs.writeFile(path.join(plugin, 'LICENSE'), 'fixture license\n')
   await fs.writeFile(path.join(plugin, 'info.json'), JSON.stringify({
-    id: 'startup.fixture', name: 'Startup fixture', version: '0.4.0', manifest_version: '4', min_core_version: '0.7.0', license: 'MIT',
+    id: 'startup.fixture', name: 'Startup fixture', version: '0.4.0', manifest_version: '4', min_core_version: '0.4.0', license: 'MIT',
   }))
   const workspace = path.join(temporary, 'go.work')
   await fs.writeFile(workspace, renderDevelopmentGoWork({ sdkGoPath: path.join(repository, 'sdk/go'), plugins: [{ path: plugin }] }))
