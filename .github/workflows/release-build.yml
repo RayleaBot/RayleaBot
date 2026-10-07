@@ -106,6 +106,9 @@ jobs:
           else
             (cd server && go build -o ../dist/server/raylea-server ./cmd/raylea-server)
           fi
+          if [ "${{ matrix.artifact_id }}" = "macos-arm64-full" ]; then
+            codesign --force --sign - dist/server/raylea-server
+          fi
 
       - name: Install web dependencies
         working-directory: web

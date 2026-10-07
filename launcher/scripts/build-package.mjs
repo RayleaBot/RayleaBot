@@ -31,6 +31,7 @@ await ensureWindowsResources();
 await run(process.execPath, ["scripts/build-app.mjs"]);
 
 let output;
+let appBundle;
 if (process.platform === "win32") {
   output = path.join(packageRoot, "win-unpacked", "RayleaLauncher.exe");
 } else if (process.platform === "darwin") {
@@ -39,7 +40,8 @@ if (process.platform === "win32") {
     releaseTag: process.env.RAYLEA_BUILD_VERSION || process.env.GITHUB_REF_NAME,
     packageVersion: packageMetadata.version,
   });
-  const bundleRoot = path.join(packageRoot, process.arch === "arm64" ? "mac-arm64" : "mac", "RayleaLauncher.app", "Contents");
+  appBundle = path.join(packageRoot, process.arch === "arm64" ? "mac-arm64" : "mac", "RayleaLauncher.app");
+  const bundleRoot = path.join(appBundle, "Contents");
   output = path.join(bundleRoot, "MacOS", "RayleaLauncher");
   await fs.mkdir(path.join(bundleRoot, "MacOS"), { recursive: true });
   await fs.writeFile(
@@ -73,6 +75,10 @@ if (!stat.isFile() || stat.size === 0) {
 }
 if (process.platform !== "win32") {
   await fs.chmod(output, 0o755);
+}
+if (appBundle) {
+  // The Go linker signs only the executable; an ad hoc signature of the bundle also seals Info.plist.
+  await run("codesign", ["--force", "--sign", "-", appBundle]);
 }
 if (process.platform === "win32") {
   await fs.copyFile(

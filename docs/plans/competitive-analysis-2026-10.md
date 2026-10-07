@@ -481,7 +481,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | G74 | Launcher 恢复与迁移向导 | restore 只写入未启动过的新目录，“切换安装根”会牵动一键更新，工作量 L |
 | G75 | 远程渲染后端（browserless 类） | 需要新增配置契约并写明信任边界；不引入第二套渲染引擎 |
 | G76 | 诊断包加入 Go 运行时 profile | 已落地（选型复核 C4）；进程 RSS 视图已被复核剥离，不重提 |
-| G77 | macOS 首启放行说明 | 部署文档已补充 quarantine 放行步骤（选型复核 C6）；签名按发布约束不做，macOS 下载量为 0，support_level 标 experimental |
+| G77 | macOS 首启放行说明 | 部署文档已补充 quarantine 放行步骤，包内应用改为完整的 ad hoc 签名（选型复核 C6）；能否改用系统设置中的“仍要打开”待 Apple Silicon 实机验证；macOS 下载量为 0，support_level 标 experimental |
 
 ### 7.2 有意取舍
 
