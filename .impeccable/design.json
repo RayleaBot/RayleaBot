@@ -1435,11 +1435,6 @@
         "purpose": "Web 路由在 View Transition 不可用或历史导航时使用 WAAPI 降级动画。"
       },
       {
-        "name": "fluent-motion",
-        "value": "9.16.2",
-        "purpose": "Launcher Fluent 浮层使用 WAAPI presence 管理进入、退出、取消和卸载。"
-      },
-      {
         "name": "auth-surface-entry",
         "value": "420ms",
         "purpose": "认证面板只在进入认证布局时呈现表面过渡，切换恢复指引不重复播放，空闲时没有持续绘制循环；reduced-motion 下即时呈现。"
@@ -1498,7 +1493,7 @@
         128,
         256
       ],
-      "windowsResourceVerification": "python launcher/scripts/verify-windows-icon-resources.py",
+      "windowsResourceVerification": "go run ./tools/cmd/verify-windows-icon-resources",
       "trayDarkPng": "32x32"
     },
     "layers": {
@@ -1586,7 +1581,7 @@
   ],
   "narrative": {
     "northStar": "白底浅灰",
-    "overview": "RayleaBot 使用白色页面、浅灰盒子与柔和阴影组织管理任务，蓝色只用于主操作、链接与焦点。导航连接连续工作区，黑白人物标识提供品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；盒子只以阴影与页面分开，页面上的控件为浅灰、盒子里的控件为白色，普通文字、分隔线与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 使用基于 Reka UI 的产品组件，Launcher 使用 Fluent UI。\n\nWeb 正式路由统一使用 Vue 3、Reka UI、自有 shadcn-vue 组件源码、Tailwind CSS 与 Motion for Vue，覆盖应用壳、认证、协议、插件、账号、治理、配置和诊断工作区。主题、字体与密度通过共享 CSS 变量和产品组件提供，页面复用统一的交互与反馈机制。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。\n\nWeb 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部的组件库由各插件维护，Launcher 使用自己的原生组件体系。",
+    "overview": "RayleaBot 使用白色页面、浅灰盒子与柔和阴影组织管理任务，蓝色只用于主操作、链接与焦点。导航连接连续工作区，黑白人物标识提供品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；盒子只以阴影与页面分开，页面上的控件为浅灰、盒子里的控件为白色，普通文字、分隔线与选中背景保持中性。Web 与 Launcher 共享视觉语义；两端都在 Reka UI 原语上维护各自的产品组件。\n\nWeb 正式路由统一使用 Vue 3、Reka UI、自有 shadcn-vue 组件源码、Tailwind CSS 与 Motion for Vue，覆盖应用壳、认证、协议、插件、账号、治理、配置和诊断工作区。主题、字体与密度通过共享 CSS 变量和产品组件提供，页面复用统一的交互与反馈机制。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。\n\nWeb 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部的组件库由各插件维护，Launcher 使用自己的原生组件体系。",
     "keyCharacteristics": [
       "白色页面、浅灰盒子与柔和阴影，不使用渐变、背景模糊或半透明材质。",
       "蓝色主操作、链接与焦点，以及按亮暗主题切换原版与反色版的黑白人物标识。",

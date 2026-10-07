@@ -1,18 +1,20 @@
-import { useCallback, useState } from "react";
+import { readonly, ref } from "vue";
 
 import type { SectionId } from "./AppShell.shared";
 import { runLauncherWorkspaceTransition } from "./launcherMotion";
 
 export function useLauncherSectionState() {
-  const [activeSection, setActiveSectionState] = useState<SectionId>("status");
+  const activeSection = ref<SectionId>("status");
 
-  const setActiveSection = useCallback((nextSection: SectionId) => {
-    if (nextSection === activeSection) return;
-    runLauncherWorkspaceTransition(() => setActiveSectionState(nextSection));
-  }, [activeSection]);
+  const setActiveSection = (nextSection: SectionId) => {
+    if (nextSection === activeSection.value) return;
+    runLauncherWorkspaceTransition(() => {
+      activeSection.value = nextSection;
+    });
+  };
 
   return {
-    activeSection,
+    activeSection: readonly(activeSection),
     setActiveSection,
   };
 }

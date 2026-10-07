@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import vue from "@vitejs/plugin-vue";
 import path from "node:path";
 
 import { createPreserveWailsEmbedPlaceholderPlugin } from "./scripts/vite-placeholder.ts";
@@ -10,7 +10,7 @@ export default defineConfig({
   root: "src/renderer",
   base: "/",
   plugins: [
-    react(),
+    vue(),
     createPreserveWailsEmbedPlaceholderPlugin(frontendDist),
   ],
   resolve: {
@@ -26,9 +26,9 @@ export default defineConfig({
       output: {
         codeSplitting: {
           groups: [
-            { name: "react", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 20 },
+            { name: "vue", test: /node_modules[\\/](vue|@vue)[\\/]/, priority: 20 },
             { name: "wails-runtime", test: /node_modules[\\/]@wailsio[\\/]runtime[\\/]/, priority: 20 },
-            { name: "fluent-ui", test: /node_modules[\\/]@fluentui[\\/]/, priority: 10 },
+            { name: "ui", test: /node_modules[\\/](reka-ui|@floating-ui|motion-v|framer-motion|motion-dom|motion-utils|@lucide)[\\/]/, priority: 10 },
           ],
         },
       },

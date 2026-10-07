@@ -31,7 +31,7 @@ Go、Node.js、Python、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 
 | JS package bootstrap | Corepack `0.35.0` |
 | JS package manager | `pnpm 11.25.0` |
 | Web UI | Vue `3.5.41` + Vite `8.2.1` + Reka UI `2.10.4` + shadcn-vue 自有组件源码 + Motion for Vue `2.4.2` + Vue Router `5.2.0` + Pinia `4.0.3` |
-| Launcher runtime | Wails v3 `v3.0.0-beta.9` + `@wailsio/runtime 3.0.0-beta.9` + Go `1.27.1` + TypeScript `5.9.3` + React `19.2.8` + Fluent UI React v9 + Motion `13.3.0` + Vite `8.2.1` + `@vitejs/plugin-react 6.0.5` |
+| Launcher runtime | Wails v3 `v3.0.0-beta.9` + `@wailsio/runtime 3.0.0-beta.9` + Go `1.27.1` + TypeScript `5.9.3` + Vue `3.5.41` + Reka UI `2.10.4` + Motion for Vue `2.4.2` + Vite `8.2.1` + `@vitejs/plugin-vue 6.0.8` |
 | Repository scripting | Python `3.14.8` |
 | Go static analysis | golangci-lint `v2.13.0`（支持 Go 1.27） |
 | SQL generation | sqlc `v1.31.1` |
@@ -78,8 +78,8 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 | Web 动效 | Motion for Vue 管理产品浮层、内容变化与导航降级动画；页面和主题继续使用受控 View Transition API，CSS transition 承担简单控件状态 |
 | Launcher 桌面宿主 | Wails v3 Go host + `internal/desktop` typed service layer |
 | Launcher 桌面桥接 | Wails generated bindings 暴露受限 typed API |
-| Launcher 渲染层 | React 19 + Fluent UI React v9 + Motion + View Transition API + Vite 单页面桌面壳，支持亮/暗双色主题 |
-| Launcher 动效 | Motion 管理浮层、工作区与界面状态动画，Fluent 组件自带的弹层与 Dialog 动画关闭；主题由 Motion 驱动受控 View Transition 快照，CSS transition 承担简单控件状态 |
+| Launcher 渲染层 | Vue 3 + Reka UI 无样式原语与自有组件 + Lucide 图标 + Motion for Vue + View Transition API + Vite 单页面桌面壳，支持亮/暗双色主题；与 Web 共用前端框架与组件原语，组件代码各自维护 |
+| Launcher 动效 | Motion for Vue 管理对话框、工作区与界面状态动画，主题菜单使用 CSS 进入动画；主题由 Motion 驱动受控 View Transition 快照，CSS transition 承担简单控件状态 |
 | 仓库级 JS 包管理器 | `pnpm` |
 | 插件后端 | 当前平台原生可执行文件；实现语言不限。Go 插件可使用独立 module 与 `sdk/go`，`cmd/<plugin-id>` 为推荐入口 |
 | 插件管理页 | 独立 Vue package + `sdk/vue`；Vite 固定 `base: "./"`，产物位于 artifact 的 `ui/` |
@@ -172,7 +172,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 | `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
 | `launcher/go.mod` | 固定与 `.tool-versions` 一致的 Go 版本、Wails v3 Go module 与桌面宿主依赖 |
 | `launcher/go.sum` | 维护 Launcher Go 依赖锁定结果 |
-| `launcher/package.json` | 固定与 `.tool-versions` 一致的 `packageManager`、`engines.node`，以及 Wails runtime/Vite/React/`@vitejs/plugin-react` 与构建脚本 |
+| `launcher/package.json` | 固定与 `.tool-versions` 一致的 `packageManager`、`engines.node`，以及 Wails runtime/Vite/Vue/`@vitejs/plugin-vue` 与构建脚本 |
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
 | `go.work` | 连接 server、Go SDK 和 Go 示例的主仓库工作区；Launcher 使用独立 Go module，启动与构建脚本固定 `GOWORK=off`，避免 Wails 依赖改变 server 的模块选择；独立插件只通过本地临时开发工作区连接 |
 | `.deps/manifest.json` | 固定资源名、版本线、可信来源列表、SHA256、archive_format、entrypoints 与平台矩阵 |

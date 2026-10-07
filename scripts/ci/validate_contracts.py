@@ -1273,10 +1273,10 @@ def validate_baseline() -> None:
             },
         },
         ROOT / "launcher" / "package.json": {
-            "allowBuilds": None,
+            "allowBuilds": {
+                "vue-demi": True,
+            },
             "overrides": {
-                "@fluentui/react-motion": "9.16.2",
-                "js-yaml": "4.2.0",
                 "undici": "8.10.0",
             },
         },

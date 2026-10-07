@@ -1,6 +1,5 @@
-import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { flushSync } from "react-dom";
-import { animate, motionValue } from "motion/react";
+import { nextTick, onScopeDispose, readonly, ref, type Ref } from "vue";
+import { animate, motionValue } from "motion-v";
 
 export const launcherMotion = {
   control: 160,
@@ -53,34 +52,16 @@ function prefersReducedMotion(): boolean {
     Boolean(window.matchMedia?.(reducedMotionQuery).matches);
 }
 
-function subscribeReducedMotion(onChange: () => void) {
+/** Reduced motion and forced colors, as a live value for Motion components. */
+export function useLauncherReducedMotion(): Readonly<Ref<boolean>> {
+  const reduced = ref(prefersReducedMotion());
   const query = typeof window === "undefined" ? undefined : window.matchMedia?.(reducedMotionQuery);
-  query?.addEventListener?.("change", onChange);
-  return () => query?.removeEventListener?.("change", onChange);
-}
-
-/** Reduced motion and forced colors, as a live React value for Motion components. */
-export function useLauncherReducedMotion(): boolean {
-  return useSyncExternalStore(subscribeReducedMotion, prefersReducedMotion, () => false);
-}
-
-/**
- * Keeps an overlay mounted after it is asked to close, until `finishExit` reports that its exit animation
- * ended. `finishExit` ignores completions that arrive while the overlay is open again.
- */
-export function useExitPresence(open: boolean): readonly [present: boolean, finishExit: () => void] {
-  const [mounted, setMounted] = useState(open);
-  if (open && !mounted) {
-    setMounted(true);
-  }
-  const openRef = useRef(open);
-  useLayoutEffect(() => {
-    openRef.current = open;
-  }, [open]);
-  const finishExit = useCallback(() => {
-    if (!openRef.current) setMounted(false);
-  }, []);
-  return [open || mounted, finishExit] as const;
+  const update = () => {
+    reduced.value = Boolean(query?.matches);
+  };
+  query?.addEventListener?.("change", update);
+  onScopeDispose(() => query?.removeEventListener?.("change", update));
+  return readonly(reduced);
 }
 
 function supportsViewTransitions(): boolean {
@@ -88,18 +69,18 @@ function supportsViewTransitions(): boolean {
     typeof document.startViewTransition === "function";
 }
 
+/** Vue renders the update before the next frame, so the fade starts on the new workspace. */
 export function runLauncherWorkspaceTransition(update: () => void): void {
   const interrupted = workspaceAnimation !== null;
   workspaceAnimation?.stop();
   workspaceAnimation = null;
 
+  update();
   if (prefersReducedMotion()) {
     workspaceOpacity.jump(1);
-    update();
     return;
   }
 
-  flushSync(update);
   // An interrupted fade continues from its current opacity instead of dropping back to the entry opacity.
   workspaceOpacity.jump(interrupted ? workspaceOpacity.get() : workspaceEntryOpacity);
   const controls = animate(workspaceOpacity, 1, {
@@ -149,9 +130,11 @@ function startLauncherViewTransition(
 
   let transition: ViewTransition;
   try {
+    // The new snapshot is captured once Vue has rendered the update.
     transition = document.startViewTransition(() => {
       if (request.sequence !== transitionSequence) return;
-      flushSync(request.update);
+      request.update();
+      return nextTick();
     });
   } catch {
     if (request.sequence === transitionSequence) {

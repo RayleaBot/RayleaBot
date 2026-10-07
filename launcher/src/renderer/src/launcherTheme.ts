@@ -1,67 +1,7 @@
-import { webDarkTheme, webLightTheme, type Theme } from "@fluentui/react-components";
 import {
   launcherThemes,
   type LauncherEffectiveTheme,
 } from "@shared/launcher-theme";
-
-const fluentBaseThemes: Record<LauncherEffectiveTheme, Theme> = {
-  light: webLightTheme,
-  dark: webDarkTheme,
-};
-
-export const launcherFluentThemes: Record<LauncherEffectiveTheme, Theme> = {
-  light: createLauncherFluentTheme("light"),
-  dark: createLauncherFluentTheme("dark"),
-};
-
-function createLauncherFluentTheme(effectiveTheme: LauncherEffectiveTheme): Theme {
-  const base = fluentBaseThemes[effectiveTheme];
-  const tokens = launcherThemes[effectiveTheme];
-
-  return {
-    ...base,
-    fontFamilyBase: "var(--font-sans)",
-    // HarmonyOS Sans SC ships 400, 500 and 700 only; Fluent's semibold role uses the Bold face explicitly.
-    fontWeightSemibold: 700,
-    borderRadiusMedium: "8px",
-    borderRadiusLarge: "12px",
-    colorNeutralBackground1: tokens.surface,
-    colorNeutralBackground2: tokens.canvas,
-    colorNeutralBackground3: tokens.surfaceRaised,
-    colorNeutralForeground1: tokens.text,
-    colorNeutralForeground2: tokens.textMuted,
-    colorNeutralStroke1: tokens.borderControl,
-    colorNeutralStroke2: tokens.border,
-    colorBrandBackground: tokens.brandFill,
-    colorBrandBackgroundHover: tokens.brandFillHover,
-    colorBrandBackgroundPressed: tokens.brandFillPressed,
-    colorBrandBackground2: tokens.brandSoft,
-    colorBrandBackground2Hover: tokens.surfaceSoft,
-    colorBrandBackground2Pressed: tokens.brandSoft,
-    colorBrandForeground1: tokens.brandForeground,
-    colorBrandForeground2: tokens.brandForeground,
-    colorBrandForegroundLink: tokens.brandForeground,
-    colorBrandForegroundLinkHover: tokens.brandFillHover,
-    colorBrandForegroundLinkPressed: tokens.brandFillPressed,
-    colorCompoundBrandForeground1: tokens.brandForeground,
-    colorNeutralForeground2BrandHover: tokens.brandForeground,
-    colorNeutralForeground2BrandPressed: tokens.brandFillPressed,
-    colorNeutralForeground2BrandSelected: tokens.brandForeground,
-    colorBrandStroke1: tokens.brandStroke,
-    colorBrandStroke2: tokens.brandStroke,
-    colorCompoundBrandBackground: tokens.brandFill,
-    colorCompoundBrandBackgroundHover: tokens.brandFillHover,
-    colorCompoundBrandBackgroundPressed: tokens.brandFillPressed,
-    colorCompoundBrandStroke: tokens.brandStroke,
-    colorCompoundBrandStrokeHover: tokens.brandStroke,
-    colorCompoundBrandStrokePressed: tokens.brandStroke,
-    colorNeutralForegroundOnBrand: tokens.onBrand,
-    colorStrokeFocus2: tokens.focus,
-    colorStatusSuccessForeground1: tokens.success,
-    colorStatusWarningForeground1: tokens.warning,
-    colorStatusDangerForeground1: tokens.danger,
-  };
-}
 
 export function applyLauncherDocumentTheme(effectiveTheme: LauncherEffectiveTheme): void {
   if (typeof document === "undefined") {

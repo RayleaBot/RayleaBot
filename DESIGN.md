@@ -179,7 +179,7 @@ components:
 
 RayleaBot 使用白色页面、浅灰盒子与柔和阴影组织管理任务，蓝色只用于主操作、链接与焦点。导航连接连续工作区，黑白人物标识提供品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。
 
-界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；盒子只以阴影与页面分开，页面上的控件为浅灰、盒子里的控件为白色，普通文字、分隔线与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 使用基于 Reka UI 的产品组件，Launcher 使用 Fluent UI。
+界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；盒子只以阴影与页面分开，页面上的控件为浅灰、盒子里的控件为白色，普通文字、分隔线与选中背景保持中性。Web 与 Launcher 共享视觉语义；两端都在 Reka UI 原语上维护各自的产品组件。
 
 Web 正式路由统一使用 Vue 3、Reka UI、自有 shadcn-vue 组件源码、Tailwind CSS 与 Motion for Vue，覆盖应用壳、认证、协议、插件、账号、治理、配置和诊断工作区。主题、字体与密度通过共享 CSS 变量和产品组件提供，页面复用统一的交互与反馈机制。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。
 
@@ -237,7 +237,7 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 
 **Display Font:** HarmonyOS Sans SC，回退为 Microsoft YaHei UI、PingFang SC 与 sans-serif，用于品牌文字、页面标题和面板标题。共享 [typography.generated.css](design/typography.generated.css) 以 `@font-face` 声明 [design/fonts/harmonyos-sans-sc](design/fonts/harmonyos-sans-sc/upstream.json) 中未经修改的 Regular、Medium、Bold 三个 TTF，两端随构建打包；[字体许可协议](design/fonts/harmonyos-sans-sc/LICENSE.txt) 随两端公开资源附带，两端界面都声明使用了该字体。
 
-**Body Font:** 与标题相同的 HarmonyOS Sans SC，回退为 Microsoft YaHei UI、PingFang SC、Hiragino Sans GB 与系统无衬线字体。Web 管理面、认证页与 Launcher 的正文和标准控件都继承 `--font-sans`，Launcher 的 Fluent `fontFamilyBase` 同样映射到该变量。字体只提供 400、500、700 三个字重，600 及以上的字重使用 Bold。
+**Body Font:** 与标题相同的 HarmonyOS Sans SC，回退为 Microsoft YaHei UI、PingFang SC、Hiragino Sans GB 与系统无衬线字体。Web 管理面、认证页与 Launcher 的正文和标准控件都继承 `--font-sans`。字体只提供 400、500、700 三个字重，600 及以上的字重使用 Bold。
 
 **Label/Mono Font:** 标签沿用所在应用的正文栈。Web 日志行的时间、模块与技术元数据，详情中的模块、插件 ID、请求 ID，以及结构化数据、JSON 和代码使用 Cascadia Mono、Consolas、JetBrains Mono 等宽回退栈；日志消息正文使用界面字体，不因位于 `pre` 中而改用等宽字体。
 
@@ -290,7 +290,7 @@ forced-colors 下盒子、浮层与认证面板使用系统颜色与 1px 系统�
 
 Web 产品按钮与导航项为胶囊，输入框与选择器使用 md 圆角，卡片使用 xl 圆角，居中产品弹窗采用 xxl 圆角。配置、搜索与确认弹窗共享该形状，内部字段通过间距与分隔线分组。左右抽屉是悬浮在视口内、四角圆角的面板；底部抽屉只有上方两个角为圆角。菜单与 Toast 使用 lg 圆角，Tooltip 使用现有 md 圆角，Web 状态与分类标签是 full 圆角的紧凑胶囊。
 
-品牌标识为黑白人物，保留帽子、蝴蝶结、手势与完整曲线轮廓，以 [design/mark.json](design/mark.json) 为唯一母版。母版保留原始 `0 0 1254 1254` viewBox 与两个使用 `evenodd` 填充的贝塞尔复合路径；黑白区域均不透明，人物之外保留透明背景。原版为白发，母版的 `outline` 沿第一个路径绘制白色细轮廓，位于黑白填充后方。Web、Launcher 的界面标识与 Web favicon 在浅色主题使用原版，在暗色主题使用用户确认的整体反色版：填充与描边同步黑白互换，曲线、手势和透明背景保持一致。Launcher 功能图标使用 Fluent Regular，品牌标识不承担操作或状态含义。
+品牌标识为黑白人物，保留帽子、蝴蝶结、手势与完整曲线轮廓，以 [design/mark.json](design/mark.json) 为唯一母版。母版保留原始 `0 0 1254 1254` viewBox 与两个使用 `evenodd` 填充的贝塞尔复合路径；黑白区域均不透明，人物之外保留透明背景。原版为白发，母版的 `outline` 沿第一个路径绘制白色细轮廓，位于黑白填充后方。Web、Launcher 的界面标识与 Web favicon 在浅色主题使用原版，在暗色主题使用用户确认的整体反色版：填充与描边同步黑白互换，曲线、手势和透明背景保持一致。Launcher 功能图标使用 Lucide 线性图标，品牌标识不承担操作或状态含义。
 
 原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、亮暗托盘 PNG 和 Windows ICO 由 [图标生成脚本](scripts/generate-launcher-icons.mjs) 通过 Skia 后端的 Canvas 2D（`@napi-rs/canvas`）与 `Path2D` 直接从母版确定性光栅渲染，保留同一人物曲线与透明背景。应用 PNG 与 Windows ICO 固定使用原版；托盘按系统主题使用原版或整体反色版。标识源自经用户确认的 AI 辅助人物概念图，再转为贝塞尔矢量；PNG 内嵌对应来源元数据。ICO 包含 16、24、32、48、64、128、256px 图像，每个尺寸独立渲染而非缩放。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的生成与验证入口见 Launcher 界面规范。
 
@@ -426,7 +426,7 @@ Web 与 Launcher 的主题切换由 Motion 驱动新主题快照，从主题入�
 
 非模态桌面日志窗口保留自身 CSS 透明度与水平位移过渡（220ms），条目间的详情切换使用 160ms 淡化；它不叠加 AppDialog 的缩放和焦点锁。共享 reduced-motion 与 forced-colors 样式覆盖该窗口过渡。
 
-Launcher 动效由 Motion 驱动：工作区以 220ms 从 0.88 不透明度淡入且不位移，确认对话框进入为 220ms、退出为 160ms，退出完成后才卸载，主题菜单使用 Fluent Menu 默认的弹层动效；服务状态变化时状态圆点底色、图标与状态文字交叉过渡，启动中与停止中的同步图标缓慢旋转；可展开区域在 220ms 内展开、160ms 内收起；按钮按下时换用按下填充并收起阴影；侧栏选中背景以弹簧滑到新导航项；状态与内容在点击时更新，连续切换取消旧动画并从当前位置继续。导航持续可交互，reduced-motion 或 forced-colors 下立即完成。Web 与 Launcher 均保留 system、light、dark 主题偏好，手动选择可持久化，不使用按时钟自动切换配置。动效时长不代表帧率或性能承诺。
+Launcher 动效由 Motion 驱动：工作区以 220ms 从 0.88 不透明度淡入且不位移，确认对话框进入为 220ms、退出为 160ms，退出完成后才卸载，主题菜单以 220ms 缩放淡入；服务状态变化时状态圆点底色、图标与状态文字交叉过渡，启动中与停止中的同步图标缓慢旋转；可展开区域在 220ms 内展开、160ms 内收起；按钮按下时换用按下填充并收起阴影；侧栏选中背景以弹簧滑到新导航项；状态与内容在点击时更新，连续切换取消旧动画并从当前位置继续。导航持续可交互，reduced-motion 或 forced-colors 下立即完成。Web 与 Launcher 均保留 system、light、dark 主题偏好，手动选择可持久化，不使用按时钟自动切换配置。动效时长不代表帧率或性能承诺。
 
 **The Single Motion Owner Rule.** 同一元素只接受一种动效机制，连续操作取消旧动画并以最新状态为准。
 

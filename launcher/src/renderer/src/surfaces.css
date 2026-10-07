@@ -22,8 +22,8 @@
 
 .shell-sidebar,
 .content-group,
-.launcher-fluent-provider .fui-DialogSurface.launcher-dialog,
-.launcher-fluent-provider .theme-menu-surface {
+.launcher-dialog,
+.theme-menu-surface {
   --control-fill: var(--color-surface-raised);
   --control-fill-hover: color-mix(in srgb, var(--color-text) 4%, var(--color-surface-raised));
   --control-fill-pressed: color-mix(in srgb, var(--color-text) 8%, var(--color-surface-raised));
@@ -204,8 +204,8 @@
   place-items: center;
 }
 
-/* Fluent injects its button styles at runtime; the trigger needs the extra specificity to stay a quiet tool button. */
-.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton {
+/* The theme trigger is a quiet tool button. */
+.theme-menu-trigger {
   display: grid;
   width: 40px;
   min-width: 40px;
@@ -220,9 +220,8 @@
   cursor: pointer;
 }
 
-.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:hover,
-.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:hover:active,
-.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton[aria-expanded="true"] {
+.theme-menu-trigger:hover,
+.theme-menu-trigger[aria-expanded="true"] {
   color: var(--color-chrome-text);
   background: var(--color-nav-hover);
 }
@@ -308,99 +307,101 @@
   gap: 24px;
 }
 
-/* Buttons. Fluent styles buttons at runtime, so these selectors carry the provider class and restate every state
-   Fluent styles. A secondary button is the control fill lifted by the raised shadow; pressing drops the shadow. */
-.launcher-fluent-provider .launcher-button.fui-Button {
+/* Buttons. A secondary button is the control fill lifted by the raised shadow; pressing drops the shadow. */
+.launcher-button {
+  display: inline-flex;
   min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding-inline: 16px;
   color: var(--color-text);
   border: 0;
   border-radius: var(--radius-pill);
   background: var(--control-fill);
   box-shadow: var(--shadow-raised);
+  font-size: 14px;
   font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
   transition:
     color var(--motion-control) var(--ease-precision),
     background-color var(--motion-control) var(--ease-precision),
     box-shadow var(--motion-control) var(--ease-precision);
 }
 
-.launcher-fluent-provider .launcher-button.fui-Button:enabled:hover {
+.launcher-button:enabled:hover {
   color: var(--color-text);
   background: var(--control-fill-hover);
 }
 
-.launcher-fluent-provider .launcher-button.fui-Button:enabled:active {
+.launcher-button:enabled:active {
   background: var(--control-fill-pressed);
   box-shadow: none;
 }
 
-.launcher-fluent-provider .launcher-button--danger.fui-Button,
-.launcher-fluent-provider .launcher-button--danger.fui-Button:enabled:hover {
+.launcher-button--danger,
+.launcher-button--danger:enabled:hover {
   color: var(--color-danger);
 }
 
 /* The one prominent action of a view. */
-.launcher-fluent-provider .launcher-button.fui-Button[data-emphasis="prominent"] {
+.launcher-button[data-emphasis="prominent"] {
   color: var(--color-on-brand);
   background: var(--color-brand-fill);
   font-weight: 700;
 }
 
-.launcher-fluent-provider .launcher-button.fui-Button[data-emphasis="prominent"]:enabled:hover {
+.launcher-button[data-emphasis="prominent"]:enabled:hover {
   color: var(--color-on-brand);
   background: var(--color-brand-fill-hover);
 }
 
-.launcher-fluent-provider .launcher-button.fui-Button[data-emphasis="prominent"]:enabled:active {
+.launcher-button[data-emphasis="prominent"]:enabled:active {
   background: var(--color-brand-fill-pressed);
 }
 
-.launcher-fluent-provider .service-control__primary.fui-Button {
+.launcher-button.service-control__primary {
   min-height: 40px;
   padding-inline: 20px;
 }
 
 /* A disabled button keeps its fill and loses its lift. */
-.launcher-fluent-provider .launcher-button.fui-Button:disabled {
+.launcher-button:disabled {
   color: color-mix(in srgb, var(--color-text-muted) 72%, var(--control-fill)) !important;
   background: var(--control-fill) !important;
   box-shadow: none;
   cursor: default;
 }
 
-/* Fluent's focus border and inset ring give way to the lift, so focused controls ring with an outline. */
-.launcher-fluent-provider .launcher-button.fui-Button:focus-visible,
-.launcher-fluent-provider .launcher-tile.fui-Button:focus-visible,
-.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:focus-visible {
-  border-color: transparent;
+/* Focused controls ring with an outline outside their lift. */
+.launcher-button:focus-visible,
+.launcher-tile:focus-visible,
+.theme-menu-trigger:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
-.launcher-fluent-provider .theme-menu-trigger.fui-MenuButton:focus-visible {
-  box-shadow: none;
-}
-
 /* Text fields are always the raised surface with a control border; focus colors the border and adds an inset ring. */
-.launcher-fluent-provider .settings-input.fui-Input,
-.launcher-fluent-provider .settings-input.fui-Input:hover {
+.settings-input {
+  width: 100%;
   min-height: 36px;
+  padding: 0 12px;
+  color: var(--color-text);
   border: 1px solid var(--color-border-control);
   border-radius: 10px;
   background: var(--color-surface-raised);
 }
 
-.launcher-fluent-provider .settings-input.fui-Input::after {
-  display: none;
-}
-
-.launcher-fluent-provider .settings-input.fui-Input:focus-within {
+.settings-input:focus-visible {
   border-color: var(--color-focus);
+  outline: none;
   box-shadow: inset 0 0 0 1px var(--color-focus);
 }
 
-.launcher-fluent-provider .settings-input.fui-Input:has(input:disabled) {
+.settings-input:disabled {
+  color: var(--color-text-muted);
   border-color: var(--color-border);
   background: var(--color-surface-soft);
 }
@@ -481,6 +482,7 @@
 .status-lens__core svg {
   width: 24px;
   height: 24px;
+  stroke-width: 2.5;
 }
 
 .status-lens--small {
@@ -560,7 +562,7 @@
   gap: 10px;
 }
 
-.service-control__actions .launcher-button.fui-Button {
+.service-control__actions .launcher-button {
   min-height: 40px;
 }
 
@@ -964,6 +966,8 @@
 }
 
 .disclosure__chevron {
+  width: 16px;
+  height: 16px;
   flex: none;
   color: var(--color-text-muted);
   transition: rotate var(--motion-control) var(--ease-precision);
@@ -1327,8 +1331,6 @@
   font-size: 13px;
 }
 
-/* Fluent's radio group shrinks to its options; the list spans the column like the other groups. */
-.launcher-fluent-provider .choice-group,
 .choice-list {
   display: grid;
 }
@@ -1361,8 +1363,42 @@
   background: var(--color-brand-soft);
 }
 
-.choice-row:has(input:disabled) {
+.choice-row:has(.choice-row__radio:disabled) {
   cursor: default;
+}
+
+/* A ring that fills with a brand dot when chosen. */
+.choice-row__radio {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  margin: 10px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--color-border-control);
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  cursor: inherit;
+}
+
+.choice-row__radio[data-state="checked"] {
+  border-color: var(--color-brand-fill);
+}
+
+.choice-row__radio:disabled {
+  border-color: var(--color-border);
+  background: var(--color-surface-soft);
+}
+
+.choice-row__radio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-brand-fill);
+}
+
+.choice-row__radio:disabled .choice-row__radio-dot {
+  background: var(--color-text-muted);
 }
 
 .choice-row__body,
@@ -1486,34 +1522,50 @@
   color: color-mix(in srgb, var(--color-danger) 88%, var(--color-text));
 }
 
-.launcher-fluent-provider .update-error-message {
-  border-color: transparent;
+.update-error-message {
+  padding: 12px 16px;
   border-radius: 16px;
   background: var(--color-danger-soft);
 }
 
-/* Dialogs are boxes over a plain scrim. Fluent mounts them outside the launcher-theme wrapper, which is why these
-   selectors use the provider class. */
-.launcher-fluent-provider .fui-DialogSurface__backdrop {
+.update-error-message__title {
+  display: block;
+  color: color-mix(in srgb, var(--color-danger) 84%, var(--color-text));
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* Dialogs are boxes over a plain scrim. Reka mounts them in a portal at the end of the document. */
+.launcher-dialog-scrim {
+  position: fixed;
+  z-index: var(--layer-modal);
+  inset: 0;
   background-color: var(--dialog-scrim);
 }
 
-.launcher-fluent-provider .fui-DialogSurface.launcher-dialog {
+.launcher-dialog {
+  position: fixed;
+  z-index: var(--layer-modal);
+  top: 50%;
+  left: 50%;
   width: min(92vw, 520px);
-  max-width: 520px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
   padding: 24px;
   color: var(--color-text);
-  border: 0;
   border-radius: 24px;
   background: var(--color-surface);
   box-shadow: var(--shadow-floating);
+  outline: none;
+  translate: -50% -50%;
 }
 
-.launcher-fluent-provider .launcher-dialog__body {
+.launcher-dialog__body {
+  display: grid;
   gap: 18px;
 }
 
-.launcher-fluent-provider .launcher-dialog__title {
+.launcher-dialog__title {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -1542,7 +1594,7 @@
   line-height: 1.45;
 }
 
-.launcher-fluent-provider .launcher-dialog__content {
+.launcher-dialog__content {
   display: grid;
   gap: 14px;
   overflow: visible;
@@ -1570,10 +1622,13 @@
 }
 
 /* Option tiles are wide controls on the dialog box. */
-.launcher-fluent-provider .fui-Button.launcher-tile {
+.launcher-tile {
+  display: grid;
   width: 100%;
   min-height: 72px;
-  justify-content: stretch;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
   padding: 12px 14px 12px 12px;
   color: var(--color-text);
   border: 0;
@@ -1583,24 +1638,17 @@
   font-weight: 400;
   text-align: left;
   white-space: normal;
+  cursor: pointer;
 }
 
-.launcher-fluent-provider .fui-Button.launcher-tile:enabled:hover {
+.launcher-tile:enabled:hover {
   color: var(--color-text);
   background: var(--control-fill-hover);
 }
 
-.launcher-fluent-provider .fui-Button.launcher-tile:enabled:active {
+.launcher-tile:enabled:active {
   background: var(--control-fill-pressed);
   box-shadow: none;
-}
-
-.launcher-tile__layout {
-  display: grid;
-  width: 100%;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
 }
 
 .launcher-tile__icon {
@@ -1642,103 +1690,157 @@
 }
 
 .launcher-tile__chevron {
+  width: 16px;
+  height: 16px;
   color: var(--color-text-muted);
 }
 
-.launcher-fluent-provider .launcher-dialog__actions {
+.launcher-dialog__remember {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+}
+
+.launcher-dialog__remember label {
+  cursor: pointer;
+}
+
+/* A raised box with the control border; checked boxes take the brand fill with a tick. */
+.launcher-checkbox {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  padding: 0;
+  place-items: center;
+  color: var(--color-on-brand);
+  border: 1px solid var(--color-border-control);
+  border-radius: 6px;
+  background: var(--color-surface-raised);
+  cursor: pointer;
+}
+
+.launcher-checkbox[data-state="checked"] {
+  border-color: var(--color-brand-fill);
+  background: var(--color-brand-fill);
+}
+
+.launcher-checkbox:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.launcher-checkbox__indicator .lucide {
+  width: 14px;
+  height: 14px;
+  stroke-width: 3;
+}
+
+.launcher-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
   gap: 10px;
 }
 
-.launcher-fluent-provider .launcher-button.launcher-dialog__button {
+.launcher-button.launcher-dialog__button {
   min-width: 96px;
   padding-inline: 18px;
 }
 
 /* The confirm button is the dialog's one filled action, in the tone of the decision. */
-.launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button {
+.launcher-button.launcher-dialog__button--confirm {
   --confirm-fill: var(--color-attention);
   color: var(--color-on-attention);
   background: var(--confirm-fill);
   font-weight: 700;
 }
 
-.launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button[data-tone="danger"] {
+.launcher-button.launcher-dialog__button--confirm[data-tone="danger"] {
   --confirm-fill: var(--color-danger);
   color: var(--on-status-fill);
 }
 
-.launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button:enabled:hover {
+.launcher-button.launcher-dialog__button--confirm:enabled:hover {
   color: var(--color-on-attention);
   background: color-mix(in srgb, var(--confirm-fill) 88%, var(--color-text));
 }
 
-.launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button[data-tone="danger"]:enabled:hover {
+.launcher-button.launcher-dialog__button--confirm[data-tone="danger"]:enabled:hover {
   color: var(--on-status-fill);
 }
 
-.launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button:enabled:active {
+.launcher-button.launcher-dialog__button--confirm:enabled:active {
   background: color-mix(in srgb, var(--confirm-fill) 78%, var(--color-text));
 }
 
-.launcher-fluent-provider .fui-DialogSurface.launcher-dialog[data-state="closing"] {
+.launcher-dialog[data-state="closing"] {
   pointer-events: none;
 }
 
-/* The theme menu is a floating box; Fluent mounts it in a portal as well. */
-.launcher-fluent-provider .theme-menu-surface {
-  width: 100%;
-  min-width: 168px;
+/* The theme menu is a floating box that Reka mounts in a portal. */
+.theme-menu-surface {
+  z-index: var(--layer-menu);
+  width: 168px;
   padding: 5px;
   overflow: hidden;
   color: var(--color-text);
-  border: 0;
   border-radius: 16px;
   background: var(--color-surface);
   box-shadow: var(--shadow-floating);
+  outline: none;
+  transform-origin: var(--reka-dropdown-menu-content-transform-origin);
 }
 
-.launcher-fluent-provider .theme-menu-surface .fui-MenuList {
+.theme-menu-surface[data-state="open"] {
+  animation: theme-menu-enter var(--motion-layer) var(--ease-precision);
+}
+
+.theme-menu-surface [role="group"] {
+  display: grid;
   gap: 2px;
 }
 
-.launcher-fluent-provider .theme-menu-surface .theme-menu-item {
+.theme-menu-item {
+  display: flex;
   min-height: 36px;
+  align-items: center;
   gap: 8px;
   padding: 6px 10px;
   color: var(--color-text);
   border-radius: 10px;
-  background: transparent;
   font-size: 13px;
+  outline: none;
+  cursor: default;
 }
 
-.launcher-fluent-provider .theme-menu-surface .theme-menu-item:hover {
-  color: var(--color-text);
+.theme-menu-item[data-highlighted] {
   background: var(--color-nav-hover);
 }
 
-.launcher-fluent-provider .theme-menu-surface .theme-menu-item:focus-visible {
-  outline-offset: -2px;
-}
-
-.launcher-fluent-provider .theme-menu-surface .fui-MenuItemRadio__icon {
-  order: 1;
+.theme-menu-item__icon {
   color: var(--color-text-muted);
 }
 
-.launcher-fluent-provider .theme-menu-surface .fui-MenuItemRadio__content {
-  order: 2;
-  flex: 0 1 auto;
+.theme-menu-item[data-highlighted] .theme-menu-item__icon,
+.theme-menu-item[data-state="checked"] .theme-menu-item__icon {
+  color: var(--color-text);
 }
 
-.launcher-fluent-provider .theme-menu-surface .fui-MenuItemRadio__checkmark {
-  order: 3;
+.theme-menu-item__check {
+  display: grid;
   margin-left: auto;
   color: var(--color-brand-foreground);
 }
 
-.launcher-fluent-provider .theme-menu-surface .theme-menu-item:hover .fui-MenuItemRadio__icon,
-.launcher-fluent-provider .theme-menu-surface .theme-menu-item[aria-checked="true"] .fui-MenuItemRadio__icon {
-  color: var(--color-text);
+.theme-menu-item__check .lucide {
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes theme-menu-enter {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @media (max-width: 1050px) {
@@ -1752,13 +1854,13 @@
 }
 
 @media (pointer: coarse) {
-  .launcher-fluent-provider .theme-menu-trigger.fui-MenuButton,
-  .launcher-fluent-provider .launcher-button.fui-Button {
+  .theme-menu-trigger,
+  .launcher-button {
     min-width: 44px;
     min-height: 44px;
   }
 
-  .launcher-fluent-provider .theme-menu-surface .theme-menu-item {
+  .theme-menu-item {
     min-height: 44px;
   }
 }
@@ -1767,29 +1869,29 @@
   .shell-sidebar,
   .content-group,
   .about-identity__mark,
-  .launcher-fluent-provider .theme-menu-surface,
-  .launcher-fluent-provider .fui-DialogSurface.launcher-dialog {
+  .theme-menu-surface,
+  .launcher-dialog {
     border: 1px solid CanvasText;
     background: Canvas;
     box-shadow: none;
   }
 
-  .launcher-fluent-provider .launcher-button.fui-Button,
-  .launcher-fluent-provider .fui-Button.launcher-tile {
+  .launcher-button,
+  .launcher-tile {
     color: ButtonText;
     border: 1px solid ButtonText;
     background: ButtonFace;
     box-shadow: none;
   }
 
-  .launcher-fluent-provider .launcher-button.fui-Button[data-emphasis="prominent"],
-  .launcher-fluent-provider .launcher-button.launcher-dialog__button--confirm.fui-Button {
+  .launcher-button[data-emphasis="prominent"],
+  .launcher-button.launcher-dialog__button--confirm {
     color: HighlightText;
     border-color: Highlight;
     background: Highlight;
   }
 
-  .launcher-fluent-provider .launcher-button.fui-Button:disabled {
+  .launcher-button:disabled {
     color: GrayText !important;
     border-color: GrayText;
   }
@@ -1849,6 +1951,22 @@
   }
 
   .choice-row[data-selected="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .choice-row__radio,
+  .launcher-checkbox {
+    border-color: CanvasText;
+  }
+
+  .choice-row__radio-dot,
+  .launcher-checkbox[data-state="checked"] {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+
+  .theme-menu-item[data-highlighted] {
     outline: 2px solid Highlight;
     outline-offset: -2px;
   }

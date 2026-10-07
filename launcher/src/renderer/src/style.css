@@ -33,7 +33,6 @@
 html,
 body,
 #app,
-#app > .launcher-fluent-provider,
 .launcher-theme {
   width: 100%;
   min-width: 0;
@@ -84,6 +83,14 @@ body {
 button,
 input {
   font: inherit;
+}
+
+/* Lucide glyphs sit at the 20px icon size with a light stroke; status, menu and chevron glyphs set their own. */
+.lucide {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  stroke-width: 1.75;
 }
 
 .launcher-theme button,
@@ -198,17 +205,6 @@ code,
   border-color: color-mix(in srgb, var(--color-border) 84%, var(--color-surface)) !important;
   background: color-mix(in srgb, var(--color-border) 24%, var(--color-surface)) !important;
   opacity: 1;
-}
-
-.theme-menu-positioner {
-  width: 168px;
-  min-width: 168px;
-  padding: 0 !important;
-  overflow: visible !important;
-  color: inherit;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
 }
 
 .theme-menu-error {
@@ -415,8 +411,49 @@ code,
   gap: 8px;
 }
 
+.runtime-prepare-panel__summary,
+.runtime-prepare-item__title strong {
+  font-size: 12px;
+  line-height: 16px;
+}
+
 .runtime-prepare-progress-row > :first-child {
   flex: 1;
+}
+
+/* A known size slides the fill in; an unknown one runs a short bar across the track. */
+.runtime-prepare-progress {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-soft);
+}
+
+.runtime-prepare-progress__bar {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-brand-fill);
+  transition: transform var(--motion-content) var(--ease-precision);
+}
+
+.runtime-prepare-progress[data-state="indeterminate"] .runtime-prepare-progress__bar {
+  width: 40%;
+  animation: runtime-prepare-indeterminate 1.4s var(--ease-precision) infinite;
+}
+
+.runtime-prepare-item--succeeded .runtime-prepare-progress__bar {
+  background: var(--color-success);
+}
+
+.runtime-prepare-item--failed .runtime-prepare-progress__bar {
+  background: var(--color-danger);
+}
+
+@keyframes runtime-prepare-indeterminate {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
 }
 
 .runtime-prepare-progress-text {
@@ -531,20 +568,10 @@ html[data-theme="light"] :is(
 }
 
 @media (prefers-reduced-motion: reduce), (forced-colors: active) {
-  .launcher-fluent-provider {
-    --durationUltraFast: 0ms;
-    --durationFaster: 0ms;
-    --durationFast: 0ms;
-    --durationNormal: 0ms;
-    --durationGentle: 0ms;
-    --durationSlow: 0ms;
-    --durationSlower: 0ms;
-    --durationUltraSlow: 0ms;
-    transition: none;
-  }
   .disclosure__chevron { transition: none; }
   .launcher-loading-shell::before { animation: none; opacity: 1; transform: none; }
-  .runtime-prepare-panel .fui-ProgressBar__bar { animation: none; transition: none; }
+  .runtime-prepare-progress__bar { animation: none; transition: none; }
+  .theme-menu-surface[data-state] { animation: none; }
   html::view-transition-group(root), html::view-transition-old(root), html::view-transition-new(root) { animation: none !important; }
 }
 
@@ -565,6 +592,3 @@ code, time, .mono { font-variant-numeric: tabular-nums; }
   :root { --sidebar-width: 156px; }
 }
 
-@media (pointer: coarse) {
-  .launcher-theme .fui-Button { min-width: 44px; min-height: 44px; }
-}

@@ -38,104 +38,56 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | go | modernc.org/mathutil | v1.7.1 | BSD-3-Clause |
 | go | modernc.org/memory | v1.12.0 | BSD-3-Clause |
 | go | modernc.org/sqlite | v1.56.0 | BSD-3-Clause |
-| npm:launcher | @babel/runtime | 7.29.7 | MIT |
-| npm:launcher | @emotion/hash | 0.9.2 | MIT |
+| npm:launcher | @babel/helper-string-parser | 7.29.7 | MIT |
+| npm:launcher | @babel/helper-validator-identifier | 7.29.7 | MIT |
+| npm:launcher | @babel/parser | 7.29.8 | MIT |
+| npm:launcher | @babel/types | 7.29.8 | MIT |
 | npm:launcher | @floating-ui/core | 1.8.0 | MIT |
-| npm:launcher | @floating-ui/devtools | 0.2.3 | MIT |
 | npm:launcher | @floating-ui/dom | 1.8.0 | MIT |
 | npm:launcher | @floating-ui/utils | 0.2.12 | MIT |
-| npm:launcher | @fluentui/keyboard-keys | 9.0.9 | MIT |
-| npm:launcher | @fluentui/priority-overflow | 9.4.2 | MIT |
-| npm:launcher | @fluentui/react-accordion | 9.12.2 | MIT |
-| npm:launcher | @fluentui/react-alert | 9.0.1-0 | MIT |
-| npm:launcher | @fluentui/react-aria | 9.17.14 | MIT |
-| npm:launcher | @fluentui/react-avatar | 9.11.5 | MIT |
-| npm:launcher | @fluentui/react-badge | 9.5.5 | MIT |
-| npm:launcher | @fluentui/react-breadcrumb | 9.4.5 | MIT |
-| npm:launcher | @fluentui/react-button | 9.11.0 | MIT |
-| npm:launcher | @fluentui/react-card | 9.7.2 | MIT |
-| npm:launcher | @fluentui/react-carousel | 9.9.12 | MIT |
-| npm:launcher | @fluentui/react-checkbox | 9.6.4 | MIT |
-| npm:launcher | @fluentui/react-color-picker | 9.3.0 | MIT |
-| npm:launcher | @fluentui/react-combobox | 9.17.5 | MIT |
-| npm:launcher | @fluentui/react-components | 9.74.6 | MIT |
-| npm:launcher | @fluentui/react-context-selector | 9.2.19 | MIT |
-| npm:launcher | @fluentui/react-dialog | 9.18.3 | MIT |
-| npm:launcher | @fluentui/react-divider | 9.7.4 | MIT |
-| npm:launcher | @fluentui/react-drawer | 9.13.2 | MIT |
-| npm:launcher | @fluentui/react-field | 9.5.4 | MIT |
-| npm:launcher | @fluentui/react-icons | 2.0.337 | MIT |
-| npm:launcher | @fluentui/react-image | 9.4.4 | MIT |
-| npm:launcher | @fluentui/react-infobutton | 9.0.0-beta.119 | MIT |
-| npm:launcher | @fluentui/react-infolabel | 9.4.24 | MIT |
-| npm:launcher | @fluentui/react-input | 9.8.6 | MIT |
-| npm:launcher | @fluentui/react-jsx-runtime | 9.4.5 | MIT |
-| npm:launcher | @fluentui/react-label | 9.4.4 | MIT |
-| npm:launcher | @fluentui/react-link | 9.8.4 | MIT |
-| npm:launcher | @fluentui/react-list | 9.6.17 | MIT |
-| npm:launcher | @fluentui/react-menu | 9.25.3 | MIT |
-| npm:launcher | @fluentui/react-message-bar | 9.7.5 | MIT |
-| npm:launcher | @fluentui/react-motion | 9.16.2 | MIT |
-| npm:launcher | @fluentui/react-motion-components-preview | 0.15.7 | MIT |
-| npm:launcher | @fluentui/react-nav | 9.4.4 | MIT |
-| npm:launcher | @fluentui/react-overflow | 9.9.2 | MIT |
-| npm:launcher | @fluentui/react-persona | 9.7.7 | MIT |
-| npm:launcher | @fluentui/react-popover | 9.14.6 | MIT |
-| npm:launcher | @fluentui/react-portal | 9.8.15 | MIT |
-| npm:launcher | @fluentui/react-positioning | 9.23.1 | MIT |
-| npm:launcher | @fluentui/react-progress | 9.5.4 | MIT |
-| npm:launcher | @fluentui/react-provider | 9.22.20 | MIT |
-| npm:launcher | @fluentui/react-radio | 9.6.5 | MIT |
-| npm:launcher | @fluentui/react-rating | 9.4.4 | MIT |
-| npm:launcher | @fluentui/react-search | 9.4.6 | MIT |
-| npm:launcher | @fluentui/react-select | 9.5.5 | MIT |
-| npm:launcher | @fluentui/react-shared-contexts | 9.26.3 | MIT |
-| npm:launcher | @fluentui/react-skeleton | 9.7.5 | MIT |
-| npm:launcher | @fluentui/react-slider | 9.6.5 | MIT |
-| npm:launcher | @fluentui/react-spinbutton | 9.6.5 | MIT |
-| npm:launcher | @fluentui/react-spinner | 9.8.5 | MIT |
-| npm:launcher | @fluentui/react-swatch-picker | 9.6.0 | MIT |
-| npm:launcher | @fluentui/react-switch | 9.7.5 | MIT |
-| npm:launcher | @fluentui/react-table | 9.19.19 | MIT |
-| npm:launcher | @fluentui/react-tabs | 9.12.4 | MIT |
-| npm:launcher | @fluentui/react-tabster | 9.26.17 | MIT |
-| npm:launcher | @fluentui/react-tag-picker | 9.10.2 | MIT |
-| npm:launcher | @fluentui/react-tags | 9.9.4 | MIT |
-| npm:launcher | @fluentui/react-teaching-popover | 9.7.4 | MIT |
-| npm:launcher | @fluentui/react-text | 9.6.19 | MIT |
-| npm:launcher | @fluentui/react-textarea | 9.7.6 | MIT |
-| npm:launcher | @fluentui/react-theme | 9.2.2 | MIT |
-| npm:launcher | @fluentui/react-toast | 9.8.2 | MIT |
-| npm:launcher | @fluentui/react-toolbar | 9.8.4 | MIT |
-| npm:launcher | @fluentui/react-tooltip | 9.10.5 | MIT |
-| npm:launcher | @fluentui/react-tree | 9.16.5 | MIT |
-| npm:launcher | @fluentui/react-utilities | 9.26.6 | MIT |
-| npm:launcher | @fluentui/react-virtualizer | 9.0.0-alpha.115 | MIT |
-| npm:launcher | @fluentui/tokens | 1.0.0-alpha.24 | MIT |
-| npm:launcher | @griffel/core | 1.21.3 | MIT |
-| npm:launcher | @griffel/react | 1.7.7 | MIT |
-| npm:launcher | @griffel/style-types | 1.4.2 | MIT |
+| npm:launcher | @floating-ui/vue | 1.1.11 | MIT |
+| npm:launcher | @internationalized/date | 3.12.4 | Apache-2.0 |
+| npm:launcher | @internationalized/number | 3.6.8 | Apache-2.0 |
+| npm:launcher | @jridgewell/sourcemap-codec | 1.5.5 | MIT |
+| npm:launcher | @lucide/vue | 1.41.0 | ISC |
 | npm:launcher | @swc/helpers | 0.5.23 | Apache-2.0 |
-| npm:launcher | @types/react | 19.2.18 | MIT |
-| npm:launcher | @types/react-dom | 19.2.4 | MIT |
+| npm:launcher | @tanstack/virtual-core | 3.17.11 | MIT |
+| npm:launcher | @tanstack/vue-virtual | 3.13.39 | MIT |
+| npm:launcher | @types/web-bluetooth | 0.0.21 | MIT |
+| npm:launcher | @vue/compiler-core | 3.5.41 | MIT |
+| npm:launcher | @vue/compiler-dom | 3.5.41 | MIT |
+| npm:launcher | @vue/compiler-sfc | 3.5.41 | MIT |
+| npm:launcher | @vue/compiler-ssr | 3.5.41 | MIT |
+| npm:launcher | @vue/reactivity | 3.5.41 | MIT |
+| npm:launcher | @vue/runtime-core | 3.5.41 | MIT |
+| npm:launcher | @vue/runtime-dom | 3.5.41 | MIT |
+| npm:launcher | @vue/server-renderer | 3.5.41 | MIT |
+| npm:launcher | @vue/shared | 3.5.41 | MIT |
+| npm:launcher | @vueuse/core | 14.4.0 | MIT |
+| npm:launcher | @vueuse/metadata | 14.4.0 | MIT |
+| npm:launcher | @vueuse/shared | 14.4.0 | MIT |
 | npm:launcher | @wailsio/runtime | 3.0.0-beta.9 | MIT |
+| npm:launcher | aria-hidden | 1.2.6 | MIT |
 | npm:launcher | csstype | 3.2.3 | MIT |
-| npm:launcher | embla-carousel | 8.6.0 | MIT |
-| npm:launcher | embla-carousel-autoplay | 8.6.0 | MIT |
-| npm:launcher | embla-carousel-fade | 8.6.0 | MIT |
-| npm:launcher | framer-motion | 13.3.0 | MIT |
-| npm:launcher | keyborg | 2.14.1 | MIT |
-| npm:launcher | motion | 13.3.0 | MIT |
-| npm:launcher | motion-dom | 13.3.0 | MIT |
-| npm:launcher | motion-utils | 13.3.0 | MIT |
-| npm:launcher | react | 19.2.8 | MIT |
-| npm:launcher | react-dom | 19.2.8 | MIT |
-| npm:launcher | rtl-css-js | 1.16.1 | MIT |
-| npm:launcher | scheduler | 0.27.0 | MIT |
-| npm:launcher | stylis | 4.4.0 | MIT |
-| npm:launcher | tabster | 8.8.0 | MIT |
+| npm:launcher | defu | 6.1.7 | MIT |
+| npm:launcher | entities | 7.0.1 | BSD-2-Clause |
+| npm:launcher | estree-walker | 2.0.2 | MIT |
+| npm:launcher | framer-motion | 13.5.1 | MIT |
+| npm:launcher | hey-listen | 1.0.8 | MIT |
+| npm:launcher | magic-string | 0.30.21 | MIT |
+| npm:launcher | motion-dom | 13.5.1 | MIT |
+| npm:launcher | motion-utils | 13.5.0 | MIT |
+| npm:launcher | motion-v | 2.4.2 | MIT |
+| npm:launcher | nanoid | 3.3.18 | MIT |
+| npm:launcher | ohash | 2.0.12 | MIT |
+| npm:launcher | picocolors | 1.1.1 | ISC |
+| npm:launcher | postcss | 8.5.26 | MIT |
+| npm:launcher | reka-ui | 2.10.4 | MIT |
+| npm:launcher | source-map-js | 1.2.1 | BSD-3-Clause |
 | npm:launcher | tslib | 2.8.1 | 0BSD |
-| npm:launcher | use-sync-external-store | 1.6.0 | MIT |
+| npm:launcher | typescript | 5.9.3 | Apache-2.0 |
+| npm:launcher | vue | 3.5.41 | MIT |
+| npm:launcher | vue-demi | 0.14.10 | MIT |
 | npm:web | @babel/generator | 8.0.0 | MIT |
 | npm:web | @babel/helper-string-parser | 7.29.7 | MIT |
 | npm:web | @babel/helper-string-parser | 8.0.0 | MIT |
@@ -974,7 +926,7 @@ Applies to: class-variance-authority@0.7.1
 
 ### Apache-2.0 (c2183d78d3bf)
 
-Applies to: typescript@5.9.3
+Applies to: typescript@5.9.3, typescript@5.9.3
 
     [LICENSE.txt]
     Apache License
@@ -1035,7 +987,7 @@ Applies to: typescript@5.9.3
 
 ### Apache-2.0 (d970292ca18f)
 
-Applies to: @internationalized/date@3.12.4, @internationalized/number@3.6.8
+Applies to: @internationalized/date@3.12.4, @internationalized/number@3.6.8, @internationalized/date@3.12.4, @internationalized/number@3.6.8
 
     [LICENSE]
     Apache License
@@ -1449,7 +1401,7 @@ Applies to: @swc/helpers@0.5.23, @swc/helpers@0.5.23
 
 ### BSD-2-Clause (036dc7e180f3)
 
-Applies to: entities@7.0.1
+Applies to: entities@7.0.1, entities@7.0.1
 
     [LICENSE]
     Copyright (c) Felix Böhm
@@ -1529,7 +1481,7 @@ Applies to: modernc.org/sqlite@v1.56.0
 
 ### BSD-3-Clause (72c401e38a54)
 
-Applies to: source-map-js@1.2.1
+Applies to: source-map-js@1.2.1, source-map-js@1.2.1
 
     [LICENSE]
     Copyright (c) 2009-2011, Mozilla Foundation and contributors
@@ -1861,7 +1813,7 @@ Applies to: github.com/coder/websocket@v1.8.15
 
 ### ISC (31eb4b51e067)
 
-Applies to: @lucide/vue@1.41.0
+Applies to: @lucide/vue@1.41.0, @lucide/vue@1.41.0
 
     [LICENSE]
     ISC License
@@ -1929,7 +1881,7 @@ Applies to: yaml@2.9.0
 
 ### ISC (8aaaa162277f)
 
-Applies to: picocolors@1.1.1
+Applies to: picocolors@1.1.1, picocolors@1.1.1
 
     [LICENSE]
     ISC License
@@ -2040,7 +1992,7 @@ Applies to: chokidar@5.0.0
 
 ### MIT (09f1e92fd6c3)
 
-Applies to: @tanstack/virtual-core@3.17.7, @tanstack/vue-virtual@3.13.35
+Applies to: @tanstack/virtual-core@3.17.11, @tanstack/vue-virtual@3.13.39, @tanstack/virtual-core@3.17.7, @tanstack/vue-virtual@3.13.35
 
     [LICENSE]
     MIT License
@@ -2067,7 +2019,7 @@ Applies to: @tanstack/virtual-core@3.17.7, @tanstack/vue-virtual@3.13.35
 
 ### MIT (0a798c658dfa)
 
-Applies to: aria-hidden@1.2.6
+Applies to: aria-hidden@1.2.6, aria-hidden@1.2.6
 
     [LICENSE]
     MIT License
@@ -2091,27 +2043,6 @@ Applies to: aria-hidden@1.2.6
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
-### MIT (0ae93b876d57)
-
-Applies to: @fluentui/react-avatar@9.11.5
-
-    [LICENSE]
-    @fluentui/react-avatar
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Office UI Fabric is subject to the terms listed at https://aka.ms/fabric-assets-license
 
 ### MIT (0bbc1cead1e0)
 
@@ -2183,27 +2114,6 @@ Applies to: picomatch@4.0.5
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
     THE SOFTWARE.
 
-### MIT (0edc0933a7e8)
-
-Applies to: @fluentui/react-spinner@9.8.5
-
-    [LICENSE]
-    @fluentui/react-spinner
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (112243def61c)
 
 Applies to: @vue-macros/common@3.1.4
@@ -2233,7 +2143,7 @@ Applies to: @vue-macros/common@3.1.4
 
 ### MIT (126e383ed3af)
 
-Applies to: magic-string@0.30.21
+Applies to: magic-string@0.30.21, magic-string@0.30.21
 
     [LICENSE]
     Copyright 2018 Rich Harris
@@ -2244,30 +2154,9 @@ Applies to: magic-string@0.30.21
 
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### MIT (136ab3c2828d)
-
-Applies to: @fluentui/react-tag-picker@9.10.2
-
-    [LICENSE]
-    @fluentui/react-tag-picker-preview
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (13f997729ab5)
 
-Applies to: hey-listen@1.0.8
+Applies to: hey-listen@1.0.8, hey-listen@1.0.8
 
     [LICENSE]
     MIT License
@@ -2349,48 +2238,6 @@ Applies to: rolldown@1.2.4
 
     The licenses of externally maintained libraries from which parts of the Software is derived are listed [here](https://github.com/rolldown/rolldown/blob/main/THIRD-PARTY-LICENSE).
 
-### MIT (1643472a762d)
-
-Applies to: @fluentui/react-popover@9.14.6
-
-    [LICENSE]
-    @fluentui/react-popover
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (16c21d1c6d17)
-
-Applies to: @fluentui/react-overflow@9.9.2
-
-    [LICENSE]
-    @fluentui/react-overflow
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (171467791f72)
 
 Applies to: is-extglob@2.1.1
@@ -2417,48 +2264,6 @@ Applies to: is-extglob@2.1.1
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
     THE SOFTWARE.
-
-### MIT (185aecbfc7c5)
-
-Applies to: @fluentui/react-toast@9.8.2
-
-    [LICENSE]
-    @fluentui/react-toast
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (1993f06acfc4)
-
-Applies to: @fluentui/react-swatch-picker@9.6.0
-
-    [LICENSE]
-    @fluentui/react-swatch-picker-preview
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (1c0e6bcdf41b)
 
@@ -2514,132 +2319,6 @@ Applies to: github.com/wailsapp/wails/v3@v3.0.0-beta.9
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (1d7273821553)
-
-Applies to: @fluentui/priority-overflow@9.4.2
-
-    [LICENSE]
-    @fluentui/priority-overflow
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (1e66d271bb40)
-
-Applies to: @fluentui/tokens@1.0.0-alpha.24
-
-    [LICENSE]
-    @fluentui/tokens
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (20f0fd901754)
-
-Applies to: @fluentui/react-link@9.8.4
-
-    [LICENSE]
-    @fluentui/react-link
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (222db55ff53f)
-
-Applies to: @fluentui/react-table@9.19.19
-
-    [LICENSE]
-    @fluentui/react-table
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (23dd5c03d592)
-
-Applies to: @fluentui/react-positioning@9.23.1
-
-    [LICENSE]
-    @fluentui/react-positioning
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (2570ef9089ed)
-
-Applies to: @fluentui/react-label@9.4.4
-
-    [LICENSE]
-    @fluentui/react-label
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (27fc0ab0b837)
 
 Applies to: pkg-types@1.3.1, pkg-types@2.3.1
@@ -2690,27 +2369,6 @@ Applies to: pkg-types@1.3.1, pkg-types@2.3.1
     OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
     USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### MIT (2a30923e6951)
-
-Applies to: @fluentui/react-context-selector@9.2.19
-
-    [LICENSE]
-    @fluentui/react-context-selector
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (2a4089f9ebb1)
 
 Applies to: github.com/gobwas/httphead@v0.1.0
@@ -2738,30 +2396,9 @@ Applies to: github.com/gobwas/httphead@v0.1.0
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (2b4e4721a3f0)
-
-Applies to: @fluentui/react-radio@9.6.5
-
-    [LICENSE]
-    @fluentui/react-radio
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (2f1001f5c63f)
 
-Applies to: @types/react@19.2.18, @types/react-dom@19.2.4, keyborg@2.14.1, tabster@8.8.0, @types/jsesc@2.5.1, @types/node@26.2.0, @types/web-bluetooth@0.0.21
+Applies to: @types/web-bluetooth@0.0.21, @types/jsesc@2.5.1, @types/node@26.2.0, @types/web-bluetooth@0.0.21
 
     [LICENSE]
     MIT License
@@ -2786,135 +2423,9 @@ Applies to: @types/react@19.2.18, @types/react-dom@19.2.4, keyborg@2.14.1, tabst
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
         SOFTWARE
 
-### MIT (2f8d14f2e05c)
-
-Applies to: @fluentui/react-dialog@9.18.3
-
-    [LICENSE]
-    @fluentui/react-dialog
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (309251e152a0)
-
-Applies to: @fluentui/react-combobox@9.17.5
-
-    [LICENSE]
-    @fluentui/react-combobox
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (336ef7d2e23b)
-
-Applies to: @fluentui/react-portal@9.8.15
-
-    [LICENSE]
-    @fluentui/react-portal
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (3381772168e1)
-
-Applies to: @fluentui/react-motion-components-preview@0.15.7
-
-    [LICENSE]
-    @fluentui/react-motion-components-preview
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (3750fee79201)
-
-Applies to: @fluentui/react-tree@9.16.5
-
-    [LICENSE]
-    @fluentui/react-tree
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (3a8d1dff4b90)
-
-Applies to: @fluentui/react-tags@9.9.4
-
-    [LICENSE]
-    @fluentui/react-tags
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (3d900dd88f67)
 
-Applies to: framer-motion@13.3.0, framer-motion@13.1.0
+Applies to: framer-motion@13.5.1, framer-motion@13.1.0
 
     [LICENSE.md]
     The MIT License (MIT)
@@ -2941,7 +2452,7 @@ Applies to: framer-motion@13.3.0, framer-motion@13.1.0
 
 ### MIT (3fc1185564d5)
 
-Applies to: motion-v@2.4.2
+Applies to: motion-v@2.4.2, motion-v@2.4.2
 
     [LICENSE]
     MIT License
@@ -2980,69 +2491,6 @@ Applies to: node-addon-api@7.1.1
     The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-### MIT (44760940f73a)
-
-Applies to: @fluentui/react-field@9.5.4
-
-    [LICENSE]
-    @fluentui/react-field
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (455b00739290)
-
-Applies to: @fluentui/react-motion@9.16.2
-
-    [LICENSE]
-    @fluentui/react-motions-preview
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (45689575abc9)
-
-Applies to: @fluentui/react-spinbutton@9.6.5
-
-    [LICENSE]
-    @fluentui/react-spinbutton
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (4819510982ad)
 
@@ -3095,7 +2543,7 @@ Applies to: unplugin-utils@0.3.2
 
 ### MIT (4831ab04dcce)
 
-Applies to: defu@6.1.7, jiti@2.7.0, mlly@1.8.2, ohash@2.0.12, perfect-debounce@2.1.0, scule@1.3.0, ufo@1.6.4
+Applies to: defu@6.1.7, ohash@2.0.12, defu@6.1.7, jiti@2.7.0, mlly@1.8.2, ohash@2.0.12, perfect-debounce@2.1.0, scule@1.3.0, ufo@1.6.4
 
     [LICENSE]
     MIT License
@@ -3119,69 +2567,6 @@ Applies to: defu@6.1.7, jiti@2.7.0, mlly@1.8.2, ohash@2.0.12, perfect-debounce@2
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
-### MIT (49a7d27edf85)
-
-Applies to: @fluentui/react-components@9.74.6
-
-    [LICENSE]
-    @fluentui/react-components
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (4a9f9a361a33)
-
-Applies to: @fluentui/react-tooltip@9.10.5
-
-    [LICENSE]
-    @fluentui/react-tooltip
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (4b4815fbeb46)
-
-Applies to: @fluentui/react-aria@9.17.14
-
-    [LICENSE]
-    @fluentui/react-aria
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (4c14b28d0b31)
 
@@ -3239,69 +2624,6 @@ Applies to: json5@2.2.3
 
     [others]: https://github.com/json5/json5/contributors
 
-### MIT (53a93a219a55)
-
-Applies to: @fluentui/react-list@9.6.17
-
-    [LICENSE]
-    @fluentui/react-list
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (5601b9fe373d)
-
-Applies to: @fluentui/react-tabster@9.26.17
-
-    [LICENSE]
-    @fluentui/react-focus-management
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (57475836ac25)
-
-Applies to: @fluentui/react-text@9.6.19
-
-    [LICENSE]
-    @fluentui/react-text
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (575e90e1c711)
 
 Applies to: @jridgewell/resolve-uri@3.1.2
@@ -3326,27 +2648,6 @@ Applies to: @jridgewell/resolve-uri@3.1.2
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
-### MIT (58c31c7c0140)
-
-Applies to: @fluentui/react-jsx-runtime@9.4.5
-
-    [LICENSE]
-    @fluentui/react-jsx-runtime
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (5a76e3852e2b)
 
@@ -3401,57 +2702,9 @@ Applies to: @intlify/devtools-types@11.4.8
     IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
     CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### MIT (5e4a72d3bc6e)
-
-Applies to: @griffel/core@1.21.3, @griffel/react@1.7.7, @griffel/style-types@1.4.2
-
-    [LICENSE.md]
-    MIT License
-
-        Copyright (c) Microsoft Corporation.
-
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE
-
-### MIT (6172baa598e2)
-
-Applies to: @fluentui/react-search@9.4.6
-
-    [LICENSE]
-    @fluentui/react-search
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (664589ccc690)
 
-Applies to: @jridgewell/gen-mapping@0.3.13, @jridgewell/remapping@2.3.5, @jridgewell/sourcemap-codec@1.5.5, @jridgewell/trace-mapping@0.3.31
+Applies to: @jridgewell/sourcemap-codec@1.5.5, @jridgewell/gen-mapping@0.3.13, @jridgewell/remapping@2.3.5, @jridgewell/sourcemap-codec@1.5.5, @jridgewell/trace-mapping@0.3.31
 
     [LICENSE]
     Copyright 2024 Justin Ridgewell <justin@ridgewell.name>
@@ -3473,27 +2726,6 @@ Applies to: @jridgewell/gen-mapping@0.3.13, @jridgewell/remapping@2.3.5, @jridge
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
-### MIT (664ac4333aaa)
-
-Applies to: @fluentui/react-card@9.7.2
-
-    [LICENSE]
-    @fluentui/react-card
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (680f12001671)
 
@@ -3549,27 +2781,6 @@ Applies to: github.com/gobwas/pool@v0.2.1
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (6dcbb1f43c2a)
-
-Applies to: @fluentui/react-switch@9.7.5
-
-    [LICENSE]
-    @fluentui/react-switch
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (6f3581ff28a6)
 
 Applies to: quansync@0.2.11
@@ -3597,51 +2808,9 @@ Applies to: quansync@0.2.11
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (6f5518c2da9c)
-
-Applies to: @fluentui/react-drawer@9.13.2
-
-    [LICENSE]
-    @fluentui/react-drawer
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (721f0d71e812)
-
-Applies to: @fluentui/react-utilities@9.26.6
-
-    [LICENSE]
-    @fluentui/react-utilities
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (73bdbf9cf49a)
 
-Applies to: @vue/compiler-core@3.5.41, @vue/compiler-dom@3.5.41, @vue/compiler-sfc@3.5.41, @vue/compiler-ssr@3.5.41, @vue/reactivity@3.5.41, @vue/runtime-core@3.5.41, @vue/runtime-dom@3.5.41, @vue/server-renderer@3.5.41, @vue/shared@3.5.41, vue@3.5.41
+Applies to: @vue/compiler-core@3.5.41, @vue/compiler-dom@3.5.41, @vue/compiler-sfc@3.5.41, @vue/compiler-ssr@3.5.41, @vue/reactivity@3.5.41, @vue/runtime-core@3.5.41, @vue/runtime-dom@3.5.41, @vue/server-renderer@3.5.41, @vue/shared@3.5.41, vue@3.5.41, @vue/compiler-core@3.5.41, @vue/compiler-dom@3.5.41, @vue/compiler-sfc@3.5.41, @vue/compiler-ssr@3.5.41, @vue/reactivity@3.5.41, @vue/runtime-core@3.5.41, @vue/runtime-dom@3.5.41, @vue/server-renderer@3.5.41, @vue/shared@3.5.41, vue@3.5.41
 
     [LICENSE]
     The MIT License (MIT)
@@ -3692,111 +2861,6 @@ Applies to: github.com/chromedp/cdproto@v0.0.0-20260804232424-e85f50dbfd32, gith
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
-### MIT (74c7dac1aa5a)
-
-Applies to: @fluentui/react-provider@9.22.20
-
-    [LICENSE]
-    @fluentui/react-provider
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (79d0f02e3322)
-
-Applies to: @fluentui/react-toolbar@9.8.4
-
-    [LICENSE]
-    @fluentui/react-toolbar
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (7a622dcf37ad)
-
-Applies to: @fluentui/react-divider@9.7.4
-
-    [LICENSE]
-    @fluentui/react-divider
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (7be220c204b6)
-
-Applies to: @fluentui/react-shared-contexts@9.26.3
-
-    [LICENSE]
-    Fluent UI React - react-shared-contexts
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (7ee33e1e3368)
-
-Applies to: @fluentui/react-message-bar@9.7.5
-
-    [LICENSE]
-    @fluentui/react-message-bar-preview
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (7efd4a100ff4)
 
@@ -6310,138 +5374,6 @@ Applies to: csstype@3.2.3, csstype@3.2.3
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (84052bc544ed)
-
-Applies to: @fluentui/react-teaching-popover@9.7.4
-
-    [LICENSE]
-    @fluentui/react-teaching-popover
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (85b5243fbb20)
-
-Applies to: @fluentui/react-alert@9.0.1-0
-
-    [LICENSE]
-    @fluentui/react-alert
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (85eb4ecb43c0)
-
-Applies to: react@19.2.8, react-dom@19.2.8, scheduler@0.27.0, use-sync-external-store@1.6.0
-
-    [LICENSE]
-    MIT License
-
-    Copyright (c) Meta Platforms, Inc. and affiliates.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
-### MIT (8bf0951f70b5)
-
-Applies to: @fluentui/react-textarea@9.7.6
-
-    [LICENSE]
-    @fluentui/react-textarea
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (8d9cf3790fb8)
-
-Applies to: @fluentui/react-input@9.8.6
-
-    [LICENSE]
-    @fluentui/react-input
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (8eea458af251)
-
-Applies to: @fluentui/react-infolabel@9.4.24
-
-    [LICENSE]
-    @fluentui/react-infolabel-preview
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (906cc5c880ca)
 
 Applies to: shadcn-vue/reka-nova@2026-09-07
@@ -6495,48 +5427,6 @@ Applies to: birpc@2.9.0, local-pkg@1.2.1
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
-### MIT (95f57883a43a)
-
-Applies to: @fluentui/react-carousel@9.9.12
-
-    [LICENSE]
-    @fluentui/react-carousel
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (95fce3c78374)
-
-Applies to: @fluentui/react-color-picker@9.3.0
-
-    [LICENSE]
-    @fluentui/react-color-picker
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (99fa4672a19d)
 
@@ -6907,7 +5797,7 @@ Applies to: nostics@1.2.0
 
 ### MIT (9be572bc4bb1)
 
-Applies to: @babel/runtime@7.29.7, @babel/generator@8.0.0, @babel/helper-string-parser@7.29.7, @babel/helper-string-parser@8.0.0, @babel/helper-validator-identifier@7.29.7, @babel/helper-validator-identifier@8.0.4, @babel/types@7.29.8, @babel/types@8.0.4
+Applies to: @babel/helper-string-parser@7.29.7, @babel/helper-validator-identifier@7.29.7, @babel/types@7.29.8, @babel/generator@8.0.0, @babel/helper-string-parser@7.29.7, @babel/helper-string-parser@8.0.0, @babel/helper-validator-identifier@7.29.7, @babel/helper-validator-identifier@8.0.4, @babel/types@7.29.8, @babel/types@8.0.4
 
     [LICENSE]
     MIT License
@@ -6960,27 +5850,6 @@ Applies to: fsevents@2.3.3
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
     THE SOFTWARE.
-
-### MIT (9fd0edbb91f6)
-
-Applies to: @fluentui/react-skeleton@9.7.5
-
-    [LICENSE]
-    @fluentui/react-skeleton
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (a14cf1eee003)
 
@@ -7036,27 +5905,6 @@ Applies to: hookable@5.5.3
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (a22e2ec3b71e)
-
-Applies to: @fluentui/react-persona@9.7.7
-
-    [LICENSE]
-    @fluentui/react-persona
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (a33dff9aa0e2)
 
 Applies to: muggle-string@0.4.1
@@ -7084,51 +5932,9 @@ Applies to: muggle-string@0.4.1
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (a4268d2ec76c)
-
-Applies to: @fluentui/react-tabs@9.12.4
-
-    [LICENSE]
-    @fluentui/react-tabs
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (a6a0bb259636)
-
-Applies to: @fluentui/react-image@9.4.4
-
-    [LICENSE]
-    @fluentui/react-image
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (a9708940e4e9)
 
-Applies to: @vueuse/core@14.4.0, @vueuse/metadata@14.4.0, @vueuse/shared@14.4.0
+Applies to: @vueuse/core@14.4.0, @vueuse/metadata@14.4.0, @vueuse/shared@14.4.0, @vueuse/core@14.4.0, @vueuse/metadata@14.4.0, @vueuse/shared@14.4.0
 
     [LICENSE]
     MIT License
@@ -7180,114 +5986,9 @@ Applies to: webpack-virtual-modules@0.6.2
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (ad7fadc3486e)
-
-Applies to: @fluentui/react-infobutton@9.0.0-beta.119
-
-    [LICENSE]
-    @fluentui/react-infobutton
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (ae79e7722e20)
-
-Applies to: @fluentui/react-button@9.11.0
-
-    [LICENSE]
-    @fluentui/react-button
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (b02e9d923a2f)
-
-Applies to: @fluentui/react-theme@9.2.2
-
-    [LICENSE]
-    @fluentui/react-theme
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (b3cfa9deb9ec)
-
-Applies to: @fluentui/react-select@9.5.5
-
-    [LICENSE]
-    @fluentui/react-select
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (b8401842a100)
-
-Applies to: @fluentui/react-checkbox@9.6.4
-
-    [LICENSE]
-    @fluentui/react-checkbox
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (ba6e766fa1b9)
 
-Applies to: @floating-ui/vue@1.1.11
+Applies to: @floating-ui/vue@1.1.11, @floating-ui/vue@1.1.11
 
     [LICENSE]
     MIT License
@@ -7366,33 +6067,6 @@ Applies to: immutable@5.1.9
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (c99bd3e14c7f)
-
-Applies to: @emotion/hash@0.9.2
-
-    [LICENSE]
-    MIT License
-
-    Copyright (c) Emotion team and other contributors
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
 ### MIT (cb066737ea65)
 
 Applies to: @parcel/watcher@2.6.0, @parcel/watcher-darwin-arm64@2.6.0, @parcel/watcher-darwin-x64@2.6.0, @parcel/watcher-linux-arm64-glibc@2.6.0, @parcel/watcher-linux-arm64-musl@2.6.0, @parcel/watcher-linux-x64-glibc@2.6.0, @parcel/watcher-linux-x64-musl@2.6.0, @parcel/watcher-win32-arm64@2.6.0, @parcel/watcher-win32-x64@2.6.0
@@ -7419,53 +6093,6 @@ Applies to: @parcel/watcher@2.6.0, @parcel/watcher-darwin-arm64@2.6.0, @parcel/w
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
-### MIT (cc1a840177f4)
-
-Applies to: rtl-css-js@1.16.1
-
-    [LICENSE]
-    The MIT License (MIT)
-    Copyright (c) 2017 Kent C. Dodds
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
-### MIT (cdf501023bcc)
-
-Applies to: @fluentui/react-nav@9.4.4
-
-    [LICENSE]
-    @fluentui/react-nav
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (cef3308df6db)
 
@@ -7678,27 +6305,6 @@ Applies to: confbox@0.1.8
 
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### MIT (d47d1b6fdfb2)
-
-Applies to: @fluentui/react-badge@9.5.5
-
-    [LICENSE]
-    @fluentui/react-badge
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (d4964cd3998c)
 
 Applies to: @rolldown/pluginutils@1.0.1
@@ -7728,7 +6334,7 @@ Applies to: @rolldown/pluginutils@1.0.1
 
 ### MIT (d4c764f33b70)
 
-Applies to: @babel/parser@7.29.8, @babel/parser@8.0.4
+Applies to: @babel/parser@7.29.8, @babel/parser@7.29.8, @babel/parser@8.0.4
 
     [LICENSE]
     Copyright (C) 2012-2014 by various contributors (see AUTHORS)
@@ -7750,27 +6356,6 @@ Applies to: @babel/parser@7.29.8, @babel/parser@8.0.4
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
     THE SOFTWARE.
-
-### MIT (d4f38f7801d7)
-
-Applies to: @fluentui/react-virtualizer@9.0.0-alpha.115
-
-    [LICENSE]
-    @fluentui/react-virtualizer
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (d5b8247ae902)
 
@@ -7848,30 +6433,9 @@ Applies to: pathe@2.0.3
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 
-### MIT (d66ad83f623d)
-
-Applies to: @fluentui/react-rating@9.4.4
-
-    [LICENSE]
-    @fluentui/react-rating-preview
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (da66b187c139)
 
-Applies to: reka-ui@2.10.4
+Applies to: reka-ui@2.10.4, reka-ui@2.10.4
 
     [LICENSE]
     MIT License
@@ -7925,7 +6489,7 @@ Applies to: github.com/chromedp/sysutil@v1.1.0
 
 ### MIT (dd17232b0605)
 
-Applies to: vue-demi@0.14.10
+Applies to: vue-demi@0.14.10, vue-demi@0.14.10
 
     [LICENSE]
     MIT License
@@ -7952,33 +6516,12 @@ Applies to: vue-demi@0.14.10
 
 ### MIT (dd8399dbd6c0)
 
-Applies to: @fluentui/react-icons@2.0.337, @wailsio/runtime@3.0.0-beta.9, embla-carousel@8.6.0, embla-carousel-autoplay@8.6.0, embla-carousel-fade@8.6.0, @rolldown/binding-darwin-arm64@1.2.4, @rolldown/binding-darwin-x64@1.2.4, @rolldown/binding-linux-arm64-gnu@1.2.4, @rolldown/binding-linux-arm64-musl@1.2.4, @rolldown/binding-linux-x64-gnu@1.2.4, @rolldown/binding-linux-x64-musl@1.2.4, @rolldown/binding-win32-arm64-msvc@1.2.4, @rolldown/binding-win32-x64-msvc@1.2.4, @vue/devtools-api@6.6.4
+Applies to: @wailsio/runtime@3.0.0-beta.9, @rolldown/binding-darwin-arm64@1.2.4, @rolldown/binding-darwin-x64@1.2.4, @rolldown/binding-linux-arm64-gnu@1.2.4, @rolldown/binding-linux-arm64-musl@1.2.4, @rolldown/binding-linux-x64-gnu@1.2.4, @rolldown/binding-linux-x64-musl@1.2.4, @rolldown/binding-win32-arm64-msvc@1.2.4, @rolldown/binding-win32-x64-msvc@1.2.4, @vue/devtools-api@6.6.4
 
     [Declared license]
     MIT
 
     The installed package declares this license expression in package.json but does not include a standalone LICENSE or COPYING file.
-
-### MIT (ddabbcafd832)
-
-Applies to: @fluentui/react-breadcrumb@9.4.5
-
-    [LICENSE]
-    @fluentui/react-breadcrumb
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (de8ca2258784)
 
@@ -8020,30 +6563,9 @@ Applies to: readdirp@5.1.1
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (e0096b1d2b8a)
-
-Applies to: @fluentui/react-progress@9.5.4
-
-    [LICENSE]
-    @fluentui/react-progress
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (e08884742536)
 
-Applies to: @floating-ui/core@1.8.0, @floating-ui/devtools@0.2.3, @floating-ui/dom@1.8.0, @floating-ui/utils@0.2.12, @floating-ui/core@1.8.0, @floating-ui/dom@1.8.0, @floating-ui/utils@0.2.12
+Applies to: @floating-ui/core@1.8.0, @floating-ui/dom@1.8.0, @floating-ui/utils@0.2.12, @floating-ui/core@1.8.0, @floating-ui/dom@1.8.0, @floating-ui/utils@0.2.12
 
     [LICENSE]
     MIT License
@@ -8096,7 +6618,7 @@ Applies to: github.com/adrg/xdg@v0.5.3
 
 ### MIT (e3e7a8bea646)
 
-Applies to: nanoid@3.3.18
+Applies to: nanoid@3.3.18, nanoid@3.3.18
 
     [LICENSE]
     The MIT License (MIT)
@@ -8147,30 +6669,9 @@ Applies to: tailwind-merge@3.6.0
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (e65bb597c333)
-
-Applies to: @fluentui/keyboard-keys@9.0.9
-
-    [LICENSE]
-    @fluentui/keyboard-keys
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
 ### MIT (e72c7ab85e59)
 
-Applies to: postcss@8.5.26
+Applies to: postcss@8.5.26, postcss@8.5.26
 
     [LICENSE]
     The MIT License (MIT)
@@ -8223,7 +6724,7 @@ Applies to: github.com/go-ole/go-ole@v1.3.0
 
 ### MIT (edfb7ea980c7)
 
-Applies to: estree-walker@2.0.2
+Applies to: estree-walker@2.0.2, estree-walker@2.0.2
 
     [LICENSE]
     Copyright (c) 2015-20 [these people](https://github.com/Rich-Harris/estree-walker/graphs/contributors)
@@ -8262,7 +6763,7 @@ Applies to: github.com/go-chi/chi/v5@v5.3.1
 
 ### MIT (f17acea5f19c)
 
-Applies to: motion@13.3.0, motion-dom@13.3.0, motion-utils@13.3.0, motion-dom@13.0.0, motion-utils@13.0.0
+Applies to: motion-dom@13.5.1, motion-utils@13.5.0, motion-dom@13.0.0, motion-utils@13.0.0
 
     [LICENSE.md]
     The MIT License (MIT)
@@ -8286,27 +6787,6 @@ Applies to: motion@13.3.0, motion-dom@13.3.0, motion-utils@13.3.0, motion-dom@13
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
-### MIT (f354c39fc872)
-
-Applies to: @fluentui/react-menu@9.25.3
-
-    [LICENSE]
-    @fluentui/react-menu
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MIT (f3b2a19a05a0)
 
@@ -10140,75 +8620,6 @@ Applies to: tinyglobby@0.2.17
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
-### MIT (fc042fcda8fe)
-
-Applies to: stylis@4.4.0
-
-    [LICENSE]
-    MIT License
-
-    Copyright (c) 2016-present Sultan Tarimo
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
-### MIT (fcbfbc24c8db)
-
-Applies to: @fluentui/react-slider@9.6.5
-
-    [LICENSE]
-    @fluentui/react-slider
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (fd809694d954)
-
-Applies to: @fluentui/react-accordion@9.12.2
-
-    [LICENSE]
-    @fluentui/react-accordion
-
-    Copyright (c) Microsoft Corporation
-
-    All rights reserved.
-
-    MIT License
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the ""Software""), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
 ### MPL-2.0 (a9d73bc0a4b8)
 

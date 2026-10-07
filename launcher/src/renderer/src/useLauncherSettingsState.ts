@@ -1,52 +1,54 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { computed, shallowRef, watch, type Ref } from "vue";
 import type { LauncherResolvedSettings, LauncherSettings, LauncherSnapshot } from "@shared/launcher-models";
 
 import { buildDiagnosticsSummary, initialSnapshot } from "./AppState.shared";
 
-export function useLauncherSettingsState(snapshot: LauncherSnapshot, editingSettings: boolean) {
-  const [editingDraft, setEditingDraft] = useState<LauncherSettings | null>(null);
-  const [previewResolvedSettings, setPreviewResolvedSettings] = useState<LauncherResolvedSettings>(initialSnapshot.launcher.resolvedSettings);
-  const settingsDraft = editingDraft ?? snapshot.launcher.settings;
-  const deferredSettingsDraft = useDeferredValue(settingsDraft);
-  const diagnosticsSummary = useMemo(() => buildDiagnosticsSummary(snapshot), [snapshot]);
+export function useLauncherSettingsState(snapshot: Readonly<Ref<LauncherSnapshot>>, editingSettings: Readonly<Ref<boolean>>) {
+  const editingDraft = shallowRef<LauncherSettings | null>(null);
+  const previewResolvedSettings = shallowRef<LauncherResolvedSettings>(initialSnapshot.launcher.resolvedSettings);
+  const settingsDraft = computed(() => editingDraft.value ?? snapshot.value.launcher.settings);
+  const diagnosticsSummary = computed(() => buildDiagnosticsSummary(snapshot.value));
 
-  useEffect(() => {
-    if (!editingSettings && editingDraft !== null) {
-      setEditingDraft(null);
+  watch(editingSettings, (editing) => {
+    if (!editing) {
+      editingDraft.value = null;
     }
-  }, [editingSettings, editingDraft]);
+  });
 
-  useEffect(() => {
-    if (!editingSettings) {
-      setPreviewResolvedSettings(snapshot.launcher.resolvedSettings);
-      return;
-    }
-    let cancelled = false;
-    const timeout = window.setTimeout(() => {
-      window.rayleaLauncher.previewResolvedSettings(deferredSettingsDraft)
-        .then((resolvedSettings) => {
-          if (!cancelled) {
-            setPreviewResolvedSettings(resolvedSettings);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setPreviewResolvedSettings(snapshot.launcher.resolvedSettings);
-          }
-        });
-    }, 150);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeout);
-    };
-  }, [editingSettings, deferredSettingsDraft, snapshot.launcher.resolvedSettings]);
+  // While editing, the derived paths are previewed shortly after the draft stops changing.
+  watch(
+    [editingSettings, settingsDraft, () => snapshot.value.launcher.resolvedSettings],
+    ([editing, draft, resolvedSettings], _previous, onCleanup) => {
+      if (!editing) {
+        previewResolvedSettings.value = resolvedSettings;
+        return;
+      }
+      let cancelled = false;
+      const timeout = window.setTimeout(() => {
+        window.rayleaLauncher.previewResolvedSettings(draft)
+          .then((preview) => {
+            if (!cancelled) {
+              previewResolvedSettings.value = preview;
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              previewResolvedSettings.value = resolvedSettings;
+            }
+          });
+      }, 150);
+      onCleanup(() => {
+        cancelled = true;
+        window.clearTimeout(timeout);
+      });
+    },
+    { immediate: true },
+  );
 
   return {
     diagnosticsSummary,
     editingDraft,
     previewResolvedSettings,
-    setEditingDraft,
     settingsDraft,
   };
 }

@@ -1,101 +1,88 @@
-import { useEffect, useState } from "react";
+import { onScopeDispose, ref, shallowRef } from "vue";
+import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { describeLauncherError, initialSnapshot } from "./AppState.shared";
 
+/** Replaces part of the Launcher's local state, such as an error the renderer reports itself. */
+export function patchLauncherState(snapshot: LauncherSnapshot, patch: Partial<LauncherSnapshot["launcher"]>): LauncherSnapshot {
+  return { ...snapshot, launcher: { ...snapshot.launcher, ...patch } };
+}
+
 export function useLauncherInitialization() {
-  const [initializing, setInitializing] = useState(true);
-  const [snapshot, setSnapshot] = useState(initialSnapshot);
-  const [platformLabel, setPlatformLabel] = useState("");
-  const [isMaximized, setIsMaximized] = useState(false);
+  const initializing = ref(true);
+  const snapshot = shallowRef<LauncherSnapshot>(initialSnapshot);
+  const platformLabel = ref("");
+  const isMaximized = ref(false);
+  let active = true;
 
-  useEffect(() => {
-    let active = true;
-    let snapshotVersion = 0;
-    const unsub = window.rayleaLauncher.onSnapshot((next) => {
+  // Snapshots pushed while the first read is in flight are newer than its result.
+  let snapshotVersion = 0;
+  const unsubscribeSnapshot = window.rayleaLauncher.onSnapshot((next) => {
+    if (!active) return;
+    snapshotVersion += 1;
+    snapshot.value = next;
+  });
+  window.rayleaLauncher
+    .initialize()
+    .then(async () => {
       if (!active) return;
-      snapshotVersion += 1;
-      setSnapshot(next);
+      const version = snapshotVersion;
+      const next = await window.rayleaLauncher.getSnapshot();
+      if (active && version === snapshotVersion) snapshot.value = next;
+    })
+    .catch((error: unknown) => {
+      if (!active) return;
+      snapshot.value = patchLauncherState(snapshot.value, {
+        lastLocalError: describeLauncherError(error, "启动器初始化失败。"),
+        statusHint: "启动器初始化失败。",
+      });
+    })
+    .finally(() => {
+      if (active) initializing.value = false;
     });
-    window.rayleaLauncher
-      .initialize()
-      .then(async () => {
-        if (!active) return;
-        const version = snapshotVersion;
-        const snap = await window.rayleaLauncher.getSnapshot();
-        if (active && version === snapshotVersion) setSnapshot(snap);
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setSnapshot((prev) => ({
-          ...prev,
-          launcher: {
-            ...prev.launcher,
-            lastLocalError: describeLauncherError(error, "启动器初始化失败。"),
-            statusHint: "启动器初始化失败。",
-          },
-        }));
-      })
-      .finally(() => {
-        if (active) setInitializing(false);
-      });
 
-    return () => {
-      active = false;
-      unsub();
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    let receivedChange = false;
-    const unsub = window.rayleaLauncher.onMaximizedChange((value) => {
-      if (cancelled) return;
-      receivedChange = true;
-      setIsMaximized(value);
+  let receivedMaximizedChange = false;
+  const unsubscribeMaximized = window.rayleaLauncher.onMaximizedChange((value) => {
+    if (!active) return;
+    receivedMaximizedChange = true;
+    isMaximized.value = value;
+  });
+  window.rayleaLauncher
+    .isMaximized()
+    .then((value) => {
+      if (active && !receivedMaximizedChange) {
+        isMaximized.value = value;
+      }
+    })
+    .catch(() => {
+      if (active && !receivedMaximizedChange) {
+        isMaximized.value = false;
+      }
     });
-    window.rayleaLauncher
-      .isMaximized()
-      .then((value) => {
-        if (!cancelled && !receivedChange) {
-          setIsMaximized(value);
-        }
-      })
-      .catch(() => {
-        if (!cancelled && !receivedChange) {
-          setIsMaximized(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    window.rayleaLauncher
-      .getPlatform()
-      .then((value) => {
-        if (!cancelled) {
-          setPlatformLabel(value);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPlatformLabel("");
-        }
-      });
+  window.rayleaLauncher
+    .getPlatform()
+    .then((value) => {
+      if (active) {
+        platformLabel.value = value;
+      }
+    })
+    .catch(() => {
+      if (active) {
+        platformLabel.value = "";
+      }
+    });
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  onScopeDispose(() => {
+    active = false;
+    unsubscribeSnapshot();
+    unsubscribeMaximized();
+  });
 
   return {
     initializing,
     isMaximized,
     platformLabel,
-    setSnapshot,
     snapshot,
   };
 }

@@ -6,7 +6,7 @@
 
 - Launcher 负责本机环境检查、进程编排、系统集成和打开管理面，不复制 Web 业务页或 Server 状态机。
 - Go host 负责窗口、托盘、单实例、系统对话框与静态资源安全；`internal/desktop` 负责进程和本机资源；renderer 负责界面展示。
-- 前端复用既有适配层和 Fluent UI 组件，不另建服务层或设计系统。
+- 前端复用既有适配层、Reka UI 原语与 `src/renderer/src` 中的自有组件，不另建服务层或设计系统。
 
 ## Desktop Bridge
 

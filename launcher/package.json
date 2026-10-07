@@ -17,32 +17,28 @@
     "test": "node ../scripts/run-vitest.mjs run && node scripts/run-go.mjs test:platform ./...",
     "test:coverage": "node ../scripts/run-vitest.mjs run --coverage && node scripts/run-go.mjs test:platform -cover ./...",
     "test:e2e": "playwright test",
-    "typecheck": "tsc -p tsconfig.renderer.json --noEmit && node scripts/run-go.mjs vet:platform ./...",
+    "typecheck": "vue-tsc -p tsconfig.renderer.json --noEmit && node scripts/run-go.mjs vet:platform ./...",
     "build:app": "node scripts/build-app.mjs",
     "build": "node scripts/clean.mjs && node scripts/build-package.mjs"
   },
   "dependencies": {
-    "@fluentui/react-components": "9.74.6",
-    "@fluentui/react-icons": "2.0.337",
+    "@lucide/vue": "1.41.0",
     "@wailsio/runtime": "3.0.0-beta.9",
-    "motion": "13.3.0",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "motion-v": "2.4.2",
+    "reka-ui": "2.10.4",
+    "vue": "3.5.41"
   },
   "devDependencies": {
     "@napi-rs/canvas": "1.0.9",
     "@playwright/test": "1.62.1",
-    "@testing-library/dom": "10.4.1",
-    "@testing-library/jest-dom": "7.0.1",
-    "@testing-library/react": "16.3.2",
     "@types/node": "26.2.0",
-    "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.4",
-    "@vitejs/plugin-react": "6.0.5",
+    "@vitejs/plugin-vue": "6.0.8",
     "@vitest/coverage-v8": "4.1.10",
+    "@vue/test-utils": "2.4.11",
     "jsdom": "30.0.1",
     "typescript": "5.9.3",
     "vite": "8.2.1",
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "vue-tsc": "3.3.10"
   }
 }
