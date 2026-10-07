@@ -140,6 +140,17 @@
         true,
         1
       ]
+    },
+    "update": {
+      "channel": "stable",
+      "version": "",
+      "mode": "auto",
+      "proxies": [
+        "https://gh-proxy.org",
+        "https://ghfast.top",
+        "https://ghproxy.net"
+      ],
+      "mirrors": []
     }
   },
   "expect": {

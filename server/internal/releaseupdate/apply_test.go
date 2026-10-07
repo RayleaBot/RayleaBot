@@ -167,6 +167,9 @@ const archiveCache = "cache/downloads/update/RayleaBot-v1.0.0-windows-x64-full.z
 func TestApplyReplacesReleaseFilesAndKeepsRuntimeData(t *testing.T) {
 	root := installedRoot(t, "0.9.0")
 	checker, downloads := releaseChecker(t, "zip", releaseArchive(t, "zip", "1.0.0", zip.Deflate, newRelease), nil)
+	if _, _, err := checker.Download(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
 	result, err := checker.Apply(context.Background(), root)
 	if err != nil {
 		t.Fatal(err)
@@ -195,6 +198,9 @@ func TestApplyKeepsExecutableBitsFromTarArchives(t *testing.T) {
 	root := installedRoot(t, "0.9.0")
 	files := []releaseFile{{name: "raylea-server", payload: "new server", mode: 0o755}}
 	checker, _ := releaseChecker(t, "tar.gz", releaseArchive(t, "tar.gz", "1.0.0", 0, files), nil)
+	if _, _, err := checker.Download(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := checker.Apply(context.Background(), root); err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +237,7 @@ func TestApplyRejectsBrokenArchivesWithoutTouchingInstallation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			root := installedRoot(t, "0.9.0")
 			checker, _ := releaseChecker(t, "zip", setup.archive, setup.mutate)
-			if _, err := checker.Apply(context.Background(), root); err == nil {
+			if _, _, err := checker.Download(context.Background(), root); err == nil {
 				t.Fatal("broken archive installed")
 			}
 			if InstalledVersion(root) != "0.9.0" {
@@ -250,6 +256,9 @@ func TestApplyFailureKeepsOldVersionAndRerunCompletes(t *testing.T) {
 		t.Fatal(err)
 	}
 	checker, downloads := releaseChecker(t, "zip", releaseArchive(t, "zip", "1.0.0", zip.Deflate, newRelease), nil)
+	if _, _, err := checker.Download(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := checker.Apply(context.Background(), root); err == nil {
 		t.Fatal("apply succeeded over a conflicting directory")
 	}
@@ -268,10 +277,10 @@ func TestApplyFailureKeepsOldVersionAndRerunCompletes(t *testing.T) {
 	assertTree(t, root, map[string]string{"raylea-server.exe": "new server", "templates/help.menu/template.json": "template"})
 }
 
-func TestApplyWhenUpToDateChangesNothing(t *testing.T) {
+func TestDownloadWhenUpToDateChangesNoProgramFiles(t *testing.T) {
 	root := installedRoot(t, "1.0.0")
 	checker, downloads := releaseChecker(t, "zip", releaseArchive(t, "zip", "1.0.0", zip.Deflate, newRelease), nil)
-	result, err := checker.Apply(context.Background(), root)
+	result, _, err := checker.Download(context.Background(), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,5 +288,5 @@ func TestApplyWhenUpToDateChangesNothing(t *testing.T) {
 		t.Fatalf("result = %#v downloads = %d", result, *downloads)
 	}
 	assertTree(t, root, map[string]string{"raylea-server.exe": "old server"})
-	assertAbsent(t, root, "cache")
+	assertAbsent(t, root, "cache/update/prepared.json", archiveCache)
 }

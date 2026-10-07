@@ -51,10 +51,14 @@ func HTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progres
 // DownloadHTTPS stores one HTTPS resource at destPath with the runtime download
 // safeguards; a nil client uses the runtime resource client.
 func DownloadHTTPS(ctx context.Context, client *http.Client, rawURL, destPath string, limit int64) error {
+	return DownloadHTTPSWithProgress(ctx, client, rawURL, destPath, limit, nil)
+}
+
+func DownloadHTTPSWithProgress(ctx context.Context, client *http.Client, rawURL, destPath string, limit int64, progress func(DownloadProgress)) error {
 	if client == nil {
 		client = runtimeHTTPClient
 	}
-	return downloadRuntimeHTTP(ctx, client, rawURL, destPath, limit, nil)
+	return downloadRuntimeHTTP(ctx, client, rawURL, destPath, limit, progress)
 }
 
 func downloadRuntimeHTTP(ctx context.Context, client *http.Client, rawURL, destPath string, limit int64, progress func(DownloadProgress)) (err error) {

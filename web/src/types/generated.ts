@@ -1074,6 +1074,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/update/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List at most 30 newest published versions in the saved channel from a bounded 100-release upstream window. */
+        get: operations["listUpdateReleases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/update/status": {
         parameters: {
             query?: never;
@@ -2095,6 +2112,23 @@ export interface components {
              */
             trusted_code_confirmed: true;
         };
+        UpdateRoute: {
+            /** Format: uri */
+            url: string;
+            available: boolean;
+            latency_ms: number;
+            selected: boolean;
+        };
+        UpdateRelease: {
+            version: string;
+            /** @enum {string} */
+            channel: "stable" | "beta";
+            /** Format: uri */
+            release_notes_ref: string;
+        };
+        UpdateReleasesResponse: {
+            releases: components["schemas"]["UpdateRelease"][];
+        };
         /** @enum {string} */
         UpdateState: "disabled" | "idle" | "checking" | "up_to_date" | "update_available" | "failed";
         UpdateStatusResponse: {
@@ -2107,6 +2141,10 @@ export interface components {
             update_mode: "guided" | "manual" | "unavailable";
             /** Format: uri */
             release_notes_ref?: string;
+            /** @description Metadata route observations from the most recent check; download routes are probed separately during preparation. */
+            routes?: components["schemas"]["UpdateRoute"][];
+            /** Format: uri */
+            source_url?: string;
             error?: components["schemas"]["ErrorEnvelope"];
         };
         WebhookAcceptedResponse: {
@@ -2532,6 +2570,39 @@ export interface components {
              * @default []
              */
             adapters: components["schemas"]["adapterInstance"][];
+            update: {
+                /**
+                 * @description Stable releases only, or stable and prerelease versions. Never installs an older version.
+                 * @default stable
+                 * @enum {string}
+                 */
+                channel: "stable" | "beta";
+                /**
+                 * @description Exact target version without v; empty selects the newest version in the channel. Downgrades are rejected.
+                 * @default
+                 */
+                version: string;
+                /**
+                 * @description Auto races direct and proxy metadata, selects the newest valid version, probes bounded archive samples and falls back on failures. Direct excludes prefixes; proxy excludes direct GitHub access.
+                 * @default auto
+                 * @enum {string}
+                 */
+                mode: "auto" | "direct" | "proxy";
+                /**
+                 * @description Public GitHub HTTPS prefix services, not HTTP CONNECT proxies. Accepts a base prefix, a {url} template or a prefixed GitHub URL; normalized on save. Never sends credentials. Empty disables prefixes.
+                 * @default [
+                 *       "https://gh-proxy.org",
+                 *       "https://ghfast.top",
+                 *       "https://ghproxy.net"
+                 *     ]
+                 */
+                proxies: string[];
+                /**
+                 * @description Optional publisher-controlled release mirror base URLs. Layout: stable.json, beta.json, releases.json, v<version>/release_manifest.v2.json and versioned archives. No default mirror is provisioned.
+                 * @default []
+                 */
+                mirrors: string[];
+            } & unknown;
             $defs: {
                 onebotWsTransport: {
                     /** @default false */
@@ -4536,6 +4607,27 @@ export interface operations {
             401: components["responses"]["Error"];
             409: components["responses"]["Error"];
             429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listUpdateReleases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Merged version list from reachable sources, newest first. Older versions may be shown but cannot be installed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateReleasesResponse"];
+                };
+            };
             default: components["responses"]["Error"];
         };
     };

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
@@ -19,40 +20,113 @@ const (
 	releaseRenameRetryDelay = 100 * time.Millisecond
 )
 
-// Updates rely on HTTPS, the manifest archive size and the archive's own CRC or
-// gzip checksums. A digest published beside the archive could not stop
-// tampering, so none is checked. A failed replacement is not rolled back:
-// build_info.json is written last, the installation keeps reporting the old
-// version, and apply can run again.
+// Configured distribution routes are trusted. Archive size, CRC/gzip and
+// staged build information detect incomplete or mismatched downloads. A failed
+// replacement keeps the prepared archive for an entirely local retry.
 
 // Download fetches the installed artifact's archive when a newer release exists
 // and returns its cached path.
 func (c *Checker) Download(ctx context.Context, installRoot string) (CheckResult, string, error) {
+	c = c.configured()
+	lock, err := filelock.Acquire(filepath.Join(installRoot, "cache", "update", "operation.lock"))
+	if err != nil {
+		return CheckResult{}, "", err
+	}
+	defer lock.Close()
 	result, err := c.Check(ctx, installRoot)
 	if err != nil || result.Status != "update_available" {
+		if err == nil {
+			err = discardPrepared(installRoot)
+		}
 		return result, "", err
 	}
-	archivePath, err := c.ensureArchive(ctx, installRoot, result.Artifact)
-	return result, archivePath, err
+	c.report("probe", "", 0, 0)
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		for _, raw := range c.downloadRoutes(ctx, result.Artifact, result.AvailableVersion) {
+			if err := ctx.Err(); err != nil {
+				return result, "", err
+			}
+			artifact := result.Artifact
+			artifact.DownloadURL = raw
+			archivePath, err := c.ensureArchive(ctx, installRoot, artifact)
+			if err == nil {
+				err = c.prepareArchive(ctx, installRoot, archivePath, result)
+			}
+			if err == nil {
+				prepared, readErr := readPrepared(installRoot)
+				if readErr != nil {
+					return result, "", readErr
+				}
+				result.PreparedID = prepared.Staging
+				return result, archivePath, nil
+			}
+			lastErr = err
+			if archivePath != "" {
+				_ = os.Remove(archivePath)
+			}
+		}
+	}
+	return result, "", archiveFailure(lastErr)
 }
 
 // Apply installs a newer release over installRoot file by file. The caller must
 // hold the service lifecycle lock.
 func (c *Checker) Apply(ctx context.Context, installRoot string) (CheckResult, error) {
+	return c.ApplyPrepared(ctx, installRoot, "")
+}
+
+func (c *Checker) ApplyPrepared(ctx context.Context, installRoot, expectedID string) (CheckResult, error) {
+	lock, err := filelock.Acquire(filepath.Join(installRoot, "cache", "update", "operation.lock"))
+	if err != nil {
+		return CheckResult{}, err
+	}
+	defer lock.Close()
+	prepared, err := readPrepared(installRoot)
+	if err != nil {
+		return CheckResult{}, fmt.Errorf("prepare an update with update download first: %w", err)
+	}
+	result := prepared.Result
+	if expectedID != "" && prepared.Staging != expectedID {
+		return result, errors.New("prepared update was replaced; prepare the selected version again")
+	}
+	current := InstalledVersion(installRoot)
+	if current == result.AvailableVersion {
+		result.Status = "up_to_date"
+		return result, nil
+	}
+	if current != result.CurrentVersion {
+		return result, errors.New("installation changed since the update was prepared")
+	}
+	comparison, err := compareSemanticVersions(result.AvailableVersion, current)
+	if err != nil || comparison <= 0 {
+		return result, errors.New("prepared version must be newer than installed version")
+	}
 	replacedRoot := filepath.Join(installRoot, "cache", "update", "replaced")
 	// Windows keeps executables replaced by the previous update until they exit.
 	_ = os.RemoveAll(replacedRoot)
-	result, archivePath, err := c.Download(ctx, installRoot)
-	if err != nil || result.Status != "update_available" {
-		return result, err
+	archivePath := filepath.Join(installRoot, "cache", "downloads", "update", result.Artifact.FileName)
+	staging := filepath.Join(installRoot, "cache", "update", prepared.Staging)
+	// Re-extract on retries because successful moves consume staging files.
+	// This is a local operation, and never refreshes the selected release.
+	if prepared.Applying {
+		if err := os.RemoveAll(staging); err != nil {
+			return result, err
+		}
 	}
-	staging := filepath.Join(installRoot, "cache", "update", "staging")
-	if err := os.RemoveAll(staging); err != nil {
-		return result, err
+	var releaseRoot string
+	if prepared.Applying {
+		releaseRoot, err = stageRelease(ctx, archivePath, staging, result)
+	} else {
+		releaseRoot = filepath.Join(staging, "RayleaBot-v"+result.AvailableVersion+"-"+result.Artifact.ArtifactID)
+		err = validateStagedRelease(releaseRoot, result)
 	}
-	releaseRoot, err := stageRelease(ctx, archivePath, staging, result)
 	if err != nil {
-		return result, errors.Join(err, os.Remove(archivePath))
+		return result, err
+	}
+	prepared.Applying = true
+	if err := writePrepared(installRoot, prepared); err != nil {
+		return result, err
 	}
 	if err := os.MkdirAll(replacedRoot, 0o755); err != nil {
 		return result, err
@@ -69,6 +143,7 @@ func (c *Checker) Apply(ctx context.Context, installRoot string) (CheckResult, e
 	_ = os.RemoveAll(staging)
 	_ = os.Remove(archivePath)
 	_ = os.RemoveAll(replacedRoot)
+	_ = os.Remove(filepath.Join(installRoot, "cache", "update", "prepared.json"))
 	return result, nil
 }
 
@@ -94,7 +169,10 @@ func (c *Checker) ensureArchive(ctx context.Context, installRoot string, artifac
 	if err := os.Remove(partial); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", err
 	}
-	if err := deps.DownloadHTTPS(ctx, c.DownloadClient, artifact.DownloadURL, partial, artifact.ArchiveSizeBytes); err != nil {
+	c.report("download", artifact.DownloadURL, 0, artifact.ArchiveSizeBytes)
+	if err := deps.DownloadHTTPSWithProgress(ctx, c.DownloadClient, artifact.DownloadURL, partial, artifact.ArchiveSizeBytes, func(p deps.DownloadProgress) {
+		c.report("download", artifact.DownloadURL, p.DownloadedBytes, artifact.ArchiveSizeBytes)
+	}); err != nil {
 		return "", fmt.Errorf("download release archive: %w", err)
 	}
 	info, err := os.Stat(partial)
@@ -124,18 +202,42 @@ func stageRelease(ctx context.Context, archivePath, staging string, result Check
 		return "", fmt.Errorf("extract release archive: %w", err)
 	}
 	releaseRoot := filepath.Join(staging, "RayleaBot-v"+result.AvailableVersion+"-"+result.Artifact.ArtifactID)
+	return releaseRoot, validateStagedRelease(releaseRoot, result)
+}
+
+func validateStagedRelease(releaseRoot string, result CheckResult) error {
 	payload, err := os.ReadFile(filepath.Join(releaseRoot, "build_info.json"))
 	if err != nil {
-		return "", fmt.Errorf("read staged build_info.json: %w", err)
+		return fmt.Errorf("read staged build_info.json: %w", err)
 	}
 	staged, err := DecodeBuildInfo(payload)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if staged.Version != result.AvailableVersion || staged.ArtifactID != result.Artifact.ArtifactID {
-		return "", errors.New("staged release does not match the release manifest")
+		return errors.New("staged release does not match the release manifest")
 	}
-	return releaseRoot, nil
+	return filepath.WalkDir(releaseRoot, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(releaseRoot, path)
+		if err != nil {
+			return err
+		}
+		first := strings.Split(filepath.ToSlash(relative), "/")[0]
+		switch strings.ToLower(first) {
+		case "config", "data", "plugins", "logs", "backups", "cache":
+			return fmt.Errorf("release contains protected path %s", first)
+		}
+		if strings.HasPrefix(strings.ToLower(filepath.ToSlash(relative)), ".deps/store") {
+			return errors.New("release contains managed runtime store")
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return errors.New("release contains symlink")
+		}
+		return nil
+	})
 }
 
 func installRelease(ctx context.Context, installRoot, releaseRoot, replaced string) error {

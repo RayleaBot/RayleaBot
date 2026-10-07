@@ -1,7 +1,7 @@
 {
   "contract": "contracts/config.user.schema.json",
-  "case": "ok",
-  "description": "Valid config with command prefix and per-user/group command limits.",
+  "case": "invalid",
+  "description": "Update source rejects credentials and non-HTTPS URLs.",
   "input": {
     "schema_version": "4",
     "server": {
@@ -46,9 +46,7 @@
     },
     "command": {
       "prefixes": [
-        "/",
-        "!",
-        "。"
+        "/"
       ]
     },
     "builtin_features": {
@@ -57,16 +55,11 @@
           "help",
           "帮助"
         ],
-        "prefixes": [
-          "#",
-          "！"
-        ]
+        "prefixes": []
       }
     },
     "admin": {
-      "super_admins": [
-        "30001"
-      ],
+      "super_admins": [],
       "session_ttl_days": 7,
       "session_absolute_ttl_days": 30,
       "sliding_renewal": true,
@@ -124,7 +117,7 @@
     "user": {
       "command_rate_limit": "10/60s",
       "cooldown_reply": true,
-      "cooldown_reply_once": false
+      "cooldown_reply_once": true
     },
     "group": {
       "command_rate_limit": "30/60s"
@@ -141,14 +134,12 @@
       "version": "",
       "mode": "auto",
       "proxies": [
-        "https://gh-proxy.org",
-        "https://ghfast.top",
-        "https://ghproxy.net"
+        "http://example.com"
       ],
       "mirrors": []
     }
   },
   "expect": {
-    "valid": true
+    "valid": false
   }
 }

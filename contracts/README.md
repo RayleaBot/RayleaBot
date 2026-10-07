@@ -41,7 +41,7 @@
 - `error-codes.yaml`
   - 统一错误码命名、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
-  - 当前已固定的管理 HTTP 接口（契约修订 0.5.7）。
+  - 当前已固定的管理 HTTP 接口（契约修订 0.5.8）。
   - `GET /api/system/message-stats` 按小时或按天返回各机器人连接收到与发出的消息条数、连接合计与紧邻前一段等长时间的合计、最近收到时间，以及连接中断和服务未运行时段。收到在会话路由与黑白名单之前按适配器交出的群聊、私聊消息计数，发出只计平台确认接受的发送；计数按 UTC 小时持久化，按天汇总使用 `effective_timezone`，统计开始前没有数据，客户端不得补 0。
   - 诊断任务摘要必含 `interrupted`（非负整数），统计关闭或重启中断的任务；`failed` 仅统计失败，取消不计入这两类。调度 `last_error` 不包含计划取消，取消仍更新最近运行信息并计入 `stats.other`，保留已有真实错误。
   - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot、OneBot target / identity resolution、plugin lifecycle、插件商店、可信代码确认与安装、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system、scheduler、recovery、runtime bootstrap、render templates 以及更新状态与检查入口

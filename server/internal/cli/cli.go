@@ -183,6 +183,12 @@ func runResetAdmin(cmd Command) int {
 
 func runCleanup(cmd Command) int {
 	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
+	updateLock, err := filelock.Acquire(filepath.Join(repoRoot, "cache", "update", "operation.lock"))
+	if err != nil {
+		cmd.Logger.Error("更新准备正在使用缓存，请稍后重试清理")
+		return 1
+	}
+	defer updateLock.Close()
 	cfg, _, err := internalconfig.Load(cmd.ConfigPath, cmd.SchemaPath)
 	if err != nil {
 		cmd.Logger.Error("读取清理保留策略失败", "err", displayLogError(repoRoot, err, cmd.ConfigPath))
@@ -253,6 +259,11 @@ func cleanupEntriesOlderThan(cmd Command, repoRoot, root string, cutoff time.Tim
 	failed := false
 	for _, entry := range entries {
 		entryPath := filepath.Join(root, entry.Name())
+		if root == filepath.Join(repoRoot, "cache", "downloads") && entry.Name() == "update" {
+			if _, err := os.Stat(filepath.Join(repoRoot, "cache", "update", "prepared.json")); err == nil {
+				continue
+			}
+		}
 		if !pathOlderThan(entryPath, cutoff) {
 			continue
 		}

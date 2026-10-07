@@ -68,12 +68,22 @@ func (c *Coordinator) ApplyUpdate() bool {
 	}
 
 	progress("正在下载更新。")
-	if _, _, err := c.release.runServerContext(ctx, runtime.GOOS, updateDownloadTimeout, "update", "download"); err != nil {
+	prepared, err := c.release.downloadUpdate(ctx, runtime.GOOS, progress)
+	if err != nil {
 		if errors.Is(err, context.Canceled) || ctx.Err() != nil {
 			return cancelled()
 		}
 		return fail("launcher.update_download_failed", "下载更新失败。", "服务未受影响，请稍后重试或打开发布页手动下载。")
 	}
+	if prepared.Status == "up_to_date" {
+		release.Status = ReleaseUpToDate
+		release.UpdateAvailable = false
+		release.CanCheck = true
+		release.Summary = "当前已是所选范围内的最新版本。"
+		c.publishRelease(release)
+		return false
+	}
+	release.LatestVersion = prepared.Version
 
 	progress("正在停止服务并安装更新。")
 	unblockStartups := c.startups.block(false)
@@ -95,7 +105,7 @@ func (c *Coordinator) ApplyUpdate() bool {
 	}
 	// Once replacement starts, let it complete even if exit is requested.
 	// Shutdown still waits for the operation; interruption could leave partial files.
-	if _, _, err := c.release.runServer(runtime.GOOS, updateApplyTimeout, "update", "apply"); err != nil {
+	if _, _, err := c.release.runServer(runtime.GOOS, updateApplyTimeout, "update", "apply", "--prepared", prepared.PreparedID); err != nil {
 		return fail("launcher.update_apply_failed", "安装更新失败。", "请确认服务已停止后重试，或从发布页下载完整包解压覆盖安装目录。")
 	}
 	if ctx.Err() != nil {

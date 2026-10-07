@@ -1,5 +1,11 @@
 contract: contracts/web-api.openapi.yaml
 examples:
+  update-releases.response.json:
+    operationId: listUpdateReleases
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
   config-update.response.json:
     operationId: updateConfig
     direction: response

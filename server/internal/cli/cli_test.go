@@ -508,6 +508,9 @@ func TestOfflineCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
 					Version: manifest.Version, GitCommit: "0123456789abcdef0123456789abcdef01234567", ArtifactID: "windows-x64-full",
 				})
 				command.Args = []string{"apply"}
+				writeCLIJSON(t, filepath.Join(root, "cache", "update", "prepared.json"), map[string]any{
+					"staging": "staging-fixture", "result": releaseupdate.CheckResult{CurrentVersion: "0.0.1", AvailableVersion: manifest.Version, Artifact: releaseupdate.Artifact{ArtifactID: "windows-x64-full", FileName: "release.zip"}},
+				})
 				command.UpdateHTTPClient = &http.Client{Transport: cliRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(fixture.Input)), Header: make(http.Header), Request: request}, nil
 				})}
@@ -672,6 +675,12 @@ func TestCleanupOnlyRemovesExpiredRecoverableEntries(t *testing.T) {
 	recent := now.Add(-time.Hour)
 
 	oldDownload := filepath.Join(repoRoot, "cache", "downloads", "old.bin")
+	pendingArchive := filepath.Join(repoRoot, "cache", "downloads", "update", "prepared.zip")
+	writeFile(t, pendingArchive, "prepared archive")
+	writeFile(t, filepath.Join(repoRoot, "cache", "update", "prepared.json"), "{}")
+	if err := os.Chtimes(filepath.Dir(pendingArchive), old, old); err != nil {
+		t.Fatal(err)
+	}
 	recentDownload := filepath.Join(repoRoot, "cache", "downloads", "recent.bin")
 	oldRender := filepath.Join(repoRoot, "data", "render", "old.png")
 	recentRender := filepath.Join(repoRoot, "data", "render", "recent.png")
@@ -701,7 +710,7 @@ func TestCleanupOnlyRemovesExpiredRecoverableEntries(t *testing.T) {
 			t.Fatalf("expired entry still exists: %s", removed)
 		}
 	}
-	for _, retained := range []string{recentDownload, recentRender, recentInstall} {
+	for _, retained := range []string{recentDownload, recentRender, recentInstall, pendingArchive} {
 		if _, err := os.Stat(retained); err != nil {
 			t.Fatalf("recent entry was removed: %s: %v", retained, err)
 		}

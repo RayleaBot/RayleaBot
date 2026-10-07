@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { matchedRouteKey, onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { CollapsibleContent, CollapsibleRoot, CollapsibleTrigger, TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
-import { CalendarClockIcon, ChevronRightIcon, CircleAlertIcon, CpuIcon, DatabaseIcon, ImageIcon, RotateCcwIcon, SaveIcon, ScrollTextIcon, SearchIcon, ShieldCheckIcon } from '@lucide/vue'
+import { CalendarClockIcon, ChevronRightIcon, CircleAlertIcon, CpuIcon, DatabaseIcon, DownloadIcon, ImageIcon, RotateCcwIcon, SaveIcon, ScrollTextIcon, SearchIcon, ShieldCheckIcon } from '@lucide/vue'
 import AppPage from '@/components/page/AppPage.vue'
 import AppAlert from '@/components/AppAlert.vue'
 import AppButton from '@/components/AppButton.vue'
@@ -13,6 +13,7 @@ import AppInput from '@/components/AppInput.vue'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
 import ConfigFieldRow from '@/components/config/ConfigFieldRow.vue'
+import UpdateSettingsStatus from '@/components/config/UpdateSettingsStatus.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { notifySuccess } from '@/adapter/feedback'
 import { cloneConfig, setValueByPath, type ConfigFieldDefinition } from '@/lib/config-form'
@@ -25,8 +26,8 @@ import { changedConfigPaths, getConfigWorkbenchGroups, getWorkbenchSections, mat
 
 const configStore = useConfigStore()
 const { document: configDocument, error, loading, restartRequired, saving } = storeToRefs(configStore)
-const groups = getConfigWorkbenchGroups()
-const categoryIcons = { access: ShieldCheckIcon, render: ImageIcon, scheduler: CalendarClockIcon, runtime: CpuIcon, data: DatabaseIcon, logs: ScrollTextIcon }
+const groups = reactive(getConfigWorkbenchGroups())
+const categoryIcons = { update: DownloadIcon, access: ShieldCheckIcon, render: ImageIcon, scheduler: CalendarClockIcon, runtime: CpuIcon, data: DatabaseIcon, logs: ScrollTextIcon }
 const fields = groups.flatMap(group => group.sections.flatMap(section => section.fields))
 const initialSection = typeof window === 'undefined' ? '' : window.location.hash.replace('#config-section-', '')
 const initialGroup = groups.find(group => group.sections.some(section => section.key === initialSection))
@@ -61,6 +62,11 @@ watch(configDocument, incoming => {
   }
   baseline.value = cloneConfig(incoming)
 }, { immediate: true })
+
+function setReleaseOptions(items: { version: string; channel: string }[]) {
+  const field = fields.find(field => field.path === 'update.version')
+  if (field) field.options = [{ value: '', label: t('config.update.latest') }, ...items.map(item => ({ value: item.version, label: `${item.version}${item.channel === 'beta' ? ' · ' + t('config.update.beta') : ''}` }))]
+}
 
 function matchCount(group: ConfigWorkbenchGroup) {
   return group.sections.reduce((total, section) => total + section.fields.filter(field => matchesConfigField(group, section, field, query.value)).length, 0)
@@ -104,6 +110,10 @@ function readField(path: string, type: ConfigFieldDefinition['type']) {
 function writeField(path: string, value: unknown) {
   if (!draft.value || isSaving.value) return
   setValueByPath(draft.value as unknown as Record<string, unknown>, path, value)
+  if (path === 'update.channel') {
+    setValueByPath(draft.value as unknown as Record<string, unknown>, 'update.version', '')
+    setReleaseOptions([])
+  }
   saveError.value = ''
 }
 function discard() {
@@ -207,6 +217,8 @@ onBeforeUnmount(() => {
               <h2 :id="`config-group-${activeGroup.key}`" ref="editorTitle">{{ activeGroup.title }}</h2>
               <p>{{ activeGroup.description }}</p>
             </header>
+
+            <UpdateSettingsStatus v-if="activeGroup.key === 'update'" :dirty="isDirty" :disabled="isSaving" @releases="items => setReleaseOptions(items)" />
 
             <div v-if="commonSections.length" class="config-common">
               <h3 v-if="activeGroup.sections.length === 1" class="config-section-heading">{{ t('config.workbench.common') }}</h3>

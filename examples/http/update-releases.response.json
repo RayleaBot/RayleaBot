@@ -1,0 +1,9 @@
+{
+  "releases": [
+    {
+      "version": "0.4.0",
+      "channel": "stable",
+      "release_notes_ref": "https://example.com/releases/v0.4.0"
+    }
+  ]
+}

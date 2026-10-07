@@ -127,6 +127,17 @@
       "reconnect_multiplier": 2,
       "reconnect_max_seconds": 120,
       "reconnect_jitter_ratio": 0.2
+    },
+    "update": {
+      "channel": "stable",
+      "version": "",
+      "mode": "auto",
+      "proxies": [
+        "https://gh-proxy.org",
+        "https://ghfast.top",
+        "https://ghproxy.net"
+      ],
+      "mirrors": []
     }
   },
   "expect": {

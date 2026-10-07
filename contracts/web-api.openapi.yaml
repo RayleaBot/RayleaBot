@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RayleaBot Web API
-  version: 0.5.7
+  version: 0.5.8
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
@@ -169,6 +169,7 @@ x-fixtures:
   - fixtures/web-api/ok.plugin-management-action.yaml
   - fixtures/web-api/ok.update-status.yaml
   - fixtures/web-api/ok.update-check.yaml
+  - fixtures/web-api/ok.update-releases.yaml
   - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
   - fixtures/web-api/invalid.plugins-recover-not-recoverable.yaml
   - fixtures/web-api/invalid.plugins-uninstall-id.yaml
@@ -2147,6 +2148,23 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+
+  /api/update/releases:
+    get:
+      summary: List at most 30 newest published versions in the saved channel from a bounded 100-release upstream window.
+      operationId: listUpdateReleases
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        '200':
+          description: Merged version list from reachable sources, newest first. Older versions may be shown but cannot be installed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateReleasesResponse'
+        default:
+          $ref: '#/components/responses/Error'
 
   /api/update/status:
     get:
@@ -4650,6 +4668,45 @@ components:
           const: true
           description: Explicit acknowledgement that a third-party plugin backend runs as fully trusted local code.
 
+    UpdateRoute:
+      type: object
+      additionalProperties: false
+      required: [url, available, latency_ms, selected]
+      properties:
+        url:
+          type: string
+          format: uri
+        available:
+          type: boolean
+        latency_ms:
+          type: integer
+          minimum: 0
+        selected:
+          type: boolean
+    UpdateRelease:
+      type: object
+      additionalProperties: false
+      required: [version, channel, release_notes_ref]
+      properties:
+        version:
+          type: string
+        channel:
+          type: string
+          enum: [stable, beta]
+        release_notes_ref:
+          type: string
+          format: uri
+    UpdateReleasesResponse:
+      type: object
+      additionalProperties: false
+      required: [releases]
+      properties:
+        releases:
+          type: array
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/UpdateRelease'
+
     UpdateState:
       type: string
       enum: [disabled, idle, checking, up_to_date, update_available, failed]
@@ -4672,6 +4729,15 @@ components:
           type: string
           enum: [guided, manual, unavailable]
         release_notes_ref:
+          type: string
+          format: uri
+        routes:
+          type: array
+          maxItems: 10
+          description: Metadata route observations from the most recent check; download routes are probed separately during preparation.
+          items:
+            $ref: '#/components/schemas/UpdateRoute'
+        source_url:
           type: string
           format: uri
         error:

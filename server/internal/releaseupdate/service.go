@@ -3,6 +3,7 @@ package releaseupdate
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"os"
 	"path/filepath"
 	"sync"
@@ -12,10 +13,13 @@ import (
 var ErrCheckInProgress = errors.New("an update check is already in progress")
 
 type CheckProvider interface {
+	Releases(context.Context) ([]Release, error)
 	Check(context.Context, string) (CheckResult, error)
 }
 
 type StatusSnapshot struct {
+	Routes           []Route    `json:"routes,omitempty"`
+	SourceURL        string     `json:"source_url,omitempty"`
 	State            string     `json:"state"`
 	CurrentVersion   string     `json:"current_version"`
 	AvailableVersion string     `json:"available_version,omitempty"`
@@ -70,9 +74,18 @@ func InstalledVersion(installRoot string) string {
 	return "unknown"
 }
 
-func NewDefaultService(installRoot string) *Service {
+func NewDefaultService(installRoot string, settings func() config.UpdateConfig) *Service {
 	currentVersion := InstalledVersion(installRoot)
-	return NewService(installRoot, NewChecker(), currentVersion)
+	checker := NewChecker()
+	checker.SettingsSource = settings
+	return NewService(installRoot, checker, currentVersion)
+}
+
+func (s *Service) Releases(ctx context.Context) ([]Release, error) {
+	if s.checker == nil {
+		return nil, errorWithCode(CodeManifestInvalid, "list releases", errors.New("update checking is unavailable"))
+	}
+	return s.checker.Releases(ctx)
 }
 
 func (s *Service) Status() StatusSnapshot {
@@ -103,6 +116,8 @@ func (s *Service) Check(ctx context.Context) (StatusSnapshot, error) {
 	s.mu.Lock()
 	s.checking = false
 	s.snapshot.CheckedAt = &checkedAt
+	s.snapshot.Routes = append([]Route{}, result.Routes...)
+	s.snapshot.SourceURL = result.SourceURL
 	if err != nil {
 		s.snapshot.State = "failed"
 		s.snapshot.UpdateMode = "unavailable"
@@ -134,6 +149,7 @@ func (s *Service) nowUTC() time.Time {
 
 func cloneStatusSnapshot(snapshot StatusSnapshot) StatusSnapshot {
 	cloned := snapshot
+	cloned.Routes = append([]Route{}, snapshot.Routes...)
 	if snapshot.CheckedAt != nil {
 		checkedAt := *snapshot.CheckedAt
 		cloned.CheckedAt = &checkedAt

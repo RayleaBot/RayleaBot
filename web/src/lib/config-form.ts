@@ -60,6 +60,17 @@ function withSchemaDefaults(sections: ConfigSectionDefinition[]): ConfigSectionD
 export function getConfigSections(): ConfigSectionDefinition[] {
   return withSchemaDefaults([
     {
+      key: 'update',
+      title: t('config.sections.update'),
+      fields: [
+        { path: 'update.channel', label: t('config.update.channel'), type: 'select', description: t('config.update.channelHelp'), options: [{ value: 'stable', label: t('config.update.stable') }, { value: 'beta', label: t('config.update.beta') }] },
+        { path: 'update.version', label: t('config.update.version'), type: 'select', description: t('config.update.versionHelp'), options: [{ value: '', label: t('config.update.latest') }] },
+        { path: 'update.mode', label: t('config.update.mode'), type: 'select', description: t('config.update.modeHelp'), options: [{ value: 'auto', label: t('config.update.auto') }, { value: 'direct', label: t('config.update.direct') }, { value: 'proxy', label: t('config.update.proxy') }] },
+        { path: 'update.proxies', label: t('config.update.proxies'), type: 'list', description: t('config.update.proxiesHelp', { template: '{url}' }), placeholder: 'https://gh-proxy.org\nhttps://ghfast.top\nhttps://ghproxy.net' },
+        { path: 'update.mirrors', label: t('config.update.mirrors'), type: 'list', description: t('config.update.mirrorsHelp') },
+      ],
+    },
+    {
       key: 'server',
       title: t('config.sections.server'),
       fields: [

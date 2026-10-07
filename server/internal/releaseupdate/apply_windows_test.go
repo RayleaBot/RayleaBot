@@ -47,6 +47,9 @@ func TestApplyReplacesRunningExecutable(t *testing.T) {
 	})
 
 	checker, _ := releaseChecker(t, "zip", releaseArchive(t, "zip", "1.0.0", zip.Deflate, newRelease), nil)
+	if _, _, err := checker.Download(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := checker.Apply(context.Background(), root); err != nil {
 		t.Fatal(err)
 	}

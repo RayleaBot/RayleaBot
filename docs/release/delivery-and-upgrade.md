@@ -54,7 +54,7 @@ Linux 完整包使用根目录的 `RayleaLauncher`，macOS 完整包使用 `Rayl
 5. 构建四个平台包并执行原有 smoke 后发布。Server 产物固定 `CGO_ENABLED=0`；Launcher 使用各平台所需的原生构建环境。
 6. 从公开下载入口执行该版本支持的[实包验收](../engineering/manual-smoke.md#公开发行物)，登记真实结果与未执行项。正式版仍需补齐公开插件安装、更新和恢复的全流程记录。
 
-含 SemVer 预发布段的版本使用 `channel: beta`、GitHub `prerelease: true` 与 `make_latest: false`；普通版本使用 `stable`，latest 由 GitHub 的 `legacy` 策略决定。仅构建元数据含连字符（例如 `1.2.3+build-1`）仍是正式版本。生成清单时若显式 channel 与版本不一致，发布工具拒绝执行。自动更新只读取稳定版 latest，测试预发布需从对应 Release 页手动下载。
+含 SemVer 预发布段的版本使用 `channel: beta`、GitHub `prerelease: true` 与 `make_latest: false`；普通版本使用 `stable`，latest 由 GitHub 的 `legacy` 策略决定。仅构建元数据含连字符（例如 `1.2.3+build-1`）仍是正式版本。生成清单时若显式 channel 与版本不一致，发布工具拒绝执行。默认检查稳定版；Web 的“配置 → 版本与更新”可选择测试版通道，或从发布列表固定具体版本。测试版通道同时包含稳定版，按 SemVer 选择最新版本；自动更新不执行降级。
 
 通道不改变插件版本兼容性。当前 [manifest v4 契约](../../contracts/plugin-info.schema.json)要求 `min_core_version` 至少为 `0.4.0`，不接受 `0.4.0` 的预发布声明；因此 `0.4.0-beta.1` 不能安装 v4 插件。首个预发布先验收核心安装与初始化，插件流程在满足最低核心版本要求的产物上验收。
 
@@ -68,30 +68,56 @@ Launcher 每 6 小时检查发布版本，发现新版本后提供立即更新�
 raylea-server version --json
 raylea-server update check --json
 raylea-server update download
+raylea-server update download --file <本地发布包>
 raylea-server update apply
 ```
 
-版本检查通过 HTTPS 读取发布清单，比较当前版本并返回发布页地址。当前安装缺少有效 `build_info.json` 时，Launcher 提供项目发布页入口。
+版本检查按保存的 `update` 配置通过 HTTPS 读取发布清单，比较当前版本并返回发布页地址及线路观测结果。当前安装缺少有效 `build_info.json` 时，Launcher 提供项目发布页入口。
 
 ## 一键更新
 
 桌面完整包在 Launcher 的“关于应用”中确认后更新：
 
-1. Launcher 调用 `raylea-server update download` 下载当前产物的更新包，服务保持运行。
-2. Launcher 停止服务，调用 `raylea-server update apply` 逐个替换安装根中的程序文件：已有文件先移入 `cache/update/replaced/`，`build_info.json` 最后写入。
+1. Launcher 调用 `raylea-server update download --progress-json`，按保存的通道与版本测速选源、下载并解压检查；服务继续运行，界面显示下载进度。
+2. 准备完成后，CLI 原子保存目标版本、归档及暂存目录，返回准备 ID。Launcher 停止服务，调用 `raylea-server update apply --prepared <ID>`，只安装这份已固定的本地结果，不联网、不重新选择版本。已有文件先移入 `cache/update/replaced/`，`build_info.json` 最后写入。
 3. Launcher 启动新版 Launcher 后退出；新版等待旧进程退出再接管单实例。更新前由 Launcher 管理且仍在运行的服务，会在新版 Launcher 初始化成功后自动启动一次；启动失败时按普通启动流程显示原因，不自动重试。更新前已停止的服务保持停止。
 
 其他程序启动的服务须先在 Web 管理面停止，再重试安装；取消确认会结束本次更新。退出 Launcher 会取消并等待下载结束；已开始替换程序文件时，退出等待安装完成。停服后安装或重启 Launcher 失败时，服务保持停止，可重试更新或按失败提示手动处理。
 
-服务端包停止服务后在安装根执行同一命令：
+服务端包先在服务运行时准备更新，再进入停服窗口安装：
 
 ```text
+./raylea-server update download
 sudo systemctl stop rayleabot
 ./raylea-server update apply
 sudo systemctl start rayleabot
 ```
 
 更新只写入发布包包含的文件，不触碰 `config/`、`data/`、`plugins/`、`logs/`、`backups/` 与 `.deps/store/`；新版本不再包含的旧文件保留。数据库在更新后的首次启动时前向迁移。
+
+## 加速线路与版本选择
+
+Web 的“配置 → 版本与更新”与 `config/user.yaml` 的 `update` 字段对应，保存后下次检查或准备生效，Launcher 与 CLI 共用这份配置。
+
+- `channel`：`stable` 只接收稳定版；`beta` 包含稳定版与预发布版。
+- `version`：空字符串跟随所选通道；填写不带 `v` 的具体版本时固定该版本。目标必须严格高于当前版本，不能借此回退数据库或跨越不兼容安装边界。
+- `mode`：`auto` 检测直连与加速源；`direct` 不使用 GitHub 加速前缀；`proxy` 不直连 GitHub。显式配置的完整发布镜像不受此开关影响。
+- `proxies`：最多 6 个 HTTPS 前缀，可增删、清空。支持 `https://proxy.example`、`https://proxy.example/{url}` 和已经拼接 GitHub 链接的形式，保存时规范为前缀，去重后使用。仅改写 GitHub、GitHub API 与 raw 主机，不给非 GitHub 地址重复加速，不发送凭据。
+- `mirrors`：最多 3 个完整发布镜像根地址，默认为空。布局以发布契约的 `x-update-distribution` 为准。
+
+默认候选是 [GH-Proxy](https://gh-proxy.com/docs/github-accelerator)、[ghfast.top](https://ghfast.top/) 与 [ghproxy.net](https://ghproxy.net/)，同时保留 GitHub 直连。它们是面向 GitHub 下载的第三方服务，不承诺位于中国境内或持续可达。2026-10-07 核对了各自公开说明，并验证能返回本项目发布清单；每次实际选择仍以部署机器的检测结果为准。
+
+元数据请求最多 4 路并发，每路最多 5 秒。选择可用来源中最新的有效版本，同版本再比较响应时间；网页、错误响应及无效清单不算可用。Web 的“检查版本与线路”显示此次清单检测结果，保存设置后可刷新最多 30 个版本（上游最多读取 100 个发布记录）。某些前缀只支持文件下载，不支持 GitHub API，具体版本列表会使用其他可用线路。
+
+下载时对实际归档读取最多 64 KiB 的样本，检查归档头并比较响应速度；小样本测速不是完整下载带宽保证。随后按线路顺序尝试，下载或包校验失败自动切换，最多尝试两轮。归档的大小、CRC/gzip、版本和平台均通过检查后才准备安装。更新操作使用文件锁串行化，配置读取使用已有原子快照。
+
+准备与应用分别保存于 `cache/update/`，属于可重建缓存。准备完成后，即使网络断开也能执行 `update apply`；没有准备记录时该命令会提示先下载。应用失败保留本地归档供重试，重试重新解压，不联网。通过 `update download --file <archive>` 可以导入另一台设备取得的正式发布包，导入与安装均不需要网络。
+
+## 可选官方镜像发布
+
+仓库提供 `update-mirror.yml`，在启用后随正式发布运行，也支持手动补同步。此仓库没有预置已部署的官方镜像域名。部署者需要配置仓库变量 `UPDATE_MIRROR_ENABLED=true`、`UPDATE_MIRROR_PUBLIC_URL`、`UPDATE_MIRROR_BUCKET`、`UPDATE_MIRROR_ENDPOINT`，并在 Actions Secrets 中提供 `UPDATE_MIRROR_ACCESS_KEY` 与 `UPDATE_MIRROR_SECRET_KEY`。支持 S3 兼容对象存储，包括 Cloudflare R2；其他 S3 服务可通过 `UPDATE_MIRROR_REGION` 设置所需地域（默认 `auto`）。不把凭据写入用户配置或发布清单。
+
+同步仅处理已发布且使用当前格式的发行物，上传平台包与按版本存放的清单后，才更新版本索引及稳定版／测试版指针；根清单缓存 5 分钟，按版本归档长期缓存。任务串行执行，同步失败使任务失败，可手动重新运行。公开 URL 配置到客户端 `update.mirrors` 后才会使用；仅设置 Actions 变量不会自动改变既有安装的更新来源。
 
 ## 手动更新
 
@@ -112,7 +138,7 @@ GitHub 自动生成的源代码压缩包不是正式运行时产物。
 
 | 不做 | 理由 |
 | --- | --- |
-| 核心更新包的 SHA-256 摘要 | 发布清单与更新包都经 HTTPS 从同一个 GitHub Release 获取；传输损坏由 HTTPS、清单中的归档大小以及 ZIP CRC32 或 gzip 校验发现。摘要与文件出自同一来源，能替换文件的人也能替换摘要，挡不住篡改。 |
+| 核心更新包的 SHA-256 摘要 | 核心更新显式信任配置中的分发源，包括用户启用的公共加速源。HTTPS、归档大小、ZIP CRC32 或 gzip 校验用于发现损坏，不能认证第三方内容；从同一加速源取得摘要也不能改变这一点。保留不引入核心摘要的约束，用户可删去第三方源或选择直连。 |
 | 发布签名 | 签名是唯一能防止发布源被篡改的手段，但需要长期的密钥管理与轮换；签名体系已被有意删除，不再恢复。 |
 | 更新回滚、迁移前数据库副本 | `build_info.json` 最后写入，替换中断时安装仍报告旧版本，重新执行 `update apply` 或手动解压覆盖即可完成。数据库迁移在事务内执行，失败时保持迁移前状态。退回旧版本使用旧发布包与更新前的备份。 |
 | 独立更新程序、系统原生脚本 | Windows 允许给正在运行的程序改名，Linux 与 macOS 可以直接替换运行中的文件，`update apply` 以先改名再移入完成替换，Launcher 自行重启即可。脚本需要维护三个平台，难以测试，出错时也无法在界面报告。 |
@@ -121,7 +147,7 @@ GitHub 自动生成的源代码压缩包不是正式运行时产物。
 
 发布清单不是安全边界：读取端宽松，发布端严格。Server 读取清单时忽略未知字段，只校验实际使用的字段，新版本增加字段或调整插件合同不会让旧版本检测不到更新；发布脚本按契约严格生成并校验清单。
 
-摘要只在清单与文件来源不同时才有意义。运行环境依赖清单中的 Chromium 与 FFmpeg 可能来自镜像，插件商店目录与归档分属不同仓库，因此两者继续校验 SHA-256。若将来为核心更新接入镜像或加速地址，再在官方清单中增加摘要。
+Chromium、FFmpeg 和插件商店继续按各自契约校验 SHA-256。核心更新的公共前缀会同时代理清单和文件，当前不具备独立于所选来源的内容认证；接入加速是对这些来源的显式信任，不把 HTTPS 或 CRC 描述为发布者身份验证。
 
 ## 相关文档
 

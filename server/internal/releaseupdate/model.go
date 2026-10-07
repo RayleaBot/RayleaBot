@@ -73,10 +73,33 @@ type BuildInfo struct {
 }
 
 type CheckResult struct {
+	PreparedID       string   `json:"prepared_id,omitempty"`
+	Routes           []Route  `json:"routes,omitempty"`
+	SourceURL        string   `json:"source_url,omitempty"`
 	Status           string   `json:"status"`
 	CurrentVersion   string   `json:"current_version"`
 	AvailableVersion string   `json:"available_version,omitempty"`
 	UpdateMode       string   `json:"update_mode"`
 	ReleasePageURL   string   `json:"release_page_url,omitempty"`
 	Artifact         Artifact `json:"artifact"`
+}
+
+type Route struct {
+	URL       string `json:"url"`
+	Available bool   `json:"available"`
+	LatencyMS int64  `json:"latency_ms"`
+	Selected  bool   `json:"selected"`
+}
+
+type Release struct {
+	Version         string `json:"version"`
+	Channel         string `json:"channel"`
+	ReleaseNotesRef string `json:"release_notes_ref"`
+}
+
+type Progress struct {
+	Stage           string `json:"stage"`
+	SourceURL       string `json:"source_url,omitempty"`
+	DownloadedBytes int64  `json:"downloaded_bytes,omitempty"`
+	TotalBytes      int64  `json:"total_bytes,omitempty"`
 }

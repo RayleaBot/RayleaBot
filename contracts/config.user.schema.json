@@ -23,7 +23,8 @@
     "message",
     "user",
     "group",
-    "adapter"
+    "adapter",
+    "update"
   ],
   "properties": {
     "schema_version": {
@@ -611,6 +612,101 @@
       "items": {
         "$ref": "#/$defs/adapterInstance"
       }
+    },
+    "update": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channel",
+        "version",
+        "mode",
+        "proxies",
+        "mirrors"
+      ],
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": [
+            "stable",
+            "beta"
+          ],
+          "default": "stable",
+          "description": "Stable releases only, or stable and prerelease versions. Never installs an older version.",
+          "x-apply-policy": "hot_reload"
+        },
+        "version": {
+          "type": "string",
+          "default": "",
+          "pattern": "^(?:(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?)?$",
+          "maxLength": 128,
+          "description": "Exact target version without v; empty selects the newest version in the channel. Downgrades are rejected.",
+          "x-apply-policy": "hot_reload"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "direct",
+            "proxy"
+          ],
+          "default": "auto",
+          "description": "Auto races direct and proxy metadata, selects the newest valid version, probes bounded archive samples and falls back on failures. Direct excludes prefixes; proxy excludes direct GitHub access.",
+          "x-apply-policy": "hot_reload"
+        },
+        "proxies": {
+          "type": "array",
+          "maxItems": 6,
+          "uniqueItems": true,
+          "default": [
+            "https://gh-proxy.org",
+            "https://ghfast.top",
+            "https://ghproxy.net"
+          ],
+          "items": {
+            "type": "string",
+            "minLength": 9,
+            "maxLength": 2048,
+            "pattern": "^https://[^\\s?#@]+$"
+          },
+          "description": "Public GitHub HTTPS prefix services, not HTTP CONNECT proxies. Accepts a base prefix, a {url} template or a prefixed GitHub URL; normalized on save. Never sends credentials. Empty disables prefixes.",
+          "x-apply-policy": "hot_reload"
+        },
+        "mirrors": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "default": [],
+          "items": {
+            "type": "string",
+            "minLength": 9,
+            "maxLength": 2048,
+            "pattern": "^https://[^\\s?#@]+$"
+          },
+          "description": "Optional publisher-controlled release mirror base URLs. Layout: stable.json, beta.json, releases.json, v<version>/release_manifest.v2.json and versioned archives. No default mirror is provisioned.",
+          "x-apply-policy": "hot_reload"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "channel": {
+                "const": "stable"
+              }
+            },
+            "required": [
+              "channel"
+            ]
+          },
+          "then": {
+            "properties": {
+              "version": {
+                "pattern": "^(?:[0-9]+\\.[0-9]+\\.[0-9]+(?:\\+[0-9A-Za-z.-]+)?)?$"
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "$defs": {
@@ -909,7 +1005,10 @@
     "fixtures/config/ok.qq-official-adapter.json",
     "fixtures/config/invalid.qq-official-intent.json",
     "fixtures/config/invalid.scheduler-timezone-empty.json",
-    "fixtures/config/invalid.runtime-detached-limits.json"
+    "fixtures/config/invalid.runtime-detached-limits.json",
+    "fixtures/config/ok.update-sources.json",
+    "fixtures/config/invalid.update-proxy.json",
+    "fixtures/config/invalid.update-stable-beta.json"
   ],
   "x-runtime-constraints": [
     "admin.session_absolute_ttl_days must be greater than or equal to admin.session_ttl_days"

@@ -226,5 +226,9 @@
     "fixtures/release-manifest/edge.build-info-with-release-notes.json",
     "fixtures/release-manifest/invalid.artifact-non-basename.json",
     "fixtures/release-manifest/edge.multi-artifact-official-matrix.json"
-  ]
+  ],
+  "x-update-distribution": {
+    "mirrors": "HTTPS base URLs serve stable.json and beta.json as release manifests, releases.json as at most 30 UpdateRelease objects (OpenAPI), and v<version>/release_manifest.v2.json. All referenced archives must be uploaded before the channel pointers. beta selects the greatest SemVer including stable.",
+    "trust": "Configured prefixes and mirrors are trusted distribution paths; transport and archive structure checks do not authenticate third-party content. Core updates do not use digests or signatures."
+  }
 }

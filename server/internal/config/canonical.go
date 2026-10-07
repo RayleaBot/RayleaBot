@@ -136,7 +136,13 @@ func canonicalizeDocument(raw map[string]any) (map[string]any, error) {
 	if version := strings.TrimSpace(stringValue(cloned["schema_version"])); version == "" {
 		cloned["schema_version"] = currentSchemaVersion
 	}
+	if _, ok := cloned["update"]; !ok {
+		cloned["update"] = defaultDocument()["update"]
+	}
 	normalizeOneBotSection(cloned)
+	if err := normalizeUpdateDocument(cloned); err != nil {
+		return nil, err
+	}
 	return cloned, nil
 }
 

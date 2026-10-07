@@ -6,6 +6,7 @@ type ConfigureConfigDocument = (config: RuntimeConfigDocument) => void
 export function createConfigDocumentFixture(configure?: ConfigureConfigDocument): ConfigDocument {
   const config = {
     schema_version: '4',
+    update: { channel: 'stable', version: '', mode: 'auto', proxies: ['https://gh-proxy.org', 'https://ghfast.top', 'https://ghproxy.net'], mirrors: [] },
     server: { host: '127.0.0.1', port: 8080 },
     adapters: [{
       id: 'onebot11',

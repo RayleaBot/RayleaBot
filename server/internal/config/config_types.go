@@ -1,6 +1,7 @@
 package config
 
 type Config struct {
+	Update        UpdateConfig      `json:"update" yaml:"update"`
 	SchemaVersion string            `json:"schema_version" yaml:"schema_version"`
 	Server        ServerConfig      `json:"server" yaml:"server"`
 	Adapters      []AdapterInstance `json:"adapters" yaml:"adapters"`
@@ -19,6 +20,14 @@ type Config struct {
 	User          UserConfig        `json:"user" yaml:"user"`
 	Group         GroupConfig       `json:"group" yaml:"group"`
 	Adapter       AdapterConfig     `json:"adapter" yaml:"adapter"`
+}
+
+type UpdateConfig struct {
+	Channel string   `json:"channel" yaml:"channel"`
+	Version string   `json:"version" yaml:"version"`
+	Mode    string   `json:"mode" yaml:"mode"`
+	Proxies []string `json:"proxies" yaml:"proxies"`
+	Mirrors []string `json:"mirrors" yaml:"mirrors"`
 }
 
 type CommandConfig struct {

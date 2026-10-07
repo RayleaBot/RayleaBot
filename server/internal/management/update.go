@@ -13,6 +13,7 @@ import (
 )
 
 type UpdateService interface {
+	Releases(context.Context) ([]releaseupdate.Release, error)
 	Status() releaseupdate.StatusSnapshot
 	Check(context.Context) (releaseupdate.StatusSnapshot, error)
 }
@@ -22,12 +23,14 @@ type UpdateHandlers struct {
 }
 
 type updateStatusResponse struct {
-	State            string     `json:"state"`
-	CurrentVersion   string     `json:"current_version"`
-	AvailableVersion string     `json:"available_version,omitempty"`
-	CheckedAt        *time.Time `json:"checked_at"`
-	UpdateMode       string     `json:"update_mode"`
-	ReleaseNotesRef  string     `json:"release_notes_ref,omitempty"`
+	Routes           []releaseupdate.Route `json:"routes,omitempty"`
+	SourceURL        string                `json:"source_url,omitempty"`
+	State            string                `json:"state"`
+	CurrentVersion   string                `json:"current_version"`
+	AvailableVersion string                `json:"available_version,omitempty"`
+	CheckedAt        *time.Time            `json:"checked_at"`
+	UpdateMode       string                `json:"update_mode"`
+	ReleaseNotesRef  string                `json:"release_notes_ref,omitempty"`
 }
 
 func NewUpdateHandlers(service UpdateService) (*UpdateHandlers, error) {
@@ -40,6 +43,20 @@ func NewUpdateHandlers(service UpdateService) (*UpdateHandlers, error) {
 func (h *UpdateHandlers) RegisterProtectedRoutes(router chi.Router) {
 	router.Get("/api/update/status", h.HandleStatus())
 	router.Post("/api/update/check", h.HandleCheck())
+	router.Get("/api/update/releases", h.HandleReleases())
+}
+
+func (h *UpdateHandlers) HandleReleases() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		releases, err := h.service.Releases(r.Context())
+		if err != nil {
+			httpapi.WriteError(w, r, releaseupdate.CodeManifestInvalid, nil)
+			return
+		}
+		httpapi.WriteJSON(w, http.StatusOK, struct {
+			Releases []releaseupdate.Release `json:"releases"`
+		}{releases})
+	}
 }
 
 func (h *UpdateHandlers) HandleStatus() http.HandlerFunc {
@@ -69,6 +86,8 @@ func (h *UpdateHandlers) HandleCheck() http.HandlerFunc {
 
 func responseFromUpdateSnapshot(snapshot releaseupdate.StatusSnapshot) updateStatusResponse {
 	return updateStatusResponse{
+		Routes:           snapshot.Routes,
+		SourceURL:        snapshot.SourceURL,
 		State:            snapshot.State,
 		CurrentVersion:   snapshot.CurrentVersion,
 		AvailableVersion: snapshot.AvailableVersion,

@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Saved beta channel includes stable and prerelease versions.
+request:
+  method: GET
+  path: /api/update/releases
+response:
+  status: 200
+  body:
+    releases:
+      - version: 0.5.0-beta.1
+        channel: beta
+        release_notes_ref: https://example.com/releases/v0.5.0-beta.1
+      - version: 0.4.0
+        channel: stable
+        release_notes_ref: https://example.com/releases/v0.4.0
+expect:
+  valid: true

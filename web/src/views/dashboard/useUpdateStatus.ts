@@ -24,7 +24,7 @@ export function useUpdateStatus() {
     checking.value = true
     error.value = null
     try {
-      status.value = await apiRequest<UpdateStatusResponse>('/api/update/check', { method: 'POST' })
+      status.value = await apiRequest<UpdateStatusResponse>('/api/update/check', { method: 'POST', timeoutMs: 40000 })
     } catch (requestError) {
       const message = getDisplayErrorMessage(requestError)
       await fetchStatus()

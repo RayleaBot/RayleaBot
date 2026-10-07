@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 )
@@ -63,13 +64,18 @@ func runUpdate(cmd Command) int {
 	}
 }
 
-func newUpdateChecker(cmd Command) *releaseupdate.Checker {
+func newUpdateChecker(cmd Command) (*releaseupdate.Checker, error) {
 	checker := releaseupdate.NewChecker()
+	cfg, _, err := config.Load(cmd.ConfigPath, cmd.SchemaPath)
+	if err != nil {
+		return nil, err
+	}
+	checker.Settings = cfg.Update
 	if cmd.UpdateHTTPClient != nil {
 		checker.HTTPClient = cmd.UpdateHTTPClient
 		checker.DownloadClient = cmd.UpdateHTTPClient
 	}
-	return checker
+	return checker, nil
 }
 
 func runUpdateCheck(cmd Command) int {
@@ -81,9 +87,14 @@ func runUpdateCheck(cmd Command) int {
 		return 1
 	}
 	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
 	defer cancel()
-	result, err := newUpdateChecker(cmd).Check(ctx, repoRoot)
+	checker, err := newUpdateChecker(cmd)
+	if err != nil {
+		cmd.Logger.Error("读取更新设置失败", "err", displayLogError(repoRoot, err))
+		return 1
+	}
+	result, err := checker.Check(ctx, repoRoot)
 	if err != nil {
 		cmd.Logger.Error("检查更新失败", "code", releaseupdate.CodeOf(err), "err", err.Error())
 		return 1
@@ -104,32 +115,62 @@ func runUpdateCheck(cmd Command) int {
 }
 
 func runUpdateDownload(cmd Command) int {
-	if len(cmd.Args) != 0 {
+	flags := flag.NewFlagSet("update download", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	file := flags.String("file", "", "prepare a local release archive")
+	progressJSON := flags.Bool("progress-json", false, "emit update progress as JSONL")
+	if flags.Parse(cmd.Args) != nil || flags.NArg() != 0 {
 		cmd.Logger.Error("更新下载参数无效，用法 raylea update download")
 		return 1
 	}
 	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
-	result, archivePath, err := newUpdateChecker(cmd).Download(context.Background(), repoRoot)
+	checker, err := newUpdateChecker(cmd)
+	if err != nil {
+		cmd.Logger.Error("读取更新设置失败", "err", displayLogError(repoRoot, err))
+		return 1
+	}
+	downloadContext, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+	var result releaseupdate.CheckResult
+	encoder := json.NewEncoder(commandStdout(cmd))
+	if *progressJSON {
+		checker.Progress = func(p releaseupdate.Progress) { _ = encoder.Encode(p) }
+	}
+	var archivePath string
+	if *file != "" {
+		result, err = checker.Import(downloadContext, repoRoot, *file)
+	} else {
+		result, archivePath, err = checker.Download(downloadContext, repoRoot)
+	}
 	if err != nil {
 		cmd.Logger.Error("下载更新失败", "code", releaseupdate.CodeOf(err), "err", displayLogError(repoRoot, err))
 		return 1
 	}
 	if result.Status != "update_available" {
+		if *progressJSON {
+			_ = encoder.Encode(map[string]any{"stage": "prepared", "status": result.Status, "version": result.CurrentVersion, "prepared_id": ""})
+		}
 		cmd.Logger.Info("当前已是最新版本", "current_version", result.CurrentVersion)
 		return 0
 	}
 	cmd.Logger.Info("更新包已下载", "current_version", result.CurrentVersion,
 		"available_version", result.AvailableVersion, "archive_path", displayLogPath(repoRoot, archivePath))
+	if *progressJSON {
+		_ = encoder.Encode(map[string]any{"stage": "prepared", "status": result.Status, "version": result.AvailableVersion, "prepared_id": result.PreparedID})
+	}
 	return 0
 }
 
 func runUpdateApply(cmd Command) int {
-	if len(cmd.Args) != 0 {
+	flags := flag.NewFlagSet("update apply", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	preparedID := flags.String("prepared", "", "require a specific preparation")
+	if flags.Parse(cmd.Args) != nil || flags.NArg() != 0 {
 		cmd.Logger.Error("更新安装参数无效，用法 raylea update apply")
 		return 1
 	}
 	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
-	result, err := newUpdateChecker(cmd).Apply(context.Background(), repoRoot)
+	result, err := releaseupdate.NewChecker().ApplyPrepared(context.Background(), repoRoot, *preparedID)
 	if err != nil {
 		cmd.Logger.Error("安装更新失败", "code", releaseupdate.CodeOf(err), "err", displayLogError(repoRoot, err))
 		return 1

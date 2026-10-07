@@ -15,6 +15,7 @@ export interface ConfigWorkbenchGroup {
 export function getConfigWorkbenchGroups(): ConfigWorkbenchGroup[] {
   const sections = getConfigSections()
   const definitions = [
+    { key: 'update', sections: ['update'], common: ['update.channel', 'update.version', 'update.mode', 'update.proxies'] },
     { key: 'access', sections: ['server', 'admin'], common: ['server.host', 'server.port'] },
     { key: 'render', sections: ['render'], common: ['render.default_output', 'render.device_scale_percent', 'render.timeout_seconds'] },
     { key: 'scheduler', sections: ['scheduler'], common: ['scheduler.timezone'] },

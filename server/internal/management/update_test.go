@@ -25,6 +25,10 @@ func (stub *updateServiceStub) Check(context.Context) (releaseupdate.StatusSnaps
 	return stub.check, stub.err
 }
 
+func (stub *updateServiceStub) Releases(context.Context) ([]releaseupdate.Release, error) {
+	return []releaseupdate.Release{}, stub.err
+}
+
 func TestUpdateStatusHandlerReturnsSharedState(t *testing.T) {
 	checkedAt := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	handler := newUpdateTestHandler(t, &updateServiceStub{status: releaseupdate.StatusSnapshot{

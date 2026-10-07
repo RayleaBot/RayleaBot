@@ -13,6 +13,8 @@ func (fn checkProviderFunc) Check(ctx context.Context, root string) (CheckResult
 	return fn(ctx, root)
 }
 
+func (fn checkProviderFunc) Releases(context.Context) ([]Release, error) { return []Release{}, nil }
+
 func TestUpdateServicePublishesCheckState(t *testing.T) {
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	service := NewService("C:/RayleaBot", checkProviderFunc(func(_ context.Context, root string) (CheckResult, error) {

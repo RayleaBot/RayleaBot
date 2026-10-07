@@ -72,7 +72,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 	}
 	systemRoutes := managementapi.NewSystemRoutes(systemHandlers)
 	protocolHandler := managementapi.NewProtocolHandlers(services.Protocol)
-	updateHandler, err := managementapi.NewUpdateHandlers(releaseupdate.NewDefaultService(runtimeState.RepoRoot()))
+	updateHandler, err := managementapi.NewUpdateHandlers(releaseupdate.NewDefaultService(runtimeState.RepoRoot(), func() config.UpdateConfig { return runtimeState.CurrentConfig().Update }))
 	if err != nil {
 		return managementRouteState{}, err
 	}

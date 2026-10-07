@@ -1,5 +1,6 @@
 contract: contracts/cli-commands.yaml#commands.update.subcommands.apply
 case: ok
+description: Service is stopped and a validated update preparation already exists; installation makes no network requests.
 input:
   command: raylea update apply
   mode: offline

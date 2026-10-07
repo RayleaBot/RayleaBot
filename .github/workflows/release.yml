@@ -95,3 +95,11 @@ jobs:
             dist/downloads/package-macos-arm64-full/*.tar.gz
             dist/downloads/package-linux-x64-server/*.tar.gz
             dist/release/release_manifest.v2.json
+
+  mirror:
+    if: vars.UPDATE_MIRROR_ENABLED == 'true'
+    needs: publish
+    uses: ./.github/workflows/update-mirror.yml
+    secrets:
+      UPDATE_MIRROR_ACCESS_KEY: ${{ secrets.UPDATE_MIRROR_ACCESS_KEY }}
+      UPDATE_MIRROR_SECRET_KEY: ${{ secrets.UPDATE_MIRROR_SECRET_KEY }}

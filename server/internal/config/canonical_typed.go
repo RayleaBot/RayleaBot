@@ -4,6 +4,7 @@ import "strings"
 
 func canonicalDocumentFromTyped(cfg Config) map[string]any {
 	return map[string]any{
+		"update":           configUpdateDocument(cfg),
 		"schema_version":   currentSchemaVersion,
 		"server":           configServerDocument(cfg),
 		"adapters":         configAdaptersDocument(cfg),

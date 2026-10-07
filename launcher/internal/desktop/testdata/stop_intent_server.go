@@ -13,12 +13,13 @@ import (
 
 // This local test service accepts the production launch and update CLI arguments.
 func main() {
-	if len(os.Args) == 5 && os.Args[3] == "update" {
+	if len(os.Args) >= 5 && os.Args[3] == "update" {
 		if os.Args[4] == "download" {
 			if marker := os.Getenv("RAYLEA_TEST_DOWNLOAD_PID_FILE"); marker != "" {
 				_ = os.WriteFile(marker, []byte(strconv.Itoa(os.Getpid())), 0600)
 				time.Sleep(time.Minute)
 			}
+			fmt.Println(`{"stage":"prepared","status":"update_available","version":"1.1.0","prepared_id":"staging-fixture"}`)
 			return
 		}
 		if marker := os.Getenv("RAYLEA_TEST_APPLY_FILE"); marker != "" {

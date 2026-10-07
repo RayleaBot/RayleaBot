@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"io"
 	"net/http"
 	"os"
@@ -16,12 +17,16 @@ type Checker struct {
 	ManifestURL string
 	// DownloadClient fetches release archives; nil uses the runtime resource client.
 	DownloadClient *http.Client
+	Settings       config.UpdateConfig
+	SettingsSource func() config.UpdateConfig
+	Progress       func(Progress)
 }
 
 func NewChecker() *Checker {
 	return &Checker{
 		HTTPClient:  newSecureHTTPClient(10 * time.Second),
 		ManifestURL: ReleaseRepositoryURL + "/releases/latest/download/" + ManifestAssetName,
+		Settings:    config.UpdateConfig{Channel: "stable", Mode: "direct"},
 	}
 }
 
@@ -53,6 +58,7 @@ func (c *Checker) Check(ctx context.Context, installRoot string) (CheckResult, e
 	if c == nil {
 		return CheckResult{}, errorWithCode(CodeManifestInvalid, "check release", errors.New("release checker is not configured"))
 	}
+	c = c.configured()
 	buildInfoPath := filepath.Join(installRoot, "build_info.json")
 	buildInfoBytes, err := os.ReadFile(buildInfoPath)
 	if err != nil {
@@ -63,13 +69,9 @@ func (c *Checker) Check(ctx context.Context, installRoot string) (CheckResult, e
 		return CheckResult{}, err
 	}
 
-	manifestBytes, err := c.fetchMetadata(ctx, c.ManifestURL)
+	manifest, routes, source, err := c.selectManifest(ctx, buildInfo.ArtifactID)
 	if err != nil {
-		return CheckResult{}, errorWithCode(CodeManifestInvalid, "download release manifest", err)
-	}
-	manifest, err := decodeManifest(manifestBytes)
-	if err != nil {
-		return CheckResult{}, errorWithCode(CodeManifestInvalid, "read release metadata", err)
+		return CheckResult{Routes: routes}, errorWithCode(CodeManifestInvalid, "read release metadata", err)
 	}
 	artifact, err := selectArtifact(manifest, buildInfo.ArtifactID)
 	if err != nil {
@@ -78,6 +80,9 @@ func (c *Checker) Check(ctx context.Context, installRoot string) (CheckResult, e
 	comparison, err := compareSemanticVersions(manifest.Version, buildInfo.Version)
 	if err != nil {
 		return CheckResult{}, errorWithCode(CodeManifestInvalid, "compare release versions", err)
+	}
+	if c.Settings.Version != "" && comparison < 0 {
+		return CheckResult{}, errorWithCode(CodeManifestInvalid, "select version", errors.New("downgrades are not supported"))
 	}
 	status := "up_to_date"
 	if comparison > 0 {
@@ -90,7 +95,20 @@ func (c *Checker) Check(ctx context.Context, installRoot string) (CheckResult, e
 		UpdateMode:       artifact.UpdateMode,
 		ReleasePageURL:   manifest.ReleaseNotesRef,
 		Artifact:         artifact,
+		Routes:           routes,
+		SourceURL:        source,
 	}, nil
+}
+
+func (c *Checker) configured() *Checker {
+	copy := *c
+	if c.SettingsSource != nil {
+		copy.Settings = c.SettingsSource()
+		copy.SettingsSource = nil
+	}
+	copy.Settings.Proxies = append([]string{}, copy.Settings.Proxies...)
+	copy.Settings.Mirrors = append([]string{}, copy.Settings.Mirrors...)
+	return &copy
 }
 
 func (c *Checker) fetchMetadata(ctx context.Context, rawURL string) ([]byte, error) {
