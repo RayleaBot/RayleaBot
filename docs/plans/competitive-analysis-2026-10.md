@@ -334,7 +334,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 ### G16 国内网络
 
 - **现状**：
-  - FFmpeg 三个平台都是 GitHub 单源（macOS 来自 vanloctech，其余来自 BtbN），win64 约 161 MiB，首启时在 HTTP 监听前同步下载，不支持断点续传。Launcher 的就绪预算是 15 分钟，到 GitHub 速度过慢时首启可能被反复强杀。这与选型复核 R7 相同。
+  - FFmpeg 三个平台都是 GitHub 单源，不支持断点续传。选型复核 R7 已落地：FFmpeg 改为在管理面按需准备，不再阻塞首次启动；Windows 与 Linux 改用 BtbN 的 gpl-shared 构建，下载量约为静态构建的一半。
   - `server/internal/plugins/lifecycle/install_sources.go` 的下载 Transport 没有设置 Proxy，商店安装也走这条路径，所以所有插件包下载都忽略 `HTTPS_PROXY`。
   - 代理用法没有任何文档。
 - **竞品**：gsuid 的 Docker 镜像托管在国内 docker.cnb.cool；TRSS 在 Gitee、GitCode 和自建 git 多处镜像；AstrBot 提供国内部署说明。
@@ -425,7 +425,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | G29 | 指令级覆盖：权限、冷却、别名、每日次数 | M | Koishi 默认安装的 rate-limit 支持单条指令的每日上限与间隔；gsuid 可按服务改启用与权限 | 启停与权限随 G7 交付；冷却、别名、每日次数第二步；extra_aliases 要纳入冲突检测；冷却提示文案可配置 |
 | G30 | 走完整策略链路的聊天沙盒 | L | AstrBot ChatUI、Koishi 官方 sandbox、LangBot 对话调试 | 新增 source_protocol 会撞上多处只认两种协议的闭合校验；更省事的做法是 Server 内的 OneBot11 内存回环传输，或一个独立的“假 NapCat”开发工具；菜单和模板已有预览 |
 | G31 | 统计只到连接级 | M | Koishi 官方 analytics 有按指令、按频道的维度 | 新增指令与插件处理的小时桶统计，复用 dispatcher 的计数埋点；按群只记收信数并单设保留期；定时任务已有逐任务统计 |
-| G32 | 认证：会话列表与吊销、TOTP、长期 API Token | M–L | AstrBot 有 TOTP 与带 scope 的 API Key（v4.18.0 起），LangBot 有 API Key | 会话管理与选型复核 R4（哈希令牌）放进同一个迁移，v0.4.0 公开前做成本最低；保持单管理员 |
+| G32 | 认证：会话列表与吊销、TOTP、长期 API Token | M–L | AstrBot 有 TOTP 与带 scope 的 API Key（v4.18.0 起），LangBot 有 API Key | 选型复核 R4 的哈希令牌已随迁移 `000008` 落地；会话列表与吊销另行实现；保持单管理员 |
 | G33 | Web 不能重启服务；定时任务不能暂停 | S–M | AstrBot、Yunzai、gsuid 能远程重启；gsuid 能暂停任务但重启后失效 | 重启：shutdown 增加 intent=restart、退出码 3，需改三份契约与 Launcher；暂停：`scheduler_jobs.enabled` 已有，但内存侧写死 Enabled:true，upsert 也会覆盖，契约要写明管理员暂停优先 |
 | G34 | 聊天内运维动作 | M | Yunzai、gsuid 核心都有聊天运维指令 | 先做只读的 `system.status.read`（`plugin.list` 已含插件状态）；跨插件启停与更新检查放第二步，并与生命周期锁互斥 |
 | G35 | 群发通知官方插件 | S | gsuid 核心与 guoba-next 都有批量发送 | 做成官方插件，逐个目标回报 QQ 官方主动消息的失败，默认限速 |
@@ -448,11 +448,11 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | G52 | ARM64 Linux 产物 | L | AstrBot、Koishi、LangBot、gsuid 的 Docker 覆盖 arm64；ZeroBot-Plugin 发 arm 包 | Chrome for Testing 自 153 起提供 linux-arm64，阻断条件已消失；但平台枚举在 5 份契约中，Chromium 152 属冻结版本线，11 个插件都要多出 arm64 包；与 G19 的多架构镜像一起交付时升 P1 |
 | G53 | 服务端包只能 SSH 更新 | S / M | 只有 AstrBot（非 uv、非 Docker 安装）与 Yunzai 能在应用内更新服务端 | 先按 `update_mode=manual` 在 Web 展示命令；“安装并重启”需要 CLI 契约加 `--if-pending`，与 G19 合并设计 |
 | G54 | 在线备份没有定时、轮转、下载 | M | AstrBot 有 WebUI 备份恢复，gsuid 有定时备份与下载 | 现有 scheduler 归属插件，核心定时备份应另起内部循环（参照 RunSnapshotLoop）；下载前提示含明文平台密钥 |
-| G55 | 缺 WebView2 时没有原生提示 | S | — | 选型复核 C5；违反 `launcher/AGENTS.md` 的“不静默失败”，属缺陷 |
+| G55 | 缺 WebView2 时没有原生提示 | S | — | 已落地（选型复核 C5）：创建窗口前检查 WebView2，缺失时显示原生安装提示 |
 | G56 | 资源占用与端到端基线 | S–M | — | 维护者本机已有仓库外的消息热路径基准（62 个场景，NativeEcho 含 P50/P95/P99），但日志写入丢弃、不含持久化，也没测 RSS 与冷启动。补四项：空载 RSS 与冷启动（含 FFmpeg、Chromium 准备）、装满官方插件后的 RSS、渲染峰值 RSS、开启真实日志持久化时单群突发的端到端 P50/P95、排队时间与 drops_by_reason；记录硬件、配置、插件版本与输入；第四项结果作为 G15、G59 是否升级的依据；写进 deployment.md 与 README，没有数据不宣传“低内存” |
 | G57 | 插件内存与 CPU 上限 | M–L | LangBot 配置里有每插件 1 CPU、512 MB 与实例总预算，但只在云端共享 Runtime（nsjail，有 cgroup v2 委派时才有内存与 CPU 硬限）执行，自托管版以普通子进程启动插件、限额不生效 | 在这一点上 RayleaBot 与 LangBot 自托管持平；Windows 用 `JOB_OBJECT_LIMIT_JOB_MEMORY`（S）；Linux 用 cgroup v2 `memory.max`，需要委派并设计降级；不用与 Go 运行时冲突的 RLIMIT_AS |
 | G58 | 过载丢弃对管理员不可见 | S | 竞品都没有直接展示丢弃数 | Web 直接消费契约已有的 `dropped_count` 与 `drops_by_reason`，不改契约；会话分道丢弃纳入统计与可配置上限放第二步 |
-| G59 | 管理日志逐条同步落盘 | M | 竞品都不在消息主路径上同步持久化每条日志 | 选型复核 R2；先做每秒可持久化条数的基准，数据显示瓶颈再升 P1 |
+| G59 | 管理日志逐条同步落盘 | M | 竞品都不在消息主路径上同步持久化每条日志 | 已落地（选型复核 R2）：管理日志改为有界队列加批量事务写入 |
 | G80 | 1080p 笔记本 125% 缩放落在支持范围之外 | S | AstrBot、MaiBot 在做移动端适配 | 设计规范写“1920×1080 为最低分辨率，低于该分辨率的桌面窗口不在支持范围”（`docs/design/web-management-ui.md:153`），测试按 1920×1080 CSS 视口；而 `PRODUCT.md:77` 又要求支持浏览器缩放，两处口径冲突。14–17 英寸 1080p 笔记本默认 125% 缩放，有效分辨率 1536×864，按 CSS 视口理解会被排除在外。建议把基准写清为物理分辨率，在 1536×864 下对初始化与登录、仪表盘、连接弹窗、插件列表与商店、日志与详情窗口、配置工作台做人工验收，不写视觉 E2E；不承诺 1366×768 与 150% 缩放；发现整页横向滚动或操作被遮挡时升 P1。布局没有页面级最小宽度，唯一断点在 2300px，实际渲染尚未验证 |
 | G81 | 日志正文的隐私与保留 | S–M | — | 入站、出站与策略拒绝日志都记录消息正文（`server/internal/bot/pipeline/bridge/event_log_attrs.go:40-45,68-69`，`server/internal/bot/pipeline/outbound/observability.go:105-106`），SQLite 保留 7 天，但 Launcher 的 `logs/server/` 镜像文件没有清理逻辑（`launcher/internal/desktop/process.go:485-502`），systemd 下进入 journal；用户文档没有说明。文档说明并入 G4；另提供不记录正文的日志选项（先改配置契约），并给 Launcher 镜像文件加保留期 |
 | G82 | 商店与插件详情不展示截图、主页与描述 | S / M | Koishi 市场、AstrBot 市场都有条目详情 | manifest 已有 description、homepage、keywords、screenshots 字段，但 11 个官方插件都没填，Web 也不渲染截图；目录没有截图字段，商店卡片不显示 description 与 homepage，`store.fetchDetail` 没有被任何视图调用。第一步只改 Web，加商店详情抽屉；第二步给目录加 screenshots（https URL 加 alt），属 4.4 节窗口内的契约加法，并为已安装插件提供截图读取端点 |
@@ -480,8 +480,8 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | G73 | Linux 一键安装脚本 | G17 文档落地后边际价值低；ZeroBot 式 deb/rpm 更可比 |
 | G74 | Launcher 恢复与迁移向导 | restore 只写入未启动过的新目录，“切换安装根”会牵动一键更新，工作量 L |
 | G75 | 远程渲染后端（browserless 类） | 需要新增配置契约并写明信任边界；不引入第二套渲染引擎 |
-| G76 | 诊断包加入 Go 运行时 profile | 选型复核 C4；进程 RSS 视图已被复核剥离，不重提 |
-| G77 | macOS 首启放行说明 | 选型复核 C6；macOS 下载量为 0，support_level 标 experimental |
+| G76 | 诊断包加入 Go 运行时 profile | 已落地（选型复核 C4）；进程 RSS 视图已被复核剥离，不重提 |
+| G77 | macOS 首启放行说明 | 部署文档已补充 quarantine 放行步骤（选型复核 C6）；签名按发布约束不做，macOS 下载量为 0，support_level 标 experimental |
 
 ### 7.2 有意取舍
 
@@ -606,18 +606,18 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 
 ## 11. 与工程选型复核重叠的条目
 
-以下条目在[工程选型复核（2026-10）](./tech-stack-review-2026-10.md)中已有完整论证，本报告只补充竞品视角，不改变其结论。
+以下条目同属工程选型复核（2026-10）的结论，已于 2026-10-07 全部落地，实施结果见 [v0.4 变更记录](../CHANGELOGS/v0.4.md)；本节保留竞品视角的补充。
 
 | 复核条目 | 本报告对应 | 竞品视角补充 |
 |---|---|---|
-| R2 管理日志异步批量 | G59 | 竞品都不在消息主路径上同步持久化每条日志；用户影响缺实测，先做基准 |
-| R3 SQLite 每连接 PRAGMA | —（实现缺陷） | 核实中两个视角都认为是 S 级正确性修复，应优先做；synchronous 在新连接上没有行为差异 |
-| R4 会话令牌哈希存储 | G32 | AstrBot 同样把 jwt_secret 明文写入配置；属于纵深防御，v0.4.0 公开前做成本最低 |
-| R7 FFmpeg 不阻塞首启 | G16 | 国内群主是主力用户；后台准备需要处理插件启动时的环境变量注入 |
+| R2 管理日志异步批量 | G59 | 竞品都不在消息主路径上同步持久化每条日志 |
+| R3 SQLite 每连接 PRAGMA | —（实现缺陷） | 核实中两个视角都认为是 S 级正确性修复 |
+| R4 会话令牌哈希存储 | G32 | AstrBot 同样把 jwt_secret 明文写入配置；属于纵深防御 |
+| R7 FFmpeg 不阻塞首启 | G16 | 国内群主是主力用户，首启不应等待大文件下载 |
 | C4 诊断包加入运行时 profile | G76 | 主要竞品核心都没有指标出口 |
 | C5 WebView2 缺失提示 | G55 | 属缺陷，违反 Launcher 的“不静默失败”规则 |
 | C6 macOS 首启放行 | G77 | macOS 下载量为 0 |
-| 第 7 节：golangci-lint 不支持 Go 1.27；插件工作流引用不存在的 SDK tag；linux-server 包缺 Chromium 共享库说明 | G1、G2、G17 | nightly 失败面比复核记录的更广，见 G1 |
+| 复核第 7 节：golangci-lint 不支持 Go 1.27；插件工作流引用不存在的 SDK tag；linux-server 包缺 Chromium 共享库说明 | G1、G2、G17 | 已于 2026-10-06 修复；nightly 失败面比复核记录的更广，见 G1 |
 
 ## 12. 顺带发现的现存缺陷（与竞品无关）
 
@@ -635,7 +635,6 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | Launcher 写入的 `logs/server/` 镜像日志只做凭据脱敏、含完整聊天正文，且没有清理逻辑，不受 7 天保留期约束 | `launcher/internal/desktop/process.go:485-502`；见 G81 |
 | 设计规范把 1920×1080 写成“最低分辨率”并排除更小的桌面窗口，`PRODUCT.md:77` 又要求支持浏览器缩放，两处口径冲突 | `docs/design/web-management-ui.md:153`；`PRODUCT.md:34,77`；见 G80 |
 | 插件详情 API 返回 screenshots，但没有截图文件的服务端点，Web 也不渲染；locale 中“截图”相关文案没有被任何组件引用 | `contracts/web-api.openapi.yaml`（PluginDetail）；`web/src/locales/zh-CN/plugins.ts:146-152`；见 G82 |
-| WS 契约 `logs.appended.protocol` 不含 qqofficial，服务端实际会推送（选型复核已记录，仍未修） | `contracts/websocket-events.yaml:108-110` |
 
 ## 13. 证据与方法
 
