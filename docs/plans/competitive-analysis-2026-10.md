@@ -145,7 +145,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 **现状与仓库证据**
 - 官方目录 `plugin-catalog/catalog.json` 共 6 条：echo、fortune、game-guide、subscription-hub、delta-force、oil-price。current_release 都是 2026-09-03 发布、`min_core_version` 0.4.0 的 manifest v3 包，面向当时一批未公开的候选核心。v0.4.0 宿主只接受 manifest v4（`min_core_version` ≥ 0.4.0）。v0.3.1 的契约把 `manifest_version` 固定为 `"2"`、`catalog_version` 固定为 `"1"`，并按 schema 校验目录，所以它既读不了 catalog v2，也装不了 v3 包。v3 包因此被公开核心和 v0.4.0 两头拒绝。
 - genshin、starrail、zzz、mihoyo-accounts、roulette 五个插件没有远程仓库，也没有 tag。genshin 的 `docs/acceptance-plan.md` 要求先用真实账号验收再发布。
-- sdk/go 的 tag 最高是 v0.5.0，对应协议 v3。官方插件的 go.mod 依赖尚不存在的 `sdk/go v0.7.0`，插件 release.yml 以 `RAYLEABOT_SDK_REF=sdk/go/v0.7.0` 检出主仓库，`@rayleabot/plugin-ui` 是 private 包。公开 SDK 与公开核心早已错位：v0.3.1 用协议 v1，SDK 的 v0.4.0、v0.5.0 是为未公开的候选核心打的 tag，对应协议 v2、v3；核心 v0.4.0 使用协议 v4，与 SDK v0.4.0 同号不同义。`scripts/release` 与 `.github/workflows` 中都没有打 SDK tag 的步骤。
+- sdk/go 的 tag 最高是 v0.5.0，对应协议 v3。已有发布工作流的 6 个官方插件以 `.rayleabot-sdk-ref` 固定主仓库提交，`go.mod` 使用对应的 Go 伪版本；其余 5 个尚未建立远端的插件依赖待发布的 `sdk/go v0.6.0`。`@rayleabot/plugin-ui` 是 private 包。公开 SDK 与公开核心早已错位：v0.3.1 用协议 v1，SDK 的 v0.4.0、v0.5.0 是为未公开的候选核心打的 tag，对应协议 v2、v3；核心 v0.4.0 使用协议 v4，与 SDK v0.4.0 同号不同义。`scripts/release` 与 `.github/workflows` 中都没有打 SDK tag 的步骤。
 - 6 个插件仓库的 release.yml 仍是 `GO_VERSION: 1.26.6`，而 `sdk/go/go.mod` 自 2026-10-02 起要求 go 1.27.1；Node 与 pnpm 版本也落后于 sdk/vue 的声明。即使打了 tag，插件 CI 也大概率失败（未实跑）。
 - 目录读取是严格模式：catalog schema 的根和条目都是 `additionalProperties:false`，`server/internal/plugins/market/service.go:501-516` 先做 schema 校验，再用 `decodeStrictJSON` 解码。今后给目录加任何字段，已部署的 v0.4.0 核心都会整份校验失败，停在最后一次成功的缓存。发布清单已采用“宽松读取、严格发布”，目录还没有。
 
@@ -154,7 +154,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 - AstrBot 同样只在安装或加载时校验版本，约 2,385 个条目中只有 924 个声明了 `astrbot_version`。“下载后才失败”在同类中常见，本条的核心是“可装数为 0”。
 
 **建议**
-1. 发布清单第一项：在实际发布 v0.4.0 的提交上打下一个 SDK tag。`sdk/go/v0.4.0`、`v0.5.0` 已被占用，SDK 无法与核心同号，版本号需另定（官方插件当前引用 `v0.7.0`）；release_tool 校验该 tag 存在并指向发布提交。打 tag 前先决定 SDK 的许可（G50），tag 打出后该版本的许可就固定了。
+1. 发布清单第一项：在实际发布 v0.4.0 的提交上打下一个 SDK tag。`sdk/go/v0.4.0`、`v0.5.0` 已被占用，SDK 无法与核心同号，下一版定为 `sdk/go/v0.6.0`；release_tool 校验该 tag 存在并指向发布提交，官方插件随后把 `.rayleabot-sdk-ref` 与 `go.mod` 改为该版本。打 tag 前先决定 SDK 的许可（G50），tag 打出后该版本的许可就固定了。
 2. 同步 6 个插件工作流的 Go、Node、pnpm 版本。
 3. 目录读取改为忽略未知字段（契约先行），在 v0.4.0 公开前完成，之后目录才能演进而不破坏已部署核心。
 4. `sync_catalog.py` 校验 `manifest_version` 为 4、`min_core_version` 不低于 0.4.0，不满足时只发条目元数据、不发资产。
