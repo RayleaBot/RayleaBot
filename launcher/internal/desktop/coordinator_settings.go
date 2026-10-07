@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 )
 
@@ -13,13 +14,23 @@ func (c *Coordinator) SaveSettings(settings LauncherSettings) error {
 	if err != nil {
 		return err
 	}
-	unblockStartups, cancelledStartup := c.startups.blockWithState(false)
-	defer unblockStartups()
-	c.operationMu.Lock()
-	defer c.operationMu.Unlock()
-	if cancelledStartup && c.Snapshot().Launcher.ProcessLifecycle == "starting" && c.process.IsRunning() {
-		if err := c.process.ForceKill(); err != nil {
-			return fmt.Errorf("无法停止正在使用旧设置启动的服务：%w", err)
+	// Only the paths concern the service. A save that keeps them, such as a new close behavior, applies at once
+	// without interrupting a startup; changed paths cancel a startup that began with the old ones.
+	c.settingsMu.Lock()
+	defer c.settingsMu.Unlock()
+	c.mu.RLock()
+	startupSettingsUnchanged := normalized.InstallationRoot == c.settings.InstallationRoot &&
+		reflect.DeepEqual(normalized.AdvancedOverrides, c.settings.AdvancedOverrides)
+	c.mu.RUnlock()
+	if !startupSettingsUnchanged {
+		unblockStartups, cancelledStartup := c.startups.blockWithState(false)
+		defer unblockStartups()
+		c.operationMu.Lock()
+		defer c.operationMu.Unlock()
+		if cancelledStartup && c.Snapshot().Launcher.ProcessLifecycle == "starting" && c.process.IsRunning() {
+			if err := c.process.ForceKill(); err != nil {
+				return fmt.Errorf("无法停止正在使用旧设置启动的服务：%w", err)
+			}
 		}
 	}
 	if err := c.settingsStore.Save(normalized); err != nil {
@@ -28,6 +39,12 @@ func (c *Coordinator) SaveSettings(settings LauncherSettings) error {
 	c.mu.Lock()
 	c.settings = normalized
 	c.mu.Unlock()
+	if startupSettingsUnchanged {
+		snapshot := c.Snapshot()
+		snapshot.Launcher.Settings = normalized
+		c.publish(snapshot)
+		return nil
+	}
 	if !c.process.IsRunning() {
 		c.process.SetWorkdir(ResolveLauncherSettings(normalized).Workdir)
 	}

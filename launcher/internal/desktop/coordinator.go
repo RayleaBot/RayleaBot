@@ -53,6 +53,7 @@ type Coordinator struct {
 	snapshot    LauncherSnapshot
 
 	initMu       sync.Mutex
+	settingsMu   sync.Mutex
 	operationMu  sync.Mutex
 	startups     startupGate
 	releaseMu    sync.Mutex

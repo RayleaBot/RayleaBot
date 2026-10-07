@@ -11,7 +11,7 @@ import AppShellStatusSection from "@renderer/AppShellStatusSection.vue";
 import { isRuntimePreparationIssue } from "@renderer/AppShell.shared";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import { createLauncherSnapshot } from "../helpers/snapshot";
-import { elementsWithText, findButton, getButton, getTextbox, hasText, queryButton, selectTab } from "../helpers/dom";
+import { elementsWithText, getButton, getTextbox, hasText, queryButton } from "../helpers/dom";
 
 function mountStatusSection(snapshot: LauncherSnapshot) {
   return mount(AppShellStatusSection, {
@@ -189,17 +189,6 @@ describe("Launcher workspace presentation", () => {
     await wrapper.setProps({ editingSettings: true });
 
     expect(getTextbox("安装目录", wrapper.element).value).toBe("C:\\RayleaBot");
-  });
-
-  // Saving settings cancels a startup in flight, so the close behavior waits until the service settles.
-  test("locks the close behavior while the service is starting", async () => {
-    const wrapper = mountSettingsSection(createLauncherSnapshot({
-      launcher: { ...configuredSnapshot.launcher, processLifecycle: "starting", processOwnership: "launcher_managed" },
-    }));
-
-    selectTab("关闭窗口", wrapper.element);
-
-    expect((await findButton("隐藏到托盘", wrapper.element)).disabled).toBe(true);
   });
 
   test("keeps technical diagnostics collapsed and promotes real stderr", async () => {

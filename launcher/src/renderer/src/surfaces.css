@@ -1351,14 +1351,9 @@
   padding-inline: 8px;
 }
 
-.settings-panel__description,
-.settings-panel__note {
+.settings-panel__description {
   color: var(--color-text-muted);
   font-size: 13px;
-}
-
-.settings-panel__note {
-  padding-inline: 8px;
 }
 
 .settings-panel__actions {

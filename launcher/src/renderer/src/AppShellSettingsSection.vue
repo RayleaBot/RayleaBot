@@ -66,15 +66,12 @@ const optionId = useId();
 const serverExecutablePath = computed(() => props.settingsDraft.advancedOverrides?.serverExecutablePath || props.resolvedSettings.serverExecutablePath);
 const configPath = computed(() => props.settingsDraft.advancedOverrides?.configPath || props.resolvedSettings.configPath);
 const workdir = computed(() => props.settingsDraft.advancedOverrides?.workdir || props.resolvedSettings.workdir);
-// Saving settings cancels a startup in flight, so neither the reset nor a close behavior choice may run then.
-const serviceTransitioning = computed(() => {
+const resetDisabled = computed(() => {
   const state = deriveLauncherPresentation(props.snapshot).state;
-  return state === "starting" || state === "stopping";
+  return props.controlsDisabled || state === "starting" || state === "stopping";
 });
-const resetDisabled = computed(() => props.controlsDisabled || serviceTransitioning.value);
 // The options stay enabled through their own save, so the focused option keeps focus.
-const closeBehaviorDisabled = computed(() =>
-  serviceTransitioning.value || (props.controlsDisabled && props.busyAction !== "save-close-behavior"));
+const closeBehaviorDisabled = computed(() => props.controlsDisabled && props.busyAction !== "save-close-behavior");
 
 const pathFields = computed((): Array<{
   icon: Component;
@@ -213,8 +210,7 @@ function selectCloseBehavior(value: AcceptableValue) {
         </RadioGroupItem>
       </RadioGroupRoot>
 
-      <p v-if="serviceTransitioning" class="settings-panel__note">服务正在启动或停止，完成后才能更改。</p>
-      <div v-else-if="closeBehaviorError" class="attention-note" data-severity="danger" role="alert">
+      <div v-if="closeBehaviorError" class="attention-note" data-severity="danger" role="alert">
         <strong>关闭方式没有保存</strong>
         <span>{{ closeBehaviorError }}</span>
       </div>

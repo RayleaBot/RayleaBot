@@ -67,6 +67,10 @@ func (c *Coordinator) publish(snapshot LauncherSnapshot) {
 	snapshot = cloneSnapshot(snapshot)
 	c.mu.Lock()
 	snapshot.Launcher.ReleaseCheck = c.snapshot.Launcher.ReleaseCheck
+	// A close behavior saves without waiting for a startup, whose snapshots still carry the settings it began with.
+	if c.initialized {
+		snapshot.Launcher.Settings.CloseBehavior = c.settings.CloseBehavior
+	}
 	if reflect.DeepEqual(c.snapshot, snapshot) {
 		c.mu.Unlock()
 		return

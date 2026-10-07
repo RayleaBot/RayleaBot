@@ -538,7 +538,10 @@ func TestSaveSettingsCancelsStartupBeforeWaitingForOperationLock(t *testing.T) {
 
 	result := make(chan error, 1)
 	go func() {
-		result <- coordinator.SaveSettings(LauncherSettings{InstallationRoot: root, CloseBehavior: CloseHideToTray})
+		result <- coordinator.SaveSettings(LauncherSettings{
+			InstallationRoot: root, CloseBehavior: CloseAskEveryTime,
+			AdvancedOverrides: &LauncherAdvancedOverrides{Workdir: filepath.Join(root, "server")},
+		})
 	}()
 
 	select {
@@ -556,6 +559,56 @@ func TestSaveSettingsCancelsStartupBeforeWaitingForOperationLock(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("SaveSettings() remained blocked after startup released the operation lock")
+	}
+}
+
+func TestSaveCloseBehaviorPreservesStartupAndPublishedSettings(t *testing.T) {
+	root := createDevelopmentInstall(t)
+	coordinator := NewCoordinator(root, "", 0, nil)
+	coordinator.settings = LauncherSettings{
+		InstallationRoot: root, CloseBehavior: CloseAskEveryTime,
+		AdvancedOverrides: &LauncherAdvancedOverrides{Workdir: filepath.Join(root, "server")},
+	}
+	coordinator.initialized = true
+	operation, err := coordinator.operationContext()
+	if err != nil {
+		t.Fatalf("operationContext() error = %v", err)
+	}
+	coordinator.publish(coordinator.buildSnapshot(operation, EnvironmentInspection{}, snapshotOptions{processLifecycle: Starting}))
+
+	startupContext, finishStartup, allowed := coordinator.startups.begin()
+	if !allowed {
+		t.Fatal("startup was unexpectedly blocked")
+	}
+	defer finishStartup()
+	coordinator.operationMu.Lock()
+	defer coordinator.operationMu.Unlock()
+
+	settings := coordinator.Snapshot().Launcher.Settings
+	settings.CloseBehavior = CloseHideToTray
+	result := make(chan error, 1)
+	go func() {
+		result <- coordinator.SaveSettings(settings)
+	}()
+
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatalf("SaveSettings() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("saving close behavior waited for the startup operation lock")
+	}
+	if err := startupContext.Err(); err != nil {
+		t.Fatalf("saving close behavior cancelled startup: %v", err)
+	}
+	if got := coordinator.Snapshot().Launcher.Settings.CloseBehavior; got != CloseHideToTray {
+		t.Fatalf("saved close behavior = %q, want %q", got, CloseHideToTray)
+	}
+
+	coordinator.publish(coordinator.buildSnapshot(operation, EnvironmentInspection{}, snapshotOptions{processLifecycle: Running}))
+	if got := coordinator.Snapshot().Launcher.Settings.CloseBehavior; got != CloseHideToTray {
+		t.Fatalf("startup snapshot close behavior = %q, want %q", got, CloseHideToTray)
 	}
 }
 
