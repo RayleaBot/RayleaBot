@@ -30,7 +30,7 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 
 	assertPragmaString(t, store.Write, "journal_mode", "wal")
 	assertPragmaString(t, store.Read, "journal_mode", "wal")
-	assertPragmaInt(t, store.Write, "synchronous", 2)
+	assertPragmaInt(t, store.Write, "synchronous", 1)
 	assertPragmaInt(t, store.Read, "synchronous", 2)
 	assertPragmaInt(t, store.Write, "foreign_keys", 1)
 	assertPragmaInt(t, store.Read, "foreign_keys", 1)

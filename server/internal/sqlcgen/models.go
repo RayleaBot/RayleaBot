@@ -39,7 +39,7 @@ type ManagementLog struct {
 	ID          int64
 	LogID       string
 	BootID      string
-	Ts          string
+	Ts          int64
 	Level       string
 	Source      string
 	Message     string

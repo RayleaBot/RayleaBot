@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 
 type Repository struct {
 	read   *sql.DB
+	write  *sql.DB
 	readQ  *sqlcgen.Queries
 	writeQ *sqlcgen.Queries
 }
@@ -27,22 +29,43 @@ func NewRepository(store *storage.Store) (*Repository, error) {
 	}
 	return &Repository{
 		read:   store.Read,
+		write:  store.Write,
 		readQ:  sqlcgen.New(store.Read),
 		writeQ: sqlcgen.New(&preparedLogWrites{DB: store.Write, statements: make(map[string]*sql.Stmt, 2)}),
 	}, nil
 }
 
 func (r *Repository) SaveSummary(ctx context.Context, summary logging.Summary) error {
+	return insertLogSummary(ctx, r.writeQ, summary)
+}
+
+func (r *Repository) SaveSummaries(ctx context.Context, summaries []logging.Summary) error {
+	return storage.WithTx(ctx, r.write, nil, func(tx *sql.Tx) error {
+		queries := sqlcgen.New(&preparedLogBatch{Tx: tx})
+		for _, summary := range summaries {
+			if err := insertLogSummary(ctx, queries, summary); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func insertLogSummary(ctx context.Context, queries *sqlcgen.Queries, summary logging.Summary) error {
 	summary = logging.NormalizeSummary(summary)
+	timestamp, err := logTimestampNanoseconds(summary.Timestamp)
+	if err != nil {
+		return err
+	}
 	detailsJSON, err := json.Marshal(summary.Details)
 	if err != nil {
 		return fmt.Errorf("encode management log details: %w", err)
 	}
 
-	if err := r.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
+	if err := queries.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
 		LogID:       summary.LogID,
 		BootID:      summary.BootID,
-		Ts:          summary.Timestamp,
+		Ts:          timestamp,
 		Level:       summary.Level,
 		Source:      summary.Source,
 		Message:     summary.Message,
@@ -63,7 +86,7 @@ func (r *Repository) ListSummaries(ctx context.Context, query logging.Query) ([]
 		limit = 50
 	}
 
-	clauses, args := buildLogFilterClauses(filterSpec{
+	clauses, args, err := buildLogFilterClauses(filterSpec{
 		Level:     query.Level,
 		Levels:    query.Levels,
 		Source:    query.Source,
@@ -75,6 +98,9 @@ func (r *Repository) ListSummaries(ctx context.Context, query logging.Query) ([]
 		StartAt:   query.StartAt,
 		EndAt:     query.EndAt,
 	})
+	if err != nil {
+		return nil, err
+	}
 	args = append(args, limit)
 
 	rows, err := r.read.QueryContext(
@@ -93,13 +119,13 @@ func (r *Repository) ListSummaries(ctx context.Context, query logging.Query) ([]
 
 	items := make([]logging.Summary, 0, limit)
 	for rows.Next() {
-		var rowID int64
+		var rowID, timestamp int64
 		var summary logging.Summary
 		if err := rows.Scan(
 			&rowID,
 			&summary.LogID,
 			&summary.BootID,
-			&summary.Timestamp,
+			&timestamp,
 			&summary.Level,
 			&summary.Source,
 			&summary.Message,
@@ -108,6 +134,7 @@ func (r *Repository) ListSummaries(ctx context.Context, query logging.Query) ([]
 		); err != nil {
 			return nil, fmt.Errorf("scan management log summary: %w", err)
 		}
+		summary.Timestamp = logging.FormatTimestamp(time.Unix(0, timestamp))
 		summary = logging.NormalizeSummary(summary)
 		items = append(items, summary)
 	}
@@ -132,7 +159,10 @@ func (r *Repository) ListPage(ctx context.Context, query logging.PageQuery) (log
 		direction = logging.PageDirectionOlder
 	}
 
-	clauses, args := buildLogFilterClauses(filterSpecFromPageQuery(query))
+	clauses, args, err := buildLogFilterClauses(filterSpecFromPageQuery(query))
+	if err != nil {
+		return logging.PageResult{}, err
+	}
 
 	cursor, err := decodeLogCursor(query.Cursor)
 	if err != nil {
@@ -142,13 +172,17 @@ func (r *Repository) ListPage(ctx context.Context, query logging.PageQuery) (log
 		direction = logging.PageDirectionOlder
 	}
 	if cursor != nil {
+		timestamp, err := logTimestampNanoseconds(cursor.Timestamp)
+		if err != nil {
+			return logging.PageResult{}, fmt.Errorf("%w: %v", logging.ErrInvalidCursor, err)
+		}
 		switch direction {
 		case logging.PageDirectionOlder:
 			clauses = append(clauses, logBoundaryClause(logBoundaryOlder))
-			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
+			args = append(args, timestamp, timestamp, timestamp, cursor.RowID)
 		case logging.PageDirectionNewer:
 			clauses = append(clauses, logBoundaryClause(logBoundaryNewer))
-			args = append(args, cursor.Timestamp, cursor.Timestamp, cursor.Timestamp, cursor.RowID)
+			args = append(args, timestamp, timestamp, timestamp, cursor.RowID)
 		default:
 			return logging.PageResult{}, fmt.Errorf("%w: unsupported direction %q", logging.ErrInvalidCursor, direction)
 		}
@@ -254,7 +288,7 @@ func (r *Repository) GetSummary(ctx context.Context, logID string) (logging.Summ
 	return logging.NormalizeSummary(logging.Summary{
 		BootID:    item.BootID,
 		LogID:     item.LogID,
-		Timestamp: item.Ts,
+		Timestamp: logging.FormatTimestamp(time.Unix(0, item.Ts)),
 		Level:     item.Level,
 		Source:    item.Source,
 		Message:   item.Message,
@@ -269,7 +303,7 @@ func (r *Repository) PruneOlderThan(ctx context.Context, cutoff time.Time) error
 		return nil
 	}
 
-	if err := r.writeQ.PruneLogsBefore(ctx, cutoff.UTC().Format(time.RFC3339)); err != nil {
+	if err := r.writeQ.PruneLogsBefore(ctx, cutoff.UnixNano()); err != nil {
 		return fmt.Errorf("prune management log summaries: %w", err)
 	}
 	return nil
@@ -288,17 +322,21 @@ type filterSpec struct {
 	EndAt     string
 }
 
-const logTimestampExpr = storage.LogTimestampExpression
+const logTimestampExpr = "ts"
 
-func normalizeLogQueryTimestamp(value string) string {
+func logTimestampNanoseconds(value string) (int64, error) {
 	instant, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(value))
 	if err != nil {
-		return strings.TrimSpace(value)
+		return 0, fmt.Errorf("parse management log timestamp: %w", err)
 	}
-	return logging.FormatTimestamp(instant)
+	ns := instant.UnixNano()
+	if !time.Unix(0, ns).Equal(instant) {
+		return 0, fmt.Errorf("management log timestamp outside Unix nanosecond range: %s", value)
+	}
+	return ns, nil
 }
 
-func buildLogFilterClauses(spec filterSpec) ([]string, []any) {
+func buildLogFilterClauses(spec filterSpec) ([]string, []any, error) {
 	clauses := []string{"1 = 1"}
 	args := make([]any, 0, 8)
 	if levels := normalizeFilterValues(spec.Level, spec.Levels, true); len(levels) > 0 {
@@ -311,7 +349,7 @@ func buildLogFilterClauses(spec filterSpec) ([]string, []any) {
 	if spec.Protocol != "" {
 		sources := logging.SourcesForProtocol(spec.Protocol)
 		if len(sources) == 0 {
-			return []string{"1 = 0"}, args
+			return []string{"1 = 0"}, args, nil
 		}
 		placeholders := make([]string, 0, len(sources))
 		for _, source := range sources {
@@ -332,14 +370,38 @@ func buildLogFilterClauses(spec filterSpec) ([]string, []any) {
 		args = append(args, strings.TrimSpace(spec.BootID))
 	}
 	if spec.StartAt != "" {
+		timestamp, err := logTimeBound(spec.StartAt)
+		if err != nil {
+			return nil, nil, err
+		}
 		clauses = append(clauses, logTimestampExpr+" >= ?")
-		args = append(args, normalizeLogQueryTimestamp(spec.StartAt))
+		args = append(args, timestamp)
 	}
 	if spec.EndAt != "" {
+		timestamp, err := logTimeBound(spec.EndAt)
+		if err != nil {
+			return nil, nil, err
+		}
 		clauses = append(clauses, logTimestampExpr+" <= ?")
-		args = append(args, normalizeLogQueryTimestamp(spec.EndAt))
+		args = append(args, timestamp)
 	}
-	return clauses, args
+	return clauses, args, nil
+}
+
+// HTTP accepts RFC3339 bounds beyond the int64 nanosecond range; clamping keeps
+// their meaning instead of wrapping around.
+func logTimeBound(value string) (int64, error) {
+	instant, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(value))
+	if err != nil {
+		return 0, err
+	}
+	switch {
+	case instant.Before(time.Unix(0, math.MinInt64)):
+		return math.MinInt64, nil
+	case instant.After(time.Unix(0, math.MaxInt64)):
+		return math.MaxInt64, nil
+	}
+	return instant.UnixNano(), nil
 }
 
 func normalizeFilterValues(single string, values []string, lower bool) []string {
@@ -441,11 +503,12 @@ const (
 
 func scanPagedSummary(scanner interface{ Scan(...any) error }) (pagedSummary, error) {
 	var entry pagedSummary
+	var timestamp int64
 	if err := scanner.Scan(
 		&entry.RowID,
 		&entry.Summary.LogID,
 		&entry.Summary.BootID,
-		&entry.Summary.Timestamp,
+		&timestamp,
 		&entry.Summary.Level,
 		&entry.Summary.Source,
 		&entry.Summary.Message,
@@ -454,19 +517,27 @@ func scanPagedSummary(scanner interface{ Scan(...any) error }) (pagedSummary, er
 	); err != nil {
 		return pagedSummary{}, fmt.Errorf("scan management log summary: %w", err)
 	}
+	entry.Summary.Timestamp = logging.FormatTimestamp(time.Unix(0, timestamp))
 	entry.Summary = logging.NormalizeSummary(entry.Summary)
 	return entry, nil
 }
 
 func (r *Repository) hasRows(ctx context.Context, spec filterSpec, boundary logBoundary, marker logCursor) (bool, error) {
-	clauses, args := buildLogFilterClauses(spec)
+	clauses, args, err := buildLogFilterClauses(spec)
+	if err != nil {
+		return false, err
+	}
 	switch boundary {
 	case logBoundaryOlder, logBoundaryNewer:
 		clauses = append(clauses, logBoundaryClause(boundary))
 	default:
 		return false, fmt.Errorf("unsupported log boundary %q", boundary)
 	}
-	args = append(args, marker.Timestamp, marker.Timestamp, marker.Timestamp, marker.RowID)
+	timestamp, err := logTimestampNanoseconds(marker.Timestamp)
+	if err != nil {
+		return false, err
+	}
+	args = append(args, timestamp, timestamp, timestamp, marker.RowID)
 
 	var exists int
 	if err := r.read.QueryRowContext(
@@ -486,7 +557,7 @@ func (r *Repository) hasRows(ctx context.Context, spec filterSpec, boundary logB
 }
 
 func logBoundaryClause(boundary logBoundary) string {
-	// The inclusive bound lets SQLite seek into the expression index before
+	// The inclusive bound lets SQLite seek into the timestamp index before
 	// checking the exact timestamp and row ID boundary.
 	const older = logTimestampExpr + " <= ? AND (" + logTimestampExpr + " < ? OR (" + logTimestampExpr + " = ? AND id < ?))"
 	const newer = logTimestampExpr + " >= ? AND (" + logTimestampExpr + " > ? OR (" + logTimestampExpr + " = ? AND id > ?))"

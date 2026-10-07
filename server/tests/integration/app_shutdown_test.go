@@ -13,7 +13,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
@@ -42,16 +41,6 @@ func TestAppRunListenFailureReleasesDatabaseAndConfigLock(t *testing.T) {
 	}
 	if repeated := application.Close(); !errors.Is(repeated, listenErr) {
 		t.Fatalf("second Close() = %v, want original failure", repeated)
-	}
-	assertShutdownReleasesPersistentResources(t, options.ConfigPath, databasePath)
-}
-
-func TestAppConstructionFailureReleasesDatabaseAndConfigLock(t *testing.T) {
-	options, databasePath := shutdownTestOptions(t, 8080)
-	expected := errors.New("injected log retention failure")
-	options.LogRepository = &failingRetentionRepository{err: expected}
-	if _, err := app.New(options); !errors.Is(err, expected) {
-		t.Fatalf("New() = %v, want retention failure", err)
 	}
 	assertShutdownReleasesPersistentResources(t, options.ConfigPath, databasePath)
 }
@@ -108,15 +97,6 @@ type shutdownTestRunner struct{}
 
 func (shutdownTestRunner) Render(context.Context, render.Document) ([]byte, error) {
 	return nil, errors.New("unexpected render")
-}
-
-type failingRetentionRepository struct {
-	logging.Repository
-	err error
-}
-
-func (repository *failingRetentionRepository) PruneOlderThan(context.Context, time.Time) error {
-	return repository.err
 }
 
 func TestAppRunGracefulCancellationIgnoresCleanupFailure(t *testing.T) {

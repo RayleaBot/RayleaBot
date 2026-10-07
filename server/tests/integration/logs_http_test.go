@@ -41,6 +41,10 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 		Message:   "OneBot 主动 WebSocket 连接断开：ws://127.0.0.1:6700",
 	})
 
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -80,6 +84,10 @@ func TestLogsListRefreshDoesNotAppendHTTPAccessLogAtInfoLevel(t *testing.T) {
 		Message:   "日志刷新测试种子记录",
 	})
 
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -103,6 +111,9 @@ func TestLogsListRefreshDoesNotAppendHTTPAccessLogAtInfoLevel(t *testing.T) {
 		}
 	}
 
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	for _, summary := range application.Logs().Snapshot() {
 		if summary.Source == "http" {
 			t.Fatalf("logs refresh appended HTTP access log at info level: %#v", summary)
@@ -156,6 +167,10 @@ func TestLogsListReturnsMultiFilteredSummaries(t *testing.T) {
 		},
 	} {
 		application.Logs().Append(summary)
+	}
+
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
 	}
 
 	server := newManagementTestServer(t, application.Handler())
@@ -225,6 +240,10 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 		application.Logs().Append(summary)
 	}
 
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -286,6 +305,10 @@ func TestLogsListReturnsOutboundProtocolFilteredSummaries(t *testing.T) {
 		},
 	} {
 		application.Logs().Append(summary)
+	}
+
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
 	}
 
 	server := newManagementTestServer(t, application.Handler())
@@ -380,6 +403,10 @@ func TestLogsListReturnsCurrentSessionScope(t *testing.T) {
 		application.Logs().Append(summary)
 	}
 
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -455,6 +482,9 @@ func TestLogsListReturnsEmptyArrayForUnmatchedFilters(t *testing.T) {
 			}, deterministicAuthOptions()...)
 			fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", tc.fixture))
 			application.Logs().Append(tc.entry)
+			if err := application.Logs().Flush(t.Context()); err != nil {
+				t.Fatal(err)
+			}
 
 			body := requestLogsFixture(t, application, issueLoginToken(t, application), fixture)
 			if !reflect.DeepEqual(body, normalizeJSONMap(t, fixture.Response.Body)) {

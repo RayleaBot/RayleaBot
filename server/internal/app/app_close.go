@@ -134,7 +134,7 @@ func (a *App) shutdownPhases(b config.ShutdownBudgets, awaitClosers func(context
 					return err
 				}
 			}
-			return a.closePersistence()
+			return a.closePersistence(ctx)
 		}},
 	}
 }
@@ -181,13 +181,13 @@ func (a *App) stopWorkers() error {
 	})
 }
 
-func (a *App) closePersistence() error {
+func (a *App) closePersistence(ctx context.Context) error {
 	var errs []error
 	if a.platform.Tasks != nil {
 		errs = append(errs, a.platform.Tasks.Close())
 	}
 	if a.platform.Logs != nil {
-		a.platform.Logs.Close()
+		a.platform.Logs.CloseContext(ctx)
 	}
 	if a.platform.Storage != nil {
 		errs = append(errs, a.platform.Storage.Close())

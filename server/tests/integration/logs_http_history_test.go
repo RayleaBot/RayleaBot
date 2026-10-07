@@ -62,6 +62,10 @@ func TestLogsListReturnsHistoryRange(t *testing.T) {
 		application.Logs().Append(summary)
 	}
 
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -107,6 +111,9 @@ func TestLogsListSupportsCursorPagingWithMultiFilters(t *testing.T) {
 		application.Logs().Append(summary)
 	}
 
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	filterPath := "/api/logs?source=runtime&level=info&level=error&plugin_id=weather&plugin_id=raylea.echo&limit=2"
 	firstPage := doLogsListRequest(t, server.URL, token, filterPath)
 	firstItems := firstPage["items"].([]any)
@@ -152,6 +159,9 @@ func TestLogsListDoesNotLeakRawAttrs(t *testing.T) {
 		"token", "session-token-abc",
 	)
 
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	request, err := http.NewRequest(http.MethodGet, server.URL+"/api/logs?limit=1", nil)
 	if err != nil {
 		t.Fatalf("create logs redaction request: %v", err)
@@ -256,6 +266,10 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 			},
 		},
 	})
+
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()

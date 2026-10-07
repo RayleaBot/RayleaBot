@@ -119,6 +119,7 @@ func configuredDSN(path string, readOnly bool) (string, error) {
 		query.Set("_query_only", "on")
 	} else {
 		query.Set("_txlock", "immediate")
+		query.Set("_synchronous", "normal")
 	}
 	dsn := url.URL{Scheme: "file", Path: uriPath, RawQuery: query.Encode()}
 	return dsn.String(), nil

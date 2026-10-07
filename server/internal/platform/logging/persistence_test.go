@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 )
@@ -97,6 +99,90 @@ func TestSpoolQueueKeepsPendingRecordsWhenRepositoryFails(t *testing.T) {
 	}
 }
 
+func TestSpoolAppendDoesNotWaitForReplayAndSurvivesRewrite(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		name := "success"
+		if fail {
+			name = "failure"
+		}
+		t.Run(name, func(t *testing.T) {
+			queue := NewSpoolQueue(filepath.Join(t.TempDir(), "spool.jsonl"))
+			original := Summary{LogID: "original", Timestamp: "2026-10-07T00:00:00Z", Level: "info"}
+			if err := queue.Append(original); err != nil {
+				t.Fatal(err)
+			}
+			repository := &blockedSpoolRepository{started: make(chan struct{}), release: make(chan struct{})}
+			if fail {
+				repository.saveErr = errors.New("database unavailable")
+			}
+			var release sync.Once
+			defer release.Do(func() { close(repository.release) })
+			done := make(chan struct{})
+			var result SpoolFlushResult
+			var flushErr error
+			go func() {
+				result, flushErr = queue.Flush(t.Context(), repository)
+				close(done)
+			}()
+			select {
+			case <-repository.started:
+			case <-time.After(time.Second):
+				t.Fatal("spool replay did not start")
+			}
+			appended := make(chan error, 1)
+			go func() {
+				appended <- queue.Append(Summary{LogID: "overflow", Timestamp: original.Timestamp, Level: "info"})
+			}()
+			select {
+			case err := <-appended:
+				if err != nil {
+					t.Fatal(err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("spool append waited for database replay")
+			}
+			release.Do(func() { close(repository.release) })
+			<-done
+			wantIDs := []string{"overflow"}
+			wantFlushed := 1
+			if fail {
+				wantIDs = []string{"original", "overflow"}
+				wantFlushed = 0
+			}
+			if (flushErr != nil) != fail || result.Flushed != wantFlushed || result.Pending != len(wantIDs) {
+				t.Fatalf("replay result: %+v, %v", result, flushErr)
+			}
+			remaining := &recordingRepository{}
+			if _, err := queue.Flush(t.Context(), remaining); err != nil {
+				t.Fatal(err)
+			}
+			var ids []string
+			for _, summary := range remaining.saved {
+				ids = append(ids, summary.LogID)
+			}
+			if !slices.Equal(ids, wantIDs) || queue.HasEntries() {
+				t.Fatalf("pending records changed during replay: %v, want %v", ids, wantIDs)
+			}
+		})
+	}
+}
+
+type blockedSpoolRepository struct {
+	recordingRepository
+	started chan struct{}
+	release chan struct{}
+}
+
+func (r *blockedSpoolRepository) SaveSummary(ctx context.Context, summary Summary) error {
+	close(r.started)
+	select {
+	case <-r.release:
+		return r.recordingRepository.SaveSummary(ctx, summary)
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func TestStreamAppendsAfterSpoolingWhenDatabaseFails(t *testing.T) {
 	t.Parallel()
 
@@ -158,6 +244,10 @@ func TestStreamDropsLogWhenDatabaseAndSpoolBothFail(t *testing.T) {
 		Message:   "drop me",
 	})
 
+	if err := stream.Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	select {
 	case summary := <-summaries:
 		t.Fatalf("unexpected streamed summary after full persistence failure: %#v", summary)
@@ -212,6 +302,15 @@ func (r *recordingRepository) SaveSummary(_ context.Context, summary Summary) er
 		return r.saveErr
 	}
 	r.saved = append(r.saved, NormalizeSummary(summary))
+	return nil
+}
+
+func (r *recordingRepository) SaveSummaries(ctx context.Context, summaries []Summary) error {
+	for _, summary := range summaries {
+		if err := r.SaveSummary(ctx, summary); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

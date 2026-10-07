@@ -44,7 +44,7 @@ func TestOpenMigratesLegacyAndPreservesBusinessData(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	metadata, err := store.SchemaMetadata(t.Context())
-	if err != nil || metadata.Version != "000006" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
+	if err != nil || metadata.Version != "000007" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
 		t.Fatalf("metadata changed: %#v %v", metadata, err)
 	}
 	var value string

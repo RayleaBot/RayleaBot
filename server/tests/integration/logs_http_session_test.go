@@ -31,6 +31,9 @@ func TestLogsListCurrentSessionDoesNotCrossRestartBoundary(t *testing.T) {
 		"request_id", "req_current_new",
 	)
 
+	if err := appB.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	serverB := newManagementTestServer(t, appB.Handler())
 	defer serverB.Close()
 

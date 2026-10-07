@@ -41,7 +41,7 @@ func TestAllConnectionsAndReplacementsKeepPragmas(t *testing.T) {
 		t.Helper()
 		for name, want := range map[string]int{
 			"foreign_keys": 1, "busy_timeout": int(defaultBusyTimeout.Milliseconds()),
-			"synchronous": 2, "wal_autocheckpoint": defaultWALAutoCheckpointPage, "query_only": readOnly,
+			"synchronous": 1 + readOnly, "wal_autocheckpoint": defaultWALAutoCheckpointPage, "query_only": readOnly,
 		} {
 			var got int
 			if err := conn.QueryRowContext(t.Context(), "PRAGMA "+name).Scan(&got); err != nil || got != want {

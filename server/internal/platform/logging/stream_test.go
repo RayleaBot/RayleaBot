@@ -117,6 +117,7 @@ func TestStreamAppendsAfterSavingRepositoryDetail(t *testing.T) {
 		releaseSave: make(chan struct{}),
 	}
 	stream.SetRepository(repository, 0)
+	t.Cleanup(stream.Close)
 
 	summaries, unsubscribe := stream.Subscribe(1)
 	defer unsubscribe()
@@ -145,6 +146,11 @@ func TestStreamAppendsAfterSavingRepositoryDetail(t *testing.T) {
 	default:
 	}
 
+	select {
+	case <-done:
+	default:
+		t.Fatal("append waited for the database")
+	}
 	close(repository.releaseSave)
 
 	select {
@@ -198,6 +204,10 @@ func (r *blockingRepository) SaveSummary(context.Context, Summary) error {
 	}
 	<-r.releaseSave
 	return nil
+}
+
+func (r *blockingRepository) SaveSummaries(ctx context.Context, summaries []Summary) error {
+	return r.SaveSummary(ctx, summaries[0])
 }
 
 func (*blockingRepository) ListSummaries(context.Context, Query) ([]Summary, error) {

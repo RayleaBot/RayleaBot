@@ -2,7 +2,7 @@ package storage
 
 // LogTimestampExpression preserves historical offsets and fractional precision.
 // SQLite normalizes whole seconds; text padding retains nanosecond ordering.
-// Queries must use this expression to match the indexes in schema.sql.
+// This expression belongs to the historical 000005/000006 indexes.
 const LogTimestampExpression = `(CASE WHEN length(ts) = 30 AND substr(ts, -1) = 'Z' THEN ts ELSE
  strftime('%Y-%m-%dT%H:%M:%S', substr(ts, 1, 19) ||
    CASE WHEN substr(ts, -1) = 'Z' THEN 'Z' ELSE substr(ts, -6) END) || '.' ||

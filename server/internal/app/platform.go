@@ -134,11 +134,6 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 			"err", err.Error(),
 		)
 	}
-	if deps.Config.Log.RetentionDays > 0 {
-		if err := logRepository.PruneOlderThan(ctx, time.Now().AddDate(0, 0, -deps.Config.Log.RetentionDays)); err != nil {
-			return abort(fmt.Errorf("prune persisted management logs: %w", err))
-		}
-	}
 	schedulerRepo, err := scheduler.NewSQLiteRepository(storageStore)
 	if err != nil {
 		return abort(fmt.Errorf("create scheduler repository: %w", err))

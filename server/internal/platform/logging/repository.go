@@ -61,6 +61,7 @@ var ErrInvalidCursor = errors.New("management log cursor is invalid")
 
 type Repository interface {
 	SaveSummary(context.Context, Summary) error
+	SaveSummaries(context.Context, []Summary) error
 	ListSummaries(context.Context, Query) ([]Summary, error)
 	ListPage(context.Context, PageQuery) (PageResult, error)
 	GetSummary(context.Context, string) (Summary, error)

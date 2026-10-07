@@ -14,6 +14,23 @@ type preparedLogWrites struct {
 	statements map[string]*sql.Stmt
 }
 
+// A batch uses only InsertLogSummary; the transaction owns its statement.
+type preparedLogBatch struct {
+	*sql.Tx
+	insert *sql.Stmt
+}
+
+func (b *preparedLogBatch) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	if b.insert == nil {
+		var err error
+		b.insert, err = b.PrepareContext(ctx, query)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return b.insert.ExecContext(ctx, args...)
+}
+
 func (w *preparedLogWrites) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	w.mu.RLock()
 	statement := w.statements[query]

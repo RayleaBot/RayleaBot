@@ -6,10 +6,9 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 )
 
-func TestMixedHistoricalTimestampsKeepExactOrderAndCursorBoundaries(t *testing.T) {
+func TestTimestampsKeepExactOrderAndCursorBoundaries(t *testing.T) {
 	repository := openLoggingRepository(t)
 	for _, row := range []struct{ id, timestamp string }{
 		{"current", "2026-09-22T00:00:00.000000002Z"},
@@ -17,9 +16,9 @@ func TestMixedHistoricalTimestampsKeepExactOrderAndCursorBoundaries(t *testing.T
 		{"variable", "2026-09-22T00:00:00.1Z"},
 		{"offset", "2026-09-22T08:00:00.000000001+08:00"},
 	} {
-		// 直接写入历史形式，避免写入端归一化掩盖兼容性缺陷。
-		if err := repository.writeQ.InsertLogSummary(t.Context(), sqlcgen.InsertLogSummaryParams{
-			LogID: row.id, Ts: row.timestamp, Level: "info", Source: "fixture", Message: row.id, DetailsJson: "{}",
+		// 写入不同小数精度与时区形式，验证它们对应的绝对时刻。
+		if err := repository.SaveSummary(t.Context(), logging.Summary{
+			LogID: row.id, Timestamp: row.timestamp, Level: "info", Source: "fixture", Message: row.id,
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -54,12 +53,12 @@ func TestMixedHistoricalTimestampsKeepExactOrderAndCursorBoundaries(t *testing.T
 		t.Fatalf("exact range = %#v, %v", items, err)
 	}
 	stored, err := repository.readQ.GetLogSummary(t.Context(), "offset")
-	if err != nil || stored.Ts != "2026-09-22T08:00:00.000000001+08:00" {
-		t.Fatalf("reading rewrote historical timestamp: %#v, %v", stored, err)
+	if err != nil || stored.Ts != time.Date(2026, 9, 22, 0, 0, 0, 1, time.UTC).UnixNano() {
+		t.Fatalf("timestamp was not stored as Unix nanoseconds: %#v, %v", stored, err)
 	}
 }
 
-func TestPruneKeepsExistingTimestampAndCutoffPrecision(t *testing.T) {
+func TestPruneUsesExactNanosecondCutoff(t *testing.T) {
 	repository := openLoggingRepository(t)
 	for _, row := range []struct{ id, timestamp string }{
 		{"expired", "2026-09-21T23:59:59.999Z"},
@@ -68,42 +67,55 @@ func TestPruneKeepsExistingTimestampAndCutoffPrecision(t *testing.T) {
 		{"nanosecond-boundary", "2026-09-22T00:00:00.000000001Z"},
 		{"after-boundary", "2026-09-22T00:00:00.1Z"},
 	} {
-		if err := repository.writeQ.InsertLogSummary(t.Context(), sqlcgen.InsertLogSummaryParams{LogID: row.id, Ts: row.timestamp, Level: "info", Source: "fixture", Message: row.id, DetailsJson: "{}"}); err != nil {
+		if err := repository.SaveSummary(t.Context(), logging.Summary{LogID: row.id, Timestamp: row.timestamp, Level: "info", Source: "fixture", Message: row.id}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	cutoff := time.Date(2026, 9, 22, 0, 0, 0, 987654321, time.UTC)
+	cutoff := time.Date(2026, 9, 22, 0, 0, 0, 1, time.UTC)
 	if err := repository.PruneOlderThan(t.Context(), cutoff); err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{"expired", "expired-submillisecond"} {
+	for _, id := range []string{"expired", "expired-submillisecond", "offset-boundary"} {
 		if _, err := repository.GetSummary(t.Context(), id); !errors.Is(err, logging.ErrLogNotFound) {
 			t.Fatalf("expired record %s retained: %v", id, err)
 		}
 	}
-	for _, id := range []string{"offset-boundary", "nanosecond-boundary", "after-boundary"} {
+	for _, id := range []string{"nanosecond-boundary", "after-boundary"} {
 		if _, err := repository.GetSummary(t.Context(), id); err != nil {
 			t.Fatalf("boundary record %s removed: %v", id, err)
 		}
 	}
 }
 
-func TestSpecialTimestampTextRemainsWritableAndPrunable(t *testing.T) {
+func TestLogWriteRejectsUnrepresentableTimestamps(t *testing.T) {
 	repository := openLoggingRepository(t)
-	for _, timestamp := range []string{"now", "NOW", "subsec", "subsecond", "now\x00ignored", "invalid"} {
-		if err := repository.SaveSummary(t.Context(), logging.Summary{LogID: timestamp, Timestamp: timestamp, Level: "info", Source: "fixture", Message: "fixture"}); err != nil {
-			t.Fatalf("previously accepted timestamp %q rejected: %v", timestamp, err)
+	for _, timestamp := range []string{"now", "subsec", "invalid", "9998-01-01T00:00:00Z"} {
+		if err := repository.SaveSummary(t.Context(), logging.Summary{LogID: timestamp, Timestamp: timestamp, Level: "info", Source: "fixture", Message: "fixture"}); err == nil {
+			t.Fatalf("accepted invalid timestamp %q", timestamp)
 		}
 	}
 	items, err := repository.ListSummaries(t.Context(), logging.Query{Limit: 10})
-	if err != nil || len(items) != 6 {
-		t.Fatalf("special timestamps unreadable: %+v, %v", items, err)
+	if err != nil || len(items) != 0 {
+		t.Fatalf("invalid timestamps persisted: %+v, %v", items, err)
 	}
-	if err := repository.PruneOlderThan(t.Context(), time.Date(9998, 1, 1, 0, 0, 0, 0, time.UTC)); err != nil {
+}
+
+func TestTimeFiltersOutsideNanosecondRangeKeepTheirMeaning(t *testing.T) {
+	repository := openLoggingRepository(t)
+	if err := repository.SaveSummary(t.Context(), logging.Summary{LogID: "fixture", Timestamp: "2026-10-07T00:00:00Z", Level: "info", Message: "fixture"}); err != nil {
 		t.Fatal(err)
 	}
-	items, err = repository.ListSummaries(t.Context(), logging.Query{Limit: 10})
-	if err != nil || len(items) != 1 || items[0].LogID != "invalid" {
-		t.Fatalf("special timestamp pruning changed: %+v, %v", items, err)
+	for _, tc := range []struct {
+		start, end string
+		count      int
+	}{
+		{"0001-01-01T00:00:00Z", "9999-12-31T23:59:59Z", 1},
+		{"0001-01-01T00:00:00Z", "1600-01-01T00:00:00Z", 0},
+		{"2300-01-01T00:00:00Z", "9999-12-31T23:59:59Z", 0},
+	} {
+		items, err := repository.ListPage(t.Context(), logging.PageQuery{StartAt: tc.start, EndAt: tc.end})
+		if err != nil || len(items.Items) != tc.count {
+			t.Fatalf("range %s..%s = %+v, %v", tc.start, tc.end, items, err)
+		}
 	}
 }

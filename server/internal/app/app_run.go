@@ -127,6 +127,10 @@ func (a *App) Run(ctx context.Context) error {
 		storage.RunSnapshotLoop(ctx, a.platform.Storage, a.state.Logger, a.state.RepoRoot())
 		return nil
 	})
+	supervisor.Go(func(ctx context.Context) error {
+		a.platform.Logs.RunRetentionLoop(ctx)
+		return nil
+	})
 	if a.pluginStack.PluginKV != nil {
 		supervisor.Go(func(ctx context.Context) error {
 			pluginstore.RunKVExpiryLoop(ctx, a.pluginStack.PluginKV, a.state.Logger)

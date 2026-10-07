@@ -63,8 +63,8 @@ func TestLegacyBackupRestoreMigratesSecretsAndKeepsSessions(t *testing.T) {
 	restored := newPersistentTestApp(t, targetConfig, now, "legacy-restored")
 	defer closePersistentTestApp(t, restored)
 	metadata, err := restored.Storage().SchemaMetadata(context.Background())
-	if err != nil || metadata.Version != "000006" {
-		t.Fatalf("restored schema = %#v, %v; want 000006", metadata, err)
+	if err != nil || metadata.Version != "000007" {
+		t.Fatalf("restored schema = %#v, %v; want 000007", metadata, err)
 	}
 	var legacyRows int
 	if err := restored.Storage().Read.QueryRow(
@@ -121,7 +121,8 @@ func writeRuntimeRootConfig(t *testing.T, root string) string {
 
 // sealSecretsAsSchema000002 rewrites a current database into the 000002 form:
 // Drop statistics added by 000004 and restore the indexes replaced by 000005
-// and 000006; 000003 only changed secret values.
+// and 000006, and convert 000007 log timestamps back to text; 000003 only
+// changed secret values.
 func sealSecretsAsSchema000002(t *testing.T, databasePath string) {
 	t.Helper()
 	store, err := storage.Open(databasePath)
@@ -135,7 +136,11 @@ func sealSecretsAsSchema000002(t *testing.T, databasePath string) {
 		DROP TABLE message_stats_hours; DROP TABLE message_stats_adapters; DROP TABLE message_stats_tracking;
 		DROP INDEX idx_management_logs_ts; DROP INDEX idx_management_logs_plugin;
 		DROP INDEX idx_management_logs_request; DROP INDEX idx_management_logs_source;
-		DROP INDEX idx_management_logs_boot_ts; DROP INDEX idx_management_logs_prune;
+		DROP INDEX idx_management_logs_boot_ts;
+		ALTER TABLE management_logs RENAME COLUMN ts TO ts_ns;
+		ALTER TABLE management_logs ADD COLUMN ts TEXT NOT NULL DEFAULT '';
+		UPDATE management_logs SET ts = strftime('%Y-%m-%dT%H:%M:%S', ts_ns / 1000000000, 'unixepoch') || printf('.%09dZ', ts_ns % 1000000000);
+		ALTER TABLE management_logs DROP COLUMN ts_ns;
 		CREATE INDEX idx_management_logs_ts ON management_logs(ts DESC,id DESC);
 		CREATE INDEX idx_management_logs_plugin ON management_logs(plugin_id,ts DESC,id DESC);
 		CREATE INDEX idx_management_logs_request ON management_logs(request_id,ts DESC,id DESC);

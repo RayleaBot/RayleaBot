@@ -22,6 +22,7 @@ type SpoolQueue struct {
 	path           string
 	quarantinePath string
 	mu             sync.Mutex
+	flushMu        sync.Mutex
 }
 
 type SpoolFlushResult struct {
@@ -105,18 +106,32 @@ func (q *SpoolQueue) Flush(ctx context.Context, repository Repository) (SpoolFlu
 		return SpoolFlushResult{}, errors.New("management log repository is required")
 	}
 
+	// Replays are serial, but appends must not wait for a database write.
+	q.flushMu.Lock()
+	defer q.flushMu.Unlock()
 	q.mu.Lock()
-	defer q.mu.Unlock()
-
 	lines, err := q.readLines()
+	q.mu.Unlock()
 	if err != nil {
 		return SpoolFlushResult{}, err
 	}
 	if len(lines) == 0 {
 		return SpoolFlushResult{}, nil
 	}
-
 	result := SpoolFlushResult{}
+	rewrite := func(remaining [][]byte) error {
+		q.mu.Lock()
+		defer q.mu.Unlock()
+		current, err := q.readLines()
+		if err != nil {
+			return err
+		}
+		// Only Append can change the file while this replay holds flushMu.
+		remaining = append(remaining, current[len(lines):]...)
+		result.Pending = len(remaining)
+		return q.rewrite(remaining)
+	}
+
 	remaining := make([][]byte, 0, len(lines))
 	for index, line := range lines {
 		select {
@@ -124,7 +139,7 @@ func (q *SpoolQueue) Flush(ctx context.Context, repository Repository) (SpoolFlu
 			remaining = append(remaining, line)
 			remaining = append(remaining, lines[index+1:]...)
 			result.Pending = len(remaining)
-			if rewriteErr := q.rewrite(remaining); rewriteErr != nil {
+			if rewriteErr := rewrite(remaining); rewriteErr != nil {
 				return result, errors.Join(ctx.Err(), rewriteErr)
 			}
 			return result, ctx.Err()
@@ -137,7 +152,7 @@ func (q *SpoolQueue) Flush(ctx context.Context, repository Repository) (SpoolFlu
 				remaining = append(remaining, line)
 				remaining = append(remaining, lines[index+1:]...)
 				result.Pending = len(remaining)
-				if rewriteErr := q.rewrite(remaining); rewriteErr != nil {
+				if rewriteErr := rewrite(remaining); rewriteErr != nil {
 					return result, errors.Join(decodeErr, quarantineErr, rewriteErr)
 				}
 				return result, errors.Join(decodeErr, quarantineErr)
@@ -150,7 +165,7 @@ func (q *SpoolQueue) Flush(ctx context.Context, repository Repository) (SpoolFlu
 			remaining = append(remaining, line)
 			remaining = append(remaining, lines[index+1:]...)
 			result.Pending = len(remaining)
-			if rewriteErr := q.rewrite(remaining); rewriteErr != nil {
+			if rewriteErr := rewrite(remaining); rewriteErr != nil {
 				return result, errors.Join(err, rewriteErr)
 			}
 			return result, err
@@ -159,7 +174,7 @@ func (q *SpoolQueue) Flush(ctx context.Context, repository Repository) (SpoolFlu
 		result.Flushed++
 	}
 
-	if err := q.rewrite(remaining); err != nil {
+	if err := rewrite(remaining); err != nil {
 		return result, err
 	}
 	return result, nil

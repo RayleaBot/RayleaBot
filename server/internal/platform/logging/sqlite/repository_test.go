@@ -511,7 +511,7 @@ func TestRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
 
 	if err := repository.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
 		LogID:     "log_detail_0002",
-		Ts:        "2026-03-20T10:00:01Z",
+		Ts:        1774000801000000000,
 		Level:     "info",
 		Source:    "bridge",
 		Message:   "runtime bridge delivered adapter event",
@@ -562,7 +562,7 @@ func TestRepositorySanitizesStoredOneBotTextOnRead(t *testing.T) {
 
 	if err := repository.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
 		LogID:     "log_detail_0003",
-		Ts:        "2026-03-20T10:00:02Z",
+		Ts:        1774000802000000000,
 		Level:     "info",
 		Source:    "bridge",
 		Message:   "10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容",
@@ -634,7 +634,7 @@ func TestRepositoryNormalizesEmptyHistoricalDetails(t *testing.T) {
 	for index, raw := range []string{"", " \n ", "null", "{}"} {
 		id := fmt.Sprintf("fixture-%d", index)
 		if err := repository.writeQ.InsertLogSummary(t.Context(), sqlcgen.InsertLogSummaryParams{
-			LogID: id, Ts: "2026-10-03T00:00:00Z", Level: "info", Source: "fixture", Message: "fixture", DetailsJson: raw,
+			LogID: id, Ts: 1790985600000000000, Level: "info", Source: "fixture", Message: "fixture", DetailsJson: raw,
 		}); err != nil {
 			t.Fatal(err)
 		}

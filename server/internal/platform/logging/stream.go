@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -24,7 +25,26 @@ type Summary struct {
 	Details   map[string]any `json:"-"`
 }
 
+const (
+	writeQueueCapacity = 1024
+	writeBatchSize     = 256
+	writeBatchDelay    = 100 * time.Millisecond
+)
+
+type writeRequest struct {
+	summary Summary
+	flushed chan struct{}
+}
+
 type Stream struct {
+	admission        sync.RWMutex
+	closed           bool
+	writerStarted    bool
+	writeQueue       chan writeRequest
+	writerDone       chan struct{}
+	closeOnce        sync.Once
+	persistenceCtx   context.Context
+	stopPersistence  context.CancelFunc
 	mu               sync.RWMutex
 	history          []Summary
 	limit            int
@@ -50,12 +70,17 @@ func NewStream(limit int) *Stream {
 		limit = 1
 	}
 
+	persistenceCtx, stopPersistence := context.WithCancel(context.Background())
 	return &Stream{
-		limit:       limit,
-		clock:       time.Now,
-		flushTicker: 5 * time.Second,
-		flushNotify: make(chan struct{}, 1),
-		flushStop:   make(chan struct{}),
+		persistenceCtx:  persistenceCtx,
+		stopPersistence: stopPersistence,
+		limit:           limit,
+		writeQueue:      make(chan writeRequest, writeQueueCapacity),
+		writerDone:      make(chan struct{}),
+		clock:           time.Now,
+		flushTicker:     5 * time.Second,
+		flushNotify:     make(chan struct{}, 1),
+		flushStop:       make(chan struct{}),
 	}
 }
 
@@ -96,48 +121,137 @@ func (s *Stream) Append(summary Summary) {
 
 // appendNormalized takes ownership of details already normalized by this package.
 func (s *Stream) appendNormalized(summary Summary) {
+	s.admission.RLock()
+	defer s.admission.RUnlock()
+	if s.closed {
+		return
+	}
 	s.mu.RLock()
-	bootID := s.bootID
-	repository := s.repository
-	retentionDays := s.retentionDays
-	spool := s.spool
+	bootID, repository, spool := s.bootID, s.repository, s.spool
 	s.mu.RUnlock()
-
 	if summary.BootID == "" {
 		summary.BootID = bootID
 	}
-
 	if repository == nil {
 		s.appendInMemory(summary)
 		return
 	}
+	select {
+	case s.writeQueue <- writeRequest{summary: summary}:
+	default:
+		s.appendToSpool(summary, spool, errors.New("management log write queue full"))
+	}
+}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	saveErr := repository.SaveSummary(ctx, summary)
-	if saveErr == nil {
-		if retentionDays > 0 {
-			cutoff := s.now().AddDate(0, 0, -retentionDays)
-			_ = repository.PruneOlderThan(ctx, cutoff)
-		}
-		s.appendInMemory(summary)
-		if spool != nil && spool.HasEntries() {
-			s.signalFlush()
-		}
+func (s *Stream) appendToSpool(summary Summary, spool *SpoolQueue, cause error) {
+	if spool == nil {
+		s.reportPersistenceFailure("drop management log without spool: %v", cause)
 		return
-	} else if spool != nil {
-		if spoolErr := spool.Append(summary); spoolErr == nil {
-			s.appendInMemory(summary)
-			s.signalFlush()
-			return
+	}
+	if err := spool.Append(summary); err != nil {
+		s.reportPersistenceFailure("drop management log after persistence failed: cause=%v spool=%v", cause, err)
+		return
+	}
+	s.appendInMemory(summary)
+	s.signalFlush()
+}
+
+func (s *Stream) saveBatch(batch []Summary) {
+	if len(batch) == 0 {
+		return
+	}
+	s.mu.RLock()
+	repository, spool := s.repository, s.spool
+	s.mu.RUnlock()
+	var err error
+	if repository != nil {
+		ctx, cancel := context.WithTimeout(s.persistenceCtx, 5*time.Second)
+		err = repository.SaveSummaries(ctx, batch)
+		cancel()
+	}
+	for _, summary := range batch {
+		if err != nil {
+			s.appendToSpool(summary, spool, err)
 		} else {
-			s.reportPersistenceFailure("drop management log after db and spool persistence failed: db=%v spool=%v", saveErr, spoolErr)
-			return
+			s.appendInMemory(summary)
 		}
 	}
+	if err == nil && spool != nil && spool.HasEntries() {
+		s.signalFlush()
+	}
+}
 
-	s.reportPersistenceFailure("drop management log after db persistence failed and no spool is configured: %v", saveErr)
+func (s *Stream) writeLoop() {
+	defer close(s.writerDone)
+	batch := make([]Summary, 0, writeBatchSize)
+	timer := time.NewTimer(writeBatchDelay)
+	timer.Stop()
+	defer timer.Stop()
+	var deadline <-chan time.Time
+	flush := func() {
+		timer.Stop()
+		deadline = nil
+		s.saveBatch(batch)
+		clear(batch)
+		batch = batch[:0]
+	}
+	for {
+		select {
+		case request, ok := <-s.writeQueue:
+			if !ok {
+				flush()
+				return
+			}
+			if request.flushed != nil {
+				flush()
+				close(request.flushed)
+				continue
+			}
+			if len(batch) == 0 {
+				timer.Reset(writeBatchDelay)
+				deadline = timer.C
+			}
+			batch = append(batch, request.summary)
+			if len(batch) == writeBatchSize {
+				flush()
+			}
+		case <-deadline:
+			flush()
+		}
+	}
+}
+
+// Flush waits for previously queued summaries to finish their database or spool
+// persistence attempt and publication. It does not replay the spool.
+func (s *Stream) Flush(ctx context.Context) error {
+	s.admission.RLock()
+	if s.closed {
+		s.admission.RUnlock()
+		select {
+		case <-s.writerDone:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	if !s.writerStarted {
+		s.admission.RUnlock()
+		return nil
+	}
+	done := make(chan struct{})
+	select {
+	case s.writeQueue <- writeRequest{flushed: done}:
+		s.admission.RUnlock()
+	case <-ctx.Done():
+		s.admission.RUnlock()
+		return ctx.Err()
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (s *Stream) appendInMemory(summary Summary) {
@@ -170,6 +284,15 @@ func (s *Stream) now() time.Time {
 }
 
 func (s *Stream) SetRepository(repository Repository, retentionDays int) {
+	s.admission.Lock()
+	defer s.admission.Unlock()
+	if s.closed {
+		return
+	}
+	if repository != nil && !s.writerStarted {
+		s.writerStarted = true
+		go s.writeLoop()
+	}
 	s.mu.Lock()
 	s.repository = repository
 	s.retentionDays = retentionDays
@@ -211,21 +334,32 @@ func (s *Stream) Close() {
 	if s == nil {
 		return
 	}
-	s.hub.Close()
+	s.CloseContext(context.Background())
+}
 
-	s.mu.Lock()
-	if s.flushLoopClosed {
+// CloseContext uses the application's remaining shutdown budget for database
+// writes. Once it expires, pending batches fall back to spool before returning.
+func (s *Stream) CloseContext(ctx context.Context) {
+	stop := context.AfterFunc(ctx, s.stopPersistence)
+	defer stop()
+	s.closeOnce.Do(func() {
+		defer s.stopPersistence()
+		s.admission.Lock()
+		s.closed = true
+		if s.writerStarted {
+			close(s.writeQueue)
+		} else {
+			close(s.writerDone)
+		}
+		s.mu.Lock()
+		s.flushLoopClosed = true
+		close(s.flushStop)
 		s.mu.Unlock()
-		return
-	}
-	waitForFlushLoop := s.flushLoopStarted
-	s.flushLoopClosed = true
-	close(s.flushStop)
-	s.mu.Unlock()
-
-	if waitForFlushLoop {
+		s.admission.Unlock()
+		<-s.writerDone
 		s.flushWG.Wait()
-	}
+		s.hub.Close()
+	})
 }
 
 func (s *Stream) flushLoop() {
@@ -242,7 +376,7 @@ func (s *Stream) flushLoop() {
 		case <-s.flushNotify:
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(s.persistenceCtx, 5*time.Second)
 		if err := s.flushSpool(ctx, false); err != nil {
 			s.reportPersistenceFailure("management log spool flush failed: %v", err)
 		}
@@ -254,7 +388,6 @@ func (s *Stream) flushSpool(ctx context.Context, reportError bool) error {
 
 	s.mu.RLock()
 	repository := s.repository
-	retentionDays := s.retentionDays
 	spool := s.spool
 	s.mu.RUnlock()
 
@@ -262,22 +395,14 @@ func (s *Stream) flushSpool(ctx context.Context, reportError bool) error {
 		return nil
 	}
 
-	result, err := spool.Flush(ctx, repository)
+	_, err := spool.Flush(ctx, repository)
 	if err != nil {
 		if reportError {
 			s.reportPersistenceFailure("management log spool flush failed: %v", err)
 		}
 		return err
 	}
-	if result.Flushed > 0 && retentionDays > 0 {
-		cutoff := s.now().AddDate(0, 0, -retentionDays)
-		if pruneErr := repository.PruneOlderThan(ctx, cutoff); pruneErr != nil {
-			if reportError {
-				s.reportPersistenceFailure("management log prune after spool flush failed: %v", pruneErr)
-			}
-			return pruneErr
-		}
-	}
+
 	return nil
 }
 

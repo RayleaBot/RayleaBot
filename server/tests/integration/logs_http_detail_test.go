@@ -57,6 +57,10 @@ func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
 		},
 	})
 
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -97,6 +101,9 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 
 	putWhitelistState(t, server.URL, token, true)
 	application.HandleAdapterEvent(context.Background(), commandRejectionEvent())
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 
 	listBody := doLogsListRequest(t, server.URL, token, "/api/logs?protocol=onebot11&limit=20")
 	items := listBody["items"].([]any)
@@ -208,6 +215,10 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 		},
 	})
 
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -284,6 +295,10 @@ func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 			"plain_text":      "hello\u202eworld",
 		},
 	})
+
+	if err := application.Logs().Flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
@@ -409,6 +424,8 @@ func commandRejectionEvent() chatevent.NormalizedEvent {
 }
 
 type stubMissingLogRepository struct{}
+
+func (*stubMissingLogRepository) SaveSummaries(context.Context, []logging.Summary) error { return nil }
 
 func (*stubMissingLogRepository) SaveSummary(context.Context, logging.Summary) error {
 	return nil
