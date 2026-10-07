@@ -30,10 +30,10 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | go | github.com/santhosh-tekuri/jsonschema/v6 | v6.0.3 | Apache-2.0 |
 | go | github.com/wailsapp/wails/v3 | v3.0.0-beta.9 | MIT |
 | go | github.com/xi2/xz | v0.0.0-20171230120015-48954b6210f8 | LicenseRef-xi2-xz-Public-Domain |
+| go | go.yaml.in/yaml/v3 | v3.0.5 | Apache-2.0 |
 | go | golang.org/x/crypto | v0.55.0 | BSD-3-Clause |
 | go | golang.org/x/sys | v0.47.0 | BSD-3-Clause |
 | go | golang.org/x/text | v0.41.0 | BSD-3-Clause |
-| go | gopkg.in/yaml.v3 | v3.0.1 | Apache-2.0 |
 | go | modernc.org/libc | v1.75.3 | MIT |
 | go | modernc.org/mathutil | v1.7.1 | BSD-3-Clause |
 | go | modernc.org/memory | v1.12.0 | BSD-3-Clause |
@@ -501,7 +501,7 @@ Applies to: github.com/santhosh-tekuri/jsonschema/v6@v6.0.3
 
 ### Apache-2.0 (7645aec57fca)
 
-Applies to: gopkg.in/yaml.v3@v3.0.1
+Applies to: go.yaml.in/yaml/v3@v3.0.5
 
     [LICENSE]
     This project is covered by two different licenses: MIT and Apache.

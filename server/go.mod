@@ -10,9 +10,9 @@ require (
 	github.com/gobwas/ws v1.4.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8
+	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/crypto v0.55.0
 	golang.org/x/sys v0.47.0
-	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.56.0
 	pgregory.net/rapid v1.3.0
 )

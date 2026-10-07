@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
 )

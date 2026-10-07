@@ -18,7 +18,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 const legacySecretKeyName = "platform.secret_encryption_key"

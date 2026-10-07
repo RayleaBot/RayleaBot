@@ -68,7 +68,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 | HTTP 路由 | `net/http` + `go-chi/chi v5.3.1` |
 | WebSocket | `github.com/coder/websocket v1.8.15` |
 | 日志 | `log/slog` |
-| 配置解析 | `gopkg.in/yaml.v3` |
+| 配置解析 | `go.yaml.in/yaml/v3` |
 | 数据访问 | `database/sql` + repository / service 分层 + `internal/sqlcqueries` → `internal/sqlcgen` 的 sqlc 生成主路径；sqlc 无法表达的动态查询与 SQLite 维护语句保留手写，并在调用处注释原因 |
 | Web 路由 | Vue Router `5.x` |
 | Web 全局状态 | Pinia `4.x`，由各领域 store 维护管理状态 |

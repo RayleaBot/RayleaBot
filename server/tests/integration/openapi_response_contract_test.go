@@ -16,7 +16,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 func TestCreateBuildsSchemaValidArchiveWithPluginBusinessData(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/contractversions"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 const currentSchemaVersion = contractversions.ConfigSchemaVersion
