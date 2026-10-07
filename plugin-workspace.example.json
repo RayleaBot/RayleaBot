@@ -2,16 +2,16 @@
   "workspace_version": "2",
   "plugins": [
     {
-      "path": "../RayleaBotPlugins/plugin-echo"
+      "path": "../RayleaBotPlugins/echo"
     },
     {
-      "path": "../RayleaBotPlugins/plugin-fortune"
+      "path": "../RayleaBotPlugins/fortune"
     },
     {
-      "path": "../RayleaBotPlugins/plugin-game-guide"
+      "path": "../RayleaBotPlugins/game-guide"
     },
     {
-      "path": "../RayleaBotPlugins/plugin-subscription-hub"
+      "path": "../RayleaBotPlugins/subscription-hub"
     }
   ]
 }

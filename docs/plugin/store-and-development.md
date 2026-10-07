@@ -122,8 +122,8 @@ Web 路由 `/plugins/store` 提供来源切换和管理、手动刷新、搜索�
 {
   "workspace_version": "2",
   "plugins": [
-    {"path": "../RayleaBotPlugins/plugin-echo"},
-    {"path": "../RayleaBotPlugins/plugin-fortune", "enabled": true}
+    {"path": "../RayleaBotPlugins/echo"},
+    {"path": "../RayleaBotPlugins/fortune", "enabled": true}
   ]
 }
 ```

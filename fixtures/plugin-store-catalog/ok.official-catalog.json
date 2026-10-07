@@ -9,7 +9,7 @@
         "id": "rayleabot",
         "name": "RayleaBot"
       },
-      "repository_url": "https://github.com/RayleaBot/plugin-echo",
+      "repository_url": "https://github.com/RayleaBot/echo",
       "license": "MIT",
       "keywords": ["echo", "example"],
       "recommended": true,
@@ -21,7 +21,7 @@
         "assets": [
           {
             "platform": "windows-x64",
-            "url": "https://github.com/RayleaBot/plugin-echo/releases/download/v0.2.0/raylea.echo-0.2.0-windows-x64.zip",
+            "url": "https://github.com/RayleaBot/echo/releases/download/v0.2.0/raylea.echo-0.2.0-windows-x64.zip",
             "archive_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
           }
         ]

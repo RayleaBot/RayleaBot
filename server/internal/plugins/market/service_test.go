@@ -249,7 +249,7 @@ func catalogJSON(platform string) []byte {
     "name":"Echo",
     "summary":"Echo messages",
     "publisher":{"id":"rayleabot","name":"RayleaBot"},
-    "repository_url":"https://github.com/RayleaBot/plugin-echo",
+    "repository_url":"https://github.com/RayleaBot/echo",
     "license":"MIT",
     "keywords":["echo"],
     "recommended":true,

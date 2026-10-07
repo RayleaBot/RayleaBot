@@ -743,10 +743,10 @@ test("classifies rayleabot dev server without status as occupied when backend ta
 test("describeCommandFailure explains an outdated pnpm lockfile with a repair command", () => {
   const hints = describeCommandFailure(
     "[ERR_PNPM_OUTDATED_LOCKFILE] Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up to date with .rayleabot\\sdk\\vue\\package.json",
-    { cwd: "C:/workspace/plugin-fortune" },
+    { cwd: "C:/workspace/fortune" },
   );
   assert.ok(hints.some((hint) => hint.includes("corepack pnpm install --no-frozen-lockfile")));
-  assert.ok(hints.some((hint) => hint.includes("C:/workspace/plugin-fortune")));
+  assert.ok(hints.some((hint) => hint.includes("C:/workspace/fortune")));
   assert.ok(hints.some((hint) => hint.includes("ui/")));
 });
 

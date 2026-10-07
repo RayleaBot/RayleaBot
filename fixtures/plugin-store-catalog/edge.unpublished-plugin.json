@@ -9,7 +9,7 @@
         "id": "rayleabot",
         "name": "RayleaBot"
       },
-      "repository_url": "https://github.com/RayleaBot/plugin-fortune",
+      "repository_url": "https://github.com/RayleaBot/fortune",
       "license": "MIT",
       "keywords": ["fortune"],
       "recommended": true

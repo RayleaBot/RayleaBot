@@ -26,7 +26,7 @@ const echoPlugin = {
   name: 'Echo',
   summary: 'Echo messages',
   publisher: { id: 'rayleabot', name: 'RayleaBot' },
-  repository_url: 'https://github.com/RayleaBot/plugin-echo',
+  repository_url: 'https://github.com/RayleaBot/echo',
   license: 'MIT',
   keywords: ['echo'],
   recommended: true,
@@ -119,7 +119,7 @@ describe('PluginStoreView', () => {
     await flushPromises()
 
     const link = wrapper.get('a[aria-label="打开源码仓库"]')
-    expect(link.attributes('href')).toBe('https://github.com/RayleaBot/plugin-echo')
+    expect(link.attributes('href')).toBe('https://github.com/RayleaBot/echo')
     expect(link.attributes('target')).toBe('_blank')
     expect(link.attributes('rel')).toBe('noopener noreferrer')
   })

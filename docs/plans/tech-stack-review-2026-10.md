@@ -601,7 +601,7 @@
   - 缺的只是一个拉起第三方二进制的执行器。
 - 插件脚手架（考虑）：
   - 维护者在 60 天内没有脚手架也建成了 11 个插件仓库，各 release.yml 之间几乎没有漂移。
-  - 公开仓库 RayleaBot/plugin-echo 就是经过真实发布验证的模板，缺的只是文档把它标为起点。
+  - 公开仓库 RayleaBot/echo 就是经过真实发布验证的模板，缺的只是文档把它标为起点。
 
 **Web 前端框架与数据层**
 - Pinia Colada（考虑）：
@@ -714,7 +714,7 @@
 **渲染与媒体（其余）**
 - 托管 Chromium 改用 chrome-headless-shell（考虑）：
   - 找到系统 Edge 或 Chrome 时，deps 会跳过托管下载，Windows 几乎不受益。
-  - 唯一的官方使用方是 plugin-subscription-hub：其抖音扫码登录在桌面上优先用 visible 模式，并依赖持久 profile 与设备指纹一致。
+  - 唯一的官方使用方是 subscription-hub：其抖音扫码登录在桌面上优先用 visible 模式，并依赖持久 profile 与设备指纹一致。
   - linux-arm64 的支持来自升级版本线，与是否换 headless-shell 无关。
 - macOS FFmpeg 换 martin-riedl 构建（替换）：
   - martin-riedl 把 ffmpeg 与 ffprobe 分开打包，zip 也未公证，与 manifest v5“一个资源只有一个归档和一个 sha256”的契约不兼容。

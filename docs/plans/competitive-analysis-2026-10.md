@@ -241,7 +241,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 
 ### G7 按群启停插件与宿主准入
 
-- **现状**：插件只有全局 `desired_state`；白名单只约束指令（`contracts/web-api.openapi.yaml` 原文为 whitelist for command dispatch admission），非命令消息投递给订阅插件时只受黑名单约束。subscription-hub 因此在插件里自建了按会话的解析开关（`plugin-subscription-hub/internal/plugin/resolver.go:164-174`），将来 AI 插件也会遇到同样的问题。
+- **现状**：插件只有全局 `desired_state`；白名单只约束指令（`contracts/web-api.openapi.yaml` 原文为 whitelist for command dispatch admission），非命令消息投递给订阅插件时只受黑名单约束。subscription-hub 因此在插件里自建了按会话的解析开关（`subscription-hub/internal/plugin/resolver.go:164-174`），将来 AI 插件也会遇到同样的问题。
 - **竞品**：Yunzai、gsuid（按插件和服务配置黑白名单，同时匹配群号和用户）、HoshinoBot、ZeroBot-Plugin、Koishi（过滤器）的核心都能按群启停插件；AstrBot 按配置文件路由会话。这是同赛道群主最普遍的诉求。
 - **建议**：
   - 规则由 Server 持有。新表 `plugin_scope_rules` 复用黑白名单的 `governance_scope`，解析顺序为会话规则、全局规则、插件默认。
@@ -437,7 +437,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | G41 | KV 配额按插件计；条件写与批量 | S / M | AstrBot、LangBot 按插件隔离存储 | 全局 16 MB 一个插件就能耗尽，先改为按插件计；CAS 与 batch 是插件→宿主方向的加法，没有出错证据，可降为 P3 |
 | G42 | manifest 诊断与 webhook 上限不一致 | S | MaiBot 用严格模式校验清单 | 未知事件名只给 warning（契约有意保持开放）；webhook 上限契约写 10 MiB、实现截到 1 MiB，二者择一统一 |
 | G43 | 帮助菜单渲染失败时降级为文字 | S | TRSS 有免浏览器的 shotium 与远程 browserless | 菜单数据在 Server 内现成可用，属内部改动；同时修正 `server/internal/bot/menu/menu.go:137` 与行为不符的日志 |
-| G44 | 第三方发布流水线 | M–L | NoneBot2 用 NoneFlow 自动校验，MaiBot、AstrBot 有登记库 | plugin-echo 已有三平台矩阵，缺的是去掉主仓库检出并标为模板；独立的 community-catalog 加 CI 握手冒烟；前置 G2、G12 与目录宽松读取 |
+| G44 | 第三方发布流水线 | M–L | NoneBot2 用 NoneFlow 自动校验，MaiBot、AstrBot 有登记库 | echo 已有三平台矩阵，缺的是去掉主仓库检出并标为模板；独立的 community-catalog 加 CI 握手冒烟；前置 G2、G12 与目录宽松读取 |
 | G45 | 插件间依赖声明 | M | 只有 Koishi、NoneBot2 具备 | 先零成本：商店描述与 README 写明“需配合米游社账号插件”（genshin 已会提示）；契约级 `requires_services` 等第三方出现再做 |
 | G46 | 目录历史版本与撤回 | M | MaiBot 已有多版本加 yanked 结构，但多数条目只用单版本 | 需要先让目录读取宽松；sync 改为列出 Release 列表；这是插件包版本选择，不是核心回滚 |
 | G47 | 插件更新后台检查与提示 | S–M | AstrBot 社区有更新管理插件，TRSS 每天检查 | 用服务端内部定时循环（参照 kv_expiry），不走插件 scheduler；只需契约里的计数字段 |
