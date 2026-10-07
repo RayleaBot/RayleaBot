@@ -42,7 +42,7 @@ Launcher 发现新版本后可一键更新；服务端包先执行 `raylea-serve
 
 ### 方式二：从源码启动
 
-前置工具及其版本由根目录 `.tool-versions` 固定，运行 `make doctor`（无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`）核对本机工具链；安装方式、离线环境与 devcontainer 见[工程基线](./docs/engineering/baseline.md)。图片渲染需要系统 Chrome / Chromium / Edge 或已准备完成的托管 Chromium，FFmpeg / FFprobe 由运行环境清单准备。
+前置工具及其版本由根目录 `.tool-versions` 固定，运行 `make doctor`（无 make 环境时运行 `python scripts/check-toolchain.py`）核对本机工具链；安装方式、离线环境与 devcontainer 见[工程基线](./docs/engineering/baseline.md)。图片渲染需要系统 Chrome / Chromium / Edge 或已准备完成的托管 Chromium，FFmpeg / FFprobe 由运行环境清单准备。
 
 ```bash
 git clone https://github.com/RayleaBot/RayleaBot.git

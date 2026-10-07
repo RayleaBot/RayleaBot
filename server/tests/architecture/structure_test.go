@@ -1,6 +1,7 @@
 package architecture_test
 
 import (
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
@@ -15,6 +16,125 @@ const (
 	managementImportPrefix = managementImportPath + "/"
 	appImportPrefix        = modulePrefix + "app"
 )
+
+func TestInternalPackageNames(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	internalRoot := filepath.Join(serverRoot, "internal")
+	if err := filepath.WalkDir(internalRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			switch entry.Name() {
+			case "common", "utils", "helper", "helpers":
+				t.Errorf("%s uses a disallowed generic package name", relPath(t, serverRoot, path))
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	walkGoFiles(t, internalRoot, func(path string) {
+		if strings.HasSuffix(path, "_test.go") {
+			return
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.PackageClauseOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if leaf := filepath.Base(filepath.Dir(path)); file.Name.Name != leaf {
+			t.Errorf("%s package name is %s; directory leaf is %s", relPath(t, serverRoot, path), file.Name.Name, leaf)
+		}
+	})
+}
+
+func TestInternalCallsRespectLayerBoundaries(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	internalRoot := filepath.Join(serverRoot, "internal")
+	walkGoFiles(t, internalRoot, func(path string) {
+		if strings.HasSuffix(path, "_test.go") || isGeneratedGoFile(path) {
+			return
+		}
+		fileSet := token.NewFileSet()
+		file, err := parser.ParseFile(fileSet, path, nil, parser.SkipObjectResolution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		imports := make(map[string]string)
+		for _, spec := range file.Imports {
+			imported := strings.Trim(spec.Path.Value, `"`)
+			if imported != "os" && imported != "log" {
+				continue
+			}
+			name := imported
+			if spec.Name != nil {
+				name = spec.Name.Name
+			}
+			imports[name] = imported
+		}
+		management := pathWithin(path, filepath.Join(internalRoot, "management"))
+		ast.Inspect(file, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			selector, ok := ast.Unparen(call.Fun).(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			name := selector.Sel.Name
+			if management {
+				switch name {
+				case "Exec", "ExecContext", "QueryContext", "QueryRowContext", "QueryRow":
+					t.Errorf("%s uses handwritten SQL in management handler layer", fileSet.Position(call.Pos()))
+				}
+			}
+			var owner string
+			if receiver, ok := ast.Unparen(selector.X).(*ast.Ident); ok {
+				owner = imports[receiver.Name]
+			}
+			if owner == "os" && name == "Exit" || owner == "log" && (name == "Fatal" || name == "Fatalf" || name == "Fatalln") {
+				t.Errorf("%s calls %s.%s outside cmd", fileSet.Position(call.Pos()), owner, name)
+			}
+			return true
+		})
+	})
+}
+
+func TestPlatformAndProjectionImportBoundaries(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	for _, rule := range []struct {
+		owner     string
+		forbidden []string
+	}{
+		{"platform/health", []string{""}},
+		{"platform/runtimepaths", []string{"plugins", "operations/recovery", "operations/system"}},
+		{"render", []string{"plugins/actions", "plugins/lifecycle", "plugins/runtime"}},
+		{"management", []string{"plugins/runtime"}},
+		{"bot/menu", []string{"plugins/actions", "plugins/lifecycle", "plugins/runtime"}},
+	} {
+		t.Run(rule.owner, func(t *testing.T) {
+			root := filepath.Join(serverRoot, "internal", rule.owner)
+			walkGoFiles(t, root, func(path string) {
+				if strings.HasSuffix(path, "_test.go") {
+					return
+				}
+				// The shared-model dependency test already covers the menu package itself.
+				if rule.owner == "bot/menu" && filepath.Dir(path) == root {
+					return
+				}
+				for _, imported := range fileImports(t, serverRoot, path) {
+					for _, forbidden := range rule.forbidden {
+						prefix := modulePrefix + forbidden
+						if (forbidden == "" && strings.HasPrefix(imported, modulePrefix)) || imported == prefix || strings.HasPrefix(imported, prefix+"/") {
+							t.Errorf("%s imports %s; model or helper package depends on an implementation owner", relPath(t, serverRoot, path), imported)
+						}
+					}
+				}
+			})
+		})
+	}
+}
 
 func TestManagementPackagesDoNotLeakIntoDomainPackages(t *testing.T) {
 	serverRoot := testServerRoot(t)

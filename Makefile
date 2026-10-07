@@ -1,12 +1,9 @@
-.PHONY: doctor check-server-structure check-toolchain design-tokens design-tokens-check server-build test test-server test-web test-launcher web-typecheck launcher-typecheck
+.PHONY: doctor check-toolchain design-tokens design-tokens-check server-build test test-server test-web test-launcher web-typecheck launcher-typecheck
 
-doctor: check-toolchain check-server-structure
+doctor: check-toolchain
 
 check-toolchain:
 	python scripts/check-toolchain.py
-
-check-server-structure:
-	python scripts/check-server-structure.py
 
 design-tokens:
 	node scripts/generate-design-tokens.mjs

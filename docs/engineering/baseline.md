@@ -59,7 +59,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 - Linux 构建 Wails Launcher 固定使用 Wails v3.0.x 支持的 `gtk3` 兼容标签，需要 GTK 3 与 WebKit2GTK 4.1 开发包；Ubuntu 使用 `libgtk-3-dev` 和 `libwebkit2gtk-4.1-dev`。
 - Python 脚本依赖集中在 `scripts/requirements.txt`；首次运行执行 `python -m pip install -r scripts/requirements.txt`，其中 jsonschema 的 format 扩展用于日期与 URI 等格式校验。
 - 仓库提供 devcontainer，预装 `.tool-versions` 中的全部工具、上述 Python 依赖以及 Chromium、SQLite 和 make。
-- 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。
+- 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `python scripts/check-toolchain.py`。
 
 ## 固定工程选型
 
@@ -96,7 +96,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 | 数据库初始化 | 从当前 `schema.sql` 在事务内初始化；旧结构按 `store_schema.go` 的有序前向迁移表升级，每步一个事务并更新 `schema_metadata`，失败回滚；不引入额外迁移框架 |
 | OpenAPI 实现 | 保留严格契约校验和生成类型检查；只有 handler 漂移持续发生时才评估 Server 侧 OpenAPI 代码生成 |
 | Secret 存储 | secret 原值保存在 SQLite 独立存储，配置只保存 `secret://` 引用，管理面不回显；部署目标要求外部密钥托管时再评估环境密钥、操作系统 keychain 或外部 KMS |
-| 架构门禁 | 保留仓库专用的结构测试，它比通用 linter 更准确地表达本仓库包边界 |
+| 架构门禁 | `server/tests/architecture` 中的 Go AST 测试检查包命名、导入边界、内部包退出进程调用及 management 手写 SQL；在 `server/` 执行 `go test ./tests/architecture`，也随全量 Go 测试运行 |
 | 媒体处理 | 使用 `.deps/manifest.json` 固定三平台 full GPL FFmpeg / FFprobe 资源，不在各插件内重复打包，也不新增 Go 媒体编解码栈 |
 
 ## 默认命令
