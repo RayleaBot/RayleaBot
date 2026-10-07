@@ -67,7 +67,7 @@ func (h *AuthHandlers) RegisterProtectedRoutes(router chi.Router) {
 type authSessionService interface {
 	BootstrapWithContext(context.Context, string, string) (string, auth.Claims, error)
 	LoginWithContext(context.Context, string, string) (string, auth.Claims, error)
-	CSRFToken(auth.Claims) string
+	CSRFToken(string) string
 	UpdateCredentialsWithContext(context.Context, auth.Claims, string, string, string) error
 }
 
@@ -181,7 +181,7 @@ func (h *AuthHandlers) writeSessionResponse(w http.ResponseWriter, token string,
 	w.Header().Set(SessionTransportHeader, transport)
 	if transport == "cookie" {
 		http.SetCookie(w, sessionCookie(token, claims.ExpiresAt, secure))
-		response.CSRFToken = h.auth.CSRFToken(claims)
+		response.CSRFToken = h.auth.CSRFToken(token)
 	} else {
 		response.SessionToken = token
 	}
@@ -267,9 +267,9 @@ func RequireAuthWithConfig(authManager *auth.Manager, source AuthConfigSource) f
 				return
 			}
 			if cookieAuthenticated {
-				w.Header().Set(CSRFHeader, authManager.CSRFToken(claims))
+				w.Header().Set(CSRFHeader, authManager.CSRFToken(token))
 				if isStateChangingMethod(r.Method) {
-					if !validRequestOrigin(r, cfg.AllowedOrigins, true) || !authManager.ValidateCSRF(claims, r.Header.Get(CSRFHeader)) {
+					if !validRequestOrigin(r, cfg.AllowedOrigins, true) || !authManager.ValidateCSRF(token, r.Header.Get(CSRFHeader)) {
 						writeAuthenticationRequired(w, r)
 						return
 					}

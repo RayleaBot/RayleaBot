@@ -2,10 +2,8 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 )
@@ -24,7 +22,7 @@ type Config struct {
 }
 
 type Claims struct {
-	SessionID string
+	TokenHash string
 	Subject   string
 	IssuedAt  time.Time
 	ExpiresAt time.Time
@@ -34,8 +32,7 @@ type Option func(*managerOptions) error
 
 type managerOptions struct {
 	now                func() time.Time
-	signingKey         []byte
-	sessionID          func() (string, error)
+	token              func() (string, error)
 	repo               Repository
 	passwordHashParams passwordHashParams
 }
@@ -44,8 +41,7 @@ type Manager struct {
 	cfg Config
 
 	now                func() time.Time
-	signingKey         []byte
-	sessionID          func() (string, error)
+	token              func() (string, error)
 	repo               Repository
 	passwordHashParams passwordHashParams
 
@@ -67,22 +63,12 @@ func WithClock(now func() time.Time) Option {
 	}
 }
 
-func WithSigningKey(signingKey []byte) Option {
-	return func(options *managerOptions) error {
-		if len(signingKey) == 0 {
-			return errors.New("signing key is required")
-		}
-		options.signingKey = append([]byte(nil), signingKey...)
-		return nil
-	}
-}
-
-func WithSessionIDGenerator(generator func() (string, error)) Option {
+func WithTokenGenerator(generator func() (string, error)) Option {
 	return func(options *managerOptions) error {
 		if generator == nil {
-			return errors.New("session id generator is required")
+			return errors.New("session token generator is required")
 		}
-		options.sessionID = generator
+		options.token = generator
 		return nil
 	}
 }
@@ -131,8 +117,8 @@ func NewManagerWithContext(ctx context.Context, cfg Config, opts ...Option) (*Ma
 	options := managerOptions{
 		now:                time.Now,
 		passwordHashParams: defaultPasswordHashParams,
-		sessionID: func() (string, error) {
-			return randomTokenSegment(16)
+		token: func() (string, error) {
+			return GenerateOpaqueToken(32)
 		},
 	}
 
@@ -142,19 +128,10 @@ func NewManagerWithContext(ctx context.Context, cfg Config, opts ...Option) (*Ma
 		}
 	}
 
-	if len(options.signingKey) == 0 {
-		signingKey := make([]byte, 32)
-		if _, err := io.ReadFull(rand.Reader, signingKey); err != nil {
-			return nil, fmt.Errorf("generate session signing key: %w", err)
-		}
-		options.signingKey = signingKey
-	}
-
 	manager := &Manager{
 		cfg:                cfg,
 		now:                options.now,
-		signingKey:         options.signingKey,
-		sessionID:          options.sessionID,
+		token:              options.token,
 		repo:               options.repo,
 		passwordHashParams: options.passwordHashParams,
 		passwordSemaphore:  make(chan struct{}, 2),
@@ -182,7 +159,6 @@ func (m *Manager) hydrate(ctx context.Context) error {
 			SecretDigest:  append([]byte(nil), state.SecretDigest...),
 			InitializedAt: state.InitializedAt.UTC(),
 		}
-		m.signingKey = append([]byte(nil), state.SigningKey...)
 	}
 
 	sessions, err := m.repo.LoadSessions(ctx)
@@ -198,14 +174,14 @@ func (m *Manager) hydrate(ctx context.Context) error {
 		claims.ExpiresAt = canonicalSessionTimestamp(claims.ExpiresAt)
 		absoluteExpiry := canonicalSessionTimestamp(claims.IssuedAt.Add(m.absoluteTTL()))
 		if !now.Before(absoluteExpiry) || !now.Before(claims.ExpiresAt) {
-			expired = append(expired, claims.SessionID)
+			expired = append(expired, claims.TokenHash)
 			continue
 		}
 		if claims.ExpiresAt.After(absoluteExpiry) {
 			claims.ExpiresAt = absoluteExpiry
 			clamped = append(clamped, claims)
 		}
-		m.sessions[claims.SessionID] = claims
+		m.sessions[claims.TokenHash] = claims
 	}
 	if err := m.deleteSessions(ctx, expired...); err != nil {
 		return err
@@ -231,12 +207,12 @@ func (m *Manager) saveSession(ctx context.Context, claims Claims) error {
 	return nil
 }
 
-func (m *Manager) deleteSessions(ctx context.Context, sessionIDs ...string) error {
-	if m.repo == nil || len(sessionIDs) == 0 {
+func (m *Manager) deleteSessions(ctx context.Context, tokenHashes ...string) error {
+	if m.repo == nil || len(tokenHashes) == 0 {
 		return nil
 	}
 
-	if err := m.repo.DeleteSessions(ctx, sessionIDs); err != nil {
+	if err := m.repo.DeleteSessions(ctx, tokenHashes); err != nil {
 		return fmt.Errorf("delete persisted sessions: %w", err)
 	}
 

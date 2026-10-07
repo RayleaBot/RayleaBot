@@ -88,16 +88,8 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 	if err != nil {
 		return abort(fmt.Errorf("create secret store: %w", err))
 	}
-	sessionSigningKey, _, err := auth.EnsureSessionSigningKey(ctx, secretStore)
-	if err != nil {
-		return abort(fmt.Errorf("prepare session signing key: %w", err))
-	}
-	if err := authRepository.ReconcileSigningKey(ctx, sessionSigningKey); err != nil {
-		return abort(fmt.Errorf("reconcile session signing key: %w", err))
-	}
 	authOptions := append([]auth.Option{
 		auth.WithRepository(authRepository),
-		auth.WithSigningKey(sessionSigningKey),
 	}, deps.AuthOptions...)
 	authManager, err := auth.NewManagerWithContext(ctx, auth.Config{
 		SessionTTLDays:         deps.Config.Admin.SessionTTLDays,

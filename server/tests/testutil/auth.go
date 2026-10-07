@@ -65,8 +65,7 @@ func DeterministicAuthOptions() []auth.Option {
 		auth.WithClock(func() time.Time {
 			return current
 		}),
-		auth.WithSigningKey([]byte("0123456789abcdef0123456789abcdef")),
-		auth.WithSessionIDGenerator(func() (string, error) {
+		auth.WithTokenGenerator(func() (string, error) {
 			sessionCounter++
 			return "session-test-" + string(rune('0'+sessionCounter)), nil
 		}),

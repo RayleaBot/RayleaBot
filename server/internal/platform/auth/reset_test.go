@@ -15,7 +15,7 @@ func TestResetCredentialsRollsBackSessionRemovalWhenBootstrapDeleteFails(t *test
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	for _, statement := range []string{
-		`INSERT INTO auth_bootstrap_state VALUES (1, 'admin', X'00', X'00', '2026-09-10T00:00:00Z')`,
+		`INSERT INTO auth_bootstrap_state VALUES (1, 'admin', X'00', '2026-09-10T00:00:00Z')`,
 		`INSERT INTO admin_sessions VALUES ('session', 'admin', '2026-09-10T00:00:00Z', '2026-09-11T00:00:00Z')`,
 		`CREATE TRIGGER reject_reset BEFORE DELETE ON auth_bootstrap_state BEGIN SELECT RAISE(FAIL, 'injected reset failure'); END`,
 	} {
@@ -35,7 +35,7 @@ func TestResetCredentialsRollsBackSessionRemovalWhenBootstrapDeleteFails(t *test
 		t.Fatalf("credentials changed: %#v %v", bootstrap, err)
 	}
 	sessions, err := repository.LoadSessions(t.Context())
-	if err != nil || len(sessions) != 1 || sessions[0].SessionID != "session" {
+	if err != nil || len(sessions) != 1 || sessions[0].TokenHash != "session" {
 		t.Fatalf("sessions were lost after failed reset: %#v %v", sessions, err)
 	}
 }

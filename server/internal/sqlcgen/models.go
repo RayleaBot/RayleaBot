@@ -21,7 +21,7 @@ type AccessListEntry struct {
 }
 
 type AdminSession struct {
-	SessionID string
+	TokenHash string
 	Subject   string
 	IssuedAt  string
 	ExpiresAt string
@@ -31,7 +31,6 @@ type AuthBootstrapState struct {
 	SingletonID   int64
 	Identifier    string
 	SecretDigest  []byte
-	SigningKey    []byte
 	InitializedAt string
 }
 

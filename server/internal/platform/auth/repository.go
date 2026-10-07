@@ -14,7 +14,6 @@ import (
 type BootstrapState struct {
 	Identifier    string
 	SecretDigest  []byte
-	SigningKey    []byte
 	InitializedAt time.Time
 }
 
@@ -62,7 +61,6 @@ func (r *SQLiteRepository) LoadBootstrap(ctx context.Context) (*BootstrapState, 
 	return &BootstrapState{
 		Identifier:    row.Identifier,
 		SecretDigest:  row.SecretDigest,
-		SigningKey:    row.SigningKey,
 		InitializedAt: parsedTime.UTC(),
 	}, nil
 }
@@ -80,13 +78,12 @@ func (r *SQLiteRepository) SaveBootstrap(ctx context.Context, state BootstrapSta
 		if err := q.InsertBootstrap(ctx, sqlcgen.InsertBootstrapParams{
 			Identifier:    state.Identifier,
 			SecretDigest:  state.SecretDigest,
-			SigningKey:    state.SigningKey,
 			InitializedAt: state.InitializedAt.UTC().Format(time.RFC3339Nano),
 		}); err != nil {
 			return fmt.Errorf("insert bootstrap state: %w", err)
 		}
 		if err := q.UpsertSession(ctx, claimsToUpsertParams(session)); err != nil {
-			return fmt.Errorf("upsert session %s: %w", session.SessionID, err)
+			return fmt.Errorf("upsert session %s: %w", session.TokenHash, err)
 		}
 		return nil
 	})
@@ -109,24 +106,6 @@ func (r *SQLiteRepository) UpdateCredentials(ctx context.Context, identifier str
 	})
 }
 
-// ReconcileSigningKey updates the bootstrap copy and revokes sessions together,
-// before any Manager can hydrate the previous key from that copy.
-func (r *SQLiteRepository) ReconcileSigningKey(ctx context.Context, signingKey []byte) error {
-	return storage.WithTx(ctx, r.write, nil, func(tx *sql.Tx) error {
-		q := r.writeQ.WithTx(tx)
-		changed, err := q.UpdateBootstrapSigningKey(ctx, signingKey)
-		if err != nil {
-			return fmt.Errorf("update bootstrap signing key: %w", err)
-		}
-		if changed > 0 {
-			if err := q.DeleteAllAdminSessions(ctx); err != nil {
-				return fmt.Errorf("revoke sessions after signing key rotation: %w", err)
-			}
-		}
-		return nil
-	})
-}
-
 func (r *SQLiteRepository) LoadSessions(ctx context.Context) ([]Claims, error) {
 	rows, err := r.readQ.LoadSessions(ctx)
 	if err != nil {
@@ -136,7 +115,7 @@ func (r *SQLiteRepository) LoadSessions(ctx context.Context) ([]Claims, error) {
 	sessions := make([]Claims, 0, len(rows))
 	for _, row := range rows {
 		var claims Claims
-		claims.SessionID = row.SessionID
+		claims.TokenHash = row.TokenHash
 		claims.Subject = row.Subject
 
 		claims.IssuedAt, err = time.Parse(time.RFC3339Nano, row.IssuedAt)
@@ -157,18 +136,18 @@ func (r *SQLiteRepository) LoadSessions(ctx context.Context) ([]Claims, error) {
 
 func (r *SQLiteRepository) SaveSession(ctx context.Context, claims Claims) error {
 	if err := r.writeQ.UpsertSession(ctx, claimsToUpsertParams(claims)); err != nil {
-		return fmt.Errorf("upsert session %s: %w", claims.SessionID, err)
+		return fmt.Errorf("upsert session %s: %w", claims.TokenHash, err)
 	}
 	return nil
 }
 
-func (r *SQLiteRepository) DeleteSessions(ctx context.Context, sessionIDs []string) error {
-	for _, sessionID := range sessionIDs {
-		if sessionID == "" {
+func (r *SQLiteRepository) DeleteSessions(ctx context.Context, tokenHashes []string) error {
+	for _, tokenHash := range tokenHashes {
+		if tokenHash == "" {
 			continue
 		}
-		if err := r.writeQ.DeleteSession(ctx, sessionID); err != nil {
-			return fmt.Errorf("delete session %s: %w", sessionID, err)
+		if err := r.writeQ.DeleteSession(ctx, tokenHash); err != nil {
+			return fmt.Errorf("delete session %s: %w", tokenHash, err)
 		}
 	}
 	return nil
@@ -176,7 +155,7 @@ func (r *SQLiteRepository) DeleteSessions(ctx context.Context, sessionIDs []stri
 
 func claimsToUpsertParams(claims Claims) sqlcgen.UpsertSessionParams {
 	return sqlcgen.UpsertSessionParams{
-		SessionID: claims.SessionID,
+		TokenHash: claims.TokenHash,
 		Subject:   claims.Subject,
 		IssuedAt:  claims.IssuedAt.UTC().Format(time.RFC3339Nano),
 		ExpiresAt: claims.ExpiresAt.UTC().Format(time.RFC3339Nano),

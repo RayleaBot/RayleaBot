@@ -22,9 +22,9 @@ func (m *Manager) IssueWithContext(ctx context.Context, subject string) (string,
 	return m.issueSerialized(ctx, subject, m.now().UTC())
 }
 
-func (m *Manager) RevokeWithContext(ctx context.Context, sessionID string) error {
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
+func (m *Manager) RevokeWithContext(ctx context.Context, tokenHash string) error {
+	tokenHash = strings.TrimSpace(tokenHash)
+	if tokenHash == "" {
 		return ErrInvalidToken
 	}
 
@@ -32,9 +32,9 @@ func (m *Manager) RevokeWithContext(ctx context.Context, sessionID string) error
 	defer m.mutationMu.Unlock()
 
 	m.stateMu.Lock()
-	delete(m.sessions, sessionID)
+	delete(m.sessions, tokenHash)
 	m.stateMu.Unlock()
-	return m.deleteSessions(ctx, sessionID)
+	return m.deleteSessions(ctx, tokenHash)
 }
 
 func (m *Manager) Validate(token string) (Claims, error) {
@@ -47,60 +47,57 @@ func (m *Manager) ValidateWithContext(ctx context.Context, token string) (Claims
 		return Claims{}, ErrInvalidToken
 	}
 
-	parsed, err := m.verify(token)
-	if err != nil {
-		return Claims{}, err
-	}
+	tokenHash := hashToken(token)
 
 	now := m.now().UTC()
 	m.stateMu.RLock()
-	stored, ok := m.sessions[parsed.SessionID]
+	stored, ok := m.sessions[tokenHash]
 	m.stateMu.RUnlock()
-	if !ok || stored.Subject != parsed.Subject || !stored.IssuedAt.Equal(parsed.IssuedAt) {
+	if !ok {
 		return Claims{}, ErrInvalidToken
 	}
 
 	absoluteExpiry := canonicalSessionTimestamp(stored.IssuedAt.Add(m.absoluteTTL()))
 	if !now.Before(stored.ExpiresAt) || !now.Before(absoluteExpiry) {
-		return Claims{}, m.expireSession(ctx, stored.SessionID, now)
+		return Claims{}, m.expireSession(ctx, stored.TokenHash, now)
 	}
 
 	if !m.cfg.SlidingRenewal || stored.ExpiresAt.Sub(now) > m.ttl()/2 {
 		return stored, nil
 	}
 
-	return m.renewSession(ctx, stored.SessionID, now)
+	return m.renewSession(ctx, stored.TokenHash, now)
 }
 
-func (m *Manager) expireSession(ctx context.Context, sessionID string, now time.Time) error {
+func (m *Manager) expireSession(ctx context.Context, tokenHash string, now time.Time) error {
 	m.mutationMu.Lock()
 	defer m.mutationMu.Unlock()
 
 	m.stateMu.Lock()
-	stored, ok := m.sessions[sessionID]
+	stored, ok := m.sessions[tokenHash]
 	if ok {
 		absoluteExpiry := canonicalSessionTimestamp(stored.IssuedAt.Add(m.absoluteTTL()))
 		if now.Before(stored.ExpiresAt) && now.Before(absoluteExpiry) {
 			m.stateMu.Unlock()
 			return ErrExpiredToken
 		}
-		delete(m.sessions, sessionID)
+		delete(m.sessions, tokenHash)
 	}
 	m.stateMu.Unlock()
 	if ok {
-		if err := m.deleteSessions(ctx, sessionID); err != nil {
+		if err := m.deleteSessions(ctx, tokenHash); err != nil {
 			return err
 		}
 	}
 	return ErrExpiredToken
 }
 
-func (m *Manager) renewSession(ctx context.Context, sessionID string, now time.Time) (Claims, error) {
+func (m *Manager) renewSession(ctx context.Context, tokenHash string, now time.Time) (Claims, error) {
 	m.mutationMu.Lock()
 	defer m.mutationMu.Unlock()
 
 	m.stateMu.RLock()
-	stored, ok := m.sessions[sessionID]
+	stored, ok := m.sessions[tokenHash]
 	m.stateMu.RUnlock()
 	if !ok {
 		return Claims{}, ErrInvalidToken
@@ -108,9 +105,9 @@ func (m *Manager) renewSession(ctx context.Context, sessionID string, now time.T
 	absoluteExpiry := canonicalSessionTimestamp(stored.IssuedAt.Add(m.absoluteTTL()))
 	if !now.Before(stored.ExpiresAt) || !now.Before(absoluteExpiry) {
 		m.stateMu.Lock()
-		delete(m.sessions, sessionID)
+		delete(m.sessions, tokenHash)
 		m.stateMu.Unlock()
-		if err := m.deleteSessions(ctx, sessionID); err != nil {
+		if err := m.deleteSessions(ctx, tokenHash); err != nil {
 			return Claims{}, err
 		}
 		return Claims{}, ErrExpiredToken
@@ -131,7 +128,7 @@ func (m *Manager) renewSession(ctx context.Context, sessionID string, now time.T
 		return Claims{}, err
 	}
 	m.stateMu.Lock()
-	m.sessions[sessionID] = stored
+	m.sessions[tokenHash] = stored
 	m.stateMu.Unlock()
 	return stored, nil
 }
@@ -155,7 +152,7 @@ func (m *Manager) issueSerialized(ctx context.Context, subject string, now time.
 	}
 
 	m.stateMu.RLock()
-	removed := m.sessionIDsToRemoveLocked(now)
+	removed := m.tokenHashesToRemoveLocked(now)
 	activeCount := len(m.sessions) - len(removed)
 	m.stateMu.RUnlock()
 	if activeCount >= m.cfg.MaxSessions {
@@ -169,45 +166,45 @@ func (m *Manager) issueSerialized(ctx context.Context, subject string, now time.
 	}
 
 	m.stateMu.Lock()
-	for _, sessionID := range removed {
-		delete(m.sessions, sessionID)
+	for _, tokenHash := range removed {
+		delete(m.sessions, tokenHash)
 	}
-	m.sessions[claims.SessionID] = claims
+	m.sessions[claims.TokenHash] = claims
 	m.stateMu.Unlock()
 	return token, claims, nil
 }
 
-func (m *Manager) sessionIDsToRemoveLocked(now time.Time) []string {
+func (m *Manager) tokenHashesToRemoveLocked(now time.Time) []string {
 	removed := make([]string, 0)
 	remaining := make(map[string]Claims, len(m.sessions))
-	for sessionID, claims := range m.sessions {
+	for tokenHash, claims := range m.sessions {
 		absoluteExpiry := canonicalSessionTimestamp(claims.IssuedAt.Add(m.absoluteTTL()))
 		if !now.Before(claims.ExpiresAt) || !now.Before(absoluteExpiry) {
-			removed = append(removed, sessionID)
+			removed = append(removed, tokenHash)
 			continue
 		}
-		remaining[sessionID] = claims
+		remaining[tokenHash] = claims
 	}
 	for len(remaining) >= m.cfg.MaxSessions {
-		sessionID, ok := oldestSessionID(remaining)
+		tokenHash, ok := oldestTokenHash(remaining)
 		if !ok {
 			break
 		}
-		delete(remaining, sessionID)
-		removed = append(removed, sessionID)
+		delete(remaining, tokenHash)
+		removed = append(removed, tokenHash)
 	}
 	return removed
 }
 
-func oldestSessionID(sessions map[string]Claims) (string, bool) {
+func oldestTokenHash(sessions map[string]Claims) (string, bool) {
 	var oldest Claims
 	found := false
 	for _, claims := range sessions {
 		if !found || claims.IssuedAt.Before(oldest.IssuedAt) ||
-			(claims.IssuedAt.Equal(oldest.IssuedAt) && claims.SessionID < oldest.SessionID) {
+			(claims.IssuedAt.Equal(oldest.IssuedAt) && claims.TokenHash < oldest.TokenHash) {
 			oldest = claims
 			found = true
 		}
 	}
-	return oldest.SessionID, found
+	return oldest.TokenHash, found
 }

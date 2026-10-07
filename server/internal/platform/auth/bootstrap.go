@@ -51,7 +51,6 @@ func (m *Manager) BootstrapWithContext(ctx context.Context, identifier, secret s
 	bootstrapState := BootstrapState{
 		Identifier:    identifier,
 		SecretDigest:  secretDigest,
-		SigningKey:    append([]byte(nil), m.signingKey...),
 		InitializedAt: canonicalSessionTimestamp(now),
 	}
 	token, claims, err := m.newTokenClaims(identifier, now)
@@ -60,7 +59,7 @@ func (m *Manager) BootstrapWithContext(ctx context.Context, identifier, secret s
 	}
 
 	m.stateMu.RLock()
-	removed := m.sessionIDsToRemoveLocked(now)
+	removed := m.tokenHashesToRemoveLocked(now)
 	m.stateMu.RUnlock()
 	if err := m.deleteSessions(ctx, removed...); err != nil {
 		return "", Claims{}, err
@@ -79,15 +78,15 @@ func (m *Manager) BootstrapWithContext(ctx context.Context, identifier, secret s
 		m.stateMu.Unlock()
 		return "", Claims{}, ErrBootstrapAlreadyInitialized
 	}
-	for _, sessionID := range removed {
-		delete(m.sessions, sessionID)
+	for _, tokenHash := range removed {
+		delete(m.sessions, tokenHash)
 	}
 	m.bootstrap = &bootstrapCredentials{
 		Identifier:    bootstrapState.Identifier,
 		SecretDigest:  append([]byte(nil), bootstrapState.SecretDigest...),
 		InitializedAt: bootstrapState.InitializedAt,
 	}
-	m.sessions[claims.SessionID] = claims
+	m.sessions[claims.TokenHash] = claims
 	m.stateMu.Unlock()
 	return token, claims, nil
 }
@@ -149,9 +148,9 @@ func (m *Manager) acquirePasswordSlot(ctx context.Context) (func(), error) {
 }
 
 func (m *Manager) newTokenClaims(subject string, now time.Time) (string, Claims, error) {
-	sessionID, err := m.sessionID()
+	token, err := m.token()
 	if err != nil {
-		return "", Claims{}, fmt.Errorf("generate session id: %w", err)
+		return "", Claims{}, fmt.Errorf("generate session token: %w", err)
 	}
 
 	issuedAt := canonicalSessionTimestamp(now)
@@ -160,10 +159,6 @@ func (m *Manager) newTokenClaims(subject string, now time.Time) (string, Claims,
 	if expiresAt.After(absoluteExpiry) {
 		expiresAt = absoluteExpiry
 	}
-	claims := Claims{SessionID: sessionID, Subject: subject, IssuedAt: issuedAt, ExpiresAt: expiresAt}
-	token, err := m.sign(claims)
-	if err != nil {
-		return "", Claims{}, err
-	}
+	claims := Claims{TokenHash: hashToken(token), Subject: subject, IssuedAt: issuedAt, ExpiresAt: expiresAt}
 	return token, claims, nil
 }

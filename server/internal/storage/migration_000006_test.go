@@ -80,7 +80,7 @@ func TestKVIndexMigrationPreservesRowsAndInitialization(t *testing.T) {
 		t.Fatal("KV migration changed historical row values, types or deadlines")
 	}
 	metadata, err := store.SchemaMetadata(t.Context())
-	if err != nil || metadata.Version != "000007" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
+	if err != nil || metadata.Version != "000008" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
 		t.Fatalf("migration metadata = %+v, %v", metadata, err)
 	}
 	fresh := openTestStore(t)
@@ -135,7 +135,7 @@ func TestKVIndexMigrationCancellationRollsBackCompletedDDL(t *testing.T) {
 			cancel()
 			return ctx.Err()
 		}}}
-	if err := migrateSchema(ctx, db, "000005", append(steps, schemaMigrations()[5])); !errors.Is(err, context.Canceled) {
+	if err := migrateSchema(ctx, db, "000005", append(steps, schemaMigrations()[5:]...)); !errors.Is(err, context.Canceled) {
 		t.Fatalf("migration cancellation = %v", err)
 	}
 	var version string

@@ -50,7 +50,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 			auth.WithClock(func() time.Time {
 				return time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC)
 			}),
-			auth.WithSessionIDGenerator(func() (string, error) {
+			auth.WithTokenGenerator(func() (string, error) {
 				sessionCounter++
 				return fmt.Sprintf("install-flow-%d", sessionCounter), nil
 			}),

@@ -24,9 +24,9 @@ import (
 const legacySecretKeyName = "platform.secret_encryption_key"
 
 // A 000002 backup restored into an empty directory migrates on first startup:
-// encrypted secrets become usable, so sessions issued before the backup stay
-// valid and the administrator can log in again.
-func TestLegacyBackupRestoreMigratesSecretsAndKeepsSessions(t *testing.T) {
+// encrypted secrets become usable and the administrator can log in again,
+// while 000008 invalidates every pre-migration session.
+func TestLegacyBackupRestoreMigratesSecretsAndRevokesSessions(t *testing.T) {
 	t.Parallel()
 
 	current := time.Date(2026, 9, 14, 9, 0, 0, 0, time.UTC)
@@ -63,8 +63,8 @@ func TestLegacyBackupRestoreMigratesSecretsAndKeepsSessions(t *testing.T) {
 	restored := newPersistentTestApp(t, targetConfig, now, "legacy-restored")
 	defer closePersistentTestApp(t, restored)
 	metadata, err := restored.Storage().SchemaMetadata(context.Background())
-	if err != nil || metadata.Version != "000007" {
-		t.Fatalf("restored schema = %#v, %v; want 000007", metadata, err)
+	if err != nil || metadata.Version != "000008" {
+		t.Fatalf("restored schema = %#v, %v; want 000008", metadata, err)
 	}
 	var legacyRows int
 	if err := restored.Storage().Read.QueryRow(
@@ -73,24 +73,33 @@ func TestLegacyBackupRestoreMigratesSecretsAndKeepsSessions(t *testing.T) {
 		t.Fatalf("legacy secret rows after migration = %d, %v", legacyRows, err)
 	}
 
+	var pluginSecret string
+	if err := restored.Storage().Read.QueryRow("SELECT value FROM secret_store WHERE key = 'plugin:fixture:secret:token'").Scan(&pluginSecret); err != nil || pluginSecret != "fixture-only-token" {
+		t.Fatalf("restored plugin secret = %q, %v", pluginSecret, err)
+	}
+
 	server := newManagementTestServer(t, restored.Handler())
 	defer server.Close()
-	for label, token := range map[string]string{
-		"session issued before backup": sessionToken,
-		"login after restore":          testutil.IssueExistingBootstrapLoginToken(t, restored),
+	for _, test := range []struct {
+		label  string
+		token  string
+		status int
+	}{
+		{"session issued before backup", sessionToken, http.StatusUnauthorized},
+		{"login after restore", testutil.IssueExistingBootstrapLoginToken(t, restored), http.StatusOK},
 	} {
 		request, err := http.NewRequest(http.MethodGet, server.URL+"/api/adapters", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		request.Header.Set("Authorization", "Bearer "+token)
+		request.Header.Set("Authorization", "Bearer "+test.token)
 		response, err := server.Client().Do(request)
 		if err != nil {
-			t.Fatalf("%s request: %v", label, err)
+			t.Fatalf("%s request: %v", test.label, err)
 		}
 		_ = response.Body.Close()
-		if response.StatusCode != http.StatusOK {
-			t.Fatalf("%s status = %d, want %d", label, response.StatusCode, http.StatusOK)
+		if response.StatusCode != test.status {
+			t.Fatalf("%s status = %d, want %d", test.label, response.StatusCode, test.status)
 		}
 	}
 }
@@ -122,7 +131,7 @@ func writeRuntimeRootConfig(t *testing.T, root string) string {
 // sealSecretsAsSchema000002 rewrites a current database into the 000002 form:
 // Drop statistics added by 000004 and restore the indexes replaced by 000005
 // and 000006, and convert 000007 log timestamps back to text; 000003 only
-// changed secret values.
+// changed secret values. Restore the pre-000008 authentication columns too.
 func sealSecretsAsSchema000002(t *testing.T, databasePath string) {
 	t.Helper()
 	store, err := storage.Open(databasePath)
@@ -130,7 +139,11 @@ func sealSecretsAsSchema000002(t *testing.T, databasePath string) {
 		t.Fatal(err)
 	}
 	defer func() { _ = store.Close() }()
-	if _, err := store.Write.Exec(`DROP TABLE message_stats_offline; DROP TABLE message_stats_runs;
+	if _, err := store.Write.Exec(`ALTER TABLE admin_sessions RENAME COLUMN token_hash TO session_id;
+		ALTER TABLE auth_bootstrap_state ADD COLUMN signing_key BLOB NOT NULL DEFAULT X'07';
+		INSERT INTO secret_store VALUES ('platform.auth.session_signing_key', X'07', '2026-09-14T09:00:00Z', '2026-09-14T09:00:00Z');
+		INSERT INTO secret_store VALUES ('plugin:fixture:secret:token', 'fixture-only-token', '2026-09-14T09:00:00Z', '2026-09-14T09:00:00Z');
+		DROP TABLE message_stats_offline; DROP TABLE message_stats_runs;
 		DROP INDEX idx_plugin_kv_metadata; DROP INDEX idx_plugin_kv_size_anomaly;
 		CREATE INDEX idx_plugin_kv_plugin_id ON plugin_kv(plugin_id);
 		DROP TABLE message_stats_hours; DROP TABLE message_stats_adapters; DROP TABLE message_stats_tracking;

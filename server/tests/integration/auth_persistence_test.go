@@ -2,7 +2,6 @@ package integration
 
 import (
 	"context"
-	"net/http"
 	"path/filepath"
 	"testing"
 	"time"
@@ -11,14 +10,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
-	secretssqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/secrets/sqlite"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"github.com/coder/websocket"
 )
-
-const sessionSigningKeySecret = "platform.auth.session_signing_key"
 
 func TestBootstrapStateAndBootstrapTokenSurviveRestart(t *testing.T) {
 	t.Parallel()
@@ -111,95 +106,6 @@ func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
 	}
 }
 
-func TestProductionAppPersistsSessionSigningKeyInSecretStore(t *testing.T) {
-	t.Parallel()
-
-	dbPath := filepath.Join(t.TempDir(), "state.db")
-	configPath := writePersistentYAMLConfig(t, dbPath)
-	application := newPersistentTestApp(t, configPath, time.Now, "secret-a")
-	defer closePersistentTestApp(t, application)
-
-	secretStore, err := secretssqlite.NewStore(application.Storage())
-	if err != nil {
-		t.Fatalf("create sqlite secret store: %v", err)
-	}
-
-	signingKey, err := secretStore.Get(context.Background(), sessionSigningKeySecret)
-	if err != nil {
-		t.Fatalf("expected persisted session signing key, got %v", err)
-	}
-	if len(signingKey) == 0 {
-		t.Fatalf("expected non-empty persisted session signing key")
-	}
-}
-
-func TestDeletingPersistedSessionSigningKeyInvalidatesOlderTokens(t *testing.T) {
-	t.Parallel()
-
-	current := time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
-	dbPath := filepath.Join(t.TempDir(), "state.db")
-	configPath := writePersistentYAMLConfig(t, dbPath)
-
-	appA := newPersistentTestApp(t, configPath, func() time.Time {
-		return current
-	}, "secret-b")
-	loginToken := issueLoginToken(t, appA)
-	closePersistentTestApp(t, appA)
-
-	store, err := storage.Open(dbPath)
-	if err != nil {
-		t.Fatalf("open sqlite store: %v", err)
-	}
-	defer func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("close sqlite store: %v", closeErr)
-		}
-	}()
-
-	secretStore, err := secretssqlite.NewStore(store)
-	if err != nil {
-		t.Fatalf("create sqlite secret store: %v", err)
-	}
-	if err := secretStore.Delete(context.Background(), sessionSigningKeySecret); err != nil {
-		t.Fatalf("delete persisted session signing key: %v", err)
-	}
-	if err := store.Close(); err != nil {
-		t.Fatalf("close sqlite store: %v", err)
-	}
-
-	appB := newPersistentTestApp(t, configPath, func() time.Time {
-		return current
-	}, "secret-c")
-	defer closePersistentTestApp(t, appB)
-
-	server := newManagementTestServer(t, appB.Handler())
-	defer server.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/events", &websocket.DialOptions{
-		Host: testManagementAuthority,
-		HTTPHeader: http.Header{
-			"Authorization": []string{"Bearer " + loginToken},
-			"Origin":        []string{testManagementOrigin},
-		},
-	})
-	if conn != nil {
-		_ = conn.Close(websocket.StatusNormalClosure, "")
-	}
-	if err == nil {
-		t.Fatalf("expected websocket dial to fail after deleting persisted signing key")
-	}
-	if response == nil || response.StatusCode != http.StatusUnauthorized {
-		if response == nil {
-			t.Fatalf("expected unauthorized response, got nil")
-			return
-		}
-		t.Fatalf("unexpected unauthorized status: got %d want %d", response.StatusCode, http.StatusUnauthorized)
-	}
-}
-
 func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time, sessionPrefix string, configureOptions ...func(*app.Options)) *app.App {
 	t.Helper()
 
@@ -218,7 +124,7 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 		},
 		AuthOptions: []auth.Option{
 			auth.WithClock(now),
-			auth.WithSessionIDGenerator(func() (string, error) {
+			auth.WithTokenGenerator(func() (string, error) {
 				sessionCounter++
 				return sessionPrefix + "-" + string(rune('0'+sessionCounter)), nil
 			}),

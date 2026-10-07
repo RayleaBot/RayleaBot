@@ -85,7 +85,7 @@ func TestLogNanosecondsMigrationPreservesDataAndSequence(t *testing.T) {
 		t.Fatalf("migration reused a historical row ID: %d %v", id, err)
 	}
 	metadata, err := store.SchemaMetadata(t.Context())
-	if err != nil || metadata.Version != "000007" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
+	if err != nil || metadata.Version != "000008" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
 		t.Fatalf("metadata = %+v, %v", metadata, err)
 	}
 	fresh := openTestStore(t)

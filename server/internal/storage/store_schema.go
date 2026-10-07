@@ -11,7 +11,7 @@ import (
 )
 
 // currentSchemaVersion identifies the structure in schema.sql.
-const currentSchemaVersion = "000007"
+const currentSchemaVersion = "000008"
 
 // schemaMigration runs sql, then apply when set, in one transaction.
 type schemaMigration struct {
@@ -29,6 +29,17 @@ CREATE INDEX idx_plugin_kv_expiry ON plugin_kv(expires_at_ms) WHERE expires_at_m
 		{from: "000004", to: "000005", sql: logTimeIndexesSchema},
 		{from: "000005", to: "000006", sql: kvMetadataIndexesSchema},
 		{from: "000006", to: "000007", apply: migrateLogNanoseconds},
+		{from: "000007", to: "000008", sql: `
+DROP TABLE admin_sessions;
+CREATE TABLE admin_sessions (
+    token_hash TEXT PRIMARY KEY,
+    subject TEXT NOT NULL,
+    issued_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+CREATE INDEX idx_admin_sessions_expires_at ON admin_sessions (expires_at);
+ALTER TABLE auth_bootstrap_state DROP COLUMN signing_key;
+DELETE FROM secret_store WHERE key = 'platform.auth.session_signing_key';`},
 	}
 }
 

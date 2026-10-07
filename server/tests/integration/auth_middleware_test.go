@@ -32,7 +32,6 @@ func newPropertyAuthManagerWithMax(t testingT, maxSessions int) *auth.Manager {
 		auth.WithClock(func() time.Time {
 			return time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC)
 		}),
-		auth.WithSigningKey([]byte("property-test-key-0123456789ab")),
 	)
 	if err != nil {
 		t.Fatalf("NewManager failed: %v", err)
@@ -193,8 +192,8 @@ func TestPropertyValidTokenClaimsContext(t *testing.T) {
 		if !ok {
 			t.Fatal("expected claims in context, got ok=false")
 		}
-		if claims.SessionID != expectedClaims.SessionID {
-			t.Fatalf("SessionID mismatch: got %q want %q", claims.SessionID, expectedClaims.SessionID)
+		if claims.TokenHash != expectedClaims.TokenHash {
+			t.Fatalf("TokenHash mismatch: got %q want %q", claims.TokenHash, expectedClaims.TokenHash)
 		}
 		if claims.Subject != expectedClaims.Subject {
 			t.Fatalf("Subject mismatch: got %q want %q", claims.Subject, expectedClaims.Subject)

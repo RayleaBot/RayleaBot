@@ -39,62 +39,50 @@ func (q *Queries) DeleteBootstrapState(ctx context.Context) error {
 }
 
 const deleteSession = `-- name: DeleteSession :exec
-DELETE FROM admin_sessions WHERE session_id = ?
+DELETE FROM admin_sessions WHERE token_hash = ?
 `
 
-func (q *Queries) DeleteSession(ctx context.Context, sessionID string) error {
-	_, err := q.db.ExecContext(ctx, deleteSession, sessionID)
+func (q *Queries) DeleteSession(ctx context.Context, tokenHash string) error {
+	_, err := q.db.ExecContext(ctx, deleteSession, tokenHash)
 	return err
 }
 
 const insertBootstrap = `-- name: InsertBootstrap :exec
-INSERT INTO auth_bootstrap_state (singleton_id, identifier, secret_digest, signing_key, initialized_at)
-VALUES (1, ?, ?, ?, ?)
+INSERT INTO auth_bootstrap_state (singleton_id, identifier, secret_digest, initialized_at)
+VALUES (1, ?, ?, ?)
 `
 
 type InsertBootstrapParams struct {
 	Identifier    string
 	SecretDigest  []byte
-	SigningKey    []byte
 	InitializedAt string
 }
 
 func (q *Queries) InsertBootstrap(ctx context.Context, arg InsertBootstrapParams) error {
-	_, err := q.db.ExecContext(ctx, insertBootstrap,
-		arg.Identifier,
-		arg.SecretDigest,
-		arg.SigningKey,
-		arg.InitializedAt,
-	)
+	_, err := q.db.ExecContext(ctx, insertBootstrap, arg.Identifier, arg.SecretDigest, arg.InitializedAt)
 	return err
 }
 
 const loadBootstrap = `-- name: LoadBootstrap :one
-SELECT identifier, secret_digest, signing_key, initialized_at
+SELECT identifier, secret_digest, initialized_at
 FROM auth_bootstrap_state WHERE singleton_id = 1
 `
 
 type LoadBootstrapRow struct {
 	Identifier    string
 	SecretDigest  []byte
-	SigningKey    []byte
 	InitializedAt string
 }
 
 func (q *Queries) LoadBootstrap(ctx context.Context) (LoadBootstrapRow, error) {
 	row := q.db.QueryRowContext(ctx, loadBootstrap)
 	var i LoadBootstrapRow
-	err := row.Scan(
-		&i.Identifier,
-		&i.SecretDigest,
-		&i.SigningKey,
-		&i.InitializedAt,
-	)
+	err := row.Scan(&i.Identifier, &i.SecretDigest, &i.InitializedAt)
 	return i, err
 }
 
 const loadSessions = `-- name: LoadSessions :many
-SELECT session_id, subject, issued_at, expires_at FROM admin_sessions
+SELECT token_hash, subject, issued_at, expires_at FROM admin_sessions
 `
 
 func (q *Queries) LoadSessions(ctx context.Context) ([]AdminSession, error) {
@@ -107,7 +95,7 @@ func (q *Queries) LoadSessions(ctx context.Context) ([]AdminSession, error) {
 	for rows.Next() {
 		var i AdminSession
 		if err := rows.Scan(
-			&i.SessionID,
+			&i.TokenHash,
 			&i.Subject,
 			&i.IssuedAt,
 			&i.ExpiresAt,
@@ -144,31 +132,17 @@ func (q *Queries) UpdateBootstrapCredentials(ctx context.Context, arg UpdateBoot
 	return result.RowsAffected()
 }
 
-const updateBootstrapSigningKey = `-- name: UpdateBootstrapSigningKey :execrows
-UPDATE auth_bootstrap_state
-SET signing_key = ?1
-WHERE singleton_id = 1 AND signing_key <> ?1
-`
-
-func (q *Queries) UpdateBootstrapSigningKey(ctx context.Context, signingKey []byte) (int64, error) {
-	result, err := q.db.ExecContext(ctx, updateBootstrapSigningKey, signingKey)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const upsertSession = `-- name: UpsertSession :exec
-INSERT INTO admin_sessions (session_id, subject, issued_at, expires_at)
+INSERT INTO admin_sessions (token_hash, subject, issued_at, expires_at)
 VALUES (?, ?, ?, ?)
-ON CONFLICT(session_id) DO UPDATE SET
+ON CONFLICT(token_hash) DO UPDATE SET
     subject = excluded.subject,
     issued_at = excluded.issued_at,
     expires_at = excluded.expires_at
 `
 
 type UpsertSessionParams struct {
-	SessionID string
+	TokenHash string
 	Subject   string
 	IssuedAt  string
 	ExpiresAt string
@@ -176,7 +150,7 @@ type UpsertSessionParams struct {
 
 func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) error {
 	_, err := q.db.ExecContext(ctx, upsertSession,
-		arg.SessionID,
+		arg.TokenHash,
 		arg.Subject,
 		arg.IssuedAt,
 		arg.ExpiresAt,

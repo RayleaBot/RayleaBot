@@ -170,7 +170,7 @@ func newPersistentManager(t *testing.T, databasePath string, cfg Config, now fun
 		cfg,
 		WithClock(now),
 		WithRepository(repository),
-		WithSessionIDGenerator(func() (string, error) {
+		WithTokenGenerator(func() (string, error) {
 			sessionCounter++
 			return sessionPrefix + "-" + string(rune('0'+sessionCounter)), nil
 		}),

@@ -25,13 +25,10 @@ func TestMigration000007PreservesLogOrderingFiltersAndCursors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Other tables are unchanged by 000007; use the historical log table with
-	// the exact 000006 expression indexes and version marker.
+	// Keep historical authentication tables for the later 000008 migration;
+	// replace the log indexes with the exact 000006 expressions.
 	schema := string(legacy)
-	start := strings.Index(schema, "CREATE TABLE IF NOT EXISTS management_logs")
-	end := strings.Index(schema[start:], "CREATE TABLE IF NOT EXISTS plugin_kv") + start
-	if _, err := db.Exec(schema[start:end] + `CREATE TABLE schema_metadata(singleton_id INTEGER PRIMARY KEY, version TEXT NOT NULL, initialized_at TEXT NOT NULL);
-INSERT INTO schema_metadata VALUES(1,'000006','2026-09-13T00:00:00Z');`); err != nil {
+	if _, err := db.Exec(schema + `INSERT INTO schema_metadata VALUES(1,'000006','2026-09-13T00:00:00Z');`); err != nil {
 		t.Fatal(err)
 	}
 	for name, prefix := range map[string]string{"ts": "", "plugin": "plugin_id, ", "request": "request_id, ", "source": "source, ", "boot_ts": "boot_id, "} {

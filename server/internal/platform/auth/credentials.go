@@ -90,7 +90,7 @@ func (m *Manager) CredentialsChanged() <-chan struct{} {
 // Caller holds stateMu. Check again after password hashing to reject a session
 // revoked, expired or replaced while the expensive verification was in flight.
 func (m *Manager) validAccountSessionLocked(claims Claims) bool {
-	stored, ok := m.sessions[claims.SessionID]
+	stored, ok := m.sessions[claims.TokenHash]
 	now := m.now().UTC()
 	return ok && m.bootstrap != nil && stored.Subject == m.bootstrap.Identifier && stored.Subject == claims.Subject &&
 		stored.IssuedAt.Equal(claims.IssuedAt) && now.Before(stored.ExpiresAt) && now.Before(stored.IssuedAt.Add(m.absoluteTTL()))

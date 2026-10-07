@@ -54,7 +54,7 @@ func TestOneTimeTokenCannotBeReused(t *testing.T) {
 
 func TestCookieAuthRequiresCSRFForStateChanges(t *testing.T) {
 	manager := newRequestSecurityAuthManager(t)
-	token, claims, err := manager.Issue("admin")
+	token, _, err := manager.Issue("admin")
 	if err != nil {
 		t.Fatalf("issue session: %v", err)
 	}
@@ -77,13 +77,13 @@ func TestCookieAuthRequiresCSRFForStateChanges(t *testing.T) {
 	}
 
 	withCSRF := cookieRequest(http.MethodPost, "/api/system/shutdown", token)
-	withCSRF.Header.Set(CSRFHeader, manager.CSRFToken(claims))
+	withCSRF.Header.Set(CSRFHeader, manager.CSRFToken(token))
 	withCSRFResponse := httptest.NewRecorder()
 	handler.ServeHTTP(withCSRFResponse, withCSRF)
 	if withCSRFResponse.Code != http.StatusNoContent || !called {
 		t.Fatalf("valid CSRF status=%d called=%v", withCSRFResponse.Code, called)
 	}
-	if withCSRFResponse.Header().Get(CSRFHeader) != manager.CSRFToken(claims) {
+	if withCSRFResponse.Header().Get(CSRFHeader) != manager.CSRFToken(token) {
 		t.Fatal("cookie response did not refresh the in-memory CSRF value")
 	}
 }
@@ -162,7 +162,7 @@ func newRequestSecurityAuthManager(t *testing.T) *auth.Manager {
 		MaxSessions:            3,
 	}, auth.WithClock(func() time.Time {
 		return time.Date(2026, 7, 10, 10, 0, 0, 0, time.UTC)
-	}), auth.WithSigningKey([]byte("request-security-test-signing-key")))
+	}))
 	if err != nil {
 		t.Fatalf("new auth manager: %v", err)
 	}

@@ -36,8 +36,8 @@ func TestIssueAndValidateAcceptsValidToken(t *testing.T) {
 		t.Fatalf("Validate failed: %v", err)
 	}
 
-	if claims.SessionID != issued.SessionID {
-		t.Fatalf("unexpected session id: got %q want %q", claims.SessionID, issued.SessionID)
+	if claims.TokenHash != issued.TokenHash {
+		t.Fatalf("unexpected session id: got %q want %q", claims.TokenHash, issued.TokenHash)
 	}
 	if claims.Subject != "admin" {
 		t.Fatalf("unexpected subject: got %q want %q", claims.Subject, "admin")
@@ -67,8 +67,8 @@ func TestIssueAndValidateAcceptsValidTokenWithSubSecondClock(t *testing.T) {
 		t.Fatalf("Validate failed with sub-second clock: %v", err)
 	}
 
-	if claims.SessionID != issued.SessionID {
-		t.Fatalf("unexpected session id: got %q want %q", claims.SessionID, issued.SessionID)
+	if claims.TokenHash != issued.TokenHash {
+		t.Fatalf("unexpected session id: got %q want %q", claims.TokenHash, issued.TokenHash)
 	}
 	if claims.IssuedAt.Nanosecond() != 0 {
 		t.Fatalf("expected issued time to be normalized to seconds, got %s", claims.IssuedAt)
@@ -91,10 +91,10 @@ func TestValidateRejectsInvalidTokens(t *testing.T) {
 	}
 
 	cases := map[string]string{
-		"empty":      "",
-		"malformed":  "not-a-token",
-		"tampered":   token + "corrupted",
-		"wrong-sign": replaceLastCharacter(token),
+		"empty":        "",
+		"malformed":    "not-a-token",
+		"tampered":     token + "corrupted",
+		"changed-byte": replaceLastCharacter(token),
 	}
 
 	for name, candidate := range cases {
@@ -176,7 +176,7 @@ func TestValidateDoesNotPersistBeforeRenewalThreshold(t *testing.T) {
 		Config{SessionTTLDays: 1, SessionAbsoluteTTLDays: 30, SlidingRenewal: true, MaxSessions: 2},
 		WithClock(func() time.Time { return current }),
 		WithRepository(repository),
-		WithSessionIDGenerator(func() (string, error) { return "threshold-session", nil }),
+		WithTokenGenerator(func() (string, error) { return "threshold-session", nil }),
 	)
 	if err != nil {
 		t.Fatalf("NewManager failed: %v", err)
@@ -357,8 +357,7 @@ func newTestManager(t *testing.T, cfg Config, now func() time.Time) *Manager {
 	manager, err := NewManager(
 		cfg,
 		WithClock(now),
-		WithSigningKey([]byte("0123456789abcdef0123456789abcdef")),
-		WithSessionIDGenerator(func() (string, error) {
+		WithTokenGenerator(func() (string, error) {
 			sessionCounter++
 			return "session-" + string(rune('0'+sessionCounter)), nil
 		}),
@@ -383,7 +382,7 @@ func newRepositoryBackedTestManager(t *testing.T, repository Repository) *Manage
 		},
 		WithClock(fixedClock(time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC))),
 		WithRepository(repository),
-		WithSessionIDGenerator(func() (string, error) {
+		WithTokenGenerator(func() (string, error) {
 			sessionCounter++
 			return "session-" + string(rune('0'+sessionCounter)), nil
 		}),

@@ -68,7 +68,7 @@ func TestAccountCredentialChangeExpiresConnectedWebSockets(t *testing.T) {
 
 func TestAccountCredentialChangeAdmissionAndReauthentication(t *testing.T) {
 	application := newTestApp(t)
-	token, claims, err := application.AuthManager().Bootstrap("admin", "fixture-old-password")
+	token, _, err := application.AuthManager().Bootstrap("admin", "fixture-old-password")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestAccountCredentialChangeAdmissionAndReauthentication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	csrf := application.AuthManager().CSRFToken(claims)
+	csrf := application.AuthManager().CSRFToken(token)
 	payload := `{"current_secret":"fixture-old-password","new_secret":"fixture-new-password","new_identifier":"new-admin"}`
 	request := func(body, token, csrf, origin string, cookie bool) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodPut, "/api/account/credentials", strings.NewReader(body))

@@ -81,6 +81,8 @@ flowchart LR
 | Launcher 控制 | loopback 直连与进程级 control token | 无凭据 shutdown、代理转发来源 |
 | 插件代码 | 用户检查来源、目标平台和 artifact 摘要后确认 | 未确认安装、非法包路径、摘要不一致 |
 
+管理会话使用 256-bit 随机不透明令牌。SQLite 与内存会话表仅以令牌的 SHA-256 哈希为键保存主体、签发时间和有效期；校验、续期与撤销以服务端状态为准。CSRF 值以原始会话令牌为 HMAC-SHA256 密钥、`rayleabot-csrf-v1` 为域标签派生，请求校验时重新计算并做常量时间比较，不另行存储。数据库或备份中的会话哈希不能直接用作登录令牌。
+
 第三方插件是管理员确认安装的完全可信本地代码。宿主动作不按插件声明授权，平台也不提供 OS 安全沙盒；插件可以自行访问网络、读写 `RAYLEABOT_PLUGIN_DATA_DIR` 并启动随包辅助程序，但不能绕过 Local Action Service 修改宿主配置、secret 或状态库，也不能绕过 Dispatcher 发送聊天消息。
 
 ## 消息主流程

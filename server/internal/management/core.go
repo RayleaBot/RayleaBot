@@ -112,11 +112,11 @@ func (h *CoreHandlers) HandleSetupStatus() http.HandlerFunc {
 func (h *CoreHandlers) HandleSessionLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := ClaimsFromContext(r.Context())
-		if !ok || claims.SessionID == "" {
+		if !ok || claims.TokenHash == "" {
 			httpapi.WriteError(w, r, errorcodes.PermissionAuthenticationRequired, nil)
 			return
 		}
-		if err := h.auth.RevokeWithContext(r.Context(), claims.SessionID); err != nil {
+		if err := h.auth.RevokeWithContext(r.Context(), claims.TokenHash); err != nil {
 			httpapi.WriteError(w, r, coreCodeInternalError, nil)
 			return
 		}

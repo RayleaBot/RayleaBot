@@ -128,7 +128,7 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 		},
 		AuthOptions: []auth.Option{
 			auth.WithClock(now),
-			auth.WithSessionIDGenerator(func() (string, error) {
+			auth.WithTokenGenerator(func() (string, error) {
 				sessionCounter++
 				return sessionPrefix + "-" + string(rune('0'+sessionCounter)), nil
 			}),
