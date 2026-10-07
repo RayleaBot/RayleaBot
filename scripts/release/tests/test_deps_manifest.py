@@ -40,11 +40,14 @@ class DepsManifestMetadataTests(unittest.TestCase):
             # Prefer a successful calendar month-end build and independently
             # verify its upstream retention and digest when updating the pin.
             self.assertEqual(day, calendar.monthrange(year, month)[1], resource)
+            filename = match.group(6)
             suffix = "-" + date(year, month, day).strftime("%Y%m%d")
+            # The shared variant is a different archive of the same build, so its cache version names the variant.
+            if "-gpl-shared-" in filename:
+                suffix += "-shared"
             self.assertTrue(resource["version"].endswith(suffix), resource)
             archive_version = resource["version"].removesuffix(suffix)
             self.assertRegex(archive_version, r"^n9[.]0[.]\d+-\d+-g[0-9a-f]+$", resource)
-            filename = match.group(6)
             self.assertTrue(filename.startswith("ffmpeg-" + archive_version + "-"), resource)
             archive_root = filename.removesuffix(".zip").removesuffix(".tar.xz")
             for candidates in resource["entrypoints"].values():

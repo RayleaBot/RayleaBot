@@ -39,10 +39,10 @@ Go、Node.js、Python、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 
 | Plugin UI | Vue `3.5.41` + TypeScript `5.9.3` + Vite `8.2.1` + `@rayleabot/plugin-ui` |
 | Database | SQLite via `modernc.org/sqlite v1.56.0` |
 | Render | `chromedp 0.16.0` + Chrome for Testing `152.0.7977.42` |
-| Media tools | Windows / Linux 使用 BtbN FFmpeg Builds `n9.0.1-11-ge47273f4d9-20260831` full GPL build；macOS arm64 使用 Martin Riedl `9.0.2-1789931890` GPL release build |
+| Media tools | Windows / Linux 使用 BtbN FFmpeg Builds `n9.0.1-11-ge47273f4d9-20260831` GPL shared build；macOS arm64 使用 Martin Riedl `9.0.2-1789931890` GPL release build |
 | macOS release runner | `macos-26` |
 
-Windows / Linux 的 FFmpeg 固定使用 BtbN [2026-08-31 月末构建](https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-08-31-13-27)，保留 9.0.1 维护线与 full GPL 变体。按[上游保留规则](https://github.com/BtbN/FFmpeg-Builds#release-retention-policy)，月末构建保留两年，普通日构建只保留最近 14 版；固定日期 URL 不代表永久可用。每次分发前仍需验证来源与 SHA-256，更新构建时同步资源版本、归档摘要和入口路径。
+Windows / Linux 的 FFmpeg 固定使用 BtbN [2026-08-31 月末构建](https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-08-31-13-27)，保留 9.0.1 维护线，使用 gpl-shared 变体：编解码能力与 GPL 静态构建相同（含 libx264/libx265），可执行文件链接包内共享库，下载量约为静态构建的一半。按[上游保留规则](https://github.com/BtbN/FFmpeg-Builds#release-retention-policy)，月末构建保留两年，普通日构建只保留最近 14 版；固定日期 URL 不代表永久可用。每次分发前仍需验证来源与 SHA-256，更新构建时同步资源版本、归档摘要和入口路径。
 
 macOS arm64 使用 [Martin Riedl 的 9.0.2 固定发布构建](https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/versions.txt)，包含 libx264/libx265，未启用 nonfree；FFmpeg 与 FFprobe 分包下载，各自校验摘要，在同一临时资源目录准备并完整验证后启用。来源与编码能力变化用于替换许可证不符合 GPL 要求的旧构建，不增加新的编解码技术栈。
 
