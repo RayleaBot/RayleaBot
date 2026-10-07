@@ -22,7 +22,7 @@
 - `release-manifest.schema.json`
 - `cli-commands.yaml`
 
-这些文件都带有 `x-fixtures` 或等价引用，由 `scripts/ci/validate_contracts.py --mode=strict` 做解析、存在性与最小覆盖校验。
+这些文件都带有 `x-fixtures` 或等价引用，由 `go run ./tools/cmd/validate-contracts --mode=strict` 做解析、存在性与最小覆盖校验。
 
 ## 文件职责
 

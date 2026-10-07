@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | Server Go 代码 | `server/`：`go test ./<受影响包>/...`；装配或跨包流程变化时运行 `go test ./...` | 全部包 `-race`、golangci-lint（含 Windows 源码）、`govulncheck`、Windows 全量测试 |
 | SQL 结构或查询 | `server/`：`sqlc generate`、`sqlc diff` 与受影响的存储测试 | — |
-| 契约、fixtures、examples | `python scripts/ci/validate_contracts.py --mode=strict`；按输入变化和实际依赖选择受影响的生成器：`node scripts/generate-runtime-schemas.mjs --verify`、`go run ./tools/cmd/generate-error-codes --verify`、`python scripts/generate-plugin-wire.py --verify`；需要重新生成时去掉对应命令的 `--verify` | OpenAPI 或 WebSocket 变化时，Web 的 `pnpm generate:types` 漂移检查 |
+| 契约、fixtures、examples | `go run ./tools/cmd/validate-contracts --mode=strict`；按输入变化和实际依赖选择受影响的生成器：`node scripts/generate-runtime-schemas.mjs --verify`、`go run ./tools/cmd/generate-error-codes --verify`、`python scripts/generate-plugin-wire.py --verify`；需要重新生成时去掉对应命令的 `--verify` | OpenAPI 或 WebSocket 变化时，Web 的 `pnpm generate:types` 漂移检查 |
 | Web 代码 | `web/`：`pnpm run typecheck`、`pnpm test <受影响测试文件>`；构建配置变化时运行 `pnpm build` | `pnpm run check:indent`、完整 `pnpm test`、Playwright E2E |
 | Launcher renderer 代码 | `launcher/`：`pnpm exec tsc -p tsconfig.renderer.json --noEmit`、`node ../scripts/run-vitest.mjs run <受影响测试文件>` | 组合 `pnpm run typecheck` / `pnpm test`、`pnpm build`、Renderer E2E |
 | Launcher Go host / bridge | `launcher/`：`node scripts/run-go.mjs vet:platform ./<受影响包>/...`、`node scripts/run-go.mjs test:platform ./<受影响包>/...`；桥接定义变化时运行 `pnpm generate:wails` 和 renderer 类型检查 | 全量 Go vet/test、Wails bindings 漂移、`pnpm build` 与真实系统集成 |
@@ -49,7 +49,7 @@ Race 测试需要 CGO 与 C 编译器；本机缺少时由 nightly 覆盖，并�
 
 | Job | 内容 |
 | --- | --- |
-| `repo-checks` | 两平台：`scripts/tests/` 的 Python 与 Node 测试、strict contracts 及其自检、运行时 schema / 错误码 / 插件协议生成物漂移；Linux 另运行 agent docs、文档链接与设计 token 检查 |
+| `repo-checks` | 两平台：`tools/` 的 Go vet/test、`scripts/tests/` 的 Python 与 Node 测试、`go run ./tools/cmd/validate-contracts --mode=strict` 及 `--self-test`、运行时 schema / 错误码 / 插件协议生成物漂移；Linux 另运行 agent docs、文档链接与设计 token 检查 |
 | `server` | doctor、全部 Go 包 `-race` 与 atomic coverage、golangci-lint（含 `GOOS=windows`）、构建、`govulncheck` 二进制扫描、`sqlc diff` |
 | `server-windows` | Windows 上执行全部 Go 包测试，覆盖插件进程、文件锁与浏览器归属等平台差异 |
 | `web` | 生成类型漂移、缩进检查、typecheck、带覆盖率的单元测试、构建与生产构建 Playwright E2E |

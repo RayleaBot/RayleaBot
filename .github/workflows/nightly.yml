@@ -64,8 +64,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/ci/validate_contracts.py --self-test
-          python scripts/ci/validate_contracts.py --mode=strict
+          go run ./tools/cmd/validate-contracts --self-test
+          go run ./tools/cmd/validate-contracts --mode=strict
           node scripts/generate-runtime-schemas.mjs --verify
           go run ./tools/cmd/generate-error-codes --verify
           python scripts/generate-plugin-wire.py --verify

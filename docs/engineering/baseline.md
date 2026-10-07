@@ -32,7 +32,7 @@ Go、Node.js、Python、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 
 | JS package manager | `pnpm 11.25.0` |
 | Web UI | Vue `3.5.41` + Vite `8.2.1` + Reka UI `2.10.4` + shadcn-vue 自有组件源码 + Motion for Vue `2.4.2` + Vue Router `5.2.0` + Pinia `4.0.3` |
 | Launcher runtime | Wails v3 `v3.0.0-beta.9` + `@wailsio/runtime 3.0.0-beta.9` + Go `1.27.1` + TypeScript `5.9.3` + Vue `3.5.41` + Reka UI `2.10.4` + Motion for Vue `2.4.2` + Vite `8.2.1` + `@vitejs/plugin-vue 6.0.8` |
-| Repository scripting | Go `1.27.1`（`tools/`）+ Node.js `26.10.0`；契约校验、插件协议生成与发布工具保留 Python `3.14.8` |
+| Repository scripting | Go `1.27.1`（`tools/`）+ Node.js `26.10.0`；插件协议生成与发布工具保留 Python `3.14.8` |
 | Go static analysis | golangci-lint `v2.13.0`（支持 Go 1.27） |
 | SQL generation | sqlc `v1.31.1` |
 | Plugin backend | 当前平台预编译原生 artifact；官方 Go 插件使用 Go `1.27.1` 与 `CGO_ENABLED=0` 构建 |
@@ -58,7 +58,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 - 无网络环境需要提前把 Go、Node.js、Corepack pnpm、sqlc 和 `.deps/manifest.json` 对应的 Chromium、FFmpeg 资源放入镜像或工作站。Chromium 可使用系统 Chrome / Chromium / Edge，也可使用 `.deps/store/` 中已展开的托管资源；FFmpeg 与 FFprobe 使用清单内固定的托管资源。
 - Linux 构建 Wails Launcher 固定使用 Wails v3.0.x 支持的 `gtk3` 兼容标签，需要 GTK 3 与 WebKit2GTK 4.1 开发包；Ubuntu 使用 `libgtk-3-dev` 和 `libwebkit2gtk-4.1-dev`。
 - Python 脚本依赖集中在 `scripts/requirements.txt`；首次运行执行 `python -m pip install -r scripts/requirements.txt`，其中 jsonschema 的 format 扩展用于日期与 URI 等格式校验。
-- `tools/` 是独立 Go module，开发与 CI 命令在仓库根目录通过 `go run ./tools/cmd/<name>` 执行。YAML 解析复用固定的 `go.yaml.in/yaml/v3 v3.0.5`，不依赖 Server 内部包。doctor 的数据库目录检查通过临时文件创建、写入与同步验证权限；SQLite 行为由 Server 存储测试覆盖。
+- `tools/` 是独立 Go module，开发与 CI 命令在仓库根目录通过 `go run ./tools/cmd/<name>` 执行。YAML 解析复用固定的 `go.yaml.in/yaml/v3 v3.0.5`；契约校验使用 `github.com/santhosh-tekuri/jsonschema/v6 v6.0.3` 的 Draft 2020-12 并开启 format 断言，检查日期、URI 等格式。不依赖 OpenAPI 库或 Server 内部包。doctor 的数据库目录检查通过临时文件创建、写入与同步验证权限；SQLite 行为由 Server 存储测试覆盖。
 - 仓库提供 devcontainer，预装 `.tool-versions` 中的全部工具、上述 Python 依赖以及 Chromium、SQLite 和 make。
 - 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `go run ./tools/cmd/check-toolchain`。
 
@@ -143,6 +143,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 - 测试：`go test -count=1 ./tools/...`
 - 环境诊断：`make doctor` 或 `go run ./tools/cmd/check-toolchain`
 - 文档链接：`go run ./tools/cmd/check-doc-links`
+- 契约校验：`go run ./tools/cmd/validate-contracts --mode=strict`；CLI fixture 语义自检：`go run ./tools/cmd/validate-contracts --self-test`
 - 错误码生成物：`go run ./tools/cmd/generate-error-codes --verify`
 
 ## 目录职责
