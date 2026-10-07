@@ -47,7 +47,7 @@ export function resolveGoExecutablePath({ platform = process.platform, env = pro
 
   const executablePath = candidates.find((candidate) => fileExists(candidate));
   if (!executablePath) {
-    throw new Error("Go executable was not found. Run python scripts/check-toolchain.py for installation guidance.");
+    throw new Error("Go executable was not found. Install the Go version pinned in .tool-versions; see docs/engineering/baseline.md.");
   }
   return executablePath;
 }

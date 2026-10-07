@@ -140,7 +140,7 @@ Launcher 与 Web 管理面使用同一套表面规则：窗口是画布，盒子
 - Windows ICO 包含 `16/24/32/48/64/128/256px` 七种尺寸，每种尺寸按目标像素独立渲染，Windows EXE 与应用文件图标固定使用原版。Go 宿主通过 Wails 的 `SetIcon` 与 `SetDarkModeIcon` 提供两种托盘 PNG，由系统托盘主题选择；Launcher 界面标识则跟随应用的有效主题。
 - Windows 资源由 [`generate-windows-resources.mjs`](../../launcher/scripts/generate-windows-resources.mjs) 使用冻结的 Wails `v3.0.0-beta.9` 生成对应架构的 `rsrc_windows_<arch>.syso`；根目录开发启动、Launcher 独立开发与打包均在 Go 编译前调用。缓存核对 ICO、Windows manifest、Go 模块、生成器输入及产物，资源缺失或漂移时重新生成；Windows manifest 使用 `asInvoker` 普通用户权限。
 - 更新原生图标后需重新构建并启动 Launcher，由新进程载入窗口、托盘和 EXE 图标资源。
-- 在仓库根目录运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要。在 Windows 上运行 `python launcher/scripts/verify-windows-icon-resources.py`，验证默认打包 EXE 中的七尺寸图像负载与源 ICO 逐字节一致；其他产物通过 `--exe <path>` 指定。资源校验与实际窗口、任务栏、托盘显示检查分别承担不同验证职责。
+- 在仓库根目录运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要。在 Windows 上运行 `go run ./tools/cmd/verify-windows-icon-resources`，验证默认打包 EXE 中的七尺寸图像负载与源 ICO 逐字节一致；其他产物通过 `--exe <path>` 指定。资源校验与实际窗口、任务栏、托盘显示检查分别承担不同验证职责。
 
 ## 小窗口策略
 

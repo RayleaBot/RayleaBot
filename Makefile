@@ -3,7 +3,7 @@
 doctor: check-toolchain
 
 check-toolchain:
-	python scripts/check-toolchain.py
+	go run ./tools/cmd/check-toolchain
 
 design-tokens:
 	node scripts/generate-design-tokens.mjs

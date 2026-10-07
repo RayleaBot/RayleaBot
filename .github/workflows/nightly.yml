@@ -28,10 +28,10 @@ jobs:
         id: toolchain
         uses: ./.github/actions/tool-versions
 
-      - name: Setup Go for generator self-tests
+      - name: Setup Go for repository tools
         uses: actions/setup-go@v7
         with:
-          go-version-file: sdk/go/go.mod
+          go-version-file: tools/go.mod
           cache: false
 
       - name: Setup Python
@@ -54,6 +54,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          go vet ./tools/...
+          go test -count=1 ./tools/...
           python -m compileall -q scripts
           python -m unittest discover -s scripts/tests -p "test_*.py"
           node --test "scripts/tests/*.test.mjs"
@@ -65,7 +67,7 @@ jobs:
           python scripts/ci/validate_contracts.py --self-test
           python scripts/ci/validate_contracts.py --mode=strict
           node scripts/generate-runtime-schemas.mjs --verify
-          python scripts/generate-error-codes.py --verify
+          go run ./tools/cmd/generate-error-codes --verify
           python scripts/generate-plugin-wire.py --verify
 
       - name: Check docs and design assets
@@ -74,7 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/check-agent-docs.mjs
-          python scripts/check-doc-links.py
+          go run ./tools/cmd/check-doc-links
           node scripts/generate-design-tokens.mjs --check
 
   server:

@@ -25,17 +25,18 @@ jobs:
         id: toolchain
         uses: ./.github/actions/tool-versions
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - name: Setup Go
+        uses: actions/setup-go@v7
         with:
-          python-version: ${{ steps.toolchain.outputs.python }}
+          go-version-file: tools/go.mod
+          cache-dependency-path: tools/go.sum
 
       - name: Generate stats SVGs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
-        run: python .github/scripts/generate-repo-stats.py
+        run: go run ./tools/cmd/generate-repo-stats
 
       - name: Deploy to output branch
         uses: crazy-max/ghaction-github-pages@v5

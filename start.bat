@@ -39,7 +39,7 @@ if not defined NODE_BIN (
 
 if not defined NODE_BIN (
   echo [RayleaBot] Startup failed: Node.js %NODE_VERSION% was not found.
-  echo [RayleaBot] Run python scripts\check-toolchain.py for installation guidance.
+  echo [RayleaBot] Run go run ./tools/cmd/check-toolchain for installation guidance.
   goto :failure
 )
 

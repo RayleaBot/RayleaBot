@@ -26,13 +26,14 @@ jobs:
       - name: Read toolchain versions
         id: toolchain
         uses: ./.github/actions/tool-versions
-      - name: Setup Python
-        uses: actions/setup-python@v7
+      - name: Setup Go
+        uses: actions/setup-go@v7
         with:
-          python-version: ${{ steps.toolchain.outputs.python }}
+          go-version-file: tools/go.mod
+          cache-dependency-path: tools/go.sum
       - name: Reconcile nightly tracking issue
         env:
           GITHUB_TOKEN: ${{ github.token }}
           NIGHTLY_RUN_ID: ${{ github.event.workflow_run.id }}
         shell: bash
-        run: python scripts/ci/nightly_status.py report --run-id "$NIGHTLY_RUN_ID"
+        run: go run ./tools/cmd/nightly-status report --run-id "$NIGHTLY_RUN_ID"

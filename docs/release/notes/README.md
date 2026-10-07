@@ -16,7 +16,7 @@
 
    ```text
    python scripts/release/check_release_notes.py --tag v0.4.0
-   python scripts/check-doc-links.py
+   go run ./tools/cmd/check-doc-links
    ```
 
 4. 将审阅后的正文随版本代码一起提交，目标标签必须指向包含这份文件的提交，再按发布流程推送标签。

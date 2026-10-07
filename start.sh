@@ -32,7 +32,7 @@ else
 fi
 if [ -z "$NODE_BIN" ]; then
   echo "[RayleaBot] Startup failed: Node.js $NODE_VERSION was not found." >&2
-  echo "[RayleaBot] Run python scripts/check-toolchain.py for installation guidance." >&2
+  echo "[RayleaBot] Run go run ./tools/cmd/check-toolchain for installation guidance." >&2
   exit 1
 fi
 

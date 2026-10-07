@@ -527,7 +527,7 @@ export function resolveCorepackCliPath({
     }
   }
 
-  throw new Error("Corepack CLI was not found in the Node.js directory, PATH, the npm global prefix, or the user npm directory. Run python scripts/check-toolchain.py for installation guidance.");
+  throw new Error("Corepack CLI was not found in the Node.js directory, PATH, the npm global prefix, or the user npm directory. Run go run ./tools/cmd/check-toolchain for installation guidance.");
 }
 
 export function createTrustedChildEnvironment({

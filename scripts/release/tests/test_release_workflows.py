@@ -47,7 +47,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
                                     ("publish", "Recheck nightly before publication")):
             job = jobs[job_name]
             gate = step_named(job, step_name)
-            self.assertIn('nightly_status.py check --sha "$(git rev-parse HEAD)"', gate["run"])
+            self.assertIn('go run ./tools/cmd/nightly-status check --sha "$(git rev-parse HEAD)"', gate["run"])
             self.assertEqual(job["permissions"]["actions"], "read")
             if job_name == "publish":
                 self.assertLess(job["steps"].index(gate), job["steps"].index(step_named(job, "Publish GitHub release")))

@@ -20,14 +20,14 @@
 | --- | --- | --- |
 | Server Go 代码 | `server/`：`go test ./<受影响包>/...`；装配或跨包流程变化时运行 `go test ./...` | 全部包 `-race`、golangci-lint（含 Windows 源码）、`govulncheck`、Windows 全量测试 |
 | SQL 结构或查询 | `server/`：`sqlc generate`、`sqlc diff` 与受影响的存储测试 | — |
-| 契约、fixtures、examples | `python scripts/ci/validate_contracts.py --mode=strict`；按输入变化和实际依赖选择受影响的生成器：`node scripts/generate-runtime-schemas.mjs --verify`、`python scripts/generate-error-codes.py --verify`、`python scripts/generate-plugin-wire.py --verify`；需要重新生成时去掉对应命令的 `--verify` | OpenAPI 或 WebSocket 变化时，Web 的 `pnpm generate:types` 漂移检查 |
+| 契约、fixtures、examples | `python scripts/ci/validate_contracts.py --mode=strict`；按输入变化和实际依赖选择受影响的生成器：`node scripts/generate-runtime-schemas.mjs --verify`、`go run ./tools/cmd/generate-error-codes --verify`、`python scripts/generate-plugin-wire.py --verify`；需要重新生成时去掉对应命令的 `--verify` | OpenAPI 或 WebSocket 变化时，Web 的 `pnpm generate:types` 漂移检查 |
 | Web 代码 | `web/`：`pnpm run typecheck`、`pnpm test <受影响测试文件>`；构建配置变化时运行 `pnpm build` | `pnpm run check:indent`、完整 `pnpm test`、Playwright E2E |
 | Launcher renderer 代码 | `launcher/`：`pnpm exec tsc -p tsconfig.renderer.json --noEmit`、`node ../scripts/run-vitest.mjs run <受影响测试文件>` | 组合 `pnpm run typecheck` / `pnpm test`、`pnpm build`、Renderer E2E |
 | Launcher Go host / bridge | `launcher/`：`node scripts/run-go.mjs vet:platform ./<受影响包>/...`、`node scripts/run-go.mjs test:platform ./<受影响包>/...`；桥接定义变化时运行 `pnpm generate:wails` 和 renderer 类型检查 | 全量 Go vet/test、Wails bindings 漂移、`pnpm build` 与真实系统集成 |
 | 插件 SDK 与示例 | `sdk/go`：`GOWORK=off go test ./...`；`sdk/vue`：`pnpm run typecheck && pnpm test` | `-race`、示例插件 UI 构建 |
 | 设计 token 与图标 | `node scripts/generate-design-tokens.mjs --check`；图标变化时运行 `node scripts/generate-launcher-icons.mjs --check`（需要已安装 Launcher 依赖） | `repo-checks` 检查 token，`launcher` 构建检查图标 |
-| 文档与指令 | `python scripts/check-doc-links.py`；指令文件变化时运行 `node scripts/check-agent-docs.mjs` | — |
-| 仓库与 release 脚本 | `scripts/tests/` 或 `scripts/release/tests/` 中对应测试 | 两平台 `repo-checks`、`release-dry-run` |
+| 文档与指令 | `go run ./tools/cmd/check-doc-links`；指令文件变化时运行 `node scripts/check-agent-docs.mjs` | — |
+| 仓库与 release 脚本 | Go 工具：`go vet ./tools/...`、`go test -count=1 ./tools/...`；Node 与剩余 Python 工具：`scripts/tests/` 或 `scripts/release/tests/` 中对应测试 | 两平台 `repo-checks`、`release-dry-run` |
 | 依赖变化 | 对应工程的安装、类型检查与测试 | `python scripts/release/generate_third_party_notices.py --check --output THIRD_PARTY_NOTICES.md`、`pnpm audit` |
 
 Race 测试需要 CGO 与 C 编译器；本机缺少时由 nightly 覆盖，并在结果中说明未在本地运行。[发布验收](#发布验收)是发布前的验收范围，不作为日常改动的默认清单。

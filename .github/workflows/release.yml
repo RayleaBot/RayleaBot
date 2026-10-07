@@ -29,6 +29,11 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: ${{ steps.toolchain.outputs.python }}
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: tools/go.mod
+          cache-dependency-path: tools/go.sum
       - name: Resolve tag version
         id: version
         env:
@@ -39,7 +44,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash
-        run: python scripts/ci/nightly_status.py check --sha "$(git rev-parse HEAD)"
+        run: go run ./tools/cmd/nightly-status check --sha "$(git rev-parse HEAD)"
 
   build:
     needs: version
@@ -62,10 +67,11 @@ jobs:
       - name: Read toolchain versions
         id: toolchain
         uses: ./.github/actions/tool-versions
-      - name: Setup Python
-        uses: actions/setup-python@v7
+      - name: Setup Go
+        uses: actions/setup-go@v7
         with:
-          python-version: ${{ steps.toolchain.outputs.python }}
+          go-version-file: tools/go.mod
+          cache-dependency-path: tools/go.sum
       - name: Download verified release packages
         uses: actions/download-artifact@v8
         with:
@@ -80,7 +86,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash
-        run: python scripts/ci/nightly_status.py check --sha "$(git rev-parse HEAD)"
+        run: go run ./tools/cmd/nightly-status check --sha "$(git rev-parse HEAD)"
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
         with:

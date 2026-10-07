@@ -32,7 +32,7 @@ Go、Node.js、Python、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 
 | JS package manager | `pnpm 11.25.0` |
 | Web UI | Vue `3.5.41` + Vite `8.2.1` + Reka UI `2.10.4` + shadcn-vue 自有组件源码 + Motion for Vue `2.4.2` + Vue Router `5.2.0` + Pinia `4.0.3` |
 | Launcher runtime | Wails v3 `v3.0.0-beta.9` + `@wailsio/runtime 3.0.0-beta.9` + Go `1.27.1` + TypeScript `5.9.3` + Vue `3.5.41` + Reka UI `2.10.4` + Motion for Vue `2.4.2` + Vite `8.2.1` + `@vitejs/plugin-vue 6.0.8` |
-| Repository scripting | Python `3.14.8` |
+| Repository scripting | Go `1.27.1`（`tools/`）+ Node.js `26.10.0`；契约校验、插件协议生成与发布工具保留 Python `3.14.8` |
 | Go static analysis | golangci-lint `v2.13.0`（支持 Go 1.27） |
 | SQL generation | sqlc `v1.31.1` |
 | Plugin backend | 当前平台预编译原生 artifact；官方 Go 插件使用 Go `1.27.1` 与 `CGO_ENABLED=0` 构建 |
@@ -51,15 +51,16 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 ## 工具链获取
 
 - 仓库根目录的 `.tool-versions` 固定七种工具的版本。doctor 核对已安装工具、各 Go module 与 JS package 的声明；CI 与开发容器安装步骤从该文件读取版本。Docker 的 Go/Python 基础镜像标签需要在解析 Dockerfile 时确定，保留显式声明，由严格契约门禁检查一致性。
-- `python scripts/check-toolchain.py --task server --toolchain-only` 只检查服务端编译工具；`web`、`launcher`、`contracts`、`sql`、`runtime` 可选择对应任务。默认 `all` 检查全部构建与契约工具，版本错误仍失败；已安装可用 pnpm 时不另要求 Corepack，开发启动脚本仍通过 Corepack 选择工程锁定的 pnpm。
+- `go run ./tools/cmd/check-toolchain --task server --toolchain-only` 只检查服务端编译工具；`web`、`launcher`、`contracts`、`sql`、`runtime` 可选择对应任务。默认 `all` 检查全部构建与契约工具，版本错误仍失败；已安装可用 pnpm 时不另要求 Corepack，开发启动脚本仍通过 Corepack 选择工程锁定的 pnpm。
 - `server/go.mod` 的 `go` 指令是 Go 工具识别的最低版本声明，与 `.tool-versions` 保持一致；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装同一 Go 版本，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
 - npm 随 Node.js 提供；Corepack 单独安装：按 `.tool-versions` 中的版本执行 `npm install --global corepack@<version>`，再执行 `corepack enable` 与 `corepack prepare pnpm@<version> --activate`。
 - sqlc 单独安装：按 `.tool-versions` 中的版本执行 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v<version>`。
 - 无网络环境需要提前把 Go、Node.js、Corepack pnpm、sqlc 和 `.deps/manifest.json` 对应的 Chromium、FFmpeg 资源放入镜像或工作站。Chromium 可使用系统 Chrome / Chromium / Edge，也可使用 `.deps/store/` 中已展开的托管资源；FFmpeg 与 FFprobe 使用清单内固定的托管资源。
 - Linux 构建 Wails Launcher 固定使用 Wails v3.0.x 支持的 `gtk3` 兼容标签，需要 GTK 3 与 WebKit2GTK 4.1 开发包；Ubuntu 使用 `libgtk-3-dev` 和 `libwebkit2gtk-4.1-dev`。
 - Python 脚本依赖集中在 `scripts/requirements.txt`；首次运行执行 `python -m pip install -r scripts/requirements.txt`，其中 jsonschema 的 format 扩展用于日期与 URI 等格式校验。
+- `tools/` 是独立 Go module，开发与 CI 命令在仓库根目录通过 `go run ./tools/cmd/<name>` 执行。YAML 解析复用固定的 `go.yaml.in/yaml/v3 v3.0.5`，不依赖 Server 内部包。doctor 的数据库目录检查通过临时文件创建、写入与同步验证权限；SQLite 行为由 Server 存储测试覆盖。
 - 仓库提供 devcontainer，预装 `.tool-versions` 中的全部工具、上述 Python 依赖以及 Chromium、SQLite 和 make。
-- 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `python scripts/check-toolchain.py`。
+- 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `go run ./tools/cmd/check-toolchain`。
 
 ## 固定工程选型
 
@@ -136,6 +137,14 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 - 开发工作区验证：`node --test scripts/tests/plugin-dev-workspace.test.mjs`
 - 插件矩阵由各独立插件仓库的 GitHub Actions 构建；主仓库 release 不构建业务插件。
 
+### Repository tools
+
+- 静态检查：`go vet ./tools/...`
+- 测试：`go test -count=1 ./tools/...`
+- 环境诊断：`make doctor` 或 `go run ./tools/cmd/check-toolchain`
+- 文档链接：`go run ./tools/cmd/check-doc-links`
+- 错误码生成物：`go run ./tools/cmd/generate-error-codes --verify`
+
 ## 目录职责
 
 | 路径 | 职责 |
@@ -153,6 +162,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 | `server/` | Go 服务端工程 |
 | `web/` | Web UI 工程 |
 | `launcher/` | Wails 桌面启动器工程 |
+| `tools/` | 独立 Go module，提供仓库开发、生成与 CI 工具及其测试 |
 | `plugins/installed/` | 运行期统一安装目录；只保存经 artifact 校验的商店、社区或开发插件产物，不进入版本控制 |
 | `sdk/go/` | Go 插件 JSONL 客户端、typed local-action helpers 与 artifact 构建器 |
 | `sdk/vue/` | `@rayleabot/plugin-ui` 同源管理 API client、composables 与主题 |
@@ -174,7 +184,8 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 | `launcher/go.sum` | 维护 Launcher Go 依赖锁定结果 |
 | `launcher/package.json` | 固定与 `.tool-versions` 一致的 `packageManager`、`engines.node`，以及 Wails runtime/Vite/Vue/`@vitejs/plugin-vue` 与构建脚本 |
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
-| `go.work` | 连接 server、Go SDK 和 Go 示例的主仓库工作区；Launcher 使用独立 Go module，启动与构建脚本固定 `GOWORK=off`，避免 Wails 依赖改变 server 的模块选择；独立插件只通过本地临时开发工作区连接 |
+| `tools/go.mod` | 固定仓库工具 module、与 `.tool-versions` 一致的 Go 版本及工具依赖 |
+| `go.work` | 连接 tools、server、Go SDK 和 Go 示例的主仓库工作区；Launcher 使用独立 Go module，启动与构建脚本固定 `GOWORK=off`，避免 Wails 依赖改变 server 的模块选择；独立插件只通过本地临时开发工作区连接 |
 | `.deps/manifest.json` | 固定资源名、版本线、可信来源列表、SHA256、archive_format、entrypoints 与平台矩阵 |
 | `contracts/*` | 对外接口、协议、schema、错误码、事件、CLI 与发布元数据的正式来源；文件清单与职责见 [`contracts/README.md`](../../contracts/README.md) |
 
