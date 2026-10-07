@@ -5,9 +5,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/metrics"
+	"runtime/pprof"
+	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/operations/diagnostics"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
@@ -56,10 +60,68 @@ func (s *Service) BuildDiagnosticsArchive(ctx context.Context) ([]byte, error) {
 		}
 	}
 
+	if err := addRuntimeProfilesToZip(writer); err != nil {
+		return nil, err
+	}
+	if err := addRuntimeMetricsToZip(writer); err != nil {
+		return nil, err
+	}
 	if err := writer.Close(); err != nil {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
+}
+
+func addRuntimeProfilesToZip(writer *zip.Writer) error {
+	for _, name := range []string{"goroutine", "heap", "allocs", "goroutineleak"} {
+		profile := pprof.Lookup(name)
+		if name == "goroutineleak" && profile == nil {
+			continue
+		}
+		debug, extension := 0, ".pprof"
+		if name == "goroutine" {
+			debug, extension = 2, ".txt"
+		}
+		entry, err := writer.Create("runtime/" + name + extension)
+		if err != nil {
+			return err
+		}
+		if err := profile.WriteTo(entry, debug); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func addRuntimeMetricsToZip(writer *zip.Writer) error {
+	descriptions := metrics.All()
+	samples := make([]metrics.Sample, len(descriptions))
+	for i, description := range descriptions {
+		samples[i].Name = description.Name
+	}
+	metrics.Read(samples)
+
+	var snapshot strings.Builder
+	for _, sample := range samples {
+		fmt.Fprintf(&snapshot, "%s\t", sample.Name)
+		switch sample.Value.Kind() {
+		case metrics.KindUint64:
+			fmt.Fprintln(&snapshot, sample.Value.Uint64())
+		case metrics.KindFloat64:
+			fmt.Fprintln(&snapshot, sample.Value.Float64())
+		case metrics.KindFloat64Histogram:
+			histogram := sample.Value.Float64Histogram()
+			fmt.Fprintf(&snapshot, "buckets=%v counts=%v\n", histogram.Buckets, histogram.Counts)
+		case metrics.KindBad:
+			fmt.Fprintln(&snapshot, "unavailable")
+		}
+	}
+	entry, err := writer.Create("runtime/metrics.txt")
+	if err != nil {
+		return err
+	}
+	_, err = io.WriteString(entry, snapshot.String())
+	return err
 }
 
 func addJSONToZip(writer *zip.Writer, path string, value any) error {

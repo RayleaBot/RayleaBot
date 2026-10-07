@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"runtime/pprof"
 	"strings"
 	"testing"
 
@@ -411,7 +412,14 @@ func TestSystemDiagnosticsExportReturnsZipBundle(t *testing.T) {
 		entries[file.Name] = true
 	}
 
-	for _, required := range []string{"system-status.json", "readiness.json", "doctor.json", "plugins.json", "config-summary.json", "recent-logs.json"} {
+	requiredEntries := []string{
+		"system-status.json", "readiness.json", "doctor.json", "plugins.json", "config-summary.json", "recent-logs.json",
+		"runtime/goroutine.txt", "runtime/heap.pprof", "runtime/allocs.pprof", "runtime/metrics.txt",
+	}
+	if pprof.Lookup("goroutineleak") != nil {
+		requiredEntries = append(requiredEntries, "runtime/goroutineleak.pprof")
+	}
+	for _, required := range requiredEntries {
 		if !entries[required] {
 			t.Fatalf("diagnostics archive missing %s: %#v", required, entries)
 		}

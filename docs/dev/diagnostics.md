@@ -56,7 +56,13 @@
 - 程序版本、构建信息和运行环境摘要
 - 关键目录、资源检查和配置摘要
 - 插件列表、插件状态和最近错误快照
-- 日志摘要
+- 最近 100 条日志摘要，以及存在时的日志 spool 与 quarantine 文件
+- `runtime/goroutine.txt`：所有 goroutine 的栈文本（`debug=2`）
+- `runtime/heap.pprof` 与 `runtime/allocs.pprof`：存活对象与历史内存分配的采样 profile，可用 `go tool pprof` 分析
+- `runtime/goroutineleak.pprof`：运行时提供 `goroutineleak` profile 时导出泄漏 goroutine 的栈采样
+- `runtime/metrics.txt`：`runtime/metrics` 全部指标的一次快照，包含数值及直方图的桶边界与计数
+
+运行时 profile 不含消息正文或堆对象内容，但包含函数名、源码路径和栈信息。
 
 ## 使用原则
 
