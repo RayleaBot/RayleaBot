@@ -38,7 +38,7 @@ func TestPrepareSyncRewritesPluginTemplateID(t *testing.T) {
 func TestValidateSourcesRejectsUnsafeLocalID(t *testing.T) {
 	t.Parallel()
 
-	templateDir := writeTemplateSeed(t, t.TempDir(), "card/nested")
+	templateDir := writeTemplateSeed(t, t.TempDir(), "card.nested")
 	err := ValidateSources([]Source{{
 		PluginID: "weather-card",
 		Dir:      templateDir,

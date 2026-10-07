@@ -137,12 +137,12 @@ describe('PluginStoreView', () => {
     const wrapper = mount(PluginStoreView, { global: { plugins: [getActivePinia()!] } })
     await flushPromises()
     expect(refresh).toHaveBeenCalledWith('official')
-    expect(store.items).toEqual([echoPlugin])
+    expect(wrapper.findAll('.store-plugin-card')).toHaveLength(1)
 
     await wrapper.get('[data-testid="plugin-store-refresh"]').trigger('click')
     await flushPromises()
     expect(refresh).toHaveBeenCalledTimes(2)
-    expect(store.items).toEqual([echoPlugin])
+    expect(wrapper.findAll('.store-plugin-card')).toHaveLength(1)
   })
 
   it('searches as the query is typed, once the typing pauses', async () => {

@@ -140,15 +140,20 @@ func TestAdaptersReportEnabledStateAndLiveIdentityPerInstance(t *testing.T) {
 	// not a failure, and no client is running to report a state.
 	service := newTestService(t, adapterConfigSource{cfg: cfg}, Instances{})
 	qq := findAdapter(t, service.Adapters(), config.DefaultQQOfficialAdapterID)
-	if qq.Enabled || qq.State != qqofficial.StateIdle || qq.Summary == "" {
+	if qq.Enabled || qq.State != qqofficial.StateIdle {
 		t.Fatalf("disabled adapter = %+v, want an idle disabled instance with a summary", qq)
 	}
+	disabledSummary := qq.Summary
 	if qq.Identity != nil {
 		t.Fatal("an adapter that never connected reported a bot identity")
 	}
 
 	qqAdapter.Enabled = true
 	cfg = config.Config{Adapters: []config.AdapterInstance{qqAdapter}}
+	withoutClient := newTestService(t, adapterConfigSource{cfg: cfg}, Instances{})
+	if got := findAdapter(t, withoutClient.Adapters(), config.DefaultQQOfficialAdapterID); got.Summary == disabledSummary {
+		t.Fatalf("enabled adapter without a client has the disabled summary: %+v", got)
+	}
 	connected := newTestService(t, adapterConfigSource{cfg: cfg}, Instances{
 		QQOfficial: map[string]QQOfficialAdapter{
 			config.DefaultQQOfficialAdapterID: stubQQStatus{status: qqofficial.Status{

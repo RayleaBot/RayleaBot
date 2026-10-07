@@ -76,6 +76,9 @@ func TestRepositoryBackedManagerPrunesExpiredSessionsAcrossRestart(t *testing.T)
 	if _, _, err := managerA.Bootstrap("admin", "fixture-only-secret"); err != nil {
 		t.Fatalf("Bootstrap failed: %v", err)
 	}
+	if sessions, err := managerA.repo.LoadSessions(t.Context()); err != nil || len(sessions) != 1 {
+		t.Fatalf("persisted sessions before restart = %+v, err = %v", sessions, err)
+	}
 	if err := closeA(); err != nil {
 		t.Fatalf("close persistent manager A: %v", err)
 	}
@@ -95,8 +98,11 @@ func TestRepositoryBackedManagerPrunesExpiredSessionsAcrossRestart(t *testing.T)
 		}
 	}()
 
+	if sessions, err := managerB.repo.LoadSessions(t.Context()); err != nil || len(sessions) != 0 {
+		t.Fatalf("expired sessions remained after hydrate: %+v, err = %v", sessions, err)
+	}
 	if _, _, err := managerB.Login("admin", "fixture-only-secret"); err != nil {
-		t.Fatalf("expected expired persisted session to be pruned, got %v", err)
+		t.Fatalf("Login after restart failed: %v", err)
 	}
 }
 

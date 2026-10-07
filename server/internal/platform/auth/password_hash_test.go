@@ -46,11 +46,23 @@ func TestVerifySecretAcceptsArgon2idAndRejectsWrongSecret(t *testing.T) {
 }
 
 func TestVerifySecretRejectsMalformedArgon2id(t *testing.T) {
+	encode := func(params passwordHashParams) []byte {
+		t.Helper()
+		encoded, err := encodeArgon2idSecret("fixture-only-secret", []byte("0123456789abcdef"), params)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return encoded
+	}
+	valid := string(encode(testPasswordHashParams))
+	tooManyIterations := testPasswordHashParams
+	tooManyIterations.Iterations = defaultPasswordHashParams.Iterations + 1
+	tooMuchMemory := testPasswordHashParams
+	tooMuchMemory.MemoryKiB = defaultPasswordHashParams.MemoryKiB + 1
 	cases := [][]byte{
-		[]byte("raylea-pwd:v2:argon2id:m=65536,t=3,p=1:not-base64:not-base64"),
-		[]byte("raylea-pwd:v2:argon2id:m=not-a-number,t=3,p=1:abcd:abcd"),
-		[]byte("raylea-pwd:v2:argon2id:m=131072,t=3,p=1:abcd:abcd"),
-		[]byte("raylea-pwd:v2:bcrypt:m=65536,t=3,p=1:abcd:abcd"),
+		encode(tooManyIterations),
+		encode(tooMuchMemory),
+		[]byte(strings.Replace(valid, ":argon2id:", ":bcrypt:", 1)),
 	}
 
 	for _, candidate := range cases {

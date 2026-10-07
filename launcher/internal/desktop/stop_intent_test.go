@@ -127,8 +127,51 @@ func TestServiceOperationsSendShutdownIntent(t *testing.T) {
 }
 
 func TestRestartRejectsUnmanagedService(t *testing.T) {
-	service := NewService(t.TempDir(), "", 0, &testServiceHost{})
+	root := t.TempDir()
+	serverName := "raylea-server"
+	if runtime.GOOS == "windows" {
+		serverName += ".exe"
+	}
+	build := exec.Command("go", "build", "-o", filepath.Join(root, serverName), filepath.Join("testdata", "stop_intent_server.go"))
+	build.Env = replaceEnvironmentValues(os.Environ(), map[string]string{"GOWORK": "off"})
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build test service: %v\n%s", err, output)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	_, port, err := net.SplitHostPort(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addressFile := filepath.Join(root, "address.txt")
+	intentFile := filepath.Join(root, "intent.txt")
+	t.Setenv("RAYLEA_TEST_SERVICE_ADDR", address)
+	t.Setenv("RAYLEA_TEST_ADDR_FILE", addressFile)
+	t.Setenv("RAYLEA_TEST_INTENT_FILE", intentFile)
+	writeTestFile(t, filepath.Join(root, "config", "user.yaml"), "server:\n  host: 127.0.0.1\n  port: "+port+"\n")
+	service := NewService(root, "", 0, &testServiceHost{})
+	coordinator := service.coordinator
+	coordinator.settings = LauncherSettings{InstallationRoot: root, CloseBehavior: CloseAskEveryTime}
+	coordinator.initialized = true
+	t.Cleanup(func() { _ = coordinator.process.ForceKill() })
+	if inspection := InspectEnvironment(ResolveLauncherSettings(coordinator.settings)); inspection.HasBlockingIssues {
+		t.Fatalf("unmanaged service fixture cannot start: %+v", inspection)
+	}
 	if err := service.Restart(); err == nil {
 		t.Fatal("restart accepted an unmanaged service")
+	}
+	if coordinator.process.IsRunning() {
+		t.Fatal("restart launched an unmanaged service")
+	}
+	for _, path := range []string{addressFile, intentFile} {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("restart started or stopped a service: path=%s err=%v", path, err)
+		}
 	}
 }

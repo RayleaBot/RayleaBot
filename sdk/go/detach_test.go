@@ -176,7 +176,8 @@ func TestRejectedDetachKeepsTheEventInTheForeground(t *testing.T) {
 }
 
 func TestDetachValidatesArgumentsBeforeSending(t *testing.T) {
-	event := &EventContext{Event: Event{EventType: "scheduler.trigger"}}
+	sink := make(actionFrameSink, 4)
+	event := &EventContext{RequestID: "detach-validation", Event: Event{EventType: "scheduler.trigger"}, client: newRuntimeClient(sink, time.Second)}
 	if _, err := event.DetachWithPropagation(context.Background(), nil, PropagationStop); err == nil {
 		t.Fatal("propagation accepted for a scheduler trigger")
 	}
@@ -190,6 +191,11 @@ func TestDetachValidatesArgumentsBeforeSending(t *testing.T) {
 	}
 	if err := event.ResultWithPropagation(nil, PropagationContinue); err == nil {
 		t.Fatal("detached event decided propagation again")
+	}
+	select {
+	case frame := <-sink:
+		t.Fatalf("invalid detach arguments emitted a frame: %#v", frame)
+	default:
 	}
 }
 

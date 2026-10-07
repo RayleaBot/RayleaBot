@@ -23,6 +23,9 @@ func TestLookupTemplateAssetRespectsSystemResourceRoot(t *testing.T) {
 	if err := os.WriteFile(assetPath, []byte("asset"), 0o644); err != nil {
 		t.Fatalf("write shared asset: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(repoRoot, "outside.txt"), []byte("outside system resources"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	service, err := NewService(Options{
 		RepoRoot:           repoRoot,
@@ -139,6 +142,9 @@ func TestLookupTemplateAssetRespectsPluginPackageRoot(t *testing.T) {
 	}
 	if err := os.WriteFile(assetPath, []byte("plugin asset"), 0o644); err != nil {
 		t.Fatalf("write plugin asset: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(pluginRoot), "outside.txt"), []byte("outside plugin resources"), 0o644); err != nil {
+		t.Fatal(err)
 	}
 
 	service, err := NewService(Options{

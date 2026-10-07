@@ -2,13 +2,11 @@ package runtime
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
 	"sync"
 	"testing"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 )
 
 func TestUpdateConfigDocumentUsesRequestContextForSecrets(t *testing.T) {
@@ -27,23 +25,38 @@ func TestUpdateConfigDocumentUsesRequestContextForSecrets(t *testing.T) {
 	request := ConfigDocumentFromTyped(cfg)
 	setConfigPath(request, onebotSecretPath(internalconfig.DefaultOneBot11AdapterID, "forward_ws"), "forward-secret")
 
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
+	type requestContextKey struct{}
+	ctx := context.WithValue(context.Background(), requestContextKey{}, "request")
+	store := &contextCheckingSecretStore{base: newMemorySecretStore(), contexts: make(map[string][]context.Context)}
 	service := NewService(Deps{
 		CurrentConfig: func() internalconfig.Config { return cfg },
 		CurrentSummary: func() internalconfig.Summary {
 			return summary
 		},
-		Secrets: contextCheckingSecretStore{},
+		Secrets: store,
 	})
 
 	_, err = service.UpdateConfigDocument(ctx, request)
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("UpdateConfigDocument error = %v, want context.Canceled", err)
+	if err != nil {
+		t.Fatalf("UpdateConfigDocument: %v", err)
+	}
+	key := configSecretKey(onebotSecretPath(internalconfig.DefaultOneBot11AdapterID, "forward_ws"))
+	if len(store.contexts["Set:"+key]) == 0 {
+		t.Fatal("request secret was not written")
+	}
+	for operation, contexts := range store.contexts {
+		for _, received := range contexts {
+			if received.Value(requestContextKey{}) != "request" {
+				t.Errorf("%s did not receive the request context", operation)
+			}
+		}
 	}
 }
 
-type contextCheckingSecretStore struct{}
+type contextCheckingSecretStore struct {
+	base     *memorySecretStore
+	contexts map[string][]context.Context
+}
 
 func TestTimezoneChangeWaitsForRestartWithoutChangingEffectiveTimezone(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
@@ -56,7 +69,7 @@ func TestTimezoneChangeWaitsForRestartWithoutChangingEffectiveTimezone(t *testin
 		CurrentSummary:    func() internalconfig.Summary { return summary },
 		SetConfig:         func(next internalconfig.Config) { cfg = next },
 		EffectiveTimezone: func() string { return "Asia/Shanghai" },
-		Secrets:           contextCheckingSecretStore{},
+		Secrets:           newMemorySecretStore(),
 	})
 	request := ConfigDocumentFromTyped(cfg)
 	request["scheduler"].(map[string]any)["timezone"] = "America/New_York"
@@ -100,24 +113,22 @@ func TestConcurrentConfigDocumentsOwnTheirRedactedValues(t *testing.T) {
 	}
 }
 
-func (contextCheckingSecretStore) Get(ctx context.Context, key string) ([]byte, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	return nil, secrets.ErrNotFound
+func (s *contextCheckingSecretStore) Get(ctx context.Context, key string) ([]byte, error) {
+	s.contexts["Get:"+key] = append(s.contexts["Get:"+key], ctx)
+	return s.base.Get(ctx, key)
 }
 
-func (contextCheckingSecretStore) Set(ctx context.Context, _ string, _ []byte) error {
-	return ctx.Err()
+func (s *contextCheckingSecretStore) Set(ctx context.Context, key string, value []byte) error {
+	s.contexts["Set:"+key] = append(s.contexts["Set:"+key], ctx)
+	return s.base.Set(ctx, key, value)
 }
 
-func (contextCheckingSecretStore) Delete(ctx context.Context, _ string) error {
-	return ctx.Err()
+func (s *contextCheckingSecretStore) Delete(ctx context.Context, key string) error {
+	s.contexts["Delete:"+key] = append(s.contexts["Delete:"+key], ctx)
+	return s.base.Delete(ctx, key)
 }
 
-func (contextCheckingSecretStore) List(ctx context.Context) ([]string, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	return nil, nil
+func (s *contextCheckingSecretStore) List(ctx context.Context) ([]string, error) {
+	s.contexts["List"] = append(s.contexts["List"], ctx)
+	return s.base.List(ctx)
 }

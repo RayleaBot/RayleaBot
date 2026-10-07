@@ -195,7 +195,11 @@ func TestManagerCloseUnknownSession(t *testing.T) {
 func TestLocalLaunchRequiresBrowserPath(t *testing.T) {
 	t.Parallel()
 
-	if _, _, err := launchLocalBrowser(context.Background(), Options{ProfileRoot: t.TempDir()}, "weather", "default", launchAttempt{mode: ModeHeadless, useProfile: true}); !errors.Is(err, ErrUnavailable) {
+	profileRoot := t.TempDir()
+	if _, _, err := launchLocalBrowser(context.Background(), Options{ProfileRoot: profileRoot, TempRoot: t.TempDir()}, "weather", "default", launchAttempt{mode: ModeHeadless, useProfile: true}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("launchLocalBrowser error = %v, want ErrUnavailable", err)
+	}
+	if _, err := os.Stat(filepath.Join(profileRoot, "weather", "default")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing browser path created a profile: %v", err)
 	}
 }

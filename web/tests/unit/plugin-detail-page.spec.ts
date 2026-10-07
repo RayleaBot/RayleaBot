@@ -1,4 +1,4 @@
-import { nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,6 +6,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.vue'
+import { PAGE_TRANSITION_STAGE_KEY, type PageTransitionStage } from '@/layouts/usePageTransitionStage'
 import PluginDetailPage from '@/views/plugins/PluginDetailView.vue'
 import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
@@ -356,28 +357,39 @@ describe('PluginDetailPage', () => {
       commands: [],
       command_conflicts: [],
     }
-    pluginConsoleStore.appendConsole({
-      plugin_id: 'weather',
-      stream: 'stdout',
-      text: 'worker ready',
-      timestamp: '2026-03-22T10:00:00Z',
-    })
+    for (let index = 1; index <= 24; index += 1) {
+      pluginConsoleStore.appendConsole({
+        plugin_id: 'weather',
+        stream: 'stdout',
+        text: `trace line ${index}`,
+        timestamp: `2026-03-22T10:00:${String(index).padStart(2, '0')}Z`,
+      })
+    }
 
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(pluginsStore.current)
     vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
     vi.spyOn(socketStore, 'setConsolePlugin').mockImplementation(() => undefined)
 
+    const stage = ref<PageTransitionStage>('entering')
     const wrapper = mount(PluginDetailPage, {
       global: {
         plugins: [getActivePinia()!, router],
+        provide: { [PAGE_TRANSITION_STAGE_KEY as symbol]: stage },
       },
     })
 
     await flushPromises()
-    expect(wrapper.findComponent(VirtualDataViewport).exists()).toBe(true)
-    expect(wrapper.find('.console-terminal-line').text()).toContain('worker ready')
     await openConsoleTab(wrapper)
-    expect(wrapper.findComponent(VirtualDataViewport).vm.isAtBottom()).toBe(true)
+    expect(wrapper.findComponent(VirtualDataViewport).exists()).toBe(false)
+
+    stage.value = 'idle'
+    await nextTick()
+    mockScrollerMetrics(wrapper, 346)
+    await vi.waitFor(() => {
+      const { clientHeight, scrollHeight, scrollTop } = getViewportMetrics(wrapper)
+      expect(scrollTop).toBeGreaterThan(0)
+      expect(scrollTop).toBe(scrollHeight - clientHeight)
+    })
   })
 
   it('pauses bottom follow after the user scrolls away from the latest row', async () => {

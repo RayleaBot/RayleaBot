@@ -175,18 +175,38 @@ func TestCloseCheckpointsWALAndLeavesDatabaseReadable(t *testing.T) {
 
 	databasePath := filepath.Join(t.TempDir(), "state.db")
 	store := mustOpenStore(t, databasePath)
+	t.Cleanup(func() { _ = store.Close() })
+	dsn, err := configuredDSN(databasePath, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observer, err := sql.Open(sqliteDriverName, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = observer.Close() }()
+	if err := observer.PingContext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := store.Write.Exec(`INSERT INTO plugin_instances (plugin_id, desired_state, updated_at) VALUES ('checkpoint', 'enabled', '2026-06-13T00:00:00Z')`); err != nil {
 		t.Fatalf("insert row: %v", err)
+	}
+	if info, err := os.Stat(databasePath + "-wal"); err != nil || info.Size() == 0 {
+		t.Fatalf("expected a populated WAL before close: info=%v err=%v", info, err)
 	}
 	if err := store.Close(); err != nil {
 		t.Fatalf("close store: %v", err)
 	}
+	if info, err := os.Stat(databasePath + "-wal"); err != nil || info.Size() != 0 {
+		t.Fatalf("expected a truncated WAL with another connection open: info=%v err=%v", info, err)
+	}
+	var desiredState string
+	if err := observer.QueryRowContext(t.Context(), `SELECT desired_state FROM plugin_instances WHERE plugin_id = 'checkpoint'`).Scan(&desiredState); err != nil || desiredState != "enabled" {
+		t.Fatalf("database row after close = %q, err = %v", desiredState, err)
+	}
 
 	if err := QuickCheckPath(context.Background(), databasePath); err != nil {
 		t.Fatalf("database quick_check after close failed: %v", err)
-	}
-	if info, err := os.Stat(databasePath + "-wal"); err == nil && info.Size() != 0 {
-		t.Fatalf("expected WAL file to be absent or truncated, size=%d", info.Size())
 	}
 }
 

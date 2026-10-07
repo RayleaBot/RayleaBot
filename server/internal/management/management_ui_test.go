@@ -49,7 +49,15 @@ func TestManagementUIHandlerServesIndexForSpaRoutes(t *testing.T) {
 }
 
 func TestManagementUIHandlerKeepsApiPathsNotFound(t *testing.T) {
-	handler := newManagementUIHandler(t.TempDir())
+	repoRoot := t.TempDir()
+	distRoot := filepath.Join(repoRoot, "web", "dist")
+	if err := os.MkdirAll(distRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(distRoot, "index.html"), []byte("<html>launcher ui</html>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	handler := newManagementUIHandler(repoRoot)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/not-found", nil)

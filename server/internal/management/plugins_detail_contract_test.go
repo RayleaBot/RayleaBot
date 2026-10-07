@@ -93,6 +93,7 @@ func TestInvalidAndConflictedPluginsExposeNoCommands(t *testing.T) {
 	} {
 		snapshot := snapshot
 		t.Run(snapshot.PluginID, func(t *testing.T) {
+			snapshot.Commands = []plugins.Command{{ID: "echo", Name: "echo", DisplayName: "Echo"}}
 			router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{snapshot}))
 			recorder := httptest.NewRecorder()
 			router.ServeHTTP(recorder, httptest.NewRequest("GET", "/api/plugins/"+snapshot.PluginID, nil))

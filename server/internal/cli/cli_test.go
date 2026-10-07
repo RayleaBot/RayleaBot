@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
@@ -278,18 +280,40 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 func TestRestoreRejectsIncompleteManifestBeforeExtraction(t *testing.T) {
 	t.Parallel()
 
-	archivePath := filepath.Join(t.TempDir(), "bad.zip")
+	archivePath := writeConfigBackupArchive(t, "")
+	destDir := t.TempDir()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	code := runRestore(Command{
+		ConfigPath: filepath.Join(destDir, "config", "user.yaml"),
+		Logger:     logger,
+		Args:       []string{archivePath},
+	})
+	if code != 1 {
+		t.Fatalf("restore should fail with exit code 1 for incomplete backup manifest, got %d", code)
+	}
+	entries, err := os.ReadDir(destDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("rejected restore left files in its destination: %v", entries)
+	}
+}
+
+func writeConfigBackupArchive(t *testing.T, manifestVersion string) string {
+	t.Helper()
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
 	outFile, err := os.Create(archivePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	w := zip.NewWriter(outFile)
 	manifest := recovery.BackupManifest{
-		Version:               "",
+		Version:               manifestVersion,
 		CreatedAt:             "2025-01-01T00:00:00Z",
 		CoreVersion:           "0.3.0",
 		ConfigSchemaVersion:   internalconfig.CurrentSchemaVersion(),
-		DBSchemaVersion:       storage.CurrentSchemaVersion(),
+		DBSchemaVersion:       "absent",
 		PluginManifestVersion: recovery.PluginManifestVersion,
 		PluginProtocolVersion: recovery.PluginProtocolVersion,
 		PluginArtifactVersion: recovery.PluginArtifactVersion,
@@ -309,6 +333,13 @@ func TestRestoreRejectsIncompleteManifestBeforeExtraction(t *testing.T) {
 	if _, err := mw.Write(data); err != nil {
 		t.Fatalf("write manifest entry: %v", err)
 	}
+	configWriter, err := w.Create("config/user.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(configWriter, "schema_version: \"4\"\ndatabase:\n  path: data/rayleabot.db\n"); err != nil {
+		t.Fatal(err)
+	}
 	if err := w.Close(); err != nil {
 		t.Fatalf("close archive writer: %v", err)
 	}
@@ -316,15 +347,7 @@ func TestRestoreRejectsIncompleteManifestBeforeExtraction(t *testing.T) {
 		t.Fatalf("close archive file: %v", err)
 	}
 
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	code := runRestore(Command{
-		ConfigPath: filepath.Join(t.TempDir(), "config", "user.yaml"),
-		Logger:     logger,
-		Args:       []string{archivePath},
-	})
-	if code != 1 {
-		t.Fatalf("restore should fail with exit code 1 for incomplete backup manifest, got %d", code)
-	}
+	return archivePath
 }
 
 func TestRestoreRejectsMissingManifest(t *testing.T) {
@@ -447,31 +470,67 @@ func TestConfigMutatingCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
 func TestOfflineCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
 	t.Parallel()
 
-	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
-	writeFile(t, configPath, "database:\n  path: data/rayleabot.db\n")
-	lockPath, err := runtimepaths.ResolveConfigLifecycleLockPath(configPath)
-	if err != nil {
-		t.Fatalf("resolve lifecycle lock: %v", err)
-	}
-	lock, err := filelock.Acquire(lockPath)
-	if err != nil {
-		t.Fatalf("acquire lifecycle lock: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(lock.Close)
-
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	commands := []Command{
-		{Name: "reset-admin", ConfigPath: configPath, Logger: logger},
-		{Name: "backup", ConfigPath: configPath, Logger: logger},
-		{Name: "restore", ConfigPath: configPath, Logger: logger, Args: []string{"fixture.zip"}},
-		{Name: "cleanup", ConfigPath: configPath, Logger: logger},
-		{Name: "plugin", ConfigPath: configPath, Logger: logger, Args: []string{"dev-sync"}},
-		{Name: "update", ConfigPath: configPath, Logger: logger, Args: []string{"apply"}},
-	}
-	for _, command := range commands {
-		if code := Run(command); code != 1 {
-			t.Fatalf("%s exit code = %d, want 1 while lifecycle lock is held", command.Name, code)
-		}
+	for _, name := range []string{"reset-admin", "backup", "restore", "cleanup", "plugin", "update"} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			configPath := filepath.Join(root, "config", "user.yaml")
+			command := Command{Name: name, ConfigPath: configPath, Logger: logger, Stdout: io.Discard}
+			if name != "restore" {
+				writeFile(t, configPath, "schema_version: \"4\"\ndatabase:\n  path: data/rayleabot.db\n")
+			}
+			switch name {
+			case "reset-admin", "backup":
+				createTestSQLiteDatabase(t, filepath.Join(root, "data", "rayleabot.db"))
+			case "restore":
+				command.Args = []string{writeConfigBackupArchive(t, recovery.BackupManifestVersion)}
+			case "plugin":
+				artifact := testutil.WriteGoPluginArtifact(t, filepath.Join(t.TempDir(), "artifact"), "development.fixture", "0.4.0")
+				command.Args = []string{"dev-sync", "--artifact", artifact, "--source", t.TempDir()}
+			case "update":
+				payload, err := os.ReadFile("../../../fixtures/release-manifest/ok.release-manifest-minimal.json")
+				if err != nil {
+					t.Fatal(err)
+				}
+				var fixture struct {
+					Input json.RawMessage `json:"input"`
+				}
+				if err := json.Unmarshal(payload, &fixture); err != nil {
+					t.Fatal(err)
+				}
+				var manifest struct {
+					Version string `json:"version"`
+				}
+				if err := json.Unmarshal(fixture.Input, &manifest); err != nil {
+					t.Fatal(err)
+				}
+				writeCLIJSON(t, filepath.Join(root, "build_info.json"), releaseupdate.BuildInfo{
+					Version: manifest.Version, GitCommit: "0123456789abcdef0123456789abcdef01234567", ArtifactID: "windows-x64-full",
+				})
+				command.Args = []string{"apply"}
+				command.UpdateHTTPClient = &http.Client{Transport: cliRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(fixture.Input)), Header: make(http.Header), Request: request}, nil
+				})}
+			}
+			lockPath, err := runtimepaths.ResolveConfigLifecycleLockPath(configPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			lock, err := filelock.Acquire(lockPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = lock.Close() })
+			if code := Run(command); code != 1 {
+				t.Fatalf("%s exit code = %d, want 1 while lifecycle lock is held", name, code)
+			}
+			if err := lock.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if code := Run(command); code != 0 {
+				t.Fatalf("%s exit code = %d, want 0 after releasing lifecycle lock", name, code)
+			}
+		})
 	}
 }
 

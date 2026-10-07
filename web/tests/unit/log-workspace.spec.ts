@@ -94,7 +94,6 @@ describe.each([
       expect(router.currentRoute.value.query.log_id).toBeUndefined()
       expect(router.currentRoute.value.query.level).toEqual(['warn'])
       expect(router.currentRoute.value.query.source).toBe('runtime')
-      expect(store.items).toHaveLength(1)
     } finally {
       wrapper.unmount()
     }

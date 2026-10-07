@@ -254,7 +254,13 @@ func TestStoreConfigSecretsDeletesClearedToken(t *testing.T) {
 func TestResolveConfigSecretRefsRejectsWrongReference(t *testing.T) {
 	t.Parallel()
 
-	_, err := ResolveConfigSecretRefs(context.Background(), newMemorySecretStore(), internalconfig.Config{
+	store := newMemorySecretStore()
+	for _, transport := range []string{"forward_ws", "reverse_ws"} {
+		if err := store.Set(context.Background(), configSecretKey(onebotSecretPath("onebot11", transport)), []byte("fixture-secret")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, err := ResolveConfigSecretRefs(context.Background(), store, internalconfig.Config{
 		Adapters: []internalconfig.AdapterInstance{{
 			ID: "onebot11", Type: internalconfig.AdapterTypeOneBot11, Enabled: true,
 			OneBot11: &internalconfig.OneBotConfig{
