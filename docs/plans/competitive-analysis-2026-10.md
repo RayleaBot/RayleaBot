@@ -6,13 +6,13 @@
 
 RayleaBot 当前最接近“Yunzai 游戏生态的工程化替代”：只接 QQ（OneBot11 与 QQ 官方），插件是 Go 原生子进程，配 Web 管理面、桌面 Launcher 和契约先行的工程体系。功能赛道上的直接对手是 Yunzai 系（Miao-Yunzai、TRSS-Yunzai 加 miao-plugin）和 gsuid_core；“群主默认会选谁”这一层的对手是 AstrBot。NoneBot2 和 Koishi 是面向开发者的多平台框架，LangBot 面向企业 IM 与 LLMOps，三者都不在同一赛道正面竞争。
 
-与竞品相比，RayleaBot 当前最大的差距不在功能，而在交付。公开可下载的核心停在 v0.3.1（2026-08-16）。官方插件目录的 6 个条目都要求 0.4.0 且是 manifest v3 包：v0.3.1 读不了 catalog v2，0.7 宿主又会拒绝 v3 包。因此此刻不存在任何能配套使用的“公开核心 + 目录插件”组合。SDK 的 tag 停在协议 v3，nightly 自 2026-09-14 起连续失败。其次是 QQ 官方路径的可用性，三个缺陷叠加：群管理员开启“接收全部群消息”后整群可能收不到消息；插件回复在 QQ 官方上全部按主动推送发出；`base64://` 图片和 at、reply 段会失败或只发出一半。官方游戏插件在 QQ 官方上基本跑不通。这两组问题定为 P0，修复多为 S 到 M 级。
+与竞品相比，RayleaBot 当前最大的差距不在功能，而在交付。公开可下载的核心停在 v0.3.1（2026-08-16）。官方插件目录的 6 个条目都要求 0.4.0 且是 manifest v3 包：v0.3.1 读不了 catalog v2，v0.4.0 宿主又会拒绝 v3 包。因此此刻不存在任何能配套使用的“公开核心 + 目录插件”组合。SDK 的 tag 停在协议 v3，nightly 自 2026-09-14 起连续失败。其次是 QQ 官方路径的可用性，三个缺陷叠加：群管理员开启“接收全部群消息”后整群可能收不到消息；插件回复在 QQ 官方上全部按主动推送发出；`base64://` 图片和 at、reply 段会失败或只发出一半。官方游戏插件在 QQ 官方上基本跑不通。这两组问题定为 P0，修复多为 S 到 M 级。
 
 产品面最明显的缺口依次是：没有任何 AI 能力（是本轮对比中唯一一个，核心和官方插件都没有）、不能按群启停插件、插件配置没有自动表单、指令必须带前缀、没有官方 Docker 与 ARM64 Linux 产物、缺少协议端接入教程和社区渠道。上手路径也断在中间：初始化后直接进入状态页，没有“连接 → 装插件 → 首次收发成功”的引导；一条消息没有回复时，入站和策略拒绝日志没有关联 ID，前缀不匹配等最常见的原因只在 debug 级记录。插件数量与 Koishi（4,722）、AstrBot（约 2,385）、NoneBot2（942）相差两到三个数量级，表情包、点歌、群统计、群管这几类完全空白。
 
-RayleaBot 的优势真实存在，但必须限定口径。插件子进程只隔离崩溃，不构成安全边界，也没有资源上限；LangBot 和 MaiBot 同样是每插件一个进程，LangBot 自托管版同样不限制插件资源。其他优势包括：自包含原生包、原子安装事务、契约化的失败语义、宿主内置的模板渲染、由宿主认定调用方的服务调用、探针与严格恢复、默认安全的管理面认证，以及游戏和订阅领域的凭据脱敏。这些相对同进程的 Yunzai、NoneBot2、Koishi、AstrBot 成立，但大多数用户目前拿不到，因为 0.5 与 0.7 都没有公开发布。
+RayleaBot 的优势真实存在，但必须限定口径。插件子进程只隔离崩溃，不构成安全边界，也没有资源上限；LangBot 和 MaiBot 同样是每插件一个进程，LangBot 自托管版同样不限制插件资源。其他优势包括：自包含原生包、原子安装事务、契约化的失败语义、宿主内置的模板渲染、由宿主认定调用方的服务调用、探针与严格恢复、默认安全的管理面认证，以及游戏和订阅领域的凭据脱敏。这些相对同进程的 Yunzai、NoneBot2、Koishi、AstrBot 成立，但大多数用户目前拿不到，因为 0.3.1 之后的候选都没有公开发布。
 
-校验推翻或收窄了一批说法：“OneBot11 接入最完整”“AI 风险被限制在插件进程内”“本地渲染独有”“宿主不记录消息正文”“热重载不打断会话”“日志用 request_id 串起整条消息”“竞品都没有健康探针”，以及“游戏插件可以把需要 CK 的数据暴露为 AI 工具”（服务调用只允许一跳）。核实中还发现一个跨条目的约束：manifest 顶层与宿主对插件动作数据都是严格解码，商店目录读取也是严格的。0.7.0 公开发布前是加入可选字段成本最低的窗口，见 4.4 节。
+校验推翻或收窄了一批说法：“OneBot11 接入最完整”“AI 风险被限制在插件进程内”“本地渲染独有”“宿主不记录消息正文”“热重载不打断会话”“日志用 request_id 串起整条消息”“竞品都没有健康探针”，以及“游戏插件可以把需要 CK 的数据暴露为 AI 工具”（服务调用只允许一跳）。核实中还发现一个跨条目的约束：manifest 顶层与宿主对插件动作数据都是严格解码，商店目录读取也是严格的。v0.4.0 公开发布前是加入可选字段成本最低的窗口，见 4.4 节。
 
 | 项目 | 数量 |
 |---|---|
@@ -63,7 +63,7 @@ RayleaBot 的优势真实存在，但必须限定口径。插件子进程只隔�
 |---|---|---|---|---|---|---|---|
 | 内置平台 | 2（OneBot11、QQ 官方） | 17 种平台类型 | 核心与插件十余种（含 Milky、Satori） | 32 个适配器（15 个官方） | 15 个官方，OneBot 为社区 | 21 个适配器配置 | 不直连，挂接宿主 |
 | 插件语言与加载 | Go 原生子进程 | Python 同进程 | JS 同进程 | Python 同进程 | TS/JS 同进程 | Python 独立进程 | Python 同进程 |
-| 插件市场规模 | 目录 6 条，0.7 可装 0 | 约 2,385 | 索引约 385 | 942（616 可用） | 4,722 | 96 | 文档列表 41–52 项 |
+| 插件市场规模 | 目录 6 条，v0.4.0 可装 0 | 约 2,385 | 索引约 385 | 942（616 可用） | 4,722 | 96 | 文档列表 41–52 项 |
 | 插件热重载 | 进程级零间隙 | 核心 | 仅单文件 JS | 整进程重启 | 核心 HMR | 远程调试重载 | 说法不一 |
 | 插件配置自动表单 | 无（需插件自写 Vue 页） | 核心 | 锅巴插件 | 无 | 核心（Schemastery） | 核心 | 核心控制台 |
 | 按群启停插件 | 无 | 按配置文件路由会话 | 核心 | 社区 | 核心过滤器 | 按流水线绑定 | 核心（服务级黑白名单） |
@@ -100,7 +100,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | G7 | 不能按群启停插件 | P1 | M–L | 同赛道 QQ 框架核心标配；非命令消息也缺宿主准入 |
 | G8 | 插件配置没有 schema 与自动表单 | P1 | M–L | 群主在 WebUI 上最直接感知的差距 |
 | G9 | 没有任何 AI 能力 | P1 | L | 唯一无 AI 的项目；以官方插件落地 |
-| G10 | OneBot 入站令牌可留空，叠加候选版默认 0.0.0.0 | P1 | S–M | 可伪造超级管理员指令；0.7 发布前修 |
+| G10 | OneBot 入站令牌可留空，叠加候选版默认 0.0.0.0 | P1 | S–M | 可伪造超级管理员指令；v0.4.0 发布前修 |
 | G11 | 插件挂起无法被发现 | P1 | S–M | ping/pong 只写在契约里，宿主没有实现 |
 | G12 | 插件合同缺稳定承诺 | P1 | S | 开放第三方前的前提 |
 | G13 | 社区与可信度信号 | P1 | S | 所有同类项目都有交流渠道与上手材料 |
@@ -122,14 +122,14 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 
 发布工作流已要求标签所指完整提交 SHA 的最新 nightly 成功，并在上传前重新检查；失败跟踪由独立的 `nightly-status.yml` 维护同一个 issue。预发布段决定 beta 通道与 GitHub prerelease，不覆盖 latest；macOS 产物标为 experimental，Server 发布构建固定关闭 CGO。Corepack 安装允许替换 runner 已有的工具入口，golangci-lint 已固定为支持 Go 1.27 的 2.13.0。
 
-操作步骤与发布节奏见[交付与升级](../release/delivery-and-upgrade.md#发布流程与通道)，首个预发布正文见 [v0.7.0-beta.1](../release/notes/v0.7.0-beta.1.md)。0.3.x 与 0.7 不兼容，只提供全新安装说明，不提供旧格式迁移，也不恢复签名资产。
+操作步骤与发布节奏见[交付与升级](../release/delivery-and-upgrade.md#发布流程与通道)，首个预发布正文见 [v0.4.0-beta.1](../release/notes/v0.4.0-beta.1.md)。0.3.x 与 v0.4.0 不兼容，只提供全新安装说明，不提供旧格式迁移，也不恢复签名资产。
 
-仍需推送待发布提交并对该提交运行远程 nightly，再发布预发布包，按[公开发行物验收](../engineering/manual-smoke.md#公开发行物)登记结果。现行 manifest v4 契约要求最低核心版本至少为 `0.7.0`，因此 `0.7.0-beta.1` 不能安装 v4 插件，只先验收核心安装与初始化。完整插件流程需要满足该版本下限的公开核心与 G2 提供的兼容公开包；工作流与本地测试通过不代表这部分已完成。
+仍需推送待发布提交并对该提交运行远程 nightly，再发布预发布包，按[公开发行物验收](../engineering/manual-smoke.md#公开发行物)登记结果。现行 manifest v4 契约要求最低核心版本至少为 `0.4.0`，因此 `0.4.0-beta.1` 不能安装 v4 插件，只先验收核心安装与初始化。完整插件流程需要满足该版本下限的公开核心与 G2 提供的兼容公开包；工作流与本地测试通过不代表这部分已完成。
 
 **原始问题与仓库证据（2026-10-05）**
-- 公开 tag 只有 v0.3.0、v0.3.1（2026-08-16）。0.5.0 与 0.7.0 都标为“候选版本，尚未公开分发”（`docs/release/notes/v0.7.0.md`）。选型复核记录的 Release 下载量：Windows 约 4 次，macOS 0 次。
-- v0.3.1 的更新器要读取签名资产 `release_manifest.v2.sig.json`，0.7 已删除签名体系。如果 0.7 成为 GitHub 的 latest，v0.3.1 检查更新会返回 `release.manifest_invalid`；以 prerelease 发布时，`/releases/latest` 仍指向 v0.3.1，旧用户只会看到“已是最新”。
-- `.github/workflows/release.yml:48-58` 没有 prerelease 参数，release-build 也不传 channel。推送 `v0.7.0-beta.1` 这类 tag 会生成非 prerelease 的 Release 并成为 latest。
+- 公开 tag 只有 v0.3.0、v0.3.1（2026-08-16）。此后的候选曾以 0.5.0、0.7.0 编号，均未公开分发，现统一为下一版本 v0.4.0（`docs/release/notes/v0.4.0.md`）。选型复核记录的 Release 下载量：Windows 约 4 次，macOS 0 次。
+- v0.3.1 的更新器要读取签名资产 `release_manifest.v2.sig.json`，v0.4.0 已删除签名体系。如果 v0.4.0 成为 GitHub 的 latest，v0.3.1 检查更新会返回 `release.manifest_invalid`；以 prerelease 发布时，`/releases/latest` 仍指向 v0.3.1，旧用户只会看到“已是最新”。
+- `.github/workflows/release.yml` 原先没有 prerelease 参数，release-build 也不传 channel，推送 `v0.4.0-beta.1` 这类 tag 会生成非 prerelease 的 Release 并成为 latest；`9a211036` 已按标签设置 `prerelease`、`make_latest` 与 beta 通道。
 - nightly 自 2026-09-14 起连续 20 余次失败。最近一次运行的失败点是 server race 测试、server-windows 的 Go 测试、web 生产 E2E 和 Windows 上的 Corepack 安装；golangci-lint 被跳过（v2.12.2 不支持 Go 1.27），恢复演练所在的 release-dry-run 是成功的。截至 2026-10-05，本地 main 领先 origin/main 37 个提交（origin 停在 2026-10-02 的 `d30c6346`），nightly 测的是旧代码。`release-build.yml` 不跑 Server 的 Go 测试与 lint，nightly 是唯一的完整回归入口。
 
 **竞品对照**
@@ -143,21 +143,21 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 ### G2 插件目录与 SDK 断档
 
 **现状与仓库证据**
-- 官方目录 `plugin-catalog/catalog.json` 共 6 条：echo、fortune、game-guide、subscription-hub、delta-force、oil-price。current_release 都是 2026-09-03 发布、`min_core_version` 0.4.0 的 manifest v3 包。0.7 宿主只接受 manifest v4（`min_core_version` ≥ 0.7.0）。v0.3.1 的契约把 `manifest_version` 固定为 `"2"`、`catalog_version` 固定为 `"1"`，并按 schema 校验目录，所以它既读不了 catalog v2，也装不了 v3 包。0.4.0 从未公开发布。v3 包因此被公开核心和候选核心两头拒绝。
+- 官方目录 `plugin-catalog/catalog.json` 共 6 条：echo、fortune、game-guide、subscription-hub、delta-force、oil-price。current_release 都是 2026-09-03 发布、`min_core_version` 0.4.0 的 manifest v3 包，面向当时一批未公开的候选核心。v0.4.0 宿主只接受 manifest v4（`min_core_version` ≥ 0.4.0）。v0.3.1 的契约把 `manifest_version` 固定为 `"2"`、`catalog_version` 固定为 `"1"`，并按 schema 校验目录，所以它既读不了 catalog v2，也装不了 v3 包。v3 包因此被公开核心和 v0.4.0 两头拒绝。
 - genshin、starrail、zzz、mihoyo-accounts、roulette 五个插件没有远程仓库，也没有 tag。genshin 的 `docs/acceptance-plan.md` 要求先用真实账号验收再发布。
-- sdk/go 的 tag 最高是 v0.5.0，对应协议 v3。官方插件的 go.mod 依赖尚不存在的 `sdk/go v0.7.0`，插件 release.yml 以 `RAYLEABOT_SDK_REF=sdk/go/v0.7.0` 检出主仓库，`@rayleabot/plugin-ui` 是 private 包。公开 SDK 与公开核心在 0.7 之前就已错位：v0.3.1 用协议 v1，SDK 的 v0.4.0、v0.5.0 是为未公开的核心打的 tag。`scripts/release` 与 `.github/workflows` 中都没有打 SDK tag 的步骤。
+- sdk/go 的 tag 最高是 v0.5.0，对应协议 v3。官方插件的 go.mod 依赖尚不存在的 `sdk/go v0.7.0`，插件 release.yml 以 `RAYLEABOT_SDK_REF=sdk/go/v0.7.0` 检出主仓库，`@rayleabot/plugin-ui` 是 private 包。公开 SDK 与公开核心早已错位：v0.3.1 用协议 v1，SDK 的 v0.4.0、v0.5.0 是为未公开的候选核心打的 tag，对应协议 v2、v3；核心 v0.4.0 使用协议 v4，与 SDK v0.4.0 同号不同义。`scripts/release` 与 `.github/workflows` 中都没有打 SDK tag 的步骤。
 - 6 个插件仓库的 release.yml 仍是 `GO_VERSION: 1.26.6`，而 `sdk/go/go.mod` 自 2026-10-02 起要求 go 1.27.1；Node 与 pnpm 版本也落后于 sdk/vue 的声明。即使打了 tag，插件 CI 也大概率失败（未实跑）。
-- 目录读取是严格模式：catalog schema 的根和条目都是 `additionalProperties:false`，`server/internal/plugins/market/service.go:501-516` 先做 schema 校验，再用 `decodeStrictJSON` 解码。今后给目录加任何字段，已部署的 0.7 核心都会整份校验失败，停在最后一次成功的缓存。发布清单已采用“宽松读取、严格发布”，目录还没有。
+- 目录读取是严格模式：catalog schema 的根和条目都是 `additionalProperties:false`，`server/internal/plugins/market/service.go:501-516` 先做 schema 校验，再用 `decodeStrictJSON` 解码。今后给目录加任何字段，已部署的 v0.4.0 核心都会整份校验失败，停在最后一次成功的缓存。发布清单已采用“宽松读取、严格发布”，目录还没有。
 
 **竞品对照**
 - 被比较的竞品都通过 PyPI 或 npm 分发 SDK。LangBot 在 2026-09-26 一天内由 PR #2581、#2583、#2584 连续固定 Runtime 依赖的 SDK 版本，其中 #2581 是为兼容已认证插件。这说明 SDK 与宿主版本错位会直接伤及第三方。
 - AstrBot 同样只在安装或加载时校验版本，约 2,385 个条目中只有 924 个声明了 `astrbot_version`。“下载后才失败”在同类中常见，本条的核心是“可装数为 0”。
 
 **建议**
-1. 发布清单第一项：在实际发布 0.7.0 的提交上打 `sdk/go/v0.7.0`，release_tool 校验 tag 存在且与核心版本一致。打 tag 前先决定 SDK 的许可（G50），tag 打出后该版本的许可就固定了。
+1. 发布清单第一项：在实际发布 v0.4.0 的提交上打下一个 SDK tag。`sdk/go/v0.4.0`、`v0.5.0` 已被占用，SDK 无法与核心同号，版本号需另定（官方插件当前引用 `v0.7.0`）；release_tool 校验该 tag 存在并指向发布提交。打 tag 前先决定 SDK 的许可（G50），tag 打出后该版本的许可就固定了。
 2. 同步 6 个插件工作流的 Go、Node、pnpm 版本。
-3. 目录读取改为忽略未知字段（契约先行），在 0.7.0 公开前完成，之后目录才能演进而不破坏已部署核心。
-4. `sync_catalog.py` 校验 `manifest_version` 为 4、`min_core_version` 不低于 0.7.0，不满足时只发条目元数据、不发资产。
+3. 目录读取改为忽略未知字段（契约先行），在 v0.4.0 公开前完成，之后目录才能演进而不破坏已部署核心。
+4. `sync_catalog.py` 校验 `manifest_version` 为 4、`min_core_version` 不低于 0.4.0，不满足时只发条目元数据、不发资产。
 5. 分批上架：先发 6 个已上架插件的 v4 包。subscription-hub 不需要真实游戏账号验收，可以作为首批。游戏插件随验收进度发布。
 6. Vue SDK 不发 npm（选型复核已判保持），在模板 README 写明 CI 按 tag 检出主仓库的方式。服务端把旧合同条目标为 `contract_unsupported` 只用于防御第三方目录，且要改 `compatible` 字段语义，列为 P2。
 
@@ -167,9 +167,9 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 
 - 发布后从公开 Release 页和公开 catalog 出发，在干净目录完成：安装 → 初始化 → 经 NapCat 的 OneBot11 真实命令回复 → 商店安装插件 → 插件更新 → 备份并恢复到空目录。
 - Windows 完整包与 linux-x64 server 包走全流程；macOS arm64 标 experimental，只验安装与初始化；QQ 官方按 G3 的决定处理。
-- 0.7 首次公开时目录里每个插件只有一个 v4 版本，“插件更新”一步在首个插件补丁版上执行，或专门发一个 echo 补丁版来演练。
+- v0.4.0 首次公开时目录里每个插件只有一个 v4 版本，“插件更新”一步在首个插件补丁版上执行，或专门发一个 echo 补丁版来演练。
 - 备份恢复可以直接在下载的产物上运行现有的恢复演练脚本。
-- 结果按 `manual-smoke.md` 的格式登记时间、提交、平台与观察结果。0.3.x 与 0.7 不兼容，验收采用全新安装。这份记录同时是 G83 推荐组合中“最近验证版本”的来源。
+- 结果按 `manual-smoke.md` 的格式登记时间、提交、平台与观察结果。0.3.x 与 v0.4.0 不兼容，验收采用全新安装。这份记录同时是 G83 推荐组合中“最近验证版本”的来源。
 
 ### G3 QQ 官方路径可用性
 
@@ -191,17 +191,17 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 4. 部分投递的结构化信息（如已送达条数）需要给 `SendError` 增加 details 并修订错误码契约，属 M 级，可以排在后面。
 5. 用 QQ 官方沙箱实测“接收全部群消息”下的行为，作为回归用例。
 
-**优先级说明**：仓库视角在沙箱确认前倾向 P1，市场视角维持 P0。官方事件页已确认全量模式下 @ 消息也走 GROUP_MESSAGE_CREATE；三处缺陷合起来，0.7 的正式适配器在常见配置下基本不可用，因此定为 P0。如果维护者决定在 0.7 中把 QQ 官方标为 experimental，可以降为 P1。
+**优先级说明**：仓库视角在沙箱确认前倾向 P1，市场视角维持 P0。官方事件页已确认全量模式下 @ 消息也走 GROUP_MESSAGE_CREATE；三处缺陷合起来，v0.4.0 的正式适配器在常见配置下基本不可用，因此定为 P0。如果维护者决定在 v0.4.0 中把 QQ 官方标为 experimental，可以降为 P1。
 
-### 4.4 0.7 公开前的契约窗口
+### 4.4 v0.4.0 公开前的契约窗口
 
 核实中多个条目都撞上同一个约束，影响后续所有“契约加法”：
 
 - **宿主 → 插件方向天然兼容**：SDK 用标准 `json.Unmarshal` 解码事件，可以容忍新字段（`sdk/go/runtime.go:235-262`）。G14 的 `command_id` 属于这一类，不需要门控。
-- **插件 → 宿主方向和 manifest 不兼容**：宿主严格拒绝插件动作数据中的未知键（`server/internal/plugins/runtime/actions.go:692-703`，返回 `plugin.protocol_violation`），manifest 顶层是 `additionalProperties:false`。G8 的 `config_schema`、G7 的 `enable_on_default`、G15 的 `run_at_ms` 与 `delay_seconds`、G41 的 KV 条件写、G45 的 `requires_services`，要么在 0.7 公开前加入，要么沿用 KV TTL 的先例按 `min_core_version` 门控（协议里已有“TTL requires min_core_version ≥ 0.6.0”）。
-- **商店目录读取严格**：见 G2。0.7 公开前改为宽松读取，否则 G46、G71、G72、G82 的任何目录字段都会让已部署核心失效。
+- **插件 → 宿主方向和 manifest 不兼容**：宿主严格拒绝插件动作数据中的未知键（`server/internal/plugins/runtime/actions.go:692-703`，返回 `plugin.protocol_violation`），manifest 顶层是 `additionalProperties:false`。G8 的 `config_schema`、G7 的 `enable_on_default`、G15 的 `run_at_ms` 与 `delay_seconds`、G41 的 KV 条件写、G45 的 `requires_services`，要么在 v0.4.0 公开前加入，要么沿用 KV TTL 的写法按 `min_core_version` 门控（协议里已有“TTL requires min_core_version >= 0.4.0”）。
+- **商店目录读取严格**：见 G2。v0.4.0 公开前改为宽松读取，否则 G46、G71、G72、G82 的任何目录字段都会让已部署核心失效。
 
-建议在冻结 v4 之前（G12），一次性决定上述可选字段是否进入 0.7，并在兼容政策里写明不对称的兼容规则。
+建议在冻结 v4 之前（G12），一次性决定上述可选字段是否进入 v0.4.0，并在兼容政策里写明不对称的兼容规则。
 
 ## 5. P1
 
@@ -276,17 +276,17 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
   - 在插件数据目录用 SQLite 没有先例。在线备份运行时直接复制 `data/`（`server/internal/operations/backup/archive.go:89`），WAL 模式下可能拿到不一致的快照，插件应使用 `journal_mode=DELETE` 或定期 `VACUUM INTO` 快照。
   - 依赖只进插件仓库的 go.mod，优先官方 SDK：openai-go、anthropic-sdk-go、genai。langchaingo 近一年没有发布，不推荐。
   - 不做代码执行、Computer Use 和本地 Shell（见 T10）。
-  - 排在 0.7 公开发布与游戏插件上架之后。后续阶段见 G36–G38 与 G63–G66。
+  - 排在 v0.4.0 公开发布与游戏插件上架之后。后续阶段见 G36–G38 与 G63–G66。
 
 ### G10 OneBot 入站令牌护栏
 
-- **现状**：OneBot11 入站传输的 `access_token` 默认为空，公开路由 `/api/adapters/{id}/reverse-ws` 与 `/webhook` 在令牌为空时直接放行，令牌比较用的是普通 `==`（`allowOneBotIngress`，`server/internal/management/protocol_handlers.go:136-152`）；管理面令牌已用 `hmac.Equal`（`server/internal/management/security_tokens.go:29`），改为常量时间比较可以直接沿用。Web 文案写着令牌“可留空”（`web/src/locales/zh-CN/protocols.ts:137`）。超级管理员只依据事件里的 user_id 判定，所以能访问端口的人可以伪造超级管理员指令。webhook 不需要 DNS rebinding，任意跨源 no-cors POST 都能送达。公开版 v0.3.1 默认监听 127.0.0.1，默认改为 0.0.0.0 来自未公开发布的 `ed390c77`，因此这个组合只存在于 0.5、0.7 候选中。
+- **现状**：OneBot11 入站传输的 `access_token` 默认为空，公开路由 `/api/adapters/{id}/reverse-ws` 与 `/webhook` 在令牌为空时直接放行，令牌比较用的是普通 `==`（`allowOneBotIngress`，`server/internal/management/protocol_handlers.go:136-152`）；管理面令牌已用 `hmac.Equal`（`server/internal/management/security_tokens.go:29`），改为常量时间比较可以直接沿用。Web 文案写着令牌“可留空”（`web/src/locales/zh-CN/protocols.ts:137`）。超级管理员只依据事件里的 user_id 判定，所以能访问端口的人可以伪造超级管理员指令。webhook 不需要 DNS rebinding，任意跨源 no-cors POST 都能送达。公开版 v0.3.1 默认监听 127.0.0.1，默认改为 0.0.0.0 来自未公开发布的 `ed390c77`，因此这个组合只存在于 0.3.1 之后的未公开候选中，v0.4.0 发布后将进入公开版本。
 - **竞品**：AstrBot 的 OneBot 反向 WS 默认同样是 0.0.0.0 加空令牌，TRSS 也是，RayleaBot 与它们持平；NoneBot2、Koishi、AstrBot 启动器默认只监听回环地址。同赛道的 gsuid_core 是“非回环强制令牌”的现成先例：默认只监听 localhost，非可信 IP 的连接必须带 WS_TOKEN，令牌为空即拒绝，失败会计数封禁。2025-09 的公网 OneBot 服务遭攻击事件正是服务暴露公网且未设令牌引发的。
 - **建议**：
   - 协议中心“添加连接”默认生成 32 字节随机令牌并提供复制按钮。这一步是 S 级，不涉及契约，收益最高，排在最前。
-  - 0.7 本来就要求重建、重配插件，可以直接规定：`server.host` 不是回环地址时，reverse_ws 与 webhook 必须设令牌。需要先改配置契约、错误码与 fixtures。
+  - v0.4.0 本来就要求重建、重配插件，可以直接规定：`server.host` 不是回环地址时，reverse_ws 与 webhook 必须设令牌。需要先改配置契约、错误码与 fixtures。
   - 诊断与 readyz 对无令牌入站报 degraded；令牌比较改为常量时间。
-  - 是否把桌面与 Launcher 包的默认监听改回 127.0.0.1，与章程“默认 0.0.0.0”冲突，交由维护者决定。这些都应在 0.7 发布前完成，也因此不需要为本条单独发 GHSA。
+  - 是否把桌面与 Launcher 包的默认监听改回 127.0.0.1，与章程“默认 0.0.0.0”冲突，交由维护者决定。这些都应在 v0.4.0 发布前完成，也因此不需要为本条单独发 GHSA。
 
 ### G11 插件挂起检测
 
@@ -298,18 +298,18 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 
 ### G12 插件合同稳定承诺
 
-- **现状**：插件协议从 v1（SDK v0.2.0，2026-08-04）到 v4（2026-09-14）约六周，经历四代、三次不兼容升级，每次旧插件都要用新 SDK 重新构建；`docs/plugin/lifecycle.md:76` 写明旧合同兼容执行不在正式范围内。核心 v0.4、v0.5 从未公开发布，公开用户实际只会经历一次跳变：从 v0.3.1 到 0.7.0。所以这是前瞻性风险：只要开放第三方，每次无过渡的破坏都会让外部插件全部失效，而目录只保留当前版本，也无法回退。
+- **现状**：插件协议从 v1（SDK v0.2.0，2026-08-04）到 v4（2026-09-14）约六周，经历四代、三次不兼容升级，每次旧插件都要用新 SDK 重新构建；`docs/plugin/lifecycle.md:76` 写明旧合同兼容执行不在正式范围内。0.3.1 之后以 0.4.0、0.5.0、0.7.0 编号的候选都未公开发布，公开用户实际只会经历一次跳变：从 v0.3.1 到 v0.4.0。所以这是前瞻性风险：只要开放第三方，每次无过渡的破坏都会让外部插件全部失效，而目录只保留当前版本，也无法回退。
 - **竞品**：Koishi v4 自 2022 年起保持语义化版本；NoneBot2 2.x 内基本稳定，但 2.2.0 仍要求插件更新以适配 Pydantic v2；LangBot v3→v4 时插件从约 119 个重建到 96 个，并让核心长期背负 SDK 版本固定的包袱。
-- **建议**：在 `docs/plugin/README.md` 与 `contracts/README.md` 写明：protocol v4、manifest v4 至少覆盖 0.7.x 及下一个 minor；新能力一律走可选字段加 `min_core_version` 门控，兼容规则按 4.4 节写成不对称的形式。这只需要写文档，工作量 S，应作为 0.7 公开发布的前置项。宿主同时接受 N 与 N-1 两代握手需要把单一的 `ProtocolVersion` 拆成两套 wire，属于 L，等第三方插件真正出现后再评估。
+- **建议**：在 `docs/plugin/README.md` 与 `contracts/README.md` 写明：protocol v4、manifest v4 至少覆盖 0.4.x 及下一个 minor；新能力一律走可选字段加 `min_core_version` 门控，兼容规则按 4.4 节写成不对称的形式。这只需要写文档，工作量 S，应作为 v0.4.0 公开发布的前置项。宿主同时接受 N 与 N-1 两代握手需要把单一的 `ProtocolVersion` 拆成两套 wire，属于 L，等第三方插件真正出现后再评估。
 
 ### G13 社区与可信度信号
 
-- **现状**：GitHub API（2026-10-05）显示仓库 0 star、0 fork、0 watcher，description、homepage、topics 都为空，community profile 健康度 25%（只有 README 与 LICENSE）。没有 CONTRIBUTING、Issue 模板、交流渠道（GitHub Discussions 未开启，README 没有群号），没有截图或演示。PR 模板是有意删除的（`7a88290d`）。没有 SECURITY.md，也没有开启私密漏洞报告。README 首段写“面向个人开发者和开源协作者”，与第 9 节的定位判断不一致；README 第 15 行仍写“官方页面…运行在独立插件域”，而独立插件域已在 0.7 删除。仓库只有一位作者，bus factor 为 1。
+- **现状**：GitHub API（2026-10-05）显示仓库 0 star、0 fork、0 watcher，description、homepage、topics 都为空，community profile 健康度 25%（只有 README 与 LICENSE）。没有 CONTRIBUTING、Issue 模板、交流渠道（GitHub Discussions 未开启，README 没有群号），没有截图或演示。PR 模板是有意删除的（`7a88290d`）。没有 SECURITY.md，也没有开启私密漏洞报告。README 首段写“面向个人开发者和开源协作者”，与第 9 节的定位判断不一致；README 第 15 行仍写“官方页面…运行在独立插件域”，而独立插件域已在 v0.4.0 中删除。仓库只有一位作者，bus factor 为 1。
 - **竞品**：所有同类项目都有 QQ 群，AstrBot、Koishi 另有 Discord 或论坛。SECURITY.md 在竞品中并不普及：AstrBot、LangBot、Koishi、NoneBot2、TRSS、MaiBot 都没有。
 - **建议**：
   - 零成本先做：设置仓库 description、topics、homepage。
   - 再做三件事：Issue 模板（bug 模板必填 `raylea-server version --json`，并附诊断包；诊断包做了凭据脱敏，但含最近的日志摘要，可能带聊天内容，需提示用户检查）、开启 Discussions、写 CONTRIBUTING。
-  - QQ 群等 0.7 公开发布时再开，群公告写明响应预期。
+  - QQ 群等 v0.4.0 公开发布时再开，群公告写明响应预期。
   - 开启 GitHub Private Vulnerability Reporting：只需一个开关，零成本；SECURITY.md 正文的价值次之。
   - README 加 3–4 张 1920×1080 截图，按目标用户改写首段，修正第 15 行。
   - 降低 bus factor 的最低动作：设置 GitHub 账号继承人，并写一份维护者交接清单。
@@ -420,12 +420,12 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | G24 | QQ 官方用户不能成为超级管理员 | M | AstrBot 管理员接受任意平台 ID，Koishi 有 authority 与 bind | 契约明确不授权 openid；`super_admins` 还经 init 帧下发给插件；新增并列的作用域字段，不改原字段类型；先实测 member_openid 跨群是否一致；配一个“查询我的 ID”指令 |
 | G25 | 账号离线（假在线）检测 | M | NapCat #2071 显示静默离线时不发 bot_offline | 以心跳 `status.online` 或 `get_status` 轮询为主信号、bot_offline 为辅，去抖后写入适配器快照；需要改快照状态契约 |
 | G26 | 适配器能力声明与 SDK 长消息助手 | M–L | 多数竞品的长文本处理默认关闭或只对 QQ 个人号生效 | 在 init.bots 下发能力枚举，插件按能力而非协议名分支；长消息与合并转发降级放在 Go SDK |
-| G27 | 账号级出站节流与群发错峰 | S | 主流竞品的限流都管入站，只有 HoshinoBot 一类做群发间隔 | 在 window_limiter 上按 bot 身份加令牌桶，默认值写明是经验值；与 0.7 收缩出站策略的方向相反，要在契约变更说明里写理由 |
+| G27 | 账号级出站节流与群发错峰 | S | 主流竞品的限流都管入站，只有 HoshinoBot 一类做群发间隔 | 在 window_limiter 上按 bot 身份加令牌桶，默认值写明是经验值；与 v0.4.0 收缩出站策略的方向相反，要在契约变更说明里写理由 |
 | G28 | 请求事件绕过黑名单，没有入群与加好友策略 | S（宿主） | Yunzai 开箱即有 autoFriend、autoGroup、autoQuit | 决定黑名单是否覆盖 `request.*`（语义变化，契约先行）；审批策略做进 G20 的群管插件 |
 | G29 | 指令级覆盖：权限、冷却、别名、每日次数 | M | Koishi 默认安装的 rate-limit 支持单条指令的每日上限与间隔；gsuid 可按服务改启用与权限 | 启停与权限随 G7 交付；冷却、别名、每日次数第二步；extra_aliases 要纳入冲突检测；冷却提示文案可配置 |
 | G30 | 走完整策略链路的聊天沙盒 | L | AstrBot ChatUI、Koishi 官方 sandbox、LangBot 对话调试 | 新增 source_protocol 会撞上多处只认两种协议的闭合校验；更省事的做法是 Server 内的 OneBot11 内存回环传输，或一个独立的“假 NapCat”开发工具；菜单和模板已有预览 |
 | G31 | 统计只到连接级 | M | Koishi 官方 analytics 有按指令、按频道的维度 | 新增指令与插件处理的小时桶统计，复用 dispatcher 的计数埋点；按群只记收信数并单设保留期；定时任务已有逐任务统计 |
-| G32 | 认证：会话列表与吊销、TOTP、长期 API Token | M–L | AstrBot 有 TOTP 与带 scope 的 API Key（v4.18.0 起），LangBot 有 API Key | 会话管理与选型复核 R4（哈希令牌）放进同一个迁移，0.7 公开前做成本最低；保持单管理员 |
+| G32 | 认证：会话列表与吊销、TOTP、长期 API Token | M–L | AstrBot 有 TOTP 与带 scope 的 API Key（v4.18.0 起），LangBot 有 API Key | 会话管理与选型复核 R4（哈希令牌）放进同一个迁移，v0.4.0 公开前做成本最低；保持单管理员 |
 | G33 | Web 不能重启服务；定时任务不能暂停 | S–M | AstrBot、Yunzai、gsuid 能远程重启；gsuid 能暂停任务但重启后失效 | 重启：shutdown 增加 intent=restart、退出码 3，需改三份契约与 Launcher；暂停：`scheduler_jobs.enabled` 已有，但内存侧写死 Enabled:true，upsert 也会覆盖，契约要写明管理员暂停优先 |
 | G34 | 聊天内运维动作 | M | Yunzai、gsuid 核心都有聊天运维指令 | 先做只读的 `system.status.read`（`plugin.list` 已含插件状态）；跨插件启停与更新检查放第二步，并与生命周期锁互斥 |
 | G35 | 群发通知官方插件 | S | gsuid 核心与 guoba-next 都有批量发送 | 做成官方插件，逐个目标回报 QQ 官方主动消息的失败，默认限速 |
@@ -491,7 +491,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | T2 | 个人号只押 OneBot11，不接 Milky、Satori、OneBot12 | Lagrange 已转 Milky；NapCat 仍拒绝 Milky | 维持“考虑”；把 SnowLuma 加进实现端识别与兼容矩阵（S）；NapCat 停止 OneBot11 或长期不可用时重新评估 |
 | T3 | QQ 官方只走 WebSocket | AstrBot、NoneBot2、LangBot 两种都支持；LangBot 默认 WebSocket，AstrBot 把 WebSocket 标为推荐 | 平台目前 WebSocket 与 Webhook 可切换，官方事件文档未见弃用 WebSocket 的表述；平台再次宣布弃用 WebSocket 时实施（需 ed25519 验签与回调验证） |
 | T4 | 用户标识不跨协议、不跨实例 | 插件主键含实例 id，换 bot 账号或改实例名都会丢绑定 | 不建宿主统一用户体系；插件侧提供一次性绑定码迁移 |
-| T5 | 只有 Go SDK | Python、TS 生态在插件数量上占绝对优势 | 不恢复托管运行时；写一页“非 Go 插件”；bun、deno 产物通常 70–110 MB，超出包内单文件 64 MiB 上限（`docs/plugin/lifecycle.md:74`）；一致性执行器在复核中最终为保持，重提需要新证据（如 0.7 公开数月后仍没有第三方 Go 插件） |
+| T5 | 只有 Go SDK | Python、TS 生态在插件数量上占绝对优势 | 不恢复托管运行时；写一页“非 Go 插件”；bun、deno 产物通常 70–110 MB，超出包内单文件 64 MiB 上限（`docs/plugin/lifecycle.md:74`）；一致性执行器在复核中最终为保持，重提需要新证据（如 v0.4.0 公开数月后仍没有第三方 Go 插件） |
 | T6 | 事件、命令、路由只能静态声明 | 不能运行时注册 matcher | 换来安装前冲突检测与自动帮助菜单，写进插件开发首页作为差异点 |
 | T7 | Web 不提供手机、平板与窄屏布局 | AstrBot、MaiBot 都在做移动端适配 | 维持；移动场景交给聊天运维（G34）；窄屏页与 `PRODUCT.md` 的范围冲突，需维护者先改产品范围。1080p 笔记本 125% 缩放不属于本条取舍，按 G80 纳入支持 |
 | T8 | 插件是完全可信代码，没有 OS 沙盒 | 同类中常态；子进程模型与 LangBot、MaiBot 同档，强于同进程框架 | 先改措辞（S）：`docs/architecture/README.md:84` 与安装确认文案写明子进程只隔离崩溃，插件可以读取本机全部 RayleaBot 数据与凭据；资源上限归 G57；Landlock 等文件系统限制在第三方源出现前再评估 |
@@ -520,7 +520,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | A10 | Go 单二进制，不依赖 Python、Node 或 Redis，Chromium 与 FFmpeg 自动准备 | 相对需要语言运行时与 Redis 的 Yunzai、NoneBot2、Koishi | 发布构建未设 `CGO_ENABLED=0`，Linux 包可能依赖 glibc；Docker 用户看到的差异会被稀释；没有实测前不宣传“低内存”（G56） |
 | A11 | 游戏垂类与订阅解析：genshin、starrail、zzz 按 Miao-Yunzai 写法实现命令，许可链可追溯到上游固定提交；subscription-hub 覆盖 B 站、微博、抖音的订阅推送与链接解析 | 相对 Yunzai 迁移用户 | 尚未发布、仍在验收，命令与上游存在有意差异，需附对照表；GenshinUID 的素材授权列得同样完整；链接解析少小红书、快手 |
 
-另外，桌面一键更新（下载、停服、原子替换、续接服务、不碰用户数据）与 AstrBot、Koishi 持平，领先 Yunzai、LangBot、NoneBot2，但这条链路从未被真实用户走过：v0.3.1 是另一套带签名的更新器，0.7 又尚未发布。在 0.7 到下一个补丁版的实包演练完成前，不应列为卖点。
+另外，桌面一键更新（下载、停服、原子替换、续接服务、不碰用户数据）与 AstrBot、Koishi 持平，领先 Yunzai、LangBot、NoneBot2，但这条链路从未被真实用户走过：v0.3.1 是另一套带签名的更新器，v0.4.0 又尚未发布。在 v0.4.0 到下一个补丁版的实包演练完成前，不应列为卖点。
 
 ## 9. 定位与推进顺序
 
@@ -544,8 +544,8 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 
 | 阶段 | 内容 | 说明 |
 |---|---|---|
-| 0.7 公开发布前 | G1、G2、G3、G10（默认生成令牌加非回环强制）；4.4 节的契约窗口决策（含 G82 的目录截图字段）；G12 稳定承诺；R4 会话令牌（G32 第一步）；开启私密漏洞报告；设置仓库描述与 topics；修正 README | 以 S、M 级为主，决定 0.7 能否作为可用的公开版本 |
-| 0.7 公开发布时 | G1、G2 的端到端验收 | 从公开下载入口出发，结果登记为验收记录 |
+| v0.4.0 公开发布前 | G1、G2、G3、G10（默认生成令牌加非回环强制）；4.4 节的契约窗口决策（含 G82 的目录截图字段）；G12 稳定承诺；R4 会话令牌（G32 第一步）；开启私密漏洞报告；设置仓库描述与 topics；修正 README | 以 S、M 级为主，决定 v0.4.0 能否作为可用的公开版本 |
+| v0.4.0 公开发布时 | G1、G2 的端到端验收 | 从公开下载入口出发，结果登记为验收记录 |
 | 发布后 1–2 个版本 | G4、G78、G5、G6、G7、G8、G11、G14、G15、G16、G17、G18、G21、G79 第一步、G13；游戏插件分批上架 | 降低首次部署、日常调参与排障摩擦；G78 排在 G2 之后 |
 | 其后 | G9 AI 对话 MVP、G19 Docker（单独设计）、G20 插件覆盖与 G83 推荐组合 | 补齐产品面的主要缺口 |
 | 按需 | 第 6 节其余 P2 条目，其中 G52 随 G19 推进，G23、G24 随 QQ 官方定位调整，G80 的人工验收可随下一次 Web 改版做 | — |
@@ -556,7 +556,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 |---|---|
 | OneBot11 接入面在 QQ 生态竞品中最完整 | 收窄为传输并行去重、多实例隔离、实现端识别与凭据管理领先；动作覆盖不如可调任意动作的 NoneBot2、AstrBot 和声明支持完整 OB11 加 NapCat 扩展的 ZeroBot |
 | 入站 37 种事件、43 个强类型动作 | 37 是全词表，其中 8 个宿主内部事件、4 个只属于 QQ 官方，OneBot11 实际映射 25 种；动作名闭合，但参数原样透传（`contracts/plugin-protocol.schema.json:1311-1314`） |
-| 踢人动作在 v0.4 合同重置时被删除 | 踢人从未支持过；`dc47f044` 删除的是把 kick 当“不支持动作”的反例 fixture |
+| 踢人动作在 manifest v3 合同重置时被删除 | 踢人从未支持过；`dc47f044` 删除的是把 kick 当“不支持动作”的反例 fixture |
 | QQ 官方原生 Markdown 需要日活 2000 | 原生 Markdown 已对所有机器人开放，模板 Markdown 才需申请 |
 | QQ 群 v2 没有群管接口 | 2026-08-10 新增禁言与入群审批（文档未标内邀，机器人需为群管理员）；2026-09-03 新增成员列表、批量移除与黑名单，处于内邀，未开通返回 11253 |
 | AI 风险被限制在插件进程内 | 只能主张“崩溃隔离加宿主没有 Agent 执行面”；插件没有资源上限，能读状态库里明文存放的 secret |
@@ -567,7 +567,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | game-guide 订阅名拼错导致收不到身份更新 | `bot.identities.changed` 是定向控制事件，不看订阅照常投递；拼错的订阅只是无用配置 |
 | 账号只能扫码、抽卡只能在聊天里导入、不读 PlayerData | mihoyo-accounts 已有 Cookie 与 SToken 导入，genshin、starrail 已能导入旧 PlayerData，管理页也有抽卡导入 |
 | 缺账号插件时用户不知道原因 | genshin 会明确提示“米游社账号插件未运行，请先启用并扫码登录” |
-| 合同变动让群主每次升级都集体禁用插件 | v0.4、v0.5 从未公开，公开用户只会经历一次跳变；属于前瞻性风险 |
+| 合同变动让群主每次升级都集体禁用插件 | 0.3.1 之后的候选从未公开，公开用户只会经历一次跳变；属于前瞻性风险 |
 | LangBot v3→v4 插件生态大幅缩水 | 从约 119 个重建到 96 个，降幅约两成，而且仍在增长 |
 | Koishi 的治理靠老化的社区插件 | rate-limit、dataview、sandbox、analytics、bind 都在官方模板的默认依赖中 |
 | SECURITY.md 是竞品普遍做法 | AstrBot、LangBot、Koishi、NoneBot2、TRSS、MaiBot 都没有 |
@@ -612,7 +612,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 |---|---|---|
 | R2 管理日志异步批量 | G59 | 竞品都不在消息主路径上同步持久化每条日志；用户影响缺实测，先做基准 |
 | R3 SQLite 每连接 PRAGMA | —（实现缺陷） | 核实中两个视角都认为是 S 级正确性修复，应优先做；synchronous 在新连接上没有行为差异 |
-| R4 会话令牌哈希存储 | G32 | AstrBot 同样把 jwt_secret 明文写入配置；属于纵深防御，0.7 公开前做成本最低 |
+| R4 会话令牌哈希存储 | G32 | AstrBot 同样把 jwt_secret 明文写入配置；属于纵深防御，v0.4.0 公开前做成本最低 |
 | R7 FFmpeg 不阻塞首启 | G16 | 国内群主是主力用户；后台准备需要处理插件启动时的环境变量注入 |
 | C4 诊断包加入运行时 profile | G76 | 主要竞品核心都没有指标出口 |
 | C5 WebView2 缺失提示 | G55 | 属缺陷，违反 Launcher 的“不静默失败”规则 |
@@ -629,7 +629,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | 用户文档写“OneBot11 设置包括 provider”，schema 中没有该字段（实现端由运行时自动识别） | `docs/user/configuration.md:94` |
 | 内置菜单渲染失败时日志写“已改用文字菜单回复”，实际只发送固定报错 | `server/internal/bot/menu/menu.go:133-138` |
 | `plugin.list` 判断超级管理员时没有像权限检查那样限定 `source_protocol==onebot11`，只影响可见性 | `server/internal/plugins/actions/plugin_list.go:116`；`server/internal/bot/permission/checker.go:66` |
-| README 仍写官方插件页面“运行在独立插件域”，独立插件域已在 0.7 删除 | `README.md:15`（以 HEAD 为准） |
+| README 仍写官方插件页面“运行在独立插件域”，独立插件域已在 v0.4.0 中删除 | `README.md:15`（以 HEAD 为准） |
 | 插件仓库工作流 `GO_VERSION: 1.26.6`，`sdk/go/go.mod` 要求 go 1.27.1（未实跑） | 各插件仓库 `.github/workflows/release.yml`；`sdk/go/go.mod` |
 | 脱敏规则缺 `e_hk4e_token` | `server/internal/platform/redact/sensitive_text.go` |
 | Launcher 写入的 `logs/server/` 镜像日志只做凭据脱敏、含完整聊天正文，且没有清理逻辑，不受 7 天保留期约束 | `launcher/internal/desktop/process.go:485-502`；见 G81 |
@@ -684,6 +684,6 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 
 产品没有遥测，下列指标只能靠验收记录与人工测试取得：
 - 插件可用率以 G1、G2 的发布验收记录为来源，按平台、协议与插件组合统计。
-- 0.7 公开且开通交流渠道后，邀请约 5 位目标群主做有人陪同的上手测试，记录完成情况、卡点与耗时，写明样本量；首次成功时间以 15 分钟为待验证目标，不作为承诺。
+- v0.4.0 公开且开通交流渠道后，邀请约 5 位目标群主做有人陪同的上手测试，记录完成情况、卡点与耗时，写明样本量；首次成功时间以 15 分钟为待验证目标，不作为承诺。
 - 问题定位时间用 G79 列出的故障场景做内部演练。
 - 不引入实例遥测；持续使用只看 Release 下载量、issue 与群内反馈这些弱信号。

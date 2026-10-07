@@ -515,7 +515,7 @@
 - `launcher/scripts/build-package.mjs` 的 darwin 分支手写 Info.plist 后直接 go build，没有 codesign；`release-build.yml` 的 macos-26 job 也没有签名步骤。
 - 可执行文件只有 Go 链接器签名（adhoc,linker-signed）：Info.plist 未绑定，没有 `_CodeSignature/CodeResources`，整个 bundle 未被封存。
 - `delivery-and-upgrade.md` 把 macos-arm64-full 标为 first_class。
-- `docs/user/deployment.md` 的首次安装段没有 macOS 放行步骤。延后状态其实已有记录：`docs/release/notes/v0.5.0.md:57`、`v0.7.0.md:75` 与 `docs/CHANGELOGS/v0.5.md:81` 都写明“不含 Developer ID 签名、公证或 Gatekeeper 验收”，并列为延后项。
+- `docs/user/deployment.md` 的首次安装段没有 macOS 放行步骤。延后状态其实已有记录：`docs/release/notes/v0.4.0.md` 的验证范围一节与 `docs/CHANGELOGS/v0.4.md` 的延后项都写明 macOS 包不含 Developer ID 签名、公证或 Gatekeeper 验收。
 
 **更佳方案（零成本层）**
 - 在 `docs/user/deployment.md` 写明对整个解压根执行 `xattr -dr com.apple.quarantine <解压目录>`，同时覆盖 .app 和包根的 raylea-server。
@@ -622,7 +622,7 @@
   - trigram 少于 3 个字符不匹配任何行，中文常见的两字排障词会直接返回空结果。
 - Prometheus 指标端点（考虑）：
   - 仓库在 2026-05 引入过 client_golang 与 /api/system/metrics（10b459b9）。
-  - 2026-09-14 在 v0.7 精简计划 R4 中，以“Web 与 Launcher 均未使用”为由删除（d3001d8e）。稳态使用量为零已有实证。
+  - 2026-09-14 在精简计划 R4（当时以 0.7 编号，现并入 v0.4.0）中，以“Web 与 Launcher 均未使用”为由删除（d3001d8e）。稳态使用量为零已有实证。
 
 **Server 语言与核心库**
 - xi2/xz 换 ulikunitz/xz（替换）：
