@@ -41,7 +41,7 @@
 - `error-codes.yaml`
   - 统一错误码命名、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
-  - 当前已固定的管理 HTTP 接口（契约修订 0.5.8）。
+  - 当前已固定的管理 HTTP 接口（契约修订 0.5.9）。
   - `GET /api/system/message-stats` 按小时或按天返回各机器人连接收到与发出的消息条数、连接合计与紧邻前一段等长时间的合计、最近收到时间，以及连接中断和服务未运行时段。收到在会话路由与黑白名单之前按适配器交出的群聊、私聊消息计数，发出只计平台确认接受的发送；计数按 UTC 小时持久化，按天汇总使用 `effective_timezone`，统计开始前没有数据，客户端不得补 0。
   - 诊断任务摘要必含 `interrupted`（非负整数），统计关闭或重启中断的任务；`failed` 仅统计失败，取消不计入这两类。调度 `last_error` 不包含计划取消，取消仍更新最近运行信息并计入 `stats.other`，保留已有真实错误。
   - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot、OneBot target / identity resolution、plugin lifecycle、插件商店、可信代码确认与安装、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system、scheduler、recovery、runtime bootstrap、render templates 以及更新状态与检查入口
@@ -56,11 +56,11 @@
   - `info.version` 是本文档的契约修订版本，独立于产品版本、包版本与运行时协议版本；破坏性契约变更递增 minor（0.x 阶段），兼容新增递增 patch。
   - `TaskStatusResponse.error_code` 等标注 `x-error-code-registry: contracts/error-codes.yaml` 的字段，取值必须是该目录已登记的 code；契约校验对 fixtures 与 examples 强制执行。
 - `websocket-events.yaml`
-  - 当前已固定的管理 WebSocket envelope、事件名和 payload 约束
+  - 当前已固定的管理 WebSocket envelope、频道准入、重放策略与事件名；各事件的 payload schema 定义在 `web-api.openapi.yaml` 的 components 中，由本文件引用，Web 类型随 OpenAPI 一起生成。
   - `events.received` 服务状态快照仅在 `stopping` 时携带可选 `stop_intent`；`restart` / `update` 的断线为临时中断，客户端继续重连，缺省按 `stop` 处理。
   - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`
   - `events.received` 的 `message_stats` 分支在连接收到或发出被计入的消息、连接中断开始或结束时推送，最多每 2 秒一次，只带变化时间和变化的连接，不带计数；客户端据此重新读取 `GET /api/system/message-stats`，并保留低频轮询兜底。
-  - 插件状态、诊断及命令运行态投影引用 OpenAPI 的同一 schema；命令触发器、权限级别、帮助与分组等声明字段引用 `plugin-info.schema.json` 的定义。静态 manifest 与含有效命令名的运行态投影保持各自的 required 字段。
+  - `logs.appended` 的载荷即 HTTP 日志摘要 `LogSummary`，适配器快照分支即 `AdapterDescriptor` 列表；插件状态、诊断及命令运行态投影同样引用 OpenAPI 的 schema。命令触发器、权限级别、帮助与分组等声明字段引用 `plugin-info.schema.json` 的定义。静态 manifest 与含有效命令名的运行态投影保持各自的 required 字段。
 - `plugin-info.schema.json`
   - 插件 `info.json` v4 的安装前静态校验、最低 Core 版本、事件、命令、管理页与 webhook 边界
   - 固定 `manifest_version: "4"`；运行语言、入口和目标平台由 artifact 提供
@@ -131,7 +131,7 @@
 
 ## HTTP 与 WebSocket 入口
 
-[`web-api.openapi.yaml`](./web-api.openapi.yaml) 的 `paths` 定义完整 HTTP 操作集合；[`websocket-events.yaml`](./websocket-events.yaml) 定义 WebSocket 频道、事件与载荷。
+[`web-api.openapi.yaml`](./web-api.openapi.yaml) 的 `paths` 定义完整 HTTP 操作集合；[`websocket-events.yaml`](./websocket-events.yaml) 定义 WebSocket 频道与事件，载荷 schema 引用 OpenAPI components。
 
 异步任务通过 `GET /api/system/tasks/{task_id}` 查询状态与失败码。配置应用结果和插件生命周期状态分别由对应 operation/schema 定义，README 不维护第二份完整接口列表。
 

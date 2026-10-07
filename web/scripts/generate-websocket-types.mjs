@@ -3,38 +3,15 @@ import path from 'node:path'
 import process from 'node:process'
 import YAML from 'yaml'
 
+// Payload schemas live in web-api.openapi.yaml components, so openapi-typescript emits their types.
+// This generator only adds the WebSocket transport constants and envelope types.
 const repoRoot = path.resolve(process.cwd(), '..')
 const contractPath = path.join(repoRoot, 'contracts', 'websocket-events.yaml')
+const openAPIPath = path.join(repoRoot, 'contracts', 'web-api.openapi.yaml')
 const outputPath = path.join(process.cwd(), 'src', 'types', 'websocket.generated.ts')
-const documents = new Map()
-
-async function resolveSchema(value, sourcePath, ancestors = new Set()) {
-  if (Array.isArray(value)) return Promise.all(value.map(item => resolveSchema(item, sourcePath, ancestors)))
-  if (!value || typeof value !== 'object') return value
-  if (value.$ref) {
-    const [file, fragment = ''] = value.$ref.split('#')
-    const target = path.resolve(path.dirname(sourcePath), file || path.basename(sourcePath))
-    const relative = path.relative(path.join(repoRoot, 'contracts'), target)
-    if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error(`external schema outside contracts: ${value.$ref}`)
-    const identity = `${target}#${fragment}`
-    if (ancestors.has(identity)) throw new Error(`cyclic schema reference: ${identity}`)
-    if (!documents.has(target)) documents.set(target, YAML.parse(await fs.readFile(target, 'utf8')))
-    let referred = documents.get(target)
-    for (const token of fragment.split('/').slice(1)) referred = referred?.[token.replaceAll('~1', '/').replaceAll('~0', '~')]
-    if (!referred) throw new Error(`missing schema reference: ${identity}`)
-    const resolved = await resolveSchema(referred, target, new Set([...ancestors, identity]))
-    const { $ref, ...siblings } = value
-    return { ...resolved, ...await resolveSchema(siblings, sourcePath, ancestors) }
-  }
-  return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([key, item]) => [key, await resolveSchema(item, sourcePath, ancestors)])))
-}
 
 function quote(value) {
   return `'${String(value).replaceAll("'", "\\'")}'`
-}
-
-function union(values) {
-  return values.map(quote).join(' | ')
 }
 
 function requireArray(value, label) {
@@ -44,124 +21,40 @@ function requireArray(value, label) {
   return value
 }
 
-function requireObject(value, label) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`${label} must be an object`)
-  }
-  return value
-}
-
-function enumFor(schema, label) {
-  const value = requireObject(schema, label).enum
-  return requireArray(value, `${label}.enum`)
-}
-
-function channelByPath(contract, channelPath) {
-  const channels = requireArray(contract.channels, 'channels')
-  const channel = channels.find((item) => item.path === channelPath)
-  if (!channel) {
-    throw new Error(`missing channel path: ${channelPath}`)
-  }
-  return channel
-}
-
-function eventByName(channel, eventName) {
-  const events = requireArray(channel.events, `${channel.path}.events`)
-  const event = events.find((item) => item.event === eventName)
-  if (!event) {
-    throw new Error(`missing event ${eventName} on ${channel.path}`)
-  }
-  return event
-}
-
-function payloadBranches(contract) {
-  const eventsChannel = channelByPath(contract, '/ws/events')
-  const receivedEvent = eventByName(eventsChannel, 'events.received')
-  return requireArray(
-    requireObject(receivedEvent.payload_schema, 'events.received.payload_schema').oneOf,
-    'events.received.payload_schema.oneOf',
-  )
-}
-
-function branchWithRequired(branches, requiredKey) {
-  const branch = branches.find((item) => requireArray(item.required, 'branch.required').includes(requiredKey))
-  if (!branch) {
-    throw new Error(`missing events.received branch with required key: ${requiredKey}`)
-  }
-  return branch
-}
-
-function branchProperty(branch, propertyName) {
-  return requireObject(requireObject(branch.properties, 'branch.properties')[propertyName], `branch.properties.${propertyName}`)
-}
-
 function constantKey(value) {
   return value.replace(/[._]([a-z])/g, (_, char) => char.toUpperCase())
 }
 
-function generatedTransportConstants(contract, branches) {
-  const paths = contract.channels.map(channel => {
-    const key = constantKey(channel.channel)
+function generatedSource(contract, openAPI) {
+  const channels = requireArray(contract.channels, 'channels')
+  const paths = channels.map(channel => {
     const parameters = [...channel.path.matchAll(/\{([^}]+)\}/g)].map(match => match[1])
     const value = parameters.length === 0 ? quote(channel.path)
       : `(${parameters.map(name => `${name}: string`).join(', ')}) => \`${channel.path.replace(/\{([^}]+)\}/g, (_, name) => '${encodeURIComponent(' + name + ')}')}\``
-    return `  ${key}: ${value},`
+    return `  ${constantKey(channel.channel)}: ${value},`
   })
-  const events = [...contract.channels.flatMap(channel => channel.events), ...contract.session_events]
-    .map(({ event }) => `  ${constantKey(event)}: ${quote(event)},`)
-  const knownTypes = branchProperty(branchWithRequired(branches, 'event_type'), 'event_type').examples
-  return [
-    'export const webSocketPaths = {', ...paths, '} as const', '',
-    'export const webSocketEvents = {', ...events, '} as const', '',
-    'export const managementEventTypes = {',
-    ...requireArray(knownTypes, 'event_type.examples').map(value => `  ${constantKey(value)}: ${quote(value)},`),
-    '} as const',
-  ].join('\n')
-}
-
-function generatedSource(contract) {
-  const envelope = requireObject(contract.envelope, 'envelope')
-  const envelopeProperties = requireObject(envelope.properties, 'envelope.properties')
-  const channels = enumFor(envelopeProperties.channel, 'envelope.properties.channel')
-  const branches = payloadBranches(contract)
-
-  const serviceBranch = branchWithRequired(branches, 'service_status')
-  const pluginBranch = branchWithRequired(branches, 'plugin_id')
-  const connectionBranch = branchWithRequired(branches, 'connection_status')
-  const bridgeObservabilityBranch = branchWithRequired(branches, 'result_count')
-  const dispatcherObservabilityBranch = branchWithRequired(branches, 'window_seconds')
-  branchWithRequired(branches, 'adapters')
-  const messageStatsBranch = branchWithRequired(branches, 'message_stats')
-  const messageStatsProperties = requireObject(branchProperty(messageStatsBranch, 'message_stats').properties, 'message_stats.properties')
-  requireObject(messageStatsProperties.changed_at, 'message_stats.changed_at')
-  requireObject(messageStatsProperties.adapter_ids, 'message_stats.adapter_ids')
-
-  const consoleChannel = channelByPath(contract, '/ws/plugins/{id}/console')
-  const consoleEvent = eventByName(consoleChannel, 'plugins.console')
-  const consoleProperties = requireObject(consoleEvent.payload_schema.properties, 'plugins.console.payload_schema.properties')
-
-  const serviceStatuses = enumFor(branchProperty(serviceBranch, 'service_status'), 'service_status')
-  const serviceStopIntents = enumFor(branchProperty(serviceBranch, 'stop_intent'), 'stop_intent')
-  const pluginStates = enumFor(branchProperty(pluginBranch, 'state'), 'state')
-  const connectionStatuses = enumFor(branchProperty(connectionBranch, 'connection_status'), 'connection_status')
-  const bridgeScopes = enumFor(branchProperty(bridgeObservabilityBranch, 'observability_scope'), 'bridge.observability_scope')
-  const dispatcherScopes = enumFor(branchProperty(dispatcherObservabilityBranch, 'observability_scope'), 'dispatcher.observability_scope')
-  const deliveryOutcomes = enumFor(branchProperty(bridgeObservabilityBranch, 'last_delivery_outcome'), 'last_delivery_outcome')
-  const dispatcherDropReasons = enumFor(
-    requireObject(branchProperty(dispatcherObservabilityBranch, 'drops_by_reason').items.properties.reason, 'drops_by_reason.items.properties.reason'),
-    'drops_by_reason.reason',
-  )
-  const consoleStreams = enumFor(consoleProperties.stream, 'plugins.console.stream')
+  const events = [...channels.flatMap(channel => requireArray(channel.events, `${channel.path}.events`)), ...requireArray(contract.session_events, 'session_events')]
+  const managementEventTypes = requireArray(openAPI.components?.schemas?.ManagementEvent?.properties?.event_type?.examples, 'ManagementEvent.event_type.examples')
+  const envelopeChannels = requireArray(contract.envelope?.properties?.channel?.enum, 'envelope.properties.channel.enum')
 
   return `// Generated by web/scripts/generate-websocket-types.mjs from contracts/websocket-events.yaml.
 // Do not edit this file manually.
 
 import type { components } from './generated'
 
-${generatedTransportConstants(contract, branches)}
+export const webSocketPaths = {
+${paths.join('\n')}
+} as const
 
-export type ManagementWebSocketChannel = ${union(channels)}
-export type ConnectionStatus = ${union(connectionStatuses)}
+export const webSocketEvents = {
+${events.map(({ event }) => `  ${constantKey(event)}: ${quote(event)},`).join('\n')}
+} as const
+
+export const managementEventTypes = {
+${managementEventTypes.map(value => `  ${constantKey(value)}: ${quote(value)},`).join('\n')}
+} as const
+
+export type ManagementWebSocketChannel = ${envelopeChannels.map(quote).join(' | ')}
 
 export type WebSocketErrorPayload = {
   code: string
@@ -180,99 +73,16 @@ export interface WebSocketFrame<T = Record<string, unknown>> {
 
 export interface SessionExpiredFrame {
   type: typeof webSocketEvents.sessionExpired
-  data: Record<string, never>
+  data: components['schemas']['SessionExpiredPayload']
 }
 
-export type ServiceStatusEventPayload = {
-  service_status: ${union(serviceStatuses)}
-  stop_intent?: ${union(serviceStopIntents)}
-  summary: string
-  reason?: string
-  reason_codes?: string[]
-}
-
-export type PluginStateEventPayload = {
-  plugin_id: string
-  state: ${union(pluginStates)}
-  state_diagnosis?: components['schemas']['PluginStateDiagnosis']
-  commands: components['schemas']['PluginCommandSummary'][]
-  command_conflicts: string[]
-}
-
-export type ConnectionStatusEventPayload = {
-  connection_status: ConnectionStatus
-  summary: string
-}
-
-export type GenericManagementEventPayload = {
-  event_type: string
-  summary: string
-}
-
-export type BridgeRuntimeObservabilityEventPayload = {
-  observability_scope: ${union(bridgeScopes)}
-  summary: string
-  last_supported_event_kind?: string
-  last_delivery_outcome?: ${union(deliveryOutcomes)}
-  delivered_count: number
-  result_count: number
-  error_count: number
-  adapter_dedup_drops_total?: number
-  bridge_ignored_total?: number
-  dispatcher_delivered_total?: number
-  dispatcher_dropped_total?: number
-  dispatcher_ignored_total?: number
-}
-
-export type DispatcherDropReason = ${union(dispatcherDropReasons)}
-
-export type DispatcherRuntimeDropRow = {
-  reason: DispatcherDropReason
-  plugin_id?: string
-  event_type?: string
-  count: number
-}
-
-export type DispatcherRuntimeObservabilityEventPayload = {
-  observability_scope: ${union(dispatcherScopes)}
-  window_seconds: number
-  delivered_count: number
-  dropped_count: number
-  ignored_count: number
-  drops_by_reason?: DispatcherRuntimeDropRow[]
-}
-
-export type AdaptersSnapshotEventPayload = {
-  adapters: components['schemas']['AdapterDescriptor'][]
-}
-
-export type MessageStatsChangedEventPayload = {
-  message_stats: {
-    changed_at: string
-    adapter_ids: string[]
-  }
-}
-
-export type EventsPayload =
-  | ServiceStatusEventPayload
-  | PluginStateEventPayload
-  | ConnectionStatusEventPayload
-  | GenericManagementEventPayload
-  | BridgeRuntimeObservabilityEventPayload
-  | DispatcherRuntimeObservabilityEventPayload
-  | AdaptersSnapshotEventPayload
-  | MessageStatsChangedEventPayload
-
-export type PluginConsoleFrameData = {
-  plugin_id: string
-  stream: ${union(consoleStreams)}
-  text: string
-  timestamp: string
-}
+export type ConnectionStatus = components['schemas']['ConnectionStatusEvent']['connection_status']
+export type ServiceStatusEventPayload = components['schemas']['ServiceStatusEvent']
+export type EventsPayload = components['schemas']['EventsReceivedPayload']
+export type PluginConsoleFrameData = components['schemas']['PluginConsoleFrame']
 `
 }
 
-const contractText = await fs.readFile(contractPath, 'utf8')
-const contract = YAML.parse(contractText)
-documents.set(contractPath, contract)
-await fs.writeFile(outputPath, generatedSource(await resolveSchema(contract, contractPath)), 'utf8')
+const contract = YAML.parse(await fs.readFile(contractPath, 'utf8'))
+const openAPI = YAML.parse(await fs.readFile(openAPIPath, 'utf8'))
+await fs.writeFile(outputPath, generatedSource(contract, openAPI), 'utf8')

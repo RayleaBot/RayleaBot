@@ -1571,7 +1571,10 @@ export interface components {
         LogScope: "history" | "current_session";
         LogSummaryFields: {
             log_id: string;
-            /** @description Log creation instant in UTC RFC3339 with a Z suffix and nine fractional second digits. Readers accept historical RFC3339 offsets and variable fractional precision. Source event time, when present, remains a separate detail field; management display and date filters use effective_timezone. */
+            /**
+             * Format: date-time
+             * @description Log creation instant in UTC RFC3339 with a Z suffix and nine fractional second digits. Readers accept historical RFC3339 offsets and variable fractional precision. Source event time, when present, remains a separate detail field; management display and date filters use effective_timezone.
+             */
             timestamp: string;
             level: components["schemas"]["LogLevel"];
             source: string;
@@ -2150,6 +2153,112 @@ export interface components {
         WebhookAcceptedResponse: {
             accepted: boolean;
         };
+        /** @description /ws/events 推送的管理面摘要事件载荷，恰好满足以下一个分支。它不是原始聊天事件广播， 也不用作协议事件的通用重放流。 */
+        EventsReceivedPayload: components["schemas"]["ServiceStatusEvent"] | components["schemas"]["PluginStateEvent"] | components["schemas"]["ConnectionStatusEvent"] | components["schemas"]["ManagementEvent"] | components["schemas"]["AdaptersSnapshotEvent"] | components["schemas"]["MessageStatsChangedEvent"] | components["schemas"]["BridgeRuntimeObservabilityEvent"] | components["schemas"]["DispatcherRuntimeObservabilityEvent"];
+        /** @description 新订阅收到当前服务快照；后续在 service_status、stop_intent、summary、reason、reason_codes 或 readiness checks 的内容与上次广播不同时推送。 checks 不包含在载荷中，因此检查变化时可能推送相同载荷；时间戳不参与比较。 通过 Launcher、管理 API 或操作系统信号开始优雅关闭时，服务立即发布 service_status 为 stopping 的快照。 stop_intent 仅在 stopping 时携带，值为 stop、restart 或 update；首个优雅关闭请求确定该值，后续请求不覆盖。 /api/system/shutdown 和操作系统信号固定为 stop，Launcher 请求省略 intent 时也为 stop。 summary 面向读者，分别为“服务正在停止”、“服务正在重启”或“服务正在安装更新”。客户端按 stop_intent 分支，不解析 summary 或 reason。 服务关闭事件连接前，为已有订阅者写出该快照提供共享的最多 1 秒等待窗口；全部写出或断开后立即继续关闭，不逐连接累加等待时间。 连接不可写、等待超时或进程被强制终止时不保证送达；客户端收到 stopping 后应将随后的断线视为预期停止，不等待 stopped 帧。 restart 或 update 表示预期的临时断线，客户端继续重连；stop 或缺少 stop_intent 时按停止处理。 */
+        ServiceStatusEvent: {
+            /** @enum {string} */
+            service_status: "setup_required" | "stopped" | "starting" | "running" | "degraded" | "stopping" | "failed";
+            /** @enum {string} */
+            stop_intent?: "stop" | "restart" | "update";
+            summary: string;
+            reason?: string;
+            reason_codes?: string[];
+        };
+        PluginStateEvent: {
+            plugin_id: string;
+            state: components["schemas"]["PluginState"];
+            state_diagnosis?: components["schemas"]["PluginStateDiagnosis"];
+            commands: components["schemas"]["PluginCommandSummary"][];
+            command_conflicts: string[];
+        };
+        ConnectionStatusEvent: {
+            /** @enum {string} */
+            connection_status: "disconnected" | "connecting" | "connected" | "authenticated" | "auth_failed" | "reconnecting";
+            summary: string;
+        };
+        ManagementEvent: {
+            /**
+             * @description Generic management event type. Unrecognized types remain displayable without triggering domain refresh.
+             * @example governance.changed
+             */
+            event_type: string;
+            summary: string;
+        };
+        /**
+         * @description 已配置适配器实例的状态快照。任一实例的连接状态变化时推送，
+         *     与 GET /api/adapters 的 adapters 字段同形，管理面据此更新
+         *     适配器列表与该实例传输明细。按配置顺序排列，无实例时为 []。
+         */
+        AdaptersSnapshotEvent: {
+            adapters: components["schemas"]["AdapterDescriptor"][];
+        };
+        /** @description 消息统计有变化时推送：连接收到或发出被计入的消息，或连接中断开始、结束。 同一服务最多每 2 秒推送一次，变化后 2 秒内送出，没有变化时不推送；载荷不携带计数， 客户端据此重新读取 GET /api/system/message-stats。慢连接上的推送可能被较新的事件替换， 客户端仍按低频轮询兜底。 */
+        MessageStatsChangedEvent: {
+            message_stats: {
+                /**
+                 * Format: date-time
+                 * @description 服务端合并本批变化的时间（UTC）。
+                 */
+                changed_at: string;
+                /** @description 计数或中断状态有变化的连接，按 adapter_id 升序。 */
+                adapter_ids: string[];
+            };
+        };
+        BridgeRuntimeObservabilityEvent: {
+            /** @enum {string} */
+            observability_scope: "bridge_runtime";
+            /** @description Aggregate-only bridge/runtime observability summary. This summary must not include raw message content, protocol payload fragments, request identifiers, sender identifiers, or conversation identifiers. */
+            summary: string;
+            last_supported_event_kind?: string;
+            /** @enum {string} */
+            last_delivery_outcome?: "delivered" | "error";
+            delivered_count: number;
+            result_count: number;
+            error_count: number;
+            /** @description Aggregate count of inbound events the adapter dropped as duplicates of a recently observed event id. Counts within the adapter dedup retention window. */
+            adapter_dedup_drops_total?: number;
+            /** @description Aggregate count of events the bridge accepted but found no interested plugin runtime to deliver to. */
+            bridge_ignored_total?: number;
+            /** @description Cross-layer view of dispatcher delivered outcomes counted against the bridge runtime window. Same source as the dispatcher_runtime observability scope. */
+            dispatcher_delivered_total?: number;
+            /** @description Cross-layer view of dispatcher dropped outcomes (queue full, plugin not running, etc.) counted against the bridge runtime window. */
+            dispatcher_dropped_total?: number;
+            /** @description Cross-layer view of dispatcher ignored outcomes counted against the bridge runtime window. */
+            dispatcher_ignored_total?: number;
+        };
+        DispatcherRuntimeObservabilityEvent: {
+            /** @enum {string} */
+            observability_scope: "dispatcher_runtime";
+            /** @description Length of the rolling window covered by this aggregate snapshot. The dispatcher flushes summary snapshots at the end of each window. */
+            window_seconds: number;
+            delivered_count: number;
+            dropped_count: number;
+            ignored_count: number;
+            /** @description Per-reason aggregation of dispatcher drops within the window. plugin_id and event_type may be omitted when the drop reason is not bound to a specific plugin or event type. */
+            drops_by_reason?: components["schemas"]["DispatcherRuntimeDropRow"][];
+        };
+        DispatcherRuntimeDropRow: {
+            /** @enum {string} */
+            reason: "queue_full" | "plugin_not_running" | "unsubscribed" | "runtime_unavailable";
+            plugin_id?: string;
+            event_type?: string;
+            count: number;
+        };
+        /** @description A single plugin console frame pushed on /ws/plugins/{id}/console after platform-side redaction and rate limiting. */
+        PluginConsoleFrame: {
+            plugin_id: string;
+            /** @enum {string} */
+            stream: "stdout" | "stderr" | "system";
+            text: string;
+            /**
+             * Format: date-time
+             * @description UTC collection instant with a Z suffix and nine fractional second digits. Any source timestamp embedded in text remains unchanged.
+             */
+            timestamp: string;
+        };
+        /** @description Empty payload of the channel-agnostic session_expired WebSocket event. */
+        SessionExpiredPayload: Record<string, never>;
         onebotWsTransport: {
             /** @default false */
             enabled: boolean;
