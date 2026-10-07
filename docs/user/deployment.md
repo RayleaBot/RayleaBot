@@ -9,7 +9,7 @@
 | `windows-x64-full` | `RayleaLauncher.exe` | Launcher 一键更新 |
 | `linux-x64-full` | `RayleaLauncher` | Launcher 一键更新 |
 | `macos-arm64-full` | `RayleaLauncher.app` | Launcher 一键更新 |
-| `linux-x64-server` | `raylea-server` | 停服后执行 `raylea-server update apply` |
+| `linux-x64-server` | `raylea-server` | 先执行 `raylea-server update download`，停服后执行 `raylea-server update apply` |
 
 GitHub 自动生成的源代码压缩包不是正式运行时产物。
 

@@ -205,7 +205,7 @@ commands:
           通过 cache/update/operation.lock 串行化准备与安装，原子写入 cache/update/prepared.json，
           固定版本、产物、归档与暂存目录。归档大小、CRC/gzip、build_info 均须通过检查。
           已完成的同目标准备可以复用。支持 --file <archive> 从本地正式发布包准备，完全不联网。
-          不校验摘要或签名；公共加速服务属于用户配置的受信分发路径。
+          不校验摘要或签名；配置中的加速服务与镜像（含默认启用的公共加速服务）均视为受信分发路径。
         options:
           --file:
             type: string
