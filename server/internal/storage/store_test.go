@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
 )
@@ -217,8 +218,16 @@ func TestCreateSnapshotUsesValidSQLiteFileAndRetainsThree(t *testing.T) {
 	store := mustOpenStore(t, databasePath)
 	defer func(release func() error) { _ = release() }(store.Close)
 
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	writeConn, err := store.Write.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = writeConn.Close() }()
+
 	for i := 0; i < 5; i++ {
-		snapshotPath, err := store.CreateSnapshot(context.Background())
+		snapshotPath, err := CreateSnapshot(ctx, databasePath)
 		if err != nil {
 			t.Fatalf("create snapshot %d: %v", i, err)
 		}

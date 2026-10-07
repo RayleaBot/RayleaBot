@@ -3,7 +3,6 @@ package system
 import (
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 
 	backupsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/backup"
@@ -44,7 +43,7 @@ func (s *Service) createBackupArchive(ctx context.Context, progress tasks.Progre
 		ConfigPath:     s.summary().ConfigPath,
 		DatabasePath:   databasePath,
 		Consistency:    "online",
-		CreateSnapshot: s.createDatabaseSnapshot,
+		CreateSnapshot: storage.CreateSnapshot,
 		Progress:       progress.Update,
 	})
 	if err != nil {
@@ -54,14 +53,4 @@ func (s *Service) createBackupArchive(ctx context.Context, progress tasks.Progre
 		return "", &tasks.TaskError{Code: errorcodes.PluginInternalError, Message: "创建在线备份失败"}
 	}
 	return result.ArchivePath, nil
-}
-
-func (s *Service) createDatabaseSnapshot(ctx context.Context, databasePath string) (string, error) {
-	if _, err := os.Stat(databasePath); err != nil {
-		return "", err
-	}
-	if s != nil && s.storage != nil && filepath.Clean(s.storage.Path) == filepath.Clean(databasePath) {
-		return s.storage.CreateSnapshot(ctx)
-	}
-	return storage.CreateSnapshot(ctx, databasePath)
 }

@@ -49,13 +49,6 @@ func CreateSnapshot(ctx context.Context, databasePath string) (string, error) {
 	return createSnapshot(ctx, db, databasePath, defaultSnapshotRetention)
 }
 
-func (s *Store) CreateSnapshot(ctx context.Context) (string, error) {
-	if s.Write == nil {
-		return "", fmt.Errorf("sqlite store is required")
-	}
-	return createSnapshot(ctx, s.Write, s.Path, defaultSnapshotRetention)
-}
-
 // RunSnapshotLoop runs until cancellation. Its owner must wait for it before
 // closing store so that an in-flight snapshot can release the database handles.
 func RunSnapshotLoop(ctx context.Context, store *Store, logger *slog.Logger, repoRoot string) {
@@ -86,7 +79,7 @@ func CreateSnapshotBestEffort(parent context.Context, store *Store, logger *slog
 	ctx, cancel := context.WithTimeout(parent, 5*time.Minute)
 	defer cancel()
 
-	path, err := store.CreateSnapshot(ctx)
+	path, err := CreateSnapshot(ctx, store.Path)
 	if err != nil {
 		if logger != nil {
 			safeErr := logpath.Error(repoRoot, err, store.Path, SnapshotDirForDatabase(store.Path))

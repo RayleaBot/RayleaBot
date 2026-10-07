@@ -35,7 +35,7 @@ func TestCreateBuildsSchemaValidArchiveWithPluginBusinessData(t *testing.T) {
 		ConfigPath:     configPath,
 		DatabasePath:   databasePath,
 		Consistency:    "online",
-		CreateSnapshot: func(ctx context.Context, _ string) (string, error) { return store.CreateSnapshot(ctx) },
+		CreateSnapshot: storage.CreateSnapshot,
 		Now:            func() time.Time { return time.Date(2026, 8, 23, 8, 0, 0, 0, time.UTC) },
 	})
 	if err != nil {

@@ -120,7 +120,7 @@ func TestKVExpirySurvivesReopenAndSnapshotRestore(t *testing.T) {
 	if _, err := repo.SetWithOptions(t.Context(), "p", "k", 1, KVLimits{}, KVSetOptions{TTLSeconds: 1}); err != nil {
 		t.Fatal(err)
 	}
-	snapshot, err := store.CreateSnapshot(t.Context())
+	snapshot, err := corestore.CreateSnapshot(t.Context(), store.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
