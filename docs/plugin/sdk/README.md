@@ -159,6 +159,8 @@ plugin-example/
 
 官方插件 UI 与 `@rayleabot/plugin-ui` 使用 Vue 3、TypeScript、Vite 和 `base: "./"`。所有页面共用 `management_ui.entry`，页面不能获取已保存 secret 明文。
 
+`@rayleabot/plugin-ui` 不发布到 npm。独立插件仓库在 `.rayleabot-sdk-ref` 记录主仓库的提交或 SDK 标签，CI 检出该版本，把 `sdk/vue` 复制到 `.rayleabot/sdk/vue`，UI 的 `package.json` 以 `link:../.rayleabot/sdk/vue` 引用；Go 后端的 `go.mod` 使用同一版本的 `sdk/go`。UI 的 `tsconfig.json` 把 `vue` 映射到 UI 自身的 `node_modules/vue`，Vite 配置 `resolve.dedupe: ["vue"]`，这样不必安装 SDK 目录的依赖，构建产物也只含一份 Vue。官方插件的发布工作流即按此方式构建。
+
 ## 本地联调
 
 `plugin-workspace.local.json`（workspace v2）连接本地插件仓库，插件 ID 从各仓库 `info.json` 推导；非 Go 项目以 `dist/native/<platform>/<plugin-id>[.exe]` 作为预构建原生入口。工作区模式、同步方式与监听规则见[插件商店与独立开发](../store-and-development.md)。
