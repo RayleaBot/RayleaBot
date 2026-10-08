@@ -523,18 +523,20 @@ func TestInstallServiceRejectsFullQueueBeforeTaskCreation(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
-	service.SetAfterSuccess(func(ctx context.Context, _ string) error {
+	t.Cleanup(func() {
+		close(release)
+		if err := service.Close(); err != nil {
+			t.Errorf("close install service: %v", err)
+		}
+	})
+	service.SetAfterSuccess(func(_ context.Context, _ string) error {
 		select {
 		case <-started:
 		default:
 			close(started)
 		}
-		select {
-		case <-release:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+		<-release
+		return nil
 	})
 
 	request := plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir}
@@ -553,10 +555,6 @@ func TestInstallServiceRejectsFullQueueBeforeTaskCreation(t *testing.T) {
 	}
 	if after := len(registry.List()); after != before {
 		t.Fatalf("queue-full install created a task: before=%d after=%d", before, after)
-	}
-	close(release)
-	if err := service.Close(); err != nil {
-		t.Fatalf("close install service: %v", err)
 	}
 }
 

@@ -8,39 +8,48 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
 func TestSessionEndsWithOwningProcessOrDeadline(t *testing.T) {
 	for _, end := range []string{"process", "deadline"} {
 		t.Run(end, func(t *testing.T) {
-			manager := newTestManager(t, Options{SessionTTL: 40 * time.Millisecond})
-			owner := make(chan struct{})
-			requestCtx, cancel := context.WithCancel(context.Background())
-			info, err := manager.Launch(requestCtx, "fixture", LaunchRequest{Profile: "login", Mode: ModeRemoteCDP, RemoteDebuggingURL: "ws://127.0.0.1/devtools/browser/fixture", OwnerDone: owner})
-			if err != nil {
-				t.Fatal(err)
-			}
-			manager.mu.Lock()
-			entry := manager.sessions[info.ID]
-			manager.mu.Unlock()
-			cancel()
-			select {
-			case <-entry.done:
-				t.Fatal("resource ended with its event")
-			default:
-			}
-			if end == "process" {
-				close(owner)
-			}
-			select {
-			case <-entry.done:
-			case <-time.After(time.Second):
-				t.Fatal("resource outlived its owner or deadline")
-			}
-			if closed, err := manager.Close("fixture", info.ID); closed || err != nil {
-				t.Fatal("expired session remained registered")
-			}
+			synctest.Test(t, func(t *testing.T) {
+				const ttl = 40 * time.Millisecond
+				manager := newTestManager(t, Options{SessionTTL: ttl})
+				owner := make(chan struct{})
+				requestCtx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				info, err := manager.Launch(requestCtx, "fixture", LaunchRequest{Profile: "login", Mode: ModeRemoteCDP, RemoteDebuggingURL: "ws://127.0.0.1/devtools/browser/fixture", OwnerDone: owner})
+				if err != nil {
+					t.Fatal(err)
+				}
+				manager.mu.Lock()
+				entry := manager.sessions[info.ID]
+				manager.mu.Unlock()
+				cancel()
+				synctest.Wait()
+				select {
+				case <-entry.done:
+					t.Fatal("resource ended with its event")
+				default:
+				}
+				if end == "process" {
+					close(owner)
+				} else {
+					time.Sleep(ttl)
+				}
+				synctest.Wait()
+				select {
+				case <-entry.done:
+				default:
+					t.Fatal("resource outlived its owner or deadline")
+				}
+				if closed, err := manager.Close("fixture", info.ID); closed || err != nil {
+					t.Fatal("expired session remained registered")
+				}
+			})
 		})
 	}
 }
