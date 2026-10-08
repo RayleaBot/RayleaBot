@@ -28,3 +28,4 @@ overrides:
   js-yaml: 4.2.0
   picomatch: 4.0.5
   postcss: 8.5.26
+  source-map-js: 1.2.2

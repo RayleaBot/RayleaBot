@@ -54,15 +54,15 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:launcher | @tanstack/virtual-core | 3.17.11 | MIT |
 | npm:launcher | @tanstack/vue-virtual | 3.13.39 | MIT |
 | npm:launcher | @types/web-bluetooth | 0.0.21 | MIT |
-| npm:launcher | @vue/compiler-core | 3.5.41 | MIT |
-| npm:launcher | @vue/compiler-dom | 3.5.41 | MIT |
-| npm:launcher | @vue/compiler-sfc | 3.5.41 | MIT |
-| npm:launcher | @vue/compiler-ssr | 3.5.41 | MIT |
-| npm:launcher | @vue/reactivity | 3.5.41 | MIT |
-| npm:launcher | @vue/runtime-core | 3.5.41 | MIT |
-| npm:launcher | @vue/runtime-dom | 3.5.41 | MIT |
-| npm:launcher | @vue/server-renderer | 3.5.41 | MIT |
-| npm:launcher | @vue/shared | 3.5.41 | MIT |
+| npm:launcher | @vue/compiler-core | 3.5.43 | MIT |
+| npm:launcher | @vue/compiler-dom | 3.5.43 | MIT |
+| npm:launcher | @vue/compiler-sfc | 3.5.43 | MIT |
+| npm:launcher | @vue/compiler-ssr | 3.5.43 | MIT |
+| npm:launcher | @vue/reactivity | 3.5.43 | MIT |
+| npm:launcher | @vue/runtime-core | 3.5.43 | MIT |
+| npm:launcher | @vue/runtime-dom | 3.5.43 | MIT |
+| npm:launcher | @vue/server-renderer | 3.5.43 | MIT |
+| npm:launcher | @vue/shared | 3.5.43 | MIT |
 | npm:launcher | @vueuse/core | 14.4.0 | MIT |
 | npm:launcher | @vueuse/metadata | 14.4.0 | MIT |
 | npm:launcher | @vueuse/shared | 14.4.0 | MIT |
@@ -78,15 +78,15 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:launcher | motion-dom | 13.5.1 | MIT |
 | npm:launcher | motion-utils | 13.5.0 | MIT |
 | npm:launcher | motion-v | 2.4.2 | MIT |
-| npm:launcher | nanoid | 3.3.18 | MIT |
+| npm:launcher | nanoid | 3.3.20 | MIT |
 | npm:launcher | ohash | 2.0.12 | MIT |
 | npm:launcher | picocolors | 1.1.1 | ISC |
-| npm:launcher | postcss | 8.5.26 | MIT |
+| npm:launcher | postcss | 8.5.29 | MIT |
 | npm:launcher | reka-ui | 2.10.4 | MIT |
-| npm:launcher | source-map-js | 1.2.1 | BSD-3-Clause |
+| npm:launcher | source-map-js | 1.2.2 | BSD-3-Clause |
 | npm:launcher | tslib | 2.8.1 | 0BSD |
 | npm:launcher | typescript | 5.9.3 | Apache-2.0 |
-| npm:launcher | vue | 3.5.41 | MIT |
+| npm:launcher | vue | 3.5.43 | MIT |
 | npm:launcher | vue-demi | 0.14.10 | MIT |
 | npm:web | @babel/generator | 8.0.0 | MIT |
 | npm:web | @babel/helper-string-parser | 7.29.7 | MIT |
@@ -139,19 +139,19 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | @types/node | 26.2.0 | MIT |
 | npm:web | @types/web-bluetooth | 0.0.21 | MIT |
 | npm:web | @vue-macros/common | 3.1.4 | MIT |
-| npm:web | @vue/compiler-core | 3.5.41 | MIT |
-| npm:web | @vue/compiler-dom | 3.5.41 | MIT |
-| npm:web | @vue/compiler-sfc | 3.5.41 | MIT |
-| npm:web | @vue/compiler-ssr | 3.5.41 | MIT |
+| npm:web | @vue/compiler-core | 3.5.43 | MIT |
+| npm:web | @vue/compiler-dom | 3.5.43 | MIT |
+| npm:web | @vue/compiler-sfc | 3.5.43 | MIT |
+| npm:web | @vue/compiler-ssr | 3.5.43 | MIT |
 | npm:web | @vue/devtools-api | 6.6.4 | MIT |
 | npm:web | @vue/devtools-api | 8.2.1 | MIT |
 | npm:web | @vue/devtools-kit | 8.2.1 | MIT |
 | npm:web | @vue/devtools-shared | 8.2.1 | MIT |
-| npm:web | @vue/reactivity | 3.5.41 | MIT |
-| npm:web | @vue/runtime-core | 3.5.41 | MIT |
-| npm:web | @vue/runtime-dom | 3.5.41 | MIT |
-| npm:web | @vue/server-renderer | 3.5.41 | MIT |
-| npm:web | @vue/shared | 3.5.41 | MIT |
+| npm:web | @vue/reactivity | 3.5.43 | MIT |
+| npm:web | @vue/runtime-core | 3.5.43 | MIT |
+| npm:web | @vue/runtime-dom | 3.5.43 | MIT |
+| npm:web | @vue/server-renderer | 3.5.43 | MIT |
+| npm:web | @vue/shared | 3.5.43 | MIT |
 | npm:web | @vueuse/core | 14.4.0 | MIT |
 | npm:web | @vueuse/metadata | 14.4.0 | MIT |
 | npm:web | @vueuse/shared | 14.4.0 | MIT |
@@ -217,7 +217,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | rolldown | 1.2.4 | MIT |
 | npm:web | sass | 1.102.0 | MIT |
 | npm:web | scule | 1.3.0 | MIT |
-| npm:web | source-map-js | 1.2.1 | BSD-3-Clause |
+| npm:web | source-map-js | 1.2.2 | BSD-3-Clause |
 | npm:web | tailwind-merge | 3.6.0 | MIT |
 | npm:web | tinyglobby | 0.2.17 | MIT |
 | npm:web | tslib | 2.8.1 | 0BSD |
@@ -227,7 +227,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | unplugin | 3.3.0 | MIT |
 | npm:web | unplugin-utils | 0.3.2 | MIT |
 | npm:web | vite | 8.2.1 | MIT |
-| npm:web | vue | 3.5.41 | MIT |
+| npm:web | vue | 3.5.43 | MIT |
 | npm:web | vue-demi | 0.14.10 | MIT |
 | npm:web | vue-i18n | 11.4.8 | MIT |
 | npm:web | vue-router | 5.2.0 | MIT |
@@ -1481,7 +1481,7 @@ Applies to: modernc.org/sqlite@v1.56.0
 
 ### BSD-3-Clause (72c401e38a54)
 
-Applies to: source-map-js@1.2.1, source-map-js@1.2.1
+Applies to: source-map-js@1.2.2, source-map-js@1.2.2
 
     [LICENSE]
     Copyright (c) 2009-2011, Mozilla Foundation and contributors
@@ -2810,7 +2810,7 @@ Applies to: quansync@0.2.11
 
 ### MIT (73bdbf9cf49a)
 
-Applies to: @vue/compiler-core@3.5.41, @vue/compiler-dom@3.5.41, @vue/compiler-sfc@3.5.41, @vue/compiler-ssr@3.5.41, @vue/reactivity@3.5.41, @vue/runtime-core@3.5.41, @vue/runtime-dom@3.5.41, @vue/server-renderer@3.5.41, @vue/shared@3.5.41, vue@3.5.41, @vue/compiler-core@3.5.41, @vue/compiler-dom@3.5.41, @vue/compiler-sfc@3.5.41, @vue/compiler-ssr@3.5.41, @vue/reactivity@3.5.41, @vue/runtime-core@3.5.41, @vue/runtime-dom@3.5.41, @vue/server-renderer@3.5.41, @vue/shared@3.5.41, vue@3.5.41
+Applies to: @vue/compiler-core@3.5.43, @vue/compiler-dom@3.5.43, @vue/compiler-sfc@3.5.43, @vue/compiler-ssr@3.5.43, @vue/reactivity@3.5.43, @vue/runtime-core@3.5.43, @vue/runtime-dom@3.5.43, @vue/server-renderer@3.5.43, @vue/shared@3.5.43, vue@3.5.43, @vue/compiler-core@3.5.43, @vue/compiler-dom@3.5.43, @vue/compiler-sfc@3.5.43, @vue/compiler-ssr@3.5.43, @vue/reactivity@3.5.43, @vue/runtime-core@3.5.43, @vue/runtime-dom@3.5.43, @vue/server-renderer@3.5.43, @vue/shared@3.5.43, vue@3.5.43
 
     [LICENSE]
     The MIT License (MIT)
@@ -6618,7 +6618,7 @@ Applies to: github.com/adrg/xdg@v0.5.3
 
 ### MIT (e3e7a8bea646)
 
-Applies to: nanoid@3.3.18, nanoid@3.3.18
+Applies to: nanoid@3.3.20, nanoid@3.3.18
 
     [LICENSE]
     The MIT License (MIT)
@@ -6671,7 +6671,7 @@ Applies to: tailwind-merge@3.6.0
 
 ### MIT (e72c7ab85e59)
 
-Applies to: postcss@8.5.26, postcss@8.5.26
+Applies to: postcss@8.5.29, postcss@8.5.26
 
     [LICENSE]
     The MIT License (MIT)
