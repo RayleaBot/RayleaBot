@@ -424,8 +424,9 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) (_ []byte, re
 	}
 	actions = append(actions, inPhase("page_load", chromedp.Poll("document.readyState === 'complete'", nil, chromedp.WithPollingInterval(10*time.Millisecond))))
 	actions = append(actions, inPhase("local_assets", chromedp.Evaluate(waitForLocalAssetsExpression, nil, awaitPromise)))
+	var layout chromedp.Tasks
 	if doc.FitWidth {
-		actions = append(actions,
+		layout = append(layout,
 			inPhase("layout", chromedp.Evaluate(fitDocumentWidthExpression, &measuredWidth)),
 			chromedp.ActionFunc(func(ctx context.Context) error {
 				width := min(max(int(math.Ceil(measuredWidth)), 1), doc.Width)
@@ -438,7 +439,7 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) (_ []byte, re
 		)
 	}
 	if doc.AutoHeight {
-		actions = append(actions,
+		layout = append(layout,
 			inPhase("layout", chromedp.Evaluate(adaptiveDocumentHeightExpression, &measuredHeight)),
 			chromedp.ActionFunc(func(ctx context.Context) error {
 				nextHeight := int64(math.Ceil(measuredHeight))
@@ -455,7 +456,13 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) (_ []byte, re
 	actions = append(actions, chromedp.ActionFunc(func(ctx context.Context) error {
 		phase = "capture"
 		var err error
-		content, err = r.captureScreenshot(ctx, doc.Output)
+		content, err = r.captureScreenshot(ctx, doc.Output, chromedp.ActionFunc(func(ctx context.Context) error {
+			if err := layout.Do(ctx); err != nil {
+				return err
+			}
+			phase = "capture"
+			return nil
+		}))
 		return err
 	}))
 
@@ -468,9 +475,9 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) (_ []byte, re
 	return content, nil
 }
 
-func (r *chromiumRunner) captureScreenshot(ctx context.Context, output string) ([]byte, error) {
-	// Hidden tabs can stall surface capture even with focus emulation. Keep
-	// activation and capture together while other tabs load assets in parallel.
+func (r *chromiumRunner) captureScreenshot(ctx context.Context, output string, layout ...chromedp.Action) ([]byte, error) {
+	// Hold activation through layout and capture so another capture cannot
+	// background this page during viewport updates. Assets still load in parallel.
 	select {
 	case r.captureGate <- struct{}{}:
 	case <-ctx.Done():
@@ -481,6 +488,9 @@ func (r *chromiumRunner) captureScreenshot(ctx context.Context, output string) (
 		return nil, err
 	}
 	if err := page.BringToFront().Do(ctx); err != nil {
+		return nil, err
+	}
+	if err := chromedp.Tasks(layout).Do(ctx); err != nil {
 		return nil, err
 	}
 	params := page.CaptureScreenshot()

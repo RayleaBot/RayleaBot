@@ -10,7 +10,81 @@ import (
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/chromedp"
 )
+
+func TestChromiumLayoutRetainsActiveTargetUntilCapture(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		runner := NewChromiumRunner(ChromiumOptions{})
+		active := 0
+		layoutStarted := make(chan struct{})
+		releaseLayout := make(chan struct{})
+		finished := make(chan error, 2)
+		for id := 1; id <= 2; id++ {
+			ctx := cdp.WithExecutor(t.Context(), captureExecutorFunc(func(ctx context.Context, method string, params, result any) error {
+				if method == page.CommandBringToFront {
+					active = id
+				}
+				if method == page.CommandCaptureScreenshot && active != id {
+					t.Errorf("tab %d captured while tab %d was active", id, active)
+				}
+				return successfulCaptureExecutor(ctx, method, params, result)
+			}))
+			go func() {
+				_, err := runner.captureScreenshot(ctx, "png", chromedp.ActionFunc(func(context.Context) error {
+					if active != id {
+						t.Errorf("tab %d laid out while tab %d was active", id, active)
+					}
+					if id == 1 {
+						close(layoutStarted)
+						<-releaseLayout
+						if active != id {
+							t.Errorf("tab %d lost focus during layout to tab %d", id, active)
+						}
+					}
+					return nil
+				}))
+				finished <- err
+			}()
+			if id == 1 {
+				<-layoutStarted
+			}
+		}
+		synctest.Wait()
+		if active != 1 {
+			t.Error("another tab interrupted the pending layout")
+		}
+		close(releaseLayout)
+		for range 2 {
+			if err := <-finished; err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+}
+
+func TestChromiumLayoutFailureReleasesCaptureSlot(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		runner := NewChromiumRunner(ChromiumOptions{})
+		failure := errors.New("layout failed")
+		ctx := cdp.WithExecutor(t.Context(), captureExecutorFunc(func(ctx context.Context, method string, params, result any) error {
+			if method == page.CommandCaptureScreenshot {
+				t.Error("captured an incomplete layout")
+			}
+			return successfulCaptureExecutor(ctx, method, params, result)
+		}))
+		_, err := runner.captureScreenshot(ctx, "png", chromedp.ActionFunc(func(context.Context) error { return failure }))
+		if !errors.Is(err, failure) {
+			t.Fatalf("layout failure was lost: %v", err)
+		}
+		next, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		next = cdp.WithExecutor(next, captureExecutorFunc(successfulCaptureExecutor))
+		if _, err := runner.captureScreenshot(next, "png"); err != nil {
+			t.Fatalf("failed layout retained its slot: %v", err)
+		}
+	})
+}
 
 type captureExecutorFunc func(context.Context, string, any, any) error
 

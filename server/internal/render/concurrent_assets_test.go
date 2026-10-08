@@ -18,6 +18,22 @@ import (
 )
 
 func TestChromiumRunnerConcurrentTabsWaitIndependentlyForAssets(t *testing.T) {
+	for _, size := range []struct {
+		name                 string
+		width, height        int
+		fitWidth, autoHeight bool
+	}{
+		{"fixed", 64, 64, false, false},
+		{"adaptive_height", 64, 32, false, true},
+		{"adaptive_width_and_height", 128, 32, true, true},
+	} {
+		t.Run(size.name, func(t *testing.T) {
+			testConcurrentTabsWaitForAssets(t, size.width, size.height, size.fitWidth, size.autoHeight)
+		})
+	}
+}
+
+func testConcurrentTabsWaitForAssets(t *testing.T, width, height int, fitWidth, autoHeight bool) {
 	font, err := os.ReadFile(filepath.Join("..", "..", "..", "templates", "help.menu", "assets", "fonts", "noto-sans-sc", "k3kXo84MPvpLmixcA63oeALRLoKI.woff2"))
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +95,7 @@ func TestChromiumRunnerConcurrentTabsWaitIndependentlyForAssets(t *testing.T) {
 	}
 	completed := []chan result{make(chan result, 1), make(chan result, 1)}
 	for index, g := range gates {
-		doc := Document{Width: 64, Height: 64, Output: "png", HTML: fmt.Sprintf(`<!doctype html><html>
+		doc := Document{Width: width, Height: height, FitWidth: fitWidth, AutoHeight: autoHeight, Output: "png", HTML: fmt.Sprintf(`<!doctype html><html>
 <head><style>body {margin:0;width:64px;height:64px;background:rgb(240,16,16)} img {display:block;width:32px;height:64px}</style></head>
 <body><img src="%s" data-fallback="%s/%d/image" data-render-resource="media-0"><script>
 window.addEventListener("load",()=>{const face=new FontFace("DelayedProbe",'url("%s/%d/font")');document.fonts.add(face);document.body.style.fontFamily="DelayedProbe";face.load().then(()=>{document.body.style.backgroundColor="rgb(16,240,16)";});});
