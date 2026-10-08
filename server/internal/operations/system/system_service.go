@@ -68,6 +68,7 @@ type Deps struct {
 	ResolveDatabasePath DatabasePathResolver
 	InspectRuntime      func(string, string) (*runtimedeps.BootstrapInspection, error)
 	PrepareRuntime      func(context.Context, string, string, runtimedeps.PrepareProgressReporter) (*runtimedeps.PrepareReport, error)
+	RefreshPluginTools  func(context.Context) error
 }
 
 type Service struct {
@@ -90,6 +91,7 @@ type Service struct {
 	resolveDatabasePath DatabasePathResolver
 	inspectRuntime      func(string, string) (*runtimedeps.BootstrapInspection, error)
 	prepareRuntime      func(context.Context, string, string, runtimedeps.PrepareProgressReporter) (*runtimedeps.PrepareReport, error)
+	refreshPluginTools  func(context.Context) error
 	shutdownIntent      *atomic.Pointer[StopIntent]
 	statusPublisher     StatusPublisher
 	startupMu           sync.RWMutex
@@ -108,6 +110,9 @@ func New(deps Deps) (*Service, error) {
 	}
 	if deps.PrepareRuntime == nil {
 		deps.PrepareRuntime = prepareRuntime
+	}
+	if deps.RefreshPluginTools == nil {
+		deps.RefreshPluginTools = func(context.Context) error { return nil }
 	}
 	return &Service{
 		currentConfig:       deps.CurrentConfig,
@@ -130,6 +135,7 @@ func New(deps Deps) (*Service, error) {
 		resolveDatabasePath: databasePathResolver(deps.ResolveDatabasePath),
 		inspectRuntime:      deps.InspectRuntime,
 		prepareRuntime:      deps.PrepareRuntime,
+		refreshPluginTools:  deps.RefreshPluginTools,
 		startupRuntimes:     newStartupRuntimeStates(nil),
 	}, nil
 }

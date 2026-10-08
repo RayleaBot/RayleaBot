@@ -11,7 +11,6 @@ import (
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/bot/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
@@ -127,7 +126,6 @@ type pluginServiceDeps struct {
 	Plugins       PluginStackState
 	Events        EventState
 	Renderer      *render.Service
-	System        *systemsvc.Service
 	PluginRuntime pluginRuntime
 }
 

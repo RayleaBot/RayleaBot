@@ -32,6 +32,15 @@ func init() {
 		}
 		switch frame["type"] {
 		case "init":
+			if string(mode) == "runtime-environment" {
+				paths, _ := json.Marshal(map[string]string{
+					"ffmpeg":  os.Getenv("RAYLEABOT_FFMPEG_PATH"),
+					"ffprobe": os.Getenv("RAYLEABOT_FFPROBE_PATH"),
+				})
+				if os.WriteFile(filepath.Join(os.Getenv("RAYLEABOT_PLUGIN_DATA_DIR"), "media-tools.json"), paths, 0o600) != nil {
+					os.Exit(2)
+				}
+			}
 			file, err := os.OpenFile(filepath.Join(os.Getenv("RAYLEABOT_PLUGIN_DATA_DIR"), "starts"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 			if err != nil {
 				os.Exit(2)

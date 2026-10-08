@@ -27,7 +27,7 @@ macOS 包未提供 Developer ID 签名与公证。若系统阻止启动，在确
 xattr -dr com.apple.quarantine "/实际路径/RayleaBot"
 ```
 
-Chromium 会在首次启动时准备；FFmpeg / FFprobe 在管理面仪表盘的运行环境入口按需准备，不阻塞 Server 启动。媒体插件需要这两个工具；准备完成后重新启动相关插件，让新进程取得工具路径。
+Chromium 会在首次启动时准备；FFmpeg / FFprobe 在管理面仪表盘的运行环境入口按需准备，不阻塞 Server 启动。准备完成后，Server 自动重载需要更新工具路径的运行中插件。等待对应的插件重载任务成功后再重试媒体处理；重载失败时可查看该任务的错误并重新加载插件。
 
 
 ## 运行根目录

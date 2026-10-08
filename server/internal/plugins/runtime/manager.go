@@ -24,6 +24,7 @@ type Manager struct {
 	lifecycleGate chan struct{}
 	proc          *Handle
 	snap          Snapshot
+	environment   []string
 	pendingEvents map[string]*eventSession
 	expiredEvents map[string]time.Time
 

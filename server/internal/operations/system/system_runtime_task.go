@@ -44,6 +44,11 @@ func (s *Service) SubmitRuntimeBootstrapTask(resources []string) (string, error)
 				s.renderer.RefreshBrowserPath(report.PreparedEntrypoint)
 			}
 			s.setStartupRuntimeState(kind, StartupRuntimePhaseReady, nil)
+			if kind == "ffmpeg" {
+				if err := s.refreshPluginTools(ctx); err != nil {
+					return nil, err
+				}
+			}
 			results = append(results, map[string]any{
 				"kind":                report.Kind,
 				"archive_path":        report.ArchivePath,

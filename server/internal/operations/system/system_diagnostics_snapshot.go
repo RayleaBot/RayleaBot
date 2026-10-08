@@ -185,7 +185,7 @@ func (s *Service) diagnosticsDependencies() ([]DiagnosticsDependency, []health.D
 				RuntimeResources: []string{kind},
 				Code:             errorcodes.DiagnosticDependencyFfmpeg, Severity: "warning",
 				Summary:     "媒体工具尚未准备。",
-				Remediation: "需要媒体处理时，请在仪表盘准备 FFmpeg 与 FFprobe，然后重新启动相关插件。",
+				Remediation: "需要媒体处理时，请在仪表盘准备 FFmpeg 与 FFprobe；完成后会自动重载需要更新工具路径的运行中插件。",
 			})
 		}
 		items = append(items, item)

@@ -48,6 +48,10 @@ func (c *Controller) Reload(ctx context.Context, pluginID string) (plugins.Snaps
 		}
 	}
 
+	return c.enqueueReloadLocked(pluginID, snapshot)
+}
+
+func (c *Controller) enqueueReloadLocked(pluginID string, snapshot plugins.Snapshot) (plugins.Snapshot, error) {
 	updated, err := c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting))
 	if err != nil {
 		return plugins.Snapshot{}, err
@@ -59,6 +63,35 @@ func (c *Controller) Reload(ctx context.Context, pluginID string) (plugins.Snaps
 		return updated, context.Canceled
 	}
 	return updated, nil
+}
+
+func (c *Controller) RefreshManagedRuntimeEnvironment(ctx context.Context) error {
+	var failures []error
+	for _, snapshot := range c.plugins.List() {
+		if err := c.refreshManagedRuntimeEnvironment(ctx, snapshot.PluginID); err != nil {
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
+}
+
+func (c *Controller) refreshManagedRuntimeEnvironment(ctx context.Context, pluginID string) error {
+	release, err := c.acquireOperation(ctx, pluginID)
+	if err != nil {
+		return err
+	}
+	defer release()
+
+	snapshot, ok := c.plugins.Get(pluginID)
+	if !ok || !snapshot.Valid || snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || snapshot.RuntimeState != string(pluginruntime.StateRunning) {
+		return nil
+	}
+	manager, ok := c.runtimes.Get(pluginID)
+	if !ok || manager.Snapshot().State != pluginruntime.StateRunning || !manager.NeedsManagedRuntimeRefresh(c.repoRoot) {
+		return nil
+	}
+	_, err = c.enqueueReloadLocked(pluginID, snapshot)
+	return err
 }
 
 func (c *Controller) reloadPluginAsync(pluginID, taskID string) {

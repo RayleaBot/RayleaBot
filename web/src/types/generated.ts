@@ -586,7 +586,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start an asynchronous runtime.bootstrap task to prepare Chromium for the current platform. */
+        /**
+         * Start an asynchronous runtime.bootstrap task to prepare managed runtime resources for the current platform.
+         * @description FFmpeg 与 FFprobe 准备成功后，Server 自动为已启用且正在运行、工具路径尚未同步的插件提交 plugin.reload 任务。 路径已同步、未运行或已禁用的插件不重载；重复准备不会重复重载路径已同步的插件。 runtime.bootstrap 成功表示所选资源准备完成且必要的重载已提交，插件重载结果由各自的 plugin.reload 任务报告。 重载沿用先启动新进程再切换并停止旧进程的语义，新进程初始化失败时保留旧进程。
+         */
         post: operations["createRuntimeBootstrap"];
         delete?: never;
         options?: never;

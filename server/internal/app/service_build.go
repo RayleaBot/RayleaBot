@@ -130,6 +130,17 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	if err != nil {
 		return serviceBuildResult{}, err
 	}
+	pluginServices, err := buildPluginServices(pluginServiceDeps{
+		Runtime:       runtimeState,
+		Platform:      platform,
+		Plugins:       pluginStack,
+		Events:        eventStack,
+		Renderer:      renderer,
+		PluginRuntime: pluginRuntime,
+	})
+	if err != nil {
+		return serviceBuildResult{}, err
+	}
 	systemService, err := systemsvc.New(systemsvc.Deps{
 		CurrentConfig:    runtimeState.CurrentConfig,
 		CurrentSummary:   runtimeState.CurrentSummary,
@@ -151,23 +162,12 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 			}
 		}),
 		ResolveDatabasePath: runtimepaths.ResolveDatabasePath,
+		RefreshPluginTools:  pluginServices.PluginLifecycle.RefreshManagedRuntimeEnvironment,
 	})
 	if err != nil {
 		return serviceBuildResult{}, err
 	}
 	serviceStatusService = managementevents.NewServiceStatusService(systemService)
-	pluginServices, err := buildPluginServices(pluginServiceDeps{
-		Runtime:       runtimeState,
-		Platform:      platform,
-		Plugins:       pluginStack,
-		Events:        eventStack,
-		Renderer:      renderer,
-		System:        systemService,
-		PluginRuntime: pluginRuntime,
-	})
-	if err != nil {
-		return serviceBuildResult{}, err
-	}
 	eventIngress := chatpolicy.NewIngress(chatpolicy.IngressDeps{
 		MessageReceived:  platform.MessageStats.Received,
 		CurrentConfig:    runtimeState.CurrentConfig,

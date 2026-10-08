@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -107,6 +108,20 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 		IPCMessageMaxBytes:   positiveInt(runtimeConfig.IPCMessageMaxBytes, 8*1024*1024),
 		ValidateFrames:       snapshot.PackageSourceType == "development",
 	}, nil
+}
+
+// NeedsManagedRuntimeRefresh compares prepared tool paths with this process's
+// startup environment; downloading files cannot change a running process's env.
+func (m *Manager) NeedsManagedRuntimeRefresh(repoRoot string) bool {
+	expected := managedRuntimeEnvironment(repoRoot)
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, binding := range expected {
+		if !slices.Contains(m.environment, binding) {
+			return true
+		}
+	}
+	return false
 }
 
 func managedRuntimeEnvironment(repoRoot string) []string {

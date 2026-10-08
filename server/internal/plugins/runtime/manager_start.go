@@ -16,6 +16,7 @@ import (
 
 func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) error {
 	spec.Services = plugins.CloneServices(spec.Services)
+	spec.Env = append([]string(nil), spec.Env...)
 	if err := m.acquireLifecycle(ctx); err != nil {
 		return err
 	}
@@ -47,6 +48,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		CrashCount:    crashCount,
 	}
 	m.expiredEvents = make(map[string]time.Time)
+	m.environment = spec.Env
 	m.mu.Unlock()
 
 	cmd := exec.Command(spec.Command, spec.Args...)

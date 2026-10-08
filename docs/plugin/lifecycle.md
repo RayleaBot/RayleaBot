@@ -16,7 +16,7 @@
 
 - 插件后端是目标平台的预编译原生可执行文件，manifest 与 artifact 不声明实现语言。
 - 插件在开发者环境中编译并打包；Go 插件可使用仓库提供的 SDK 和构建器。服务端运行已经构建的原生可执行文件。
-- 核心在启动插件前准备共享 FFmpeg 资源，并向插件进程注入 `RAYLEABOT_FFMPEG_PATH` 与 `RAYLEABOT_FFPROBE_PATH`；这些绝对路径指向当前平台已校验的托管入口，不属于插件包内容。宿主同时注入 `RAYLEABOT_PLUGIN_DATA_DIR`，指向该插件 `data/plugins/<plugin_id>/` 的绝对路径，并在启动前创建。
+- 核心向新启动的插件进程注入已准备的共享工具路径 `RAYLEABOT_FFMPEG_PATH` 与 `RAYLEABOT_FFPROBE_PATH`；这些绝对路径指向当前平台已校验的托管入口，不属于插件包内容。FFmpeg 按需准备，完成后自动为工具路径尚未同步的运行中插件提交重载任务，结果由对应的 `plugin.reload` 任务报告。宿主同时注入 `RAYLEABOT_PLUGIN_DATA_DIR`，指向该插件 `data/plugins/<plugin_id>/` 的绝对路径，并在启动前创建。
 - 插件包按 `windows-x64`、`linux-x64`、`macos-arm64` 分发；目标平台只由 `artifact.json.target_platform` 声明。
 - JSONL 插件协议使用语言无关的 v4。
 
