@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -48,8 +49,7 @@ func TestShellReachesConnectedAfterReadyFrame(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWSWithToken(wsURL(server.URL), "test-token"), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -95,8 +95,7 @@ func TestShellAuthFailureStopsAtAuthFailed(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWSWithToken(wsURL(server.URL), "bad-token"), shellDeps{
-		connectTimeout: 50 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -134,8 +133,7 @@ func TestShellDoesNotConnectDisabledConfiguredForwardTransport(t *testing.T) {
 			URL:     wsURL(server.URL),
 		},
 	}, shellDeps{
-		connectTimeout: 50 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -203,8 +201,7 @@ func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testi
 	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(firstServer.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -258,81 +255,72 @@ func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testi
 func TestShellWaitsForReadyFrameWhileTrafficContinues(t *testing.T) {
 
 	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
-		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		frames := []struct {
-			delay time.Duration
-			body  map[string]any
-		}{
-			{
-				body: map[string]any{
-					"post_type": "message",
+	synctest.Test(t, func(t *testing.T) {
+		dial := newTestWebSocketDial(func(conn *websocket.Conn) {
+			frames := []struct {
+				delay time.Duration
+				body  map[string]any
+			}{
+				{
+					body: map[string]any{
+						"post_type": "message",
+					},
 				},
-			},
-			{
-				delay: 40 * time.Millisecond,
-				body: map[string]any{
-					"post_type": "notice",
+				{
+					delay: 100 * time.Millisecond,
+					body: map[string]any{
+						"post_type": "notice",
+					},
 				},
-			},
-			{
-				delay: 40 * time.Millisecond,
-				body: map[string]any{
-					"post_type":       "meta_event",
-					"meta_event_type": "lifecycle",
-					"sub_type":        "enable",
+				{
+					delay: 100 * time.Millisecond,
+					body: map[string]any{
+						"post_type":       "meta_event",
+						"meta_event_type": "lifecycle",
+						"sub_type":        "enable",
+					},
 				},
-			},
-		}
-
-		for _, frame := range frames {
-			if frame.delay > 0 {
-				time.Sleep(frame.delay)
 			}
-			if err := wsjson.Write(context.Background(), conn, frame.body); err != nil {
-				t.Errorf("wsjson.Write failed: %v", err)
-				return
+
+			for _, frame := range frames {
+				if frame.delay > 0 {
+					time.Sleep(frame.delay)
+				}
+				if err := wsjson.Write(context.Background(), conn, frame.body); err != nil {
+					t.Errorf("wsjson.Write failed: %v", err)
+					return
+				}
 			}
+		})
+
+		shell := newTestShell(oneBotForwardWS("ws://onebot.test"), shellDeps{
+			dial:           dial,
+			connectTimeout: 150 * time.Millisecond,
+			sleep:          blockingSleep,
+		})
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		shell.Start(ctx)
+		synctest.Wait()
+		waitForState(t, shell, StateConnected, 500*time.Millisecond)
+		snapshot := waitForSnapshot(t, shell, 500*time.Millisecond, func(snapshot Snapshot) bool {
+			return snapshot.TotalReceivedFrames == 3
+		})
+		if snapshot.InvalidReceivedFrames != 0 {
+			t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
+		}
+		if snapshot.LastFrameCategory != FrameCategoryLifecycleReady {
+			t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryLifecycleReady)
 		}
 
-		<-r.Context().Done()
-	}))
-	defer server.Close()
-
-	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 150 * time.Millisecond,
-		sleep:          blockingSleep,
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stopCancel()
+		if err := shell.Stop(stopCtx); err != nil {
+			t.Fatalf("Stop failed: %v", err)
+		}
 	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	shell.Start(ctx)
-	waitForState(t, shell, StateConnected, 500*time.Millisecond)
-	snapshot := waitForSnapshot(t, shell, 500*time.Millisecond, func(snapshot Snapshot) bool {
-		return snapshot.TotalReceivedFrames == 3
-	})
-	if snapshot.InvalidReceivedFrames != 0 {
-		t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
-	}
-	if snapshot.LastFrameCategory != FrameCategoryLifecycleReady {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryLifecycleReady)
-	}
-
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer stopCancel()
-	if err := shell.Stop(stopCtx); err != nil {
-		t.Fatalf("Stop failed: %v", err)
-	}
 }
 
 func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
@@ -369,8 +357,7 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -411,65 +398,54 @@ func TestShellHeartbeatUpdatesIntakeObservability(t *testing.T) {
 func TestShellTreatsLifecycleConnectAsReadyAndKeepsSessionOpen(t *testing.T) {
 
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		dial := newTestWebSocketDial(func(conn *websocket.Conn) {
+			if err := wsjson.Write(context.Background(), conn, map[string]any{
+				"post_type":       "meta_event",
+				"meta_event_type": "lifecycle",
+				"sub_type":        "connect",
+				"self_id":         30003,
+			}); err != nil {
+				t.Errorf("wsjson.Write failed: %v", err)
+				return
+			}
+		})
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
+		shell := newTestShell(oneBotForwardWS("ws://onebot.test"), shellDeps{
+			dial:           dial,
+			connectTimeout: 75 * time.Millisecond,
+			sleep:          blockingSleep,
+		})
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		shell.Start(ctx)
+		synctest.Wait()
+		waitForState(t, shell, StateConnected, 500*time.Millisecond)
+		time.Sleep(2 * shell.deps.connectTimeout)
+		synctest.Wait()
+
+		snapshot := shell.Snapshot()
+		if snapshot.State != StateConnected {
+			t.Fatalf("unexpected state: got %s want %s", snapshot.State, StateConnected)
 		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "connect",
-			"self_id":         30003,
-		}); err != nil {
-			t.Errorf("wsjson.Write failed: %v", err)
-			return
+		if snapshot.LastFrameCategory != FrameCategoryLifecycleReady {
+			t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryLifecycleReady)
+		}
+		if snapshot.LastFrameType != "meta.lifecycle.connect" {
+			t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "meta.lifecycle.connect")
+		}
+		if snapshot.BotID != "30003" {
+			t.Fatalf("unexpected bot id: got %q want %q", snapshot.BotID, "30003")
 		}
 
-		<-r.Context().Done()
-	}))
-	defer server.Close()
-
-	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stopCancel()
+		if err := shell.Stop(stopCtx); err != nil {
+			t.Fatalf("Stop failed: %v", err)
+		}
 	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	shell.Start(ctx)
-	waitForState(t, shell, StateConnected, 500*time.Millisecond)
-	// newTestShell clamps connectTimeout to 500ms. A connected read that wrongly
-	// fell back to that timeout would have dropped the session before this
-	// sleep ends; the correct connected read waits far longer for a heartbeat.
-	time.Sleep(700 * time.Millisecond)
-
-	snapshot := shell.Snapshot()
-	if snapshot.State != StateConnected {
-		t.Fatalf("unexpected state: got %s want %s", snapshot.State, StateConnected)
-	}
-	if snapshot.LastFrameCategory != FrameCategoryLifecycleReady {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryLifecycleReady)
-	}
-	if snapshot.LastFrameType != "meta.lifecycle.connect" {
-		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "meta.lifecycle.connect")
-	}
-	if snapshot.BotID != "30003" {
-		t.Fatalf("unexpected bot id: got %q want %q", snapshot.BotID, "30003")
-	}
-
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer stopCancel()
-	if err := shell.Stop(stopCtx); err != nil {
-		t.Fatalf("Stop failed: %v", err)
-	}
 }
 
 func TestShellAcceptsBinaryReadyFrame(t *testing.T) {
@@ -496,8 +472,7 @@ func TestShellAcceptsBinaryReadyFrame(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -558,8 +533,7 @@ func TestShellInvalidFrameIncrementsInvalidCounter(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -637,8 +611,7 @@ func TestShellNonStringEchoDoesNotTriggerReconnect(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 500 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -714,8 +687,7 @@ func TestShellBlankEchoDoesNotTriggerReconnect(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 500 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())

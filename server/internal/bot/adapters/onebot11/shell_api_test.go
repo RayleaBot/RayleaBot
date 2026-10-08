@@ -69,8 +69,7 @@ func TestGetLoginInfoReturnsIDAndNickname(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -110,8 +109,7 @@ func TestGetLoginInfoReturnsErrorOnFailedResponse(t *testing.T) {
 	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -189,7 +187,6 @@ func TestGetVersionInfoReturnsImplementationMetadata(t *testing.T) {
 	defer server.Close()
 
 	shell := newShell("onebot11", oneBotForwardWS(wsURL(server.URL)), defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
-		connectTimeout:  75 * time.Millisecond,
 		sleep:           blockingSleep,
 		skipRuntimeInfo: true,
 	})
@@ -238,8 +235,7 @@ func TestGetGroupMemberInfoSanitizesUnsafeTextFields(t *testing.T) {
 	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -320,8 +316,7 @@ func TestGetGroupInfoReturnsGroupName(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -368,8 +363,7 @@ func assertSanitizedAPIName(t *testing.T, field, raw, expected string, read func
 	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -468,8 +462,7 @@ func TestListGroupsFallsBackToHTTPAPIWhenConnectedWebSocketDoesNotAnswer(t *test
 			URL:     httpServer.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -545,8 +538,7 @@ func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -582,8 +574,7 @@ func TestCallAPIReturnsErrorWhenNotConnected(t *testing.T) {
 	t.Parallel()
 
 	shell := newTestShell(oneBotForwardWS("ws://127.0.0.1:1"), shellDeps{
-		connectTimeout: 10 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	// Do not start the shell -- it remains in idle state with no connection.

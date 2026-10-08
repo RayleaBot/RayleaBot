@@ -1,6 +1,7 @@
 package onebot11
 
 import (
+	"bufio"
 	"context"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/reconnect"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
@@ -9,6 +10,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -31,8 +33,7 @@ func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
 	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -94,12 +95,6 @@ func newTestShell(cfg config.OneBotConfig, deps shellDeps) *Shell {
 	deps.skipRuntimeInfo = true
 	if deps.sleep == nil {
 		deps.sleep = blockingSleep
-	}
-	if deps.connectTimeout <= 0 {
-		deps.connectTimeout = 50 * time.Millisecond
-	}
-	if deps.connectTimeout < 500*time.Millisecond {
-		deps.connectTimeout = 500 * time.Millisecond
 	}
 	if deps.backoff == nil {
 		deps.backoff = reconnect.NewWithDurations(10*time.Millisecond, 1, 10*time.Millisecond, 0, func() float64 { return 0.5 })
@@ -169,6 +164,48 @@ func waitForSnapshot(t *testing.T, shell *Shell, timeout time.Duration, predicat
 func blockingSleep(ctx context.Context, _ time.Duration) error {
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+// newTestWebSocketDial keeps WebSocket I/O inside the synctest bubble so socket
+// scheduling cannot consume the short handshake and read timeout budgets.
+func newTestWebSocketDial(serve func(*websocket.Conn)) dialFunc {
+	return func(ctx context.Context, url string, options *websocket.DialOptions) (*websocket.Conn, *http.Response, error) {
+		opts := *options
+		opts.HTTPClient = &http.Client{Transport: testWebSocketTransport{serve: serve}}
+		return websocket.Dial(ctx, url, &opts)
+	}
+}
+
+type testWebSocketTransport struct {
+	serve func(*websocket.Conn)
+}
+
+func (transport testWebSocketTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	client, server := net.Pipe()
+	writer := &testWebSocketResponseWriter{ResponseRecorder: httptest.NewRecorder(), conn: server}
+	conn, err := websocket.Accept(writer, request, nil)
+	if err != nil {
+		_ = client.Close()
+		_ = server.Close()
+		return nil, err
+	}
+	go func() {
+		defer func() { _ = conn.CloseNow() }()
+		transport.serve(conn)
+		<-conn.CloseRead(context.Background()).Done()
+	}()
+	response := writer.Result()
+	response.Body = client
+	return response, nil
+}
+
+type testWebSocketResponseWriter struct {
+	*httptest.ResponseRecorder
+	conn net.Conn
+}
+
+func (writer *testWebSocketResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return writer.conn, bufio.NewReadWriter(bufio.NewReader(writer.conn), bufio.NewWriter(writer.conn)), nil
 }
 
 func wsURL(raw string) string {

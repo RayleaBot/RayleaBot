@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
@@ -42,8 +41,7 @@ func TestCallAPIAnyHTTPFallbackClearsAuthIssueAfterSuccess(t *testing.T) {
 			AccessToken: "test-token",
 		},
 	}, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	_, err := shell.CallAPIAny(context.Background(), "get_login_info", nil)
@@ -96,8 +94,7 @@ func TestAcceptWebhookPayloadClearsInvalidPayloadIssueAfterSuccess(t *testing.T)
 			URL:     "http://127.0.0.1:8080/onebot",
 		},
 	}, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	err := shell.AcceptWebhookPayload(context.Background(), []byte("{"))
@@ -143,8 +140,7 @@ func TestSyncLastErrorLockedClearsRecoveredReverseWSIssue(t *testing.T) {
 			URL:     "ws://127.0.0.1:8080/onebot/reverse",
 		},
 	}, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 	shell.MarkReverseWSAuthFailed()
 

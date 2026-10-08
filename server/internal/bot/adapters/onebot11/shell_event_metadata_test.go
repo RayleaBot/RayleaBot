@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
@@ -60,8 +59,7 @@ func TestEnrichEventMetadataHydratesGroupContextAndUsesCache(t *testing.T) {
 			URL:     server.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 500 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	event := chatevent.NormalizedEvent{
@@ -144,8 +142,7 @@ func TestEnrichEventMetadataHydratesPrivateNicknameAndUsesCache(t *testing.T) {
 			URL:     server.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 500 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	event := chatevent.NormalizedEvent{
@@ -220,8 +217,7 @@ func TestEnrichEventMetadataRefreshesGroupNameAfterNotice(t *testing.T) {
 			URL:     server.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 500 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	event := chatevent.NormalizedEvent{
@@ -303,8 +299,7 @@ func TestEnrichEventMetadataUsesMessageGroupNameOverCachedLookup(t *testing.T) {
 			URL:     server.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 500 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	event := chatevent.NormalizedEvent{
@@ -388,8 +383,7 @@ func TestEnrichEventMetadataRefreshesMemberInfoAfterCardNotice(t *testing.T) {
 			URL:     server.URL,
 		},
 	}, shellDeps{
-		connectTimeout: 500 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	event := chatevent.NormalizedEvent{

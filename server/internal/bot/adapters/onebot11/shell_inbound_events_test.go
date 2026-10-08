@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -57,8 +58,7 @@ func assertShellFrameClassification(t *testing.T, frame map[string]any, category
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 500 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -99,42 +99,38 @@ func assertShellFrameClassification(t *testing.T, frame map[string]any, category
 func TestShellReconnectsWhenReadyFrameTimesOut(t *testing.T) {
 
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		dial := newTestWebSocketDial(func(*websocket.Conn) {})
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
+		shell := newTestShell(oneBotForwardWS("ws://onebot.test"), shellDeps{
+			dial:           dial,
+			connectTimeout: 40 * time.Millisecond,
+			sleep:          blockingSleep,
+		})
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		shell.Start(ctx)
+		synctest.Wait()
+		if snapshot := shell.Snapshot(); snapshot.State != StateConnecting {
+			t.Fatalf("state before ready timeout = %s, want %s", snapshot.State, StateConnecting)
 		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
+		time.Sleep(shell.deps.connectTimeout)
+		synctest.Wait()
+		waitForState(t, shell, StateReconnecting, 500*time.Millisecond)
 
-		<-r.Context().Done()
-	}))
-	defer server.Close()
+		snapshot := shell.Snapshot()
+		if snapshot.LastErrorCode != errorCodeForwardWSConnectFail {
+			t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeForwardWSConnectFail)
+		}
 
-	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 40 * time.Millisecond,
-		sleep:          blockingSleep,
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stopCancel()
+		if err := shell.Stop(stopCtx); err != nil {
+			t.Fatalf("Stop failed: %v", err)
+		}
 	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	shell.Start(ctx)
-	waitForState(t, shell, StateReconnecting, 500*time.Millisecond)
-
-	snapshot := shell.Snapshot()
-	if snapshot.LastErrorCode != errorCodeForwardWSConnectFail {
-		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeForwardWSConnectFail)
-	}
-
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer stopCancel()
-	if err := shell.Stop(stopCtx); err != nil {
-		t.Fatalf("Stop failed: %v", err)
-	}
 }
 
 func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
@@ -170,8 +166,7 @@ func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
 	defer server.Close()
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -197,109 +192,91 @@ func TestShellReconnectsAfterConnectionLoss(t *testing.T) {
 func TestShellKeepsConnectionOpenWhenHeartbeatHasNotStartedAfterLifecycleEnable(t *testing.T) {
 
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		dial := newTestWebSocketDial(func(conn *websocket.Conn) {
+			if err := wsjson.Write(context.Background(), conn, map[string]any{
+				"post_type":       "meta_event",
+				"meta_event_type": "lifecycle",
+				"sub_type":        "enable",
+			}); err != nil {
+				t.Errorf("wsjson.Write failed: %v", err)
+				return
+			}
+		})
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
+		shell := newTestShell(oneBotForwardWS("ws://onebot.test"), shellDeps{
+			dial:           dial,
+			connectTimeout: 40 * time.Millisecond,
+			sleep:          blockingSleep,
+		})
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		shell.Start(ctx)
+		synctest.Wait()
+		waitForState(t, shell, StateConnected, 500*time.Millisecond)
+		time.Sleep(2 * shell.deps.connectTimeout)
+		synctest.Wait()
+
+		snapshot := shell.Snapshot()
+		if snapshot.State != StateConnected {
+			t.Fatalf("unexpected state: got %s want %s", snapshot.State, StateConnected)
 		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "enable",
-		}); err != nil {
-			t.Errorf("wsjson.Write failed: %v", err)
-			return
+		if snapshot.LastErrorCode != "" {
+			t.Fatalf("unexpected error code: got %q want empty", snapshot.LastErrorCode)
 		}
 
-		<-r.Context().Done()
-	}))
-	defer server.Close()
-
-	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 40 * time.Millisecond,
-		sleep:          blockingSleep,
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stopCancel()
+		if err := shell.Stop(stopCtx); err != nil {
+			t.Fatalf("Stop failed: %v", err)
+		}
 	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	shell.Start(ctx)
-	waitForState(t, shell, StateConnected, 500*time.Millisecond)
-	// newTestShell clamps connectTimeout to 500ms. A connected read that wrongly
-	// fell back to that timeout would have dropped the session before this
-	// sleep ends; the correct connected read waits far longer for a heartbeat.
-	time.Sleep(700 * time.Millisecond)
-
-	snapshot := shell.Snapshot()
-	if snapshot.State != StateConnected {
-		t.Fatalf("unexpected state: got %s want %s", snapshot.State, StateConnected)
-	}
-	if snapshot.LastErrorCode != "" {
-		t.Fatalf("unexpected error code: got %q want empty", snapshot.LastErrorCode)
-	}
-
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer stopCancel()
-	if err := shell.Stop(stopCtx); err != nil {
-		t.Fatalf("Stop failed: %v", err)
-	}
 }
 
 func TestShellReconnectsAfterHeartbeatTimeout(t *testing.T) {
 
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		dial := newTestWebSocketDial(func(conn *websocket.Conn) {
+			if err := wsjson.Write(context.Background(), conn, map[string]any{
+				"post_type":       "meta_event",
+				"meta_event_type": "heartbeat",
+				"interval":        20,
+			}); err != nil {
+				t.Errorf("wsjson.Write failed: %v", err)
+				return
+			}
+		})
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
+		shell := newTestShell(oneBotForwardWS("ws://onebot.test"), shellDeps{
+			dial:           dial,
+			connectTimeout: 75 * time.Millisecond,
+			sleep:          blockingSleep,
+		})
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		shell.Start(ctx)
+		synctest.Wait()
+		waitForState(t, shell, StateConnected, 500*time.Millisecond)
+		time.Sleep(3 * shell.Snapshot().HeartbeatInterval)
+		synctest.Wait()
+		waitForState(t, shell, StateReconnecting, 500*time.Millisecond)
+
+		snapshot := shell.Snapshot()
+		if snapshot.LastErrorCode != errorCodeForwardWSSessionLost {
+			t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeForwardWSSessionLost)
 		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
 
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "heartbeat",
-			"interval":        20,
-		}); err != nil {
-			t.Errorf("wsjson.Write failed: %v", err)
-			return
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stopCancel()
+		if err := shell.Stop(stopCtx); err != nil {
+			t.Fatalf("Stop failed: %v", err)
 		}
-
-		<-r.Context().Done()
-	}))
-	defer server.Close()
-
-	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
 	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	shell.Start(ctx)
-	waitForState(t, shell, StateConnected, 500*time.Millisecond)
-	waitForState(t, shell, StateReconnecting, 500*time.Millisecond)
-
-	snapshot := shell.Snapshot()
-	if snapshot.LastErrorCode != errorCodeForwardWSSessionLost {
-		t.Fatalf("unexpected error code: got %q want %q", snapshot.LastErrorCode, errorCodeForwardWSSessionLost)
-	}
-
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer stopCancel()
-	if err := shell.Stop(stopCtx); err != nil {
-		t.Fatalf("Stop failed: %v", err)
-	}
 }
 
 func TestShellStopClosesReverseWebSocketAfterSupervisorCancellation(t *testing.T) {
@@ -324,8 +301,7 @@ func TestShellStopClosesReverseWebSocketAfterSupervisorCancellation(t *testing.T
 			URL:     "ws://127.0.0.1:8080/onebot/reverse",
 		},
 	}, defaultAdapterConfig(), logger, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -396,8 +372,7 @@ func TestShellRestartWithoutConfiguredForwardTransportReturnsToIdle(t *testing.T
 	t.Parallel()
 
 	shell := newTestShell(config.OneBotConfig{}, shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -448,8 +423,7 @@ func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
 	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -544,8 +518,7 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -595,8 +568,7 @@ func TestShellSendReplyWritesReplySegmentRequestAndReturnsMessageID(t *testing.T
 	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
+		sleep: blockingSleep,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
