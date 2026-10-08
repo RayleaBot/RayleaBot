@@ -1,6 +1,6 @@
 # RayleaBot 竞品分析（2026-10-04）
 
-状态：评估结论；G1 的发布门禁、通道与失败跟踪已落实，公开发布及实包验收仍待执行，见 G1。其余条目尚未进入实施。维护者决定采纳的条目按本目录规则转为执行计划，落地并写入现行文档后删除本文件。原始报告由多代理只读分析与联网调研产出，未运行构建、测试或任何竞品；未另标状态的仓库事实以文中引用的文件为准，基线为主仓库 `9ac71c35` 与同级 RayleaBotPlugins 工作区。竞品数字是 2026-10-04 至 10-05 的时点数据。2026-10-05 与两份同期独立竞品分析（astra、DeepSeek）逐条交叉核实，成立的内容已并入正文，被推翻的说法列在第 10 节；G78 及之后的编号与 T14–T16 为这一轮新增。
+状态：评估结论；P0 三项的本地实现已落地：G1 的发布门禁、通道与失败跟踪，G2 的目录宽松读取、同步门槛与 SDK 许可，G3 的三处投递缺陷。nightly 转绿、公开发布、插件 v4 包上架与实包验收仍待执行，见各条“状态”。其余条目尚未进入实施。维护者决定采纳的条目按本目录规则转为执行计划，落地并写入现行文档后删除本文件。原始报告由多代理只读分析与联网调研产出，未运行构建、测试或任何竞品；未另标状态的仓库事实以文中引用的文件为准，基线为主仓库 `9ac71c35` 与同级 RayleaBotPlugins 工作区。竞品数字是 2026-10-04 至 10-05 的时点数据。2026-10-05 与两份同期独立竞品分析（astra、DeepSeek）逐条交叉核实，成立的内容已并入正文，被推翻的说法列在第 10 节；G78 及之后的编号与 T14–T16 为这一轮新增。
 
 ## 总体结论
 
@@ -142,6 +142,12 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 
 ### G2 插件目录与 SDK 断档
 
+**状态（2026-10-08）**
+
+建议 2–4 与 6 已落实：6 个插件工作流的 Go、Node、pnpm 版本已同步；Server 读取目录改为宽松读取（[契约](../../contracts/plugin-store-catalog.schema.json)与[商店说明](../plugin/store-and-development.md#catalog-v2)）；plugin-catalog 同步脚本只为 manifest v4 且 `min_core_version` 不低于 0.4.0 的包发布资产；[插件 SDK](../plugin/sdk/README.md#vue-ui-sdk) 写明独立仓库引用 Vue SDK 的方式。G50 已决定：`sdk/go` 与 `sdk/vue` 改用 MIT。
+
+建议 1 与 5 随 v0.4.0 正式版执行：在正式版提交上打 `sdk/go/v0.6.0`（步骤见[发布流程](../release/delivery-and-upgrade.md#发布流程与通道)），官方插件把 `.rayleabot-sdk-ref` 与 `go.mod` 改到该标签后重新构建、发布 v4 包，目录同步后按下文验收。不新增“SDK 标签必须指向发布提交”的发布工具校验：核心发布不一定伴随 SDK 变化，强制同提交会让每次核心发布都必须另打 SDK 标签。
+
 **现状与仓库证据**
 - 官方目录 `plugin-catalog/catalog.json` 共 6 条：echo、fortune、game-guide、subscription-hub、delta-force、oil-price。current_release 都是 2026-09-03 发布、`min_core_version` 0.4.0 的 manifest v3 包，面向当时一批未公开的候选核心。v0.4.0 宿主只接受 manifest v4（`min_core_version` ≥ 0.4.0）。v0.3.1 的契约把 `manifest_version` 固定为 `"2"`、`catalog_version` 固定为 `"1"`，并按 schema 校验目录，所以它既读不了 catalog v2，也装不了 v3 包。v3 包因此被公开核心和 v0.4.0 两头拒绝。
 - genshin、starrail、zzz、mihoyo-accounts、roulette 五个插件没有远程仓库，也没有 tag。genshin 的 `docs/acceptance-plan.md` 要求先用真实账号验收再发布。
@@ -172,6 +178,10 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 - 结果按 `manual-smoke.md` 的格式登记时间、提交、平台与观察结果。0.3.x 与 v0.4.0 不兼容，验收采用全新安装。这份记录同时是 G83 推荐组合中“最近验证版本”的来源。
 
 ### G3 QQ 官方路径可用性
+
+**状态（2026-10-08）**
+
+建议 1–3 已实现，投递规则与逐段处理表写入[插件协议](../plugin/protocol.md#qq-官方机器人的投递规则)：全量群消息只投递提及本机器人的消息并与 @ 事件去重；宿主在事件处理期间把同会话的普通发送交给适配器按被动回复投递，超出时限、次数或平台拒绝时回退为主动推送；发送前校验全部消息段并完成全部上传，at 转为文本标记，`base64://` 媒体解码后上传。建议 4（部分投递的结构化 details）未做。建议 5 仍待用 QQ 官方沙箱实测，重点核对全量模式的推送形态、at 展示、`file_data` 上传与主动推送回退。
 
 **现状与仓库证据**
 - **全量群消息被丢弃**：`NormalizeDispatch` 只处理 C2C_MESSAGE_CREATE、GROUP_AT_MESSAGE_CREATE 和 8 个成员/推送 dispatch（`server/internal/bot/adapters/qqofficial/events.go:13-25,89-97`）。GROUP_MESSAGE_CREATE 在 `client.go:460-463` 被静默丢弃，没有日志。官方事件页写明，开启接收所有消息后，群内每条消息（含 @机器人）都推送 GROUP_MESSAGE_CREATE；多个实现方实测此时不再收到 GROUP_AT_MESSAGE_CREATE（这一点官方未写），该群可能完全收不到消息。
@@ -443,7 +453,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 | G47 | 插件更新后台检查与提示 | S–M | AstrBot 社区有更新管理插件，TRSS 每天检查 | 用服务端内部定时循环（参照 kv_expiry），不走插件 scheduler；只需契约里的计数字段 |
 | G48 | gsuid_core 桥接插件 | M | gsuid 已能经 NapCat 直连或挂接 AstrBot | 价值在统一管理和避免重复响应，而非“能不能用”；gsuid 需要另装 Python 环境（约 50 个依赖），没有正式核心版本，与“运行期不装依赖”的卖点相悖；由维护者决定覆盖哪些游戏 |
 | G49 | 从 Yunzai 一次性批量迁移 | M | 竞品都没有跨框架导入 | 单项导入已有（Cookie/SToken、PlayerData、抽卡记录）；缺一次性批量导入；Miao 现在把 CK 存在 `data/db/data.db`，旧 yaml 只作兜底 |
-| G50 | SDK 许可：标注 MIT 的插件二进制实际受 AGPL 约束 | S | 本赛道的 copyleft 宿主生态照样繁荣，许可不是采用的决定因素 | 改 SDK 许可（维护者是唯一版权人），或至少让 writeNotices 把 AGPL 文本带进产物；在打 sdk tag 前决定 |
+| G50 | SDK 许可：标注 MIT 的插件二进制实际受 AGPL 约束 | S | 本赛道的 copyleft 宿主生态照样繁荣，许可不是采用的决定因素 | 已决定（2026-10-08）：`sdk/go` 与 `sdk/vue` 改用 MIT，主仓库其余部分仍为 AGPL-3.0 |
 | G51 | 卸载不能清除数据与凭据 | S–M | AstrBot 卸载有 delete_config 与 delete_data 两个选项 | DELETE 增加 purge_data（默认 false）；最低成本是先把 lifecycle.md:58 改成与契约一致 |
 | G52 | ARM64 Linux 产物 | L | AstrBot、Koishi、LangBot、gsuid 的 Docker 覆盖 arm64；ZeroBot-Plugin 发 arm 包 | Chrome for Testing 自 153 起提供 linux-arm64，阻断条件已消失；但平台枚举在 5 份契约中，Chromium 152 属冻结版本线，11 个插件都要多出 arm64 包；与 G19 的多架构镜像一起交付时升 P1 |
 | G53 | 服务端包只能 SSH 更新 | S / M | 只有 AstrBot（非 uv、非 Docker 安装）与 Yunzai 能在应用内更新服务端 | 先按 `update_mode=manual` 在 Web 展示命令；“安装并重启”需要 CLI 契约加 `--if-pending`，与 G19 合并设计 |
