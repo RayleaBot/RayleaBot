@@ -4,6 +4,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   base: './',
   plugins: [vue()],
+  resolve: { dedupe: ['vue'] },
   build: { rollupOptions: { output: { entryFileNames: 'assets/[name].[hash].js', assetFileNames: 'assets/[name].[hash][extname]' } } },
   test: { environment: 'jsdom', include: ['tests/**/*.test.ts'] },
 })
