@@ -2,6 +2,8 @@
 
 RayleaBot 插件运行时与实现语言无关。主仓库提供 Go 后端 SDK、通用 artifact 工具和 Vue 管理页 SDK；插件运行时只读取已编译产物。
 
+`sdk/go`（含 `raylea-plugin` 工具）与 `sdk/vue` 使用 MIT 许可，主仓库其余部分使用 AGPL-3.0。插件只链接 SDK 时不受主仓库 AGPL 约束，可以自行选择许可。
+
 ## Go SDK
 
 `sdk/go` 是独立 Go module：

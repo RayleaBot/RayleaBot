@@ -2,6 +2,7 @@
   "name": "@rayleabot/plugin-ui",
   "version": "0.2.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@11.25.0",
   "exports": {

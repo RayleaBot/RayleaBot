@@ -92,7 +92,7 @@ Server、Web、Launcher 与插件 SDK 的构建、测试和类型检查命令见
 
 ## License
 
-[AGPL-3.0](LICENSE)
+[AGPL-3.0](LICENSE)。插件 SDK（`sdk/go` 与 `sdk/vue`）使用 [MIT](sdk/go/LICENSE) 许可，插件可以自行选择许可。
 
 ## 仓库动态
 
