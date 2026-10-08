@@ -50,10 +50,11 @@ func init() {
 			if err != nil || encoder.Encode(map[string]any{"type": "init_ack", "request_id": frame["request_id"], "status": "ready"}) != nil {
 				os.Exit(2)
 			}
-			if string(mode) == "crash" {
-				go func() { time.Sleep(200 * time.Millisecond); os.Exit(23) }()
-			}
 		case "event":
+			event, _ := frame["event"].(map[string]any)
+			if string(mode) == "crash" && event["event_type"] == "plugin.started" {
+				os.Exit(23)
+			}
 			_ = encoder.Encode(map[string]any{"type": "result", "request_id": frame["request_id"], "status": "success", "data": map[string]any{}})
 		case "ping":
 			_ = encoder.Encode(map[string]any{"type": "pong", "request_id": frame["request_id"]})
@@ -104,9 +105,9 @@ func TestCrashAfterSuccessfulInitReachesDeadLetterWithoutRestartingPeer(t *testi
 	controller := newTestController(t, Deps{RepoRoot: root, PluginDataRoot: filepath.Join(root, "data"), Logger: logger, Plugins: cat, Runtimes: runtimes,
 		CurrentConfig: func() config.Config {
 			return config.Config{Scheduler: config.SchedulerConfig{Timezone: "UTC"}, Runtime: config.RuntimeConfig{
-				// Each probe is a copy of this (possibly race-instrumented) test binary; on a
-				// loaded machine a short init timeout turns "crash after init" into "init timed out".
-				PluginInitTimeoutSeconds: 10, ShutdownGraceSeconds: 1, CrashBackoffInitialSeconds: 1, CrashBackoffMaxSeconds: 1,
+				// Initialization only prepares the race-built probes. The crash is triggered
+				// by plugin.started, after the runtime has acknowledged initialization.
+				PluginInitTimeoutSeconds: 60, ShutdownGraceSeconds: 1, CrashBackoffInitialSeconds: 1, CrashBackoffMaxSeconds: 1,
 			}}
 		}})
 	runtimes.SetOnCrash(controller.HandleCrash)
