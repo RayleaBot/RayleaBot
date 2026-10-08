@@ -11,7 +11,11 @@ import (
 )
 
 func TestPostWithoutReceiptIsUnconfirmedAndSentOnlyOnce(t *testing.T) {
+	// A dropped connection carries no response, so the test must synchronize with
+	// the handler before reading what it recorded.
+	handled := make(chan struct{})
 	client, captured := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		defer close(handled)
 		connection, _, err := w.(http.Hijacker).Hijack()
 		if err != nil {
 			t.Error(err)
@@ -24,6 +28,7 @@ func TestPostWithoutReceiptIsUnconfirmedAndSentOnlyOnce(t *testing.T) {
 	if !errors.As(err, &failure) || failure.Code != errorcodes.AdapterSendUnconfirmed || failure.Err == nil {
 		t.Fatalf("uncertain send=%v", err)
 	}
+	<-handled
 	if len(*captured) != 1 {
 		t.Fatalf("send count=%d", len(*captured))
 	}
