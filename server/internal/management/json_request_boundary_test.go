@@ -61,7 +61,7 @@ func TestManagementJSONRequestBoundaries(t *testing.T) {
 	system := NewSystemHandlers(diagnosticsTestSystem{})
 	market := PluginStoreRoutes{Service: emptyPluginStoreService{}}
 	installer := &recordingInstaller{}
-	artifactRoot := t.TempDir()
+	artifactRoot := canonicalTempDir(t)
 	artifact := filepath.Join(artifactRoot, "artifact")
 	if err := os.Mkdir(artifact, 0o755); err != nil {
 		t.Fatal(err)

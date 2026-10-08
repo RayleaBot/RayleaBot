@@ -20,8 +20,19 @@ func (s *developmentInstallerStub) SyncDevelopment(context.Context, string, stri
 	return "", false, nil
 }
 
+// canonicalTempDir mirrors the app, which resolves the artifact root before
+// building the routes; CI runners report temp directories by Windows short name.
+func canonicalTempDir(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
 func TestDevelopmentAdmissionAndArtifactBoundary(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempDir(t)
 	inside := filepath.Join(root, "artifact")
 	if err := os.Mkdir(inside, 0o755); err != nil {
 		t.Fatal(err)

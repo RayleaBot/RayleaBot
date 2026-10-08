@@ -19,6 +19,8 @@ type DevelopmentInstaller interface {
 
 // DevelopmentRoutes exposes only explicitly enabled, authenticated loopback control.
 type DevelopmentRoutes struct {
+	// ArtifactRoot must already be canonical; the app resolves symlinks and
+	// Windows short names at startup so the boundary check compares like forms.
 	ArtifactRoot string
 	Token        *StaticToken
 	Installer    DevelopmentInstaller

@@ -356,9 +356,11 @@ func validate(ref Reference, root string, cache map[string]map[string]bool) erro
 }
 
 func Check(root string, files []string) ([]string, error) {
+	root = resolve(root)
 	var failures []string
 	cache := map[string]map[string]bool{}
 	for _, path := range files {
+		path = resolve(path)
 		refs, err := links(path)
 		if err != nil {
 			return nil, err
