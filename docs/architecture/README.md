@@ -169,11 +169,13 @@ Web 和 Launcher 只保存可丢弃的临时视图，不能反向覆盖服务端
 | `templates/` | Render Service | 模板版本与资源 |
 | `data/render/` | Render Service | 最终图片及 artifact 索引；实际位置跟随数据库所在目录 |
 | `cache/` | 各自归属 | 可重建缓存，不影响正确性 |
-| `cache/render/` | Render Service 与渲染动作 | 预取资源、临时 HTML 与 Chromium 临时文件；请求文件在渲染后清理，自建 profile 在浏览器关闭后清理 |
-| `cache/browser/` | Browser Manager | 本地浏览器会话的临时 profile、进程临时文件与启动日志；会话关闭后清理 |
+| `cache/render/` | Render Service 与渲染动作 | 预取资源、临时 HTML 与自建 Chromium profile；请求文件在渲染后清理，自建 profile 在浏览器关闭后清理 |
+| `cache/browser/` | Browser Manager | 本地浏览器会话的临时 profile 与启动日志；会话关闭后清理 |
 | `cache/launcher/webview2/` | Launcher | Windows WebView2 页面缓存与浏览器资料，开发二进制更名时复用同一目录 |
 | `logs/` | Logging | 结构化日志与诊断输出 |
 | `.deps/` | Deps Service | Chromium 与 FFmpeg / FFprobe 受控资源 |
+
+Linux 与 macOS 上，Render Service 与 Browser Manager 启动 Chromium 时将 `TMP`、`TEMP`、`TMPDIR` 固定为 `/tmp`，由 Chromium 创建自己的私有临时子目录，避免安装路径或继承的临时路径过长使 `SingletonSocket` 超过 Unix 域 socket 路径上限。Windows 上 Chromium 进程临时文件使用对应缓存目录；profile、渲染文件与启动日志在各平台都按上表归属。
 
 ## 部署与演进边界
 

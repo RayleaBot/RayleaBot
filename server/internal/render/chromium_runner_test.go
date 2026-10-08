@@ -237,6 +237,10 @@ func TestChromiumRunnerUsesCacheWithUnavailableSystemTemp(t *testing.T) {
 	if filepath.Dir(profile) != runner.tempRoot {
 		t.Fatalf("browser profile escaped cache: %q", profile)
 	}
+	wantTempRoot := runner.tempRoot
+	if runtime.GOOS != "windows" {
+		wantTempRoot = "/tmp"
+	}
 	for _, key := range []string{"TMP", "TEMP", "TMPDIR"} {
 		value := ""
 		for _, item := range runner.command.Env {
@@ -245,8 +249,8 @@ func TestChromiumRunnerUsesCacheWithUnavailableSystemTemp(t *testing.T) {
 				value = candidate
 			}
 		}
-		if value != runner.tempRoot {
-			t.Fatalf("browser %s did not use the project cache: %q", key, value)
+		if value != wantTempRoot {
+			t.Fatalf("browser %s = %q, want %q", key, value, wantTempRoot)
 		}
 	}
 	entries, err := os.ReadDir(runner.tempRoot)

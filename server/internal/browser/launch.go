@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 )
 
 const (
@@ -105,7 +106,7 @@ func launchLocalBrowser(ctx context.Context, options Options, pluginID, profile 
 		return "", cleanup, fmt.Errorf("%w: browser log file is unavailable", ErrUnavailable)
 	}
 	command := exec.Command(path, browserLaunchArgs(attempt, attempt.browserArgs, userDataDir, port)...)
-	command.Env = append(os.Environ(), "TMP="+workspace, "TEMP="+workspace, "TMPDIR="+workspace)
+	command.Env = append(os.Environ(), runtimepaths.ChromiumTempEnv(workspace)...)
 	command.Stderr, command.Stdout = logFile, logFile
 	terminate, err = startBrowserProcess(command)
 	if err != nil {

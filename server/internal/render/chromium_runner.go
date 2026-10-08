@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
 	cdpruntime "github.com/chromedp/cdproto/runtime"
@@ -154,7 +155,7 @@ type ChromiumOptions struct {
 	BrowserPath    string
 	BrowserArgs    []string
 	CombinedOutput io.Writer
-	// TempRoot is the absolute cache directory for render and browser files.
+	// TempRoot is the absolute cache directory for render files and browser profiles.
 	TempRoot string
 }
 
@@ -528,7 +529,7 @@ func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, e
 		chromedp.NoFirstRun,
 		chromedp.Headless,
 		chromedp.DisableGPU,
-		chromedp.Env("TMP="+r.tempRoot, "TEMP="+r.tempRoot, "TMPDIR="+r.tempRoot),
+		chromedp.Env(runtimepaths.ChromiumTempEnv(r.tempRoot)...),
 	)
 	if r.browserPath != "" {
 		allocatorOptions = append(allocatorOptions, chromedp.ExecPath(r.browserPath))
