@@ -76,6 +76,7 @@
   - `artifact.json` 不重复插件身份或文件清单；安装器扫描实际内容并检查路径与入口
 - `plugin-store-catalog.schema.json`
   - 官方或自定义静态商店目录结构，固定当前版本、最低核心版本和可用平台的资产 URL 与归档摘要
+  - 目录发布工具按 schema 严格生成与校验；读取端要求 `catalog_version` 为 `"2"`，忽略任意层级的未知字段，跳过不认识平台的资产，只校验实际使用的字段
   - 官方身份只能由默认官方来源和安装元数据授予，不能由插件 manifest、目录名或仓库名推断
 - `plugin-management-ui.yaml`
   - 插件内置管理页在管理面同源路径 `/plugin-ui/{plugin_id}/` 下的只读静态资源与 CSP 边界

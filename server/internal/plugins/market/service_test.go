@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -15,6 +16,84 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginartifact "github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 )
+
+func TestCatalogIgnoresUnknownFieldsAndPlatforms(t *testing.T) {
+	var document map[string]any
+	if err := json.Unmarshal(catalogJSON("linux-x64"), &document); err != nil {
+		t.Fatal(err)
+	}
+	entry := document["entries"].([]any)[0].(map[string]any)
+	release := entry["current_release"].(map[string]any)
+	assets := release["assets"].([]any)
+	for _, object := range []map[string]any{document, entry, entry["publisher"].(map[string]any), release, assets[0].(map[string]any)} {
+		object["future_field"] = map[string]any{"nested": []any{nil, true, 42}}
+	}
+	// Future assets can have different field types and duplicate platform names.
+	unknown := map[string]any{"platform": "linux-arm64", "url": 42, "archive_sha256": nil}
+	release["assets"] = append(assets, unknown, unknown, map[string]any{"platform": "windows-arm64"})
+	for _, onlyUnknown := range []bool{false, true} {
+		if onlyUnknown {
+			release["assets"] = []any{unknown, unknown}
+		}
+		payload, err := json.Marshal(document)
+		if err != nil {
+			t.Fatal(err)
+		}
+		catalog, err := decodeCatalog(payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(catalog.Entries) != 1 || catalog.Entries[0].CurrentRelease == nil {
+			t.Fatalf("entry or release was discarded: %+v", catalog)
+		}
+		got := catalog.Entries[0].CurrentRelease.Assets
+		if onlyUnknown {
+			if len(got) != 0 {
+				t.Fatalf("unknown assets retained: %+v", got)
+			}
+		} else {
+			want := []Asset{{Platform: "linux-x64", URL: "https://downloads.example/echo.zip", ArchiveSHA256: strings.Repeat("a", 64)}}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("assets = %+v, want %+v", got, want)
+			}
+		}
+	}
+}
+
+func TestInvalidCatalogRefreshPreservesCachedCatalog(t *testing.T) {
+	for _, test := range []struct {
+		name, old, replacement string
+	}{
+		{"catalog_version", `"catalog_version":"2"`, `"catalog_version":"3"`},
+		{"missing_entries", `"entries":`, `"unused":`},
+		{"missing_recommended", `"recommended":true,`, ``},
+		{"wrong_boolean_type", `"recommended":true`, `"recommended":"true"`},
+		{"plugin_id", `"id":"raylea.echo"`, `"id":"INVALID"`},
+		{"version", `"version":"0.4.0"`, `"version":"v0.4.0"`},
+		{"empty_assets", `"assets":[`, `"assets":[],"unused":[`},
+		{"sha256", strings.Repeat("a", 64), strings.Repeat("A", 64)},
+		{"asset_url", `https://downloads.example/echo.zip`, `http://downloads.example/echo.zip`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			valid := catalogJSON("linux-x64")
+			payload := bytes.Replace(valid, []byte(test.old), []byte(test.replacement), 1)
+			repository := newMemoryRepository(valid)
+			service := newTestService(t, emptyCatalog{}, nil, repository, staticCatalogTransport(payload))
+			before, _ := service.Get(OfficialSourceID, "raylea.echo")
+			if _, err := service.Refresh(t.Context(), OfficialSourceID); ErrorCode(err) != CodeCatalogUnavailable {
+				t.Fatalf("Refresh() error = %v", err)
+			}
+			after, ok := service.Get(OfficialSourceID, "raylea.echo")
+			if !ok || !reflect.DeepEqual(before, after) {
+				t.Fatalf("invalid refresh changed the cached entry: %+v", after)
+			}
+			cached, err := repository.LoadCatalogs(t.Context())
+			if err != nil || len(cached) != 1 || !bytes.Equal(cached[0].Payload, valid) {
+				t.Fatalf("invalid refresh replaced persisted cache: %+v, %v", cached, err)
+			}
+		})
+	}
+}
 
 func TestStoreDetailExposesOnlyTheCurrentRelease(t *testing.T) {
 	platform, err := pluginartifact.CurrentPlatform()

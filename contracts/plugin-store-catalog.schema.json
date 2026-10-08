@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-store-catalog.schema.json",
   "title": "RayleaBot Plugin Store Catalog",
-  "description": "Static plugin catalog metadata consumed by the RayleaBot server. Each entry describes its current published version and available platform artifacts.",
+  "description": "Static plugin catalog metadata consumed by the RayleaBot server. Each entry describes its current published version and available platform artifacts. Catalog publishing tools generate and validate catalogs strictly against this schema. Readers require catalog_version \"2\", ignore unknown fields at every level, skip assets whose platform they do not recognize, and validate only the fields they use.",
   "type": "object",
   "additionalProperties": false,
   "required": ["catalog_version", "entries"],

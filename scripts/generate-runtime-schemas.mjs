@@ -14,7 +14,6 @@ const schemas = [
   'config.user.schema.json',
   'plugin-info.schema.json',
   'plugin-artifact.schema.json',
-  'plugin-store-catalog.schema.json',
 ]
 const verifyMode = process.argv.includes('--verify')
 let failed = false

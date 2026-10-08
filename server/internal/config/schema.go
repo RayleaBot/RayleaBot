@@ -14,11 +14,10 @@ import (
 )
 
 const (
-	ConfigUserSchemaID         = "builtin://contracts/config.user.schema.json"
-	BackupManifestSchemaID     = "builtin://contracts/backup-manifest.schema.json"
-	PluginInfoSchemaID         = "builtin://contracts/plugin-info.schema.json"
-	PluginArtifactSchemaID     = "builtin://contracts/plugin-artifact.schema.json"
-	PluginStoreCatalogSchemaID = "builtin://contracts/plugin-store-catalog.schema.json"
+	ConfigUserSchemaID     = "builtin://contracts/config.user.schema.json"
+	BackupManifestSchemaID = "builtin://contracts/backup-manifest.schema.json"
+	PluginInfoSchemaID     = "builtin://contracts/plugin-info.schema.json"
+	PluginArtifactSchemaID = "builtin://contracts/plugin-artifact.schema.json"
 )
 
 // ConfigUserSchemaJSON mirrors contracts/config.user.schema.json; keep the
@@ -45,17 +44,11 @@ var PluginInfoSchemaJSON []byte
 //go:embed contracts/plugin-artifact.schema.json
 var PluginArtifactSchemaJSON []byte
 
-// PluginStoreCatalogSchemaJSON mirrors contracts/plugin-store-catalog.schema.json.
-//
-//go:embed contracts/plugin-store-catalog.schema.json
-var PluginStoreCatalogSchemaJSON []byte
-
 var builtinValidators = map[string]func() (*Validator, error){
-	ConfigUserSchemaID:         builtinValidator(ConfigUserSchemaID, ConfigUserSchemaJSON),
-	BackupManifestSchemaID:     builtinValidator(BackupManifestSchemaID, BackupManifestSchemaJSON),
-	PluginInfoSchemaID:         builtinValidator(PluginInfoSchemaID, PluginInfoSchemaJSON),
-	PluginArtifactSchemaID:     builtinValidator(PluginArtifactSchemaID, PluginArtifactSchemaJSON),
-	PluginStoreCatalogSchemaID: builtinValidator(PluginStoreCatalogSchemaID, PluginStoreCatalogSchemaJSON),
+	ConfigUserSchemaID:     builtinValidator(ConfigUserSchemaID, ConfigUserSchemaJSON),
+	BackupManifestSchemaID: builtinValidator(BackupManifestSchemaID, BackupManifestSchemaJSON),
+	PluginInfoSchemaID:     builtinValidator(PluginInfoSchemaID, PluginInfoSchemaJSON),
+	PluginArtifactSchemaID: builtinValidator(PluginArtifactSchemaID, PluginArtifactSchemaJSON),
 }
 
 func builtinValidator(name string, content []byte) func() (*Validator, error) {

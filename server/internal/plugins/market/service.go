@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	semverutil "github.com/RayleaBot/RayleaBot/server/internal/platform/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginartifact "github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
@@ -40,14 +38,13 @@ type catalogSnapshot struct {
 }
 
 type Service struct {
-	mu               sync.RWMutex
-	snapshots        map[string]catalogSnapshot
-	sources          map[string]Source
-	installed        plugins.CatalogView
-	installer        Installer
-	repository       Repository
-	options          Options
-	catalogValidator *config.Validator
+	mu         sync.RWMutex
+	snapshots  map[string]catalogSnapshot
+	sources    map[string]Source
+	installed  plugins.CatalogView
+	installer  Installer
+	repository Repository
+	options    Options
 }
 
 func New(ctx context.Context, installed plugins.CatalogView, installer Installer, repository Repository, options Options) (*Service, error) {
@@ -64,10 +61,6 @@ func New(ctx context.Context, installed plugins.CatalogView, installer Installer
 	if options.Now == nil {
 		options.Now = time.Now
 	}
-	validator, err := config.CompileJSON(config.PluginStoreCatalogSchemaID, config.PluginStoreCatalogSchemaJSON)
-	if err != nil {
-		return nil, fmt.Errorf("compile plugin store catalog schema: %w", err)
-	}
 	sources, err := repository.ListSources(ctx)
 	if err != nil {
 		return nil, err
@@ -76,13 +69,12 @@ func New(ctx context.Context, installed plugins.CatalogView, installer Installer
 		return nil, errors.New("plugin store repository does not contain the official source")
 	}
 	service := &Service{
-		snapshots:        make(map[string]catalogSnapshot, len(sources)),
-		sources:          make(map[string]Source, len(sources)),
-		installed:        installed,
-		installer:        installer,
-		repository:       repository,
-		options:          options,
-		catalogValidator: validator,
+		snapshots:  make(map[string]catalogSnapshot, len(sources)),
+		sources:    make(map[string]Source, len(sources)),
+		installed:  installed,
+		installer:  installer,
+		repository: repository,
+		options:    options,
 	}
 	for _, source := range sources {
 		service.sources[source.ID] = source
@@ -97,7 +89,7 @@ func New(ctx context.Context, installed plugins.CatalogView, installer Installer
 		if !ok {
 			continue
 		}
-		catalog, err := service.decodeCatalog(cached.Payload)
+		catalog, err := decodeCatalog(cached.Payload)
 		if err != nil {
 			return nil, fmt.Errorf("load cached catalog for %s: %w", source.ID, err)
 		}
@@ -458,7 +450,7 @@ func (s *Service) fetchCatalog(ctx context.Context, rawURL string) ([]byte, Cata
 	if err != nil {
 		return nil, Catalog{}, errorWithCode(CodeCatalogUnavailable, fmt.Errorf("fetch plugin store catalog: %w", err))
 	}
-	catalog, err := s.decodeCatalog(payload)
+	catalog, err := decodeCatalog(payload)
 	if err != nil {
 		return nil, Catalog{}, err
 	}
@@ -496,24 +488,6 @@ func (s *Service) fetch(ctx context.Context, rawURL string) ([]byte, error) {
 		return nil, errors.New("plugin store catalog exceeds size limit")
 	}
 	return payload, nil
-}
-
-func (s *Service) decodeCatalog(payload []byte) (Catalog, error) {
-	var document any
-	if err := json.Unmarshal(payload, &document); err != nil {
-		return Catalog{}, invalidCatalog("decode plugin store catalog: %v", err)
-	}
-	if err := s.catalogValidator.Validate(document); err != nil {
-		return Catalog{}, invalidCatalog("validate plugin store catalog schema: %v", err)
-	}
-	var catalog Catalog
-	if err := decodeStrictJSON(payload, &catalog); err != nil {
-		return Catalog{}, invalidCatalog("decode plugin store catalog: %v", err)
-	}
-	if err := validateCatalog(catalog); err != nil {
-		return Catalog{}, invalidCatalog("validate plugin store catalog: %v", err)
-	}
-	return catalog, nil
 }
 
 func validateCatalog(catalog Catalog) error {
@@ -727,19 +701,4 @@ func releaseAsset(release CurrentRelease, platform string) (Asset, bool) {
 		}
 	}
 	return Asset{}, false
-}
-
-func decodeStrictJSON(payload []byte, destination any) error {
-	decoder := json.NewDecoder(strings.NewReader(string(payload)))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		if err == nil {
-			return errors.New("JSON must contain exactly one value")
-		}
-		return err
-	}
-	return nil
 }
