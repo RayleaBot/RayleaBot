@@ -96,6 +96,8 @@ const (
 // Outbound message shapes. An adapter receives these and renders them onto its
 // own wire format; nothing here names a protocol.
 type OutboundMessageSend struct {
+	// Origin is host-only context; adapters may use it for passive delivery.
+	Origin *Event
 	// SourceAdapter names the adapter instance that must deliver this message,
 	// and SourceProtocol the protocol it speaks. Both are empty when the caller
 	// did not originate from a specific adapter, which resolves only while one

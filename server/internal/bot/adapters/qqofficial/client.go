@@ -40,6 +40,8 @@ type Client struct {
 	changed    chan struct{}
 	startOnce  sync.Once
 
+	groupMessages dispatchHistory
+
 	appID        string
 	sandbox      bool
 	apiBase      string
@@ -457,11 +459,16 @@ func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame, profile
 		return
 	}
 
-	event, ok := NormalizeDispatch(frame.ID, frame.T, frame.D)
+	botID, botName := c.session.bot()
+	event, ok := NormalizeDispatch(frame.ID, frame.T, frame.D, botID)
 	if !ok {
+		c.logger.Debug("QQ 官方分发事件未投递。", "dispatch_type", frame.T)
 		return
 	}
-	if botID, botName := c.session.bot(); botID != "" {
+	if event.ConversationType == "group" && event.MessageID != "" && c.groupMessages.duplicate(event.MessageID, time.Now()) {
+		return
+	}
+	if botID != "" {
 		event.BotID = botID
 		event.BotNickname = botName
 	}

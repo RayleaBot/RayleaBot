@@ -70,6 +70,21 @@ func TestSendActionRoutesMessageSend(t *testing.T) {
 	}
 }
 
+func TestSendOriginDoesNotCreateAReplySegmentForOtherAdapters(t *testing.T) {
+	origin := chatevent.Event{SourceAdapter: "onebot", SourceProtocol: "onebot11", EventType: "message.group", MessageID: "42", Target: &chatevent.Target{Type: "group", ID: "10001"}}
+	sender := &stubSender{}
+	_, err := SendAction(t.Context(), sender, nil, origin, chatevent.MessageCommand{
+		Kind: "message.send", SourceAdapter: "onebot", TargetType: "group", TargetID: "10001",
+		MessageSegments: []chatevent.MessageSegment{{Type: "text", Data: map[string]any{"text": "answer"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sender.replyRequest.ReplyToMessageID != "" || len(sender.sendRequest.Segments) != 1 || sender.sendRequest.Segments[0].Type != "text" {
+		t.Fatalf("send=%+v reply=%+v", sender.sendRequest, sender.replyRequest)
+	}
+}
+
 func TestSendActionFallsBackToSendWhenReplyTargetIsMissingAtAdapterLevel(t *testing.T) {
 	t.Parallel()
 

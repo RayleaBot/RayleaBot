@@ -185,6 +185,22 @@ OneBot 和 provider 扩展动作从 OneBot 父事件继承 `source_adapter`。�
 
 QQ 官方机器人事件的原生投影位于 `event.payload.qq_official`，包含分发类型、消息标识和 openid 等字段；仅在 `source_protocol=qqofficial` 时读取。私聊和群聊的被动回复都引用入站消息，避免作为主动推送消耗额度。
 
+#### QQ 官方机器人的投递规则
+
+- **群消息**：宿主只投递提及本机器人的群消息，并剥离指向本机器人的提及标记。群管理员开启“接收全部群消息”后，平台对群内每条消息推送 `GROUP_MESSAGE_CREATE`，未提及本机器人的消息不会投递；同一条消息经 `GROUP_AT_MESSAGE_CREATE` 与 `GROUP_MESSAGE_CREATE` 同时到达时只投递一次。`dispatch_type` 记录实际分发类型。
+- **被动回复**：插件处理 QQ 官方消息事件期间，向同一实例、同一会话发出的 `message.send` 即使不带 `reply_to_event_id`，宿主也引用该入站消息按被动回复发送。入站消息超出被动回复时限（群聊 5 分钟、私聊 60 分钟）、已被回复 5 次，或平台拒绝被动回复时，改为主动推送，受群管理员开关与主动推送额度约束；已送达的部分不会重发。显式提供 `reply_to_event_id` 或 `reply` segment 的回复不改为主动推送，被拒绝时返回 `adapter.reply_window_expired` 等错误码。
+- **消息段**：宿主在发送前校验全部 segments 并上传全部媒体，任一段不可投递、媒体无法读取或上传失败时整条消息不发送。不支持的段返回 `adapter.capability_unsupported`。
+
+| segment | QQ 官方上的处理 |
+|---|---|
+| `text` | 按顺序合并为一条文本消息 |
+| `at` | 转为文本标记 `<qqbot-at-user id="..." />`，拼入文本消息 |
+| `reply` | 只能引用本次被动回复所依据的入站消息，并入该回复；引用其他消息时整条消息不发送 |
+| `image`、`video`、`record`、`file` | 先上传再逐条发送。来源可以是 HTTP(S) 地址、本地路径、`file://` 或 `base64://`；本地文件与 `base64://` 解码后的内容上限 32 MiB |
+| `at_all`、`face`、`flash_file` 及其他 segment | 不支持，整条消息不发送 |
+
+文本与每个媒体各占一条平台消息，按文本在前、媒体在后的顺序发送，结果中的消息 ID 取第一条。媒体上传全部成功后才开始发送；发送阶段中途失败时，已发出的消息不会撤回。
+
 `adapter.send_unconfirmed` 表示请求可能已发出，但尚未收到确定回执，消息可能继续送达。调用方不得自动重发，也不能立即删除适配器尚可能读取的媒体文件。明确拒绝的发送使用 `adapter.send_failed` 等相应错误码。
 
 ### 黑白名单

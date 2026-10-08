@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
@@ -34,27 +36,62 @@ const (
 // messages answer the same inbound message. Replying twice with the same seq
 // is rejected as a duplicate.
 type replySequences struct {
-	mu   sync.Mutex
-	seen map[string]int
+	mu           sync.Mutex
+	seen         map[string]replyState
+	order        []string
+	nextEviction int
+}
+
+type replyState struct {
+	sequence    int
+	unavailable bool
+}
+
+type passiveReply struct {
+	messageID string
+	expiresAt time.Time
+	implicit  bool
 }
 
 func newReplySequences() *replySequences {
-	return &replySequences{seen: make(map[string]int)}
+	return &replySequences{seen: make(map[string]replyState)}
 }
 
 func (r *replySequences) next(messageID string) int {
-	if messageID == "" {
+	return r.reserve(passiveReply{messageID: messageID})
+}
+
+func (r *replySequences) reserve(reply passiveReply) int {
+	if reply.messageID == "" {
 		return 0
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.seen[messageID]++
-	// Bound the map so a long-lived process cannot accumulate one entry per
-	// message it has ever answered.
-	if len(r.seen) > 4096 {
-		r.seen = map[string]int{messageID: r.seen[messageID]}
+	state := r.seen[reply.messageID]
+	if reply.implicit && (state.unavailable || state.sequence >= 5 || (!reply.expiresAt.IsZero() && !time.Now().Before(reply.expiresAt))) {
+		return 0
 	}
-	return r.seen[messageID]
+	state.sequence++
+	if _, exists := r.seen[reply.messageID]; !exists {
+		if len(r.order) < 4096 {
+			r.order = append(r.order, reply.messageID)
+		} else {
+			delete(r.seen, r.order[r.nextEviction])
+			r.order[r.nextEviction] = reply.messageID
+			r.nextEviction = (r.nextEviction + 1) % len(r.order)
+		}
+	}
+	r.seen[reply.messageID] = state
+	return state.sequence
+}
+
+func (r *replySequences) refuse(messageID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if state, exists := r.seen[messageID]; exists {
+		state.unavailable = true
+		r.seen[messageID] = state
+	}
 }
 
 type sendMessageRequest struct {
@@ -75,10 +112,32 @@ type sendMessageResponse struct {
 	Code    int    `json:"code"`
 }
 
-// SendMessage delivers a message the plugin originated. The platform treats
-// these as active pushes, which are quota limited per conversation.
+// SendMessage prefers passive delivery for an action answering its own origin.
 func (c *Client) SendMessage(ctx context.Context, message chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
-	result, err := c.deliver(ctx, message.TargetType, message.TargetID, message.Segments, "")
+	reply := passiveReply{}
+	origin := message.Origin
+	if origin != nil && origin.SourceProtocol == SourceProtocol && origin.SourceAdapter == c.adapterID &&
+		origin.SourceAdapter != "" && origin.Target != nil && origin.MessageID != "" &&
+		(origin.EventType == "message.group" || origin.EventType == "message.private") &&
+		origin.Target.Type == message.TargetType && origin.Target.ID == message.TargetID {
+		reply.messageID, reply.implicit = origin.MessageID, true
+		if origin.Timestamp > 0 {
+			window := 5 * time.Minute
+			if message.TargetType == "private" {
+				window = 60 * time.Minute
+			}
+			reply.expiresAt = time.Unix(origin.Timestamp, 0).Add(window)
+		}
+		// An explicit reference must retain reply semantics even when the host
+		// can infer its target from the parent event.
+		for _, segment := range message.Segments {
+			if segment.Type == "reply" {
+				reply.implicit = false
+				break
+			}
+		}
+	}
+	result, err := c.deliver(ctx, message.TargetType, message.TargetID, message.Segments, reply)
 	result.SourceAdapter, result.SourceProtocol = c.adapterID, "qqofficial"
 	return result, err
 }
@@ -86,12 +145,12 @@ func (c *Client) SendMessage(ctx context.Context, message chatevent.OutboundMess
 // SendReply answers a specific inbound message. Passive replies do not consume
 // the active push quota, so this is the path the platform expects a bot to use.
 func (c *Client) SendReply(ctx context.Context, message chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
-	result, err := c.deliver(ctx, message.TargetType, message.TargetID, message.Segments, message.ReplyToMessageID)
+	result, err := c.deliver(ctx, message.TargetType, message.TargetID, message.Segments, passiveReply{messageID: message.ReplyToMessageID})
 	result.SourceAdapter, result.SourceProtocol = c.adapterID, "qqofficial"
 	return result, err
 }
 
-func (c *Client) deliver(ctx context.Context, targetType, targetID string, segments []chatevent.MessageSegment, replyTo string) (result chatevent.SendMessageResult, err error) {
+func (c *Client) deliver(ctx context.Context, targetType, targetID string, segments []chatevent.MessageSegment, reply passiveReply) (result chatevent.SendMessageResult, err error) {
 	defer func() {
 		if err == nil {
 			return
@@ -112,7 +171,10 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 	if err != nil {
 		return chatevent.SendMessageResult{}, err
 	}
-	text, media := splitSegments(segments)
+	text, media, err := prepareSegments(segments, reply.messageID)
+	if err != nil {
+		return result, err
+	}
 	if strings.TrimSpace(text) == "" && len(media) == 0 {
 		return chatevent.SendMessageResult{}, &chatevent.SendError{
 			Code:    CodeCapabilityUnsupported,
@@ -120,25 +182,25 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 		}
 	}
 
-	// The platform carries one media item per message, so a message mixing text
-	// and media becomes a short sequence. The first send returns the id callers
-	// use to refer to the message.
+	// Complete all uploads before any visible send. Each prepared media handle
+	// still needs its own message; the first receipt identifies the logical send.
+	requests := make([]sendMessageRequest, 0, 1+len(media))
 	if strings.TrimSpace(text) != "" {
-		sent, err := c.post(ctx, settings, endpoint, sendMessageRequest{Content: text, MsgType: msgTypeText}, replyTo)
-		if err != nil {
-			return chatevent.SendMessageResult{}, err
-		}
-		result = sent
+		requests = append(requests, sendMessageRequest{Content: text, MsgType: msgTypeText})
 	}
-	for _, segment := range media {
-		fileInfo, err := c.uploadMedia(ctx, settings, targetType, targetID, segment)
+	for _, upload := range media {
+		fileInfo, err := c.uploadMedia(ctx, settings, targetType, targetID, upload)
 		if err != nil {
 			return result, err
 		}
-		sent, err := c.post(ctx, settings, endpoint, sendMessageRequest{
+		requests = append(requests, sendMessageRequest{
+			Content: " ",
 			MsgType: msgTypeMedia,
 			Media:   &mediaRef{FileInfo: fileInfo},
-		}, replyTo)
+		})
+	}
+	for _, body := range requests {
+		sent, err := c.post(ctx, settings, endpoint, body, reply)
 		if err != nil {
 			return result, err
 		}
@@ -151,11 +213,30 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 
 // post sends one prepared message. A reply advances msg_seq so several answers
 // to the same inbound message are not rejected as duplicates.
-func (c *Client) post(ctx context.Context, settings requestSettings, endpoint string, body sendMessageRequest, replyTo string) (chatevent.SendMessageResult, error) {
-	if replyTo != "" {
-		body.MsgID = replyTo
-		body.MsgSeq = c.replies.next(replyTo)
+func (c *Client) post(ctx context.Context, settings requestSettings, endpoint string, body sendMessageRequest, reply passiveReply) (chatevent.SendMessageResult, error) {
+	if seq := c.replies.reserve(reply); seq != 0 {
+		body.MsgID = reply.messageID
+		body.MsgSeq = seq
 	}
+	result, err := c.postMessage(ctx, settings, endpoint, body)
+	var refusal *passiveReplyRefusal
+	if body.MsgID != "" && errors.As(err, &refusal) {
+		c.replies.refuse(reply.messageID)
+		if reply.implicit {
+			body.MsgID, body.MsgSeq = "", 0
+			return c.postMessage(ctx, settings, endpoint, body)
+		}
+	}
+	return result, err
+}
+
+// passiveReplyRefusal distinguishes a known exhausted reply from unrelated
+// platform failures; uncertain delivery must never be retried as an active send.
+type passiveReplyRefusal struct{}
+
+func (*passiveReplyRefusal) Error() string { return "passive reply unavailable" }
+
+func (c *Client) postMessage(ctx context.Context, settings requestSettings, endpoint string, body sendMessageRequest) (chatevent.SendMessageResult, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return chatevent.SendMessageResult{}, err
@@ -188,10 +269,14 @@ func (c *Client) post(ctx context.Context, settings requestSettings, endpoint st
 		if message == "" {
 			message = "platform rejected the message"
 		}
-		return chatevent.SendMessageResult{}, &chatevent.SendError{
-			Code:    sendErrorCode(response.StatusCode, decoded.Code, replyTo != ""),
+		failure := &chatevent.SendError{
+			Code:    sendErrorCode(response.StatusCode, decoded.Code, body.MsgID != ""),
 			Message: message,
 		}
+		if body.MsgID != "" && (decoded.Code == 40004 || decoded.Code == 304027 || decoded.Code == 22009) {
+			failure.Err = &passiveReplyRefusal{}
+		}
+		return chatevent.SendMessageResult{}, failure
 	}
 	if decodeErr != nil || strings.TrimSpace(decoded.ID) == "" {
 		return chatevent.SendMessageResult{}, &chatevent.SendError{Code: CodeSendUnconfirmed, Message: "平台未返回有效消息回执，无法确认消息是否送达；未自动重发。"}
@@ -199,22 +284,40 @@ func (c *Client) post(ctx context.Context, settings requestSettings, endpoint st
 	return chatevent.SendMessageResult{MessageID: decoded.ID}, nil
 }
 
-// splitSegments separates the text a person wrote from the media that has to be
-// uploaded before it can be referenced.
-func splitSegments(segments []chatevent.MessageSegment) (string, []chatevent.MessageSegment) {
+func prepareSegments(segments []chatevent.MessageSegment, replyTo string) (string, []uploadMediaRequest, error) {
 	var text strings.Builder
-	media := make([]chatevent.MessageSegment, 0, len(segments))
+	media := make([]uploadMediaRequest, 0, len(segments))
 	for _, segment := range segments {
 		switch segment.Type {
 		case "text":
 			if value, ok := segment.Data["text"].(string); ok {
 				text.WriteString(value)
 			}
+		case "at":
+			id, _ := segment.Data["user_id"].(string)
+			if id == "" || id == "all" {
+				return "", nil, unsupportedSegment(segment.Type)
+			}
+			text.WriteString(`<qqbot-at-user id="` + html.EscapeString(id) + `" />`)
+		case "reply":
+			id, _ := segment.Data["message_id"].(string)
+			// QQ's group and C2C endpoints do not support message_reference.
+			if replyTo == "" || id != replyTo {
+				return "", nil, unsupportedSegment(segment.Type)
+			}
 		default:
-			media = append(media, segment)
+			upload, err := prepareMedia(segment)
+			if err != nil {
+				return "", nil, err
+			}
+			media = append(media, upload)
 		}
 	}
-	return text.String(), media
+	return text.String(), media, nil
+}
+
+func unsupportedSegment(kind string) error {
+	return &chatevent.SendError{Code: CodeCapabilityUnsupported, Message: fmt.Sprintf("当前适配器无法投递 %q 消息段。", kind)}
 }
 
 // messageEndpoint maps a neutral conversation onto the platform's two message

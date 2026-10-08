@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,16 +21,17 @@ const (
 	mediaTypeImage = 1
 	mediaTypeVideo = 2
 	mediaTypeVoice = 3
+	mediaTypeFile  = 4
 )
 
-// maxMediaBytes bounds what is read off disk before base64 expansion, so a
-// mistaken path cannot pull an arbitrarily large file into memory.
+// maxMediaBytes bounds local and decoded base64 media before upload encoding.
 const maxMediaBytes = 32 << 20
 
 type uploadMediaRequest struct {
 	FileType   int    `json:"file_type"`
 	URL        string `json:"url,omitempty"`
 	FileData   string `json:"file_data,omitempty"`
+	FileName   string `json:"file_name,omitempty"`
 	SrvSendMsg bool   `json:"srv_send_msg"`
 }
 
@@ -50,46 +52,54 @@ func mediaFileType(segmentType string) (int, bool) {
 		return mediaTypeVideo, true
 	case "record":
 		return mediaTypeVoice, true
+	case "file":
+		return mediaTypeFile, true
 	default:
 		return 0, false
 	}
 }
 
-// uploadMedia turns one media segment into a file_info the send endpoint can
-// reference. A remote http(s) source is handed to the platform to fetch; a
-// local one is read and sent as base64, so a self-hosted bot does not need a
-// publicly reachable address for its own rendered images.
-func (c *Client) uploadMedia(ctx context.Context, settings requestSettings, targetType, targetID string, segment chatevent.MessageSegment) (string, error) {
+func prepareMedia(segment chatevent.MessageSegment) (uploadMediaRequest, error) {
 	fileType, ok := mediaFileType(segment.Type)
 	if !ok {
-		return "", &chatevent.SendError{
-			Code:    CodeCapabilityUnsupported,
-			Message: fmt.Sprintf("当前适配器无法投递 %q 消息段。", segment.Type),
-		}
-	}
-	endpoint, err := mediaEndpoint(settings.apiBase, targetType, targetID)
-	if err != nil {
-		return "", err
+		return uploadMediaRequest{}, unsupportedSegment(segment.Type)
 	}
 
 	body := uploadMediaRequest{FileType: fileType}
+	if segment.Type == "file" {
+		body.FileName, _ = segment.Data["name"].(string)
+	}
 	source := mediaSource(segment)
 	switch {
 	case source == "":
-		return "", &chatevent.SendError{
+		return body, &chatevent.SendError{
 			Code:    CodeCapabilityUnsupported,
 			Message: fmt.Sprintf("%q 消息段没有可用的地址或文件。", segment.Type),
 		}
 	case isRemoteMediaSource(source):
 		body.URL = source
+	case strings.HasPrefix(source, "base64://"):
+		data, err := io.ReadAll(io.LimitReader(base64.NewDecoder(base64.StdEncoding, strings.NewReader(strings.TrimPrefix(source, "base64://"))), maxMediaBytes+1))
+		if err != nil || len(data) > maxMediaBytes {
+			return body, &chatevent.SendError{Code: CodeCapabilityUnsupported, Message: "媒体 base64 无效或超过大小上限。"}
+		}
+		body.FileData = base64.StdEncoding.EncodeToString(data)
 	default:
 		data, err := readLocalMedia(source)
 		if err != nil {
-			return "", err
+			return body, err
 		}
 		body.FileData = base64.StdEncoding.EncodeToString(data)
 	}
+	return body, nil
+}
 
+// uploadMedia obtains a handle without making the media visible to recipients.
+func (c *Client) uploadMedia(ctx context.Context, settings requestSettings, targetType, targetID string, body uploadMediaRequest) (string, error) {
+	endpoint, err := mediaEndpoint(settings.apiBase, targetType, targetID)
+	if err != nil {
+		return "", err
+	}
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return "", err

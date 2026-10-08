@@ -2,6 +2,7 @@ package qqofficial
 
 import (
 	"encoding/json"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 const (
 	dispatchC2CMessageCreate     = "C2C_MESSAGE_CREATE"
 	dispatchGroupAtMessageCreate = "GROUP_AT_MESSAGE_CREATE"
+	dispatchGroupMessageCreate   = "GROUP_MESSAGE_CREATE"
 
 	dispatchGroupAddRobot   = "GROUP_ADD_ROBOT"
 	dispatchGroupDelRobot   = "GROUP_DEL_ROBOT"
@@ -80,15 +82,48 @@ type dispatchMessage struct {
 	Author      dispatchAuthor       `json:"author"`
 	Attachments []dispatchAttachment `json:"attachments"`
 	Timestamp   json.RawMessage      `json:"timestamp"`
+	Mentions    []dispatchMention    `json:"mentions"`
+}
+
+type dispatchMention struct {
+	ID    string `json:"id"`
+	IsYou bool   `json:"is_you"`
+}
+
+var botMentionPattern = regexp.MustCompile(`<@!?([^<>\s]+)>|<qqbot-at-user\s+id="([^"]+)"\s*/>`)
+
+func stripBotMentions(message *dispatchMessage, botIDs []string) bool {
+	self := make(map[string]bool, len(botIDs))
+	for _, id := range botIDs {
+		if id != "" {
+			self[id] = true
+		}
+	}
+	mentioned := false
+	for _, mention := range message.Mentions {
+		if mention.IsYou || self[mention.ID] {
+			mentioned = true
+			if mention.ID != "" {
+				self[mention.ID] = true
+			}
+		}
+	}
+	message.Content = botMentionPattern.ReplaceAllStringFunc(message.Content, func(markup string) string {
+		match := botMentionPattern.FindStringSubmatch(markup)
+		if self[match[1]] || self[match[2]] {
+			mentioned = true
+			return ""
+		}
+		return markup
+	})
+	return mentioned
 }
 
 // NormalizeDispatch converts one gateway dispatch frame into the neutral event
-// shape. It reports false for dispatches this adapter does not deliver, which
-// includes lifecycle frames such as READY and the group membership notices that
-// have no formal event type yet.
-func NormalizeDispatch(eventID, dispatchType string, data []byte) (chatevent.NormalizedEvent, bool) {
+// shape. Full group dispatches are delivered only when they mention this bot.
+func NormalizeDispatch(eventID, dispatchType string, data []byte, botIDs ...string) (chatevent.NormalizedEvent, bool) {
 	switch dispatchType {
-	case dispatchC2CMessageCreate, dispatchGroupAtMessageCreate:
+	case dispatchC2CMessageCreate, dispatchGroupAtMessageCreate, dispatchGroupMessageCreate:
 	default:
 		if _, ok := membershipEventTypes[dispatchType]; ok {
 			return normalizeMembershipDispatch(eventID, dispatchType, data)
@@ -99,6 +134,12 @@ func NormalizeDispatch(eventID, dispatchType string, data []byte) (chatevent.Nor
 	var message dispatchMessage
 	if err := json.Unmarshal(data, &message); err != nil {
 		return chatevent.NormalizedEvent{}, false
+	}
+	if dispatchType == dispatchGroupMessageCreate || dispatchType == dispatchGroupAtMessageCreate {
+		mentioned := stripBotMentions(&message, botIDs)
+		if dispatchType == dispatchGroupMessageCreate && !mentioned {
+			return chatevent.NormalizedEvent{}, false
+		}
 	}
 
 	senderID := messageSenderID(message.Author)
@@ -116,8 +157,7 @@ func NormalizeDispatch(eventID, dispatchType string, data []byte) (chatevent.Nor
 		ActorNickname:  strings.TrimSpace(message.Author.Username),
 		ActorRole:      strings.TrimSpace(message.Author.MemberRole),
 		MessageID:      message.ID,
-		// The at-mention is already stripped by the platform, so a mention-only
-		// message arrives as whitespace and must not read as text.
+		// A mention-only message has no remaining text after normalization.
 		PlainText: messagePlainText(message.Content),
 	}
 	if event.EventID == "" {
@@ -125,7 +165,7 @@ func NormalizeDispatch(eventID, dispatchType string, data []byte) (chatevent.Nor
 	}
 
 	switch dispatchType {
-	case dispatchGroupAtMessageCreate:
+	case dispatchGroupAtMessageCreate, dispatchGroupMessageCreate:
 		group := strings.TrimSpace(message.GroupOpenID)
 		if group == "" {
 			return chatevent.NormalizedEvent{}, false
