@@ -116,7 +116,7 @@ func (c *Checker) Import(ctx context.Context, root, source string) (CheckResult,
 	if err != nil {
 		return CheckResult{}, err
 	}
-	defer lock.Close()
+	defer func() { _ = lock.Close() }()
 	format := "zip"
 	if strings.HasSuffix(source, ".tar.gz") {
 		format = "tar.gz"
@@ -127,7 +127,7 @@ func (c *Checker) Import(ctx context.Context, root, source string) (CheckResult,
 	if err != nil {
 		return CheckResult{}, err
 	}
-	defer input.Close()
+	defer func() { _ = input.Close() }()
 	info, err := input.Stat()
 	if err != nil {
 		return CheckResult{}, err
@@ -144,7 +144,7 @@ func (c *Checker) Import(ctx context.Context, root, source string) (CheckResult,
 		return CheckResult{}, err
 	}
 	temporary := output.Name()
-	defer os.Remove(temporary)
+	defer func() { _ = os.Remove(temporary) }()
 	// Validate the cached copy so preparation and later retries use the same
 	// bytes even if the user replaces the source archive during import.
 	written, copyErr := fsguard.CopyAtMost(ctx, output, input, info.Size())

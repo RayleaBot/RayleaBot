@@ -96,7 +96,7 @@ func TestUpdateOperationsRejectConcurrentPreparation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer lock.Close()
+	defer func() { _ = lock.Close() }()
 	if _, _, err := NewChecker().Download(context.Background(), root); !errors.Is(err, filelock.ErrLocked) {
 		t.Fatalf("expected lock error, got %v", err)
 	}

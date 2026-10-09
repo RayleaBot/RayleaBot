@@ -10,9 +10,7 @@ import (
 // The stored value is always a base prefix, never a repository-specific URL.
 func NormalizeUpdatePrefix(raw string) (string, error) {
 	value := strings.TrimSpace(raw)
-	if strings.HasSuffix(value, "{url}") {
-		value = strings.TrimSuffix(value, "{url}")
-	}
+	value = strings.TrimSuffix(value, "{url}")
 	for _, host := range []string{"github.com", "api.github.com", "raw.githubusercontent.com"} {
 		if strings.HasSuffix(value, "/https://"+host) {
 			value = strings.TrimSuffix(value, "/https://"+host)

@@ -188,7 +188,7 @@ func runCleanup(cmd Command) int {
 		cmd.Logger.Error("更新准备正在使用缓存，请稍后重试清理")
 		return 1
 	}
-	defer updateLock.Close()
+	defer func() { _ = updateLock.Close() }()
 	cfg, _, err := internalconfig.Load(cmd.ConfigPath, cmd.SchemaPath)
 	if err != nil {
 		cmd.Logger.Error("读取清理保留策略失败", "err", displayLogError(repoRoot, err, cmd.ConfigPath))

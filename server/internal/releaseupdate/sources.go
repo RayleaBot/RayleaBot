@@ -259,7 +259,7 @@ func (c *Checker) downloadRoutes(ctx context.Context, artifact Artifact, version
 			if err != nil {
 				return
 			}
-			defer response.Body.Close()
+			defer func() { _ = response.Body.Close() }()
 			if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusPartialContent {
 				return
 			}

@@ -32,7 +32,7 @@ func (c *Checker) Download(ctx context.Context, installRoot string) (CheckResult
 	if err != nil {
 		return CheckResult{}, "", err
 	}
-	defer lock.Close()
+	defer func() { _ = lock.Close() }()
 	result, err := c.Check(ctx, installRoot)
 	if err != nil || result.Status != "update_available" {
 		if err == nil {
@@ -98,7 +98,7 @@ func (c *Checker) ApplyPrepared(ctx context.Context, installRoot, expectedID str
 	if err != nil {
 		return CheckResult{}, err
 	}
-	defer lock.Close()
+	defer func() { _ = lock.Close() }()
 	prepared, err := readPrepared(installRoot)
 	if err != nil {
 		return CheckResult{}, fmt.Errorf("prepare an update with update download first: %w", err)
