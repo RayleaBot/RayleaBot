@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { createBuildCache } from "../../scripts/dev-build-cache.mjs";
 import { createLauncherGoArgs } from "../../scripts/start-dev-support.mjs";
 import { createProcessInvocation } from "../../scripts/process-invocation.mjs";
-import { createWailsLinuxOverlay } from "./wails-linux-overlay.mjs";
+import { createWailsLinuxCompatibility } from "./wails-linux-compat.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const goModuleText = fs.readFileSync(path.join(root, "go.mod"), "utf8");
@@ -56,12 +56,13 @@ export async function prepareLauncherGoArgs(args, targetOS = process.env.GOOS ||
     cwd: root, env: { ...process.env, GOWORK: "off" },
   });
   const module = JSON.parse(result.stdout);
-  const overlay = await createWailsLinuxOverlay({
+  const modfile = await createWailsLinuxCompatibility({
     moduleDirectory: module.Dir,
     version: module.Version,
-    cacheDirectory: path.join(root, "..", ".tmp", "wails-linux-overlay"),
+    launcherDirectory: root,
+    cacheDirectory: path.join(root, "..", ".tmp", "wails-linux-compat"),
   });
-  return [args[0], `-overlay=${overlay}`, ...args.slice(1)];
+  return [args[0], `-modfile=${modfile}`, "-mod=readonly", ...args.slice(1)];
 }
 
 export async function runWails(args) {

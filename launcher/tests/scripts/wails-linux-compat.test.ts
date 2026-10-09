@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { patchLinuxTraySource } from "../../scripts/wails-linux-overlay.mjs";
+import { patchLinuxTraySource } from "../../scripts/wails-linux-compat.mjs";
 import { prepareLauncherGoArgs } from "../../scripts/run-go.mjs";
 
 describe("Wails Linux compatibility patch guards", () => {

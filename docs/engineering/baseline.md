@@ -57,7 +57,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件与界面规则见 [`D
 - sqlc 单独安装：按 `.tool-versions` 中的版本执行 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v<version>`。
 - 无网络环境需要提前准备 Go module 缓存与前端依赖，并把 Go、Node.js、Corepack pnpm、sqlc 和 `.deps/manifest.json` 对应的 Chromium、FFmpeg 资源放入镜像或工作站。Chromium 可使用系统 Chrome / Chromium / Edge，也可使用 `.deps/store/` 中已展开的托管资源；FFmpeg 与 FFprobe 使用清单内固定的托管资源。
 - Linux 构建 Wails Launcher 固定使用 Wails v3.0.x 支持的 `gtk3` 兼容标签，需要 GTK 3 与 WebKit2GTK 4.1 开发包；Ubuntu 使用 `libgtk-3-dev` 和 `libwebkit2gtk-4.1-dev`。
-- Linux Launcher 的开发、检查和打包入口通过 [Go 命令包装器](../../launcher/scripts/run-go.mjs) 加载局部源码覆盖，修正冻结 Wails 版本将托盘菜单 `opened` 通知误派发为左键激活的问题；不修改 Go module 缓存。单独执行 Go 检查时使用 `node scripts/run-go.mjs vet:platform ./...` 或 `test:platform`；升级 Wails 时需复核并移除已由上游解决的覆盖。
+- Linux Launcher 的开发、检查和打包入口通过 [Go 命令包装器](../../launcher/scripts/run-go.mjs) 使用 `.tmp/` 中的 Wails 副本和临时模块文件，修正冻结版本将托盘菜单 `opened` 通知误派发为左键激活的问题；不修改 Go module 缓存。单独执行 Go 检查时使用 `node scripts/run-go.mjs vet:platform ./...` 或 `test:platform`；升级 Wails 时需复核并移除已由上游解决的修补。
 - `tools/` 是独立 Go module，开发、生成、发布与 CI 命令在仓库根目录通过 `go run ./tools/cmd/<name>` 执行。YAML 解析复用固定的 `go.yaml.in/yaml/v3 v3.0.5`；契约校验使用 `github.com/santhosh-tekuri/jsonschema/v6 v6.0.3` 的 Draft 2020-12 并开启 format 断言，检查日期、URI 等格式。归档解码复用 Server 固定版本的 `github.com/xi2/xz`，字典上限为 64 MiB；恢复演练使用同版本的 `modernc.org/sqlite`，仅在 Server 停止后插入合成插件 KV 并核对摘要格式、表清单与完整性。不依赖 OpenAPI 库或 Server 内部包。doctor 的数据库目录检查通过临时文件创建、写入与同步验证权限；SQLite 行为由 Server 存储测试覆盖。
 - 仓库提供 devcontainer，预装 `.tool-versions` 中的全部工具以及 Chromium、SQLite 和 make。
 - 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `go run ./tools/cmd/check-toolchain`。
