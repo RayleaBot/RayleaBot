@@ -120,6 +120,7 @@ func TestEnqueueAdapterEventDropsBeyondConversationCapacity(t *testing.T) {
 	}
 	s.EnqueueAdapterEvent(t.Context(), laneEvent("other", "B"))
 	recorder.awaitStart(t, "other")
+	recorder.awaitFinished(t, []string{"other"})
 
 	recorder.release("busy")
 	recorder.awaitFinished(t, append([]string{"other"}, want...))
