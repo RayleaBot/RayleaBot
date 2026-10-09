@@ -2,10 +2,13 @@ package app
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/redact"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
@@ -44,6 +47,7 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	if err != nil {
 		return appBuildState{}, err
 	}
+	ensurePluginInstallRoot(logger, discoverySpec)
 	pluginValidator, err := compilePluginSchema(discoverySpec.PluginSchemaPath)
 	if err != nil {
 		return appBuildState{}, fmt.Errorf("compile plugin manifest schema %s: %w", discoverySpec.PluginSchemaPath, err)
@@ -89,4 +93,19 @@ func compilePluginSchema(schemaPath string) (*config.Validator, error) {
 		return config.CompileJSON(config.PluginInfoSchemaID, config.PluginInfoSchemaJSON)
 	}
 	return config.Compile(schemaPath)
+}
+
+// Release packages ship without plugins/, so create the install root up front;
+// otherwise a fresh installation reports the plugin directory as missing until
+// the first plugin is installed.
+func ensurePluginInstallRoot(logger *slog.Logger, spec plugincatalog.DiscoverySpec) {
+	for _, root := range spec.Roots {
+		if root.Label != "plugins/installed" {
+			continue
+		}
+		if err := os.MkdirAll(root.Path, 0o755); err != nil {
+			logger.Warn("插件安装目录创建失败", "path", logpath.Display(spec.RepoRoot, root.Path), "err", logpath.Error(spec.RepoRoot, err, root.Path))
+		}
+		return
+	}
 }
