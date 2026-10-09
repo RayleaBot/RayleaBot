@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
-import { computed, nextTick, provide, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, provide, ref, watch } from 'vue'
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { motion } from 'motion-v'
 import { XIcon } from '@lucide/vue'
@@ -47,19 +47,27 @@ useResizeObserver([header, bodyContent, footer], measureContent)
 let trigger: HTMLElement | null = null
 // Owners may clear the deleted object in afterClose before Reka restores focus.
 let fallbackFocus: string | undefined
+// The exit normally ends on the motion's completion event, but motion emits none when a change leaves nothing to
+// animate; the open overlay would then keep blocking the whole page, so the exit also ends once its duration passes.
+let exitFallback: ReturnType<typeof setTimeout> | undefined
 watch(() => props.open, (open) => {
+  clearTimeout(exitFallback)
   if (open) {
     fallbackFocus = props.fallbackFocus
     activate()
     if (!trigger || !active.value) trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
     active.value = true
+  } else if (active.value) {
+    exitFallback = setTimeout(finishExit, overlayMotion.value.exit.transition.duration * 1000 + 200)
   }
 }, { immediate: true })
+onBeforeUnmount(() => clearTimeout(exitFallback))
 function requestClose() {
   if (props.open && !props.busy && props.dismissible) emit('close')
 }
 function finishExit() {
-  if (props.open) return
+  if (props.open || !active.value) return
+  clearTimeout(exitFallback)
   active.value = false
   release()
   emit('afterClose')
