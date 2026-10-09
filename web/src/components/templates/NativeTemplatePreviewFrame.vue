@@ -138,22 +138,26 @@ function renderTitleArea(data: PreviewRecord) {
 }
 
 // As in the template: prefix chips mark dedicated prefixes; without chips the plain prefix list is shown.
-function renderCommandPrefixes(chipsInput: unknown, prefixesInput: unknown, className = 'command-prefixes', label = '可用指令前缀') {
+function renderCommandPrefixes(chipsInput: unknown, prefixesInput: unknown) {
   const chips = prefixChips(chipsInput)
   const values = chips.length > 0
-    ? chips.map(chip => chip.dedicated
-      ? `<code class="command-prefixes__dedicated" aria-label="专属前缀 ${escapeAttribute(chip.text)}">${escapeHtml(chip.text)}</code>`
-      : `<code>${escapeHtml(chip.text)}</code>`).join('')
+    ? prefixChipsHtml(chips)
     : stringList(prefixesInput).map((prefix) => `<code>${escapeHtml(prefix)}</code>`).join('')
   if (!values) {
     return ''
   }
-  return `<div class="${className}" aria-label="${label}">
+  return `<div class="command-prefixes" aria-label="可用指令前缀">
         <span class="command-prefixes__label">前缀</span>
         <span class="command-prefixes__values">
           ${values}
         </span>
       </div>`
+}
+
+function prefixChipsHtml(chips: { text: string, dedicated: boolean }[]) {
+  return chips.map(chip => chip.dedicated
+    ? `<code class="command-prefixes__dedicated" aria-label="专属前缀 ${escapeAttribute(chip.text)}">${escapeHtml(chip.text)}</code>`
+    : `<code>${escapeHtml(chip.text)}</code>`).join('')
 }
 
 function prefixChips(input: unknown) {
@@ -196,9 +200,16 @@ function renderCell(item: unknown) {
           ${permission}
         </div>
         ${optionalElement('p', 'description', payload.description)}
-        ${renderCommandPrefixes(payload.prefix_chips, [], 'command-prefixes command-prefixes--cell', '该插件的指令前缀')}
+        ${renderCellPrefixes(payload.prefix_chips)}
         ${renderCommandUsage(payload)}
       </article>`
+}
+
+function renderCellPrefixes(input: unknown) {
+  const values = prefixChipsHtml(prefixChips(input))
+  return values
+    ? `<p class="cell-prefixes" aria-label="该插件的指令前缀"><span class="cell-prefixes__label">前缀</span>${values}</p>`
+    : ''
 }
 
 function renderCommandUsage(payload: PreviewRecord) {
@@ -257,8 +268,11 @@ function renderUsageParts(parts: PreviewUsagePart[]) {
   }).join('')
 }
 
+// As in the template: plugins with dedicated prefixes come first so their extra line shares the same rows.
 function renderItemGrid(items: unknown) {
-  const cells = Array.isArray(items) ? items.map(renderCell).join('') : ''
+  const list = Array.isArray(items) ? items : []
+  const hasPrefixes = (item: unknown) => prefixChips(record(item).prefix_chips).length > 0
+  const cells = [...list.filter(hasPrefixes), ...list.filter(item => !hasPrefixes(item))].map(renderCell).join('')
   return `<div class="grid">${cells}</div>`
 }
 

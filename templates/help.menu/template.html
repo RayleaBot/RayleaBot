@@ -130,25 +130,9 @@
       {{ end }}
       {{ else }}
       <section class="grid">
-        {{ range .items }}
-        <article class="cell">
-          <div class="cell__header">
-            <div class="meta">{{ .name }}</div>
-            {{ if .permission_label }}
-            <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
-            {{ end }}
-          </div>
-          <p class="description">{{ .description }}</p>
-          {{ if .prefix_chips }}
-          <div class="command-prefixes command-prefixes--cell" aria-label="该插件的指令前缀">
-            <span class="command-prefixes__label">前缀</span>
-            <span class="command-prefixes__values">
-              {{ template "prefix-chips" .prefix_chips }}
-            </span>
-          </div>
-          {{ end }}
-        </article>
-        {{ end }}
+        {{/* Plugins with dedicated prefixes come first so their extra line shares the same rows. */}}
+        {{ range .items }}{{ if .prefix_chips }}{{ template "overview-cell" . }}{{ end }}{{ end }}
+        {{ range .items }}{{ if not .prefix_chips }}{{ template "overview-cell" . }}{{ end }}{{ end }}
       </section>
       {{ end }}
       {{ with .render_footer }}<footer class="template-footer"><span class="template-footer__text">{{ . }}</span></footer>{{ end }}
@@ -166,6 +150,21 @@
     <span class="command-usage__name">{{ .text }}</span>
     {{- end -}}
   {{- end -}}
+{{- end }}
+
+{{ define "overview-cell" -}}
+        <article class="cell">
+          <div class="cell__header">
+            <div class="meta">{{ .name }}</div>
+            {{ if .permission_label }}
+            <span class="command-permission command-permission--{{ .permission }}">{{ .permission_label }}</span>
+            {{ end }}
+          </div>
+          <p class="description">{{ .description }}</p>
+          {{ if .prefix_chips }}
+          <p class="cell-prefixes" aria-label="该插件的指令前缀"><span class="cell-prefixes__label">前缀</span>{{ template "prefix-chips" .prefix_chips }}</p>
+          {{ end }}
+        </article>
 {{- end }}
 
 {{ define "prefix-chips" -}}
