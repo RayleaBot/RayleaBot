@@ -1,6 +1,6 @@
 module github.com/RayleaBot/RayleaBot/examples/plugins/echo-go
 
-go 1.27.1
+go 1.27.2
 
 require github.com/RayleaBot/RayleaBot/sdk/go v0.0.0
 

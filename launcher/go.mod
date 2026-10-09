@@ -1,6 +1,6 @@
 module github.com/RayleaBot/RayleaBot/launcher
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/wailsapp/wails/v3 v3.0.0-beta.9

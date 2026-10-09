@@ -26,16 +26,16 @@ Go、Node.js、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 `.tool-ve
 
 | 领域 | 固定基线 |
 | --- | --- |
-| Server | Go `1.27.1` |
+| Server | Go `1.27.2` |
 | Web / build runtime | Node.js `26.10.0` + npm `11.19.1` |
 | JS package bootstrap | Corepack `0.35.0` |
 | JS package manager | `pnpm 11.25.0` |
 | Web UI | Vue `3.5.43` + Vite `8.2.1` + Reka UI `2.10.4` + shadcn-vue 自有组件源码 + Motion for Vue `2.4.2` + Vue Router `5.2.0` + Pinia `4.0.3` |
-| Launcher runtime | Wails v3 `v3.0.0-beta.9` + `@wailsio/runtime 3.0.0-beta.9` + Go `1.27.1` + TypeScript `5.9.3` + Vue `3.5.43` + Reka UI `2.10.4` + Motion for Vue `2.4.2` + Vite `8.2.1` + `@vitejs/plugin-vue 6.0.8` |
-| Repository scripting | Go `1.27.1`（`tools/`）+ Node.js `26.10.0` |
+| Launcher runtime | Wails v3 `v3.0.0-beta.9` + `@wailsio/runtime 3.0.0-beta.9` + Go `1.27.2` + TypeScript `5.9.3` + Vue `3.5.43` + Reka UI `2.10.4` + Motion for Vue `2.4.2` + Vite `8.2.1` + `@vitejs/plugin-vue 6.0.8` |
+| Repository scripting | Go `1.27.2`（`tools/`）+ Node.js `26.10.0` |
 | Go static analysis | golangci-lint `v2.13.0`（支持 Go 1.27） |
 | SQL generation | sqlc `v1.31.1` |
-| Plugin backend | 当前平台预编译原生 artifact；官方 Go 插件使用 Go `1.27.1` 与 `CGO_ENABLED=0` 构建 |
+| Plugin backend | 当前平台预编译原生 artifact；官方 Go 插件使用 Go `1.27.2` 与 `CGO_ENABLED=0` 构建 |
 | Plugin UI | Vue `3.5.43` + TypeScript `5.9.3` + Vite `8.2.1` + `@rayleabot/plugin-ui` |
 | Database | SQLite via `modernc.org/sqlite v1.56.0` |
 | Render | `chromedp 0.16.0` + Chrome for Testing `152.0.7977.42` |
