@@ -5,11 +5,13 @@ import process from "node:process";
 import { createProcessInvocation } from "../../scripts/process-invocation.mjs";
 import { resolveMacBundleVersion } from "./package-metadata.mjs";
 import { ensureWindowsResources } from "./generate-windows-resources.mjs";
+import { prepareLauncherGoArgs } from "./run-go.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const packageRoot = path.join(root, "dist", "package");
 
 async function run(command, args) {
+  if (command === "go") args = await prepareLauncherGoArgs(args);
   const invocation = createProcessInvocation(command, args);
   const child = spawn(invocation.command, invocation.args, {
     cwd: root,

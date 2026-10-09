@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { createBuildCache } from "../../scripts/dev-build-cache.mjs";
 import { createLauncherGoArgs } from "../../scripts/start-dev-support.mjs";
 import { createProcessInvocation } from "../../scripts/process-invocation.mjs";
+import { createWailsLinuxOverlay } from "./wails-linux-overlay.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const goModuleText = fs.readFileSync(path.join(root, "go.mod"), "utf8");
@@ -42,8 +43,25 @@ export function wailsCLIBuildArgs(toolchain, executable) {
 }
 
 export async function runGo(args) {
-  const invocation = createProcessInvocation("go", args);
+  const invocation = createProcessInvocation("go", await prepareLauncherGoArgs(args));
   return runProcess(invocation.command, invocation.args);
+}
+
+export async function prepareLauncherGoArgs(args, targetOS = process.env.GOOS || process.platform) {
+  if (targetOS !== "linux" || !["build", "run", "test", "vet", "list"].includes(args[0])) {
+    return args;
+  }
+  const { command: go } = createProcessInvocation("go", []);
+  const result = await execute(go, ["mod", "download", "-json", wailsModuleQuery], {
+    cwd: root, env: { ...process.env, GOWORK: "off" },
+  });
+  const module = JSON.parse(result.stdout);
+  const overlay = await createWailsLinuxOverlay({
+    moduleDirectory: module.Dir,
+    version: module.Version,
+    cacheDirectory: path.join(root, "..", ".tmp", "wails-linux-overlay"),
+  });
+  return [args[0], `-overlay=${overlay}`, ...args.slice(1)];
 }
 
 export async function runWails(args) {

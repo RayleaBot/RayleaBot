@@ -17,6 +17,7 @@
     "test": "node ../scripts/run-vitest.mjs run && node scripts/run-go.mjs test:platform ./...",
     "test:coverage": "node ../scripts/run-vitest.mjs run --coverage && node scripts/run-go.mjs test:platform -cover ./...",
     "test:e2e": "playwright test",
+    "test:native:linux": "xvfb-run -a dbus-run-session -- node --test tests/native/tray-events.mjs",
     "typecheck": "vue-tsc -p tsconfig.renderer.json --noEmit && node scripts/run-go.mjs vet:platform ./...",
     "build:app": "node scripts/build-app.mjs",
     "build": "node scripts/clean.mjs && node scripts/build-package.mjs"

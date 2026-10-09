@@ -1,4 +1,5 @@
 import { resolveGoExecutablePath } from "./process-invocation.mjs";
+import { prepareLauncherGoArgs } from "../launcher/scripts/run-go.mjs";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
@@ -953,7 +954,8 @@ async function prepareLauncher(installMode) {
     await buildLauncherApp();
     if (!shouldSkipLaunch()) {
       const output = path.join(cacheDir, "raylea-launcher" + (process.platform === "win32" ? ".exe" : ""));
-      await cachedGoBuild("launcher", { cwd: launcherDir, main: ".", output, env: { GOWORK: "off" }, flags: process.platform === "linux" ? ["-tags", "gtk3"] : [] });
+      const [, ...flags] = await prepareLauncherGoArgs(process.platform === "linux" ? ["build", "-tags", "gtk3"] : ["build"], process.platform);
+      await cachedGoBuild("launcher", { cwd: launcherDir, main: ".", output, env: { GOWORK: "off" }, flags });
     }
   });
 }

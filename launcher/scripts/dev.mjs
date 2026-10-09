@@ -4,7 +4,7 @@ import process from "node:process";
 import { createLauncherGoArgs } from "../../scripts/start-dev-support.mjs";
 import { normalizeChildExitCode, terminateDevProcessTree } from "./dev-support.mjs";
 import { createProcessInvocation } from "../../scripts/process-invocation.mjs";
-import { runWails, WAILS_GENERATE_BINDINGS_ARGS } from "./run-go.mjs";
+import { prepareLauncherGoArgs, runWails, WAILS_GENERATE_BINDINGS_ARGS } from "./run-go.mjs";
 import { ensureWindowsResources } from "./generate-windows-resources.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -83,7 +83,7 @@ try {
   await shutdown(1);
 }
 
-const launcher = run("go", createLauncherGoArgs("run", ["."]), {
+const launcher = run("go", await prepareLauncherGoArgs(createLauncherGoArgs("run", ["."])), {
   env: { FRONTEND_DEVSERVER_URL: "http://127.0.0.1:5174", GOWORK: "off" },
 });
 launcher.once("exit", (code, signal) => void shutdown(normalizeChildExitCode(code, signal)));
