@@ -163,6 +163,13 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 	if err := ctx.Err(); err != nil {
 		return result, err
 	}
+	if c.lifetime.Err() != nil {
+		return result, &chatevent.SendError{Code: errorcodes.AdapterTransportUnavailable, Message: "适配器已停止。"}
+	}
+	requestCtx, cancel := context.WithCancel(ctx)
+	stop := context.AfterFunc(c.lifetime, cancel)
+	defer func() { stop(); cancel() }()
+	ctx = requestCtx
 	settings := c.requestSettings()
 	if settings.disabled {
 		return chatevent.SendMessageResult{}, &chatevent.SendError{Code: errorcodes.AdapterTransportUnavailable, Message: "适配器未启用。"}

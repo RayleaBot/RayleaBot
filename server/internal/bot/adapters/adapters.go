@@ -104,16 +104,17 @@ func (s *Service) Adapters() AdaptersView {
 		Adapters:           make([]AdapterDescriptor, 0, 2),
 		AvailableProtocols: append([]AdapterProtocolDescriptor(nil), adapterProtocols...),
 	}
-	if s == nil || s.config == nil {
+	if s == nil {
 		return view
 	}
-	for _, instance := range s.config.CurrentConfig().Adapters {
-		view.Adapters = append(view.Adapters, s.adapterDescriptor(instance))
+	snapshot := s.registry.Snapshot()
+	for _, instance := range snapshot.cfg.Adapters {
+		view.Adapters = append(view.Adapters, snapshot.adapterDescriptor(instance))
 	}
 	return view
 }
 
-func (s *Service) adapterDescriptor(instance config.AdapterInstance) AdapterDescriptor {
+func (s *RuntimeSnapshot) adapterDescriptor(instance config.AdapterInstance) AdapterDescriptor {
 	switch instance.Type {
 	case config.AdapterTypeOneBot11:
 		return s.oneBot11Descriptor(instance)
@@ -131,7 +132,7 @@ func (s *Service) adapterDescriptor(instance config.AdapterInstance) AdapterDesc
 	}
 }
 
-func (s *Service) oneBot11Descriptor(instance config.AdapterInstance) AdapterDescriptor {
+func (s *RuntimeSnapshot) oneBot11Descriptor(instance config.AdapterInstance) AdapterDescriptor {
 	descriptor := AdapterDescriptor{
 		ID:          instance.ID,
 		Protocol:    config.AdapterTypeOneBot11,
@@ -140,7 +141,7 @@ func (s *Service) oneBot11Descriptor(instance config.AdapterInstance) AdapterDes
 		State:       string(onebot11.StateStopped),
 		Summary:     "连接未启动。",
 	}
-	shell := s.oneBotShell(instance.ID)
+	shell := s.oneBot11[instance.ID]
 	if shell == nil {
 		if !instance.Enabled {
 			descriptor.Summary = "连接已停用。"
@@ -187,7 +188,7 @@ func oneBot11Identity(snapshot onebot11.Snapshot) *AdapterIdentity {
 	return identity
 }
 
-func (s *Service) qqOfficialDescriptor(instance config.AdapterInstance) AdapterDescriptor {
+func (s *RuntimeSnapshot) qqOfficialDescriptor(instance config.AdapterInstance) AdapterDescriptor {
 	descriptor := AdapterDescriptor{
 		ID:          instance.ID,
 		Protocol:    config.AdapterTypeQQOfficial,
@@ -196,7 +197,7 @@ func (s *Service) qqOfficialDescriptor(instance config.AdapterInstance) AdapterD
 		State:       qqofficial.StateIdle,
 		Summary:     "连接未启动。",
 	}
-	client := s.qqClient(instance.ID)
+	client := s.qqOfficial[instance.ID]
 	if client == nil {
 		if !instance.Enabled {
 			descriptor.Summary = "连接已停用。"

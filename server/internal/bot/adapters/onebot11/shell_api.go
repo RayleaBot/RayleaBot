@@ -108,6 +108,18 @@ func apiBestEffortAttemptContext(ctx context.Context) (context.Context, context.
 }
 
 func (s *Shell) callAPIAnyOnTransport(ctx context.Context, transport TransportKey, action string, params map[string]any) (any, error) {
+	s.mu.RLock()
+	stopping, runCtx := s.stopping, s.runCtx
+	s.mu.RUnlock()
+	if stopping {
+		return nil, errorf(errorCodeConnectionLost, "adapter is stopped", nil)
+	}
+	if runCtx != nil {
+		requestCtx, cancel := context.WithCancel(ctx)
+		stop := context.AfterFunc(runCtx, cancel)
+		defer func() { stop(); cancel() }()
+		ctx = requestCtx
+	}
 	echo := s.nextRequestEcho()
 	request := APICallRequest{
 		Action: action,

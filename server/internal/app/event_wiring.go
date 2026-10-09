@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/qqofficial"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
@@ -20,17 +21,13 @@ const dispatcherRuntimeFlushInterval = 10 * time.Second
 type eventDeps struct {
 	MessageSent    func(string, string)
 	Config         config.Config
-	CurrentConfig  func() config.Config
 	Logger         *slog.Logger
 	BridgeDispatch bridge.Dispatch
 }
 
 type EventState struct {
-	MessageSent func(string, string)
-	// Adapter objects live for the application lifetime. Their instance switch
-	// gates transports and routing, so toggling it does not mutate these maps.
-	OneBotShells    map[string]*onebot11.Shell
-	QQOfficial      map[string]*qqofficial.Client
+	MessageSent     func(string, string)
+	Adapters        *adapterservice.Registry
 	BotIdentity     botIdentitySource
 	Bridge          *bridge.Bridge
 	Dispatcher      *dispatch.Dispatcher
@@ -47,15 +44,8 @@ func buildEvents(deps eventDeps) EventState {
 	}
 	// Adapters are built from the configured instances and keyed by instance id.
 	// Several instances may share a protocol, so routing keys on the id.
-	senders := make(map[string]outbound.ActionSender, len(deps.Config.Adapters))
-	protocols := make(map[string]string, len(deps.Config.Adapters))
 	oneBotShells := make(map[string]*onebot11.Shell, 1)
-	qqClients := make(map[string]*qqofficial.Client, 1)
-	currentConfig := deps.CurrentConfig
-	if currentConfig == nil {
-		currentConfig = func() config.Config { return deps.Config }
-	}
-	identity := botIdentitySource{providers: make(map[string]botIdentityProvider, len(deps.Config.Adapters)), currentConfig: currentConfig}
+	qqClients := make(map[string]adapterservice.QQOfficialAdapter, 1)
 
 	for _, instance := range deps.Config.Adapters {
 		switch {
@@ -65,25 +55,32 @@ func buildEvents(deps eventDeps) EventState {
 			settings, _ := deps.Config.OneBot11RuntimeSettings(instance.ID)
 			shell := onebot11.New(instance.ID, settings, deps.Config.Adapter, deps.Logger)
 			oneBotShells[instance.ID] = shell
-			senders[instance.ID] = shell
-			protocols[instance.ID] = instance.Type
-			identity.providers[instance.ID] = botIdentityProvider{protocol: instance.Type, identity: func() chatevent.BotIdentity {
-				return chatevent.BotIdentity{SourceAdapter: instance.ID, SourceProtocol: instance.Type, ID: shell.CurrentBotID()}
-			}}
 		case instance.Type == config.AdapterTypeQQOfficial && instance.QQOfficial != nil:
 			client := qqofficial.New(instance.ID, *instance.QQOfficial, deps.Config.Adapter, deps.Logger)
 			client.SetEnabled(instance.Enabled)
 			qqClients[instance.ID] = client
-			senders[instance.ID] = client
-			protocols[instance.ID] = instance.Type
-			identity.providers[instance.ID] = botIdentityProvider{protocol: instance.Type, identity: func() chatevent.BotIdentity {
-				botID, nickname := client.BotIdentity()
-				return chatevent.BotIdentity{SourceAdapter: instance.ID, SourceProtocol: instance.Type, ID: botID, Nickname: nickname}
-			}}
 		}
 	}
 
-	outboundSender := outbound.NewRouter(senders, protocols, currentConfig, deps.MessageSent)
+	registry := adapterservice.NewRegistry(deps.Config, oneBotShells, qqClients)
+	identity := botIdentitySource{snapshot: func() (config.Config, map[string]botIdentityProvider) {
+		snapshot := registry.Snapshot()
+		providers := make(map[string]botIdentityProvider)
+		for _, instance := range snapshot.Config().Adapters {
+			if shell := snapshot.OneBot11(instance.ID); shell != nil {
+				providers[instance.ID] = botIdentityProvider{protocol: config.AdapterTypeOneBot11, identity: func() chatevent.BotIdentity {
+					return chatevent.BotIdentity{SourceAdapter: instance.ID, SourceProtocol: config.AdapterTypeOneBot11, ID: shell.CurrentBotID()}
+				}}
+			} else if client := snapshot.QQOfficial(instance.ID); client != nil {
+				providers[instance.ID] = botIdentityProvider{protocol: config.AdapterTypeQQOfficial, identity: func() chatevent.BotIdentity {
+					status := client.Status()
+					return chatevent.BotIdentity{SourceAdapter: instance.ID, SourceProtocol: config.AdapterTypeQQOfficial, ID: status.BotID, Nickname: status.BotName}
+				}}
+			}
+		}
+		return snapshot.Config(), providers
+	}}
+	outboundSender := outbound.NewLiveRouter(func() outbound.Routes { return adapterRoutes(registry.Snapshot()) }, deps.MessageSent)
 
 	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(
@@ -108,16 +105,15 @@ func buildEvents(deps eventDeps) EventState {
 		bridgeDispatch = deps.BridgeDispatch
 	}
 	eventBridge := bridge.New(deps.Logger, bridgeDispatch)
-	eventBridge.SetAdapterStatsSource(EventState{OneBotShells: oneBotShells})
+	eventBridge.SetAdapterStatsSource(registry)
 	eventBridge.SetDispatcherStatsSource(NewDispatcherStatsAdapter(eventDispatcher))
 	eventDispatcher.SetRuntimePublisher(NewDispatcherRuntimePublisher(eventBridge))
 	eventDispatcher.StartObservabilityFlush(dispatcherRuntimeFlushInterval)
 
 	return EventState{
 		MessageSent:     deps.MessageSent,
-		OneBotShells:    oneBotShells,
+		Adapters:        registry,
 		BotIdentity:     identity,
-		QQOfficial:      qqClients,
 		Bridge:          eventBridge,
 		Dispatcher:      eventDispatcher,
 		Conversations:   conversationRegistry,
@@ -138,4 +134,19 @@ func (s *EventState) Close() {
 	}
 	s.Dispatcher.Close()
 	s.Dispatcher = nil
+}
+
+func adapterRoutes(snapshot *adapterservice.RuntimeSnapshot) outbound.Routes {
+	cfg := snapshot.Config()
+	routes := outbound.Routes{Config: &cfg, Senders: make(map[string]outbound.ActionSender), Protocols: make(map[string]string)}
+	for _, instance := range cfg.Adapters {
+		if shell := snapshot.OneBot11(instance.ID); shell != nil {
+			routes.Senders[instance.ID] = shell
+			routes.Protocols[instance.ID] = config.AdapterTypeOneBot11
+		} else if client, ok := snapshot.QQOfficial(instance.ID).(outbound.ActionSender); ok {
+			routes.Senders[instance.ID] = client
+			routes.Protocols[instance.ID] = config.AdapterTypeQQOfficial
+		}
+	}
+	return routes
 }

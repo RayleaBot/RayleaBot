@@ -44,10 +44,37 @@ func TestInstanceSwitchRestoresConfiguredIngressWithoutRestart(t *testing.T) {
 	}
 }
 
-func TestNewInstanceSettingsStillRequireRestart(t *testing.T) {
+func TestNewQQInstanceStartsAndStopsOnReload(t *testing.T) {
 	cfg := config.Config{Adapters: []config.AdapterInstance{{ID: "new-qq", Type: "qqofficial", Enabled: true, QQOfficial: &config.QQOfficialConfig{AppID: "1001"}}}}
-	service := newTestService(t, adapterConfigSource{cfg: cfg}, Instances{})
-	if err := service.ApplyConfigReload(cfg); err == nil {
-		t.Fatal("unbuilt instance was reported as reloaded")
+	client := &lifecycleQQ{stop: func(context.Context) error { return nil }}
+	service := newTestService(t, adapterConfigSource{}, Instances{
+		NewQQOfficial: func(id string, settings config.QQOfficialConfig, _ config.AdapterConfig) QQOfficialAdapter {
+			if id != "new-qq" || settings.AppID != "1001" {
+				t.Fatalf("factory received %s, %+v", id, settings)
+			}
+			return client
+		},
+	})
+	if err := service.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := service.Stop(context.Background()); err != nil {
+			t.Error(err)
+		}
+	})
+	for range 2 {
+		if err := service.ApplyConfigReload(cfg); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if client.starts.Load() != 1 || client.stops.Load() != 0 {
+		t.Fatal("new QQ instance was not started exactly once")
+	}
+	if err := service.ApplyConfigReload(config.Config{}); err != nil {
+		t.Fatal(err)
+	}
+	if client.stops.Load() != 1 || service.registry.Snapshot().QQOfficial("new-qq") != nil {
+		t.Fatal("removed QQ runtime survived")
 	}
 }

@@ -1,11 +1,14 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"time"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/qqofficial"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/messagestats"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
@@ -111,10 +114,9 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	}
 	runtimeRegistry := pluginRuntime.Runtimes
 	var serviceStatusService *managementevents.ServiceStatusService
-	qqStatus := make(map[string]adapterservice.QQOfficialAdapter, len(eventStack.QQOfficial))
-	for id, client := range eventStack.QQOfficial {
-		qqStatus[id] = client
-	}
+	var eventIngress *chatpolicy.Ingress
+	var publishAdapterState func()
+	var publishRuntimeState func()
 	protocolService, err := adapterservice.NewService(runtimeState, adapterservice.Instances{
 		Observe: func(view adapterservice.AdaptersView) {
 			items := make([]messagestats.Adapter, 0, len(view.Adapters))
@@ -123,9 +125,19 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 			}
 			platform.MessageStats.ObserveAdapters(items)
 		},
-		Reloaded:   platform.MessageStats.ReloadAdapter,
-		OneBot11:   eventStack.OneBotShells,
-		QQOfficial: qqStatus,
+		Published: func() { publishRuntimeState() },
+		Reloaded:  platform.MessageStats.ReloadAdapter,
+		Registry:  eventStack.Adapters,
+		NewOneBot11: func(id string, settings config.OneBotConfig, adapter config.AdapterConfig) *onebot11.Shell {
+			shell := onebot11.New(id, settings, adapter, runtimeState.RuntimeLogger())
+			configureOneBotRuntime(shell, eventIngress, publishAdapterState)
+			return shell
+		},
+		NewQQOfficial: func(id string, settings config.QQOfficialConfig, adapter config.AdapterConfig) adapterservice.QQOfficialAdapter {
+			client := qqofficial.New(id, settings, adapter, runtimeState.RuntimeLogger())
+			configureQQRuntime(client, eventIngress, publishAdapterState)
+			return client
+		},
 	})
 	if err != nil {
 		return serviceBuildResult{}, err
@@ -169,7 +181,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		return serviceBuildResult{}, err
 	}
 	serviceStatusService = managementevents.NewServiceStatusService(systemService)
-	eventIngress := chatpolicy.NewIngress(chatpolicy.IngressDeps{
+	eventIngress = chatpolicy.NewIngress(chatpolicy.IngressDeps{
 		MessageReceived:  platform.MessageStats.Received,
 		CurrentConfig:    runtimeState.CurrentConfig,
 		Logger:           runtimeState.RuntimeLogger(),
@@ -186,6 +198,21 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		BlacklistRepo:    policyRepos.Blacklist,
 		Conversations:    eventStack.Conversations,
 	})
+	publishAdapterState = protocolService.PublishSnapshot
+	publishRuntimeState = func() {
+		systemService.PublishStatusSnapshot()
+		pluginServices.PluginLifecycle.SyncBotIdentities(context.Background())
+	}
+	initial := eventStack.Adapters.Snapshot()
+	for _, instance := range initial.Config().Adapters {
+		if shell := initial.OneBot11(instance.ID); shell != nil {
+			configureOneBotRuntime(shell, eventIngress, publishAdapterState)
+		}
+		if client, ok := initial.QQOfficial(instance.ID).(*qqofficial.Client); ok {
+			configureQQRuntime(client, eventIngress, publishAdapterState)
+		}
+	}
+
 	return serviceBuildResult{
 		Services: Services{
 			LocalActions:       pluginRuntime.LocalActions,
@@ -261,4 +288,16 @@ func (d schedulerDiagnostics) DiagnosticsScheduler() systemsvc.DiagnosticsSchedu
 		}
 	}
 	return result
+}
+
+func configureOneBotRuntime(shell *onebot11.Shell, ingress *chatpolicy.Ingress, publish func()) {
+	shell.SetEventHandler(ingress.EnqueueAdapterEvent)
+	shell.SetReadyHandler(ingress.HandleAdapterReady)
+	shell.SetStateHandler(func(onebot11.Snapshot) { publish() })
+}
+
+func configureQQRuntime(client *qqofficial.Client, ingress *chatpolicy.Ingress, publish func()) {
+	client.SetEventHandler(ingress.EnqueueAdapterEvent)
+	client.SetReadyHandler(ingress.HandleAdapterReady)
+	client.SetStateHandler(publish)
 }

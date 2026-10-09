@@ -167,3 +167,37 @@ func TestHotReloadConsumersOnlyReceiveOwnedChanges(t *testing.T) {
 		t.Fatalf("after message change: renderer=%d outbound=%d, want only the outbound limiter applied", renderer.calls, outbound.calls)
 	}
 }
+
+func TestAdapterCollectionChangesUseReloadPolicy(t *testing.T) {
+	first := internalconfig.AdapterInstance{ID: "first", Type: "onebot11", Enabled: true, OneBot11: &internalconfig.OneBotConfig{}}
+	second := first
+	second.ID = "second"
+	for _, tc := range []struct {
+		name          string
+		before, after []internalconfig.AdapterInstance
+	}{
+		{"add", nil, []internalconfig.AdapterInstance{first}},
+		{"remove", []internalconfig.AdapterInstance{first}, nil},
+		{"rename", []internalconfig.AdapterInstance{first}, []internalconfig.AdapterInstance{second}},
+		{"retype", []internalconfig.AdapterInstance{first}, []internalconfig.AdapterInstance{{ID: "first", Type: "qqofficial", QQOfficial: &internalconfig.QQOfficialConfig{}}}},
+		{"reorder", []internalconfig.AdapterInstance{first, second}, []internalconfig.AdapterInstance{second, first}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			oldCfg, nextCfg := internalconfig.Config{Adapters: tc.before}, internalconfig.Config{Adapters: tc.after}
+			effects := ClassifyApplyEffects(oldCfg, nextCfg)
+			if effects.RestartRequired() || !slices.Equal(effects.ReloadedNow, []string{"adapters"}) {
+				t.Fatalf("effects=%+v", effects)
+			}
+			effective := oldCfg
+			protocol := &reloadFailure{}
+			service := NewService(Deps{CurrentConfig: func() internalconfig.Config { return effective }, SetConfig: func(cfg internalconfig.Config) { effective = cfg }, Protocol: protocol})
+			effects = service.ApplyHotReloadableFields(nextCfg)
+			if !slices.Equal(effects.FailedGroups, []string{"adapters"}) || !slices.Equal(effects.RestartRequiredFields, []string{"adapters"}) || len(effects.ReloadedNow) != 0 || protocol.calls != 2 {
+				t.Fatalf("failed reload effects=%+v, calls=%d", effects, protocol.calls)
+			}
+			if !slices.EqualFunc(effective.Adapters, oldCfg.Adapters, func(a, b internalconfig.AdapterInstance) bool { return a.ID == b.ID && a.Type == b.Type }) {
+				t.Fatal("failed reload did not retain the old collection")
+			}
+		})
+	}
+}

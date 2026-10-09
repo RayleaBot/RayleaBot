@@ -323,6 +323,9 @@ func (s *Shell) clearTransportRuntimeInfoLocked(transport TransportKey) {
 }
 
 func (s *Shell) AcceptWebhookPayload(ctx context.Context, payload []byte) error {
+	if s.isStopping() {
+		return errorf(errorCodeConnectionLost, "adapter is stopped", nil)
+	}
 	frame := classifyFrame(websocket.MessageText, payload, s.deps.now())
 	if err := s.recordAndValidateFrame(TransportWebhook, frame); err != nil {
 		s.markTransportFailure(TransportWebhook, TransportStateListening, errorCodeWebhookInvalidPayload, err)

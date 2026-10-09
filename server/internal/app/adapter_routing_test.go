@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -80,10 +81,11 @@ func TestOneBotActionsUseConfiguredInstanceAndParent(t *testing.T) {
 			first, firstCalls := oneBotRoutingEndpoint(t, "first")
 			second, secondCalls := oneBotRoutingEndpoint(t, "second")
 			cfg := config.Config{Adapters: []config.AdapterInstance{first, second}}
-			state := buildEvents(eventDeps{Config: cfg, CurrentConfig: func() config.Config { return cfg }, Logger: discardLogger()})
+			state := buildEvents(eventDeps{Config: cfg, Logger: discardLogger()})
 			t.Cleanup(state.Close)
 			if tc.change != nil {
 				tc.change(&cfg)
+				reloadEventAdapters(t, state, cfg)
 			}
 			data := tc.data
 			if data == "" {
@@ -122,7 +124,7 @@ func TestMetadataEnrichmentIsolatedByAdapterInstance(t *testing.T) {
 	first, firstCalls := oneBotRoutingEndpoint(t, "first")
 	second, secondCalls := oneBotRoutingEndpoint(t, "second")
 	cfg := config.Config{Adapters: []config.AdapterInstance{first, second}}
-	state := buildEvents(eventDeps{Config: cfg, CurrentConfig: func() config.Config { return cfg }, Logger: discardLogger()})
+	state := buildEvents(eventDeps{Config: cfg, Logger: discardLogger()})
 	t.Cleanup(state.Close)
 	event := chatevent.NormalizedEvent{
 		SourceProtocol: "onebot11", EventType: "message.group", ConversationType: "group",
@@ -153,10 +155,12 @@ func TestMetadataEnrichmentIsolatedByAdapterInstance(t *testing.T) {
 	}
 	event.SourceAdapter = "second"
 	cfg.Adapters[1].Enabled = false
+	reloadEventAdapters(t, state, cfg)
 	if got := state.EnrichEventMetadata(t.Context(), event); got.TargetName != "" {
 		t.Fatal("disabled instance supplied cached metadata")
 	}
 	cfg.Adapters = cfg.Adapters[:1]
+	reloadEventAdapters(t, state, cfg)
 	if got := state.EnrichEventMetadata(t.Context(), event); got.TargetName != "" {
 		t.Fatal("removed instance supplied cached metadata")
 	}
@@ -227,7 +231,7 @@ func TestOneBotProviderActionUsesSelectedInstanceProvider(t *testing.T) {
 	state := buildEvents(eventDeps{Config: config.Config{Adapters: instances}, Logger: discardLogger()})
 	t.Cleanup(state.Close)
 	for index, id := range []string{"first", "second"} {
-		shell := state.OneBotShells[id]
+		shell := state.Adapters.Snapshot().OneBot11(id)
 		providerReady := make(chan struct{}, 1)
 		wantProvider := []string{"luckylillia", "napcat"}[index]
 		shell.SetStateHandler(func(snapshot onebot11.Snapshot) {
@@ -290,5 +294,16 @@ func TestOneBotProviderActionUsesSelectedInstanceProvider(t *testing.T) {
 				t.Fatalf("%s on %s: instance %d received %d calls, want %d", tc.kind, tc.adapter, index, got, want)
 			}
 		}
+	}
+}
+
+func reloadEventAdapters(t *testing.T, state EventState, cfg config.Config) {
+	t.Helper()
+	service, err := adapterservice.NewService(&appRuntimeState{}, adapterservice.Instances{Registry: state.Adapters})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.ApplyConfigReload(cfg); err != nil {
+		t.Fatal(err)
 	}
 }

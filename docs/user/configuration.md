@@ -40,14 +40,14 @@
 | --- | --- | --- |
 | `read_only` | `schema_version` | 只用于标识当前配置格式，不作为运行期可变设置 |
 | `hot_reload` | 指令前缀、内置菜单、权限、渲染输出与队列参数、存储配额、日志、消息、用户，以及插件后台事件的期限与数量上限 | 保存后直接应用，列入 `apply_effects.applied_now` |
-| `adapter_reload` | OneBot11 连接地址、兼容开关、QQ 官方机器人的 AppID / 订阅事件 / 沙箱开关，以及 adapter 连接和重连参数 | 保存后受控重载对应实例，列入 `apply_effects.reloaded_now` |
+| `adapter_reload` | 实例的增删、改名、改类型与顺序，OneBot11 连接地址、兼容开关、QQ 官方机器人的 AppID / 订阅事件 / 沙箱开关，以及 adapter 连接和重连参数 | 保存后受控重载对应实例，列入 `apply_effects.reloaded_now` |
 | `restart_required` | Server 与数据库、管理会话、渲染浏览器与 worker、调度时区、插件运行限制 | 配置已保存，但服务重启后才生效，列入 `apply_effects.restart_required_fields` |
 
 OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数据：管理 API 把明文写入本地 secret store，配置文件仅保存 `secret://` 引用；更新后与 adapter 配置一并受控重载。
 
-`apply_effects` 中的字段路径按实例 id 寻址，例如 `adapters.onebot11.onebot11.forward_ws.url`；改变实例的增删或顺序则记为 `adapters` 本身，属于 `restart_required`。
+`apply_effects` 中的字段路径按实例 id 寻址，例如 `adapters.onebot11.onebot11.forward_ws.url`；实例的增删、改名、改类型或顺序变化记为 `adapters` 本身。
 
-重载只作用于设置发生变化的实例：其他实例的连接不受影响。QQ 官方机器人的凭据、订阅事件与沙箱开关都在建立连接时固定，因此改动这些字段会让该实例立即断开并按新配置重连（不等待重连退避），而未改动时连接原样保留。
+重载只作用于发生变化的实例：新增实例立即启动，删除的实例停止连接，改名或改类型的实例按新身份重建，其他实例的连接不受影响。重载失败时，`apply_effects.failed_groups` 包含 `adapters`，对应字段改为重启后生效。QQ 官方机器人的凭据、订阅事件与沙箱开关都在建立连接时固定，因此改动这些字段会让该实例立即断开并按新配置重连（不等待重连退避），而未改动时连接原样保留。
 
 ## 配置提醒
 

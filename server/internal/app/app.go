@@ -224,7 +224,6 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	eventState = buildEvents(eventDeps{
 		MessageSent:    platformState.MessageStats.Sent,
 		Config:         resolvedConfig,
-		CurrentConfig:  buildState.core.CurrentConfig,
 		Logger:         buildState.core.Logger,
 		BridgeDispatch: options.BridgeDispatch,
 	})

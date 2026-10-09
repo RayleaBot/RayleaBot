@@ -293,7 +293,6 @@ function openLogs() {
         <AppButton :disabled="saving" @click="requestClose">{{ t('protocols.connectionDialog.cancel') }}</AppButton>
         <AppButton v-if="draft" variant="default" :loading="saving" :disabled="loading || configStore.saving || (isEditing && !dirty)" data-testid="adapter-save" @click="save">{{ isEditing ? t('protocols.connectionDialog.saveChanges') : t('protocols.connectionDialog.saveConnection') }}</AppButton>
       </div>
-      <p v-if="draft && !isEditing" class="save-hint">{{ t('protocols.connectionDialog.restartHint') }}</p>
     </template>
   </AppDialog>
   <AppConfirmDialog :open="confirmOpen" :title="t('protocols.connectionDialog.discardTitle')" :description="t('protocols.connectionDialog.discardDescription')" :confirm-text="t('protocols.connectionDialog.discardConfirm')" :cancel-text="t('protocols.connectionDialog.discardCancel')" danger @confirm="finishConfirmation(true)" @cancel="finishConfirmation(false)" />
@@ -333,5 +332,4 @@ function openLogs() {
 .runtime-list__code { font-family: var(--font-mono); }
 .dialog-footer { display: flex; align-items: center; gap: 8px; }
 .dialog-footer > :first-child { margin-right: auto; }
-.save-hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; text-align: right; }
 </style>

@@ -101,10 +101,10 @@ func TestEventWiringKeepsDisabledInstancesConfiguredButNotRunning(t *testing.T) 
 				QQOfficial: &config.QQOfficialConfig{AppID: "100000001", AppSecret: "fixture-secret"}},
 		}},
 	})
-	if _, present := state.OneBotShells["off-bot"]; !present {
+	if state.Adapters.Snapshot().OneBot11("off-bot") == nil {
 		t.Fatal("a disabled OneBot instance lost the transports it had configured")
 	}
-	if got := state.QQOfficial["off-qq"].Status(); got.State != "stopped" {
+	if got := state.Adapters.Snapshot().QQOfficial("off-qq").Status(); got.State != "stopped" {
 		t.Fatalf("disabled QQ state = %s, want stopped", got.State)
 	}
 

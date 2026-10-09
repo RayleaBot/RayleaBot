@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/qqofficial"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/pubsub"
 )
@@ -100,11 +102,13 @@ type ConfigSource interface {
 
 type Service struct {
 	observe                   func(AdaptersView)
+	published                 func()
 	reloaded                  func(string)
-	lastConfig                config.Config
 	config                    ConfigSource
-	oneBotShells              map[string]*onebot11.Shell
-	qqClients                 map[string]QQOfficialAdapter
+	registry                  *Registry
+	newOneBot11               func(string, config.OneBotConfig, config.AdapterConfig) *onebot11.Shell
+	newQQOfficial             func(string, config.QQOfficialConfig, config.AdapterConfig) QQOfficialAdapter
+	runCtx                    context.Context
 	oneBot11TargetReadTimeout time.Duration
 	hub                       pubsub.Hub[AdaptersView]
 	snapshotMu                sync.Mutex
@@ -115,8 +119,12 @@ type Service struct {
 
 // Instances are the configured adapters, keyed by instance id.
 type Instances struct {
-	Observe  func(AdaptersView)
-	Reloaded func(string)
+	Observe       func(AdaptersView)
+	Published     func()
+	Reloaded      func(string)
+	Registry      *Registry
+	NewOneBot11   func(string, config.OneBotConfig, config.AdapterConfig) *onebot11.Shell
+	NewQQOfficial func(string, config.QQOfficialConfig, config.AdapterConfig) QQOfficialAdapter
 	// OneBot11 contains every configured instance, including disabled ones.
 	OneBot11   map[string]*onebot11.Shell
 	QQOfficial map[string]QQOfficialAdapter
@@ -130,6 +138,9 @@ func NewService(configSource ConfigSource, instances Instances) (*Service, error
 	}
 	if instances.Observe == nil {
 		instances.Observe = func(AdaptersView) {}
+	}
+	if instances.Published == nil {
+		instances.Published = func() {}
 	}
 	if instances.Reloaded == nil {
 		instances.Reloaded = func(string) {}
@@ -148,80 +159,126 @@ func NewService(configSource ConfigSource, instances Instances) (*Service, error
 		}
 		qqClients[id] = client
 	}
+	if instances.Registry == nil {
+		instances.Registry = NewRegistry(configSource.CurrentConfig(), oneBotShells, qqClients)
+	}
+	if instances.NewOneBot11 == nil {
+		instances.NewOneBot11 = func(id string, cfg config.OneBotConfig, adapter config.AdapterConfig) *onebot11.Shell {
+			return onebot11.New(id, cfg, adapter, nil)
+		}
+	}
+	if instances.NewQQOfficial == nil {
+		instances.NewQQOfficial = func(id string, cfg config.QQOfficialConfig, adapter config.AdapterConfig) QQOfficialAdapter {
+			return qqofficial.New(id, cfg, adapter, nil)
+		}
+	}
 	return &Service{
-		observe: instances.Observe, reloaded: instances.Reloaded, lastConfig: configSource.CurrentConfig(),
-		config:                    configSource,
-		oneBotShells:              oneBotShells,
-		qqClients:                 qqClients,
+		observe: instances.Observe, reloaded: instances.Reloaded, published: instances.Published,
+		config:   configSource,
+		registry: instances.Registry, newOneBot11: instances.NewOneBot11, newQQOfficial: instances.NewQQOfficial,
 		oneBot11TargetReadTimeout: 3 * time.Second,
 	}, nil
 }
 
-// ApplyConfigReload applies the new configuration to every running adapter.
-// An instance whose settings did not change is left connected; one that is no
-// longer configured is left to a restart, because removing an adapter is a
-// change to the set of adapters rather than to one adapter's settings.
+// ApplyConfigReload serializes membership changes with start and stop. Runtime
+// shutdown does not hold any reader lock, and unchanged instances are reused.
 func (s *Service) ApplyConfigReload(cfg config.Config) error {
 	s.lifecycleMu.Lock()
 	defer s.lifecycleMu.Unlock()
 	if s.stopped {
 		return ErrStopped
 	}
-	failures := make([]error, 0, len(s.oneBotShells)+len(s.qqClients))
+	previous := s.registry.Snapshot()
+	oneBots := make(map[string]*onebot11.Shell)
+	qqClients := make(map[string]QQOfficialAdapter)
+	retired := make([]stopEntry, 0)
+	for id, shell := range previous.oneBot11 {
+		if instance, ok := cfg.AdapterByID(id); ok && instance.Type == config.AdapterTypeOneBot11 {
+			oneBots[id] = shell
+		} else {
+			retired = append(retired, stopEntry{id: id, stop: shell.Stop})
+		}
+	}
+	for id, client := range previous.qqOfficial {
+		if instance, ok := cfg.AdapterByID(id); ok && instance.Type == config.AdapterTypeQQOfficial {
+			qqClients[id] = client
+		} else {
+			retired = append(retired, stopEntry{id: id, stop: client.Stop})
+		}
+	}
 	for _, instance := range cfg.Adapters {
-		if instance.Type == config.AdapterTypeOneBot11 && s.oneBotShell(instance.ID) == nil ||
-			instance.Type == config.AdapterTypeQQOfficial && s.qqClient(instance.ID) == nil {
-			// Adding an instance changes the collection and requires a restart.
-			// A subsequent settings save must retain that requirement.
-			failures = append(failures, ErrStopped)
+		switch instance.Type {
+		case config.AdapterTypeOneBot11:
+			settings, _ := cfg.OneBot11RuntimeSettings(instance.ID)
+			if shell := oneBots[instance.ID]; shell != nil {
+				if shell.Snapshot().State == onebot11.StateStopped {
+					return ErrStopped
+				}
+				if err := shell.Reload(settings, cfg.Adapter); err != nil {
+					return fmt.Errorf("adapter %s: %w", instance.ID, err)
+				}
+				if old, ok := previous.cfg.OneBot11RuntimeSettings(instance.ID); !ok || old != settings || previous.cfg.Adapter != cfg.Adapter {
+					s.reloaded(instance.ID)
+				}
+			}
+		case config.AdapterTypeQQOfficial:
+			if client := qqClients[instance.ID]; client != nil {
+				settings, _ := cfg.QQOfficialSettings(instance.ID)
+				if client.Reload(settings) {
+					s.reloaded(instance.ID)
+				}
+				client.SetEnabled(instance.Enabled)
+			}
 		}
 	}
-
-	for id, shell := range s.oneBotShells {
-		settings, ok := cfg.OneBot11RuntimeSettings(id)
-		if !ok {
-			continue
-		}
-		if shell.Snapshot().State == onebot11.StateStopped {
-			failures = append(failures, ErrStopped)
-			continue
-		}
-		if err := shell.Reload(settings, cfg.Adapter); err != nil {
-			failures = append(failures, fmt.Errorf("adapter %s: %w", id, err))
-		} else if previous, ok := s.lastConfig.OneBot11RuntimeSettings(id); !ok || previous != settings || s.lastConfig.Adapter != cfg.Adapter {
-			s.reloaded(id)
+	// Wait for removed runtimes before publishing replacements under the same id.
+	stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := stopAdapters(stopCtx, retired); err != nil {
+		return err
+	}
+	for _, instance := range cfg.Adapters {
+		switch instance.Type {
+		case config.AdapterTypeOneBot11:
+			if oneBots[instance.ID] == nil {
+				settings, _ := cfg.OneBot11RuntimeSettings(instance.ID)
+				oneBots[instance.ID] = s.newOneBot11(instance.ID, settings, cfg.Adapter)
+			}
+		case config.AdapterTypeQQOfficial:
+			if qqClients[instance.ID] == nil {
+				settings, _ := cfg.QQOfficialSettings(instance.ID)
+				client := s.newQQOfficial(instance.ID, settings, cfg.Adapter)
+				client.SetEnabled(instance.Enabled)
+				qqClients[instance.ID] = client
+			}
 		}
 	}
-
-	for id, client := range s.qqClients {
-		settings, ok := cfg.QQOfficialSettings(id)
-		if !ok {
-			continue
+	s.registry.store(cfg, oneBots, qqClients)
+	s.PublishSnapshot()
+	// Membership must be visible before a new connection can emit events.
+	if s.runCtx != nil {
+		for id, shell := range oneBots {
+			if shell != previous.oneBot11[id] {
+				shell.Start(s.runCtx)
+			}
 		}
-		// The client logs the reconnect itself, where the adapter id and the
-		// new settings are both in hand.
-		if client.Reload(settings) {
-			s.reloaded(id)
+		for id, client := range qqClients {
+			if client != previous.qqOfficial[id] {
+				client.Start(s.runCtx)
+			}
 		}
-		instance, _ := cfg.AdapterByID(id)
-		client.SetEnabled(instance.Enabled)
 	}
-	s.lastConfig = cfg
-
-	// Preserve each adapter failure so the configuration coordinator can retain
-	// the effective settings and report fields that require a restart.
-	if len(failures) == 1 {
-		return failures[0]
-	}
-	return errors.Join(failures...)
+	return nil
 }
 
 func (s *Service) PublishSnapshot() {
 	s.snapshotMu.Lock()
-	defer s.snapshotMu.Unlock()
 	snapshot := s.Adapters()
 	s.observe(snapshot)
 	s.hub.PublishReplaceEach(func() AdaptersView { return cloneView(snapshot) })
+	s.snapshotMu.Unlock()
+	// Status and plugin notifications have their own serialization and may do IO.
+	s.published()
 }
 
 // SnapshotAndSubscribe excludes already-published events from a new stream,

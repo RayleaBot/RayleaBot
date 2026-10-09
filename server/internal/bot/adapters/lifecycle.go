@@ -17,10 +17,12 @@ func (s *Service) Start(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	for _, shell := range s.oneBotShells {
+	s.runCtx = ctx
+	snapshot := s.registry.Snapshot()
+	for _, shell := range snapshot.oneBot11 {
 		shell.Start(ctx)
 	}
-	for _, client := range s.qqClients {
+	for _, client := range snapshot.qqOfficial {
 		client.Start(ctx)
 	}
 	return ctx.Err()
@@ -32,17 +34,26 @@ func (s *Service) Stop(ctx context.Context) error {
 	s.lifecycleMu.Lock()
 	s.stopped = true
 	s.lifecycleMu.Unlock()
-	type stopEntry struct {
-		id   string
-		stop func(context.Context) error
-	}
-	entries := make([]stopEntry, 0, len(s.oneBotShells)+len(s.qqClients))
-	for id, shell := range s.oneBotShells {
+	snapshot := s.registry.Snapshot()
+	entries := make([]stopEntry, 0, len(snapshot.oneBot11)+len(snapshot.qqOfficial))
+	for id, shell := range snapshot.oneBot11 {
 		entries = append(entries, stopEntry{id: id, stop: shell.Stop})
 	}
-	for id, client := range s.qqClients {
+	for id, client := range snapshot.qqOfficial {
 		entries = append(entries, stopEntry{id: id, stop: client.Stop})
 	}
+	err := stopAdapters(ctx, entries)
+	s.PublishSnapshot()
+	s.hub.Close()
+	return err
+}
+
+type stopEntry struct {
+	id   string
+	stop func(context.Context) error
+}
+
+func stopAdapters(ctx context.Context, entries []stopEntry) error {
 	sort.Slice(entries, func(i, j int) bool { return entries[i].id < entries[j].id })
 	failures := make([]error, len(entries))
 	var stopped sync.WaitGroup
@@ -56,7 +67,5 @@ func (s *Service) Stop(ctx context.Context) error {
 		}()
 	}
 	stopped.Wait()
-	s.PublishSnapshot()
-	s.hub.Close()
 	return errors.Join(failures...)
 }

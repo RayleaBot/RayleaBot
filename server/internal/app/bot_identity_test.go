@@ -15,7 +15,7 @@ func TestBotIdentitiesKeepAdapterNamespaces(t *testing.T) {
 		{ID: "onebot", Type: "onebot11", Enabled: true},
 		{ID: "idle", Type: "onebot11", Enabled: true},
 	}}
-	source := botIdentitySource{currentConfig: func() config.Config { return cfg }, providers: map[string]botIdentityProvider{
+	providers := map[string]botIdentityProvider{
 		"qq": {protocol: "qqofficial", identity: func() chatevent.BotIdentity {
 			return chatevent.BotIdentity{SourceAdapter: "qq", SourceProtocol: "qqofficial", ID: "same-id"}
 		}},
@@ -23,7 +23,8 @@ func TestBotIdentitiesKeepAdapterNamespaces(t *testing.T) {
 			return chatevent.BotIdentity{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "same-id"}
 		}},
 		"idle": {protocol: "onebot11", identity: func() chatevent.BotIdentity { return chatevent.BotIdentity{} }},
-	}}
+	}
+	source := botIdentitySource{snapshot: func() (config.Config, map[string]botIdentityProvider) { return cfg, providers }}
 	got := source.BotIdentities()
 	if len(got) != 2 || got[0].SourceAdapter != "onebot" || got[1].SourceAdapter != "qq" {
 		t.Fatalf("identities=%#v", got)

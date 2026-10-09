@@ -42,25 +42,27 @@ type Client struct {
 
 	groupMessages dispatchHistory
 
-	appID        string
-	sandbox      bool
-	apiBase      string
-	intents      int
-	tokens       *TokenSource
-	http         *http.Client
-	logger       *slog.Logger
-	backoff      *reconnect.Backoff
-	session      session
-	status       statusState
-	replies      *replySequences
-	dialer       func(context.Context, string) (wsConn, error)
-	mu           sync.RWMutex
-	handler      EventHandler
-	readyHandler func(context.Context)
-	stateHandler func()
-	stopping     chan struct{}
-	stopOnce     sync.Once
-	done         chan struct{}
+	appID          string
+	sandbox        bool
+	apiBase        string
+	intents        int
+	tokens         *TokenSource
+	http           *http.Client
+	logger         *slog.Logger
+	backoff        *reconnect.Backoff
+	session        session
+	status         statusState
+	replies        *replySequences
+	dialer         func(context.Context, string) (wsConn, error)
+	mu             sync.RWMutex
+	handler        EventHandler
+	readyHandler   func(context.Context)
+	stateHandler   func()
+	lifetime       context.Context
+	cancelLifetime context.CancelFunc
+	stopping       chan struct{}
+	stopOnce       sync.Once
+	done           chan struct{}
 }
 
 // wsConn is the slice of the websocket connection the client uses, so the
@@ -79,7 +81,9 @@ func New(adapterID string, qq config.QQOfficialConfig, adapter config.AdapterCon
 	if logger != nil {
 		logger = logger.With("source_adapter", adapterID, "source_protocol", "qqofficial")
 	}
+	lifetime, cancelLifetime := context.WithCancel(context.Background())
 	client := &Client{
+		lifetime: lifetime, cancelLifetime: cancelLifetime,
 		adapterID: strings.TrimSpace(adapterID),
 		settings:  connectionSettingsOf(qq),
 		appID:     qq.AppID,
@@ -252,7 +256,7 @@ func (c *Client) Start(ctx context.Context) {
 
 // Stop ends the connection loop and waits for it to unwind.
 func (c *Client) Stop(ctx context.Context) error {
-	c.stopOnce.Do(func() { close(c.stopping) })
+	c.stopOnce.Do(func() { c.cancelLifetime(); close(c.stopping) })
 	c.startOnce.Do(func() { close(c.done) })
 	c.settingsMu.Lock()
 	cancel := c.connCancel

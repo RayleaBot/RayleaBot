@@ -35,6 +35,9 @@ func TestAdapterSnapshotsShareCollectionOrderAndInstanceDetails(t *testing.T) {
 		case "empty":
 			source.cfg.Adapters = nil
 		}
+		if err := service.ApplyConfigReload(source.cfg); err != nil {
+			t.Fatal(err)
+		}
 		view := service.Adapters().Adapters
 		frame, updates, unsubscribe := service.SnapshotAndSubscribe(1)
 		service.PublishSnapshot()

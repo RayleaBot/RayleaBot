@@ -12,28 +12,76 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
-// Router sends each outbound message through the adapter instance that
-// owns the conversation. A reply carries the instance of the event it answers;
-// an active push may carry only a protocol, or nothing at all, which resolves
-// only while one candidate is connected.
-type Router struct {
+type routingTable struct {
 	messageSent   func(string, string)
 	senders       map[string]ActionSender
 	protocols     map[string]string
 	currentConfig func() config.Config
 }
 
-// NewRouter binds a fixed adapter registry to an optional live configuration snapshot.
-// A nil configuration source keeps every registered sender enabled.
+// Routes is a consistent membership and configuration snapshot for one operation.
+type Routes struct {
+	Senders   map[string]ActionSender
+	Protocols map[string]string
+	Config    *config.Config
+}
+
+// Router sends each outbound message through the adapter instance that
+// owns the conversation. A reply carries the instance of the event it answers;
+// an active push may carry only a protocol, or nothing at all, which resolves
+// only while one candidate is connected.
+type Router struct {
+	snapshot func() *routingTable
+}
+
+// NewRouter binds fixed senders to an optional live configuration source.
 func NewRouter(senders map[string]ActionSender, protocols map[string]string, currentConfig func() config.Config, observers ...func(string, string)) *Router {
+	senders, protocols = maps.Clone(senders), maps.Clone(protocols)
+	return NewLiveRouter(func() Routes {
+		routes := Routes{Senders: senders, Protocols: protocols}
+		if currentConfig != nil {
+			cfg := currentConfig()
+			routes.Config = &cfg
+		}
+		return routes
+	}, observers...)
+}
+
+func NewLiveRouter(source func() Routes, observers ...func(string, string)) *Router {
 	messageSent := func(string, string) {}
 	if len(observers) > 0 && observers[0] != nil {
 		messageSent = observers[0]
 	}
-	return &Router{senders: maps.Clone(senders), protocols: maps.Clone(protocols), currentConfig: currentConfig, messageSent: messageSent}
+	return &Router{snapshot: func() *routingTable {
+		routes := source()
+		table := &routingTable{senders: routes.Senders, protocols: routes.Protocols, messageSent: messageSent}
+		if routes.Config != nil {
+			table.currentConfig = func() config.Config { return *routes.Config }
+		}
+		return table
+	}}
 }
 
 func (r *Router) SendMessage(ctx context.Context, message chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
+	return r.snapshot().SendMessage(ctx, message)
+}
+func (r *Router) SendReply(ctx context.Context, message chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
+	return r.snapshot().SendReply(ctx, message)
+}
+func (r *Router) ResolveAdapterID(adapter, protocol string) (string, error) {
+	return r.snapshot().ResolveAdapterID(adapter, protocol)
+}
+func (r *Router) ResolveTargetName(ctx context.Context, adapter, targetType, targetID string) string {
+	return r.snapshot().ResolveTargetName(ctx, adapter, targetType, targetID)
+}
+func (r *Router) ResolveBotDisplay(adapter string) (string, string) {
+	return r.snapshot().ResolveBotDisplay(adapter)
+}
+func (r *Router) ResolveScope(scope chatevent.IdentityScope, identities []chatevent.BotIdentity) chatevent.IdentityScope {
+	return r.snapshot().ResolveScope(scope, identities)
+}
+
+func (r *routingTable) SendMessage(ctx context.Context, message chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
 	id, err := r.ResolveAdapterID(message.SourceAdapter, message.SourceProtocol)
 	if err != nil {
 		return chatevent.SendMessageResult{SourceAdapter: message.SourceAdapter, SourceProtocol: message.SourceProtocol}, err
@@ -47,7 +95,7 @@ func (r *Router) SendMessage(ctx context.Context, message chatevent.OutboundMess
 	return result, err
 }
 
-func (r *Router) SendReply(ctx context.Context, message chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
+func (r *routingTable) SendReply(ctx context.Context, message chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
 	id, err := r.ResolveAdapterID(message.SourceAdapter, message.SourceProtocol)
 	if err != nil {
 		return chatevent.SendMessageResult{SourceAdapter: message.SourceAdapter, SourceProtocol: message.SourceProtocol}, err
@@ -65,7 +113,7 @@ func (r *Router) SendReply(ctx context.Context, message chatevent.OutboundMessag
 // Target identifiers are namespaced per adapter, so
 // delivering to the wrong one would either fail confusingly or reach an
 // unrelated conversation that happens to share an id.
-func (r *Router) ResolveAdapterID(sourceAdapter, sourceProtocol string) (string, error) {
+func (r *routingTable) ResolveAdapterID(sourceAdapter, sourceProtocol string) (string, error) {
 	if adapterID := strings.TrimSpace(sourceAdapter); adapterID != "" {
 		_, ok := r.activeSender(adapterID)
 		if !ok {
@@ -111,7 +159,7 @@ func (r *Router) ResolveAdapterID(sourceAdapter, sourceProtocol string) (string,
 // ResolveTargetName forwards the question to the adapter the conversation
 // belongs to. Without it the label would be built by whichever adapter the
 // pipeline happened to hold, which for a keyed router is none of them.
-func (r *Router) ResolveTargetName(ctx context.Context, adapterID, targetType, targetID string) string {
+func (r *routingTable) ResolveTargetName(ctx context.Context, adapterID, targetType, targetID string) string {
 	sender, ok := r.activeSender(strings.TrimSpace(adapterID))
 	if !ok {
 		return ""
@@ -125,7 +173,7 @@ func (r *Router) ResolveTargetName(ctx context.Context, adapterID, targetType, t
 
 // ResolveBotDisplay forwards the question to the named adapter for the same
 // reason as ResolveTargetName: the router itself is signed in as nobody.
-func (r *Router) ResolveBotDisplay(adapterID string) (string, string) {
+func (r *routingTable) ResolveBotDisplay(adapterID string) (string, string) {
 	sender, ok := r.activeSender(strings.TrimSpace(adapterID))
 	if !ok {
 		return "", ""
@@ -137,7 +185,7 @@ func (r *Router) ResolveBotDisplay(adapterID string) (string, string) {
 	return resolver.ResolveBotDisplay(adapterID)
 }
 
-func (r *Router) adaptersOfProtocol(protocol string, senders map[string]ActionSender) []string {
+func (r *routingTable) adaptersOfProtocol(protocol string, senders map[string]ActionSender) []string {
 	matched := make([]string, 0, len(senders))
 	for id := range senders {
 		if r.protocols[id] == protocol {
@@ -148,7 +196,7 @@ func (r *Router) adaptersOfProtocol(protocol string, senders map[string]ActionSe
 	return matched
 }
 
-func (r *Router) adapterNames(senders map[string]ActionSender) []string {
+func (r *routingTable) adapterNames(senders map[string]ActionSender) []string {
 	names := make([]string, 0, len(senders))
 	for name := range senders {
 		names = append(names, name)
@@ -157,7 +205,7 @@ func (r *Router) adapterNames(senders map[string]ActionSender) []string {
 	return names
 }
 
-func (r *Router) activeSender(id string) (ActionSender, bool) {
+func (r *routingTable) activeSender(id string) (ActionSender, bool) {
 	sender, ok := r.senders[id]
 	if !ok || r.currentConfig == nil {
 		return sender, ok
@@ -170,7 +218,7 @@ func (r *Router) activeSender(id string) (ActionSender, bool) {
 	return nil, false
 }
 
-func (r *Router) activeSenders() map[string]ActionSender {
+func (r *routingTable) activeSenders() map[string]ActionSender {
 	if r.currentConfig == nil {
 		return r.senders
 	}
@@ -186,7 +234,7 @@ func (r *Router) activeSenders() map[string]ActionSender {
 
 // ResolveScope uses the same adapter selection as delivery; unknown or
 // ambiguous routes remain isolated from valid target quotas.
-func (r *Router) ResolveScope(scope chatevent.IdentityScope, identities []chatevent.BotIdentity) chatevent.IdentityScope {
+func (r *routingTable) ResolveScope(scope chatevent.IdentityScope, identities []chatevent.BotIdentity) chatevent.IdentityScope {
 	if scope.BotID != "" {
 		return scope
 	}

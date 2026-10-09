@@ -239,6 +239,16 @@ func collectCollectionChanges(prefix, key string, current, next any, paths *[]st
 	if !slices.Equal(currentIDs, nextIDs) {
 		*paths = append(*paths, prefix)
 	}
+	if prefix == "adapters" {
+		for _, id := range currentIDs {
+			currentEntry, _ := currentByID[id].(map[string]any)
+			nextEntry, ok := nextByID[id].(map[string]any)
+			if ok && currentEntry["type"] != nextEntry["type"] {
+				*paths = append(*paths, prefix)
+				return true
+			}
+		}
+	}
 	for _, id := range currentIDs {
 		nextEntry, ok := nextByID[id]
 		if !ok {
@@ -346,19 +356,8 @@ func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) A
 	if s.addRedactionValues != nil {
 		s.addRedactionValues(configSecretValues(newCfg)...)
 	}
-	if slices.Contains(effects.RestartRequiredFields, "adapters") {
-		retained := effects.ReloadedNow[:0]
-		for _, path := range effects.ReloadedNow {
-			if strings.HasPrefix(path, "adapters.") {
-				effects.RestartRequiredFields = append(effects.RestartRequiredFields, path)
-			} else {
-				retained = append(retained, path)
-			}
-		}
-		effects.ReloadedNow = retained
-	}
 	newCfg = retainConfigFields(oldCfg, newCfg, effects.RestartRequiredFields)
-	oneBotHotChanged := len(effects.ReloadedNow) > 0
+	adaptersChanged := len(effects.ReloadedNow) > 0
 
 	if newCfg.Log.Level != oldCfg.Log.Level {
 		if s.logLevel != nil {
@@ -388,7 +387,7 @@ func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) A
 	if s.eventIngress != nil {
 		s.eventIngress.UpdateConfig(newCfg)
 	}
-	if oneBotHotChanged && s.protocol != nil {
+	if adaptersChanged && s.protocol != nil {
 		if err := s.protocol.ApplyConfigReload(newCfg); err != nil {
 			effects.FailedGroups = append(effects.FailedGroups, "adapters")
 			effects.RestartRequiredFields = append(effects.RestartRequiredFields, effects.ReloadedNow...)

@@ -253,9 +253,9 @@ func TestAppCloseWaitsForInboundHandlerBeforeClosingDatabase(t *testing.T) {
 	database := store.Read
 	shell := onebot11.New("fixture", config.OneBotConfig{}, config.AdapterConfig{}, nil)
 	application := &App{platform: PlatformState{Storage: store}, eventStack: EventState{
-		OneBotShells: map[string]*onebot11.Shell{"fixture": shell},
+		Adapters: adapterservice.NewRegistry(config.Config{}, map[string]*onebot11.Shell{"fixture": shell}, nil),
 	}}
-	adapterOwner, err := adapterservice.NewService(&appRuntimeState{}, adapterservice.Instances{OneBot11: application.eventStack.OneBotShells})
+	adapterOwner, err := adapterservice.NewService(&appRuntimeState{}, adapterservice.Instances{Registry: application.eventStack.Adapters})
 	if err != nil {
 		t.Fatal(err)
 	}

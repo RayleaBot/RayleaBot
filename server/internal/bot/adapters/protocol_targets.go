@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
@@ -19,11 +20,10 @@ func (s *Service) CurrentOneBot11ProtocolTargets(ctx context.Context, adapterID 
 		PrivateUsers: []OneBot11PrivateTarget{},
 		Issues:       []OneBot11TargetIssue{},
 	}
-	ingress, ok := s.OneBot11Ingress(adapterID)
+	adapter, ok := s.oneBot11QueryAdapter(adapterID)
 	if !ok {
 		return response, ErrOneBotInstanceUnavailable
 	}
-	adapter := ingress.shell
 
 	groupsResult, friendsResult := s.readOneBot11ProtocolTargets(ctx, adapter)
 	if groupsResult.err != nil {
@@ -54,6 +54,18 @@ func (s *Service) CurrentOneBot11ProtocolTargets(ctx context.Context, adapterID 
 
 	response.Available = groupsResult.err == nil && friendsResult.err == nil
 	return response, nil
+}
+
+func (s *Service) oneBot11QueryAdapter(id string) (*onebot11.Shell, bool) {
+	// Explicit management queries must be allowed by the current configuration
+	// as well as the runtime collection, which is published during adapter reload.
+	cfg := s.config.CurrentConfig()
+	instance, ok := cfg.AdapterByID(id)
+	if !ok || !instance.Enabled || instance.Type != config.AdapterTypeOneBot11 || instance.OneBot11 == nil {
+		return nil, false
+	}
+	ingress, ok := s.OneBot11Ingress(id)
+	return ingress.shell, ok
 }
 
 type oneBot11GroupsResult struct {
@@ -160,11 +172,10 @@ func (s *Service) ResolveOneBot11Identities(ctx context.Context, adapterID strin
 		Items:  []OneBot11Identity{},
 		Issues: []OneBot11TargetIssue{},
 	}
-	ingress, ok := s.OneBot11Ingress(adapterID)
+	adapter, ok := s.oneBot11QueryAdapter(adapterID)
 	if !ok {
 		return response, ErrOneBotInstanceUnavailable
 	}
-	adapter := ingress.shell
 
 	seen := map[string]struct{}{}
 	for _, item := range items {

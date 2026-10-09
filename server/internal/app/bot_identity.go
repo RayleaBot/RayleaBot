@@ -16,14 +16,14 @@ type botIdentityProvider struct {
 
 // botIdentitySource collects confirmed identities without selecting a primary bot.
 type botIdentitySource struct {
-	providers     map[string]botIdentityProvider
-	currentConfig func() config.Config
+	snapshot func() (config.Config, map[string]botIdentityProvider)
 }
 
 func (s botIdentitySource) BotIdentities() []chatevent.BotIdentity {
-	identities := make([]chatevent.BotIdentity, 0, len(s.providers))
-	for _, instance := range s.currentConfig().Adapters {
-		provider, ok := s.providers[instance.ID]
+	cfg, providers := s.snapshot()
+	identities := make([]chatevent.BotIdentity, 0, len(providers))
+	for _, instance := range cfg.Adapters {
+		provider, ok := providers[instance.ID]
 		if !ok || !instance.Enabled || instance.Type != provider.protocol {
 			continue
 		}

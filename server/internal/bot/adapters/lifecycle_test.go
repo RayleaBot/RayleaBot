@@ -33,6 +33,9 @@ func TestAdapterSnapshotsKeepLatestAndIsolateSubscribers(t *testing.T) {
 	}
 	service.PublishSnapshot()
 	source.cfg.Adapters[0].Enabled = true
+	if err := service.ApplyConfigReload(source.cfg); err != nil {
+		t.Fatal(err)
+	}
 	service.PublishSnapshot()
 	a, b := <-first, <-second
 	if !a.Adapters[0].Enabled || !b.Adapters[0].Enabled {
@@ -69,8 +72,11 @@ func TestStatsObserversReceiveConfigSnapshotsAndOnlyRealReloads(t *testing.T) {
 		t.Fatalf("reload notifications=%v", reloads)
 	}
 	source.cfg = config.Config{}
+	if err := service.ApplyConfigReload(source.cfg); err != nil {
+		t.Fatal(err)
+	}
 	service.PublishSnapshot()
-	if len(snapshots) != 2 || len(snapshots[1].Adapters) != 0 {
+	if len(snapshots) == 0 || len(snapshots[len(snapshots)-1].Adapters) != 0 {
 		t.Fatal("removal not observed")
 	}
 }

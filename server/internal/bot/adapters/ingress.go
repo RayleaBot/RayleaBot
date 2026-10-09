@@ -22,12 +22,13 @@ type OneBot11Ingress struct {
 // second result is false when no such adapter is running, which is how a route
 // answers an unknown id or an adapter speaking another protocol.
 func (s *Service) OneBot11Ingress(id string) (OneBot11Ingress, bool) {
-	cfg := s.config.CurrentConfig()
+	snapshot := s.registry.Snapshot()
+	cfg := snapshot.cfg
 	instance, configured := cfg.AdapterByID(id)
 	if !configured || !instance.Enabled || instance.Type != config.AdapterTypeOneBot11 {
 		return OneBot11Ingress{}, false
 	}
-	shell, ok := s.oneBotShells[id]
+	shell, ok := snapshot.oneBot11[id]
 	if !ok {
 		return OneBot11Ingress{}, false
 	}
@@ -88,12 +89,4 @@ func (i OneBot11Ingress) transportEnabled(transport onebot11.TransportKey) bool 
 	default:
 		return false
 	}
-}
-
-func (s *Service) oneBotShell(id string) *onebot11.Shell {
-	return s.oneBotShells[id]
-}
-
-func (s *Service) qqClient(id string) QQOfficialAdapter {
-	return s.qqClients[id]
 }

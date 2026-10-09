@@ -43,7 +43,10 @@ func newMediaClient(t *testing.T) (*Client, *[]capturedUpload, *[]sendMessageReq
 	tokens := NewTokenSource("app", "secret", server.Client())
 	tokens.token = "canned-token"
 	tokens.expiresAt = tokens.now().Add(3600 * 1e9)
+	lifetime, cancelLifetime := context.WithCancel(context.Background())
+	t.Cleanup(cancelLifetime)
 	client := &Client{
+		lifetime: lifetime, cancelLifetime: cancelLifetime,
 		appID: "app", apiBase: server.URL, http: server.Client(),
 		tokens: tokens, replies: newReplySequences(), logger: discardLogger(),
 	}

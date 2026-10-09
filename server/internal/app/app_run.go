@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
@@ -333,31 +332,12 @@ func (s *appRuntimeState) redactString(value string) string {
 func configureAppRuntimeCallbacks(application *App) {
 	systemService := application.services.System
 	lifecycle := application.services.PluginLifecycle
-	eventIngress := application.services.EventIngress
 	protocolService := application.services.Protocol
 
 	systemService.BindShutdownIntent(&application.process.shutdownIntent)
 
 	if application.runtimes != nil {
 		application.runtimes.SetOnCrash(lifecycle.HandleCrash)
-	}
-	// Every instance publishes the complete management snapshot after a state change.
-	publishAdapterState := func() {
-		protocolService.PublishSnapshot()
-		systemService.PublishStatusSnapshot()
-		lifecycle.SyncBotIdentities(context.Background())
-	}
-	for _, shell := range application.eventStack.OneBotShells {
-		shell.SetEventHandler(eventIngress.EnqueueAdapterEvent)
-		shell.SetReadyHandler(eventIngress.HandleAdapterReady)
-		shell.SetStateHandler(func(onebot11.Snapshot) { publishAdapterState() })
-	}
-	for _, client := range application.eventStack.QQOfficial {
-		client.SetEventHandler(eventIngress.EnqueueAdapterEvent)
-		client.SetReadyHandler(eventIngress.HandleAdapterReady)
-		// The QQ adapter has no transport snapshot of its own, so its state
-		// reaches the management surface through the adapters listing.
-		client.SetStateHandler(publishAdapterState)
 	}
 	protocolService.PublishSnapshot()
 }

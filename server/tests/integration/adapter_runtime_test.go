@@ -66,7 +66,7 @@ func TestRunDoesNotConnectDisabledPrimaryOneBot(t *testing.T) {
 	}
 }
 
-func TestConfigAPIEnablesAndDisablesOneBotConnection(t *testing.T) {
+func TestConfigAPIEnablesDisablesAndReplacesOneBotInstances(t *testing.T) {
 	connected, disconnected := make(chan struct{}, 4), make(chan struct{}, 4)
 	peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, nil)
@@ -172,9 +172,32 @@ func TestConfigAPIEnablesAndDisablesOneBotConnection(t *testing.T) {
 			t.Error("application did not stop")
 		}
 	}()
-	for _, enabled := range []bool{true, false, true, false} {
+	var savedInstance map[string]any
+	for _, change := range []struct {
+		enabled bool
+		id      string
+		remove  bool
+	}{
+		{enabled: true, id: "onebot11"},
+		{id: "onebot11"},
+		{enabled: true, id: "onebot11"},
+		{remove: true},
+		{enabled: true, id: "added-bot"},
+		{enabled: true, id: "renamed-bot"},
+		{remove: true},
+	} {
+		enabled := change.enabled
 		document := configruntime.ConfigDocumentFromTyped(application.CurrentConfig())
-		testutil.ConfigDocumentAdapterInstance(t, document, "onebot11")["enabled"] = enabled
+		if savedInstance == nil {
+			savedInstance = testutil.ConfigDocumentAdapterInstance(t, document, "onebot11")
+		}
+		previousID, _ := savedInstance["id"].(string)
+		wasEnabled, _ := savedInstance["enabled"].(bool)
+		savedInstance["enabled"], savedInstance["id"] = enabled, change.id
+		document["adapters"] = []any{savedInstance}
+		if change.remove {
+			document["adapters"] = []any{}
+		}
 		payload, err := json.Marshal(document)
 		if err != nil {
 			t.Fatal(err)
@@ -198,6 +221,13 @@ func TestConfigAPIEnablesAndDisablesOneBotConnection(t *testing.T) {
 		}
 		if decodeBody(t, body)["restart_required"] != false {
 			t.Fatal("instance switch required an application restart")
+		}
+		if enabled && wasEnabled && previousID != "" && previousID != change.id {
+			select {
+			case <-disconnected:
+			case <-time.After(3 * time.Second):
+				t.Fatal("rename left old connection running")
+			}
 		}
 		transition := connected
 		if !enabled {

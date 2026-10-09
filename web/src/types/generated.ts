@@ -2349,10 +2349,10 @@ export interface components {
         rateLimit: string;
         /** @description One configured chat adapter. id names this instance and is how events, outbound routing and the inbound ingress routes refer to it; type selects which settings block applies. Several instances may share a type. */
         adapterInstance: ({
-            /** @description Stable identifier for this adapter instance, unique across adapters. It appears as event.source_adapter, selects the adapter for outbound routing, keys the adapter secrets in the secret store, and forms the inbound ingress path /api/adapters/{id}/reverse-ws. Renaming it re-identifies the adapter and changes that URL. */
+            /** @description Stable identifier for this adapter instance, unique across adapters. It appears as event.source_adapter, selects the adapter for outbound routing, keys the adapter secrets in the secret store, and forms the inbound ingress path /api/adapters/{id}/reverse-ws. Renaming it re-identifies the adapter and changes that URL; the reload stops the instance under the old id and starts one under the new id. */
             id: string;
             /**
-             * @description Chat protocol this instance speaks. It appears as event.source_protocol.
+             * @description Chat protocol this instance speaks. It appears as event.source_protocol. Changing it rebuilds the instance on reload.
              * @enum {string}
              */
             type: "onebot11" | "qqofficial";
@@ -2680,7 +2680,7 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
-             * @description Configured chat adapters. An empty list means the bot accepts no chat traffic.
+             * @description Configured chat adapters. An empty list means the bot accepts no chat traffic. Adding, removing, renaming, retyping or reordering instances is applied by a controlled reload: new instances start, removed instances stop, changed instances are rebuilt, and unchanged instances keep their connections.
              * @default []
              */
             adapters: components["schemas"]["adapterInstance"][];
@@ -2805,10 +2805,10 @@ export interface components {
                 };
                 /** @description One configured chat adapter. id names this instance and is how events, outbound routing and the inbound ingress routes refer to it; type selects which settings block applies. Several instances may share a type. */
                 adapterInstance: ({
-                    /** @description Stable identifier for this adapter instance, unique across adapters. It appears as event.source_adapter, selects the adapter for outbound routing, keys the adapter secrets in the secret store, and forms the inbound ingress path /api/adapters/{id}/reverse-ws. Renaming it re-identifies the adapter and changes that URL. */
+                    /** @description Stable identifier for this adapter instance, unique across adapters. It appears as event.source_adapter, selects the adapter for outbound routing, keys the adapter secrets in the secret store, and forms the inbound ingress path /api/adapters/{id}/reverse-ws. Renaming it re-identifies the adapter and changes that URL; the reload stops the instance under the old id and starts one under the new id. */
                     id: string;
                     /**
-                     * @description Chat protocol this instance speaks. It appears as event.source_protocol.
+                     * @description Chat protocol this instance speaks. It appears as event.source_protocol. Changing it rebuilds the instance on reload.
                      * @enum {string}
                      */
                     type: "onebot11" | "qqofficial";

@@ -36,7 +36,10 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) (*Client, *[]captured
 	tokens := NewTokenSource("app", "secret", server.Client())
 	tokens.endpoint = server.URL + "/token"
 	// The token endpoint shares the stub, so hand back a canned token.
+	lifetime, cancelLifetime := context.WithCancel(context.Background())
+	t.Cleanup(cancelLifetime)
 	client := &Client{
+		lifetime: lifetime, cancelLifetime: cancelLifetime,
 		appID: "app", apiBase: server.URL, http: server.Client(),
 		tokens: tokens, replies: newReplySequences(), logger: discardLogger(),
 	}
