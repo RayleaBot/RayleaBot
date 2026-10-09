@@ -136,6 +136,10 @@ export const dashboard = {
   diagnosticsDependencyValue: '已就绪 {ready} / 共 {total}',
   diagnosticsDependencyPending: '{count} 项待准备',
   diagnosticsFilesystemValue: '正常 {ok} / 总计 {total}',
+  // A failing path names the location and the reason, so the row says what to fix.
+  diagnosticsFilesystemIssue: '{path}{status}',
+  diagnosticsFilesystemPaths: { repo_root: '安装目录', config: '配置文件', database: '数据库文件', logs: '数据目录', plugins: '插件目录' },
+  diagnosticsFilesystemStatus: { missing: '不存在', unreadable: '无法读取', unknown: '未配置' },
   diagnosticsRemediationUnavailable: '查看实时日志或导出诊断包后继续排查。',
   diagnosticsSubsystems: {
     system: '服务',

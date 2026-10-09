@@ -173,6 +173,19 @@ function diagnosticsStatusLabel(status?: string) {
   return i18n.global.te(key) ? t(key) : status
 }
 
+function filesystemIssueDetail(paths: SystemDiagnosticsResponse['filesystem']) {
+  const failing = paths.filter(path => path.status !== 'ok')
+  if (!failing.length) return issueCountDetail(0)
+  return failing.map((path) => {
+    const pathKey = `dashboard.diagnosticsFilesystemPaths.${path.label}`
+    const statusKey = `dashboard.diagnosticsFilesystemStatus.${path.status}`
+    return t('dashboard.diagnosticsFilesystemIssue', {
+      path: i18n.global.te(pathKey) ? t(pathKey) : path.label,
+      status: i18n.global.te(statusKey) ? t(statusKey) : path.status,
+    })
+  }).join('、')
+}
+
 function issueCountDetail(count: number) {
   return count > 0 ? t('dashboard.diagnosticsIssueCount', { count }) : t('dashboard.diagnosticsNoIssues')
 }
@@ -254,7 +267,7 @@ export function buildDiagnosticsSubsystemItems(snapshot: SystemDiagnosticsRespon
         ok: snapshot.filesystem.length - filesystemIssueCount,
         total: snapshot.filesystem.length,
       }),
-      detail: issueCountDetail(filesystemIssueCount),
+      detail: filesystemIssueDetail(snapshot.filesystem),
     },
   ]
 }
