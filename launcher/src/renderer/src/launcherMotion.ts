@@ -1,5 +1,6 @@
 import { nextTick, onScopeDispose, readonly, ref, type Ref } from "vue";
 import { animate, motionValue } from "motion-v";
+import { System } from "@wailsio/runtime";
 
 export const launcherMotion = {
   control: 160,
@@ -65,7 +66,10 @@ export function useLauncherReducedMotion(): Readonly<Ref<boolean>> {
 }
 
 function supportsViewTransitions(): boolean {
+  // WebKitGTK can fail natively during snapshot capture despite exposing this API.
+  // Apply Linux themes directly: JavaScript error handling cannot contain a native crash.
   return typeof document !== "undefined" &&
+    !System.IsLinux() &&
     typeof document.startViewTransition === "function";
 }
 

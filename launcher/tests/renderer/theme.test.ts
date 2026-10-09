@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
-import { mount, type VueWrapper } from "@vue/test-utils";
+import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { defineComponent, h } from "vue";
+import { System } from "@wailsio/runtime";
 import type { LauncherDesktopApi } from "@shared/desktop-api";
 import ThemeModeMenu from "@renderer/ThemeModeMenu.vue";
 import { provideTheme, useTheme } from "@renderer/useTheme";
 
 import { findButton, getButton } from "../helpers/dom";
+
+vi.mock("@wailsio/runtime", () => ({
+  System: { IsLinux: vi.fn(() => false) },
+}));
 
 function installDesktopApi(setThemeMode = vi.fn(async () => {})) {
   Object.defineProperty(window, "rayleaLauncher", {
@@ -14,6 +19,15 @@ function installDesktopApi(setThemeMode = vi.fn(async () => {})) {
     value: { setThemeMode } as unknown as LauncherDesktopApi,
   });
   return setThemeMode;
+}
+
+function installViewTransitions() {
+  const start = vi.fn((update: () => void | Promise<void>) => {
+    const updated = Promise.resolve().then(update);
+    return { ready: updated, finished: updated, updateCallbackDone: updated, skipTransition: vi.fn() };
+  });
+  Object.defineProperty(document, "startViewTransition", { configurable: true, value: start });
+  return start;
 }
 
 const ThemeProbe = defineComponent(() => {
@@ -45,17 +59,46 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   Reflect.deleteProperty(window, "rayleaLauncher");
+  Reflect.deleteProperty(document, "startViewTransition");
 });
 
 describe("theme", () => {
-  test("defaults to the system theme and follows system changes", async () => {
+  test.each([
+    { platform: "Linux", isLinux: true, transitionCount: 0 },
+    { platform: "other desktop platforms", isLinux: false, transitionCount: 1 },
+  ])("switches and persists themes with platform-compatible transitions on $platform", async ({ isLinux, transitionCount }) => {
+    vi.spyOn(System, "IsLinux").mockReturnValue(isLinux);
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+    const startViewTransition = installViewTransitions();
+    const setThemeMode = installDesktopApi();
+    wrapper = mount(themed(ThemeProbe));
+
+    await wrapper.get("button").trigger("click");
+    await flushPromises();
+
+    expect(startViewTransition).toHaveBeenCalledTimes(transitionCount);
+    expect(wrapper.get("[data-probe]").text()).toBe("dark:dark");
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(window.localStorage.getItem("raylea-theme-mode")).toBe("dark");
+    expect(setThemeMode).toHaveBeenLastCalledWith("dark");
+  });
+
+  test("defaults to the system theme and follows system changes without Linux view transitions", async () => {
+    vi.spyOn(System, "IsLinux").mockReturnValue(true);
+    const startViewTransition = installViewTransitions();
     let listener: (() => void) | undefined;
     const media = {
       matches: false,
       addEventListener: vi.fn((_name: string, next: () => void) => { listener = next; }),
       removeEventListener: vi.fn(),
     };
-    vi.stubGlobal("matchMedia", vi.fn(() => media));
+    vi.stubGlobal("matchMedia", vi.fn((query: string) => query === "(prefers-color-scheme: dark)"
+      ? media
+      : { matches: false }));
     const setThemeMode = installDesktopApi();
 
     wrapper = mount(themed(ThemeProbe));
@@ -70,6 +113,7 @@ describe("theme", () => {
     expect(wrapper.get("[data-probe]").text()).toBe("system:dark");
     expect(document.documentElement.style.colorScheme).toBe("dark");
     expect(setThemeMode).toHaveBeenCalledTimes(2);
+    expect(startViewTransition).not.toHaveBeenCalled();
   });
 
   test("persists explicit choices and reports native synchronization failures", async () => {
