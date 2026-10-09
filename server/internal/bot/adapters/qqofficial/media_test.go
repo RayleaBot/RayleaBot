@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -34,7 +35,26 @@ func newMediaClient(t *testing.T) (*Client, *[]capturedUpload, *[]sendMessageReq
 			return
 		}
 		var body sendMessageRequest
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		payload, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if err := json.Unmarshal(payload, &body); err != nil {
+			t.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if body.MsgType == msgTypeMedia {
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(payload, &fields); err != nil {
+				t.Error(err)
+			}
+			if _, exists := fields["content"]; exists {
+				t.Error("media message must omit content")
+			}
+		}
 		*sends = append(*sends, body)
 		_ = json.NewEncoder(w).Encode(map[string]any{"id": "sent-1"})
 	}))

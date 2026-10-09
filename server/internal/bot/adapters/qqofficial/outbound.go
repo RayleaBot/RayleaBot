@@ -201,7 +201,6 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 			return result, err
 		}
 		requests = append(requests, sendMessageRequest{
-			Content: " ",
 			MsgType: msgTypeMedia,
 			Media:   &mediaRef{FileInfo: fileInfo},
 		})
