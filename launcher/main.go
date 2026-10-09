@@ -193,8 +193,9 @@ func main() {
 	tray.SetIcon(trayIcon).SetDarkModeIcon(trayDarkIcon)
 	tray.SetTooltip("RayleaBot 启动器")
 	tray.OnClick(host.toggleWindow)
+	// Linux exports the DBus menu path when the tray starts, so bind the menu before app.Run.
+	host.applyTrayState(desktop.TrayMenuState{TrayStatusSummary: "未启动", TrayServiceAction: "start", TrayServiceActionLabel: "启动服务", CanRunTrayServiceAction: true})
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
-		host.SetTrayState(desktop.TrayMenuState{TrayStatusSummary: "未启动", TrayServiceAction: "start", TrayServiceActionLabel: "启动服务", CanRunTrayServiceAction: true})
 		go func() {
 			if err := service.Initialize(); err != nil {
 				log.Printf("启动器初始化失败：%v", err)
@@ -246,29 +247,33 @@ func (h *appHost) SetTrayState(state desktop.TrayMenuState) {
 	h.trayMu.Lock()
 	defer h.trayMu.Unlock()
 	application.InvokeAsync(func() {
-		menu := h.app.NewMenu()
-		menu.Add("RayleaBot 启动器").SetEnabled(false)
-		menu.Add("状态：" + state.TrayStatusSummary).SetEnabled(false)
-		menu.AddSeparator()
-		menu.Add("恢复窗口").OnClick(func(*application.Context) { h.restoreWindow() })
-		menu.Add("打开管理界面").SetEnabled(state.CanOpenWebUI).OnClick(func(*application.Context) {
-			go h.service.OpenWebUI("")
-		})
-		menu.Add(state.TrayServiceActionLabel).SetEnabled(state.CanRunTrayServiceAction).OnClick(func(*application.Context) {
-			if state.TrayServiceAction == "open_web" {
-				go h.service.OpenWebUI("")
-			} else if state.TrayServiceAction == "stop" {
-				go h.service.Stop()
-			} else {
-				go h.service.Start()
-			}
-		})
-		menu.Add("日志目录").OnClick(func(*application.Context) { go h.service.OpenLogsDirectory() })
-		menu.AddSeparator()
-		menu.Add("完全退出").OnClick(func(*application.Context) { go h.service.ExitApplication() })
-		h.tray.SetTooltip("RayleaBot 启动器 · " + state.TrayStatusSummary)
-		h.tray.SetMenu(menu)
+		h.applyTrayState(state)
 	})
+}
+
+func (h *appHost) applyTrayState(state desktop.TrayMenuState) {
+	menu := h.app.NewMenu()
+	menu.Add("RayleaBot 启动器").SetEnabled(false)
+	menu.Add("状态：" + state.TrayStatusSummary).SetEnabled(false)
+	menu.AddSeparator()
+	menu.Add("恢复窗口").OnClick(func(*application.Context) { h.restoreWindow() })
+	menu.Add("打开管理界面").SetEnabled(state.CanOpenWebUI).OnClick(func(*application.Context) {
+		go h.service.OpenWebUI("")
+	})
+	menu.Add(state.TrayServiceActionLabel).SetEnabled(state.CanRunTrayServiceAction).OnClick(func(*application.Context) {
+		if state.TrayServiceAction == "open_web" {
+			go h.service.OpenWebUI("")
+		} else if state.TrayServiceAction == "stop" {
+			go h.service.Stop()
+		} else {
+			go h.service.Start()
+		}
+	})
+	menu.Add("日志目录").OnClick(func(*application.Context) { go h.service.OpenLogsDirectory() })
+	menu.AddSeparator()
+	menu.Add("完全退出").OnClick(func(*application.Context) { go h.service.ExitApplication() })
+	h.tray.SetTooltip("RayleaBot 启动器 · " + state.TrayStatusSummary)
+	h.tray.SetMenu(menu)
 }
 
 func (h *appHost) OpenURL(value string) error { return h.app.Browser.OpenURL(value) }
