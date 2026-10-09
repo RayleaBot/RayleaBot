@@ -174,6 +174,7 @@ func main() {
 	var showInitialWindow sync.Once
 	showWindow := func() {
 		showInitialWindow.Do(func() {
+			prepareLauncherWindow(window)
 			if screen := app.Screen.GetPrimary(); screen != nil {
 				window.SetSize(max(minWindowWidth, min(defaultWindowWidth, screen.WorkArea.Width)), max(minWindowHeight, min(defaultWindowHeight, screen.WorkArea.Height)))
 				window.Center()

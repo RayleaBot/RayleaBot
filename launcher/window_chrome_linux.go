@@ -1,0 +1,33 @@
+//go:build linux && gtk3
+
+package main
+
+/*
+#cgo pkg-config: gtk+-3.0
+#include <gtk/gtk.h>
+#include <gdk/gdkwayland.h>
+
+static void prepareLauncherWaylandWindow(void *handle) {
+	GtkWidget *widget = GTK_WIDGET(handle);
+	if (!GDK_IS_WAYLAND_DISPLAY(gtk_widget_get_display(widget))) {
+		return;
+	}
+
+	// An explicit titlebar requests client-side decorations on Wayland.
+	// Keep it hidden because the renderer already draws the titlebar.
+	GtkWidget *titlebar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_widget_set_no_show_all(titlebar, TRUE);
+	gtk_window_set_titlebar(GTK_WINDOW(widget), titlebar);
+}
+*/
+import "C"
+
+import "github.com/wailsapp/wails/v3/pkg/application"
+
+func prepareLauncherWindow(window *application.WebviewWindow) {
+	application.InvokeSync(func() {
+		if native := window.NativeWindow(); native != nil {
+			C.prepareLauncherWaylandWindow(native)
+		}
+	})
+}
