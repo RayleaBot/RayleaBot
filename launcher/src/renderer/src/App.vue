@@ -160,7 +160,7 @@ const desktop = () => window.rayleaLauncher;
     <p class="launcher-loading-shell__detail">正在读取安装设置并检查本地服务状态。</p>
   </div>
   <template v-else>
-    <div class="app-shell">
+    <div class="app-shell" :data-maximized="isMaximized">
       <AppShellChrome
         :snapshot="snapshot"
         :active-section="activeSection"

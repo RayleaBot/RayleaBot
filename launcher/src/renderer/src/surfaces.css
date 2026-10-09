@@ -45,6 +45,43 @@
 }
 
 /* Window chrome */
+html[data-window-frame="client"] {
+  --window-radius: 8px;
+  --window-border: color-mix(in srgb, var(--color-text) 22%, var(--color-canvas));
+  background: transparent;
+}
+
+/* Clip the entire document, including portalled menus and dialogs, without shifting fixed controls. */
+html[data-window-frame="client"] body {
+  background: transparent;
+  clip-path: inset(0 round var(--window-radius));
+}
+
+html[data-window-frame="client"] .launcher-theme {
+  background: var(--color-canvas);
+}
+
+html[data-window-frame="client"] body::after {
+  position: fixed;
+  z-index: var(--layer-emergency);
+  inset: 0;
+  border: 1px solid var(--window-border);
+  border-radius: var(--window-radius);
+  content: "";
+  pointer-events: none;
+}
+
+@media (forced-colors: active) {
+  html[data-window-frame="client"] {
+    --window-border: CanvasText;
+  }
+}
+
+html[data-window-frame="client"]:has(.app-shell[data-maximized="true"]) {
+  --window-radius: 0px;
+  --window-border: transparent;
+}
+
 .window-drag-handle {
   position: fixed;
   z-index: var(--layer-sticky);

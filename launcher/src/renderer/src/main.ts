@@ -1,4 +1,5 @@
 import { createApp } from "vue";
+import { System } from "@wailsio/runtime";
 
 import LauncherRoot from "./LauncherRoot.vue";
 import { installTrustedNavigationGuards } from "./trustedNavigation";
@@ -8,6 +9,8 @@ import "./surfaces.css";
 
 const uninstallTrustedNavigationGuards = installTrustedNavigationGuards();
 const uninstallWailsDesktopApi = installWailsDesktopApi();
+
+document.documentElement.dataset.windowFrame = System.IsLinux() ? "client" : "native";
 
 const app = createApp(LauncherRoot);
 app.mount("#app");

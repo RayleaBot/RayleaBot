@@ -152,6 +152,13 @@ func main() {
 		},
 	})
 
+	backgroundType := application.BackgroundTypeSolid
+	backgroundColour := application.NewRGB(255, 255, 255)
+	if runtime.GOOS == "linux" {
+		// Linux client-side corners need alpha through both GTK and WebKit.
+		backgroundType = application.BackgroundTypeTransparent
+		backgroundColour = application.RGBA{}
+	}
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:                       "main",
 		Title:                      "RayleaBot 启动器",
@@ -163,8 +170,8 @@ func main() {
 		Frameless:                  true,
 		Hidden:                     true,
 		InitialPosition:            application.WindowCentered,
-		BackgroundType:             application.BackgroundTypeSolid,
-		BackgroundColour:           application.NewRGB(255, 255, 255),
+		BackgroundType:             backgroundType,
+		BackgroundColour:           backgroundColour,
 		DefaultContextMenuDisabled: true,
 		EnableFileDrop:             false,
 		Permissions: map[application.PermissionType]application.Permission{
@@ -371,6 +378,10 @@ func (h *appHost) IsMaximised() bool { return h.window.IsMaximised() }
 func (h *appHost) HideWindow() { h.window.Hide() }
 
 func (h *appHost) SetThemeMode(mode string) {
+	// The Linux renderer paints the canvas inside its rounded frame. Keep the native corners clear.
+	if runtime.GOOS == "linux" {
+		return
+	}
 	dark := mode == "dark" || (mode == "system" && h.app.Env.IsDarkMode())
 	// The window paints the renderer's canvas colour (design/tokens.json canvas) before the renderer
 	// draws, so a theme switch or resize never flashes a different colour.
