@@ -566,8 +566,10 @@ func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, e
 	}
 	if deadline, ok := ctx.Deadline(); ok {
 		// Browser startup shares the caller's render budget. Do not truncate
-		// it with chromedp's independent 20-second DevTools URL timeout.
-		allocatorOptions = append(allocatorOptions, chromedp.WSURLReadTimeout(time.Until(deadline)))
+		// it with chromedp's independent 20-second DevTools URL timeout, and keep
+		// that timer as a backstop after the caller's deadline: firing in the same
+		// timer tick, its own error could otherwise win over DeadlineExceeded.
+		allocatorOptions = append(allocatorOptions, chromedp.WSURLReadTimeout(time.Until(deadline)+time.Second))
 	}
 	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(context.Background(), allocatorOptions...)
 	cancelAllocator = sync.OnceFunc(cancelAllocator)
