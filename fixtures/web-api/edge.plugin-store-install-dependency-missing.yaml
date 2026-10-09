@@ -1,0 +1,20 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: 商店安装在必需前置插件未安装时拒绝，并列出缺少的插件 ID。
+request:
+  method: POST
+  path: /api/plugin-store/plugins/raylea.genshin/install
+  body:
+    source_id: official
+    trusted_code_confirmed: true
+response:
+  status: 409
+  body:
+    error:
+      code: plugin.dependency_missing
+      message: 请先安装前置插件：raylea.panel-assets
+      request_id: req_fixture_dependency_missing
+      details:
+        plugin_ids: [raylea.panel-assets]
+expect:
+  valid: true

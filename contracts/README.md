@@ -41,7 +41,7 @@
 - `error-codes.yaml`
   - 统一错误码命名、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
-  - 当前已固定的管理 HTTP 接口（契约修订 0.5.10）。
+  - 当前已固定的管理 HTTP 接口（契约修订 0.5.11）。
   - `GET /api/system/message-stats` 按小时或按天返回各机器人连接收到与发出的消息条数、连接合计与紧邻前一段等长时间的合计、最近收到时间，以及连接中断和服务未运行时段。收到在会话路由与黑白名单之前按适配器交出的群聊、私聊消息计数，发出只计平台确认接受的发送；计数按 UTC 小时持久化，按天汇总使用 `effective_timezone`，统计开始前没有数据，客户端不得补 0。
   - 诊断任务摘要必含 `interrupted`（非负整数），统计关闭或重启中断的任务；`failed` 仅统计失败，取消不计入这两类。调度 `last_error` 不包含计划取消，取消仍更新最近运行信息并计入 `stats.other`，保留已有真实错误。
   - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot、OneBot target / identity resolution、plugin lifecycle、插件商店、可信代码确认与安装、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system、scheduler、recovery、runtime bootstrap、render templates 以及更新状态与检查入口
@@ -52,6 +52,7 @@
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`；优雅停止失败保留 `shutdown_failed` 诊断，进程退出前保持 `stopping`，退出后按启用状态投影为 `failed` 或 `disabled`。无宿主停止请求的进程退出（包括退出码 0）进入异常退出恢复路径。
   - 插件列表、详情及生命周期详情响应返回当前生效的 `command_prefixes` 与 `dedicated_command_prefixes`；用法示例使用前者的第一项，专属前缀标记使用后者。
   - 插件商店的 `PluginStoreReleaseSummary` 仅在 `compatible: false` 时携带 `incompatible_reason`：`core_version_unknown` 表示无法确认当前版本，`core_version_too_old` 表示已知版本低于 `min_core_version`；`asset_available` 独立表示当前平台有无产物。普通本地安装与商店安装的版本准入失败均返回 `plugin.core_version_incompatible`，其 `details` 包含相同原因和最低版本；客户端不解析消息判断原因。
+  - `PluginStoreReleaseSummary.dependencies` 按声明顺序列出该版本的直接前置插件、显示名称与 `installed | installable | unavailable` 状态。缺少 `required` 前置插件时，商店与本地安装均返回 HTTP 409 / `plugin.dependency_missing`，`details.plugin_ids` 列出缺少的插件 ID；Server 不自动安装前置插件。
   - 黑白名单条目必须携带 `scope`。`global` 只允许 `onebot11`，`source_adapter` 与 `bot_id` 均为空；`instance` 必须同时提供协议、实例 ID 和 bot ID。读取聚合所有作用域，写入与删除按完整作用域定位；实例规则与同协议的全局规则均可命中。白名单启用开关仍作用于整个服务。
   - `info.version` 是本文档的契约修订版本，独立于产品版本、包版本与运行时协议版本；破坏性契约变更递增 minor（0.x 阶段），兼容新增递增 patch。
   - `TaskStatusResponse.error_code` 等标注 `x-error-code-registry: contracts/error-codes.yaml` 的字段，取值必须是该目录已登记的 code；契约校验对 fixtures 与 examples 强制执行。
@@ -67,6 +68,7 @@
   - `events` 静态声明普通事件订阅；manifest 不声明宿主权限，全部宿主动作对可信插件进程可用
   - 当前已固定内联 `default_config`、metadata、统一 `commands`、真实 `command_groups`、帮助标题/摘要、单入口 `management_ui` 和静态 `webhooks`
   - `services` 静态声明服务名称、精确版本和方法，同名同版本不可重复
+  - `dependencies` 声明前置插件：`required` 缺失时拒绝安装与升级（development 同步除外），`recommended` 只作提示；只约束安装，不影响启动顺序、启用、卸载与服务路由；ID 唯一且不能依赖自身
   - `command_prefixes` 声明插件的专属命令前缀、可选的配置键与是否接受通用前缀；前缀是匹配条件而非所有权，宿主按插件分别解析，专属前缀命中的候选遮蔽通用前缀命中的候选；命令只按消息中的文字段解析，@ 等非文字段不参与匹配，插件从 `message.segments` 读取被 @ 的用户
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - `priority`（默认 0）与 `block`（默认 false）定义消息分层与阻断。正优先级消息订阅者可先于命令声明者接收命令消息；其他事件保留既有投递。成功终态的显式 propagation 覆盖 block，同名命令授权与冷却保持既有语义。
@@ -75,7 +77,7 @@
   - artifact v2 的目标平台与原生入口边界
   - `artifact.json` 不重复插件身份或文件清单；安装器扫描实际内容并检查路径与入口
 - `plugin-store-catalog.schema.json`
-  - 官方或自定义静态商店目录结构，固定当前版本、最低核心版本和可用平台的资产 URL 与归档摘要
+  - 官方或自定义静态商店目录结构，固定当前版本、最低核心版本、可用平台的资产 URL 与归档摘要，以及从发布包清单原样复制的可选前置插件声明
   - 目录发布工具按 schema 严格生成与校验；读取端要求 `catalog_version` 为 `"2"`，忽略任意层级的未知字段，跳过不认识平台的资产，只校验实际使用的字段
   - 官方身份只能由默认官方来源和安装元数据授予，不能由插件 manifest、目录名或仓库名推断
 - `plugin-management-ui.yaml`

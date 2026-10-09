@@ -25,6 +25,7 @@ response:
           min_core_version: 0.1.0
           compatible: false
           asset_available: true
+          dependencies: []
         install_state: incompatible
         confirmation_reasons: [first_install]
     total: 1

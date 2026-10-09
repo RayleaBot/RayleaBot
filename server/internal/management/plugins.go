@@ -177,7 +177,10 @@ func validPluginInstallSource(sourceType, source string) bool {
 
 func writePluginInstallError(w http.ResponseWriter, r *http.Request, err error) {
 	var coreVersionErr *plugins.CoreVersionIncompatibleError
+	var dependencyErr *plugins.DependencyMissingError
 	switch {
+	case errors.As(err, &dependencyErr):
+		httpapi.WriteErrorWithMessage(w, r, errorcodes.PluginDependencyMissing, dependencyErr.Error(), dependencyErr.Details())
 	case errors.As(err, &coreVersionErr):
 		httpapi.WriteErrorWithMessage(w, r, errorcodes.PluginCoreVersionIncompatible, coreVersionErr.Error(), coreVersionErr.Details())
 	case errors.Is(err, tasks.ErrQueueFull):

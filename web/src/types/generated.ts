@@ -958,7 +958,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Download, verify and install the current catalog release from the selected source. */
+        /**
+         * Download, verify and install the current catalog release from the selected source.
+         * @description Required dependencies of the release must already be installed; otherwise the request is rejected with plugin.dependency_missing before anything is downloaded. Recommended dependencies never block. Clients install missing dependencies first with their own install requests.
+         */
         post: operations["installPluginStoreEntry"];
         delete?: never;
         options?: never;
@@ -1979,6 +1982,24 @@ export interface components {
             incompatible_reason?: "core_version_unknown" | "core_version_too_old";
             /** @description 是否存在当前平台的产物，与核心版本兼容性独立。 */
             asset_available: boolean;
+            /** @description 该版本插件清单声明的直接依赖，按声明顺序排列；没有依赖时为空数组。 */
+            dependencies: components["schemas"]["PluginStoreDependency"][];
+        };
+        PluginStoreDependency: {
+            id: string;
+            /** @description 已安装时为已安装插件的名称，否则为同一来源目录中的名称，两者都没有时为插件 ID。 */
+            name: string;
+            /**
+             * @description required 表示缺少时服务端拒绝安装或升级本插件；recommended 只作提示，不阻止安装。
+             * @enum {string}
+             */
+            requirement: "required" | "recommended";
+            reason?: string;
+            /**
+             * @description installed 表示已有该插件 ID 的有效安装（无论是否启用）； installable 表示没有有效安装，且同一来源中该插件的 install_state 为 available 或 update_available，可以从本来源安装； unavailable 表示没有有效安装，且本来源未收录、未发布或无法安装该插件，需要从其他来源或本地包安装。 只描述直接依赖，不展开依赖的依赖。
+             * @enum {string}
+             */
+            state: "installed" | "installable" | "unavailable";
         };
         PluginStoreEntry: {
             id: string;

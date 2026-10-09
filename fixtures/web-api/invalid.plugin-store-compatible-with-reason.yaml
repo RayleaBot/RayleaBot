@@ -24,6 +24,7 @@ response:
         min_core_version: 0.1.0
         compatible: true
         asset_available: true
+        dependencies: []
       install_state: available
       confirmation_reasons: [first_install]
     current_release:
@@ -33,6 +34,7 @@ response:
       compatible: true
       incompatible_reason: core_version_unknown
       asset_available: true
+      dependencies: []
     source:
       id: official
       name: RayleaBot 官方插件

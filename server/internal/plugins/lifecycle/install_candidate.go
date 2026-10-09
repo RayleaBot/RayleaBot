@@ -115,6 +115,11 @@ func (s *InstallService) prepareCandidate(ctx context.Context, request plugins.I
 	if request.ExpectedPluginID != "" && (snapshot.PluginID != request.ExpectedPluginID || snapshot.Version != request.ExpectedVersion) {
 		return nil, installError(errorcodes.PluginStoreIntegrityMismatch, "插件包与商店条目不一致", "插件包与商店条目不一致")
 	}
+	if request.SourceType != "development" {
+		if err := plugins.CheckRequiredDependencies(snapshot.Dependencies, s.catalog.List()); err != nil {
+			return nil, err
+		}
+	}
 	metadata, err := s.buildPackageMetadata(ctx, request, snapshot, candidateDir)
 	if err != nil {
 		return nil, err

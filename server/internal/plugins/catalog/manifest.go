@@ -25,6 +25,7 @@ type manifestDocument struct {
 	Block           bool                     `json:"block"`
 	Events          []string                 `json:"events"`
 	Services        []plugins.Service        `json:"services"`
+	Dependencies    []plugins.Dependency     `json:"dependencies"`
 	DefaultConfig   map[string]any           `json:"default_config"`
 	Commands        []manifestCommand        `json:"commands"`
 	CommandGroups   []manifestCommandGroup   `json:"command_groups"`
@@ -157,8 +158,9 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 		Author: manifest.Metadata.Author, License: manifest.License,
 		ManifestVersion: manifest.ManifestVersion, MinCoreVersion: manifest.MinCoreVersion,
 		Concurrency: manifest.Concurrency, Events: append([]string(nil), manifest.Events...),
-		Services: plugins.CloneServices(manifest.Services),
-		Priority: manifest.Priority, Block: manifest.Block,
+		Services:     plugins.CloneServices(manifest.Services),
+		Dependencies: append([]plugins.Dependency(nil), manifest.Dependencies...),
+		Priority:     manifest.Priority, Block: manifest.Block,
 		Webhooks: webhooks, CommandGroups: groups,
 		Description: manifest.Metadata.Description, Icon: manifest.Metadata.Icon,
 		Repo: manifest.Metadata.Repo, Homepage: manifest.Metadata.Homepage,
@@ -188,6 +190,16 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 }
 
 func validateManifestSemantics(manifest manifestDocument) error {
+	dependencyIDs := make(map[string]struct{}, len(manifest.Dependencies))
+	for index, dependency := range manifest.Dependencies {
+		if dependency.ID == manifest.ID {
+			return fmt.Errorf("dependencies[%d].id references the plugin itself", index)
+		}
+		if _, exists := dependencyIDs[dependency.ID]; exists {
+			return fmt.Errorf("dependencies[%d].id duplicates %q", index, dependency.ID)
+		}
+		dependencyIDs[dependency.ID] = struct{}{}
+	}
 	serviceVersions := make(map[string]map[int]bool)
 	for index, service := range manifest.Services {
 		versions := serviceVersions[service.Name]

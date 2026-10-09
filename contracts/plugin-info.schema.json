@@ -38,6 +38,12 @@
         "$ref": "#/$defs/service"
       },
       "description": "Static exported services. Each (name, version) pair must be unique. Omitted or empty declares no services."
+    },
+    "dependencies": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/dependency" },
+      "description": "Other plugins this plugin relies on. A dependency counts as installed when the host holds a valid installation of that plugin ID, enabled or not. Store, local package and remote package installs and upgrades of this plugin are rejected while a required dependency is missing; development sync is not checked. A recommended dependency is only suggested by install interfaces and never blocks. Dependencies do not change start order, enablement, uninstallation or service routing. Each ID appears at most once and never equals the plugin's own ID. Omitted or empty declares no dependencies."
     }
   },
   "allOf": [
@@ -205,6 +211,16 @@
         "max_body_bytes": { "type": "integer", "minimum": 1, "maximum": 10485760 }
       }
     },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requirement"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$", "description": "ID of the plugin depended on." },
+        "requirement": { "type": "string", "enum": ["required", "recommended"], "description": "required blocks installation while the dependency is missing; recommended is only suggested." },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 120, "description": "Short reader-facing reason shown next to the dependency, such as the features that need it." }
+      }
+    },
     "service": {
       "type": "object",
       "additionalProperties": false,
@@ -247,6 +263,10 @@
     "fixtures/plugin-info/ok.services.json",
     "fixtures/plugin-info/invalid.duplicate-service.json",
     "fixtures/plugin-info/invalid.duplicate-service-method.json",
+    "fixtures/plugin-info/ok.dependencies.json",
+    "fixtures/plugin-info/invalid.dependency-self.json",
+    "fixtures/plugin-info/invalid.dependency-duplicate.json",
+    "fixtures/plugin-info/invalid.dependency-requirement.json",
     "fixtures/plugin-info/ok.minimal-native.json",
     "fixtures/plugin-info/ok.commands.json",
     "fixtures/plugin-info/ok.management-ui-and-webhook.json",

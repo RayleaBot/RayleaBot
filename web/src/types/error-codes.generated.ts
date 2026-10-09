@@ -205,6 +205,10 @@ export const errorCatalog = {
     "httpStatus": 409,
     "retryable": false
   },
+  "plugin.dependency_missing": {
+    "httpStatus": 409,
+    "retryable": false
+  },
   "plugin.event_canceled": {
     "httpStatus": null,
     "retryable": false
@@ -386,6 +390,7 @@ export const errorMessages = {
     "call_chain_rejected": "不支持递归插件服务调用",
     "contract_unsupported": "插件合同版本不受支持",
     "core_version_incompatible": "插件与当前 RayleaBot 版本不兼容",
+    "dependency_missing": "请先安装插件需要的前置插件",
     "event_canceled": "插件事件处理已取消",
     "event_timeout": "插件事件处理超时",
     "init_timeout": "插件初始化超时",

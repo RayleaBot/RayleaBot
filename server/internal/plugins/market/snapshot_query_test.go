@@ -99,9 +99,15 @@ func TestStorePublishedSnapshotAndResponsesOwnMutableFields(t *testing.T) {
 	document := storeSnapshotFixture(t)
 	wantKeyword := document.Entries[0].Keywords[0]
 	wantAsset := document.Entries[0].CurrentRelease.Assets[0]
+	wantDependency := plugins.Dependency{ID: "optional", Requirement: "recommended", Reason: "hint"}
+	document.Entries[0].CurrentRelease.Dependencies = []plugins.Dependency{wantDependency}
 	snapshot := newCatalogSnapshot(Source{ID: OfficialSourceID}, document, time.Now())
 	document.Entries[0].Keywords[0] = "caller changed input"
 	document.Entries[0].CurrentRelease.Assets[0].URL = "https://changed.invalid/fixture.zip"
+	document.Entries[0].CurrentRelease.Dependencies[0].ID = "changed"
+	if snapshot.entriesByID["raylea.echo"].CurrentRelease.Dependencies[0] != wantDependency {
+		t.Fatal("published snapshot borrows dependencies")
+	}
 	if snapshot.catalog.Entries[0].Keywords[0] != wantKeyword || snapshot.entriesByID["raylea.echo"].CurrentRelease.Assets[0] != wantAsset {
 		t.Fatal("published snapshot borrows mutable source fields")
 	}
@@ -114,6 +120,7 @@ func TestStorePublishedSnapshotAndResponsesOwnMutableFields(t *testing.T) {
 	}
 	list.Items[0].Keywords[0] = "changed list"
 	list.Items[0].LatestRelease.Version = "99.0.0"
+	list.Items[0].LatestRelease.Dependencies[0].ID = "changed-list"
 	*list.Source.RefreshedAt = time.Time{}
 	detail, ok := service.Get(OfficialSourceID, "raylea.echo")
 	if !ok || detail.Plugin.Keywords[0] != wantKeyword || detail.Plugin.LatestRelease.Version != "0.4.0" || detail.Source.RefreshedAt.IsZero() {
@@ -121,6 +128,13 @@ func TestStorePublishedSnapshotAndResponsesOwnMutableFields(t *testing.T) {
 	}
 	detail.Plugin.Keywords[0] = "changed detail"
 	detail.Plugin.LatestRelease.Version = "88.0.0"
+	if detail.Plugin.LatestRelease.Dependencies[0].ID != "optional" {
+		t.Fatal("list dependencies mutation escaped")
+	}
+	detail.Plugin.LatestRelease.Dependencies[0].ID = "changed-detail"
+	if detail.CurrentRelease.Dependencies[0].ID != "optional" {
+		t.Fatal("detail dependencies share mutable storage")
+	}
 	if detail.CurrentRelease.Version != "0.4.0" {
 		t.Fatal("detail release views share mutable storage")
 	}

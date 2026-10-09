@@ -25,6 +25,7 @@ response:
         compatible: false
         incompatible_reason: core_version_too_old
         asset_available: true
+        dependencies: []
       install_state: incompatible
       confirmation_reasons: [first_install]
     current_release:
@@ -34,6 +35,7 @@ response:
       compatible: false
       incompatible_reason: core_version_too_old
       asset_available: true
+      dependencies: []
     source:
       id: official
       name: RayleaBot 官方插件

@@ -7,16 +7,62 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"github.com/RayleaBot/RayleaBot/server/tests/testenv"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
+
+func TestPluginInstallRouteRejectsMissingDependencies(t *testing.T) {
+	t.Parallel()
+	application, _, _ := newTestAppWithOptions(t, nil, func(options *app.Options, _ string) {
+		testutil.WriteBuildInfo(t, options.PluginRepoRoot, "0.4.0")
+	})
+	source := writePluginInstallSource(t, filepath.Join(t.TempDir(), "dependent"), "dependent")
+	manifestPath := filepath.Join(source, "info.json")
+	payload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(payload, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest["dependencies"] = []plugins.Dependency{
+		{ID: "second", Requirement: "required"},
+		{ID: "optional", Requirement: "recommended"},
+		{ID: "first", Requirement: "required"},
+	}
+	payload, err = json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	response := performOpenAPIJSONRequest(t, application, http.MethodPost, "/api/plugins/install", map[string]any{
+		"source_type": "local_directory", "source": source, "trusted_code_confirmed": true,
+	}, issueLoginToken(t, application))
+	var body httpapi.ErrorEnvelope
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != http.StatusConflict || body.Error.Code != errorcodes.PluginDependencyMissing {
+		t.Fatalf("install response = %d %s", response.Code, response.Body)
+	}
+	if !reflect.DeepEqual(body.Error.Details, map[string]any{"plugin_ids": []any{"second", "first"}}) {
+		t.Fatalf("install error details = %#v", body.Error.Details)
+	}
+}
 
 func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	t.Parallel()

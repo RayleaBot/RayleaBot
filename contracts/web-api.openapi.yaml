@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RayleaBot Web API
-  version: 0.5.10
+  version: 0.5.11
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
@@ -104,6 +104,9 @@ x-fixtures:
   - fixtures/web-api/invalid.plugin-store-compatible-with-reason.yaml
   - fixtures/web-api/edge.plugin-store-install-core-version-unknown.yaml
   - fixtures/web-api/edge.plugins-install-core-version-unknown.yaml
+  - fixtures/web-api/edge.plugin-store-dependencies.yaml
+  - fixtures/web-api/edge.plugin-store-install-dependency-missing.yaml
+  - fixtures/web-api/edge.plugins-install-dependency-missing.yaml
   - fixtures/web-api/ok.plugin-store-sources.yaml
   - fixtures/web-api/ok.plugin-store-source-create.yaml
   - fixtures/web-api/ok.plugin-store-source-update.yaml
@@ -1863,6 +1866,11 @@ paths:
   /api/plugin-store/plugins/{plugin_id}/install:
     post:
       summary: Download, verify and install the current catalog release from the selected source.
+      description: >
+        Required dependencies of the release must already be installed; otherwise the request
+        is rejected with plugin.dependency_missing before anything is downloaded. Recommended
+        dependencies never block. Clients install missing dependencies first with their own
+        install requests.
       operationId: installPluginStoreEntry
       security:
         - BearerAuth: []
@@ -4306,7 +4314,7 @@ components:
     PluginStoreReleaseSummary:
       type: object
       additionalProperties: false
-      required: [version, published_at, min_core_version, compatible, asset_available]
+      required: [version, published_at, min_core_version, compatible, asset_available, dependencies]
       if:
         properties:
           compatible: {const: false}
@@ -4333,6 +4341,36 @@ components:
         asset_available:
           type: boolean
           description: 是否存在当前平台的产物，与核心版本兼容性独立。
+        dependencies:
+          type: array
+          maxItems: 16
+          description: 该版本插件清单声明的直接依赖，按声明顺序排列；没有依赖时为空数组。
+          items:
+            $ref: '#/components/schemas/PluginStoreDependency'
+    PluginStoreDependency:
+      type: object
+      additionalProperties: false
+      required: [id, name, requirement, state]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: 已安装时为已安装插件的名称，否则为同一来源目录中的名称，两者都没有时为插件 ID。
+        requirement:
+          type: string
+          enum: [required, recommended]
+          description: required 表示缺少时服务端拒绝安装或升级本插件；recommended 只作提示，不阻止安装。
+        reason:
+          type: string
+        state:
+          type: string
+          enum: [installed, installable, unavailable]
+          description: >
+            installed 表示已有该插件 ID 的有效安装（无论是否启用）；
+            installable 表示没有有效安装，且同一来源中该插件的 install_state 为 available 或 update_available，可以从本来源安装；
+            unavailable 表示没有有效安装，且本来源未收录、未发布或无法安装该插件，需要从其他来源或本地包安装。
+            只描述直接依赖，不展开依赖的依赖。
     PluginStoreEntry:
       type: object
       additionalProperties: false

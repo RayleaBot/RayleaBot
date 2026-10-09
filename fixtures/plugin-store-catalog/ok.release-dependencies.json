@@ -1,0 +1,68 @@
+{
+  "catalog_version": "2",
+  "entries": [
+    {
+      "id": "raylea.mihoyo-accounts",
+      "name": "米游社账号",
+      "summary": "米游社扫码登录、加密账号库与三游戏账号共享",
+      "publisher": {
+        "id": "rayleabot",
+        "name": "RayleaBot"
+      },
+      "repository_url": "https://github.com/RayleaBot/mihoyo-accounts",
+      "license": "AGPL-3.0-only",
+      "keywords": [
+        "米游社"
+      ],
+      "recommended": false,
+      "category": "游戏",
+      "current_release": {
+        "version": "0.1.0",
+        "published_at": "2026-10-01T00:00:00Z",
+        "min_core_version": "0.4.0",
+        "assets": [
+          {
+            "platform": "windows-x64",
+            "url": "https://github.com/RayleaBot/mihoyo-accounts/releases/download/v0.1.0/raylea.mihoyo-accounts-0.1.0-windows-x64.zip",
+            "archive_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ]
+      }
+    },
+    {
+      "id": "raylea.genshin",
+      "name": "原神",
+      "summary": "原神独立查询、离线图鉴、公开展柜与抽卡档案",
+      "publisher": {
+        "id": "rayleabot",
+        "name": "RayleaBot"
+      },
+      "repository_url": "https://github.com/RayleaBot/genshin",
+      "license": "AGPL-3.0-only",
+      "keywords": [
+        "米游社"
+      ],
+      "recommended": false,
+      "category": "游戏",
+      "current_release": {
+        "version": "0.1.0",
+        "published_at": "2026-10-01T00:00:00Z",
+        "min_core_version": "0.4.0",
+        "assets": [
+          {
+            "platform": "windows-x64",
+            "url": "https://github.com/RayleaBot/genshin/releases/download/v0.1.0/raylea.genshin-0.1.0-windows-x64.zip",
+            "archive_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "dependencies": [
+          {
+            "id": "raylea.mihoyo-accounts",
+            "requirement": "recommended",
+            "reason": "体力、签到和抽卡同步需要米游社登录"
+          }
+        ]
+      }
+    }
+  ]
+}

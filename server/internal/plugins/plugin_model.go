@@ -94,6 +94,7 @@ type Snapshot struct {
 	Block                  bool
 	Events                 []string
 	Services               []Service
+	Dependencies           []Dependency
 	Webhooks               []WebhookScope
 	CommandGroups          []CommandGroup
 	Description            string
@@ -201,6 +202,7 @@ func CloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.ConflictPaths = append([]string(nil), snapshot.ConflictPaths...)
 	cloned.Events = append([]string(nil), snapshot.Events...)
 	cloned.Services = CloneServices(snapshot.Services)
+	cloned.Dependencies = append([]Dependency(nil), snapshot.Dependencies...)
 	cloned.Keywords = append([]string(nil), snapshot.Keywords...)
 	if len(snapshot.Webhooks) > 0 {
 		cloned.Webhooks = cloneWebhookScopes(snapshot.Webhooks)

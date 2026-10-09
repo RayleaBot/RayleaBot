@@ -175,6 +175,20 @@ func pluginInfoErrors(document object, instance any) []string {
 			services[key] = true
 		}
 	}
+	dependencies := map[string]bool{}
+	for _, value := range arr(m["dependencies"]) {
+		id, ok := obj(value)["id"].(string)
+		if !ok {
+			continue
+		}
+		if id == m["id"] {
+			errors = append(errors, "/dependencies: a plugin cannot depend on itself")
+		}
+		if dependencies[id] {
+			errors = append(errors, "/dependencies: dependency ids must be unique")
+		}
+		dependencies[id] = true
+	}
 	for i, value := range arr(m["command_groups"]) {
 		group := obj(value)
 		if id, ok := group["id"].(string); ok {

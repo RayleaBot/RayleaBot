@@ -1,0 +1,50 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: 商店条目列出最新版本的直接依赖、显示名称与安装状态，必需依赖不可从本来源安装时标为 unavailable。
+request:
+  method: GET
+  path: /api/plugin-store/plugins?source_id=official&query=genshin
+response:
+  status: 200
+  body:
+    items:
+      - id: raylea.genshin
+        name: 原神
+        summary: 原神独立查询、离线图鉴、公开展柜与抽卡档案
+        publisher:
+          id: rayleabot
+          name: RayleaBot
+        repository_url: https://github.com/RayleaBot/genshin
+        license: AGPL-3.0-only
+        keywords: [米游社]
+        recommended: false
+        category: 游戏
+        latest_release:
+          version: 0.1.0
+          published_at: 2026-10-01T00:00:00Z
+          min_core_version: 0.4.0
+          compatible: true
+          asset_available: true
+          dependencies:
+            - id: raylea.mihoyo-accounts
+              name: 米游社账号
+              requirement: recommended
+              reason: 体力、签到和抽卡同步需要米游社登录
+              state: installable
+            - id: raylea.panel-assets
+              name: raylea.panel-assets
+              requirement: required
+              state: unavailable
+        install_state: available
+        confirmation_reasons: [first_install]
+    total: 1
+    source:
+      id: official
+      name: RayleaBot 官方插件
+      url: https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.json
+      official: true
+      cached: true
+      refreshed_at: 2026-10-01T00:00:00Z
+      entry_count: 2
+expect:
+  valid: true

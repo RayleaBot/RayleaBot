@@ -17,6 +17,8 @@ x-fixtures:
   - fixtures/errors/ok.detached-event-errors.yaml
   - fixtures/errors/ok.plugin-core-version-incompatible.yaml
   - fixtures/errors/invalid.plugin-core-version-incompatible-details.yaml
+  - fixtures/errors/ok.plugin-dependency-missing.yaml
+  - fixtures/errors/invalid.plugin-dependency-missing-details.yaml
 
 domains:
   - platform
@@ -508,6 +510,31 @@ codes:
     http_status: 409
     retryable: false
     applies_to: [http, task, cli, readiness]
+
+  plugin.dependency_missing:
+    code: plugin.dependency_missing
+    domain: plugin
+    message: 请先安装插件需要的前置插件
+    description: >
+      插件清单声明的 required 依赖尚未安装，即没有该插件 ID 的有效安装。商店、本地包与远程包的
+      安装和升级在接受请求时检查并拒绝；development 同步不检查，recommended 依赖从不阻止安装。
+      details.plugin_ids 按清单声明顺序列出缺少的插件 ID，客户端据此提示需要先安装的插件。
+    details_schema:
+      type: object
+      additionalProperties: false
+      required: [plugin_ids]
+      properties:
+        plugin_ids:
+          type: array
+          minItems: 1
+          maxItems: 16
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+    http_status: 409
+    retryable: false
+    applies_to: [http]
 
   plugin.contract_unsupported:
     code: plugin.contract_unsupported

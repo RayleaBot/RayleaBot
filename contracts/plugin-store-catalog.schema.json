@@ -94,6 +94,33 @@
           "items": {
             "$ref": "#/$defs/asset"
           }
+        },
+        "dependencies": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/dependency"
+          },
+          "description": "The dependencies declared by the release's plugin manifest, copied unchanged and identical for every platform. Omitted when the manifest declares none."
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requirement"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/plugin_id"
+        },
+        "requirement": {
+          "type": "string",
+          "enum": ["required", "recommended"]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
         }
       }
     },
@@ -172,6 +199,7 @@
   },
   "x-fixtures": [
     "fixtures/plugin-store-catalog/ok.official-catalog.json",
+    "fixtures/plugin-store-catalog/ok.release-dependencies.json",
     "fixtures/plugin-store-catalog/edge.unpublished-plugin.json",
     "fixtures/plugin-store-catalog/invalid.insecure-asset-url.json"
   ]

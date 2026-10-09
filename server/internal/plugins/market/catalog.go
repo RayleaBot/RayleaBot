@@ -117,10 +117,11 @@ func decodeCatalogEntry(data []byte) (Entry, error) {
 func decodeCatalogRelease(data []byte) (CurrentRelease, error) {
 	var release CurrentRelease
 	var assets []json.RawMessage
+	var dependencies []json.RawMessage
 	if err := decodeCatalogFields(data, map[string]any{
 		"version": &release.Version, "published_at": &release.PublishedAt,
 		"min_core_version": &release.MinCoreVersion, "assets": &assets,
-	}, nil); err != nil {
+	}, map[string]any{"dependencies": &dependencies}); err != nil {
 		return CurrentRelease{}, err
 	}
 	if !semverutil.Valid(release.Version) || !semverutil.Valid(release.MinCoreVersion) {
@@ -159,6 +160,28 @@ func decodeCatalogRelease(data []byte) (CurrentRelease, error) {
 	// Unknown platforms do not count toward the supported asset limit.
 	if len(release.Assets) > 3 {
 		return CurrentRelease{}, errors.New("release must contain at most 3 supported assets")
+	}
+	for _, data := range dependencies {
+		var dependency plugins.Dependency
+		if err := decodeCatalogFields(data, map[string]any{"requirement": &dependency.Requirement}, nil); err != nil {
+			return CurrentRelease{}, fmt.Errorf("dependency: %w", err)
+		}
+		if dependency.Requirement != plugins.DependencyRequired && dependency.Requirement != plugins.DependencyRecommended {
+			continue
+		}
+		if err := decodeCatalogFields(data, map[string]any{"id": &dependency.ID}, map[string]any{"reason": &dependency.Reason}); err != nil {
+			return CurrentRelease{}, fmt.Errorf("dependency: %w", err)
+		}
+		if !plugins.ValidPluginID(dependency.ID) {
+			return CurrentRelease{}, errors.New("invalid dependency id")
+		}
+		if utf8.RuneCountInString(dependency.Reason) > 120 {
+			return CurrentRelease{}, errors.New("dependency reason exceeds 120 characters")
+		}
+		release.Dependencies = append(release.Dependencies, dependency)
+	}
+	if len(release.Dependencies) > 16 {
+		return CurrentRelease{}, errors.New("release must contain at most 16 supported dependencies")
 	}
 	return release, nil
 }

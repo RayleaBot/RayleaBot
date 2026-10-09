@@ -86,10 +86,11 @@ type Publisher struct {
 }
 
 type CurrentRelease struct {
-	Version        string  `json:"version"`
-	PublishedAt    string  `json:"published_at"`
-	MinCoreVersion string  `json:"min_core_version"`
-	Assets         []Asset `json:"assets"`
+	Version        string               `json:"version"`
+	PublishedAt    string               `json:"published_at"`
+	MinCoreVersion string               `json:"min_core_version"`
+	Assets         []Asset              `json:"assets"`
+	Dependencies   []plugins.Dependency `json:"dependencies,omitempty"`
 }
 
 type Asset struct {
@@ -128,6 +129,15 @@ type ReleaseView struct {
 	Compatible         bool                                     `json:"compatible"`
 	IncompatibleReason plugins.CoreVersionIncompatibilityReason `json:"incompatible_reason,omitempty"`
 	AssetAvailable     bool                                     `json:"asset_available"`
+	Dependencies       []DependencyView                         `json:"dependencies"`
+}
+
+type DependencyView struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Requirement string `json:"requirement"`
+	Reason      string `json:"reason,omitempty"`
+	State       string `json:"state"`
 }
 
 type EntryView struct {

@@ -1,0 +1,12 @@
+contract: contracts/error-codes.yaml
+case: invalid
+description: 前置插件详情必须列出至少一个缺少的插件 ID。
+input:
+  errors:
+    - code: plugin.dependency_missing
+      message: 请先安装插件需要的前置插件
+      applies_to: http
+      details:
+        plugin_ids: []
+expect:
+  valid: false

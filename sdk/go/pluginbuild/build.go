@@ -66,6 +66,7 @@ type Manifest struct {
 	MinCoreVersion  string                   `json:"min_core_version"`
 	License         string                   `json:"license"`
 	Services        []ManifestService        `json:"services,omitempty"`
+	Dependencies    []ManifestDependency     `json:"dependencies,omitempty"`
 	CommandPrefixes *ManifestCommandPrefixes `json:"command_prefixes,omitempty"`
 	ManagementUI    *struct {
 		Entry string `json:"entry"`
@@ -86,6 +87,12 @@ type ManifestService struct {
 	Name    string   `json:"name"`
 	Version int      `json:"version"`
 	Methods []string `json:"methods"`
+}
+
+type ManifestDependency struct {
+	ID          string `json:"id"`
+	Requirement string `json:"requirement"`
+	Reason      string `json:"reason,omitempty"`
 }
 
 type Artifact struct {
@@ -291,6 +298,9 @@ func validateManifest(manifest Manifest, platform string) error {
 	if err := validateServices(manifest.Services); err != nil {
 		return err
 	}
+	if err := validateDependencies(manifest.ID, manifest.Dependencies); err != nil {
+		return err
+	}
 	if err := validateCommandPrefixes(manifest.CommandPrefixes); err != nil {
 		return err
 	}
@@ -302,6 +312,28 @@ func validateManifest(manifest Manifest, platform string) error {
 }
 
 var settingsKeyIdentifier = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+var dependencyIdentifier = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$`)
+
+func validateDependencies(pluginID string, dependencies []ManifestDependency) error {
+	if len(dependencies) > 16 {
+		return errors.New("pluginbuild: too many dependency declarations")
+	}
+	seen := make(map[string]bool, len(dependencies))
+	for _, dependency := range dependencies {
+		if !dependencyIdentifier.MatchString(dependency.ID) || dependency.ID == pluginID || seen[dependency.ID] {
+			return errors.New("pluginbuild: invalid, self-referencing or duplicate dependency declaration")
+		}
+		if dependency.Requirement != "required" && dependency.Requirement != "recommended" {
+			return errors.New("pluginbuild: dependency requirement must be required or recommended")
+		}
+		if utf8.RuneCountInString(dependency.Reason) > 120 {
+			return errors.New("pluginbuild: dependency reason exceeds 120 characters")
+		}
+		seen[dependency.ID] = true
+	}
+	return nil
+}
 
 func validateCommandPrefixes(prefixes *ManifestCommandPrefixes) error {
 	if prefixes == nil {

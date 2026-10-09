@@ -53,6 +53,7 @@ const (
 	PluginCallChainRejected                    = "plugin.call_chain_rejected"
 	PluginContractUnsupported                  = "plugin.contract_unsupported"
 	PluginCoreVersionIncompatible              = "plugin.core_version_incompatible"
+	PluginDependencyMissing                    = "plugin.dependency_missing"
 	PluginEventCanceled                        = "plugin.event_canceled"
 	PluginEventTimeout                         = "plugin.event_timeout"
 	PluginInitTimeout                          = "plugin.init_timeout"
@@ -163,6 +164,7 @@ var catalog = map[string]Definition{
 	PluginCallChainRejected:                   {Code: PluginCallChainRejected, HTTPStatus: 0, Message: "不支持递归插件服务调用", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginContractUnsupported:                 {Code: PluginContractUnsupported, HTTPStatus: 409, Message: "插件合同版本不受支持", Retryable: false, Surfaces: "http,task,cli,plugin_protocol,backup,restore,update,readiness"},
 	PluginCoreVersionIncompatible:             {Code: PluginCoreVersionIncompatible, HTTPStatus: 409, Message: "插件与当前 RayleaBot 版本不兼容", Retryable: false, Surfaces: "http,task,cli,readiness"},
+	PluginDependencyMissing:                   {Code: PluginDependencyMissing, HTTPStatus: 409, Message: "请先安装插件需要的前置插件", Retryable: false, Surfaces: "http"},
 	PluginEventCanceled:                       {Code: PluginEventCanceled, HTTPStatus: 0, Message: "插件事件处理已取消", Retryable: false, Surfaces: "plugin_protocol,websocket,task,logs"},
 	PluginEventTimeout:                        {Code: PluginEventTimeout, HTTPStatus: 0, Message: "插件事件处理超时", Retryable: true, Surfaces: "plugin_protocol,websocket,task"},
 	PluginInitTimeout:                         {Code: PluginInitTimeout, HTTPStatus: 0, Message: "插件初始化超时", Retryable: true, Surfaces: "plugin_protocol,websocket,task"},

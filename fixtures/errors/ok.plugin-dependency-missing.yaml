@@ -1,0 +1,12 @@
+contract: contracts/error-codes.yaml
+case: ok
+description: 缺少必需前置插件时按清单顺序列出缺少的插件 ID。
+input:
+  errors:
+    - code: plugin.dependency_missing
+      message: 请先安装前置插件：raylea.mihoyo-accounts
+      applies_to: http
+      details:
+        plugin_ids: [raylea.mihoyo-accounts]
+expect:
+  valid: true

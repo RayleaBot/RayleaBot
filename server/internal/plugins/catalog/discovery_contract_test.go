@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -14,6 +15,40 @@ import (
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
+
+func TestDiscoverDependenciesRejectsSelfAndDuplicates(t *testing.T) {
+	for _, scenario := range []struct {
+		name         string
+		dependencies []plugins.Dependency
+		valid        bool
+	}{
+		{"declared", []plugins.Dependency{{ID: "base", Requirement: "required", Reason: "resource"}, {ID: "optional", Requirement: "recommended"}}, true},
+		{"self", []plugins.Dependency{{ID: "dependent", Requirement: "required"}}, false},
+		{"duplicate", []plugins.Dependency{{ID: "base", Requirement: "required"}, {ID: "base", Requirement: "recommended"}}, false},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			root := t.TempDir()
+			manifest := baseManifest("dependent")
+			manifest["dependencies"] = scenario.dependencies
+			writeArtifact(t, filepath.Join(root, "plugins", "installed", "dependent"), manifest, nil)
+			snapshot := discoverOne(t, root)
+			if snapshot.Valid != scenario.valid {
+				t.Fatalf("valid = %v, summary = %s", snapshot.Valid, snapshot.ValidationSummary)
+			}
+			if !scenario.valid {
+				return
+			}
+			if !reflect.DeepEqual(snapshot.Dependencies, scenario.dependencies) {
+				t.Fatalf("dependencies = %#v", snapshot.Dependencies)
+			}
+			cloned := plugins.CloneSnapshot(snapshot)
+			cloned.Dependencies[0].ID = "changed"
+			if snapshot.Dependencies[0].ID != "base" {
+				t.Fatal("dependency declarations share mutable storage")
+			}
+		})
+	}
+}
 
 func TestDiscoverProjectsMessagePriorityAndBlock(t *testing.T) {
 	t.Parallel()

@@ -278,6 +278,9 @@ func TestStoreCoreVersionCompatibilityReasons(t *testing.T) {
 					t.Fatal(err)
 				}
 				value, present := fields["incompatible_reason"]
+				if dependencies, ok := fields["dependencies"].([]any); !ok || len(dependencies) != 0 {
+					t.Fatalf("empty dependencies must be an array: %s", data)
+				}
 				if present != !release.Compatible || present && value != string(tc.reason) {
 					t.Fatalf("unexpected reason presence or value: %s", data)
 				}

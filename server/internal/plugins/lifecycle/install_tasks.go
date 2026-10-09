@@ -30,6 +30,10 @@ func installError(code, message, summary string) error {
 }
 
 func InstallErrorCode(err error) string {
+	var dependencyErr *plugins.DependencyMissingError
+	if errors.As(err, &dependencyErr) {
+		return errorcodes.PluginDependencyMissing
+	}
 	var coreVersionErr *plugins.CoreVersionIncompatibleError
 	if errors.As(err, &coreVersionErr) {
 		return errorcodes.PluginCoreVersionIncompatible

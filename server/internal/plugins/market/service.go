@@ -234,7 +234,11 @@ func (s *Service) List(query Query) (ListResult, error) {
 	for _, index := range order[query.Cursor:end] {
 		entry := snapshot.catalog.Entries[index]
 		state, exists := installed[entry.ID]
-		items = append(items, s.projectEntry(entry, state.version, installationConfirmationReasons(snapshot.source.ID, state, exists)))
+		view := s.projectEntry(entry, state.version, installationConfirmationReasons(snapshot.source.ID, state, exists))
+		if view.LatestRelease != nil {
+			view.LatestRelease.Dependencies = s.projectDependencies(entry.CurrentRelease.Dependencies, snapshot, installed)
+		}
+		items = append(items, view)
 	}
 	return ListResult{
 		Items:      items,
@@ -256,11 +260,14 @@ func (s *Service) Get(sourceID, pluginID string) (DetailResult, bool) {
 	if !ok {
 		return DetailResult{}, false
 	}
-	state, installed := s.installedState(entry.ID)
-	view := s.projectEntry(entry, state.version, installationConfirmationReasons(snapshot.source.ID, state, installed))
+	installed := installedStates(s.installed)
+	state, exists := installed[entry.ID]
+	view := s.projectEntry(entry, state.version, installationConfirmationReasons(snapshot.source.ID, state, exists))
 	var currentRelease *ReleaseView
 	if entry.CurrentRelease != nil {
 		release := s.projectRelease(*entry.CurrentRelease)
+		release.Dependencies = s.projectDependencies(entry.CurrentRelease.Dependencies, snapshot, installed)
+		view.LatestRelease.Dependencies = append([]DependencyView{}, release.Dependencies...)
 		currentRelease = &release
 	}
 	return DetailResult{Plugin: view, CurrentRelease: currentRelease, Source: cloneSourceView(snapshot.status)}, true
@@ -300,6 +307,13 @@ func (s *Service) Install(ctx context.Context, request InstallRequest) (string, 
 	}
 	if entry.CurrentRelease != nil {
 		if err := plugins.CheckCoreVersion(s.options.CoreVersion, entry.CurrentRelease.MinCoreVersion); err != nil {
+			return "", err
+		}
+		var installed []plugins.Snapshot
+		if s.installed != nil {
+			installed = s.installed.List()
+		}
+		if err := plugins.CheckRequiredDependencies(entry.CurrentRelease.Dependencies, installed); err != nil {
 			return "", err
 		}
 	}
@@ -395,7 +409,29 @@ func (s *Service) projectRelease(release CurrentRelease) ReleaseView {
 		Compatible:         reason == "",
 		IncompatibleReason: reason,
 		AssetAvailable:     hasAsset,
+		Dependencies:       []DependencyView{},
 	}
+}
+
+func (s *Service) projectDependencies(dependencies []plugins.Dependency, snapshot catalogSnapshot, installed map[string]installedState) []DependencyView {
+	views := make([]DependencyView, 0, len(dependencies))
+	for _, dependency := range dependencies {
+		view := DependencyView{ID: dependency.ID, Name: dependency.ID, Requirement: dependency.Requirement, Reason: dependency.Reason, State: "unavailable"}
+		state := installed[dependency.ID]
+		if entry, exists := snapshot.entriesByID[dependency.ID]; exists {
+			view.Name = entry.Name
+			entryView := s.projectEntry(entry, state.version, nil)
+			if entryView.InstallState == "available" || entryView.InstallState == "update_available" {
+				view.State = "installable"
+			}
+		}
+		if state.validInstallation {
+			view.Name = state.name
+			view.State = "installed"
+		}
+		views = append(views, view)
+	}
+	return views
 }
 
 func (s *Service) resolveRelease(entry Entry) (CurrentRelease, Asset, bool) {
@@ -595,6 +631,7 @@ func cloneEntry(entry Entry) Entry {
 	if entry.CurrentRelease != nil {
 		release := *entry.CurrentRelease
 		release.Assets = append([]Asset(nil), entry.CurrentRelease.Assets...)
+		release.Dependencies = append([]plugins.Dependency(nil), entry.CurrentRelease.Dependencies...)
 		cloned.CurrentRelease = &release
 	}
 	return cloned
@@ -679,6 +716,8 @@ func catalogOrders(entries []Entry) map[string][]int {
 
 type installedState struct {
 	version, sourceType, sourceRef string
+	name                           string
+	validInstallation              bool
 }
 
 func (s *Service) installedState(pluginID string) (installedState, bool) {
@@ -695,7 +734,10 @@ func installedStates(catalog plugins.CatalogView) map[string]installedState {
 		return states
 	}
 	for _, snapshot := range catalog.List() {
-		states[snapshot.PluginID] = installedState{version: snapshot.Version, sourceType: snapshot.PackageSourceType, sourceRef: snapshot.PackageSourceRef}
+		states[snapshot.PluginID] = installedState{
+			version: snapshot.Version, sourceType: snapshot.PackageSourceType, sourceRef: snapshot.PackageSourceRef,
+			name: snapshot.Name, validInstallation: snapshot.Valid && snapshot.RegistrationState == plugins.RegistrationStateInstalled,
+		}
 	}
 	return states
 }

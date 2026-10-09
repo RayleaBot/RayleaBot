@@ -1,0 +1,21 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: 本地包安装同样检查插件清单声明的必需前置插件。
+request:
+  method: POST
+  path: /api/plugins/install
+  body:
+    source_type: local_zip
+    source: plugins/incoming/raylea.genshin-0.1.0-windows-x64.zip
+    trusted_code_confirmed: true
+response:
+  status: 409
+  body:
+    error:
+      code: plugin.dependency_missing
+      message: 请先安装前置插件：raylea.panel-assets
+      request_id: req_fixture_dependency_missing_local
+      details:
+        plugin_ids: [raylea.panel-assets]
+expect:
+  valid: true

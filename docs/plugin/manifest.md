@@ -26,6 +26,7 @@
 | `commands`、`command_groups`、`help` | 命令、真实命令分组，帮助标题/摘要与插件自带的帮助命令 |
 | `management_ui` | 单一 UI 入口及页面 ID/标签 |
 | `webhooks` | 宿主启动时注册的静态 webhook |
+| `dependencies` | 需要或建议先安装的其他插件，见 [前置插件](#前置插件) |
 
 插件运行时只要求 artifact 提供当前平台原生可执行文件，不绑定实现语言。插件角色不写入 manifest；Server 根据安装来源判定为 `official`、`community` 或 `development`。
 
@@ -127,6 +128,27 @@ Go 构建器同步校验服务标识、重复声明、方法数量与最低 Core
 服务只接受定向的 `plugin.request`，不依赖普通 `events` 订阅。宿主只允许调用当前运行实例声明的服务、精确版本和方法；不自动启动被停用的提供者，也不把服务声明作为全局权限授予。提供者按实际 caller 和自己的业务配置判断调用许可。
 
 调用见 [协议](./protocol.md#插件服务调用)，SDK 注册方式见 [服务示例](../../examples/plugins/example-service-provider/README.md)。
+
+## 前置插件
+
+插件通过 `dependencies` 声明依赖的其他插件，例如游戏插件通过账号插件的服务使用登录信息：
+
+```json
+{
+  "dependencies": [
+    {"id": "raylea.mihoyo-accounts", "requirement": "recommended", "reason": "绑定 UID、便笺、签到与抽卡同步等账号功能需要米游社账号"}
+  ]
+}
+```
+
+| `requirement` | 含义 |
+| --- | --- |
+| `required` | 缺少该插件时，商店、本地包和远程包的安装与升级都被拒绝，错误码为 `plugin.dependency_missing`；development 同步不检查 |
+| `recommended` | 只在插件商店中提示并默认勾选一并安装，不阻止单独安装 |
+
+已有该插件 ID 的有效安装即视为已安装，与是否启用无关。`reason` 是 1–120 字的简短说明，商店在安装前展示。每个 ID 只能出现一次，不能依赖自身，最多 16 项；Go 构建器同步校验这些规则。
+
+前置插件只约束安装：宿主不据此调整启动顺序、自动启用或阻止卸载，服务调用仍按实际运行的提供者路由。插件仍需处理提供者缺席时的服务错误。只有离开对方就无法工作的插件才声明 `required`；仅部分功能需要时使用 `recommended`。不支持该字段的 Core 会因未知字段拒绝清单，声明前置插件的插件需要 `min_core_version` 不低于 `0.4.0`。
 
 ## 相关文档
 
