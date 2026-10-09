@@ -1,0 +1,24 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: 服务监听非回环地址且 OneBot11 入站未设置令牌时报告 degraded。
+request:
+  method: GET
+  path: /readyz
+response:
+  status: 200
+  body:
+    status: degraded
+    reason: OneBot 入站未设置访问令牌
+    reason_codes:
+      - adapter.inbound_token_missing
+    checks:
+      database: ok
+      runtime: ok
+      render: ok
+    issues:
+      - code: adapter.inbound_token_missing
+        severity: warning
+        summary: OneBot 入站未设置访问令牌
+        remediation: 为反向 WebSocket 与 Webhook 设置访问令牌，或把 server.host 改回 127.0.0.1。
+expect:
+  valid: true

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 )
@@ -86,7 +87,37 @@ func (s *Service) CurrentReadiness() ReadinessReport {
 			report.Reason = report.Issues[0].Summary
 		}
 	}
+	if issue := s.inboundTokenIssue(); issue != nil {
+		report.Issues = append(report.Issues, *issue)
+		report.ReasonCodes = append(report.ReasonCodes, issue.Code)
+		if report.Status != "failed" {
+			report.Status = "degraded"
+			report.Reason = report.Issues[0].Summary
+		}
+	}
 	return normalizeReadinessReport(report)
+}
+
+func (s *Service) inboundTokenIssue() *health.DiagnosticIssue {
+	if !s.requireInboundToken {
+		return nil
+	}
+	for _, adapter := range s.config().Adapters {
+		if !adapter.Enabled || adapter.Type != config.AdapterTypeOneBot11 || adapter.OneBot11 == nil {
+			continue
+		}
+		for _, transport := range []config.OneBotTransportConfig{adapter.OneBot11.ReverseWS, adapter.OneBot11.Webhook} {
+			if transport.Enabled && strings.TrimSpace(transport.AccessToken) == "" {
+				return &health.DiagnosticIssue{
+					Code:        errorcodes.DiagnosticAdapterInboundTokenMissing,
+					Severity:    "warning",
+					Summary:     "OneBot 入站未设置访问令牌",
+					Remediation: "为反向 WebSocket 与 Webhook 设置访问令牌，或把 server.host 改回 127.0.0.1 后重启服务。",
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Service) databaseAvailable() bool {

@@ -108,7 +108,7 @@
 
 ## 本地优先安全边界
 
-- 管理入口默认监听 `0.0.0.0`，支持本机与局域网访问；网络访问控制由用户负责。
+- 管理入口默认只监听本机 `127.0.0.1`，可改为局域网访问；网络访问控制由用户负责。监听非回环地址时，未设置访问令牌的 OneBot 反向 WebSocket 与 Webhook 入站会被拒绝，`/readyz` 与诊断报告 `adapter.inbound_token_missing`。
 - Web API 和 WebSocket 都要求正式管理会话。
 - Web 状态变更请求使用 HttpOnly cookie 会话，并校验 Origin 与 CSRF；本机 Launcher 控制接口另用 loopback 限制和 control token。
 - 登录失败次数受限，避免暴力猜解管理员凭据。

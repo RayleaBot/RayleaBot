@@ -418,7 +418,7 @@ func TestConfigInitNormalizeValidateCommands(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read normalized config: %v", err)
 	}
-	if !strings.Contains(string(normalized), "host: 0.0.0.0") {
+	if !strings.Contains(string(normalized), "host: 127.0.0.1") {
 		t.Fatalf("normalize should write canonical defaults, got:\n%s", normalized)
 	}
 }

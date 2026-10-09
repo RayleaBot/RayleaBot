@@ -44,7 +44,9 @@ Linux 的完整包与 server 包都包含 `LINUX-RUNTIME.md`，按其中的 [Lin
 
 ## 本机与局域网访问
 
-默认监听 `0.0.0.0:8080`。本机使用 `http://127.0.0.1:8080`，同一局域网设备使用 `http://<服务器内网 IP>:8080`。可通过 `server.host` 与 `server.port` 修改监听地址。
+默认监听 `127.0.0.1:8080`，只有本机能打开管理面，访问地址为 `http://127.0.0.1:8080`。需要从同一局域网的其他设备访问时，把 `server.host` 改为 `0.0.0.0` 或本机内网地址并重启，再使用 `http://<服务器内网 IP>:8080`。`server.port` 修改端口。
+
+监听非本机地址（`127.0.0.1`、`::1` 或 `localhost` 以外）时，OneBot11 反向 WebSocket 与 Webhook 必须设置访问令牌，未设置令牌的入站请求会被拒绝，`/readyz` 报告 degraded 并提示 `adapter.inbound_token_missing`。协议中心启用这两种连接方式时会自动生成令牌，复制到 OneBot 实现端即可；QQ 官方机器人与主动连接（正向 WebSocket、HTTP API）不受此限制。
 
 已有配置中的 `web.exposure_mode`、`web.public_origin`、`web.trusted_proxy_cidrs` 和 `web.setup_local_only` 已失效，读取时会被忽略，保存或规范化配置时会被清理。已有的 `server.host` 会保留，需要开放内网时将其设为 `0.0.0.0` 或具体内网地址。
 
@@ -54,7 +56,7 @@ Linux 的完整包与 server 包都包含 `LINUX-RUNTIME.md`，按其中的 [Lin
 
 ## Linux systemd / LXC
 
-- `linux-x64-server` 包含 `systemd/rayleabot.service` 示例。
+- `linux-x64-server` 包含 `systemd/rayleabot.service` 示例。服务默认只监听本机；从其他设备完成初始化与管理，需要先在 `config/user.yaml` 中把 `server.host` 改为 `0.0.0.0` 或内网地址（文件不存在时先执行 `raylea-server config init` 生成），或通过 SSH 端口转发访问 `127.0.0.1:8080`。
 - SQLite 状态库必须位于稳定的本地可写文件系统，不建议使用语义不完整的网络文件系统。
 - 容器或 LXC 应显式设置时区并确认 Chromium、字体、UID/GID 映射和数据卷权限。
 - 非特权 LXC 使用 bind mount 时，应校验 `subuid`、`subgid` 和目录 owner 映射。

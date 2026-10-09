@@ -43,8 +43,8 @@
       "properties": {
         "host": {
           "type": "string",
-          "default": "0.0.0.0",
-          "description": "HTTP server bind address. Defaults to all IPv4 interfaces for local and LAN access. Network access control is managed by the deployer. Requires restart.",
+          "default": "127.0.0.1",
+          "description": "HTTP server bind address. Defaults to the IPv4 loopback address, so only the local machine can reach the management surface and adapter ingress. Set 0.0.0.0 or a LAN address to allow LAN access; network access control is then managed by the deployer. While the address is not loopback (127.0.0.0/8, ::1 or localhost), inbound OneBot11 reverse_ws and webhook requests to a transport without access_token are rejected. Requires restart.",
           "x-apply-policy": "restart_required"
         },
         "port": {
@@ -854,7 +854,8 @@
       ],
       "properties": {
         "reverse_ws": {
-          "$ref": "#/$defs/onebotWsTransport"
+          "$ref": "#/$defs/onebotWsTransport",
+          "description": "Inbound WebSocket that the OneBot implementation dials. While server.host is not a loopback address, requests are rejected unless access_token is set."
         },
         "forward_ws": {
           "$ref": "#/$defs/onebotWsTransport"
@@ -863,7 +864,8 @@
           "$ref": "#/$defs/onebotHttpTransport"
         },
         "webhook": {
-          "$ref": "#/$defs/onebotWebhookTransport"
+          "$ref": "#/$defs/onebotWebhookTransport",
+          "description": "Inbound HTTP event delivery. While server.host is not a loopback address, requests are rejected unless access_token is set."
         }
       }
     },

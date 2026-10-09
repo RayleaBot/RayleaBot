@@ -48,6 +48,7 @@ type SchedulerDiagnosticsSource interface {
 }
 
 type Deps struct {
+	ListenHost          string
 	CurrentConfig       func() config.Config
 	CurrentSummary      func() config.Summary
 	CurrentRepoRoot     func() string
@@ -72,6 +73,7 @@ type Deps struct {
 }
 
 type Service struct {
+	requireInboundToken bool
 	currentConfig       func() config.Config
 	currentSummary      func() config.Summary
 	currentRepoRoot     func() string
@@ -115,6 +117,7 @@ func New(deps Deps) (*Service, error) {
 		deps.RefreshPluginTools = func(context.Context) error { return nil }
 	}
 	return &Service{
+		requireInboundToken: !config.IsLoopbackHost(deps.ListenHost),
 		currentConfig:       deps.CurrentConfig,
 		currentSummary:      deps.CurrentSummary,
 		currentRepoRoot:     deps.CurrentRepoRoot,

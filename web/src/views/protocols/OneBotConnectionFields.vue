@@ -35,12 +35,21 @@ const modeOptions = [
   { value: 'http', label: 'HTTP API + Webhook' },
   { value: 'custom', label: t('protocols.transportFields.modes.custom') },
 ]
+// Inbound transports start with a random token: the server rejects tokenless
+// inbound requests whenever it listens beyond loopback.
+function randomAccessToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32))
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
 function enableTransport(key: OneBotTransport, enabled: boolean) {
   const entry = settings.value[key]
   entry.enabled = enabled
   if (enabled && !entry.url) {
     if (key === 'reverse_ws') entry.url = buildOneBot11ReverseWsUrl(baseUrl, props.adapterId)
     if (key === 'webhook') entry.url = buildOneBot11WebhookUrl(baseUrl, props.adapterId)
+  }
+  if (enabled && !entry.access_token && (key === 'reverse_ws' || key === 'webhook')) {
+    entry.access_token = randomAccessToken()
   }
 }
 function selectMode(value: string) {
@@ -52,6 +61,9 @@ function selectMode(value: string) {
 }
 function copyAddress(key: OneBotTransport) {
   return copyText(String(settings.value[key].url), t('protocols.transportFields.copied'), t('protocols.transportFields.copyFailed'))
+}
+function copyToken(key: OneBotTransport) {
+  return copyText(String(settings.value[key].access_token), t('protocols.transportFields.tokenCopied'), t('protocols.transportFields.tokenCopyFailed'))
 }
 </script>
 
@@ -79,7 +91,10 @@ function copyAddress(key: OneBotTransport) {
       </div>
     </AppField>
     <AppField floating :label="t('protocols.transportFields.accessToken')" :for="`adapter-${item.key}-token`">
-      <AppInput type="password" :id="`adapter-${item.key}-token`" v-model="settings[item.key].access_token" autocomplete="new-password" :placeholder="t('protocols.transportFields.accessTokenPlaceholder')" />
+      <div class="address-field">
+        <AppInput type="password" :id="`adapter-${item.key}-token`" v-model="settings[item.key].access_token" autocomplete="new-password" :placeholder="t('protocols.transportFields.accessTokenPlaceholder')" />
+        <AppButton v-if="settings[item.key].access_token && settings[item.key].access_token !== '********'" size="icon" :aria-label="t('protocols.transportFields.copyToken', { label: item.label })" @click="copyToken(item.key)"><CopyIcon /></AppButton>
+      </div>
       <p class="field-hint">{{ settings[item.key].access_token === '********' ? t('protocols.transportFields.accessTokenSaved') : t('protocols.transportFields.accessTokenHint') }}</p>
     </AppField>
     <details v-if="'access_token_query_compat' in settings[item.key]" class="transport-advanced">

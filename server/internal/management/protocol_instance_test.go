@@ -57,7 +57,7 @@ func TestOneBotManagementQueriesStayWithinExplicitInstance(t *testing.T) {
 	}
 	service := newAdapterTestService(t, source, adapterservice.Instances{OneBot11: shells})
 	router := chi.NewRouter()
-	NewProtocolHandlers(service).RegisterProtectedRoutes(router)
+	NewProtocolHandlers(service, "127.0.0.1").RegisterProtectedRoutes(router)
 	query := func(t *testing.T, method, id, suffix, body string, wantStatus int) string {
 		t.Helper()
 		recorder := httptest.NewRecorder()

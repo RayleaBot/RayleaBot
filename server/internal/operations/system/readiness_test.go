@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -15,6 +16,69 @@ import (
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
+
+func TestReadinessReportsMissingInboundToken(t *testing.T) {
+	for _, tt := range []struct {
+		name           string
+		host           string
+		disabled       bool
+		settings       config.OneBotConfig
+		failedDatabase bool
+		wantStatus     string
+		wantIssue      bool
+	}{
+		{name: "reverse websocket", host: "0.0.0.0", settings: config.OneBotConfig{ReverseWS: config.OneBotTransportConfig{Enabled: true}}, wantStatus: "degraded", wantIssue: true},
+		{name: "webhook preserves failed", host: "::", settings: config.OneBotConfig{Webhook: config.OneBotTransportConfig{Enabled: true}}, failedDatabase: true, wantStatus: "failed", wantIssue: true},
+		{name: "loopback", host: "127.0.0.1", settings: config.OneBotConfig{Webhook: config.OneBotTransportConfig{Enabled: true}}, wantStatus: "ready"},
+		{name: "disabled adapter", host: "0.0.0.0", disabled: true, settings: config.OneBotConfig{ReverseWS: config.OneBotTransportConfig{Enabled: true}}, wantStatus: "ready"},
+		{name: "outbound only", host: "0.0.0.0", settings: config.OneBotConfig{ForwardWS: config.OneBotTransportConfig{Enabled: true}, HTTPAPI: config.OneBotTransportConfig{Enabled: true}}, wantStatus: "ready"},
+		{name: "resolved token", host: "0.0.0.0", settings: config.OneBotConfig{Webhook: config.OneBotTransportConfig{Enabled: true, AccessToken: "fixture-only-token"}}, wantStatus: "ready"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.Config{Adapters: []config.AdapterInstance{{ID: "fixture", Type: config.AdapterTypeOneBot11, Enabled: !tt.disabled, OneBot11: &tt.settings}}}
+			store := openReadinessStore(t)
+			if tt.failedDatabase {
+				if err := store.Read.Close(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			service, err := New(Deps{
+				ListenHost:     tt.host,
+				CurrentConfig:  func() config.Config { return cfg },
+				CurrentSummary: func() config.Summary { return config.Summary{} },
+				Plugins:        plugincatalog.New(nil), Auth: readinessAuthState(true), Storage: store,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			// A pending host edit must not change the listener policy until restart.
+			cfg.Server.Host = "localhost"
+			report := service.CurrentReadiness()
+			code := errorcodes.DiagnosticAdapterInboundTokenMissing
+			if report.Status != tt.wantStatus || slices.Contains(report.ReasonCodes, code) != tt.wantIssue {
+				t.Fatalf("readiness = %#v", report)
+			}
+			for _, issues := range [][]health.DiagnosticIssue{report.Issues, service.DiagnosticsSnapshot(t.Context()).Issues} {
+				index := slices.IndexFunc(issues, func(issue health.DiagnosticIssue) bool { return issue.Code == code })
+				if (index >= 0) != tt.wantIssue {
+					t.Fatalf("inbound token issue = %#v", issues)
+				}
+				if index >= 0 && (issues[index].Severity != "warning" || issues[index].Remediation == "") {
+					t.Fatalf("missing actionable warning: %#v", issues[index])
+				}
+			}
+			if tt.wantIssue {
+				cfg.Adapters[0].OneBot11 = &config.OneBotConfig{
+					ReverseWS: config.OneBotTransportConfig{Enabled: true, AccessToken: "fixture-only-token"},
+					Webhook:   config.OneBotTransportConfig{Enabled: true, AccessToken: "fixture-only-token"},
+				}
+				if slices.Contains(service.CurrentReadiness().ReasonCodes, code) {
+					t.Fatal("warning remained after effective tokens were set")
+				}
+			}
+		})
+	}
+}
 
 func TestCurrentReadinessDoesNotRequireOneBotAdapter(t *testing.T) {
 	t.Parallel()

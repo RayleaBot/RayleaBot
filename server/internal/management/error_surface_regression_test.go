@@ -51,7 +51,7 @@ func TestUnavailableWebhookUsesTransportUnavailable(t *testing.T) {
 			shells["onebot11"] = onebot11.New("onebot11", settings, config.AdapterConfig{}, nil)
 		}
 		service := newAdapterTestService(t, webhookConfigSource{cfg: cfg}, adapterservice.Instances{OneBot11: shells})
-		handler := NewProtocolHandlers(service)
+		handler := NewProtocolHandlers(service, "127.0.0.1")
 		router := chi.NewRouter()
 		handler.RegisterPublicRoutes(router)
 		response := httptest.NewRecorder()

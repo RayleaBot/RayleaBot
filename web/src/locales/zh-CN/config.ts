@@ -137,7 +137,7 @@ export const config = {
     rateLimitPreview: '预览',
   },
   descriptions: {
-    serverHost: '服务监听的地址，需要填 IP 地址或 localhost。默认 0.0.0.0，本机和局域网都能访问；只允许本机访问时填 127.0.0.1。',
+    serverHost: '服务监听的地址，需要填 IP 地址或 localhost。默认 127.0.0.1，只有本机能访问；需要局域网访问时填 0.0.0.0 或本机内网地址，并为 OneBot 反向 WebSocket 与 Webhook 设置访问令牌。',
     serverPort: 'HTTP 服务监听端口。',
     databasePath: '数据库文件路径。相对路径基于运行根目录解析，也可使用绝对路径。',
     adminSessionTtlDays: '登录后这么多天没有操作就自动退出。',

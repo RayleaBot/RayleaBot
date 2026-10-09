@@ -779,7 +779,7 @@ codes:
     code: adapter.transport_reverse_ws_auth_failed
     domain: adapter
     message: OneBot 回连鉴权失败
-    description: The reverse WebSocket callback request did not satisfy the configured OneBot access token requirement.
+    description: The reverse WebSocket callback request did not satisfy the configured OneBot access token requirement, or the transport has no access token while server.host is not a loopback address.
     http_status: 401
     retryable: false
     applies_to: [http, websocket, readiness]
@@ -833,7 +833,7 @@ codes:
     code: adapter.transport_webhook_auth_failed
     domain: adapter
     message: OneBot Webhook 鉴权失败
-    description: The OneBot webhook request did not satisfy the configured access token requirement.
+    description: The OneBot webhook request did not satisfy the configured access token requirement, or the transport has no access token while server.host is not a loopback address.
     http_status: 401
     retryable: false
     applies_to: [http, websocket, readiness]
@@ -885,6 +885,8 @@ codes:
 
 # Diagnostic identities are not HTTP errors. Status and remediation belong to the containing report.
 diagnostics:
+  adapter.inbound_token_missing:
+    description: An enabled OneBot11 reverse_ws or webhook transport has no access token while server.host is not a loopback address, so inbound requests to it are rejected. Readiness reports degraded until a token is set or the server listens on loopback.
   auth.unavailable:
     description: The authentication subsystem is unavailable.
   config.not_accessible:

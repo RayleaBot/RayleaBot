@@ -142,6 +142,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		return serviceBuildResult{}, err
 	}
 	systemService, err := systemsvc.New(systemsvc.Deps{
+		ListenHost:       runtimeState.CurrentConfig().Server.Host,
 		CurrentConfig:    runtimeState.CurrentConfig,
 		CurrentSummary:   runtimeState.CurrentSummary,
 		CurrentRepoRoot:  runtimeState.RepoRoot,

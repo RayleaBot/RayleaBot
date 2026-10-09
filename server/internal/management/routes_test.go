@@ -29,7 +29,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			NewAuthHandlers(AuthDeps{}),
 			NewCoreHandlers(CoreDeps{}),
 			DevelopmentRoutes{},
-			NewProtocolHandlers(nil),
+			NewProtocolHandlers(nil, "127.0.0.1"),
 			publicRouteFunc(func(r chi.Router) {
 				r.Post("/api/webhooks/{plugin_id}/{route}", noopHandler)
 			}),
@@ -39,7 +39,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			NewAuthHandlers(AuthDeps{}),
 			NewCoreHandlers(CoreDeps{}),
 			NewConfigHandlers(nil),
-			NewProtocolHandlers(nil),
+			NewProtocolHandlers(nil, "127.0.0.1"),
 			NewGovernanceHandlersWithService(nil),
 			NewLogHandlers(nil),
 			NewSystemRoutes(NewSystemHandlers(nil)),

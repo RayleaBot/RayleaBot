@@ -2,6 +2,7 @@ package management
 
 import (
 	"context"
+	"crypto/hmac"
 	"net/http"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 )
@@ -24,7 +26,8 @@ type oneBot11IdentityResolveRequest struct {
 }
 
 type ProtocolHandlers struct {
-	protocol protocolHTTPService
+	protocol            protocolHTTPService
+	requireInboundToken bool
 }
 
 type protocolHTTPService interface {
@@ -34,8 +37,8 @@ type protocolHTTPService interface {
 	OneBot11Ingress(id string) (adapterservice.OneBot11Ingress, bool)
 }
 
-func NewProtocolHandlers(protocol protocolHTTPService) *ProtocolHandlers {
-	return &ProtocolHandlers{protocol: protocol}
+func NewProtocolHandlers(protocol protocolHTTPService, listenHost string) *ProtocolHandlers {
+	return &ProtocolHandlers{protocol: protocol, requireInboundToken: !config.IsLoopbackHost(listenHost)}
 }
 
 func (h *ProtocolHandlers) RegisterPublicRoutes(router chi.Router) {
@@ -89,7 +92,7 @@ func (h *ProtocolHandlers) HandleAdapterReverseWS() http.HandlerFunc {
 			httpapi.WriteError(w, r, errorcodes.AdapterTransportReverseWsUpgradeFailed, nil)
 			return
 		}
-		if !allowOneBotIngress(r, ingress.ReverseWSAccessToken(), ingress.ReverseWSAccessTokenQueryCompat()) {
+		if !allowOneBotIngress(r, ingress.ReverseWSAccessToken(), ingress.ReverseWSAccessTokenQueryCompat(), h.requireInboundToken) {
 			ingress.MarkReverseWSAuthFailed()
 			httpapi.WriteError(w, r, errorcodes.AdapterTransportReverseWsAuthFailed, nil)
 			return
@@ -114,7 +117,7 @@ func (h *ProtocolHandlers) HandleAdapterWebhook() http.HandlerFunc {
 			httpapi.WriteError(w, r, errorcodes.AdapterTransportUnavailable, nil)
 			return
 		}
-		if !allowOneBotIngress(r, ingress.WebhookAccessToken(), ingress.WebhookAccessTokenQueryCompat()) {
+		if !allowOneBotIngress(r, ingress.WebhookAccessToken(), ingress.WebhookAccessTokenQueryCompat(), h.requireInboundToken) {
 			ingress.MarkWebhookAuthFailed()
 			httpapi.WriteError(w, r, errorcodes.AdapterTransportWebhookAuthFailed, nil)
 			return
@@ -133,19 +136,19 @@ func (h *ProtocolHandlers) HandleAdapterWebhook() http.HandlerFunc {
 	}
 }
 
-func allowOneBotIngress(r *http.Request, accessToken string, allowQueryToken bool) bool {
+func allowOneBotIngress(r *http.Request, accessToken string, allowQueryToken, requireToken bool) bool {
 	trimmedToken := strings.TrimSpace(accessToken)
 	if trimmedToken == "" {
-		return true
+		return !requireToken
 	}
 
 	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
 	if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
-		if strings.TrimSpace(authHeader[7:]) == trimmedToken {
+		if hmac.Equal([]byte(strings.TrimSpace(authHeader[7:])), []byte(trimmedToken)) {
 			return true
 		}
 	}
-	if allowQueryToken && strings.TrimSpace(r.URL.Query().Get("access_token")) == trimmedToken {
+	if allowQueryToken && hmac.Equal([]byte(strings.TrimSpace(r.URL.Query().Get("access_token"))), []byte(trimmedToken)) {
 		return true
 	}
 	return false

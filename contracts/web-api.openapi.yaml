@@ -129,6 +129,7 @@ x-fixtures:
   - fixtures/web-api/edge.plugins-disable-response.yaml
   - fixtures/web-api/edge.plugins-command-conflict-response.yaml
   - fixtures/web-api/edge.readyz-degraded-response.yaml
+  - fixtures/web-api/edge.readyz-inbound-token-missing-response.yaml
   - fixtures/web-api/edge.readyz-setup-required-response.yaml
   - fixtures/web-api/edge.readyz-database-unavailable-response.yaml
   - fixtures/web-api/edge.readyz-runtime-missing-response.yaml
@@ -3466,7 +3467,7 @@ components:
       type: object
       additionalProperties: false
       required: [status]
-      description: 数据库不可用时为 failed；运行或渲染资源缺失时为 degraded，不能覆盖 failed；reason 使用首要问题摘要，资源问题的 reason_codes 包含 platform.resource_missing。
+      description: 数据库不可用时为 failed；运行或渲染资源缺失，或服务监听非回环地址时存在未设置令牌的 OneBot11 反向 WebSocket 或 Webhook 入站，为 degraded，不能覆盖 failed；reason 使用首要问题摘要，资源问题的 reason_codes 包含 platform.resource_missing，入站令牌问题包含 adapter.inbound_token_missing。
       properties:
         status:
           type: string

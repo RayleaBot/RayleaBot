@@ -1,7 +1,6 @@
 package app
 
 import (
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -71,7 +70,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		systemHandlers = managementapi.NewSystemHandlers(services.System, schedulerView)
 	}
 	systemRoutes := managementapi.NewSystemRoutes(systemHandlers)
-	protocolHandler := managementapi.NewProtocolHandlers(services.Protocol)
+	protocolHandler := managementapi.NewProtocolHandlers(services.Protocol, runtimeState.CurrentConfig().Server.Host)
 	updateHandler, err := managementapi.NewUpdateHandlers(releaseupdate.NewDefaultService(runtimeState.RepoRoot(), func() config.UpdateConfig { return runtimeState.CurrentConfig().Update }))
 	if err != nil {
 		return managementRouteState{}, err
@@ -200,20 +199,11 @@ func managementDevelopmentOrigins(developmentUIOrigin string) []string {
 func localDevelopmentUIOrigin(raw string) (string, string, bool) {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || !strings.EqualFold(parsed.Scheme, "http") || parsed.User != nil || parsed.Host == "" ||
-		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" || !isLoopbackHost(parsed.Hostname()) {
+		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" || !config.IsLoopbackHost(parsed.Hostname()) {
 		return "", "", false
 	}
 	if _, err := strconv.Atoi(parsed.Port()); err != nil {
 		return "", "", false
 	}
 	return "http://" + parsed.Host, parsed.Host, true
-}
-
-func isLoopbackHost(host string) bool {
-	host = strings.Trim(strings.TrimSpace(host), "[]")
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
 }

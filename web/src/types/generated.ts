@@ -1617,7 +1617,7 @@ export interface components {
             /** @constant */
             status: "ok";
         };
-        /** @description 数据库不可用时为 failed；运行或渲染资源缺失时为 degraded，不能覆盖 failed；reason 使用首要问题摘要，资源问题的 reason_codes 包含 platform.resource_missing。 */
+        /** @description 数据库不可用时为 failed；运行或渲染资源缺失，或服务监听非回环地址时存在未设置令牌的 OneBot11 反向 WebSocket 或 Webhook 入站，为 degraded，不能覆盖 failed；reason 使用首要问题摘要，资源问题的 reason_codes 包含 platform.resource_missing，入站令牌问题包含 adapter.inbound_token_missing。 */
         ReadinessStatusResponse: {
             /** @enum {string} */
             status: "ready" | "degraded" | "setup_required" | "failed";
@@ -2312,9 +2312,11 @@ export interface components {
             [key: string]: unknown;
         };
         onebot11AdapterSettings: {
+            /** @description Inbound WebSocket that the OneBot implementation dials. While server.host is not a loopback address, requests are rejected unless access_token is set. */
             reverse_ws: components["schemas"]["onebotWsTransport"];
             forward_ws: components["schemas"]["onebotWsTransport"];
             http_api: components["schemas"]["onebotHttpTransport"];
+            /** @description Inbound HTTP event delivery. While server.host is not a loopback address, requests are rejected unless access_token is set. */
             webhook: components["schemas"]["onebotWebhookTransport"];
         } & {
             [key: string]: unknown;
@@ -2373,8 +2375,8 @@ export interface components {
             schema_version: "4";
             server: {
                 /**
-                 * @description HTTP server bind address. Defaults to all IPv4 interfaces for local and LAN access. Network access control is managed by the deployer. Requires restart.
-                 * @default 0.0.0.0
+                 * @description HTTP server bind address. Defaults to the IPv4 loopback address, so only the local machine can reach the management surface and adapter ingress. Set 0.0.0.0 or a LAN address to allow LAN access; network access control is then managed by the deployer. While the address is not loopback (127.0.0.0/8, ::1 or localhost), inbound OneBot11 reverse_ws and webhook requests to a transport without access_token are rejected. Requires restart.
+                 * @default 127.0.0.1
                  */
                 host: string;
                 /**
@@ -2767,9 +2769,11 @@ export interface components {
                 };
                 rateLimit: string;
                 onebot11AdapterSettings: {
+                    /** @description Inbound WebSocket that the OneBot implementation dials. While server.host is not a loopback address, requests are rejected unless access_token is set. */
                     reverse_ws: components["schemas"]["onebotWsTransport"];
                     forward_ws: components["schemas"]["onebotWsTransport"];
                     http_api: components["schemas"]["onebotHttpTransport"];
+                    /** @description Inbound HTTP event delivery. While server.host is not a loopback address, requests are rejected unless access_token is set. */
                     webhook: components["schemas"]["onebotWebhookTransport"];
                 } & {
                     [key: string]: unknown;

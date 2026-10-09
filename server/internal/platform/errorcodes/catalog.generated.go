@@ -83,6 +83,7 @@ const (
 	PluginTrustedCodeConfirmationRequired      = "plugin.trusted_code_confirmation_required"
 	PluginUninstallFailed                      = "plugin.uninstall_failed"
 	ReleaseManifestInvalid                     = "release.manifest_invalid"
+	DiagnosticAdapterInboundTokenMissing       = "adapter.inbound_token_missing"
 	DiagnosticAuthUnavailable                  = "auth.unavailable"
 	DiagnosticConfigNotAccessible              = "config.not_accessible"
 	DiagnosticConfigOk                         = "config.ok"
