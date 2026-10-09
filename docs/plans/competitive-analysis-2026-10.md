@@ -120,7 +120,7 @@ P2 见第 6 节，P3 与有意取舍见第 7 节。工作量取核实后的估�
 
 **状态（2026-10-06）**
 
-发布工作流已要求标签所指完整提交 SHA 的最新 nightly 成功，并在上传前重新检查；失败跟踪由独立的 `nightly-status.yml` 维护同一个 issue。预发布段决定 beta 通道与 GitHub prerelease，不覆盖 latest；macOS 产物标为 experimental，Server 发布构建固定关闭 CGO。Corepack 安装允许替换 runner 已有的工具入口，golangci-lint 已固定为支持 Go 1.27 的 2.13.0。
+发布工作流已要求标签所指完整提交 SHA 的最新 nightly 成功，并在上传前重新检查；失败跟踪由独立的 `nightly-status.yml` 维护同一个 issue。预发布段决定 beta 通道与 GitHub prerelease，不覆盖 latest；macOS 产物标为 experimental，Server 发布构建固定关闭 CGO。Corepack 安装允许替换 runner 已有的工具入口，golangci-lint 已固定为能读取 Go 1.27.2 导出数据的 2.14.0。
 
 操作步骤与发布节奏见[交付与升级](../release/delivery-and-upgrade.md#发布流程与通道)，首个预发布正文见 [v0.4.0-beta.1](../release/notes/v0.4.0-beta.1.md)。0.3.x 与 v0.4.0 不兼容，只提供全新安装说明，不提供旧格式迁移，也不恢复签名资产。
 
