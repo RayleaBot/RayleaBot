@@ -40,12 +40,12 @@ RayleaBot 通过 NapCat 等 OneBot V11 协议端或 QQ 官方机器人接入 QQ�
 
 ## 接入方式
 
-| 接入方式 | 连接方式 | 说明 |
+| 接入方式 | 连接方式 | 适用 |
 | --- | --- | --- |
-| [OneBot V11](https://github.com/botuniverse/onebot-11) | 反向 WebSocket、正向 WebSocket、HTTP API、Webhook | QQ 个人号，需要 NapCat、LuckyLilliaBot 等协议端登录 QQ；兼容范围见 [OneBot11 兼容矩阵](./docs/dev/onebot-compatibility.md) |
-| [QQ 官方机器人](https://bot.q.qq.com/wiki/) | 官方 WebSocket 网关 | 在 QQ 开放平台创建的机器人，支持群聊与单聊 |
+| [OneBot V11](https://github.com/botuniverse/onebot-11) | 反向 WebSocket、正向 WebSocket、HTTP API、Webhook | QQ 个人号 |
+| [QQ 官方机器人](https://bot.q.qq.com/wiki/) | 官方 WebSocket 网关 | 群聊与单聊 |
 
-RayleaBot 本身不登录 QQ：个人号由协议端负责登录，官方机器人在 [QQ 开放平台](https://q.qq.com)创建。
+RayleaBot 本身不登录 QQ：个人号由 NapCat、LuckyLilliaBot 等协议端登录，官方机器人在 [QQ 开放平台](https://q.qq.com)创建。各协议端支持的事件与消息段见 [OneBot11 兼容矩阵](./docs/dev/onebot-compatibility.md)。
 
 ## 快速开始
 
@@ -101,13 +101,6 @@ node scripts/start-dev.mjs   # Windows 也可运行 start.bat，Linux / macOS �
 RayleaBot 使用 [AGPL-3.0](LICENSE) 许可证。插件 SDK（`sdk/go` 与 `sdk/vue`）使用 [MIT](sdk/go/LICENSE) 许可证，插件可以自行选择许可证。
 
 ## 仓库动态
-
-<a href="https://star-history.com/#RayleaBot/RayleaBot&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=RayleaBot/RayleaBot&type=Date&theme=dark">
-    <img alt="Star History" src="https://api.star-history.com/svg?repos=RayleaBot/RayleaBot&type=Date">
-  </picture>
-</a>
 
 最近一年的提交情况，由 [repo-stats](.github/workflows/repo-stats.yml) 工作流在推送到 `main` 时生成：
 
