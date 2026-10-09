@@ -31,8 +31,8 @@ func (c *checker) baseline() {
 		fail("server/go.mod must pin Go %s", versions["golang"])
 	}
 	expectedWorkspaces := map[string]object{
-		"web":      {"allowBuilds": object{"@parcel/watcher": true, "core-js": false, "esbuild": true, "vue-demi": true}, "overrides": object{"esbuild": "0.28.2", "glob": "13.0.6", "immutable": "5.1.9", "js-cookie": "3.0.8", "js-yaml": "4.2.0", "picomatch": "4.0.5", "postcss": "8.5.26", "source-map-js": "1.2.2"}},
-		"launcher": {"allowBuilds": object{"vue-demi": true}, "overrides": object{"undici": "8.10.0"}},
+		"web":      {"allowBuilds": object{"@parcel/watcher": true, "core-js": false, "esbuild": true, "vue-demi": true}, "overrides": object{"brace-expansion@2": "2.1.7", "brace-expansion@5": "5.0.12", "esbuild": "0.28.2", "glob": "13.0.6", "immutable": "5.1.9", "js-cookie": "3.0.8", "js-yaml": "4.3.2", "picomatch": "4.0.5", "postcss": "8.5.26", "source-map-js": "1.2.2", "undici": "8.10.2"}},
+		"launcher": {"allowBuilds": object{"vue-demi": true}, "overrides": object{"undici": "8.10.2"}},
 	}
 	for _, dir := range []string{"web", "launcher"} {
 		path := dir + "/package.json"
