@@ -30,8 +30,8 @@ Go、Node.js、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 `.tool-ve
 | Web / build runtime | Node.js `26.10.0` + npm `11.19.1` |
 | JS package bootstrap | Corepack `0.35.0` |
 | JS package manager | `pnpm 11.25.0` |
-| Web UI | Vue `3.5.43` + Vite `8.2.1` + Reka UI `2.10.4` + shadcn-vue 自有组件源码 + Motion for Vue `2.4.2` + Vue Router `5.2.0` + Pinia `4.0.3` |
-| Launcher runtime | Wails v3 `v3.0.0-beta.9` + `@wailsio/runtime 3.0.0-beta.9` + Go `1.27.2` + TypeScript `5.9.3` + Vue `3.5.43` + Reka UI `2.10.4` + Motion for Vue `2.4.2` + Vite `8.2.1` + `@vitejs/plugin-vue 6.0.8` |
+| Web UI | Vue `3.5.43` + Vite `8.2.1` + Reka UI `2.11.0` + shadcn-vue 自有组件源码 + Motion for Vue `2.4.2` + Vue Router `5.2.0` + Pinia `4.0.3` |
+| Launcher runtime | Wails v3 `v3.0.0-beta.9` + `@wailsio/runtime 3.0.0-beta.9` + Go `1.27.2` + TypeScript `5.9.3` + Vue `3.5.43` + Reka UI `2.11.0` + Motion for Vue `2.4.2` + Vite `8.2.1` + `@vitejs/plugin-vue 6.0.8` |
 | Repository scripting | Go `1.27.2`（`tools/`）+ Node.js `26.10.0` |
 | Go static analysis | golangci-lint `v2.14.0`（支持 Go 1.27.2 的导出数据） |
 | SQL generation | sqlc `v1.31.1` |

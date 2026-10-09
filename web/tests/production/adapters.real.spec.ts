@@ -49,3 +49,22 @@ test('protocol connection creation stays local until the completed form is saved
   expect(writes).toHaveLength(2)
   expect((writes[1] as { adapters: Array<{ id: string; qqofficial?: { app_secret: string } }> }).adapters.find((entry) => entry.id === 'qq-official')?.qqofficial?.app_secret).toBe('********')
 })
+
+test('a connection dialog opened from the status page leaves the page usable after cancelling', async ({ page, request, server, baseURL }) => {
+  const setup = await request.post('/api/setup/admin', {
+    headers: { Origin: baseURL!, 'X-Raylea-Setup-Token': server.setupToken, 'X-Raylea-Session-Transport': 'bearer' },
+    data: { identifier: 'admin', secret: 'fixture-only-secret' },
+  })
+  expect(setup.status()).toBe(200)
+  await page.goto('/login')
+  await page.getByLabel('用户名', { exact: true }).fill('admin')
+  await page.getByLabel('密码', { exact: true }).fill('fixture-only-secret')
+  await page.getByRole('button', { name: /登\s*录/ }).click()
+  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
+  // The dialog mounts together with the page it navigates to.
+  await page.getByRole('button', { name: '添加机器人连接' }).first().click()
+  await page.getByRole('dialog').getByRole('button', { name: '取消' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.getByTestId('adapter-add').click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+})

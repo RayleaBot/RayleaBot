@@ -45,7 +45,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:launcher | @floating-ui/core | 1.8.0 | MIT |
 | npm:launcher | @floating-ui/dom | 1.8.0 | MIT |
 | npm:launcher | @floating-ui/utils | 0.2.12 | MIT |
-| npm:launcher | @floating-ui/vue | 1.1.11 | MIT |
+| npm:launcher | @floating-ui/vue | 2.0.1 | MIT |
 | npm:launcher | @internationalized/date | 3.12.4 | Apache-2.0 |
 | npm:launcher | @internationalized/number | 3.6.8 | Apache-2.0 |
 | npm:launcher | @jridgewell/sourcemap-codec | 1.5.5 | MIT |
@@ -82,12 +82,11 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:launcher | ohash | 2.0.12 | MIT |
 | npm:launcher | picocolors | 1.1.1 | ISC |
 | npm:launcher | postcss | 8.5.29 | MIT |
-| npm:launcher | reka-ui | 2.10.4 | MIT |
+| npm:launcher | reka-ui | 2.11.0 | MIT |
 | npm:launcher | source-map-js | 1.2.2 | BSD-3-Clause |
 | npm:launcher | tslib | 2.8.1 | 0BSD |
 | npm:launcher | typescript | 5.9.3 | Apache-2.0 |
 | npm:launcher | vue | 3.5.43 | MIT |
-| npm:launcher | vue-demi | 0.14.10 | MIT |
 | npm:web | @babel/generator | 8.0.0 | MIT |
 | npm:web | @babel/helper-string-parser | 7.29.7 | MIT |
 | npm:web | @babel/helper-string-parser | 8.0.0 | MIT |
@@ -100,7 +99,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | @floating-ui/core | 1.8.0 | MIT |
 | npm:web | @floating-ui/dom | 1.8.0 | MIT |
 | npm:web | @floating-ui/utils | 0.2.12 | MIT |
-| npm:web | @floating-ui/vue | 1.1.11 | MIT |
+| npm:web | @floating-ui/vue | 2.0.1 | MIT |
 | npm:web | @internationalized/date | 3.12.4 | Apache-2.0 |
 | npm:web | @internationalized/number | 3.6.8 | Apache-2.0 |
 | npm:web | @intlify/core-base | 11.4.8 | MIT |
@@ -213,7 +212,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | postcss | 8.5.26 | MIT |
 | npm:web | quansync | 0.2.11 | MIT |
 | npm:web | readdirp | 5.1.1 | MIT |
-| npm:web | reka-ui | 2.10.4 | MIT |
+| npm:web | reka-ui | 2.11.0 | MIT |
 | npm:web | rolldown | 1.2.4 | MIT |
 | npm:web | sass | 1.102.0 | MIT |
 | npm:web | scule | 1.3.0 | MIT |
@@ -228,7 +227,6 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | unplugin-utils | 0.3.2 | MIT |
 | npm:web | vite | 8.2.1 | MIT |
 | npm:web | vue | 3.5.43 | MIT |
-| npm:web | vue-demi | 0.14.10 | MIT |
 | npm:web | vue-i18n | 11.4.8 | MIT |
 | npm:web | vue-router | 5.2.0 | MIT |
 | npm:web | webpack-virtual-modules | 0.6.2 | MIT |
@@ -5988,7 +5986,7 @@ Applies to: webpack-virtual-modules@0.6.2
 
 ### MIT (ba6e766fa1b9)
 
-Applies to: @floating-ui/vue@1.1.11, @floating-ui/vue@1.1.11
+Applies to: @floating-ui/vue@2.0.1, @floating-ui/vue@2.0.1
 
     [LICENSE]
     MIT License
@@ -6435,7 +6433,7 @@ Applies to: pathe@2.0.3
 
 ### MIT (da66b187c139)
 
-Applies to: reka-ui@2.10.4, reka-ui@2.10.4
+Applies to: reka-ui@2.11.0, reka-ui@2.11.0
 
     [LICENSE]
     MIT License
@@ -6468,33 +6466,6 @@ Applies to: github.com/chromedp/sysutil@v1.1.0
     The MIT License (MIT)
 
     Copyright (c) 2016-2017 Kenneth Shaw
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
-### MIT (dd17232b0605)
-
-Applies to: vue-demi@0.14.10, vue-demi@0.14.10
-
-    [LICENSE]
-    MIT License
-
-    Copyright (c) 2020-present, Anthony Fu
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
