@@ -141,3 +141,4 @@
 - 规划文档解释设计意图，对外接口以 `contracts/` 为准
 - 若 Markdown 与 `contracts/` 冲突，必须以 `contracts/` 为准，并在同一变更中修正文档说明
 - `fixtures/` 与 `examples/` 只能从这里派生，不能反向覆盖这里
+- 插件合同（manifest v4、protocol v4、artifact v2）至少在 0.4.x 与下一个 minor 版本内只做兼容加法：宿主到插件方向可以增加字段，插件到宿主方向与 manifest 严格校验，新字段与新动作以 `min_core_version` 门控；商店目录读取宽松、发布严格。承诺与插件侧要求见[插件文档](../docs/plugin/README.md#合同兼容承诺)
