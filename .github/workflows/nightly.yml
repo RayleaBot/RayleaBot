@@ -253,7 +253,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Wails Linux build dependencies
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev xvfb dbus-x11 xdotool x11-utils
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev xvfb dbus-x11 xdotool x11-utils weston desktop-file-utils
 
       - name: Check Wails bindings drift
         working-directory: launcher
@@ -289,6 +289,10 @@ jobs:
       - name: Check native Linux tray events
         working-directory: launcher
         run: pnpm test:native:linux
+
+      - name: Check native Wayland desktop identity
+        working-directory: launcher
+        run: pnpm test:native:wayland
 
   plugins:
     runs-on: ubuntu-latest

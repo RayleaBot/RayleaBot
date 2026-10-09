@@ -25,7 +25,11 @@ test("Linux tray menu lifecycle preserves window visibility and left activation 
   try {
     await fs.copyFile(source, executable);
     await fs.chmod(executable, 0o755);
-    child = spawn(executable, [], { cwd: directory, stdio: ["ignore", "pipe", "pipe"] });
+    const dataHome = path.join(directory, "data");
+    child = spawn(executable, [], {
+      cwd: directory, stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, XDG_DATA_HOME: dataHome, GDK_BACKEND: "x11" },
+    });
     exited = once(child, "exit");
     child.stdout.on("data", (data) => { output = (output + data).slice(-65536); });
     child.stderr.on("data", (data) => { output = (output + data).slice(-65536); });
@@ -54,6 +58,11 @@ test("Linux tray menu lifecycle preserves window visibility and left activation 
       }
       return false;
     }, "launcher window");
+    const desktopFile = path.join(dataHome, "applications/local.rayleabot.launcher.desktop");
+    await command("desktop-file-validate", [desktopFile]);
+    assert.deepEqual(await fs.readFile(path.join(dataHome, "rayleabot/launcher-icon.png")), await fs.readFile("assets/appicon.png"));
+    assert.match(await command("xprop", ["-id", window, "WM_CLASS"]), /"local\.rayleabot\.launcher"/);
+    assert.match(await command("xprop", ["-id", window, "-len", "64", "-f", "_NET_WM_ICON", "32c", "_NET_WM_ICON"]), /= 256, 256/);
     const visible = async () => /Map State: IsViewable/.test(await command("xwininfo", ["-id", window]));
     const activate = () => call("/StatusNotifierItem", "org.kde.StatusNotifierItem", "Activate", "ii", 0, 0);
     const menuEvent = (name) => call("/StatusNotifierMenu", "com.canonical.dbusmenu", "Event", "isvu", 0, name, "i", 0, 0);

@@ -37,6 +37,7 @@ var singleInstanceKey = [32]byte{
 }
 
 const (
+	launcherApplicationID                  = "local.rayleabot.launcher"
 	externalServiceStopConfirmationTimeout = 30 * time.Second
 	initialWindowReadyTimeout              = 10 * time.Second
 )
@@ -105,6 +106,9 @@ func main() {
 		log.Fatal(err)
 	}
 	icon := launcherIcon()
+	if err := prepareDesktopIntegration(icon); err != nil {
+		logger.Warn("无法注册启动器桌面图标", "error", err)
+	}
 	host := &appHost{}
 	service := desktop.NewService(basePath, consumeEnvironment("RAYLEA_LAUNCHER_CONTROL_TOKEN"), consumePIDEnvironment("RAYLEA_DEV_SERVER_WATCHER_PID"), host)
 	resume := desktop.NewServiceResume(os.Args[1:])
@@ -127,8 +131,11 @@ func main() {
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: false,
 		},
+		Linux: application.LinuxOptions{
+			ProgramName: launcherApplicationID,
+		},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID:      "local.rayleabot.launcher",
+			UniqueID:      launcherApplicationID,
 			EncryptionKey: singleInstanceKey,
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
 				if host.window != nil {

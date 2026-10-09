@@ -40,3 +40,5 @@ ldd ./RayleaLauncher | grep 'not found'
 ```
 
 命令没有输出时，Launcher 所需的动态库均可解析。桌面启动还需要可用的图形会话；仅运行 server 时使用 `linux-x64-server`。
+
+Launcher 启动时会在当前用户的 `$XDG_DATA_HOME`（默认 `~/.local/share`）注册 `applications/local.rayleabot.launcher.desktop` 和 `rayleabot/launcher-icon.png`，供 Wayland 与 X11 桌面识别任务栏图标。此关联不创建桌面快捷方式，也不显示在应用菜单中。移动解压目录后，重新运行新位置的 `RayleaLauncher` 会更新关联。
