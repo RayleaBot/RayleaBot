@@ -37,7 +37,9 @@ test('protocol connection creation stays local until the completed form is saved
   await page.getByLabel('AppSecret', { exact: true }).fill('fixture-protocol-secret')
   await page.getByTestId('adapter-save').click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByTestId('adapter-restart-notice')).toBeVisible()
+  // A new connection is loaded by the running server; no restart is needed.
+  await expect(page.getByTestId('adapter-restart-notice')).toHaveCount(0)
+  await expect(page.getByTestId('adapter-qq-official')).not.toContainText('等待加载')
   expect(writes).toHaveLength(1)
   await page.getByTestId('adapter-qq-official').click()
   await expect(page.getByLabel('AppSecret', { exact: true })).toHaveValue('********')
