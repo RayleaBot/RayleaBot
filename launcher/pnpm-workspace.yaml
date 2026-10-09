@@ -14,7 +14,7 @@ supportedArchitectures:
     - musl
 
 overrides:
-  undici: 8.10.0
+  undici: 8.10.2
 
 allowBuilds:
   # Select Vue 3 exports for the Reka/Floating UI compatibility dependency.
