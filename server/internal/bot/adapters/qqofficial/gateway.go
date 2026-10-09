@@ -99,8 +99,10 @@ func (s *session) observeSeq(seq int64) {
 func (s *session) startSession(id, botID, botName, botAvatarURL string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if botID != s.botID || botAvatarURL != "" {
+		s.botAvatarURL = botAvatarURL
+	}
 	s.id, s.botID, s.botName, s.resumable = id, botID, botName, true
-	s.botAvatarURL = botAvatarURL
 }
 
 // invalidate drops resume state so the next attempt identifies afresh.

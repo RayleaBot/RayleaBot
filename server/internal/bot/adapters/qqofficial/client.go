@@ -329,7 +329,10 @@ func (c *Client) runConnection(ctx context.Context) (runErr error) {
 	if err != nil {
 		return err
 	}
-	profile := fetchBotProfile(connCtx, httpClient, apiBase, appID, token)
+	profile, err := fetchBotProfile(connCtx, httpClient, apiBase, appID, token)
+	if err != nil {
+		c.logger.Warn("QQ 官方机器人资料拉取失败。", "component", SourceAdapter, "error", err.Error())
+	}
 	conn, err := c.dialer(connCtx, url)
 	if err != nil {
 		return fmt.Errorf("qqofficial: dial gateway: %w", err)

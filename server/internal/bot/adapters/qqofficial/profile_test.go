@@ -23,6 +23,8 @@ func TestFetchBotProfile(t *testing.T) {
 		want   botProfile
 	}{
 		{"profile", 200, `{"id":"bot-1","username":"机器人","avatar":"https://example.com/bot.png"}`, botProfile{"bot-1", "机器人", "https://example.com/bot.png"}},
+		{"http QQ avatar", 200, `{"id":"bot-1","avatar":"http://thirdqq.qlogo.cn/g?b=oidb&k=fixture&s=100"}`, botProfile{ID: "bot-1", AvatarURL: "https://thirdqq.qlogo.cn/g?b=oidb&k=fixture&s=100"}},
+		{"http qpic avatar", 200, `{"id":"bot-1","avatar":"http://q.qpic.cn/fixture"}`, botProfile{ID: "bot-1", AvatarURL: "https://q.qpic.cn/fixture"}},
 		{"missing avatar", 200, `{"id":"bot-1","username":"机器人"}`, botProfile{"bot-1", "机器人", ""}},
 		{"rejected", 403, `{"id":"wrong","username":"wrong"}`, botProfile{}},
 		{"malformed", 200, `{`, botProfile{}},
@@ -40,8 +42,12 @@ func TestFetchBotProfile(t *testing.T) {
 				_, _ = io.WriteString(w, tt.body)
 			}))
 			defer srv.Close()
-			if got := fetchBotProfile(context.Background(), srv.Client(), srv.URL, "10001", "fixture-token"); got != tt.want {
+			got, err := fetchBotProfile(context.Background(), srv.Client(), srv.URL, "10001", "fixture-token")
+			if got != tt.want {
 				t.Fatalf("profile = %+v, want %+v", got, tt.want)
+			}
+			if (err != nil) != (tt.want.AvatarURL == "") {
+				t.Fatalf("profile error = %v, want failure = %v", err, tt.want.AvatarURL == "")
 			}
 		})
 	}
@@ -53,12 +59,14 @@ func TestFetchBotProfileBoundsWait(t *testing.T) {
 	client := &http.Client{Transport: reloadTestTransport(func(r *http.Request) (*http.Response, error) {
 		called = true
 		deadline, ok := r.Context().Deadline()
-		if !ok || time.Until(deadline) > 1500*time.Millisecond {
+		if !ok || time.Until(deadline) > 5*time.Second {
 			t.Error("optional profile request has no bounded deadline")
 		}
 		return nil, context.DeadlineExceeded
 	})}
-	fetchBotProfile(context.Background(), client, "https://example.com", "10001", "fixture")
+	if _, err := fetchBotProfile(context.Background(), client, "https://example.com", "10001", "fixture"); err == nil {
+		t.Fatal("profile timeout was not reported")
+	}
 	if !called {
 		t.Fatal("profile request was not sent")
 	}
@@ -108,6 +116,23 @@ func TestResumedRefreshesOnlyItsOwnProfileAndDisabledHidesIdentity(t *testing.T)
 	c.SetEnabled(false)
 	if got := c.Status(); got.State != StateStopped || got.BotID != "" || got.BotAvatarURL != "" {
 		t.Fatalf("disabled profile: %+v", got)
+	}
+}
+
+func TestReadyRetainsAvatarForTheSameBot(t *testing.T) {
+	t.Parallel()
+	c := &Client{logger: discardLogger()}
+	c.session.startSession("old-session", "bot-1", "old", "https://thirdqq.qlogo.cn/fixture")
+	ready := gatewayFrame{Op: opDispatch, T: dispatchReady, D: json.RawMessage(`{"session_id":"new-session","user":{"id":"bot-1","username":"gateway bot"}}`)}
+	c.handleDispatch(t.Context(), ready, botProfile{})
+	c.handleDispatch(t.Context(), gatewayFrame{Op: opDispatch, T: dispatchResumed}, botProfile{})
+	if got := c.Status(); got.State != StateConnected || got.BotAvatarURL != "https://thirdqq.qlogo.cn/fixture" {
+		t.Fatalf("reconnection lost avatar after profile failure: %+v", got)
+	}
+	ready.D = json.RawMessage(`{"session_id":"other-session","user":{"id":"bot-2","username":"other bot"}}`)
+	c.handleDispatch(t.Context(), ready, botProfile{})
+	if got := c.Status(); got.BotID != "bot-2" || got.BotAvatarURL != "" {
+		t.Fatalf("new identity retained previous avatar: %+v", got)
 	}
 }
 
