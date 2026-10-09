@@ -1,102 +1,109 @@
 # RayleaBot
 
+在自己的电脑或服务器上运行的 QQ 机器人。
+
+[![Release](https://img.shields.io/github/v/release/RayleaBot/RayleaBot?include_prereleases)](https://github.com/RayleaBot/RayleaBot/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/RayleaBot/RayleaBot)](https://github.com/RayleaBot/RayleaBot/releases)
-[![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go)](https://go.dev)
-[![Node.js](https://img.shields.io/badge/Node.js-26+-339933?logo=nodedotjs)](https://nodejs.org)
-[![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs)](https://vuejs.org)
 
-自托管的 QQ 机器人框架。通过 OneBot11（如 NapCat）或 QQ 官方机器人接入，在自己的电脑或服务器上运行，用 Web 管理面和桌面启动器完成配置、插件安装与日常维护，运行状态与凭据只保存在本机。插件是原生程序，可以用任意语言开发；官方插件提供游戏攻略、内容订阅与链接解析等功能。
+[下载](https://github.com/RayleaBot/RayleaBot/releases) · [部署指南](./docs/user/deployment.md) · [管理面说明](./docs/user/management-surface.md) · [插件开发](./docs/plugin/README.md) · [更新记录](./docs/CHANGELOGS/)
 
-## 核心特性
+RayleaBot 通过 NapCat 等 OneBot11 协议端或 QQ 官方机器人接入 QQ。连接机器人、安装插件、设置权限和查看日志都在浏览器里完成，配置、运行数据和账号凭据都保存在运行它的机器上。
 
-- **自托管**：服务端、插件、管理面板全部运行在本地，无需云端控制面板。
-- **多适配器实例**：支持 OneBot11 和 QQ 官方机器人，同一协议可配置多个实例。OneBot11 提供 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 四种连接方式；身份、凭据和消息路由按实例隔离。
-- **原生插件**：插件后端使用当前平台的预编译原生可执行文件，实现语言不限，通过 JSONL v4 协议与服务端通信。Go SDK 和构建器提供一等开发支持；插件管理页由包内静态资源组成，在管理面中同源加载。
-- **Web 管理控制台**：仪表盘、插件列表与商店、菜单中心、指令中心、权限与限流、任务调度、日志检索和模板预览。
-- **桌面启动器**：基于 Wails，支持 Windows / macOS / Linux，提供一键启动、环境预检、进程编排和原生系统托盘。
-- **契约驱动**：HTTP / WebSocket / 插件协议等对外接口统一以 `contracts/` 为准，实现和测试都对照它编写。
+Windows、Linux 和 macOS 有带桌面启动器的完整包，没有桌面环境的 Linux 服务器使用服务端包。
+
+## 功能
+
+- 同时接入多个 QQ 账号。OneBot11 支持反向 WebSocket、正向 WebSocket、HTTP API 和 Webhook，QQ 官方机器人可以单独使用；每个连接的身份、发送和黑白名单分开管理。
+- 从官方插件源或自己添加的插件源安装、更新插件。需要搭配其他插件使用的插件，安装时会列出要先装的插件。
+- 在管理面查看服务状态和各连接的收发消息趋势，管理插件与指令、权限、黑白名单、限流和定时任务，检索日志，预览出图模板。
+- 桌面启动器负责启动和停止服务、检查运行环境，并在发现新版本后一键更新。
+- 插件以独立进程运行，可以用任何语言编写；Go 插件有 SDK 和打包工具，插件管理页可以使用 Vue SDK。
+
+## 官方插件
+
+官方插件源目前收录以下插件，在管理面的“插件商店”中安装：
+
+| 插件 | 用途 |
+| --- | --- |
+| 运势 | 每日运势抽取与统计 |
+| 游戏攻略 | 查询《崩坏：星穹铁道》角色攻略图 |
+| 订阅与解析 | 订阅平台内容，解析 B 站、微博与抖音链接 |
+| 三角洲助手 | 《三角洲行动》摸容器模拟与每日密码查询 |
+| 油价查询 | 查询各省市油价和附近的大型品牌加油站 |
 
 ## 快速开始
 
-### 方式一：下载发行包（推荐）
+### 1. 下载
 
-在 [GitHub Releases](https://github.com/RayleaBot/RayleaBot/releases) 下载对应平台的完整包：
+从 [Releases](https://github.com/RayleaBot/RayleaBot/releases) 下载对应平台的包：
 
-| 平台 | 发行包 | 入口 |
-|---|---|---|
-| Windows | `RayleaBot-v<版本>-windows-x64-full.zip` | `RayleaLauncher.exe` |
-| Linux 桌面 | `RayleaBot-v<版本>-linux-x64-full.tar.gz` | `RayleaLauncher` |
-| macOS (Apple Silicon) | `RayleaBot-v<版本>-macos-arm64-full.tar.gz` | `RayleaLauncher.app` |
-| Linux 无桌面 / 服务器 | `RayleaBot-v<版本>-linux-x64-server.tar.gz` | `raylea-server` + `systemd` |
+| 平台 | 文件 | 启动入口 |
+| --- | --- | --- |
+| Windows x64 | `RayleaBot-v<版本>-windows-x64-full.zip` | `RayleaLauncher.exe` |
+| Linux x64 桌面 | `RayleaBot-v<版本>-linux-x64-full.tar.gz` | `RayleaLauncher` |
+| macOS Apple Silicon（实验性） | `RayleaBot-v<版本>-macos-arm64-full.tar.gz` | `RayleaLauncher.app` |
+| Linux x64 服务器 | `RayleaBot-v<版本>-linux-x64-server.tar.gz` | `raylea-server` |
 
-1. 下载并解压到固定目录，该目录即运行根目录。
-2. 运行桌面入口或 `raylea-server`；服务器包可参考包内 `systemd/rayleabot.service` 托管。
-3. 浏览器访问 `http://127.0.0.1:8080`，按引导完成管理员初始化。
+Windows 需要 Microsoft Edge WebView2 Runtime，Linux 桌面需要 GTK 3 和 WebKit2GTK 4.1，安装方法见包内的 `WINDOWS-RUNTIME.md` 和 `LINUX-RUNTIME.md`。macOS 包没有 Apple 签名，系统阻止打开时按[部署指南](./docs/user/deployment.md#首次安装)放行。
 
-Windows Launcher 需要系统安装 Microsoft Edge WebView2 Runtime，Linux 桌面 Launcher 需要 GTK 3 和 WebKit2GTK 4.1；对应完整包内的 `WINDOWS-RUNTIME.md`、`LINUX-RUNTIME.md` 提供安装说明。
+### 2. 启动并创建管理员
 
-Launcher 发现新版本后可一键更新；服务端包先执行 `raylea-server update download` 准备更新，再停服执行 `raylea-server update apply`；更新方式与更新策略见 [`docs/release/delivery-and-upgrade.md`](./docs/release/delivery-and-upgrade.md)。
+把包解压到一个固定目录，配置和数据都保存在这里。运行启动入口：
 
-完整部署说明见 [`docs/user/deployment.md`](./docs/user/deployment.md)。
+- 桌面版：在启动器中启动服务，点击“打开管理界面”，按提示创建管理员账号。
+- 服务端包：运行后控制台会打印一次性的“首次设置地址”，用浏览器打开它创建管理员账号。包内的 `systemd/rayleabot.service` 可用于托管服务。
 
-### 方式二：从源码启动
+管理界面的地址是 `http://127.0.0.1:8080`，默认只有本机能打开。需要从局域网其他设备访问时，见[本机与局域网访问](./docs/user/deployment.md#本机与局域网访问)。
 
-前置工具及其版本由根目录 `.tool-versions` 固定，运行 `make doctor`（无 make 环境时运行 `go run ./tools/cmd/check-toolchain`）核对本机工具链；安装方式、离线环境与 devcontainer 见[工程基线](./docs/engineering/baseline.md)。图片渲染需要系统 Chrome / Chromium / Edge 或已准备完成的托管 Chromium，FFmpeg / FFprobe 由运行环境清单准备。
+### 3. 连接 QQ
+
+在管理面的“协议中心”添加连接：
+
+- OneBot11：先运行 NapCat 等协议端并登录 QQ。连接方式选反向 WebSocket 时，把 RayleaBot 显示的回连地址和访问令牌填进协议端。
+- QQ 官方机器人：填写 [QQ 开放平台](https://q.qq.com)中机器人的 AppID 和 AppSecret。
+
+### 4. 安装插件
+
+在“插件商店”安装插件，然后在 QQ 里给机器人发送 `/帮助`，查看可用指令。
+
+## 更新
+
+桌面版在启动器的“关于应用”中检查并一键更新。服务端包先执行 `raylea-server update download` 下载新版本，停止服务后执行 `raylea-server update apply`。更新方式的细节见[交付与更新](./docs/release/delivery-and-upgrade.md)。
+
+## 文档
+
+| 文档 | 内容 |
+| --- | --- |
+| [用户指南](./docs/user/README.md) | 部署、配置、管理面、命令行与备份恢复 |
+| [发布说明](./docs/release/README.md) | 各版本说明与发布包 |
+| [插件开发](./docs/plugin/README.md) | 插件清单、协议、SDK 与生命周期 |
+| [插件商店与独立开发](./docs/plugin/store-and-development.md) | 插件源、发布插件与本地联调 |
+| [架构总览](./docs/architecture/README.md) | 各组件的职责与消息处理流程 |
+| [项目规划](./docs/RayleaBot机器人项目规划.md) | 产品目标与范围 |
+
+## 参与开发
+
+仓库包含服务端 `server/`、管理面 `web/`、桌面启动器 `launcher/`、插件 SDK `sdk/` 和对外接口契约 `contracts/`。修改对外接口时先改 `contracts/`，再改实现。
+
+工具链版本固定在 `.tool-versions`，用 `make doctor`（没有 make 时运行 `go run ./tools/cmd/check-toolchain`）检查本机环境。从源码启动：
 
 ```bash
 git clone https://github.com/RayleaBot/RayleaBot.git
 cd RayleaBot
-
-# Windows
-start.bat
-
-# Linux / macOS
-sh start.sh
-
-# 也可在任意平台直接运行统一编排器
 node scripts/start-dev.mjs
 ```
 
-开发模式下，服务端监听 `http://127.0.0.1:8080`，Web 开发服务器运行在 `http://127.0.0.1:4173`。
+Windows 也可以运行 `start.bat`，Linux 和 macOS 可以运行 `sh start.sh`。服务端监听 `http://127.0.0.1:8080`，Web 开发服务器在 `http://127.0.0.1:4173`。
 
-主仓库没有内置插件。需要联调独立插件时，复制 `plugin-workspace.example.json` 为 `plugin-workspace.local.json`；本地启动参数可复制 `.env.example` 为 `.env`。工作区模式、增量构建与同步方式见[插件商店与独立开发](./docs/plugin/store-and-development.md#本地同步开发)和[开发者文档](./docs/dev/README.md)。
+主仓库不带插件。联调独立插件仓库时，复制 `plugin-workspace.example.json` 为 `plugin-workspace.local.json` 并填写插件路径，做法见[本地同步开发](./docs/plugin/store-and-development.md#本地同步开发)。其余开发说明见[开发者文档](./docs/dev/README.md)、[工程基线](./docs/engineering/baseline.md)和[质量门禁](./docs/engineering/quality-gates.md)。
 
-## 使用简介
+## 许可证
 
-- 管理面板默认只监听本机 `127.0.0.1`；需要局域网访问时把 `server.host` 改为 `0.0.0.0` 或内网地址，此时 OneBot 反向 WebSocket 与 Webhook 必须设置访问令牌。防火墙、访问范围与传输安全由用户管理。
-- 在协议中心添加 OneBot11 或 QQ 官方机器人实例并完成连接配置后，即可在相应聊天窗口与机器人交互。
-- 插件商店展示官方和自定义 HTTPS 目录中的条目，并保留各来源最后一次成功读取的缓存；安装前会展示插件身份和本机原生代码确认要求。
-- 所有插件统一安装在运行根目录的 `plugins/installed/`，只接受与当前平台匹配、通过 artifact 结构与原生入口校验的目录或单根目录 ZIP。
-- 管理员可在管理面板中配置权限策略、黑白名单、指令前缀、任务调度等。
-
-## 文档
-
-| 文档 | 说明 |
-|---|---|
-| [项目章程](./docs/RayleaBot机器人项目规划.md) | 产品使命、长期边界与工程原则 |
-| [界面设计](./docs/design/README.md) | 共享视觉规范、各界面规范与采用状态 |
-| [架构总览](./docs/architecture/README.md) | 组件职责、消息主流程与状态归属 |
-| [插件开发](./docs/plugin/README.md) | 生命周期、manifest、协议、SDK |
-| [插件商店与独立开发](./docs/plugin/store-and-development.md) | 商店信任、独立发布和本地同步联调 |
-| [用户指南](./docs/user/README.md) | 部署、配置、CLI、恢复 |
-| [发布说明](./docs/release/README.md) | 产物矩阵、更新方式与各版本说明 |
-| [工程基线](./docs/engineering/baseline.md) | 版本线、选型、目录职责 |
-| [CHANGELOGS](./docs/CHANGELOGS/) | 版本变更记录 |
-
-## 贡献与开发
-
-独立 Go 插件统一使用 `cmd/<plugin>` 进程入口、`internal/` 实现与嵌入资源以及可选 `ui/`/`templates/` 资源，并使用 `raylea-plugin build-go`；其他语言先生成原生入口，再使用 `raylea-plugin pack`。完整目录约定见[插件 SDK](./docs/plugin/sdk/README.md#raylea-plugin)。
-
-Server、Web、Launcher 与插件 SDK 的构建、测试和类型检查命令见[工程基线](./docs/engineering/baseline.md)，nightly 与发布门禁见[质量门禁](./docs/engineering/quality-gates.md)。
-
-## License
-
-[AGPL-3.0](LICENSE)。插件 SDK（`sdk/go` 与 `sdk/vue`）使用 [MIT](sdk/go/LICENSE) 许可，插件可以自行选择许可。
+RayleaBot 使用 [AGPL-3.0](LICENSE)。插件 SDK（`sdk/go` 与 `sdk/vue`）使用 [MIT](sdk/go/LICENSE)，插件可以自行选择许可证。
 
 ## 仓库动态
 
-> 以下图表由 [`.github/workflows/repo-stats.yml`](.github/workflows/repo-stats.yml) 在推送到 `main` 时自动生成，反映本仓库最近一年的提交活动。
+最近一年的提交情况，推送到 `main` 时由 [repo-stats](.github/workflows/repo-stats.yml) 工作流生成。
 
 ![月度提交折线图](https://raw.githubusercontent.com/RayleaBot/RayleaBot/output/repo-activity-line.svg)
 
