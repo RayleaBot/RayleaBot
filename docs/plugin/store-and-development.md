@@ -51,7 +51,8 @@ flowchart LR
 
 - 插件 ID、名称、摘要、发布者、仓库、许可证、关键词、推荐状态，可选分类和图标；
 - 可选的当前版本、发布时间、最低核心版本；
-- 一个或多个平台资产，每项只含平台、HTTPS 下载地址和归档 SHA-256。
+- 一个或多个平台资产，每项只含平台、HTTPS 下载地址和归档 SHA-256；
+- 当前版本清单声明的前置插件，原样复制自发布包的 `dependencies`，没有时省略。
 
 catalog 不复制历史 Release，不维护撤回状态、资产大小、manifest 摘要、逐文件摘要或目录签名。当前版本没有当前平台资产，或最低核心版本不兼容时，商店保留条目但禁用安装。
 
@@ -78,6 +79,8 @@ catalog 不复制历史 Release，不维护撤回状态、资产大小、manifes
 
 同一来源的更新不需要确认，可直接提交或批量更新。手动目录、ZIP 和远程 ZIP 在提交前都要求确认插件作为完全可信的本地代码运行。
 
+插件清单声明的 `required` 前置插件没有有效安装时，安装与升级返回 `plugin.dependency_missing`，details 按声明顺序列出缺少的插件 ID。商店安装在下载前先按目录声明检查，下载后再按包内清单检查一次；本地目录、ZIP 和远程 ZIP 按包内清单检查；development 同步不检查。Server 一次只安装一个插件，不自动安装前置插件，由客户端先逐个提交前置插件的安装请求。
+
 安装使用同卷 staging 和原子替换。更新保留原 desired state；任一步失败时恢复旧目录、安装元数据、模板和运行状态。
 
 ## 商店 API 与界面
@@ -95,11 +98,13 @@ catalog 不复制历史 Release，不维护撤回状态、资产大小、manifes
 
 Web 路由 `/plugins/store` 提供来源切换和管理、手动刷新、搜索排序、分类与图标、安装状态、安装确认和可直接执行的批量更新。详情 API 暂时保留，当前 Web 不增加单独详情页。
 
+商店条目的 `latest_release.dependencies` 列出直接前置插件及其状态：`installed` 已安装，`installable` 可从同一来源安装，`unavailable` 需要从其他来源或本地包安装。卡片显示每个前置插件是否已安装。安装缺少前置插件的插件时，安装对话框列出这些插件：`required` 项固定勾选，`recommended` 项默认勾选、可取消；任一 `required` 项不可从本来源安装时无法继续。确认后 Web 先依次安装勾选的前置插件，再安装目标插件，卡片按步骤显示进度；前置插件失败时停止，不再安装目标插件。已安装插件仍缺少可安装的前置插件时，卡片提供单独安装入口。批量更新跳过仍缺少 `required` 前置插件的条目。
+
 页面打开时会在保留现有结果的同时后台刷新当前来源；刷新失败继续显示最后成功目录，不切换到错误页。
 
 ## 官方目录自动生成
 
-`RayleaBot/plugin-catalog` 的 `sources.json` 维护稳定展示信息。工作流定时读取每个插件最新的 GitHub Release，只接受名称符合 `<plugin-id>-<version>-<platform>.zip` 且内部 manifest、artifact 和平台一致的包，计算归档 SHA-256 后重建 `catalog.json`。
+`RayleaBot/plugin-catalog` 的 `sources.json` 维护稳定展示信息。工作流定时读取每个插件最新的 GitHub Release，只接受名称符合 `<plugin-id>-<version>-<platform>.zip` 且内部 manifest、artifact 和平台一致的包，计算归档 SHA-256 后重建 `catalog.json`。各平台包的最低核心版本与前置插件声明必须一致，前置插件声明写入 `current_release.dependencies`。
 
 没有兼容 artifact v2 Release 的插件只发布条目元数据。目录发布不需要私钥、公钥注入、签名提交或人工复制资产摘要。
 

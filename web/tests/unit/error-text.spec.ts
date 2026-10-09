@@ -19,6 +19,12 @@ describe('error text helpers', () => {
     expect(getDisplayErrorMessage(bare)).toBe(t('errors.plugin.core_version_incompatible'))
   })
 
+  it('names the missing prerequisite plugins of a refused install', () => {
+    const error = new ApiError('缺少前置插件', 409, 'plugin.dependency_missing', undefined, { plugin_ids: ['raylea.mihoyo-accounts', 'raylea.panel-assets'] })
+
+    expect(getDisplayErrorMessage(error)).toBe(t('errors.dependencyMissing', { plugins: 'raylea.mihoyo-accounts、raylea.panel-assets' }))
+  })
+
   it('maps structured API errors without exposing raw backend text', () => {
     const error = new ApiError(
       'invalid socket channel',

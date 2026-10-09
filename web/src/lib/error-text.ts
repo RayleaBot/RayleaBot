@@ -31,11 +31,22 @@ function describeCoreVersionIncompatible(details?: Record<string, unknown>) {
   return undefined
 }
 
+// A refused install lists the required plugins that are still missing, so the message can name them.
+function describeDependencyMissing(details?: Record<string, unknown>) {
+  const ids = Array.isArray(details?.plugin_ids) ? details.plugin_ids.filter((id): id is string => typeof id === 'string') : []
+  return ids.length > 0 ? t('errors.dependencyMissing', { plugins: ids.join('、') }) : undefined
+}
+
+const detailedErrors: Record<string, (details?: Record<string, unknown>) => string | undefined> = {
+  'plugin.core_version_incompatible': describeCoreVersionIncompatible,
+  'plugin.dependency_missing': describeDependencyMissing,
+}
+
 export function getDisplayErrorMessage(error: unknown, fallbackKey = 'errors.common.actionFailed') {
   if (error instanceof ApiError) {
     const clientKey = clientErrorKeys[error.code]
     if (clientKey) return t(clientKey)
-    const specific = error.code === 'plugin.core_version_incompatible' ? describeCoreVersionIncompatible(error.details) : undefined
+    const specific = detailedErrors[error.code]?.(error.details)
     if (specific) return specific
     const message = translateErrorCode(error.code)
     if (message) return message

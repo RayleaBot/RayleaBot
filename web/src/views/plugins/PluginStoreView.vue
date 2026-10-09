@@ -8,10 +8,7 @@ import AppTag from '@/components/AppTag.vue'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppField from '@/components/AppField.vue'
-import AppDetails from '@/components/AppDetails.vue'
-import AppDetailItem from '@/components/AppDetailItem.vue'
 import AppButton from '@/components/AppButton.vue'
-import AppAlert from '@/components/AppAlert.vue'
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
@@ -24,6 +21,8 @@ import {
   RotateCwIcon,
   SettingsIcon,
   RefreshCwIcon,
+  CircleCheckIcon,
+  PuzzleIcon,
 } from '@lucide/vue'
 
 import { notifyError, notifySuccess, notifyWarning } from '@/adapter/feedback'
@@ -40,9 +39,12 @@ import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import { usePluginsStore } from '@/stores/plugins'
 import { usePluginStore, type PluginStoreSort } from '@/stores/plugin-store'
 import type {
+  PluginStoreDependency,
   PluginStoreEntry,
   PluginStoreSourceInput,
 } from '@/types/api'
+import PluginStoreInstallDialog from './PluginStoreInstallDialog.vue'
+import { missingRequiredDependencies, pendingDependencies } from './plugin-store-dependencies'
 
 const store = usePluginStore()
 const pluginsStore = usePluginsStore()
@@ -73,6 +75,9 @@ const sortOptions = computed(() => [
 const sourceEditorOpen = ref(false)
 const editingSourceId = ref<string | null>(null)
 const batchUpdating = ref(false)
+// Progress of an install that runs its prerequisite plugins first, keyed by the plugin the operator asked for.
+const installPlans = ref<Record<string, { step: number; total: number }>>({})
+const resolvingDependency = ref<string | null>(null)
 const sourceForm = reactive<PluginStoreSourceInput>({ name: '', url: '' })
 let pageActive = true
 let activated = false
@@ -123,7 +128,7 @@ async function refreshSource() {
 }
 
 async function requestInstall(plugin: PluginStoreEntry) {
-  if (plugin.confirmation_reasons.length > 0) {
+  if (plugin.confirmation_reasons.length > 0 || pendingDependencies(plugin).length > 0) {
     selectedPlugin.value = plugin
     confirmationOpen.value = true
     return
@@ -143,15 +148,63 @@ async function installEntry(plugin: PluginStoreEntry, trustedCodeConfirmed: bool
   notifySuccess(t('plugins.store.feedback.accepted'))
 }
 
-async function confirmInstall() {
-  if (!selectedPlugin.value) return
+function confirmInstall(dependencyIds: string[]) {
+  const plugin = selectedPlugin.value
+  if (!plugin) return
+  closeConfirmation()
+  void runInstallPlan(plugin, dependencyIds)
+}
+
+// Prerequisites go first, one at a time, so the server sees each of them installed before the plugin that needs
+// them; a failed prerequisite stops the plan before the plugin itself.
+async function runInstallPlan(plugin: PluginStoreEntry, dependencyIds: string[]) {
+  const dependencies = pendingDependencies(plugin).filter(dependency => dependencyIds.includes(dependency.id))
+  const total = dependencies.length + 1
+  const setStep = (step: number) => { installPlans.value = { ...installPlans.value, [plugin.id]: { step, total } } }
   try {
-    const installation = installEntry(selectedPlugin.value, true)
-    closeConfirmation()
-    await installation
+    for (const [index, dependency] of dependencies.entries()) {
+      setStep(index + 1)
+      try {
+        await store.install(dependency.id, { source_id: sourceId.value, trusted_code_confirmed: true })
+      } catch (cause) {
+        notifyError(t('plugins.store.feedback.dependencyFailed', { name: dependency.name, plugin: plugin.name, reason: getDisplayErrorMessage(cause) }))
+        return
+      }
+    }
+    setStep(total)
+    await store.install(plugin.id, { source_id: sourceId.value, trusted_code_confirmed: plugin.confirmation_reasons.length > 0 })
+    notifySuccess(dependencies.length > 0
+      ? t('plugins.store.feedback.installedWithDependencies', { names: [...dependencies.map(dependency => dependency.name), plugin.name].join('、') })
+      : t('plugins.store.feedback.accepted'))
   } catch (cause) {
     notifyError(getDisplayErrorMessage(cause))
+  } finally {
+    const { [plugin.id]: _finished, ...rest } = installPlans.value
+    installPlans.value = rest
   }
+}
+
+// An installed plugin can still point to a prerequisite it suggests; installing it starts from that plugin's own
+// store entry so its confirmation and dependencies are handled as usual.
+async function installDependency(dependency: PluginStoreDependency) {
+  if (resolvingDependency.value) return
+  resolvingDependency.value = dependency.id
+  try {
+    const detail = await store.fetchDetail(dependency.id, sourceId.value)
+    await requestInstall(detail.plugin)
+  } catch (cause) {
+    notifyError(getDisplayErrorMessage(cause))
+  } finally {
+    resolvingDependency.value = null
+  }
+}
+
+function dependencyText(dependency: PluginStoreDependency) {
+  const installed = dependency.state === 'installed'
+  const key = dependency.requirement === 'required'
+    ? installed ? 'requiredInstalled' : 'required'
+    : installed ? 'recommendedInstalled' : 'recommended'
+  return t(`plugins.store.dependencies.${key}`, { name: dependency.name })
 }
 
 function closeConfirmation() { confirmationOpen.value = false }
@@ -166,7 +219,7 @@ async function updateAll() {
   let skipped = 0
   try {
     for (const plugin of updateablePlugins.value) {
-      if (plugin.confirmation_reasons.length > 0) {
+      if (plugin.confirmation_reasons.length > 0 || missingRequiredDependencies(plugin).length > 0) {
         skipped++
         continue
       }
@@ -281,7 +334,9 @@ function blockedUpdateReason(plugin: PluginStoreEntry) {
 }
 
 function installActionLabel(plugin: PluginStoreEntry) {
-  if (installing.value[plugin.id]) return t('plugins.store.actions.installing')
+  const plan = installPlans.value[plugin.id]
+  if (plan && plan.total > 1) return t('plugins.store.actions.installingStep', plan)
+  if (installing.value[plugin.id] || plan) return t('plugins.store.actions.installing')
   switch (plugin.install_state) {
     case 'update_available': return t('plugins.store.actions.update')
     case 'installed': return t('plugins.store.actions.installed')
@@ -292,7 +347,7 @@ function installActionLabel(plugin: PluginStoreEntry) {
 }
 
 function canInstall(plugin: PluginStoreEntry) {
-  return !installing.value[plugin.id] && (plugin.install_state === 'available' || plugin.install_state === 'update_available')
+  return !installing.value[plugin.id] && !installPlans.value[plugin.id] && (plugin.install_state === 'available' || plugin.install_state === 'update_available')
 }
 
 async function loadMore() {
@@ -300,7 +355,7 @@ async function loadMore() {
 }
 
 watch(() => pluginsStore.items.map(plugin => `${plugin.id}:${plugin.version}:${plugin.state}`).join('|'), () => {
-  if (!pageActive || loading.value || Object.values(installing.value).some(Boolean)) return
+  if (!pageActive || loading.value || Object.values(installing.value).some(Boolean) || Object.keys(installPlans.value).length > 0) return
   clearTimeout(refreshTimer)
   refreshTimer = setTimeout(() => { if (pageActive) void loadEntries() }, 150)
 })
@@ -410,6 +465,28 @@ onMounted(() => {
             <span :title="t('plugins.fields.license')">{{ plugin.license }}</span>
             <span v-if="plugin.latest_release">{{ t('plugins.store.latestVersion', { version: formatPluginVersion(plugin.latest_release.version) }) }}</span>
           </div>
+          <ul v-if="plugin.latest_release?.dependencies.length" class="plugin-dependencies" :aria-label="t('plugins.store.dependencies.label')">
+            <li
+              v-for="dependency in plugin.latest_release.dependencies"
+              :key="dependency.id"
+              :data-state="dependency.state"
+              :data-required="dependency.requirement === 'required' || undefined"
+            >
+              <CircleCheckIcon v-if="dependency.state === 'installed'" aria-hidden="true" />
+              <PuzzleIcon v-else aria-hidden="true" />
+              <span>{{ dependencyText(dependency) }}</span>
+              <AppButton
+                v-if="plugin.install_state === 'installed' && dependency.state === 'installable'"
+                variant="link"
+                size="xs"
+                :loading="resolvingDependency === dependency.id || installing[dependency.id]"
+                :data-testid="`plugin-store-install-dependency-${dependency.id}`"
+                @click="installDependency(dependency)"
+              >
+                {{ t('plugins.store.dependencies.install') }}
+              </AppButton>
+            </li>
+          </ul>
           <p v-if="blockedUpdateReason(plugin)" class="plugin-update-note">{{ blockedUpdateReason(plugin) }}</p>
 
           <div class="plugin-card-footer">
@@ -435,7 +512,7 @@ onMounted(() => {
               v-else
               variant="default"
               :disabled="!canInstall(plugin)"
-              :loading="installing[plugin.id]"
+              :loading="installing[plugin.id] || Boolean(installPlans[plugin.id])"
               :data-testid="`plugin-store-install-${plugin.id}`"
               @click="requestInstall(plugin)"
             >
@@ -447,22 +524,7 @@ onMounted(() => {
       <div v-if="nextCursor" class="store-load-more"><AppButton :loading="loadingMore" :disabled="loading || loadingMore" @click="loadMore">{{ t('plugins.store.loadMore') }}</AppButton></div>
     </template>
 
-    <AppDialog :open="confirmationOpen" :title="t('plugins.store.confirm.title')" :busy="Boolean(selectedPlugin && installing[selectedPlugin.id])" fallback-focus="[data-testid=plugin-store-refresh]" @close="closeConfirmation" @after-close="resetConfirmation">
-      <AppAlert
-        tone="attention"
-        :title="t('plugins.store.confirm.warning')"
-        :description="t('plugins.store.confirm.description', { name: selectedPlugin?.name ?? '' })"
-      />
-      <AppDetails v-if="selectedPlugin" class="confirm-details">
-        <AppDetailItem :label="t('plugins.fields.version')">
-          {{ formatPluginVersion(selectedPlugin.latest_release?.version) }}
-        </AppDetailItem>
-        <AppDetailItem :label="t('plugins.store.confirm.reason')">
-          {{ selectedPlugin.confirmation_reasons.map(reason => t(`plugins.store.confirm.reasons.${reason}`)).join('、') }}
-        </AppDetailItem>
-      </AppDetails>
-    <template #footer><div class="flex justify-end gap-3"><AppButton :disabled="Boolean(selectedPlugin && installing[selectedPlugin.id])" @click="closeConfirmation">{{ t('shell.cancel') }}</AppButton><AppButton variant="default" :loading="Boolean(selectedPlugin && installing[selectedPlugin.id])" @click="confirmInstall">{{ t('plugins.store.confirm.action') }}</AppButton></div></template>
-    </AppDialog>
+    <PluginStoreInstallDialog :open="confirmationOpen" :plugin="selectedPlugin" @close="closeConfirmation" @after-close="resetConfirmation" @confirm="confirmInstall" />
 
     <AppDialog :open="sourceManagerOpen" :title="t('plugins.store.sources.manage')" :width="720" fallback-focus="[data-testid=plugin-store-sources]" @close="sourceManagerOpen = false">
       <div class="source-manager-header">
@@ -621,6 +683,32 @@ onMounted(() => {
   gap: 8px 14px;
 }
 
+.plugin-dependencies {
+  display: grid;
+  gap: 2px;
+  margin: 12px 0 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  list-style: none;
+}
+
+.plugin-dependencies li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.plugin-dependencies svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.plugin-dependencies li[data-required]:not([data-state=installed]) { color: var(--text); }
+.plugin-dependencies li[data-state=installed] svg { color: var(--text-success); }
+
 .plugin-update-note {
   margin: 0;
   color: var(--text-warning);
@@ -631,8 +719,6 @@ onMounted(() => {
   margin-top: auto;
   padding-top: 20px;
 }
-
-.confirm-details { margin-top: 18px; }
 
 .source-manager-header { margin-bottom: 16px; }
 .source-manager-header p { margin: 0; color: var(--muted); }

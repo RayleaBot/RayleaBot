@@ -3,7 +3,9 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import PluginStoreView from '@/views/plugins/PluginStoreView.vue'
+import { notifyError } from '@/adapter/feedback'
 import { usePluginStore } from '@/stores/plugin-store'
+import type { PluginStoreDependency, PluginStoreEntry } from '@/types/api'
 
 vi.mock('@/adapter/feedback', () => ({
   notifyError: vi.fn(),
@@ -36,9 +38,34 @@ const echoPlugin = {
     min_core_version: '0.4.0',
     compatible: true,
     asset_available: true,
+    dependencies: [] as PluginStoreDependency[],
   },
   install_state: 'available' as const,
   confirmation_reasons: ['first_install' as const],
+}
+
+const accounts: PluginStoreDependency = { id: 'raylea.mihoyo-accounts', name: '米游社账号', requirement: 'required', state: 'installable' }
+const assets: PluginStoreDependency = { id: 'raylea.panel-assets', name: '面板素材', requirement: 'recommended', reason: '离线面板图', state: 'installable' }
+
+function withDependencies(...dependencies: PluginStoreDependency[]): PluginStoreEntry {
+  return { ...echoPlugin, id: 'raylea.genshin', name: '原神', latest_release: { ...echoPlugin.latest_release, dependencies } }
+}
+
+function mountStore(items: PluginStoreEntry[]) {
+  const store = usePluginStore()
+  store.items = items
+  store.sources = [officialSource]
+  store.source = officialSource
+  store.total = items.length
+  vi.spyOn(store, 'fetchSources').mockResolvedValue(store.sources)
+  vi.spyOn(store, 'fetchEntries').mockResolvedValue({ items: store.items, total: items.length, source: officialSource })
+  vi.spyOn(store, 'refreshSource').mockResolvedValue(officialSource)
+  const wrapper = mount(PluginStoreView, { global: { plugins: [getActivePinia()!] } })
+  return { store, wrapper }
+}
+
+function confirmButton() {
+  return document.body.querySelector('[data-testid="plugin-store-install-confirm"]') as HTMLButtonElement
 }
 
 describe('PluginStoreView', () => {
@@ -72,6 +99,58 @@ describe('PluginStoreView', () => {
       source_id: 'official',
       trusted_code_confirmed: true,
     })
+  })
+
+  it('installs the chosen prerequisite plugins before the plugin that needs them', async () => {
+    const { store, wrapper } = mountStore([withDependencies(accounts, assets)])
+    const install = vi.spyOn(store, 'install').mockResolvedValue({ task_id: 'task-store-install' })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="plugin-store-install-raylea.genshin"]').trigger('click')
+    await flushPromises()
+    expect(install).not.toHaveBeenCalled()
+    // A required prerequisite cannot be unticked; the recommended one can.
+    const requiredBox = document.body.querySelector('[data-testid="plugin-store-dependency-raylea.mihoyo-accounts"] button') as HTMLButtonElement
+    expect(requiredBox.disabled).toBe(true)
+    ;(document.body.querySelector('[data-testid="plugin-store-dependency-raylea.panel-assets"] button') as HTMLButtonElement).click()
+    await flushPromises()
+
+    confirmButton().click()
+    await flushPromises()
+
+    expect(install.mock.calls).toEqual([
+      ['raylea.mihoyo-accounts', { source_id: 'official', trusted_code_confirmed: true }],
+      ['raylea.genshin', { source_id: 'official', trusted_code_confirmed: true }],
+    ])
+  })
+
+  it('cannot install while a required prerequisite is unavailable from the source', async () => {
+    const { store, wrapper } = mountStore([withDependencies({ ...accounts, state: 'unavailable' })])
+    const install = vi.spyOn(store, 'install').mockResolvedValue({ task_id: 'task-store-install' })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="plugin-store-install-raylea.genshin"]').trigger('click')
+    await flushPromises()
+
+    expect(confirmButton().disabled).toBe(true)
+    confirmButton().click()
+    await flushPromises()
+    expect(install).not.toHaveBeenCalled()
+  })
+
+  it('stops before the plugin when a prerequisite fails to install', async () => {
+    const { store, wrapper } = mountStore([withDependencies(accounts)])
+    const install = vi.spyOn(store, 'install').mockRejectedValue(new Error('download failed'))
+    await flushPromises()
+
+    await wrapper.get('[data-testid="plugin-store-install-raylea.genshin"]').trigger('click')
+    await flushPromises()
+    confirmButton().click()
+    await flushPromises()
+
+    expect(install).toHaveBeenCalledTimes(1)
+    expect(install).toHaveBeenCalledWith('raylea.mihoyo-accounts', expect.anything())
+    expect(notifyError).toHaveBeenCalledWith(expect.stringContaining('米游社账号'))
   })
 
   it('names why a release cannot be installed instead of one generic incompatibility', async () => {

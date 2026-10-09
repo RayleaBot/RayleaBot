@@ -17,4 +17,5 @@ export const errors = {
     unknown: '无法确认当前 RayleaBot 版本，不能安装要求最低版本的插件。',
     tooOld: '插件需要 RayleaBot {version} 或更高版本。',
   },
+  dependencyMissing: '请先安装前置插件：{plugins}',
 } as const
