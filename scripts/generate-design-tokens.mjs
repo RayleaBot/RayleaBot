@@ -337,8 +337,8 @@ ${fields.map((field) => `  ${field}: string;`).join('\n')}
 }
 
 export const launcherGeneratedThemes: Record<'light' | 'dark', GeneratedLauncherThemeTokens> = {
-  light: ${renderTypescriptObject(themes.light, 2, '"').replace(/,(?=\n\s*})/g, ',')},
-  dark: ${renderTypescriptObject(themes.dark, 2, '"').replace(/,(?=\n\s*})/g, ',')},
+  light: ${renderTypescriptObject(themes.light, 2, '"')},
+  dark: ${renderTypescriptObject(themes.dark, 2, '"')},
 };
 `
 }

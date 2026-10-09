@@ -51,9 +51,7 @@ func TestLookupTemplateAssetRespectsSystemResourceRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LookupTemplateAsset shared asset: %v", err)
 	}
-	if asset.Path != assetPath {
-		t.Fatalf("asset path = %q, want %q", asset.Path, assetPath)
-	}
+	assertTemplateAssetFile(t, asset, assetPath)
 
 	for _, path := range []string{"../../outside.txt", "template.HTML", "styles.css", "input.Schema.json", "preview.json", "missing.png"} {
 		_, err := service.LookupTemplateAsset(context.Background(), "help.menu", path)
@@ -61,6 +59,40 @@ func TestLookupTemplateAssetRespectsSystemResourceRoot(t *testing.T) {
 		if !errors.As(err, &renderErr) || renderErr.Code != "platform.resource_missing" {
 			t.Fatalf("LookupTemplateAsset(%q) error = %v, want platform.resource_missing", path, err)
 		}
+	}
+}
+
+func TestTemplateAssetsRejectSymlinkEscapesAndSourceAliases(t *testing.T) {
+	repoRoot := t.TempDir()
+	templatesRoot := filepath.Join(repoRoot, "templates")
+	writeRenderTemplateSeed(t, templatesRoot, "card")
+	assetDir := filepath.Join(templatesRoot, "card", "assets")
+	if err := os.MkdirAll(assetDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(repoRoot, "private.txt")
+	if err := os.WriteFile(outside, []byte("private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for name, target := range map[string]string{"outside.txt": outside, "source.txt": filepath.Join(templatesRoot, "card", "template.html")} {
+		if err := os.Symlink(target, filepath.Join(assetDir, name)); err != nil {
+			t.Skipf("symlink unavailable: %v", err)
+		}
+	}
+	service, err := NewService(Options{RepoRoot: repoRoot, OutputRoot: filepath.Join(repoRoot, "output"), Store: openRenderTestStore(t), Runner: &fakeRunner{}, WorkerCount: 1, QueueMaxLength: 2, QueueWaitTimeout: time.Second, RenderTimeout: time.Second, MaxRenderDataBytes: 256 * 1024})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = service.Close() })
+	for _, name := range []string{"outside.txt", "source.txt"} {
+		if _, err := service.LookupTemplateAsset(t.Context(), "card", "assets/"+name); err == nil {
+			t.Fatalf("served symlink %s", name)
+		}
+	}
+	asset := TemplateAsset{ResourceRoot: templatesRoot, Path: filepath.Join(assetDir, "outside.txt")}
+	if file, err := asset.Open(); err == nil {
+		_ = file.Close()
+		t.Fatal("opening an asset followed a replaced path outside its root")
 	}
 }
 
@@ -116,9 +148,7 @@ func TestLookupTemplateAssetRejectsRegisteredSourceFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LookupTemplateAsset allowed asset: %v", err)
 	}
-	if asset.Path != filepath.Join(templateDir, "assets", "logo.txt") {
-		t.Fatalf("asset path = %q", asset.Path)
-	}
+	assertTemplateAssetFile(t, asset, filepath.Join(templateDir, "assets", "logo.txt"))
 
 	for _, path := range []string{"template.json", "views/card.gohtml", "css/card.main.css", "schema/input.json", "preview.json"} {
 		_, err := service.LookupTemplateAsset(context.Background(), "custom.card", path)
@@ -178,13 +208,28 @@ func TestLookupTemplateAssetRespectsPluginPackageRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LookupTemplateAsset plugin asset: %v", err)
 	}
-	if asset.Path != assetPath {
-		t.Fatalf("asset path = %q, want %q", asset.Path, assetPath)
-	}
+	assertTemplateAssetFile(t, asset, assetPath)
 
 	_, err = service.LookupTemplateAsset(context.Background(), "plugin.weather-card.card", "../../../outside.txt")
 	var renderErr *Error
 	if !errors.As(err, &renderErr) || renderErr.Code != "platform.resource_missing" {
 		t.Fatalf("expected escaped plugin path rejection, got %v", err)
+	}
+}
+
+func assertTemplateAssetFile(t *testing.T, asset TemplateAsset, wantPath string) {
+	t.Helper()
+	expected, err := os.Stat(wantPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := asset.Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = file.Close() }()
+	actual, err := file.Stat()
+	if err != nil || !os.SameFile(expected, actual) {
+		t.Fatalf("asset %q does not open %q: %v", asset.Path, wantPath, err)
 	}
 }

@@ -98,6 +98,16 @@ func ResolveAssetPath(root Root, relativePath string) (string, error) {
 	if !fsguard.WithinRoot(absoluteResourceRoot, candidate) {
 		return "", &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
+	// Resolve aliases before the managed-source check, then keep I/O confined
+	// to the resource root even if a directory changes before the file is opened.
+	absoluteResourceRoot, err = filepath.EvalSymlinks(absoluteResourceRoot)
+	if err != nil {
+		return "", &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found", Err: err}
+	}
+	candidate, err = filepath.EvalSymlinks(candidate)
+	if err != nil || !fsguard.WithinRoot(absoluteResourceRoot, candidate) {
+		return "", &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found", Err: err}
+	}
 	return candidate, nil
 }
 
@@ -166,18 +176,33 @@ func (s *Service) LookupTemplateAsset(ctx context.Context, templateID string, re
 	if isSourcePath {
 		return TemplateAsset{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
-	info, err := os.Stat(assetPath)
+	resourceRoot, err := filepath.EvalSymlinks(root.ResourceRoot)
+	if err != nil {
+		return TemplateAsset{}, err
+	}
+	asset := TemplateAsset{Path: assetPath, ResourceRoot: resourceRoot}
+	file, err := asset.Open()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return TemplateAsset{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found", Err: err}
 		}
 		return TemplateAsset{}, fmt.Errorf("inspect render template asset %s: %w", assetPath, err)
 	}
-	if info.IsDir() {
+	defer func() { _ = file.Close() }()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
 		return TemplateAsset{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
 
-	return TemplateAsset{Path: assetPath}, nil
+	return asset, nil
+}
+
+func (asset TemplateAsset) Open() (*os.File, error) {
+	relative, err := filepath.Rel(asset.ResourceRoot, asset.Path)
+	if err != nil {
+		return nil, err
+	}
+	return os.OpenInRoot(asset.ResourceRoot, relative)
 }
 
 func isManagedTemplateSourcePath(ctx context.Context, repository *templateRepository, roots *Roots, candidate string) (bool, error) {
@@ -196,6 +221,9 @@ func isManagedTemplateSourcePath(ctx context.Context, repository *templateReposi
 			continue
 		}
 		for _, sourcePath := range managedSourcePaths(root.TemplateDir, detail.Files) {
+			if canonical, err := filepath.EvalSymlinks(sourcePath); err == nil {
+				sourcePath = canonical
+			}
 			if SameFilePath(absoluteCandidate, sourcePath) {
 				return true, nil
 			}

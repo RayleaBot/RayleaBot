@@ -257,5 +257,8 @@ func BaseURL(templateDir string) string {
 }
 
 func resolveTemplateDirectory(root string, templateID string) (string, bool) {
+	if !templateIDPattern.MatchString(templateID) {
+		return "", false
+	}
 	return resolveUnderRoot(root, templateID)
 }

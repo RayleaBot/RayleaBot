@@ -134,7 +134,8 @@ type PreviewHTML struct {
 }
 
 type TemplateAsset struct {
-	Path string
+	Path         string
+	ResourceRoot string
 }
 
 type Service struct {

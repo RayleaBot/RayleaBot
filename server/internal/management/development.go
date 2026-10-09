@@ -64,8 +64,8 @@ func (h DevelopmentRoutes) sync(w http.ResponseWriter, r *http.Request) {
 		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return
 	}
-	relative, err := filepath.Rel(h.ArtifactRoot, canonical)
-	if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
+	rootPrefix := strings.TrimRight(h.ArtifactRoot, string(filepath.Separator)) + string(filepath.Separator)
+	if canonical == h.ArtifactRoot || !strings.HasPrefix(canonical, rootPrefix) {
 		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return
 	}

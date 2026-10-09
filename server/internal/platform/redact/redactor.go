@@ -89,7 +89,7 @@ func normalizeValues(values []string) []string {
 func NewManagementRedactor(cfg config.Config) *Redactor {
 	// Every configured adapter contributes its secrets, so adding an instance
 	// cannot leave one of its tokens unredacted.
-	values := make([]string, 0, len(cfg.Adapters)*4)
+	var values []string
 	for _, adapter := range cfg.Adapters {
 		if adapter.OneBot11 != nil {
 			values = append(values,

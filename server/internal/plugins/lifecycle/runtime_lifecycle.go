@@ -229,6 +229,9 @@ func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remo
 }
 
 func (c *Controller) buildStartInputs(ctx context.Context, pluginID string) (pluginruntime.Spec, pluginruntime.InitPayload, error) {
+	if !plugins.ValidPluginID(pluginID) {
+		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, plugins.ErrInvalidPluginID
+	}
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
 		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, plugins.ErrPluginNotFound

@@ -191,7 +191,18 @@ func (h *RenderHandlers) HandleSystemRenderTemplateAsset() http.HandlerFunc {
 			return
 		}
 
-		http.ServeFile(w, r, asset.Path)
+		file, err := asset.Open()
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		defer func() { _ = file.Close() }()
+		info, err := file.Stat()
+		if err != nil || !info.Mode().IsRegular() {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 	}
 }
 

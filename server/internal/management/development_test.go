@@ -38,6 +38,11 @@ func TestDevelopmentAdmissionAndArtifactBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	outside := t.TempDir()
+	sibling := root + "-sibling"
+	if err := os.Mkdir(sibling, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(sibling) })
 	for _, tc := range []struct {
 		name, address, token, header, artifact string
 		disabled                               bool
@@ -50,6 +55,7 @@ func TestDevelopmentAdmissionAndArtifactBoundary(t *testing.T) {
 		{name: "browser", address: "127.0.0.1:1234", token: "fixture-token", header: "Origin", artifact: inside, status: 403},
 		{name: "forwarded", address: "127.0.0.1:1234", token: "fixture-token", header: "X-Forwarded-For", artifact: inside, status: 403},
 		{name: "outside", address: "127.0.0.1:1234", token: "fixture-token", artifact: outside, status: 400},
+		{name: "sibling prefix", address: "127.0.0.1:1234", token: "fixture-token", artifact: sibling, status: 400},
 		{name: "root itself", address: "127.0.0.1:1234", token: "fixture-token", artifact: root, status: 400},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

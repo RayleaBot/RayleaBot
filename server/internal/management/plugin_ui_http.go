@@ -3,7 +3,6 @@ package management
 import (
 	"context"
 	"errors"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 	"net/http"
 	"os"
 	"path"
@@ -154,13 +153,7 @@ func (h *PluginManagementUIHandlers) servePluginUIAsset(w http.ResponseWriter, r
 	if assetPath == "" {
 		assetPath = strings.TrimPrefix(strings.TrimSpace(snapshot.ManagementUI.Entry), "ui/")
 	}
-	assetFile := filepath.Clean(filepath.Join(assetRoot, filepath.FromSlash(assetPath)))
-	if !fsguard.WithinRoot(assetRoot, assetFile) {
-		http.NotFound(w, r)
-		return
-	}
-
-	file, err := os.Open(assetFile)
+	file, err := os.OpenInRoot(assetRoot, filepath.FromSlash(assetPath))
 	if err != nil {
 		http.NotFound(w, r)
 		return

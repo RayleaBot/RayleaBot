@@ -57,9 +57,10 @@ func TestAssetLookupPreservesGlobalSourceProtectionAndInvalidManifestErrors(t *t
 	}
 	service, store := newCompilationTestService(t, root, &fakeRunner{})
 	asset, err := service.LookupTemplateAsset(t.Context(), "first", "../second/assets/badge.txt")
-	if err != nil || asset.Path != assetPath {
+	if err != nil {
 		t.Fatalf("shared asset unavailable: %+v, %v", asset, err)
 	}
+	assertTemplateAssetFile(t, asset, assetPath)
 	for _, source := range []string{"template.json", "template.HTML", "styles.css", "input.Schema.json", "preview.json"} {
 		_, err := service.LookupTemplateAsset(t.Context(), "first", "../second/"+source)
 		if info, ok := AsTemplateError(err); !ok || info.Code != "platform.resource_missing" {

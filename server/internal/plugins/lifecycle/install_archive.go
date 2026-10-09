@@ -33,6 +33,11 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 	if err := os.MkdirAll(extractRoot, 0o755); err != nil {
 		return "", installError(codePluginInstallFailed, "创建解压临时目录失败", "创建解压临时目录失败")
 	}
+	root, err := os.OpenRoot(extractRoot)
+	if err != nil {
+		return "", installError(codePluginInstallFailed, "打开解压临时目录失败", "打开解压临时目录失败")
+	}
+	defer func() { _ = root.Close() }()
 
 	topLevels := map[string]struct{}{}
 	seenPaths := make(map[string]struct{}, len(reader.File))
@@ -48,17 +53,12 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 			return "", err
 		}
 
-		targetPath := filepath.Join(extractRoot, cleanName)
-		if !fsguard.WithinRoot(extractRoot, targetPath) {
-			return "", installError(codePluginInstallFailed, "插件压缩包包含越界路径", "插件压缩包包含越界路径")
-		}
-
 		parts := strings.Split(filepath.ToSlash(cleanName), "/")
 		if len(parts) > 0 && parts[0] != "." && parts[0] != "" {
 			topLevels[parts[0]] = struct{}{}
 		}
 
-		if err := writePluginArchiveEntry(ctx, file, targetPath); err != nil {
+		if err := writePluginArchiveEntry(ctx, root, file, filepath.FromSlash(cleanName)); err != nil {
 			return "", err
 		}
 	}
@@ -73,7 +73,7 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 	}
 
 	rootPath := filepath.Join(extractRoot, filepath.FromSlash(rootName))
-	info, err := os.Stat(rootPath)
+	info, err := root.Stat(filepath.FromSlash(rootName))
 	if err != nil || !info.IsDir() {
 		return "", installError(codePluginInstallFailed, "压缩包必须只包含一个插件根目录", "压缩包必须只包含一个插件根目录")
 	}
@@ -111,15 +111,15 @@ func validatePluginArchiveEntry(file *zip.File, seenPaths map[string]struct{}, e
 	return cleanName, nil
 }
 
-func writePluginArchiveEntry(ctx context.Context, file *zip.File, targetPath string) error {
+func writePluginArchiveEntry(ctx context.Context, root *os.Root, file *zip.File, targetPath string) error {
 	if file.FileInfo().IsDir() {
-		if err := os.MkdirAll(targetPath, normalizedZipEntryMode(file)); err != nil {
+		if err := root.MkdirAll(targetPath, normalizedZipEntryMode(file)); err != nil {
 			return installError(codePluginInstallFailed, "创建解压目录失败", "创建解压目录失败")
 		}
 		return nil
 	}
 
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+	if err := root.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return installError(codePluginInstallFailed, "创建解压目录失败", "创建解压目录失败")
 	}
 
@@ -128,7 +128,7 @@ func writePluginArchiveEntry(ctx context.Context, file *zip.File, targetPath str
 		return installError(codePluginInstallFailed, "读取压缩包条目失败", "读取压缩包条目失败")
 	}
 
-	targetFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, normalizedZipEntryMode(file))
+	targetFile, err := root.OpenFile(targetPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, normalizedZipEntryMode(file))
 	if err != nil {
 		_ = readerHandle.Close()
 		return installError(codePluginInstallFailed, "写入解压文件失败", "写入解压文件失败")

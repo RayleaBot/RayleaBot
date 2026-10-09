@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"sort"
 	"strconv"
@@ -56,7 +56,7 @@ func New(ctx context.Context, installed plugins.CatalogView, installer Installer
 		return nil, errors.New("plugin store core version is required")
 	}
 	if options.HTTPClient == nil {
-		options.HTTPClient = &http.Client{Timeout: 30 * time.Second}
+		options.HTTPClient = newCatalogHTTPClient()
 	}
 	if options.Now == nil {
 		options.Now = time.Now
@@ -458,10 +458,11 @@ func (s *Service) fetchCatalog(ctx context.Context, rawURL string) ([]byte, Cata
 }
 
 func (s *Service) fetch(ctx context.Context, rawURL string) ([]byte, error) {
-	if err := validateSourceURL(rawURL); err != nil {
+	parsed, err := parseSourceURL(rawURL)
+	if err != nil {
 		return nil, err
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -527,18 +528,23 @@ func normalizeSourceInput(input SourceInput) (string, string, error) {
 }
 
 func validateSourceURL(rawURL string) error {
+	_, err := parseSourceURL(rawURL)
+	return err
+}
+
+func parseSourceURL(rawURL string) (*url.URL, error) {
 	parsed, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil {
-		return errors.New("plugin store source must use HTTPS without userinfo")
+		return nil, errors.New("plugin store source must use HTTPS without userinfo")
 	}
 	host := strings.TrimSuffix(strings.ToLower(parsed.Hostname()), ".")
 	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
-		return errors.New("plugin store source must not use a local host")
+		return nil, errors.New("plugin store source must not use a local host")
 	}
-	if ip := net.ParseIP(host); ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast()) {
-		return errors.New("plugin store source must not use a local or private address")
+	if ip, err := netip.ParseAddr(host); err == nil && !publicCatalogIP(ip) {
+		return nil, errors.New("plugin store source must not use a local or private address")
 	}
-	return nil
+	return parsed, nil
 }
 
 func newSourceID() (string, error) {
