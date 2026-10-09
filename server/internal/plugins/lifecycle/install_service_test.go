@@ -803,6 +803,7 @@ func TestInstallServiceRejectsIncompatibleMinimumCoreVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifest["min_core_version"] = "999.0.0"
+	manifest["future_feature"] = map[string]any{"enabled": true}
 	encoded, _ := json.MarshalIndent(manifest, "", "  ")
 	if err := os.WriteFile(infoPath, append(encoded, '\n'), 0o644); err != nil {
 		t.Fatal(err)

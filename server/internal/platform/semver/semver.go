@@ -1,6 +1,16 @@
 package semver
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
+
+var pattern = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
+
+// Valid reports whether version is a strict semantic version without a leading v.
+func Valid(version string) bool {
+	return pattern.MatchString(version)
+}
 
 // Compare orders semantic versions and returns a negative value, zero, or a
 // positive value. Inputs are expected to have been validated by their owning

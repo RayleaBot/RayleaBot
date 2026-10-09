@@ -11,11 +11,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	semverutil "github.com/RayleaBot/RayleaBot/server/internal/platform/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 var (
-	catalogSemverPattern = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
 	catalogSHA256Pattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 )
 
@@ -123,7 +123,7 @@ func decodeCatalogRelease(data []byte) (CurrentRelease, error) {
 	}, nil); err != nil {
 		return CurrentRelease{}, err
 	}
-	if !catalogSemverPattern.MatchString(release.Version) || !catalogSemverPattern.MatchString(release.MinCoreVersion) {
+	if !semverutil.Valid(release.Version) || !semverutil.Valid(release.MinCoreVersion) {
 		return CurrentRelease{}, errors.New("version and min_core_version must be semantic versions")
 	}
 	if _, err := time.Parse(time.RFC3339, release.PublishedAt); err != nil {

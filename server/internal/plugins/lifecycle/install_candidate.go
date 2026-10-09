@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
+	semverutil "github.com/RayleaBot/RayleaBot/server/internal/platform/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -80,6 +82,15 @@ func (s *InstallService) prepareCandidate(ctx context.Context, request plugins.I
 		}
 	}()
 
+	// New manifest fields may require a newer core; check that requirement
+	// before either artifact verification or snapshot loading validates the manifest.
+	if minVersion := readMinimumCoreVersion(candidateDir); minVersion != "" {
+		if err := plugins.CheckCoreVersion(releaseupdate.InstalledVersion(s.repoRoot), minVersion); err != nil {
+			if err.Reason != plugins.CoreVersionUnknown || request.SourceType != "development" {
+				return nil, err
+			}
+		}
+	}
 	targetPlatform, err := artifact.CurrentPlatform()
 	if err != nil {
 		return nil, installError(codePluginPlatformMismatch, err.Error(), "插件包与当前平台不匹配")
@@ -104,18 +115,26 @@ func (s *InstallService) prepareCandidate(ctx context.Context, request plugins.I
 	if request.ExpectedPluginID != "" && (snapshot.PluginID != request.ExpectedPluginID || snapshot.Version != request.ExpectedVersion) {
 		return nil, installError(errorcodes.PluginStoreIntegrityMismatch, "插件包与商店条目不一致", "插件包与商店条目不一致")
 	}
-	coreVersion := releaseupdate.InstalledVersion(s.repoRoot)
-	if err := plugins.CheckCoreVersion(coreVersion, snapshot.MinCoreVersion); err != nil {
-		if err.Reason != plugins.CoreVersionUnknown || request.SourceType != "development" {
-			return nil, err
-		}
-	}
 	metadata, err := s.buildPackageMetadata(ctx, request, snapshot, candidateDir)
 	if err != nil {
 		return nil, err
 	}
 	succeeded = true
 	return &installCandidate{request: request, workingRoot: workingRoot, candidateDir: candidateDir, cleanup: cleanup, snapshot: snapshot, metadata: metadata}, nil
+}
+
+func readMinimumCoreVersion(candidateDir string) string {
+	payload, err := os.ReadFile(filepath.Join(candidateDir, "info.json"))
+	if err != nil {
+		return ""
+	}
+	var manifest struct {
+		MinCoreVersion string `json:"min_core_version"`
+	}
+	if json.Unmarshal(payload, &manifest) != nil || !semverutil.Valid(manifest.MinCoreVersion) {
+		return ""
+	}
+	return manifest.MinCoreVersion
 }
 
 // markBackendExecutable sets the entry's executable bits on Unix, because ZIP
