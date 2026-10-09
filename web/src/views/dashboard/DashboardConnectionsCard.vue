@@ -158,6 +158,7 @@ function retryAdapters() {
           :stats="stats"
           :layers="layers.stack"
           :order="layers.order"
+          :dual="split === 'direction'"
           :names="names"
           :time-zone="effectiveTimezone"
           :focus-key="focusKey"

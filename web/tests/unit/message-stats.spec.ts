@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { AdapterDescriptor, MessageStatsConnection, MessageStatsResponse } from '@/types/api'
-import { arrangeConnections, buildLayers, changeRatio, niceScale, periodWindow } from '@/views/dashboard/message-stats'
+import { arrangeConnections, buildLayers, changeRatio, niceScale, niceScaleForTicks, periodWindow } from '@/views/dashboard/message-stats'
 
 function adapter(id: string, overrides: Partial<AdapterDescriptor> = {}): AdapterDescriptor {
   return { id, protocol: 'onebot11', display_name: id, enabled: true, state: 'connected', summary: '', ...overrides }
@@ -115,6 +115,12 @@ describe('figures', () => {
     expect(niceScale(230)).toEqual({ max: 250, ticks: 5 })
     expect(niceScale(7)).toEqual({ max: 8, ticks: 4 })
     expect(niceScale(0)).toEqual({ max: 3, ticks: 3 })
+  })
+
+  it('fits a second axis to the first axis tick count', () => {
+    expect(niceScaleForTicks(37, 4)).toEqual({ max: 40, ticks: 4 })
+    expect(niceScaleForTicks(41, 4)).toEqual({ max: 80, ticks: 4 })
+    expect(niceScaleForTicks(0, 3)).toEqual({ max: 3, ticks: 3 })
   })
 
   it('has no change without a comparison', () => {

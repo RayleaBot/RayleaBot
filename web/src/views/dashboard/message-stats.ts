@@ -182,6 +182,17 @@ export function niceScale(value: number) {
   return best ?? { max: 3, ticks: 3 }
 }
 
+// A second axis keeps the first axis's tick count so both share the grid lines; it takes the smallest nice step that fits.
+export function niceScaleForTicks(value: number, ticks: number) {
+  const top = Math.max(1, value)
+  for (let exponent = 0; ; exponent++) {
+    for (const multiple of [1, 2, 2.5, 5]) {
+      const step = multiple * 10 ** exponent
+      if (Number.isInteger(step) && step * ticks >= top) return { max: step * ticks, ticks }
+    }
+  }
+}
+
 // Gently smoothed cubic segments; segment i runs from points[i] to points[i + 1].
 export function smoothSegments(points: [number, number][]) {
   const tension = 0.18

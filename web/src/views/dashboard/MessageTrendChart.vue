@@ -12,6 +12,7 @@ import {
   localDate,
   localMidnight,
   niceScale,
+  niceScaleForTicks,
   pathThrough,
   shiftDate,
   smoothSegments,
@@ -22,6 +23,8 @@ const props = withDefaults(defineProps<{
   stats: MessageStatsResponse
   // Stacking order, bottom layer first; the tooltip lists `order`, the legend order.
   layers: MessageLayer[]
+  // Two layers drawn against their own axes (left, right) instead of stacked, so a small series stays readable.
+  dual?: boolean
   order: MessageLayer[]
   // Display names for layer keys and adapter ids.
   names: Record<string, string>
@@ -32,7 +35,7 @@ const props = withDefaults(defineProps<{
   // Grows each time a reading of the same period brought more messages; the newest point answers with one pulse.
   pulse?: number
   height?: number
-}>(), { focusKey: null, logsFrom: null, pulse: 0, height: 330 })
+}>(), { dual: false, focusKey: null, logsFrom: null, pulse: 0, height: 330 })
 const emit = defineEmits<{ openLogs: [range: { startAt: string; endAt: string }] }>()
 
 const host = ref<HTMLElement | null>(null)
@@ -48,7 +51,8 @@ const dayLabel = (time: number) => (localDate(new Date(time), props.timeZone) ==
 const hourLabel = (time: number) => clockFormat.value.format(time)
 
 const hasTrack = computed(() => props.stats.incidents.length > 0)
-const padding = computed(() => ({ left: 44, right: 8, top: 10, bottom: hasTrack.value ? 42 : 26 }))
+const dual = computed(() => props.dual && props.layers.length === 2)
+const padding = computed(() => ({ left: 44, right: dual.value ? 44 : 8, top: dual.value ? 26 : 10, bottom: hasTrack.value ? 42 : 26 }))
 const plot = computed(() => ({
   width: Math.max(0, width.value - padding.value.left - padding.value.right),
   height: Math.max(0, props.height - padding.value.top - padding.value.bottom),
@@ -92,16 +96,37 @@ watch(() => [props.stats.buckets, props.layers] as const, ([buckets, layers], [p
   tweenFrame = requestAnimationFrame(step)
 })
 onScopeDispose(() => cancelAnimationFrame(tweenFrame))
-const tops = computed(() => props.layers.map((_, index) => starts.value.map((__, bucket) => shown.value.slice(0, index + 1).reduce((sum, values) => sum + (values[bucket] ?? 0), 0))))
-const totals = computed(() => tops.value.at(-1) ?? starts.value.map(() => 0))
-const scale = computed(() => niceScale(Math.max(1, ...totals.value)))
-const y = (value: number) => padding.value.top + plot.value.height - (value / scale.value.max) * plot.value.height
+// Stacked layers rise from the layer below; dual-axis layers each rise from zero against their own scale.
+const tops = computed(() => props.layers.map((_, index) => starts.value.map((__, bucket) => (dual.value
+  ? shown.value[index]?.[bucket] ?? 0
+  : shown.value.slice(0, index + 1).reduce((sum, values) => sum + (values[bucket] ?? 0), 0)))))
+const scales = computed(() => {
+  if (!dual.value) {
+    const shared = niceScale(Math.max(1, ...(tops.value.at(-1) ?? [])))
+    return props.layers.map(() => shared)
+  }
+  const left = niceScale(Math.max(1, ...tops.value[0]!))
+  return [left, niceScaleForTicks(Math.max(1, ...tops.value[1]!), left.ticks)]
+})
+const scale = computed(() => scales.value[0] ?? niceScale(1))
+const yFor = (layer: number, value: number) => padding.value.top + plot.value.height - (value / (scales.value[layer] ?? scale.value).max) * plot.value.height
+const y = (value: number) => yFor(0, value)
 const partial = computed(() => starts.value.length > 0 && bucketEnd(props.stats, starts.value.length - 1) > asOf.value)
 
 const yTicks = computed(() => Array.from({ length: scale.value.ticks + 1 }, (_, index) => {
   const value = (scale.value.max * index) / scale.value.ticks
   return { y: y(value), text: numberFormat.value.format(Math.round(value)) }
 }))
+// The right axis shares the grid lines; each axis is named and coloured after its series.
+const rightTicks = computed(() => {
+  const right = dual.value ? scales.value[1] : undefined
+  if (!right) return []
+  return Array.from({ length: right.ticks + 1 }, (_, index) => {
+    const value = (right.max * index) / right.ticks
+    return { y: yFor(1, value), text: numberFormat.value.format(Math.round(value)) }
+  })
+})
+const axisColors = computed(() => (dual.value ? props.layers.map(layer => layerColor(layer.color)) : []))
 
 // Several days by the hour are labelled at each local midnight; one day by the hour every few hours; days every few days.
 const xLabels = computed(() => {
@@ -131,11 +156,13 @@ const shapes = computed(() => {
   const count = starts.value.length
   return props.layers.map((layer, index) => {
     const muted = props.focusKey !== null && layer.key !== props.focusKey
-    const top = starts.value.map((time, bucket) => [x(time), y(tops.value[index]![bucket]!)] as [number, number])
-    const below = index === 0 ? starts.value.map(() => 0) : tops.value[index - 1]!
-    const base = starts.value.map((time, bucket) => [x(time), y(below[bucket]!)] as [number, number]).reverse()
+    const top = starts.value.map((time, bucket) => [x(time), yFor(index, tops.value[index]![bucket]!)] as [number, number])
+    const below = index === 0 || dual.value ? starts.value.map(() => 0) : tops.value[index - 1]!
+    const base = starts.value.map((time, bucket) => [x(time), yFor(index, below[bucket]!)] as [number, number]).reverse()
     const segments = smoothSegments(top)
-    const area = count > 1 ? `${pathThrough(top, segments, 0, count - 1)} L${base[0]![0]},${base[0]![1]}${smoothSegments(base).join('')} Z` : ''
+    // On two axes only the primary series is filled; a second fill on another scale would read as a share.
+    const filled = count > 1 && !(dual.value && index > 0)
+    const area = filled ? `${pathThrough(top, segments, 0, count - 1)} L${base[0]![0]},${base[0]![1]}${smoothSegments(base).join('')} Z` : ''
     // The newest bucket is still filling, so its edge is dotted rather than read as a drop.
     const solidEnd = partial.value && count > 2 ? count - 2 : count - 1
     return {
@@ -150,13 +177,17 @@ const shapes = computed(() => {
   })
 })
 
-// The newest point of an open period marks "now"; when more messages arrive it sends out one ring.
-const head = computed(() => {
+// The newest point of an open period marks "now" on the top layer, or on both lines of a dual-axis chart; when more
+// messages arrive it sends out one ring.
+const heads = computed(() => {
   const last = starts.value.length - 1
-  if (last < 0 || !plot.value.width || !partial.value) return null
-  const top = props.layers.length - 1
-  const muted = props.focusKey !== null && props.layers[top]?.key !== props.focusKey
-  return { x: x(starts.value[last]!), y: y(tops.value[top]?.[last] ?? 0), stroke: muted ? 'var(--chart-muted-line)' : layerColor(props.layers[top]?.color ?? 0) }
+  if (last < 0 || !plot.value.width || !partial.value) return []
+  const indexes = dual.value ? props.layers.map((_, index) => index) : [props.layers.length - 1]
+  return indexes.map((index) => {
+    const layer = props.layers[index]
+    const muted = props.focusKey !== null && layer?.key !== props.focusKey
+    return { key: layer?.key ?? String(index), x: x(starts.value[last]!), y: yFor(index, tops.value[index]?.[last] ?? 0), stroke: muted ? 'var(--chart-muted-line)' : layerColor(layer?.color ?? 0) }
+  })
 })
 
 const tracking = computed(() => {
@@ -212,12 +243,12 @@ const tooltip = computed(() => {
     title,
     asOf: end > asOf.value ? t('dashboard.messages.asOf', { time: hourLabel(asOf.value) }) : '',
     rows: props.order.map(layer => ({ key: layer.key, name: props.names[layer.key] ?? layer.key, color: layerColor(layer.color), value: numberFormat.value.format(layer.values[index] ?? 0) })),
-    total: props.order.length > 1 ? numberFormat.value.format(totals.value[index] ?? 0) : '',
+    total: props.order.length > 1 ? numberFormat.value.format(props.order.reduce((sum, layer) => sum + (layer.values[index] ?? 0), 0)) : '',
     notes,
     hint: openable ? t(props.stats.granularity === 'hour' ? 'dashboard.messages.openLogsHour' : 'dashboard.messages.openLogsDay') : '',
     dots: props.layers.map((layer, layerIndex) => ({
       key: layer.key,
-      y: y(tops.value[layerIndex]![index]!),
+      y: yFor(layerIndex, tops.value[layerIndex]![index]!),
       stroke: props.focusKey !== null && layer.key !== props.focusKey ? 'var(--chart-muted-line)' : layerColor(layer.color),
     })),
     range: { startAt: new Date(start).toISOString(), endAt: new Date(end - 1000).toISOString() },
@@ -278,7 +309,12 @@ function onKeydown(event: KeyboardEvent) {
         <line v-for="tick in yTicks" :key="`grid-${tick.text}`" :x1="padding.left" :x2="width - padding.right" :y1="tick.y" :y2="tick.y" />
       </g>
       <g class="message-chart__axis">
-        <text v-for="tick in yTicks" :key="`y-${tick.text}`" :x="padding.left - 10" :y="tick.y + 4" text-anchor="end">{{ tick.text }}</text>
+        <text v-for="tick in yTicks" :key="`y-${tick.text}`" :x="padding.left - 10" :y="tick.y + 4" text-anchor="end" :fill="axisColors[0]">{{ tick.text }}</text>
+        <text v-for="tick in rightTicks" :key="`r-${tick.text}`" :x="width - padding.right + 10" :y="tick.y + 4" text-anchor="start" :fill="axisColors[1]">{{ tick.text }}</text>
+        <template v-if="dual">
+          <text class="message-chart__axis-name" :x="padding.left - 10" :y="padding.top - 12" text-anchor="end" :fill="axisColors[0]">{{ names[layers[0]!.key] ?? layers[0]!.key }}</text>
+          <text class="message-chart__axis-name" :x="width - padding.right + 10" :y="padding.top - 12" text-anchor="start" :fill="axisColors[1]">{{ names[layers[1]!.key] ?? layers[1]!.key }}</text>
+        </template>
         <text v-for="label in xLabels" :key="`x-${label.x}`" :x="label.x" :y="height - 6" text-anchor="middle">{{ label.text }}</text>
       </g>
       <g v-for="shape in shapes" :key="shape.key">
@@ -292,7 +328,7 @@ function onKeydown(event: KeyboardEvent) {
         <text class="message-chart__note" :x="tracking.x - 8" :y="padding.top + 14" text-anchor="end">{{ tracking.label }}</text>
         <text v-if="tracking.emptyX !== null" class="message-chart__empty" :x="tracking.emptyX" :y="padding.top + plot.height / 2 + 4" text-anchor="middle">{{ t('dashboard.messages.notTrackedYet') }}</text>
       </template>
-      <template v-if="head">
+      <template v-for="head in heads" :key="`head-${head.key}`">
         <circle v-if="pulse" :key="`pulse-${pulse}`" class="message-chart__pulse" :cx="head.x" :cy="head.y" r="4" :fill="head.stroke" />
         <circle class="message-chart__head" :cx="head.x" :cy="head.y" r="3.5" :fill="head.stroke" />
       </template>
@@ -318,6 +354,7 @@ function onKeydown(event: KeyboardEvent) {
 .message-chart svg { display: block; overflow: visible; }
 .message-chart__grid line { stroke: var(--border); stroke-width: 1; }
 .message-chart__axis text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.message-chart__axis .message-chart__axis-name { font-weight: 600; }
 .message-chart__line { fill: none; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
 .message-chart__line--partial { stroke-dasharray: 1 5; }
 .message-chart__start { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; }
