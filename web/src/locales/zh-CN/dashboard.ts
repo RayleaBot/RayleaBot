@@ -82,6 +82,8 @@ export const dashboard = {
     incidentOffline: '{name} 断线 {duration}',
     incidentOngoing: '{name} 断线中，已 {duration}',
     incidentStopped: '服务未运行 {duration}',
+    incidentStoppedRepeated: '服务未运行 {count} 次，共 {duration}',
+    incidentOfflineRepeated: '{name} 断线 {count} 次，共 {duration}',
     duration: { minutes: '{minutes} 分钟', hours: '{hours} 小时', hoursMinutes: '{hours} 小时 {minutes} 分' },
     openLogsHour: '点击查看这一小时的日志',
     openLogsDay: '点击查看这一天的日志',

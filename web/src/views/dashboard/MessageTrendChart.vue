@@ -223,18 +223,30 @@ const tooltip = computed(() => {
   const start = starts.value[index]!
   const end = bucketEnd(props.stats, index)
   const title = props.stats.granularity === 'hour' ? `${dayLabel(start)} ${hourLabel(start)}` : dayLabel(start)
-  const notes = props.stats.incidents.flatMap((incident): { kind: MessageStatsIncident['kind']; text: string }[] => {
+  // Repeated restarts or reconnects inside one bucket read as one line with a count and the time they add up to.
+  const groups = new Map<string, { kind: MessageStatsIncident['kind']; adapterId: string; ongoing: boolean; count: number; total: number; since: number }>()
+  for (const incident of props.stats.incidents) {
     const overlap = Math.min(end, incidentEnd(incident)) - Math.max(start, Date.parse(incident.started_at))
-    if (overlap <= 0) return []
-    if (incident.kind === 'server_stopped') return [{ kind: incident.kind, text: t('dashboard.messages.incidentStopped', { duration: duration(overlap) }) }]
-    const name = props.names[incident.adapter_id ?? ''] ?? incident.adapter_id ?? ''
-    const ongoing = !incident.ended_at && end > asOf.value
-    return [{
-      kind: incident.kind,
-      text: ongoing
-        ? t('dashboard.messages.incidentOngoing', { name, duration: duration(asOf.value - Date.parse(incident.started_at)) })
-        : t('dashboard.messages.incidentOffline', { name, duration: duration(overlap) }),
-    }]
+    if (overlap <= 0) continue
+    const adapterId = incident.adapter_id ?? ''
+    const ongoing = incident.kind === 'adapter_offline' && !incident.ended_at && end > asOf.value
+    const key = `${incident.kind}|${adapterId}|${ongoing}`
+    const group = groups.get(key) ?? { kind: incident.kind, adapterId, ongoing, count: 0, total: 0, since: Date.parse(incident.started_at) }
+    group.count += 1
+    group.total += overlap
+    groups.set(key, group)
+  }
+  const notes = [...groups.values()].map((group): { kind: MessageStatsIncident['kind']; text: string } => {
+    if (group.kind === 'server_stopped') {
+      return { kind: group.kind, text: group.count > 1
+        ? t('dashboard.messages.incidentStoppedRepeated', { count: group.count, duration: duration(group.total) })
+        : t('dashboard.messages.incidentStopped', { duration: duration(group.total) }) }
+    }
+    const name = props.names[group.adapterId] ?? group.adapterId
+    if (group.ongoing) return { kind: group.kind, text: t('dashboard.messages.incidentOngoing', { name, duration: duration(asOf.value - group.since) }) }
+    return { kind: group.kind, text: group.count > 1
+      ? t('dashboard.messages.incidentOfflineRepeated', { name, count: group.count, duration: duration(group.total) })
+      : t('dashboard.messages.incidentOffline', { name, duration: duration(group.total) }) }
   })
   const openable = props.logsFrom !== null && end > props.logsFrom
   return {
