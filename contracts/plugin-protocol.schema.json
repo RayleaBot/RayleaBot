@@ -1203,14 +1203,14 @@
       "properties": {
         "source_protocol": {
           "type": "string",
-          "description": "Optional protocol constraint for active delivery. Without source_adapter it must select exactly one enabled adapter instance. When both fields are supplied, the named instance must speak this protocol. A reply resolves its adapter from reply_to_event_id."
+          "description": "Optional protocol constraint for active delivery. Without source_adapter it must select exactly one enabled adapter instance of this protocol. When both fields are supplied, the named instance must speak this protocol. A reply resolves its adapter from reply_to_event_id; an action that supplies neither field inherits the adapter instance of its chat parent event."
         },
         "source_adapter": {
           "type": "string",
           "minLength": 1,
           "maxLength": 64,
           "pattern": "^[a-z0-9][a-z0-9-]*$",
-          "description": "Configured adapter instance ID for active delivery, matching event.source_adapter. Required to disambiguate multiple enabled instances of one protocol. Disabled, missing or protocol-mismatched instances are rejected without sending. When neither source field is supplied, delivery requires exactly one enabled instance."
+          "description": "Configured adapter instance ID for active delivery, matching event.source_adapter. Required to disambiguate multiple enabled instances of one protocol. Disabled, missing or protocol-mismatched instances are rejected without sending. When neither source field is supplied, an action whose parent event came from a chat adapter is delivered through that event's adapter instance; any other delivery requires exactly one enabled instance."
         },
         "target_type": {
           "$ref": "#/$defs/conversation_target_type"

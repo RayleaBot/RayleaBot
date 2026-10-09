@@ -96,12 +96,12 @@ const (
 // Outbound message shapes. An adapter receives these and renders them onto its
 // own wire format; nothing here names a protocol.
 type OutboundMessageSend struct {
-	// Origin is host-only context; adapters may use it for passive delivery.
+	// Origin is host-only context for adapter routing and passive delivery.
 	Origin *Event
 	// SourceAdapter names the adapter instance that must deliver this message,
-	// and SourceProtocol the protocol it speaks. Both are empty when the caller
-	// did not originate from a specific adapter, which resolves only while one
-	// candidate is connected.
+	// and SourceProtocol the protocol it speaks. When both are empty, routing
+	// inherits the chat origin's instance, or requires one enabled instance
+	// when there is no chat origin.
 	SourceAdapter  string
 	SourceProtocol string
 	TargetType     string

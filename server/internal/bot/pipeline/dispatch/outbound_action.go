@@ -23,6 +23,9 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		}
 	}
 
+	if action.Kind == "message.send" {
+		action.SourceAdapter, action.SourceProtocol = outbound.InheritChatSource(action.SourceAdapter, action.SourceProtocol, &event)
+	}
 	commandName := commandNameForEvent(event)
 	targetType := action.TargetType
 	targetID := action.TargetID

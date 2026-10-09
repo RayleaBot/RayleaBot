@@ -27,9 +27,8 @@ type Routes struct {
 }
 
 // Router sends each outbound message through the adapter instance that
-// owns the conversation. A reply carries the instance of the event it answers;
-// an active push may carry only a protocol, or nothing at all, which resolves
-// only while one candidate is connected.
+// owns the conversation. Replies and sends without source fields inherit their
+// chat event's instance. Other sends must select exactly one enabled instance.
 type Router struct {
 	snapshot func() *routingTable
 }
@@ -82,6 +81,7 @@ func (r *Router) ResolveScope(scope chatevent.IdentityScope, identities []chatev
 }
 
 func (r *routingTable) SendMessage(ctx context.Context, message chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
+	message.SourceAdapter, message.SourceProtocol = InheritChatSource(message.SourceAdapter, message.SourceProtocol, message.Origin)
 	id, err := r.ResolveAdapterID(message.SourceAdapter, message.SourceProtocol)
 	if err != nil {
 		return chatevent.SendMessageResult{SourceAdapter: message.SourceAdapter, SourceProtocol: message.SourceProtocol}, err
@@ -93,6 +93,17 @@ func (r *routingTable) SendMessage(ctx context.Context, message chatevent.Outbou
 	}
 	result.SourceAdapter, result.SourceProtocol = id, r.protocols[id]
 	return result, err
+}
+
+// InheritChatSource binds an unspecified send to its chat parent before either
+// quota admission or delivery selects an enabled adapter.
+func InheritChatSource(adapter, protocol string, origin *chatevent.Event) (string, string) {
+	if strings.TrimSpace(adapter) == "" && strings.TrimSpace(protocol) == "" && origin != nil && strings.TrimSpace(origin.SourceAdapter) != "" {
+		if origin.SourceProtocol == "onebot11" || origin.SourceProtocol == "qqofficial" {
+			return origin.SourceAdapter, origin.SourceProtocol
+		}
+	}
+	return adapter, protocol
 }
 
 func (r *routingTable) SendReply(ctx context.Context, message chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {

@@ -77,6 +77,43 @@ func TestAdapterRouterRefusesToGuessBetweenAdapters(t *testing.T) {
 	}
 }
 
+func TestSendActionInheritsOnlyChatParentAdapter(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name           string
+		origin         chatevent.Event
+		sourceProtocol string
+		wantAdapter    string
+	}{
+		{name: "message parent", origin: chatevent.Event{SourceAdapter: "qq-official", SourceProtocol: "qqofficial", EventType: "message.private"}, wantAdapter: "qq-official"},
+		{name: "notice parent", origin: chatevent.Event{SourceAdapter: "qq-official", SourceProtocol: "qqofficial", EventType: "notice.friend_add"}, wantAdapter: "qq-official"},
+		{name: "no parent"},
+		{name: "platform parent", origin: chatevent.Event{SourceAdapter: "adapters.internal", SourceProtocol: "platform", EventType: "platform.bot_identities.changed"}},
+		{name: "explicit protocol", origin: chatevent.Event{SourceAdapter: "qq-official", SourceProtocol: "qqofficial", EventType: "message.private"}, sourceProtocol: "onebot11", wantAdapter: "onebot11"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var sent []string
+			router := NewRouter(map[string]ActionSender{
+				"onebot11":    recordingSender{name: "onebot11", sent: &sent},
+				"qq-official": recordingSender{name: "qq-official", sent: &sent},
+			}, map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"}, nil)
+			result, err := SendAction(t.Context(), router, nil, tc.origin, chatevent.MessageCommand{
+				Kind: "message.send", SourceProtocol: tc.sourceProtocol, TargetType: "private", TargetID: "U1",
+			})
+			if tc.wantAdapter == "" {
+				var sendErr *chatevent.SendError
+				if !errors.As(err, &sendErr) || sendErr.Code != errorcodes.AdapterSendFailed || len(sent) != 0 {
+					t.Fatalf("ambiguous send: result=%+v, error=%v, sent=%v", result, err, sent)
+				}
+				return
+			}
+			if err != nil || result.SourceAdapter != tc.wantAdapter || len(sent) != 1 || sent[0] != tc.wantAdapter {
+				t.Fatalf("send: result=%+v, error=%v, sent=%v, want adapter %s", result, err, sent, tc.wantAdapter)
+			}
+		})
+	}
+}
+
 func TestAdapterRouterResolvesWhenOnlyOneAdapterIsConnected(t *testing.T) {
 	t.Parallel()
 
