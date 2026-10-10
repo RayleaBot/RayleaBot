@@ -1,9 +1,6 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="web/public/favicon-dark.svg">
-  <img src="web/public/favicon.svg" width="140" alt="RayleaBot">
-</picture>
+<img src="web/public/favicon.svg" width="140" alt="RayleaBot">
 
 # RayleaBot
 

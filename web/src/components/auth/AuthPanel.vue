@@ -18,7 +18,7 @@ defineExpose({ focus: () => heading.value?.focus() })
 <template>
   <section class="auth-panel" :aria-labelledby="headingId">
     <header class="auth-panel__header">
-      <div class="auth-panel__mark"><RayleaMark /></div>
+      <div class="auth-panel__mark"><RayleaMark :size="128" /></div>
       <h1 :id="headingId" ref="heading" class="auth-panel__title" tabindex="-1">{{ title }}</h1>
       <p class="auth-panel__subtitle">{{ subtitle }}</p>
     </header>
@@ -33,15 +33,14 @@ defineExpose({ focus: () => heading.value?.focus() })
 .auth-panel__mark {
   display: grid;
   place-items: center;
-  width: 112px;
-  height: 112px;
+  width: 144px;
+  height: 144px;
   margin: 0 auto 24px;
   color: var(--auth-text);
   border: 1px solid transparent;
   border-radius: 28px;
   background: var(--auth-control);
   box-shadow: var(--shadow-xs);
-  :deep(.raylea-mark) { width: 96px; height: 96px; }
 }
 .auth-panel__title {
   margin: 0;

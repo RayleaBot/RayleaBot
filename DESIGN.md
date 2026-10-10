@@ -292,6 +292,8 @@ Web 产品按钮与导航项为胶囊，输入框与选择器使用 md 圆角，
 
 品牌标识保留白发、帽子、蝴蝶结、水手服与手势，以 [design/mark.json](design/mark.json) 为唯一母版。母版在共享 viewBox 内分别保存 `themes.light` 与 `themes.dark` 的贝塞尔路径、填充及细轮廓；人物内部填充不透明，外围保留透明留白。浅色版使用黑白配色，暗色版保留白发和浅色脸部，以炭灰配饰、柔灰衣料和银灰轮廓区分层次，不使用反色滤镜。两版分别导出为只包含矢量路径的 [mark-light.svg](design/mark-light.svg) 与 [mark-dark.svg](design/mark-dark.svg)，不嵌入 PNG 或外部图片。Web、Launcher 的界面标识与 Web favicon 按有效主题选择对应版本。Launcher 功能图标使用 Lucide 线性图标，品牌标识不承担操作或状态含义。
 
+Web 界面使用 [Web 标识生成脚本](scripts/generate-web-brand-assets.mjs) 从两版 SVG 生成的透明 PNG。每个目标尺寸以四倍分辨率绘制并按预乘 alpha 采样，减少完整人物在小尺寸下的边缘噪点；组件通过 `srcset` 和明确的方形尺寸适配屏幕像素密度。SVG 母版、favicon 和 Launcher 矢量绘制保持独立，图片不反向覆盖矢量来源。
+
 原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、亮暗托盘 PNG 和 Windows ICO 由 [图标生成脚本](scripts/generate-launcher-icons.mjs) 通过 Skia 后端的 Canvas 2D（`@napi-rs/canvas`）与 `Path2D` 从 SVG 共用的母版路径确定性光栅渲染，保留透明背景。应用 PNG 与 Windows ICO 固定使用浅色版；托盘按系统主题选择浅色版或独立暗色版。两版标识均源自经用户确认的 AI 辅助人物图，并分别转换为贝塞尔矢量；PNG 内嵌对应主题、配色与来源元数据。ICO 包含 16、24、32、48、64、128、256px 图像，每个尺寸独立渲染而非缩放。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的生成与验证入口见 Launcher 界面规范。
 
 ## Components

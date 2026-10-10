@@ -1,34 +1,47 @@
 <script setup lang="ts">
-import { rayleaMark } from '@/preferences/theme-tokens.generated'
+import { rayleaMarkSources } from '@/preferences/brand-assets.generated'
 
 withDefaults(defineProps<{
   variant?: 'neutral' | 'chrome' | 'monochrome'
+  size?: 32 | 40 | 128
 }>(), {
   variant: 'monochrome',
+  size: 32,
 })
 </script>
 
 <template>
-  <svg
+  <span
     aria-hidden="true"
     class="raylea-mark"
     :class="`raylea-mark--${variant}`"
-    focusable="false"
-    :viewBox="rayleaMark.viewBox"
+    :style="{ width: `${size}px`, height: `${size}px` }"
   >
-    <g v-for="(theme, mode) in rayleaMark.themes" :key="mode" :class="`raylea-mark__theme--${mode}`">
-      <path :d="theme.paths[theme.outline.pathIndex].d" fill="none" :stroke="theme.outline.color" :stroke-width="theme.outline.width" stroke-linejoin="round" />
-      <path v-for="(part, index) in theme.paths" :key="index" :d="part.d" :fill="part.fill" :fill-rule="part.fillRule" :opacity="part.opacity" />
-    </g>
-  </svg>
+    <img
+      v-for="(source, mode) in rayleaMarkSources"
+      :key="mode"
+      :class="`raylea-mark__theme--${mode}`"
+      :src="source[size].src"
+      :srcset="source[size].srcset"
+      :sizes="`${size}px`"
+      :width="size"
+      :height="size"
+      alt=""
+      draggable="false"
+    >
+  </span>
 </template>
 
 <style scoped>
 .raylea-mark {
-  display: block;
-  width: 24px;
-  height: 24px;
+  display: grid;
   flex: none;
-  overflow: visible;
+}
+
+.raylea-mark img {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 </style>

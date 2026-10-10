@@ -139,7 +139,7 @@ onBeforeUnmount(() => stopRoutePrefetch?.())
         :title="siderCollapsed ? `${t('app.brand')} · ${buildVersionLabel}` : undefined"
         @click="navigateTo('/')"
       >
-        <RayleaMark class="admin-layout__brand-mark" variant="chrome" />
+        <RayleaMark class="admin-layout__brand-mark" variant="chrome" :size="40" />
         <span v-if="!siderCollapsed" class="admin-layout__brand-copy">
           <strong>{{ t('app.brand') }}</strong>
           <span class="admin-layout__build-version" :title="buildVersionLabel" data-testid="build-version">{{ buildVersionLabel }}</span>

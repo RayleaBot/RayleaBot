@@ -68,7 +68,6 @@ function setThemeModeWithMotion(mode: ThemeMode, origin: ThemeMotionOrigin) {
   font-size: var(--font-size-lg);
   font-weight: 700;
   letter-spacing: -.02em;
-  :deep(.raylea-mark) { width: 26px; height: 28px; }
 }
 .auth-layout__content { width: min(448px, 100%); }
 .auth-layout__surface {
