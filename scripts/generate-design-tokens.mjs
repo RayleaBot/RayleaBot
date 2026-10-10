@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { renderMarkSvg, validateMark } from './design-mark.mjs'
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(scriptDirectory, '..')
@@ -10,17 +11,7 @@ const tokenPath = path.join(repositoryRoot, 'design', 'tokens.json')
 const checkMode = process.argv.includes('--check')
 
 const source = JSON.parse(fs.readFileSync(tokenPath, 'utf8'))
-const mark = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'design', 'mark.json'), 'utf8'))
-if (typeof mark.viewBox !== 'string' || !Array.isArray(mark.paths) || !mark.paths.length
-  || mark.paths.some((part) => typeof part.d !== 'string' || !part.d.trim()
-    || !/^#[0-9a-f]{6}$/i.test(part.fill) || !['nonzero', 'evenodd'].includes(part.fillRule)
-    || !Number.isFinite(part.opacity) || !(part.opacity >= 0 && part.opacity <= 1))) {
-  throw new Error('design/mark.json must contain a viewBox and vector paths with explicit fills, fill rules and finite opacity')
-}
-if (!mark.outline || !Number.isInteger(mark.outline.pathIndex) || !mark.paths[mark.outline.pathIndex]
-  || !/^#[0-9a-f]{6}$/i.test(mark.outline.color) || !Number.isFinite(mark.outline.width) || mark.outline.width <= 0) {
-  throw new Error('design/mark.json must contain a valid contrast outline')
-}
+const mark = validateMark(JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'design', 'mark.json'), 'utf8')))
 const changedFiles = []
 const errors = []
 
@@ -340,15 +331,6 @@ export const launcherGeneratedThemes: Record<'light' | 'dark', GeneratedLauncher
   light: ${renderTypescriptObject(themes.light, 2, '"')},
   dark: ${renderTypescriptObject(themes.dark, 2, '"')},
 };
-`
-}
-
-function renderWebFavicon(inverted = false) {
-  const color = (value) => inverted ? `#${(0xffffff ^ Number.parseInt(value.slice(1), 16)).toString(16).padStart(6, '0')}` : value
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${mark.viewBox}">
-  <path d="${mark.paths[mark.outline.pathIndex].d}" fill="none" stroke="${color(mark.outline.color)}" stroke-width="${mark.outline.width}" stroke-linejoin="round"/>
-${mark.paths.map((part) => `  <path d="${part.d}" fill="${color(part.fill)}" fill-rule="${part.fillRule}" opacity="${part.opacity}"/>`).join('\n')}
-</svg>
 `
 }
 
@@ -737,7 +719,9 @@ function updateImpeccable(current) {
   const document = JSON.parse(current)
   document.extensions ??= {}
   document.extensions.nativeAssets ??= {}
-  document.extensions.nativeAssets.provenance = '人物母版源自用户确认的 AI 辅助概念图与贝塞尔矢量转换；浅色使用原版，暗色使用完整反色版，均保留同一曲线、手势和透明背景；Skia Canvas 2D 确定性渲染原生资源，PNG 内嵌来源元数据。'
+  document.extensions.nativeAssets.provenance = '人物母版由用户确认的浅色、暗色概念图分别转换为贝塞尔路径；浅色使用黑白配色，暗色使用独立灰阶配色，均保留白发、手势和透明背景。SVG 只包含矢量路径；Skia Canvas 2D 从同一母版确定性渲染原生资源，PNG 内嵌主题与来源元数据。'
+  document.extensions.nativeAssets.lightSvg = 'design/mark-light.svg'
+  document.extensions.nativeAssets.darkSvg = 'design/mark-dark.svg'
   document.extensions.nativeAssets.trayDarkPng = '32x32'
   document.extensions.colorMeta = renderColorMeta()
   document.extensions.typographyMeta = {
@@ -875,8 +859,10 @@ const breakpointValues = Object.keys(source.breakpoint).filter(name => !name.sta
 stageOutput('web/src/styles/_breakpoints.generated.scss', '// Generated from design/tokens.json by scripts/generate-design-tokens.mjs. Do not edit.\n'
   + breakpointValues.map(([name, value]) => `$${name}: ${value}px;`).join('\n') + '\n')
 
-stageOutput('web/public/favicon.svg', renderWebFavicon())
-stageOutput('web/public/favicon-dark.svg', renderWebFavicon(true))
+stageOutput('design/mark-light.svg', renderMarkSvg(mark, 'light'))
+stageOutput('design/mark-dark.svg', renderMarkSvg(mark, 'dark'))
+stageOutput('web/public/favicon.svg', renderMarkSvg(mark, 'light'))
+stageOutput('web/public/favicon-dark.svg', renderMarkSvg(mark, 'dark'))
 stageOutput('launcher/src/shared/launcher-theme-tokens.generated.ts', renderLauncherTokens())
 stageOutput('design/typography.generated.css', renderTypographyCss())
 const fontLicense = fs.readFileSync(path.join(repositoryRoot, uiFontDirectory, 'LICENSE.txt'), 'utf8')

@@ -2,11 +2,15 @@
   "inputs": {
     "geometry": {
       "path": "design/mark.json",
-      "sha256": "65f7112434a71f6a1df3ac3a46b196d99ba5ec14e5aad5da768d0092e9859a75"
+      "sha256": "0167747ad5b964a1e0842aaf75013bdd5eff936dc9adf9f13a59b5fe82d59e53"
     },
     "generator": {
       "path": "scripts/generate-launcher-icons.mjs",
-      "sha256": "7c865f43a65ae94e6523985843f8f91b4a88fff7fdca9a3869b7e46e7472eb45"
+      "sha256": "76bd792879a59c4c2ac8c81d285f3bdae991cbc456ac258a94663eb8670c72aa"
+    },
+    "markValidator": {
+      "path": "scripts/design-mark.mjs",
+      "sha256": "ce7b187a71e54c3b7424d4b665861040503528a3fd6b896949a7fc53f64f470f"
     },
     "metadataWriter": {
       "path": "scripts/png-provenance.mjs",
@@ -24,21 +28,21 @@
       "height": 1024,
       "alpha": true,
       "role": "application",
-      "treatment": "approved black-and-white character logo with opaque white hair, a light contrast outline and transparent padding"
+      "treatment": "approved light character design with opaque black-and-white fills and transparent padding"
     },
     "tray.png": {
       "width": 32,
       "height": 32,
       "alpha": true,
       "role": "light system tray",
-      "treatment": "the original black-and-white logo with a light outline and transparent background"
+      "treatment": "light character design with a fine light outline and transparent background"
     },
     "tray-dark.png": {
       "width": 32,
       "height": 32,
       "alpha": true,
       "role": "dark system tray",
-      "treatment": "the approved inverted logo with a dark outline and transparent background"
+      "treatment": "independent dark character design with white hair, charcoal accessories, gray clothing and transparent background"
     },
     "icon.ico": {
       "sizes": [
@@ -55,9 +59,9 @@
     }
   },
   "sha256": {
-    "appicon.png": "ac27a66b2a5e6ee8ea78cf06daba997de78d2d69b93701011886b785ab85db5d",
-    "tray.png": "e00067f9faa89688576509d1023e7395917e480f68d44dcd139910c57fe33ef2",
-    "tray-dark.png": "bb54bf9e70a51cff756c967a93fad3a788dc82fb0e81c7a3cb3275d6f650bcad",
-    "icon.ico": "2f52553430621bbf0b09f603db8deeabeda5e48034a87c0833a9f62265c81b52"
+    "appicon.png": "b797288b5b7d5f3140dbe9c90d25e3146a8bdccfecf0ee5d5a112475bde0a89d",
+    "tray.png": "19d6f056aa86b45519778b9a2402997acbeaaf923365fe4f8739e11c5b4c87b6",
+    "tray-dark.png": "6608fe9c19a59b7c659a2f95ba7d7975821d2f54c73e14356473e487c28d9326",
+    "icon.ico": "c68c4146b16c1ea611bf4912cafbebda60590f6050c4b57368b75ed345739838"
   }
 }

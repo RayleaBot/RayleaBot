@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { readPngProvenance, writePngProvenance } from "./png-provenance.mjs";
+import { validateMark } from "./design-mark.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const assetsRoot = path.join(root, "launcher/assets");
@@ -21,14 +22,7 @@ if (arguments_.includes("--help")) {
 const readText = (file) => fs.readFileSync(path.join(root, file), "utf8").replaceAll("\r\n", "\n");
 const sha256 = (content) => createHash("sha256").update(content).digest("hex");
 const markSource = readText("design/mark.json");
-const mark = JSON.parse(markSource);
-assert(typeof mark.viewBox === "string" && Array.isArray(mark.paths) && mark.paths.length > 0, "Invalid design/mark.json");
-assert(mark.paths.every((part) => typeof part.d === "string" && part.d.trim()
-  && /^#[0-9a-f]{6}$/i.test(part.fill) && ["nonzero", "evenodd"].includes(part.fillRule)
-  && Number.isFinite(part.opacity) && part.opacity >= 0 && part.opacity <= 1), "Invalid mark path paint");
-assert(mark.outline && Number.isInteger(mark.outline.pathIndex) && mark.paths[mark.outline.pathIndex]
-  && /^#[0-9a-f]{6}$/i.test(mark.outline.color) && Number.isFinite(mark.outline.width)
-  && mark.outline.width > 0, "Invalid mark contrast outline");
+const mark = validateMark(JSON.parse(markSource));
 const viewBox = mark.viewBox.trim().split(/[\s,]+/).map(Number);
 assert(viewBox.length === 4 && viewBox.every(Number.isFinite) && viewBox[2] > 0 && viewBox[3] > 0, "Invalid mark viewBox");
 const launcherRequire = createRequire(path.join(root, "launcher/package.json"));
@@ -37,22 +31,22 @@ const canvasVersion = launcherRequire("@napi-rs/canvas/package.json").version;
 const inputs = {
   geometry: { path: "design/mark.json", sha256: sha256(markSource) },
   generator: { path: "scripts/generate-launcher-icons.mjs", sha256: sha256(readText("scripts/generate-launcher-icons.mjs")) },
+  markValidator: { path: "scripts/design-mark.mjs", sha256: sha256(readText("scripts/design-mark.mjs")) },
   metadataWriter: { path: "scripts/png-provenance.mjs", sha256: sha256(readText("scripts/png-provenance.mjs")) },
   rasterizer: { module: "@napi-rs/canvas", version: canvasVersion, engine: "Skia" },
 };
 
-const invertColor = (color) => `#${(0xffffff ^ Number.parseInt(color.slice(1), 16)).toString(16).padStart(6, "0")}`;
 const provenance = Object.fromEntries(["appicon.png", "tray.png", "tray-dark.png"].map((file) => {
-  const inverted = file === "tray-dark.png";
-  const color = (value) => inverted ? invertColor(value) : value;
+  const mode = file === "tray-dark.png" ? "dark" : "light";
+  const theme = mark.themes[mode];
   return [file, JSON.stringify({
     type: "source-provenance",
-    method: "Deterministic Skia Canvas 2D rendering of the user-approved black-and-white vector logo.",
-    artworkOrigin: "AI-assisted character concept converted to Bezier vector paths and approved as the RayleaBot logo.",
+    method: "Deterministic Skia Canvas 2D rendering of theme-specific SVG path geometry.",
+    artworkOrigin: "User-approved light and dark character designs converted independently to pure Bezier vector paths.",
     geometry: inputs.geometry,
-    colors: [...new Set(mark.paths.map((part) => color(part.fill)))],
-    outline: { ...mark.outline, color: color(mark.outline.color) },
-    inverted,
+    colors: [...new Set(theme.paths.map((part) => part.fill))],
+    outline: theme.outline,
+    theme: mode,
     rasterizer: inputs.rasterizer,
     generator: inputs.generator,
     metadataWriter: inputs.metadataWriter,
@@ -104,20 +98,20 @@ function verify() {
   console.log(`Launcher icon inputs and hashes are current: appicon ${appSize}px, light/dark tray ${traySize}px, ICO ${sizes.join("/")}px.`);
 }
 
-function renderMark(canvasModule, size, inverted = false) {
+function renderMark(canvasModule, size, mode = "light") {
   const { createCanvas, Path2D } = canvasModule;
-  const color = (value) => inverted ? invertColor(value) : value;
+  const theme = mark.themes[mode];
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext("2d");
   const scale = size / Math.max(viewBox[2], viewBox[3]);
   ctx.translate((size - viewBox[2] * scale) / 2 - viewBox[0] * scale, (size - viewBox[3] * scale) / 2 - viewBox[1] * scale);
   ctx.scale(scale, scale);
-  ctx.strokeStyle = color(mark.outline.color);
-  ctx.lineWidth = mark.outline.width;
+  ctx.strokeStyle = theme.outline.color;
+  ctx.lineWidth = theme.outline.width;
   ctx.lineJoin = "round";
-  ctx.stroke(new Path2D(mark.paths[mark.outline.pathIndex].d));
-  for (const part of mark.paths) {
-    ctx.fillStyle = color(part.fill);
+  ctx.stroke(new Path2D(theme.paths[theme.outline.pathIndex].d));
+  for (const part of theme.paths) {
+    ctx.fillStyle = part.fill;
     ctx.globalAlpha = part.opacity;
     ctx.fill(new Path2D(part.d), part.fillRule);
   }
@@ -148,7 +142,7 @@ if (!arguments_.includes("--check")) {
   const png = (canvas) => canvas.toBuffer("image/png");
   fs.writeFileSync(path.join(assetsRoot, "appicon.png"), png(renderMark(canvasModule, appSize)));
   fs.writeFileSync(path.join(assetsRoot, "tray.png"), png(renderMark(canvasModule, traySize)));
-  fs.writeFileSync(path.join(assetsRoot, "tray-dark.png"), png(renderMark(canvasModule, traySize, true)));
+  fs.writeFileSync(path.join(assetsRoot, "tray-dark.png"), png(renderMark(canvasModule, traySize, "dark")));
   fs.writeFileSync(path.join(assetsRoot, "icon.ico"), encodeIco(sizes.map((size) => ({ size, png: png(renderMark(canvasModule, size)) }))));
   for (const [file, sourceProvenance] of Object.entries(provenance)) {
     const assetPath = path.join(assetsRoot, file);
@@ -157,9 +151,9 @@ if (!arguments_.includes("--check")) {
   fs.writeFileSync(manifestPath, JSON.stringify({
     inputs,
     outputs: {
-      "appicon.png": { width: appSize, height: appSize, alpha: true, role: "application", treatment: "approved black-and-white character logo with opaque white hair, a light contrast outline and transparent padding" },
-      "tray.png": { width: traySize, height: traySize, alpha: true, role: "light system tray", treatment: "the original black-and-white logo with a light outline and transparent background" },
-      "tray-dark.png": { width: traySize, height: traySize, alpha: true, role: "dark system tray", treatment: "the approved inverted logo with a dark outline and transparent background" },
+      "appicon.png": { width: appSize, height: appSize, alpha: true, role: "application", treatment: "approved light character design with opaque black-and-white fills and transparent padding" },
+      "tray.png": { width: traySize, height: traySize, alpha: true, role: "light system tray", treatment: "light character design with a fine light outline and transparent background" },
+      "tray-dark.png": { width: traySize, height: traySize, alpha: true, role: "dark system tray", treatment: "independent dark character design with white hair, charcoal accessories, gray clothing and transparent background" },
       "icon.ico": { sizes, role: "Windows executable resource", treatment: "application composition rendered natively at every frame size" },
     },
     sha256: fingerprints(),

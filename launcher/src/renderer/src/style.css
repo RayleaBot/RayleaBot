@@ -151,8 +151,16 @@ html[data-launcher-view-transition-kind="theme"]::view-transition-new(root) {
   overflow: visible;
 }
 
-html[data-theme="dark"] .raylea-mark {
-  filter: invert(1);
+.raylea-mark__theme--dark {
+  display: none;
+}
+
+html[data-theme="dark"] .raylea-mark__theme--light {
+  display: none;
+}
+
+html[data-theme="dark"] .raylea-mark__theme--dark {
+  display: inline;
 }
 
 h1,

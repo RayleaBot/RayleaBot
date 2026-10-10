@@ -6,7 +6,6 @@ withDefaults(defineProps<{
   variant?: "chrome" | "monochrome" | "neutral";
 }>(), { variant: "monochrome" });
 
-const outlinePath = rayleaMark.paths[rayleaMark.outline.pathIndex].d;
 </script>
 
 <template>
@@ -17,7 +16,9 @@ const outlinePath = rayleaMark.paths[rayleaMark.outline.pathIndex].d;
     focusable="false"
     :viewBox="rayleaMark.viewBox"
   >
-    <path :d="outlinePath" fill="none" :stroke="rayleaMark.outline.color" :stroke-width="rayleaMark.outline.width" stroke-linejoin="round" />
-    <path v-for="part in rayleaMark.paths" :key="part.fill" :d="part.d" :fill="part.fill" :fill-rule="part.fillRule" :opacity="part.opacity" />
+    <g v-for="(theme, mode) in rayleaMark.themes" :key="mode" :class="`raylea-mark__theme--${mode}`">
+      <path :d="theme.paths[theme.outline.pathIndex].d" fill="none" :stroke="theme.outline.color" :stroke-width="theme.outline.width" stroke-linejoin="round" />
+      <path v-for="(part, index) in theme.paths" :key="index" :d="part.d" :fill="part.fill" :fill-rule="part.fillRule" :opacity="part.opacity" />
+    </g>
   </svg>
 </template>

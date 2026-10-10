@@ -188,7 +188,7 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 **Key Characteristics:**
 
 - 白色页面、浅灰盒子与柔和阴影，不使用渐变、背景模糊或半透明材质。
-- 蓝色主操作、链接与焦点，以及按亮暗主题切换原版与反色版的黑白人物标识。
+- 蓝色主操作、链接与焦点，以及按亮暗主题切换独立黑白版与灰阶版的人物标识。
 - 随包的 HarmonyOS Sans SC 用于 Web 与 Launcher 的全部界面文字；字号、字重与间距形成克制层级。
 - 控件取所在容器相反的明暗：页面上是浅灰，盒子里是白色，都以轻阴影抬起。
 - 亮暗主题与键盘操作保持等价操作能力；桌面以 16:9 的 1920×1080 为最低分辨率与界面验证基准。
@@ -204,7 +204,7 @@ Web 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部�
 ### Primary
 
 - **蓝色主操作**：浅色使用 light-primary 配白色文字，暗色使用 dark-primary；悬停与按下分别消费对应组件映射。
-- **蓝色品牌前景**：链接、焦点、选中导航图标与勾选标记消费品牌角色，不扩散到普通正文和容器边界；选中淡面（brand-soft）是淡蓝，用于选中行与选中选项。人物标识使用原版或反色版的黑白配色。
+- **蓝色品牌前景**：链接、焦点、选中导航图标与勾选标记消费品牌角色，不扩散到普通正文和容器边界；选中淡面（brand-soft）是淡蓝，用于选中行与选中选项。人物标识使用独立的浅色黑白配色或暗色灰阶配色。
 
 ### Neutral
 
@@ -290,9 +290,9 @@ forced-colors 下盒子、浮层与认证面板使用系统颜色与 1px 系统�
 
 Web 产品按钮与导航项为胶囊，输入框与选择器使用 md 圆角，卡片使用 xl 圆角，居中产品弹窗采用 xxl 圆角。配置、搜索与确认弹窗共享该形状，内部字段通过间距与分隔线分组。左右抽屉是悬浮在视口内、四角圆角的面板；底部抽屉只有上方两个角为圆角。菜单与 Toast 使用 lg 圆角，Tooltip 使用现有 md 圆角，Web 状态与分类标签是 full 圆角的紧凑胶囊。
 
-品牌标识为黑白人物，保留帽子、蝴蝶结、手势与完整曲线轮廓，以 [design/mark.json](design/mark.json) 为唯一母版。母版保留原始 `0 0 1254 1254` viewBox 与两个使用 `evenodd` 填充的贝塞尔复合路径；黑白区域均不透明，人物之外保留透明背景。原版为白发，母版的 `outline` 沿第一个路径绘制白色细轮廓，位于黑白填充后方。Web、Launcher 的界面标识与 Web favicon 在浅色主题使用原版，在暗色主题使用用户确认的整体反色版：填充与描边同步黑白互换，曲线、手势和透明背景保持一致。Launcher 功能图标使用 Lucide 线性图标，品牌标识不承担操作或状态含义。
+品牌标识保留白发、帽子、蝴蝶结、水手服与手势，以 [design/mark.json](design/mark.json) 为唯一母版。母版在共享 viewBox 内分别保存 `themes.light` 与 `themes.dark` 的贝塞尔路径、填充及细轮廓；人物内部填充不透明，外围保留透明留白。浅色版使用黑白配色，暗色版保留白发和浅色脸部，以炭灰配饰、柔灰衣料和银灰轮廓区分层次，不使用反色滤镜。两版分别导出为只包含矢量路径的 [mark-light.svg](design/mark-light.svg) 与 [mark-dark.svg](design/mark-dark.svg)，不嵌入 PNG 或外部图片。Web、Launcher 的界面标识与 Web favicon 按有效主题选择对应版本。Launcher 功能图标使用 Lucide 线性图标，品牌标识不承担操作或状态含义。
 
-原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、亮暗托盘 PNG 和 Windows ICO 由 [图标生成脚本](scripts/generate-launcher-icons.mjs) 通过 Skia 后端的 Canvas 2D（`@napi-rs/canvas`）与 `Path2D` 直接从母版确定性光栅渲染，保留同一人物曲线与透明背景。应用 PNG 与 Windows ICO 固定使用原版；托盘按系统主题使用原版或整体反色版。标识源自经用户确认的 AI 辅助人物概念图，再转为贝塞尔矢量；PNG 内嵌对应来源元数据。ICO 包含 16、24、32、48、64、128、256px 图像，每个尺寸独立渲染而非缩放。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的生成与验证入口见 Launcher 界面规范。
+原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、亮暗托盘 PNG 和 Windows ICO 由 [图标生成脚本](scripts/generate-launcher-icons.mjs) 通过 Skia 后端的 Canvas 2D（`@napi-rs/canvas`）与 `Path2D` 从 SVG 共用的母版路径确定性光栅渲染，保留透明背景。应用 PNG 与 Windows ICO 固定使用浅色版；托盘按系统主题选择浅色版或独立暗色版。两版标识均源自经用户确认的 AI 辅助人物图，并分别转换为贝塞尔矢量；PNG 内嵌对应主题、配色与来源元数据。ICO 包含 16、24、32、48、64、128、256px 图像，每个尺寸独立渲染而非缩放。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的生成与验证入口见 Launcher 界面规范。
 
 ## Components
 
@@ -430,7 +430,7 @@ Launcher 动效由 Motion 驱动：工作区以 220ms 从 0.88 不透明度淡�
 
 **The Single Motion Owner Rule.** 同一元素只接受一种动效机制，连续操作取消旧动画并以最新状态为准。
 
-**The Brand Mark Rule.** 界面与托盘标识随所属主题使用原版或整体反色版，保留同一母版的曲线、手势和透明背景；静态应用文件图标使用原版。品牌不代替状态图标或导航文字。
+**The Brand Mark Rule.** 界面与托盘标识随所属主题选择母版中的浅色版或独立暗色版，两版均保留白发、手势和透明背景；静态应用文件图标使用浅色版。品牌不代替状态图标或导航文字。
 
 插件页面、聊天卡片与渲染模板拥有独立内容和样式边界，视觉体系由各插件仓库自行维护；其管理面 Host 使用本体系。独立 iframe 不继承宿主 CSS、字体或组件运行时，内部页面保留自身组件库；页面与宿主同源加载，Vue SDK 可选地把宿主主题变量提供给页面，详见 [插件管理面](docs/design/plugin-management-surface.md)。
 
