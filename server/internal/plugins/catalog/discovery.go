@@ -20,6 +20,9 @@ type DiscoverOptions struct {
 	RepoRoot        string
 	Logger          *slog.Logger
 	MaxSummaryChars int
+	// PluginID limits artifact inspection to this manifest ID. All manifests
+	// are still read so duplicate installations of the target remain visible.
+	PluginID string
 }
 
 type DiscoverSummary struct {
@@ -43,7 +46,7 @@ func Discover(options DiscoverOptions) ([]plugins.Snapshot, DiscoverSummary, err
 	byPluginID := map[string][]plugins.Snapshot{}
 
 	for _, root := range options.Roots {
-		entries, skipped, err := discoverRoot(root, options.Validator, options.RepoRoot, maxSummaryChars, options.Logger)
+		entries, skipped, err := discoverRoot(root, options.Validator, options.RepoRoot, maxSummaryChars, options.Logger, options.PluginID)
 		if err != nil {
 			return nil, summary, err
 		}

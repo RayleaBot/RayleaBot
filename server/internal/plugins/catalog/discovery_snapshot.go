@@ -12,6 +12,10 @@ import (
 )
 
 func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Validator, maxSummaryChars int, logger *slog.Logger) (plugins.Snapshot, bool, error) {
+	return loadSnapshot(infoPath, sourceRoot, repoRoot, validator, maxSummaryChars, logger, "")
+}
+
+func loadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Validator, maxSummaryChars int, logger *slog.Logger, onlyPluginID string) (plugins.Snapshot, bool, error) {
 	document, err := config.LoadJSONFile(infoPath)
 	if err != nil {
 		if logger != nil {
@@ -33,6 +37,9 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 		return plugins.Snapshot{}, false, nil
 	}
 	pluginID, pluginName := manifestIdentity(raw)
+	if onlyPluginID != "" && pluginID != onlyPluginID {
+		return plugins.Snapshot{}, false, nil
+	}
 	if pluginID == "" {
 		if logger != nil {
 			logger.Warn(

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -60,12 +61,22 @@ func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath string) error {
 	if err != nil {
 		return fmt.Errorf("compile plugin schema: %w", err)
 	}
+	document, err := internalconfig.LoadJSONFile(filepath.Join(artifactPath, "info.json"))
+	if err != nil {
+		return fmt.Errorf("read development manifest: %w", err)
+	}
+	if err := validator.Validate(document); err != nil {
+		return fmt.Errorf("validate development manifest: %w", err)
+	}
+	manifest := document.(map[string]any)
+	pluginID, _ := manifest["id"].(string)
 	discovery := []plugincatalog.ScanRoot{{Label: "plugins/installed", Path: filepath.Join(repoRoot, "plugins", "installed")}}
 	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
 		Validator: validator,
 		Roots:     discovery,
 		RepoRoot:  repoRoot,
 		Logger:    cmd.Logger,
+		PluginID:  strings.TrimSpace(pluginID),
 	})
 	if err != nil {
 		return fmt.Errorf("discover installed plugins: %w", err)

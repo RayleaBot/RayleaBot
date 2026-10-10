@@ -24,7 +24,7 @@ export function createFileContentTracker({
   return {
     prime(sourcePath) {
       return runSerialized(sourcePath, async (sourceKey) => {
-        const snapshot = await readSnapshot(sourceKey, { readFile, stat });
+        const snapshot = await readFileContentSnapshot(sourceKey, undefined, { readFile, stat });
         if (snapshot === null) {
           fingerprints.delete(sourceKey);
         } else {
@@ -37,15 +37,7 @@ export function createFileContentTracker({
       return runSerialized(sourcePath, async (sourceKey) => {
         const wasTracked = fingerprints.has(sourceKey);
         const previousSnapshot = fingerprints.get(sourceKey);
-        const currentMetadata = await readMetadata(sourceKey, stat);
-        if (currentMetadata === null) {
-          fingerprints.delete(sourceKey);
-          return wasTracked;
-        }
-        if (wasTracked && sameContentMetadata(previousSnapshot, currentMetadata)) {
-          return false;
-        }
-        const currentSnapshot = await readSnapshot(sourceKey, { readFile, stat });
+        const currentSnapshot = await readFileContentSnapshot(sourceKey, previousSnapshot, { readFile, stat });
         if (currentSnapshot === null) {
           fingerprints.delete(sourceKey);
           return wasTracked;
@@ -59,44 +51,38 @@ export function createFileContentTracker({
 
 async function readMetadata(sourcePath, stat) {
   try {
-    const sourceStat = await stat(sourcePath);
+    const sourceStat = await stat(sourcePath, { bigint: true });
     if (!sourceStat.isFile()) {
       return null;
     }
     return {
-      size: sourceStat.size,
-      mtimeMs: sourceStat.mtimeMs,
-      ctimeMs: sourceStat.ctimeMs,
+      // ctime detects same-size edits with restored mtime; inode/device detect
+      // replacement. Nanoseconds avoid rounding rapid writes to milliseconds.
+      metadata: [sourceStat.dev, sourceStat.ino, sourceStat.size, sourceStat.mtimeNs, sourceStat.ctimeNs, sourceStat.mode].join(":"),
+      mode: Number(sourceStat.mode & 0o111n),
     };
   } catch (error) {
-    if (error?.code === "ENOENT") {
+    if (["ENOENT", "ENOTDIR"].includes(error?.code)) {
       return null;
     }
     throw error;
   }
 }
 
-async function readSnapshot(sourcePath, { readFile, stat }) {
-  const metadata = await readMetadata(sourcePath, stat);
-  if (metadata === null) {
-    return null;
-  }
-  try {
-    const content = await readFile(sourcePath);
-    return {
-      ...metadata,
-      digest: createHash("sha256").update(content).digest("hex"),
-    };
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      return null;
+export async function readFileContentSnapshot(sourcePath, previous, { readFile = fsp.readFile, stat = fsp.stat } = {}) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const before = await readMetadata(sourcePath, stat);
+    if (before === null) return null;
+    if (previous?.metadata === before.metadata && /^[a-f0-9]{64}$/.test(previous.digest) && previous.mode === before.mode) return previous;
+    try {
+      const content = await readFile(sourcePath);
+      const after = await readMetadata(sourcePath, stat);
+      if (after?.metadata !== before.metadata) continue;
+      return { ...before, digest: createHash("sha256").update(content).digest("hex") };
+    } catch (error) {
+      if (["ENOENT", "ENOTDIR"].includes(error?.code)) return null;
+      throw error;
     }
-    throw error;
   }
-}
-
-function sameContentMetadata(left, right) {
-  return left.size === right.size
-    && left.mtimeMs === right.mtimeMs
-    && left.ctimeMs === right.ctimeMs;
+  throw Object.assign(new Error(`${sourcePath}: changed while reading build input`), { code: "DEV_INPUT_CHANGED" });
 }

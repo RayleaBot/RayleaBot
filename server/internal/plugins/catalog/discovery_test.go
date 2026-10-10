@@ -9,7 +9,29 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
+
+func TestTargetDiscoveryFiltersByManifestIDAndRetainsConflicts(t *testing.T) {
+	repoRoot := t.TempDir()
+	installed := filepath.Join(repoRoot, "plugins", "installed")
+	testutil.WriteGoPluginArtifact(t, filepath.Join(installed, "different-folder-name"), "target", "0.4.0")
+	peer := testutil.WriteGoPluginArtifact(t, filepath.Join(installed, "peer"), "peer", "0.4.0")
+	if err := os.Remove(filepath.Join(peer, "artifact.json")); err != nil {
+		t.Fatal(err)
+	}
+	options := DiscoverOptions{Validator: compilePluginInfoValidator(t), Roots: []ScanRoot{{Label: "plugins/installed", Path: installed}}, RepoRoot: repoRoot, PluginID: "target"}
+	entries, _, err := Discover(options)
+	if err != nil || len(entries) != 1 || entries[0].PluginID != "target" || !entries[0].Valid {
+		t.Fatalf("target discovery: %#v %v", entries, err)
+	}
+	testutil.WriteGoPluginArtifact(t, filepath.Join(installed, "duplicate"), "target", "0.4.0")
+	entries, _, err = Discover(options)
+	if err != nil || len(entries) != 1 || entries[0].DisplayState != plugins.DisplayStateConflict {
+		t.Fatalf("target conflict lost: %#v %v", entries, err)
+	}
+}
 
 func TestDiscoverSkipsInternalRuntimeDirectoriesWithoutWarnings(t *testing.T) {
 	t.Parallel()

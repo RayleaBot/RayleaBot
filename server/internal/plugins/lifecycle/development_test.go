@@ -75,4 +75,14 @@ func TestDevelopmentSyncIsIdempotentAndPreservesDisabledState(t *testing.T) {
 	if !changed {
 		t.Fatal("damaged installed output was trusted")
 	}
+	if err := os.RemoveAll(installed.PackageRootPath); err != nil {
+		t.Fatal(err)
+	}
+	_, changed = sync()
+	if !changed {
+		t.Fatal("missing installation was not repaired")
+	}
+	if id, changed := sync(); id != "" || changed {
+		t.Fatal("repaired installation was not reusable")
+	}
 }

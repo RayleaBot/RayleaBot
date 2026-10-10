@@ -61,6 +61,54 @@ test("shutdown interrupts a batch without admitting another plugin", async () =>
   assert.deepEqual(calls, ["a"]);
 });
 
+test("bounded preparation isolates failures and preserves workspace result order", async () => {
+  const items = ["a", "b", "c", "d"].map((id) => ({ id }));
+  const gates = items.map(() => Promise.withResolvers());
+  const entered = [], progress = [];
+  let active = 0, maximum = 0;
+  const result = runDevelopmentPluginBatch(items, async (plugin) => {
+    const index = items.indexOf(plugin);
+    entered.push(plugin.id);
+    maximum = Math.max(maximum, ++active);
+    await gates[index].promise;
+    active--;
+    if (plugin.id === "b") throw new Error("fixture failure");
+    return plugin.id;
+  }, { concurrency: 2, onProgress: (completed) => progress.push(completed) });
+  assert.deepEqual(entered, ["a", "b"]);
+  gates[1].resolve();
+  await new Promise(setImmediate);
+  assert.deepEqual(entered, ["a", "b", "c"]);
+  gates[2].resolve();
+  await new Promise(setImmediate);
+  gates[3].resolve(); gates[0].resolve();
+  const batch = await result;
+  assert.equal(maximum, 2);
+  assert.deepEqual(batch.completed.map(({ plugin }) => plugin.id), ["a", "c", "d"]);
+  assert.deepEqual(batch.failed.map(({ plugin }) => plugin.id), ["b"]);
+  assert.equal(progress.at(-1), 4);
+  assert.deepEqual([...progress].sort((a, b) => a - b), progress);
+});
+
+test("parallel shutdown drains admitted work without admitting the next plugin", async () => {
+  const entered = [], stopping = Promise.withResolvers(), finishing = Promise.withResolvers();
+  let drained = false;
+  const batch = runDevelopmentPluginBatch([...plugins, { id: "c" }], async (plugin) => {
+    entered.push(plugin.id);
+    if (plugin.id === "a") { await stopping.promise; throw Object.assign(new Error("stop"), { code: "DEV_SHUTDOWN" }); }
+    await finishing.promise;
+    drained = true;
+  }, { concurrency: 2 });
+  const rejected = assert.rejects(batch, { code: "DEV_SHUTDOWN" });
+  stopping.resolve();
+  await new Promise(setImmediate);
+  assert.equal(drained, false);
+  finishing.resolve();
+  await rejected;
+  assert.equal(drained, true);
+  assert.deepEqual(entered, ["a", "b"]);
+});
+
 test("startup retries only superseded builds and keeps completed peers", async () => {
   const calls = [];
   const prepared = await prepareStableDevelopmentPlugins(async (ids) => {

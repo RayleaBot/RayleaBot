@@ -12,7 +12,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-func discoverRoot(root ScanRoot, validator *config.Validator, repoRoot string, maxSummaryChars int, logger *slog.Logger) ([]plugins.Snapshot, int, error) {
+func discoverRoot(root ScanRoot, validator *config.Validator, repoRoot string, maxSummaryChars int, logger *slog.Logger, pluginID string) ([]plugins.Snapshot, int, error) {
 	if logger != nil {
 		logger.Debug(
 			"开始扫描插件来源",
@@ -74,7 +74,7 @@ func discoverRoot(root ScanRoot, validator *config.Validator, repoRoot string, m
 			return nil, skipped, fmt.Errorf("stat %s: %w", infoPath, err)
 		}
 
-		snapshot, ok, err := LoadSnapshot(infoPath, root.Label, repoRoot, validator, maxSummaryChars, logger)
+		snapshot, ok, err := loadSnapshot(infoPath, root.Label, repoRoot, validator, maxSummaryChars, logger, pluginID)
 		if err != nil {
 			return nil, skipped, err
 		}

@@ -1,20 +1,30 @@
 // A plugin failure is a result of that item, not a reason to abandon its peers.
-export async function runDevelopmentPluginBatch(plugins, operation, { onFailure = () => {}, onProgress = () => {} } = {}) {
+export async function runDevelopmentPluginBatch(plugins, operation, { onFailure = () => {}, onProgress = () => {}, concurrency = 1 } = {}) {
+  if (!Number.isSafeInteger(concurrency) || concurrency < 1) throw new Error("invalid plugin batch concurrency");
   const completed = [], failed = [];
-  for (const plugin of plugins) {
-    // The third argument names the plugin being worked on.
-    onProgress(completed.length + failed.length, plugins.length, plugin);
-    try {
-      const value = await operation(plugin);
-      completed.push({ plugin, value });
-    } catch (error) {
-      if (error?.code === "DEV_SHUTDOWN") throw error;
-      failed.push({ plugin, error });
-      onFailure(plugin, error);
+  const active = new Map();
+  let next = 0, finished = 0, fatal;
+  const worker = async () => {
+    while (!fatal && next < plugins.length) {
+      const index = next++, plugin = plugins[index];
+      active.set(index, plugin);
+      onProgress(finished, plugins.length, plugin);
+      try {
+        const value = await operation(plugin);
+        completed[index] = { plugin, value };
+      } catch (error) {
+        if (error?.code === "DEV_SHUTDOWN") { fatal = error; return; }
+        failed[index] = { plugin, error };
+        onFailure(plugin, error);
+      }
+      active.delete(index);
+      onProgress(++finished, plugins.length, active.values().next().value);
     }
-    onProgress(completed.length + failed.length, plugins.length);
-  }
-  return { completed, failed };
+  };
+  // Drain admitted work before propagating shutdown or a callback error.
+  await Promise.all(Array.from({ length: Math.min(concurrency, plugins.length) }, () => worker().catch((error) => { fatal ??= error; })));
+  if (fatal) throw fatal;
+  return { completed: completed.filter(Boolean), failed: failed.filter(Boolean) };
 }
 
 export function currentDevelopmentPlugins(plugins, queue) {

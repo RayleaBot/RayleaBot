@@ -329,17 +329,18 @@ async function prepareDevelopmentPlugins(pluginDev, pluginIDs, progress) {
     const binary = plugin.hasGoModule
       ? path.join(cacheDir, "plugins", plugin.id, plugin.id + nativeExecutableSuffix(platform))
       : path.join(plugin.path, "dist", "native", platform, plugin.id + nativeExecutableSuffix(platform));
-    let backend = ".";
+    let backend = ".", backendInputs = [];
     if (plugin.hasGoModule) {
       backend = JSON.parse(await captureCommand(helper, ["inspect", "--plugin", plugin.path])).backend_package;
       if (!backend) throw new Error("开发插件缺少 Go 入口：" + plugin.id);
       await cachedGoBuild(plugin.id + "-backend", {
         cwd: plugin.path, main: backend, output: binary, env: environment,
         flags: ["-trimpath", "-buildvcs=false", "-ldflags=-s -w -buildid="],
+        onInputs: (files) => { backendInputs = files; },
       });
     }
     const artifact = path.join(pluginDevArtifactRoot, platform, plugin.id);
-    const resourceInputs = async () => {
+    const resourceInputs = async ({ refresh = false } = {}) => {
       const files = [binary, helper, path.join(plugin.path, "info.json"), path.join(plugin.path, "go.mod"), path.join(plugin.path, "go.sum"), ...scriptInputs];
       for (const name of ["assets", "templates", "LICENSES"]) files.push(...await treeInputs(path.join(plugin.path, name), { all: true }));
       for (const name of await fsp.readdir(plugin.path)) if (/^(LICENSE|COPYING|NOTICE|THIRD_PARTY_NOTICES)/.test(name)) {
@@ -351,7 +352,7 @@ async function prepareDevelopmentPlugins(pluginDev, pluginIDs, progress) {
         if (directory === path.dirname(directory)) break;
       }
       if (hasUI) files.push(...await treeInputs(path.join(uiDir, "dist"), { all: true }), path.join(uiDir, "pnpm-lock.yaml"));
-      if (plugin.hasGoModule) files.push(...await goInputs(plugin.path, backend, environment));
+      if (plugin.hasGoModule) files.push(...(refresh ? await goInputs(plugin.path, backend, environment) : backendInputs));
       return files;
     };
     await buildCache.run(plugin.id + "-artifact", {
@@ -362,7 +363,7 @@ async function prepareDevelopmentPlugins(pluginDev, pluginIDs, progress) {
         "--target", platform, "--out", pluginDevArtifactRoot, "--expanded=true", "--archive=false",
       ], { cwd: rootDir, env: environment }),
     });
-  }, { onFailure: reportDevelopmentPluginFailure, onProgress: (completed, total, plugin) => progress.progress(completed, total, plugin?.id) });
+  }, { concurrency: 2, onFailure: reportDevelopmentPluginFailure, onProgress: (completed, total, plugin) => progress.progress(completed, total, plugin?.id) });
   return { workspace, platform, plugins: result.completed.map(({ plugin }) => plugin), failed: result.failed };
 }
 
@@ -1003,13 +1004,14 @@ async function goInputs(cwd, main, env = {}, flags = []) {
   return [...inputs, ...scriptInputs];
 }
 
-async function cachedGoBuild(name, { cwd, main, output, env = {}, flags = [] }) {
+async function cachedGoBuild(name, { cwd, main, output, env = {}, flags = [], onInputs = () => {} }) {
   if (!flags.some((flag) => flag.startsWith("-buildvcs="))) flags = ["-buildvcs=false", ...flags];
   env = { ...env, GOOS: { win32: "windows", darwin: "darwin", linux: "linux" }[process.platform], GOARCH: { x64: "amd64", arm64: "arm64" }[process.arch] };
   await fsp.mkdir(path.dirname(output), { recursive: true });
   const listFlags = flags.includes("-tags") ? flags.slice(flags.indexOf("-tags"), flags.indexOf("-tags") + 2) : [];
   return buildCache.run(name, {
-    inputs: () => goInputs(cwd, main, env, listFlags), identity: { ...toolIdentity, env, flags }, outputs: [output],
+    inputs: async () => { const files = await goInputs(cwd, main, env, listFlags); onInputs(files); return files; },
+    identity: { ...toolIdentity, env, flags }, outputs: [output],
     build: () => runCommand("构建 " + name, "go", ["build", ...flags, "-o", output, main], { cwd, env }),
   });
 }

@@ -28,13 +28,16 @@ func (s *InstallService) SyncDevelopment(ctx context.Context, artifactPath, sour
 		return "", false, err
 	}
 	if current, exists := s.catalog.Get(snapshot.PluginID); exists && current.PackageSourceType == "development" && filepath.Clean(current.PackageSourceRef) == filepath.Clean(sourcePath) {
-		candidateHash, hashErr := fsguard.SHA256Directory(ctx, artifactPath)
-		if hashErr != nil {
-			return "", false, hashErr
-		}
-		installedHash, hashErr := fsguard.SHA256Directory(ctx, current.PackageRootPath)
-		if hashErr == nil && installedHash == candidateHash {
+		equal, compareErr := fsguard.EqualDirectoryContents(ctx, artifactPath, current.PackageRootPath)
+		if compareErr == nil && equal {
 			return "", false, nil
+		}
+		if compareErr != nil {
+			// A damaged/missing installation is repairable; an unreadable source
+			// or cancellation must still abort before accepting a replacement.
+			if _, err := fsguard.SHA256Directory(ctx, artifactPath); err != nil {
+				return "", false, err
+			}
 		}
 	}
 	taskID, err := s.Accept(ctx, plugins.InstallRequest{

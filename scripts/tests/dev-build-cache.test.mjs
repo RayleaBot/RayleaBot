@@ -6,7 +6,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import { execFile } from 'node:child_process'
 import test from 'node:test'
-import { createBuildCache, createGoInputRegistry, fingerprint, goInputTemplate, parseGoInputs } from '../dev-build-cache.mjs'
+import { createBuildCache, createGoInputRegistry, fingerprint, goInputTemplate, parseGoInputs, treeInputs } from '../dev-build-cache.mjs'
 
 test('persistent cache checks content, tool identity and real output, not timestamps', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'raylea-dev-cache-'))
@@ -44,6 +44,67 @@ test('failed and superseded builds cannot become reusable cache entries', async 
   options.build = () => fs.copyFile(source, output)
   assert.equal(await cache.run('plugin', options), true)
   assert.equal(await fs.readFile(output, 'utf8'), 'newer')
+})
+
+test('a new process reuses file digests, refreshes touches and repairs same-size output edits', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'raylea-dev-digests-'))
+  t.after(() => fs.rm(root, { recursive: true, force: true }))
+  const source = path.join(root, 'source'), output = path.join(root, 'output')
+  await fs.writeFile(source, 'first')
+  const options = { inputs: async () => [source], outputs: [output], build: () => fs.copyFile(source, output) }
+  const run = () => createBuildCache(path.join(root, 'cache')).run('fixture', options)
+  await run()
+  const original = fs.readFile, reads = []
+  fs.readFile = async (file, ...args) => { if ([source, output].includes(file)) reads.push(file); return original(file, ...args) }
+  t.after(() => { fs.readFile = original })
+  assert.equal(await run(), false)
+  assert.deepEqual(reads, [], 'unchanged content must not be reread after restart')
+  await fs.utimes(source, 1, 1)
+  assert.equal(await run(), false, 'touches must not trigger compilation')
+  assert.deepEqual(reads, [source])
+  reads.length = 0
+  assert.equal(await run(), false)
+  assert.deepEqual(reads, [], 'refreshed metadata must be persisted on a cache hit')
+  const old = (await fs.stat(output)).mtime
+  await fs.writeFile(output, 'other')
+  await fs.utimes(output, old, old)
+  assert.equal(await run(), true, 'restoring mtime must not hide output corruption')
+  assert.equal(await original(output, 'utf8'), 'first')
+})
+
+test('cached trees detect added and removed inputs and outputs', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'raylea-dev-tree-'))
+  t.after(() => fs.rm(root, { recursive: true, force: true }))
+  const source = path.join(root, 'source'), output = path.join(root, 'output')
+  await fs.mkdir(source)
+  await fs.writeFile(path.join(source, 'a'), 'a')
+  const cache = createBuildCache(path.join(root, 'cache'))
+  const options = { inputs: () => treeInputs(source, { all: true }), outputs: [output], build: async () => {
+    await fs.rm(output, { recursive: true, force: true })
+    await fs.cp(source, output, { recursive: true })
+  } }
+  assert.equal(await cache.run('tree', options), true)
+  assert.equal(await cache.run('tree', options), false)
+  await fs.writeFile(path.join(source, 'b'), 'b')
+  assert.equal(await cache.run('tree', options), true)
+  await fs.rm(path.join(source, 'b'))
+  assert.equal(await cache.run('tree', options), true)
+  await fs.writeFile(path.join(output, 'extra'), 'extra')
+  assert.equal(await cache.run('tree', options), true)
+  await fs.rm(path.join(output, 'a'))
+  assert.equal(await cache.run('tree', options), true)
+})
+
+test('post-build validation refreshes the dependency graph before recording a stamp', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'raylea-dev-graph-'))
+  t.after(() => fs.rm(root, { recursive: true, force: true }))
+  const source = path.join(root, 'source'), added = path.join(root, 'added'), output = path.join(root, 'output')
+  await fs.writeFile(source, 'first')
+  await assert.rejects(createBuildCache(path.join(root, 'cache')).run('graph', {
+    inputs: async ({ refresh = false } = {}) => refresh ? [source, added] : [source],
+    outputs: [output],
+    build: async () => { await fs.copyFile(source, output); await fs.writeFile(added, 'new dependency') },
+  }), { code: 'DEV_INPUT_CHANGED' })
 })
 
 test('Go input graph includes embeds and local dependencies, excludes tests and foreign platforms', async (t) => {

@@ -1,15 +1,20 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { readFileContentSnapshot } from './file-content-tracker.mjs'
 
 const ignored = new Set(['.git', '.github', '.rayleabot', 'node_modules', 'dist', 'tmp', '.tmp', 'coverage', 'testdata', '__tests__'])
 
-export async function writeIfChanged(file, content) {
+export async function writeIfChanged(file, content, { atomic = false } = {}) {
   try {
     if ((await fs.readFile(file)).equals(Buffer.from(content))) return false
   } catch (error) { if (error.code !== 'ENOENT') throw error }
   await fs.mkdir(path.dirname(file), { recursive: true })
-  await fs.writeFile(file, content)
+  if (atomic) {
+    const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`
+    try { await fs.writeFile(temporary, content); await fs.rename(temporary, file) }
+    finally { await fs.rm(temporary, { force: true }) }
+  } else await fs.writeFile(file, content)
   return true
 }
 
@@ -31,22 +36,34 @@ export async function treeInputs(directory, { all = false } = {}) {
   return result
 }
 
-export async function fingerprint(files, identity = {}) {
+export async function fingerprint(files, identity = {}, { memo = new Map(), previous = {}, records = {} } = {}) {
+  previous ??= {}
   const hash = createHash('sha256').update(JSON.stringify(identity))
-  for (const file of [...new Set(files.map((file) => path.resolve(file)))].sort()) {
-    hash.update('\0').update(file).update('\0')
-    try {
-      const stat = await fs.stat(file)
-      hash.update(String(stat.mode & 0o111)).update('\0').update(await fs.readFile(file))
-    } catch (error) {
-      if (error.code !== 'ENOENT') throw error
-      hash.update('<missing>')
+  const sorted = [...new Set(files.map((file) => path.resolve(file)))].sort()
+  const snapshots = new Array(sorted.length)
+  let next = 0, failure
+  // Bound open files and memory while overlapping filesystem latency. Each
+  // entry is statted again, including entries shared by several build targets.
+  await Promise.all(Array.from({ length: Math.min(8, sorted.length) }, async () => {
+    while (!failure && next < sorted.length) {
+      const index = next++, file = sorted[index]
+      const snapshot = await readFileContentSnapshot(file, memo.get(file) ?? previous[file])
+      snapshots[index] = snapshot
+      if (snapshot) memo.set(file, snapshot)
+      else memo.delete(file)
     }
+  }).map((worker) => worker.catch((error) => { failure ??= error })))
+  if (failure) throw failure
+  for (const [index, file] of sorted.entries()) {
+    hash.update('\0').update(file).update('\0')
+    const snapshot = snapshots[index]
+    if (snapshot) { records[file] = snapshot; hash.update(String(snapshot.mode)).update('\0').update(snapshot.digest) }
+    else hash.update('<missing>')
   }
   return hash.digest('hex')
 }
 
-async function outputFingerprint(outputs) {
+async function outputFingerprint(outputs, options) {
   const files = []
   for (const output of outputs) {
     let stat
@@ -57,32 +74,39 @@ async function outputFingerprint(outputs) {
       files.push(...entries)
     } else files.push(output)
   }
-  return files.length ? fingerprint(files) : ''
+  return files.length ? fingerprint(files, {}, options) : ''
 }
 
 export function createBuildCache(directory, log = () => {}) {
+  const memo = new Map()
   return {
     async run(name, { inputs, identity = {}, outputs, build, validateOutputs = async () => true }) {
       const stampPath = path.join(directory, `${name}.json`)
-      const inputFiles = await inputs()
-      const key = await fingerprint(inputFiles, identity)
       let stamp
       try { stamp = JSON.parse(await fs.readFile(stampPath, 'utf8')) }
       catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
-      const output = await outputFingerprint(outputs)
-      if (stamp?.version === 1 && stamp.key === key && output && stamp.output === output && await validateOutputs()) {
+      if (stamp?.version !== 2) stamp = undefined
+      const inputRecords = {}, outputRecords = {}
+      const key = await fingerprint(await inputs(), identity, { memo, previous: stamp?.inputs, records: inputRecords })
+      const output = await outputFingerprint(outputs, { memo, previous: stamp?.outputs, records: outputRecords })
+      const save = (output, inputs, outputs) => writeIfChanged(stampPath, JSON.stringify({ version: 2, key, output, inputs, outputs }), { atomic: true })
+      if (stamp?.key === key && output && stamp.output === output && await validateOutputs()) {
+        // Persist refreshed metadata after a touch without invalidating content.
+        await save(output, inputRecords, outputRecords)
         return false
       }
       log(`${name}: ${stamp?.key === key ? 'output missing or changed' : 'inputs changed'}`)
       await build()
       // A successful command is not sufficient; the inputs must still describe its outputs.
-      if (await fingerprint(await inputs(), identity) !== key) {
+      const checkedInputs = {}
+      if (await fingerprint(await inputs({ refresh: true }), identity, { memo, records: checkedInputs }) !== key) {
         throw Object.assign(new Error(`${name}: sources changed during build; retrying on the next reconciliation`), { code: 'DEV_INPUT_CHANGED' })
       }
-      const builtOutput = await outputFingerprint(outputs)
+      const builtOutputs = {}
+      const builtOutput = await outputFingerprint(outputs, { memo, records: builtOutputs })
       if (!builtOutput) throw new Error(`${name}: build did not produce its expected output`)
       if (!(await validateOutputs())) throw new Error(`${name}: build output validation failed`)
-      await writeIfChanged(stampPath, JSON.stringify({ version: 1, key, output: builtOutput }))
+      await save(builtOutput, checkedInputs, builtOutputs)
       return true
     },
   }
