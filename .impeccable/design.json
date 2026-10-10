@@ -1481,7 +1481,7 @@
       "generator": "scripts/generate-launcher-icons.mjs",
       "rasterizer": "@napi-rs/canvas (Skia Canvas 2D)",
       "directory": "launcher/assets/",
-      "provenance": "人物母版由用户确认的浅色、暗色概念图分别转换为贝塞尔路径；浅色使用黑白配色，暗色使用独立灰阶配色，均保留白发、手势和透明背景。SVG 只包含矢量路径；Skia Canvas 2D 从同一母版确定性渲染原生资源，PNG 内嵌主题与来源元数据。",
+      "provenance": "人物大图与贝雷帽小图标分别保存纯贝塞尔路径；两种造型均有独立浅色、暗色配色。小尺寸界面、浏览器图标、托盘及 ICO 的 16–64px 帧使用贝雷帽，大图与 ICO 的 128/256px 帧使用人物版。SVG 不嵌入位图，PNG 内嵌对应母版与主题来源元数据。",
       "applicationPng": "1024x1024",
       "trayPng": "32x32",
       "windowsIcoSizes": [
@@ -1496,7 +1496,10 @@
       "windowsResourceVerification": "go run ./tools/cmd/verify-windows-icon-resources",
       "trayDarkPng": "32x32",
       "lightSvg": "design/mark-light.svg",
-      "darkSvg": "design/mark-dark.svg"
+      "darkSvg": "design/mark-dark.svg",
+      "compactMaster": "design/mark-compact.json",
+      "compactLightSvg": "design/mark-compact-light.svg",
+      "compactDarkSvg": "design/mark-compact-dark.svg"
     },
     "layers": {
       "sticky": 100,
@@ -1664,7 +1667,7 @@
       },
       {
         "name": "The Brand Mark Rule",
-        "body": "界面与托盘标识随所属主题选择母版中的浅色版或独立暗色版，两版均保留白发、手势和透明背景；静态应用文件图标使用浅色版。品牌不代替状态图标或导航文字。",
+        "body": "大尺寸展示使用人物版，小尺寸入口使用贝雷帽和蝴蝶结版；先按显示用途选造型，再按有效主题选独立亮暗配色。应用大 PNG 与 ICO 的大尺寸帧保留人物版。品牌不代替状态图标或导航文字。",
         "section": "components"
       },
       {

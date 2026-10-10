@@ -21,15 +21,14 @@ if (arguments_.includes("--help")) {
 
 const readText = (file) => fs.readFileSync(path.join(root, file), "utf8").replaceAll("\r\n", "\n");
 const sha256 = (content) => createHash("sha256").update(content).digest("hex");
-const markSource = readText("design/mark.json");
-const mark = validateMark(JSON.parse(markSource));
-const viewBox = mark.viewBox.trim().split(/[\s,]+/).map(Number);
-assert(viewBox.length === 4 && viewBox.every(Number.isFinite) && viewBox[2] > 0 && viewBox[3] > 0, "Invalid mark viewBox");
+const markFiles = { portrait: "design/mark.json", compact: "design/mark-compact.json" };
+const markSources = Object.fromEntries(Object.entries(markFiles).map(([artwork, file]) => [artwork, readText(file)]));
+const marks = Object.fromEntries(Object.entries(markSources).map(([artwork, source]) => [artwork, validateMark(JSON.parse(source))]));
 const launcherRequire = createRequire(path.join(root, "launcher/package.json"));
 const canvasVersion = launcherRequire("@napi-rs/canvas/package.json").version;
 
 const inputs = {
-  geometry: { path: "design/mark.json", sha256: sha256(markSource) },
+  geometry: Object.fromEntries(Object.entries(markFiles).map(([artwork, file]) => [artwork, { path: file, sha256: sha256(markSources[artwork]) }])),
   generator: { path: "scripts/generate-launcher-icons.mjs", sha256: sha256(readText("scripts/generate-launcher-icons.mjs")) },
   markValidator: { path: "scripts/design-mark.mjs", sha256: sha256(readText("scripts/design-mark.mjs")) },
   metadataWriter: { path: "scripts/png-provenance.mjs", sha256: sha256(readText("scripts/png-provenance.mjs")) },
@@ -38,12 +37,15 @@ const inputs = {
 
 const provenance = Object.fromEntries(["appicon.png", "tray.png", "tray-dark.png"].map((file) => {
   const mode = file === "tray-dark.png" ? "dark" : "light";
-  const theme = mark.themes[mode];
+  const artwork = file === "appicon.png" ? "portrait" : "compact";
+  const theme = marks[artwork].themes[mode];
   return [file, JSON.stringify({
     type: "source-provenance",
     method: "Deterministic Skia Canvas 2D rendering of theme-specific SVG path geometry.",
-    artworkOrigin: "User-approved light and dark character designs converted independently to pure Bezier vector paths.",
-    geometry: inputs.geometry,
+    artworkOrigin: artwork === "portrait"
+      ? "User-approved light and dark character designs converted independently to pure Bezier vector paths."
+      : "User-approved light and dark beret-and-bow icon designs converted independently to pure Bezier vector paths.",
+    geometry: inputs.geometry[artwork],
     colors: [...new Set(theme.paths.map((part) => part.fill))],
     outline: theme.outline,
     theme: mode,
@@ -100,6 +102,8 @@ function verify() {
 
 function renderMark(canvasModule, size, mode = "light") {
   const { createCanvas, Path2D } = canvasModule;
+  const mark = marks[size <= 64 ? "compact" : "portrait"];
+  const viewBox = mark.viewBox.trim().split(/[\s,]+/).map(Number);
   const theme = mark.themes[mode];
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext("2d");
@@ -152,9 +156,9 @@ if (!arguments_.includes("--check")) {
     inputs,
     outputs: {
       "appicon.png": { width: appSize, height: appSize, alpha: true, role: "application", treatment: "approved light character design with opaque black-and-white fills and transparent padding" },
-      "tray.png": { width: traySize, height: traySize, alpha: true, role: "light system tray", treatment: "light character design with a fine light outline and transparent background" },
-      "tray-dark.png": { width: traySize, height: traySize, alpha: true, role: "dark system tray", treatment: "independent dark character design with white hair, charcoal accessories, gray clothing and transparent background" },
-      "icon.ico": { sizes, role: "Windows executable resource", treatment: "application composition rendered natively at every frame size" },
+      "tray.png": { width: traySize, height: traySize, alpha: true, role: "light system tray", treatment: "compact light beret-and-bow design with a fine light outline and transparent background" },
+      "tray-dark.png": { width: traySize, height: traySize, alpha: true, role: "dark system tray", treatment: "compact dark beret-and-bow design with independent gray fills, silver details and transparent background" },
+      "icon.ico": { sizes, role: "Windows executable resource", treatment: "compact beret-and-bow at 16/24/32/48/64px; original portrait at 128/256px; each frame rendered independently" },
     },
     sha256: fingerprints(),
   }, null, 2) + "\n");

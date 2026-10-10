@@ -1,12 +1,18 @@
 {
   "inputs": {
     "geometry": {
-      "path": "design/mark.json",
-      "sha256": "0167747ad5b964a1e0842aaf75013bdd5eff936dc9adf9f13a59b5fe82d59e53"
+      "portrait": {
+        "path": "design/mark.json",
+        "sha256": "0167747ad5b964a1e0842aaf75013bdd5eff936dc9adf9f13a59b5fe82d59e53"
+      },
+      "compact": {
+        "path": "design/mark-compact.json",
+        "sha256": "08986552897c577ecfa587abe72c5e1504c5a84e45bc09f4c62be7bad4e0b957"
+      }
     },
     "generator": {
       "path": "scripts/generate-launcher-icons.mjs",
-      "sha256": "76bd792879a59c4c2ac8c81d285f3bdae991cbc456ac258a94663eb8670c72aa"
+      "sha256": "ad5ca39f368bbded193c04176fba26c701fd43499e932f8c9d4820db77ee8933"
     },
     "markValidator": {
       "path": "scripts/design-mark.mjs",
@@ -35,14 +41,14 @@
       "height": 32,
       "alpha": true,
       "role": "light system tray",
-      "treatment": "light character design with a fine light outline and transparent background"
+      "treatment": "compact light beret-and-bow design with a fine light outline and transparent background"
     },
     "tray-dark.png": {
       "width": 32,
       "height": 32,
       "alpha": true,
       "role": "dark system tray",
-      "treatment": "independent dark character design with white hair, charcoal accessories, gray clothing and transparent background"
+      "treatment": "compact dark beret-and-bow design with independent gray fills, silver details and transparent background"
     },
     "icon.ico": {
       "sizes": [
@@ -55,13 +61,13 @@
         256
       ],
       "role": "Windows executable resource",
-      "treatment": "application composition rendered natively at every frame size"
+      "treatment": "compact beret-and-bow at 16/24/32/48/64px; original portrait at 128/256px; each frame rendered independently"
     }
   },
   "sha256": {
-    "appicon.png": "b797288b5b7d5f3140dbe9c90d25e3146a8bdccfecf0ee5d5a112475bde0a89d",
-    "tray.png": "19d6f056aa86b45519778b9a2402997acbeaaf923365fe4f8739e11c5b4c87b6",
-    "tray-dark.png": "6608fe9c19a59b7c659a2f95ba7d7975821d2f54c73e14356473e487c28d9326",
-    "icon.ico": "c68c4146b16c1ea611bf4912cafbebda60590f6050c4b57368b75ed345739838"
+    "appicon.png": "c0262f13f79f3c728278afdea470d257a8d8004b80cf99207cf04086399247b5",
+    "tray.png": "bf6496b9122cf591041c688241d15f4bbe929ae005964a255fce30fff0c3b2f8",
+    "tray-dark.png": "81176f9d63a8a3364d30bb2a43c7f481df0ed6bbf33f3000310e2a0d0d0f65eb",
+    "icon.ico": "ddbaa3b09a33e815ec18764fc0961495f804d1fa26ba414387ff427b9ace1071"
   }
 }

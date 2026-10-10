@@ -1,24 +1,68 @@
 {
   "inputs": {
     "svg": {
-      "light": {
-        "path": "design/mark-light.svg",
-        "sha256": "f0f21f988eca60ee4cbfc8ed316381a14d6ddbc907df4424b4ad6ea02b0e823a"
+      "portrait": {
+        "light": {
+          "path": "design/mark-light.svg",
+          "sha256": "f0f21f988eca60ee4cbfc8ed316381a14d6ddbc907df4424b4ad6ea02b0e823a"
+        },
+        "dark": {
+          "path": "design/mark-dark.svg",
+          "sha256": "8e44e7dafca268b4fec05b6baba501b28e697147e65bf4ebbad8d2787ac0c4a2"
+        }
       },
-      "dark": {
-        "path": "design/mark-dark.svg",
-        "sha256": "8e44e7dafca268b4fec05b6baba501b28e697147e65bf4ebbad8d2787ac0c4a2"
+      "compact": {
+        "light": {
+          "path": "design/mark-compact-light.svg",
+          "sha256": "29f75364415a2c3985c1b38913ef03e1ac8d3bfdf91923e5f7018df4e4f47a16"
+        },
+        "dark": {
+          "path": "design/mark-compact-dark.svg",
+          "sha256": "0171ec203c3481b3929fe9dd702da76501334ce3dc1b0418c1044f0a7f983219"
+        }
       }
     },
     "generator": {
       "path": "scripts/generate-web-brand-assets.mjs",
-      "sha256": "1bddd3d60ba82ed8ed748e2ba38c89ebb7703cbbf14648fe796d18592b1d78d5"
+      "sha256": "dc2efa94350f11edbe43f38fe5e2e9ac220569f41e3e8126aa9790eeb6a12f29"
     },
     "rasterizer": {
       "module": "@napi-rs/canvas",
       "version": "1.0.9"
     },
-    "samples": 4
+    "samples": 4,
+    "displaySizes": {
+      "32": {
+        "artwork": "compact",
+        "widths": [
+          32,
+          40,
+          48,
+          64,
+          96
+        ]
+      },
+      "40": {
+        "artwork": "compact",
+        "widths": [
+          40,
+          50,
+          60,
+          80,
+          120
+        ]
+      },
+      "128": {
+        "artwork": "portrait",
+        "widths": [
+          128,
+          160,
+          192,
+          256,
+          384
+        ]
+      }
+    }
   },
   "sizes": [
     32,
@@ -37,34 +81,34 @@
     384
   ],
   "files": {
-    "web/src/assets/brand/mark-light-32.png": "10e94f6de76450c727c2db862fa08b70bf1d2c816911ac33a5bc2e218a76dcb3",
-    "web/src/assets/brand/mark-light-40.png": "377744e54656e15f553deb872efaad13d5f9d2c2ca53fbbe7ac386b519734f45",
-    "web/src/assets/brand/mark-light-48.png": "a4f9a7bf1ecac961c50252175f01dfeff1f24814557405ca676fa95cd8b494e5",
-    "web/src/assets/brand/mark-light-50.png": "7e32670860fe80909c77af25e55cb3af65a04af96799d578f7e7492a210099ae",
-    "web/src/assets/brand/mark-light-60.png": "846a3f0afa4bc50c064c5685a6ebd5610acb00c46fc6bfe3663dbf8f68dd601a",
-    "web/src/assets/brand/mark-light-64.png": "780b55300d01b2e5a06990f78a2dbf9a706ead1a6a54e3147591454d7b2d93aa",
-    "web/src/assets/brand/mark-light-80.png": "5ed5c7c12cbf5594a9d4a3f456bcc9432b5e31cdb2e830f42c5e5ff54607a817",
-    "web/src/assets/brand/mark-light-96.png": "be0b0187a59b6f771f98e8f2583a76ce1af0f8332457f7c5c5afee9d2af017d9",
-    "web/src/assets/brand/mark-light-120.png": "9eeb5b650898c4ae72a3ed583a9e10833afacb02cdd84f7005005abd17bad7ab",
+    "web/src/assets/brand/mark-compact-light-32.png": "b79bb279dab47e3b651057d29e7b95d581be558a5142d1065e0ae871e312de2d",
+    "web/src/assets/brand/mark-compact-light-40.png": "aebc280c0f16fe85b43dfbb378759382471e40b549302d89f998b17247f150e7",
+    "web/src/assets/brand/mark-compact-light-48.png": "7b3f4d37d620844b6f53ebe3fc5940ddf00bc98f2bad70b0169b79e5f73b6ea1",
+    "web/src/assets/brand/mark-compact-light-64.png": "f0638ee3587a387d8fcfd5517b671cbbcc930ebf7d31121c52568bcb360dbac9",
+    "web/src/assets/brand/mark-compact-light-96.png": "2351f1d83dc26ff84fb89e9f19ad3e0bdf6d016f50012161f7023cea7dda20e3",
+    "web/src/assets/brand/mark-compact-light-50.png": "c17cb42a86f9dea521947babc18bedef6349a59c2caadb33c39b47a54064b1ec",
+    "web/src/assets/brand/mark-compact-light-60.png": "22cf6a3c1734797b1e106ac8fd23e045acc46418aaa7e4a745ff3137157443fa",
+    "web/src/assets/brand/mark-compact-light-80.png": "487da4f804de1dcd21690718c4045ba94af20820609750cd7cd985b082ae507b",
+    "web/src/assets/brand/mark-compact-light-120.png": "3aabf16a797d89316d9e7ac72b93ab01f279b2142b66498f6ffd809b9b7d87d4",
     "web/src/assets/brand/mark-light-128.png": "4047fe6431aeddd7f20cbf0ebe7b4f6422b00beb33aae27dae40da486baab7de",
     "web/src/assets/brand/mark-light-160.png": "f42c3d40fcc7d8352123cd8588a6ec490087a626799d2ac0940b503c08d88c9f",
     "web/src/assets/brand/mark-light-192.png": "b527ffd69e6a7a58b884b00909c5b84cfc389c43f00cc89c7d96cac92b45e502",
     "web/src/assets/brand/mark-light-256.png": "b873da36ce9c528995c04de6b28e28c9e3c60740bae78564a8117fa2677b42f1",
     "web/src/assets/brand/mark-light-384.png": "8218a4d18c876570d9fdd2238db029c7688bb469cd8038c368df6b813eadc152",
-    "web/src/assets/brand/mark-dark-32.png": "beded48babe57e3400cbd0cf6dac2e169412d3cb655c821e434aa860545010ab",
-    "web/src/assets/brand/mark-dark-40.png": "03f0eece02e67ce95e22eb5e541abbf11dee9b65c11757a99f61a735c37b6f28",
-    "web/src/assets/brand/mark-dark-48.png": "00c85c03d26e01229798c61e5b428fcea8269d7148eec45dee592466d45f66dd",
-    "web/src/assets/brand/mark-dark-50.png": "d0f7b4aaa6201be9d84276d5b8a6f215449ae3e210f9e7a9491e8636ff472ca6",
-    "web/src/assets/brand/mark-dark-60.png": "78fc5f65b4b7587188c7e30e7e0b4003bc995a29ae2ebd97504d46720b0c5ac7",
-    "web/src/assets/brand/mark-dark-64.png": "b8e6345662381cdaddd90413c91684349ae2c85557abf0a1622b38273ddeb80a",
-    "web/src/assets/brand/mark-dark-80.png": "595ce630a59fcad022f47651d03091be59c1871dd2fdb6fe73fecb4df9ab579f",
-    "web/src/assets/brand/mark-dark-96.png": "6f8239b041613acee94c1ddaf53714785c0e11eb41cec1837697e658bc13997b",
-    "web/src/assets/brand/mark-dark-120.png": "27ed79bac27a04880484022c28df24953afc18c7b674bd4b51c268c4dc729b76",
+    "web/src/assets/brand/mark-compact-dark-32.png": "cab29218a1c30dacb55d6be81e4352c985f8cb67fe55132d9bcea2763427c0a7",
+    "web/src/assets/brand/mark-compact-dark-40.png": "c7712b878774762e69b4eb996ff984811ae4e9158cf294ef69fc6c6988659192",
+    "web/src/assets/brand/mark-compact-dark-48.png": "6109093ee9cf72dbca43bfe4c3f0c2d4c10cebdec4e95d8cc9c09f9d27a1cc8d",
+    "web/src/assets/brand/mark-compact-dark-64.png": "0242edf437f43668e5c50f90e9125b8d416a134372cc27151cc14f00cdf68cc0",
+    "web/src/assets/brand/mark-compact-dark-96.png": "32c0c9fb2dac2993019a2d039021e14b3decbc8a12c5defa6d0d5a66a38002c2",
+    "web/src/assets/brand/mark-compact-dark-50.png": "ec06461c93257c14c975c250007e065bb270d458672b014222d14adf7a82fe07",
+    "web/src/assets/brand/mark-compact-dark-60.png": "071084fb6de3d441977642714b5b3fe4b0eeccaaa2d50c7c20e065b899a905a0",
+    "web/src/assets/brand/mark-compact-dark-80.png": "9431def3214c6bc224ceddde27a8291b1b35568b881cce863556a3b175c1a301",
+    "web/src/assets/brand/mark-compact-dark-120.png": "cb06fc3a60852c7bcd6a592b5be5ba09c33484d011dcca3083acb3fe61fd5f5f",
     "web/src/assets/brand/mark-dark-128.png": "ee16d79e4d2f36f460c658be6d9ee682f93dd0905d1bee2f5ff3cf4e9231b4cb",
     "web/src/assets/brand/mark-dark-160.png": "837e0cf8e3020da2d0bd815e93ce69d28d362a7ed26a7a01c297801d1c60bf32",
     "web/src/assets/brand/mark-dark-192.png": "98c74c31442133fc013f9f6c776bc0a1a69656e166eb0e2bc293e2431681adc9",
     "web/src/assets/brand/mark-dark-256.png": "1a9ce3253499b50284957c97d17688aad634ff30ba1859cd2c261b952cd794bf",
     "web/src/assets/brand/mark-dark-384.png": "7226d358111b140f9fdd153b1e71e79507d44beb79a20d3c1293a3353d22a79b",
-    "web/src/preferences/brand-assets.generated.ts": "f05566d0e997416ebf457bf45b2a40e672bf8bb3ff0bd85ba019f0eb1f21f1c3"
+    "web/src/preferences/brand-assets.generated.ts": "67130b02287437ba5cb422520fbc6b282331718d816190e3ba0414f5b13ba143"
   }
 }

@@ -290,11 +290,11 @@ forced-colors 下盒子、浮层与认证面板使用系统颜色与 1px 系统�
 
 Web 产品按钮与导航项为胶囊，输入框与选择器使用 md 圆角，卡片使用 xl 圆角，居中产品弹窗采用 xxl 圆角。配置、搜索与确认弹窗共享该形状，内部字段通过间距与分隔线分组。左右抽屉是悬浮在视口内、四角圆角的面板；底部抽屉只有上方两个角为圆角。菜单与 Toast 使用 lg 圆角，Tooltip 使用现有 md 圆角，Web 状态与分类标签是 full 圆角的紧凑胶囊。
 
-品牌标识保留白发、帽子、蝴蝶结、水手服与手势，以 [design/mark.json](design/mark.json) 为唯一母版。母版在共享 viewBox 内分别保存 `themes.light` 与 `themes.dark` 的贝塞尔路径、填充及细轮廓；人物内部填充不透明，外围保留透明留白。浅色版使用黑白配色，暗色版保留白发和浅色脸部，以炭灰配饰、柔灰衣料和银灰轮廓区分层次，不使用反色滤镜。两版分别导出为只包含矢量路径的 [mark-light.svg](design/mark-light.svg) 与 [mark-dark.svg](design/mark-dark.svg)，不嵌入 PNG 或外部图片。Web、Launcher 的界面标识与 Web favicon 按有效主题选择对应版本。Launcher 功能图标使用 Lucide 线性图标，品牌标识不承担操作或状态含义。
+品牌标识分为人物大图和贝雷帽小图标。人物版以 [design/mark.json](design/mark.json) 为母版，保留白发、帽子、蝴蝶结、水手服与手势，用于登录主图和 README 等大尺寸展示；其 [mark-light.svg](design/mark-light.svg) 与 [mark-dark.svg](design/mark-dark.svg) 保持人物造型。小图标以 [design/mark-compact.json](design/mark-compact.json) 为母版，保留贝雷帽、波浪饰边和完整蝴蝶结，用于 Web 的 32/40px 入口、Launcher 小标识、浏览器 favicon 和托盘。小图标导出为 [mark-compact-light.svg](design/mark-compact-light.svg) 与 [mark-compact-dark.svg](design/mark-compact-dark.svg)。两种造型均分别保存 `themes.light` 与 `themes.dark` 的贝塞尔路径、填充及细轮廓，浅色为黑白配色，暗色为独立灰阶配色，不使用反色滤镜；SVG 只包含路径，内部填充不透明，外围保留透明留白。Launcher 功能图标使用 Lucide 线性图标，品牌标识不承担操作或状态含义。
 
-Web 界面使用 [Web 标识生成脚本](scripts/generate-web-brand-assets.mjs) 从两版 SVG 生成的透明 PNG。每个目标尺寸以四倍分辨率绘制并按预乘 alpha 采样，减少完整人物在小尺寸下的边缘噪点；组件通过 `srcset` 和明确的方形尺寸适配屏幕像素密度。SVG 母版、favicon 和 Launcher 矢量绘制保持独立，图片不反向覆盖矢量来源。
+Web 界面使用 [Web 标识生成脚本](scripts/generate-web-brand-assets.mjs) 从对应造型与主题的 SVG 生成透明 PNG。每个目标尺寸以四倍分辨率绘制并按预乘 alpha 采样；32/40px 显示组的全部密度资源都使用帽子版，128px 登录主图的全部密度资源都使用人物版，造型不由 PNG 的物理宽度决定。浏览器使用独立的 `favicon-compact.svg` 与 `favicon-compact-dark.svg`；现有 `favicon.svg` 和 `favicon-dark.svg` 保留人物图，README 继续固定引用浅色人物图。
 
-原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、亮暗托盘 PNG 和 Windows ICO 由 [图标生成脚本](scripts/generate-launcher-icons.mjs) 通过 Skia 后端的 Canvas 2D（`@napi-rs/canvas`）与 `Path2D` 从 SVG 共用的母版路径确定性光栅渲染，保留透明背景。应用 PNG 与 Windows ICO 固定使用浅色版；托盘按系统主题选择浅色版或独立暗色版。两版标识均源自经用户确认的 AI 辅助人物图，并分别转换为贝塞尔矢量；PNG 内嵌对应主题、配色与来源元数据。ICO 包含 16、24、32、48、64、128、256px 图像，每个尺寸独立渲染而非缩放。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的生成与验证入口见 Launcher 界面规范。
+原生资产位于 [launcher/assets/](launcher/assets/)，由 [图标生成脚本](scripts/generate-launcher-icons.mjs) 通过 Skia Canvas 2D（`@napi-rs/canvas`）与 `Path2D` 从对应母版确定性光栅渲染。应用大 PNG 使用浅色人物版；32px 托盘按系统主题使用浅色或暗色帽子版。Windows ICO 的 16、24、32、48、64px 帧使用浅色帽子版，128、256px 帧保留浅色人物版，每个尺寸独立绘制。PNG 保留透明背景，并内嵌对应母版、主题、配色与来源元数据。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的生成与验证入口见 Launcher 界面规范。
 
 ## Components
 
@@ -432,7 +432,7 @@ Launcher 动效由 Motion 驱动：工作区以 220ms 从 0.88 不透明度淡�
 
 **The Single Motion Owner Rule.** 同一元素只接受一种动效机制，连续操作取消旧动画并以最新状态为准。
 
-**The Brand Mark Rule.** 界面与托盘标识随所属主题选择母版中的浅色版或独立暗色版，两版均保留白发、手势和透明背景；静态应用文件图标使用浅色版。品牌不代替状态图标或导航文字。
+**The Brand Mark Rule.** 大尺寸展示使用人物版，小尺寸入口使用贝雷帽和蝴蝶结版；先按显示用途选造型，再按有效主题选独立亮暗配色。应用大 PNG 与 ICO 的大尺寸帧保留人物版。品牌不代替状态图标或导航文字。
 
 插件页面、聊天卡片与渲染模板拥有独立内容和样式边界，视觉体系由各插件仓库自行维护；其管理面 Host 使用本体系。独立 iframe 不继承宿主 CSS、字体或组件运行时，内部页面保留自身组件库；页面与宿主同源加载，Vue SDK 可选地把宿主主题变量提供给页面，详见 [插件管理面](docs/design/plugin-management-surface.md)。
 

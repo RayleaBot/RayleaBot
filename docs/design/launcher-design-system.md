@@ -50,7 +50,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 ## 桌面壳结构
 
 - 默认窗口为 `1280×720` 逻辑像素，最小窗口为 `960×560`；创建窗口时根据屏幕工作区与最小尺寸约束调整大小。
-- 顶部拖动区高度为 `44px` 且透明，直接位于画布上；顶部放置共享黑白人物标识、窗口标题与窗口控制，不放置页面主操作。
+- 顶部拖动区高度为 `44px` 且透明，直接位于画布上；顶部放置贝雷帽与蝴蝶结小标识、窗口标题与窗口控制，不放置页面主操作。
 - 窗口使用 `184px` 导航列与单一主内容区，宽度不超过 `1100px` 时导航列为 `156px`。导航栏是列内悬浮在画布上的表面盒子，导航项由功能图标、可见文字和可访问名称组成，当前项位于带抬升阴影的选中胶囊上；底部是服务状态圆点与主题入口。
 - 运行状态、环境检查、日志诊断、偏好设置和关于应用保持稳定分区，切换时保留当前任务上下文。
 - 主内容区优先使用单列任务流；只有状态与操作真实并行时才使用双列。
@@ -82,7 +82,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 
 Reka UI 提供无样式的交互原语，负责焦点约束、键盘操作与 ARIA 语义；外观全部由 `surfaces.css` 与主题 token 定义。按钮统一使用 `LauncherButton`，页面不另建同类控件。
 
-功能图标统一使用 Lucide 线性图标，默认 `20px`、`1.75` 线宽；状态透镜内的状态符号加粗为 `2.5` 线宽。界面人物标识用于应用身份，浅色主题使用黑白版，暗色主题使用保留白发、浅色脸部与炭灰配饰的独立灰阶版，两版均来自矢量母版并保留透明背景；功能图标用于导航、状态与操作，两者不互相替代。
+功能图标统一使用 Lucide 线性图标，默认 `20px`、`1.75` 线宽；状态透镜内的状态符号加粗为 `2.5` 线宽。窗口标题与关于页的小标识使用贝雷帽和蝴蝶结造型，浅色为黑白版，暗色为独立灰阶版，两版均来自纯矢量母版并保留透明背景；功能图标用于导航、状态与操作，两者不互相替代。
 
 ## 密度与层次
 
@@ -136,8 +136,8 @@ Launcher 与 Web 管理面使用同一套表面规则：窗口是画布，盒子
 
 ## 原生图标与打包
 
-- [`design/mark.json`](../../design/mark.json) 保存人物标识的浅色、暗色两套贝塞尔路径、配色与轮廓；[`mark-light.svg`](../../design/mark-light.svg) 和 [`mark-dark.svg`](../../design/mark-dark.svg) 是同一母版导出的纯路径 SVG，不嵌入位图。[`scripts/generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 用 Launcher 工作区安装的 Skia 后端 Canvas 2D 包 `@napi-rs/canvas` 从对应主题路径光栅渲染 [`launcher/assets/`](../../launcher/assets/) 中的应用 PNG、亮暗托盘 PNG 与 Windows ICO。暗色版使用独立灰阶配色；图标生成不依赖主题 token、浏览器或 Wails CLI。
-- 应用 PNG 为 `1024×1024`，固定使用浅色版；`tray.png` 与 `tray-dark.png` 均为 `32×32`，分别使用浅色版与用户确认的独立暗色版。母版路径经 `Path2D` 直接绘制，产物字节只取决于输入与 `@napi-rs/canvas` 版本。两版人物图分别转换为贝塞尔矢量；PNG 内嵌对应主题、配色、来源及确定性渲染元数据。
+- [`design/mark.json`](../../design/mark.json) 保存人物大图，[`design/mark-compact.json`](../../design/mark-compact.json) 保存贝雷帽与蝴蝶结小图标；两种造型均有独立亮暗配色及纯路径 SVG 导出。Launcher 界面使用帽子版路径。[`scripts/generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 用已有的 Skia Canvas 2D 包 `@napi-rs/canvas` 从对应母版光栅渲染 [`launcher/assets/`](../../launcher/assets/) 中的 PNG 与 ICO，生成不依赖主题 token、浏览器或 Wails CLI。
+- 应用 PNG 为 `1024×1024`，使用浅色人物版；`tray.png` 与 `tray-dark.png` 均为 `32×32`，使用独立的亮暗帽子版。Windows ICO 的 16/24/32/48/64px 帧使用浅色帽子版，128/256px 帧使用原有人物版。母版路径经 `Path2D` 逐尺寸独立绘制，PNG 内嵌对应母版、主题、配色、来源及确定性渲染元数据。
 - Windows ICO 包含 `16/24/32/48/64/128/256px` 七种尺寸，每种尺寸按目标像素独立渲染，Windows EXE 与应用文件图标固定使用原版。Go 宿主通过 Wails 的 `SetIcon` 与 `SetDarkModeIcon` 提供两种托盘 PNG，由系统托盘主题选择；Launcher 界面标识则跟随应用的有效主题。
 - Windows 资源由 [`generate-windows-resources.mjs`](../../launcher/scripts/generate-windows-resources.mjs) 使用冻结的 Wails `v3.0.0-beta.9` 生成对应架构的 `rsrc_windows_<arch>.syso`；根目录开发启动、Launcher 独立开发与打包均在 Go 编译前调用。缓存核对 ICO、Windows manifest、Go 模块、生成器输入及产物，资源缺失或漂移时重新生成；Windows manifest 使用 `asInvoker` 普通用户权限。
 - 更新原生图标后需重新构建并启动 Launcher，由新进程载入窗口、托盘和 EXE 图标资源。
