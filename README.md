@@ -4,7 +4,7 @@
 
 # RayleaBot
 
-自托管的 QQ 机器人框架，连接、插件与权限都在浏览器里管理
+自托管、可视化管理的 QQ 机器人框架
 
 [![Release](https://img.shields.io/github/v/release/RayleaBot/RayleaBot?include_prereleases&label=release)](https://github.com/RayleaBot/RayleaBot/releases)
 [![Nightly](https://img.shields.io/github/actions/workflow/status/RayleaBot/RayleaBot/nightly.yml?branch=main&label=nightly)](https://github.com/RayleaBot/RayleaBot/actions/workflows/nightly.yml)
