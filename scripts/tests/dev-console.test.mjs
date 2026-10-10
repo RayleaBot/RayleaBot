@@ -210,7 +210,7 @@ test("plain startup summary exposes the selected plugin mode without leaking cre
   f.terminal.intro({ profile: "web-dev", nodeVersion: "v26.7.0", serverReload: "watch", pluginDev: "off" });
   f.terminal.summary({ elapsedMs: 2000, webURL: "http://localhost/?setup_token=fixture-secret", skipLaunch: false });
   const text = f.out.join("") + f.records.map((entry) => entry.text).join("\n");
-  assert.match(text, /源码同步关闭/);
+  assert.match(text, /不同步开发插件/);
   assert.match(text, /localhost/);
   assert.doesNotMatch(text, /fixture-secret|\x1b/);
   f.terminal.close();
@@ -311,4 +311,43 @@ test("Launcher structured metadata remains useful in the compact process log", (
   assert.match(f.out.join(""), /Windows 11.*WebView2 153\.0/);
   f.terminal.child(JSON.stringify({ level: "ERROR", component: "launcher", msg: "LAUNCHER_START_FAILED", Wails: "v3.0.0", Compiler: "go1.26.6" }), { scope: "launcher" });
   assert.match(f.errors.join(""), /LAUNCHER_START_FAILED/);
+});
+
+test("progress names the current item and a finished stage lists only its slower sub-steps", async () => {
+  const f = fixture({ tty: true, env: { NO_COLOR: "" } });
+  beginStartup(f);
+  await f.terminal.phase("Server 与开发插件", async () => {
+    await f.terminal.phase("准备开发插件", async (task) => {
+      task.progress(1, 3, "raylea.genshin");
+      assert.match(f.out.at(-1), /准备开发插件 .*1\/3 {2}raylea\.genshin/);
+      f.advance(2500);
+    });
+    await f.terminal.phase("同步开发插件", async () => { f.advance(200); });
+  });
+  const finished = f.out.join("");
+  assert.match(finished, /✓ Server 与开发插件 +2\.7s/);
+  assert.match(finished, /\n {4}准备开发插件 +2\.5s/);
+  assert.doesNotMatch(finished.slice(finished.lastIndexOf("✓")), /同步开发插件/);
+  f.terminal.close();
+});
+
+test("wrapped diagnostics never open a line with closing punctuation", () => {
+  // At this width a plain wrap would open the second line with the comma.
+  const f = fixture({ tty: true, columns: 19, env: { NO_COLOR: "" } });
+  const message = "开发插件未更新，等待相关源码变化后重试。";
+  f.terminal.write(message, { level: "warn" });
+  const lines = f.errors.join("").trimEnd().split("\n").slice(1).map((line) => line.slice(4));
+  assert.equal(lines.join(""), message);
+  assert.ok(lines.every((line) => !/^[，。]/.test(line)), lines.join("|"));
+});
+
+test("startup summary names the Server address and counts startup warnings", () => {
+  const f = fixture({ tty: true, env: { NO_COLOR: "" } });
+  beginStartup(f);
+  f.terminal.write("first", { level: "warn" });
+  f.terminal.write("second", { level: "warn" });
+  f.terminal.summary({ elapsedMs: 1000, webURL: "http://127.0.0.1:4173/", serverURL: "http://127.0.0.1:12345", skipLaunch: false });
+  assert.match(f.out.join(""), /Server +http:\/\/127\.0\.0\.1:12345/);
+  assert.match(f.out.join(""), /2 条告警/);
+  f.terminal.close();
 });

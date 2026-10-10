@@ -1,8 +1,9 @@
 // A plugin failure is a result of that item, not a reason to abandon its peers.
 export async function runDevelopmentPluginBatch(plugins, operation, { onFailure = () => {}, onProgress = () => {} } = {}) {
   const completed = [], failed = [];
-  onProgress(0, plugins.length);
   for (const plugin of plugins) {
+    // The third argument names the plugin being worked on.
+    onProgress(completed.length + failed.length, plugins.length, plugin);
     try {
       const value = await operation(plugin);
       completed.push({ plugin, value });

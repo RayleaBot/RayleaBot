@@ -27,10 +27,15 @@ function duration(ms) {
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const palette = { muted: "90", brand: "32", success: "32", warn: "33", error: "31", strong: "1" };
+// Punctuation that must not open a wrapped line; the preceding character moves down with it.
+const closingPunctuation = /^[，。、；：！？）》」』】〉”’…·,.;:!?)\]}%]$/u;
+const profileNames = { "web-dev": "Web 开发", "launcher-dev": "Launcher 开发", build: "构建产物" };
+// Sub-steps shorter than this stay out of a finished stage's breakdown.
+const breakdownMs = 1000;
 
 function cellWidth(character) {
   if (/^[\p{Mark}\p{Cf}]+$/u.test(character)) return 0;
-  if (/[\p{Emoji_Presentation}\uFE0F\u20E3]/u.test(character)) return 2;
+  if (/[\p{Emoji_Presentation}️⃣]/u.test(character)) return 2;
   const cp = character.codePointAt(0);
   return cp >= 0x1100 && (cp <= 0x115f || cp === 0x2329 || cp === 0x232a
     || (cp >= 0x2e80 && cp <= 0xa4cf && cp !== 0x303f)
@@ -59,19 +64,32 @@ function fitLine(text, columns) {
 
 function wrapLine(text, columns) {
   const lines = [];
-  let width = 0, line = "";
+  let current = [], width = 0;
   for (const { segment } of graphemes.segment(text)) {
     const cells = cellWidth(segment);
-    if (line && width + cells > columns) { lines.push(line); line = ""; width = 0; }
-    line += segment;
+    if (current.length && width + cells > columns) {
+      const carry = closingPunctuation.test(segment) && current.length > 1 ? [current.pop()] : [];
+      lines.push(current.map((part) => part.segment).join(""));
+      current = carry;
+      width = carry.reduce((sum, part) => sum + part.cells, 0);
+    }
+    current.push({ segment, cells });
     width += cells;
   }
-  lines.push(line);
+  lines.push(current.map((part) => part.segment).join(""));
   return lines;
 }
 
 const safeText = (value) => redactLogLine(cleanOutput(value)).replace(/\t/g, "    ");
 const singleLine = (value) => safeText(value).replace(/\s+/g, " ");
+
+function describeWatch({ profile, serverReload, pluginDev }) {
+  const watching = profile !== "build";
+  const server = watching && serverReload === "watch" ? "Server 改动后自动重启" : "Server 改动需重新启动";
+  const plugins = pluginDev === "off" ? "不同步开发插件"
+    : watching && pluginDev === "watch" ? "插件改动后自动同步" : "插件仅在启动时同步";
+  return `${server} · ${plugins}`;
+}
 
 export function createDevConsole({
   stdout = process.stdout, stderr = process.stderr, env = process.env,
@@ -83,10 +101,11 @@ export function createDevConsole({
   const tasks = new Map();
   let timer, frame = 0, visibleWidths = [];
   let mode = "stream", sessionStarted = false, summaryShown = false, logHeadingShown = false;
-  let bufferedChars = 0, omittedLogs = 0, startupWarning = false, lastDiagnostic;
+  let bufferedChars = 0, omittedLogs = 0, startupWarnings = 0, lastDiagnostic;
   const startupLogs = [];
   const columns = () => Math.max(12, stdout.columns || 80);
   const contentWidth = () => Math.min(96, columns() - 1);
+  const stageWidth = () => Math.min(72, contentWidth());
   // ANSI palette colors follow the terminal's light/dark theme and user contrast settings.
   const paint = (value, role) => color ? `\x1b[${palette[role]}m${value}\x1b[0m` : value;
   const erase = () => {
@@ -96,27 +115,36 @@ export function createDevConsole({
     visibleWidths = [];
     return "\r\x1b[2K" + "\x1b[1A\r\x1b[2K".repeat(rows - 1);
   };
-  const stageLine = (icon, label, elapsed, role) => {
-    const suffix = duration(elapsed);
-    const width = Math.min(72, contentWidth());
-    const title = fitLine(label, width - suffix.length - 7);
-    const gap = Math.max(2, width - 4 - textWidth(title) - suffix.length);
-    return `  ${paint(icon, role)} ${paint(title, "strong")}${" ".repeat(gap)}${paint(suffix, "muted")}`;
+  // Stages and their sub-steps share one right edge for durations; both titles start after four cells.
+  const alignedLine = (lead, title, suffix, titleRole) => {
+    const width = stageWidth() - 4;
+    const text = fitLine(title, width - suffix.length - 2);
+    const gap = Math.max(2, width - textWidth(text) - suffix.length);
+    return `${lead}${paint(text, titleRole)}${" ".repeat(gap)}${paint(suffix, "muted")}`;
+  };
+  const stageLine = (icon, label, elapsed, role) => alignedLine(`  ${paint(icon, role)} `, label, duration(elapsed), "strong");
+  const progressLine = (task, showLabel) => {
+    const width = contentWidth() - 4;
+    const label = showLabel ? fitLine(task.label, Math.min(24, width - 12)) : "";
+    const count = `${task.completed}/${task.total}`;
+    const fixed = textWidth(label) + (label ? 2 : 0) + 2 + count.length;
+    const size = Math.max(4, Math.min(20, width - fixed));
+    const room = width - fixed - size - 2;
+    const item = task.item && room >= 6 ? fitLine(task.item, room) : "";
+    const done = Math.floor(size * task.completed / task.total);
+    return "    " + (label ? paint(label, "muted") + "  " : "")
+      + paint("━".repeat(done), "brand") + paint("─".repeat(size - done), "muted")
+      + "  " + paint(count, "muted") + (item ? "  " + paint(item, "muted") : "");
   };
   const render = () => {
     if (!interactive || !tasks.size) return;
     const activeTasks = [...tasks.values()];
-    const root = activeTasks[0], active = activeTasks.at(-1);
+    const root = activeTasks[0], deepest = activeTasks.at(-1);
     const progress = activeTasks.findLast((task) => task.total > 0);
     const lines = [stageLine(spinner[frame++ % spinner.length], root.label, now() - root.started, "brand")];
-    const detail = active !== root ? active.label : root.notes.at(-1);
+    if (progress) lines.push(progressLine(progress, progress !== root));
+    const detail = deepest !== root && deepest !== progress ? deepest.label : progress ? undefined : root.notes.at(-1);
     if (detail) lines.push("    " + paint(fitLine(detail, contentWidth() - 4), "muted"));
-    if (progress) {
-      const count = `${progress.completed}/${progress.total}`;
-      const size = Math.max(1, Math.min(24, contentWidth() - count.length - 7));
-      const done = Math.floor(size * progress.completed / progress.total);
-      lines.push(`    ${paint("━".repeat(done), "brand")}${paint("─".repeat(size - done), "muted")}  ${paint(count, "muted")}`);
-    }
     const clearing = erase();
     // Keep the cursor on an empty row: terminals may truncate the cursor's own
     // row on resize instead of reflowing it like the preceding content.
@@ -130,7 +158,10 @@ export function createDevConsole({
     output.write(lines.join("\n") + "\n");
     render();
   };
-  const write = (message, { scope = "dev", level = "info", timestamp, persist = true, diagnosticGroup } = {}) => {
+  // Redirected output keeps whole lines so paths and commands stay copyable.
+  const indented = (text, role) => (interactive ? wrapLine(text, Math.max(1, contentWidth() - 4)) : [text]).map((line) => "    " + (role ? paint(line, role) : line));
+  // The startup script's own messages carry the name of their log, logs/dev/start/.
+  const write = (message, { scope = "start", level = "info", timestamp, persist = true, diagnosticGroup } = {}) => {
     const safe = safeText(message);
     if (persist) record(safe, level);
     if (level === "debug") return;
@@ -142,16 +173,17 @@ export function createDevConsole({
     const output = level === "error" || level === "warn" ? stderr : stdout;
     if (mode === "startup") {
       if (level === "error" || level === "warn") {
-        startupWarning = true;
         const continued = diagnosticGroup && lastDiagnostic?.group === diagnosticGroup && now() - lastDiagnostic.at < 500;
-        const label = `${level === "error" ? "启动错误" : "启动告警"} · ${source}`;
-        const lines = safe.trimEnd().split("\n").flatMap((line) => wrapLine(line, Math.max(1, contentWidth() - 4))).map((line) => "    " + line);
+        if (!continued) startupWarnings++;
+        // The orchestrator's own diagnostics need no source label.
+        const label = `${level === "error" ? "启动错误" : "启动告警"}${source && source !== "start" ? ` · ${source}` : ""}`;
+        const lines = safe.trimEnd().split("\n").flatMap((line) => indented(line));
         print([...(continued ? [] : [`  ${paint(badge, role)} ${paint(fitLine(label, contentWidth() - 4), role)}`]), ...lines], output);
         lastDiagnostic = { group: diagnosticGroup, at: now() };
       } else {
         const root = tasks.values().next().value;
         if (root) { root.notes.push(singleLine(safe)); if (root.notes.length > 4) root.notes.shift(); render(); }
-        else print(safe.trimEnd().split("\n").flatMap((line) => wrapLine(line, Math.max(1, contentWidth() - 4))).map((line) => "    " + paint(line, "muted")));
+        else print(safe.trimEnd().split("\n").flatMap((line) => indented(line, "muted")));
       }
       return;
     }
@@ -192,7 +224,7 @@ export function createDevConsole({
     // File logging happens before this bounded, presentation-only startup queue.
     // Preserve receive time for unstructured output as well as source timestamps.
     const sourceTime = options.timestamp ? Date.parse(options.timestamp) : NaN;
-    const entry = { message: safeText(message), options: { ...options, scope: singleLine(options.scope || "dev"), timestamp: new Date(Number.isFinite(sourceTime) ? sourceTime : now()).toISOString(), persist: false } };
+    const entry = { message: safeText(message), options: { ...options, scope: singleLine(options.scope || "start"), timestamp: new Date(Number.isFinite(sourceTime) ? sourceTime : now()).toISOString(), persist: false } };
     if (mode !== "startup" || options.level === "warn" || options.level === "error") {
       write(entry.message, entry.options);
       return;
@@ -206,10 +238,13 @@ export function createDevConsole({
     startupLogs.push(entry);
     bufferedChars += entry.size;
   };
+  // A finished stage lists its slower direct sub-steps, so a slow start shows where the time went.
+  const breakdown = (task) => task.steps.filter((step) => step.state === "error" || step.elapsed >= breakdownMs);
   const start = (label) => {
     const token = Symbol(label);
-    const nested = tasks.size > 0;
-    const task = { label: singleLine(label), started: now(), completed: 0, total: 0, notes: [] };
+    const parent = [...tasks.values()].at(-1);
+    const nested = Boolean(parent);
+    const task = { label: singleLine(label), started: now(), completed: 0, total: 0, item: "", notes: [], steps: [], parent };
     tasks.set(token, task);
     record(`${task.label}：开始`, "debug");
     if (!interactive && !nested) {
@@ -227,23 +262,29 @@ export function createDevConsole({
       if (clearing) stdout.write(clearing);
       if (!tasks.size) { clear(timer); timer = undefined; }
       const level = state === "error" ? "error" : "info";
+      const elapsed = now() - task.started;
       const label = result ? `${task.label} · ${singleLine(result)}` : task.label;
       result = singleLine(result ?? "完成");
-      const message = `${task.label} · ${result} · ${duration(now() - task.started)}`;
+      const message = `${task.label} · ${result} · ${duration(elapsed)}`;
       record(message, level);
+      if (parent && !parent.parent) parent.steps.push({ label, elapsed, state });
+      const steps = breakdown(task);
       if (nested) render();
       else if (!interactive || (sessionStarted && mode === "stream")) {
         // Stage completions are orchestration events, not startup diagnostics.
         if (mode === "startup") print([`  ${state === "error" ? "✗" : state === "success" ? "✓" : "○"} ${message}`,
+          ...steps.map((step) => `    ${step.label} · ${duration(step.elapsed)}`),
           ...task.notes.map((note) => "    " + note)], state === "error" ? stderr : stdout);
         else write(message, { level, persist: false });
-      } else print([stageLine(state === "success" ? "✓" : state === "error" ? "✗" : "○", label, now() - task.started, state),
-        ...task.notes.flatMap((note) => wrapLine(note, Math.max(1, contentWidth() - 4))).map((line) => "    " + paint(line, "muted"))], state === "error" ? stderr : stdout);
+      } else print([stageLine(state === "success" ? "✓" : state === "error" ? "✗" : "○", label, elapsed, state),
+        ...steps.map((step) => alignedLine("    ", step.label, duration(step.elapsed), step.state === "error" ? "error" : "muted")),
+        ...task.notes.flatMap((note) => indented(note, "muted"))], state === "error" ? stderr : stdout);
     };
     return {
-      progress(completed, total) {
+      progress(completed, total, item = "") {
         task.total = Math.max(0, total);
         task.completed = Math.max(0, Math.min(completed, task.total));
+        task.item = item ? singleLine(item) : "";
         render();
       },
       finish(result) { end(result, "success"); },
@@ -252,9 +293,11 @@ export function createDevConsole({
       fail() { end("失败", "error"); },
     };
   };
-  const detailLines = (label, value) => {
-    const lines = wrapLine(singleLine(value), Math.max(1, contentWidth() - 12));
-    return lines.map((line, index) => (index ? "            " : `    ${paint(label.padEnd(6 + label.length - textWidth(label)), "muted")}  `) + line);
+  // Label/value rows share the widest label's column.
+  const detailRows = (rows) => {
+    const labelWidth = Math.max(...rows.map(([label]) => textWidth(label)));
+    return rows.flatMap(([label, value]) => wrapLine(singleLine(value), Math.max(1, contentWidth() - labelWidth - 6))
+      .map((line, index) => "    " + (index ? " ".repeat(labelWidth) : paint(label + " ".repeat(labelWidth - textWidth(label)), "muted")) + "  " + line));
   };
   const onResize = () => render();
   if (interactive) stdout.on?.("resize", onResize);
@@ -263,29 +306,30 @@ export function createDevConsole({
     intro({ profile, nodeVersion, serverReload, pluginDev }) {
       sessionStarted = true;
       mode = "startup";
-      const description = singleLine(`${profile} · Node ${nodeVersion}`);
-      const watch = `Server ${serverReload === "watch" ? "监听" : "不监听"} · 插件 ${pluginDev === "watch" ? "监听" : pluginDev === "sync" ? "启动时同步" : "源码同步关闭"}`;
+      const description = singleLine(`${profileNames[profile] ?? profile} · Node ${nodeVersion}`);
+      const watch = describeWatch({ profile, serverReload, pluginDev });
       record(`RayleaBot · ${description} · ${watch} · 日志：logs/dev/`, "info");
-      if (!interactive) { print([`RayleaBot · ${description}`, `${watch} · 日志：logs/dev/`, "启动准备"]); return; }
+      if (!interactive) { print([`RayleaBot 开发环境 · ${description}`, `${watch} · 日志：logs/dev/`, "启动准备"]); return; }
       print(["", "  " + paint("RayleaBot", "brand") + "  " + paint("开发环境", "strong"),
-        ...wrapLine(description, contentWidth() - 2).map((line) => "  " + paint(line, "muted")),
-        ...wrapLine(watch, contentWidth() - 2).map((line) => "  " + paint(line, "muted")), "", "  " + paint("启动准备", "strong")]);
+        ...detailRows([["模式", description], ["监听", watch]]), "", "  " + paint("启动准备", "strong")]);
     },
-    summary({ elapsedMs, webURL, skipLaunch }) {
+    summary({ elapsedMs, webURL, serverURL, skipLaunch }) {
       if (summaryShown) return;
       summaryShown = true;
-      const hint = skipLaunch ? "检查结束，未打开 Launcher" : "关闭 Launcher 或按 Ctrl+C 结束";
-      record(`启动准备完成 · ${duration(elapsedMs)} · ${hint}${webURL ? ` · 管理面：${singleLine(webURL)}` : ""}`, "info");
+      const hint = skipLaunch ? "已跳过 Launcher，开发进程随之结束" : "关闭 Launcher 或按 Ctrl+C 结束";
+      const rows = [...(webURL ? [["管理界面", webURL]] : []), ...(serverURL ? [["Server", serverURL]] : []), ["日志", "logs/dev/"]];
+      const warning = startupWarnings ? `启动期间有 ${startupWarnings} 条告警，见上方` : "";
+      record(`启动准备完成 · ${duration(elapsedMs)} · ${hint}${rows.filter(([label]) => label !== "日志").map(([label, value]) => ` · ${label}：${singleLine(value)}`).join("")}`, "info");
       if (!interactive) {
         print(["", `启动准备完成 · ${duration(elapsedMs)} · ${hint}`,
-          ...(webURL ? [`管理面：${singleLine(webURL)}`] : []), "日志：logs/dev/"]);
+          ...rows.map(([label, value]) => `${label}：${singleLine(value)}`), ...(warning ? [warning] : [])]);
         flushStartup("进程日志", !skipLaunch);
         return;
       }
       print(["", `  ${paint("✓", "success")} ${paint("启动准备完成", "strong")}  ${paint(duration(elapsedMs), "muted")}`,
-        ...(webURL ? detailLines("管理面", webURL) : []), ...detailLines("日志", "logs/dev/"),
-        ...(startupWarning ? wrapLine("启动期间有告警，详情见上方诊断与日志文件。", contentWidth() - 4).map((line) => "    " + paint(line, "warn")) : []),
-        ...wrapLine(hint, contentWidth() - 4).map((line) => "    " + paint(line, "muted"))]);
+        ...detailRows(rows),
+        ...(warning ? [`    ${paint("!", "warn")} ${paint(warning, "warn")}`] : []),
+        ...indented(hint, "muted")]);
       flushStartup("进程日志", !skipLaunch);
     },
     abortStartup() { flushStartup("启动诊断", true); },

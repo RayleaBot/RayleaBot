@@ -64,7 +64,6 @@ if /i not "%NODE_ACTUAL%"=="v%NODE_VERSION%" (
   goto :failure
 )
 
-echo [RayleaBot] Using Node.js %NODE_ACTUAL%.
 if defined NODE_IS_SCRIPT (
   call "%NODE_BIN%" scripts\start-dev.mjs %*
 ) else (

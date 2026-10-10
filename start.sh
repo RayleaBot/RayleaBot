@@ -45,5 +45,4 @@ if [ "$NODE_ACTUAL" != "v$NODE_VERSION" ]; then
   exit 1
 fi
 
-echo "[RayleaBot] Using Node.js $NODE_ACTUAL."
 exec "$NODE_BIN" scripts/start-dev.mjs "$@"

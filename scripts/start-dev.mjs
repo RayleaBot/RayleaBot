@@ -99,6 +99,7 @@ const developmentLogs = Object.fromEntries(["web", "launcher", "server", "start"
 const terminal = createDevConsole({ record: (message, level) => writeStartLog(`[${level.toUpperCase()}] ${message}\n`) });
 const startupStarted = Date.now();
 let startupReported = false;
+let summaryServerURL = "";
 const longRunningChildren = new Set();
 const childOutputTails = new WeakMap();
 const childHiddenOutputTails = new WeakMap();
@@ -137,7 +138,9 @@ try {
     tempRoot: childTempDir,
   }));
   await main();
+  if (startupReported) log(shouldSkipLaunch() ? "正在停止开发进程…" : "Launcher 已关闭，正在停止开发进程…");
   await cleanup();
+  if (startupReported) log("开发进程已全部停止。");
 } catch (error) {
   if (!shuttingDown) {
     terminal.abortStartup();
@@ -183,7 +186,8 @@ async function main() {
   });
   await fsp.mkdir(pluginDevArtifactRoot, { recursive: true });
   serverDevEnvironment.RAYLEA_DEV_ARTIFACT_ROOT = pluginDevArtifactRoot;
-  log(`后端地址：${backendBaseUrl}`);
+  summaryServerURL = backendBaseUrl;
+  log(`后端地址：${backendBaseUrl}`, "debug");
   if (serverReloadMode === SERVER_RELOAD_WATCH && await reuseDevelopmentRuntime(backendBaseUrl)) {
     if (pluginDev.mode === "sync") await synchronizeOnlinePlugins(await buildDevelopmentPlugins(pluginDev), backendBaseUrl);
     await prepareLauncher(installMode);
@@ -358,7 +362,7 @@ async function prepareDevelopmentPlugins(pluginDev, pluginIDs, progress) {
         "--target", platform, "--out", pluginDevArtifactRoot, "--expanded=true", "--archive=false",
       ], { cwd: rootDir, env: environment }),
     });
-  }, { onFailure: reportDevelopmentPluginFailure, onProgress: (completed, total) => progress.progress(completed, total) });
+  }, { onFailure: reportDevelopmentPluginFailure, onProgress: (completed, total, plugin) => progress.progress(completed, total, plugin?.id) });
   return { workspace, platform, plugins: result.completed.map(({ plugin }) => plugin), failed: result.failed };
 }
 
@@ -385,7 +389,7 @@ async function installPreparedPlugins(preparedPlugins, serverBinaryPath, progres
       "--source",
       plugin.path,
     ], { cwd: rootDir });
-  }, { onFailure: reportDevelopmentPluginFailure, onProgress: (completed, total) => progress.progress(completed, total) });
+  }, { onFailure: reportDevelopmentPluginFailure, onProgress: (completed, total, plugin) => progress.progress(completed, total, plugin?.id) });
   log(`开发插件：${result.completed.length} 个已同步${result.failed.length ? `，${result.failed.length} 个失败` : ""}`);
   return result;
 }
@@ -407,7 +411,7 @@ async function synchronizeOnlinePlugins(prepared, backendBaseUrl) {
       });
       log(`${plugin.id}: ${changed ? "已在线同步" : "安装内容未变化"}`, "debug");
       return changed;
-    }, { onFailure: reportDevelopmentPluginFailure, onProgress: (completed, total) => progress.progress(completed, total) });
+    }, { onFailure: reportDevelopmentPluginFailure, onProgress: (completed, total, plugin) => progress.progress(completed, total, plugin?.id) });
     const updated = result.completed.filter(({ value }) => value).length;
     if (updated) log(`开发插件：${updated} 个已更新，${result.completed.length - updated} 个内容未变化`);
     return result;
@@ -647,7 +651,7 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
 
   try {
     for (;;) {
-      try { await buildServerDevBinary(); break; }
+      try { await terminal.phase("准备 Server", () => buildServerDevBinary()); break; }
       catch (error) {
         if (error.code === "DEV_INPUT_CHANGED" && !shuttingDown) continue;
         if (await isServerHealthy(backendBaseUrl)) throw error;
@@ -678,7 +682,7 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
         return result;
       },
       start: async () => {
-        try { await startAndVerify(); }
+        try { await terminal.phase("启动 Server", () => startAndVerify()); }
         catch (error) {
           const previous = path.join(cacheDir, "server-last-good" + nativeExecutableSuffix(currentPluginPlatform()));
           if (!fs.existsSync(previous) || shuttingDown) throw error;
@@ -709,7 +713,7 @@ async function reuseDevelopmentRuntime(backendBaseUrl) {
   developmentControlEnvironment[LAUNCHER_CONTROL_TOKEN_ENV] = lease.control_token;
   Object.assign(developmentServerWatcherEnvironment, createDevelopmentServerWatcherEnvironment({ ownerPid: lease.owner_pid }));
   reusedRuntime = true;
-  log("复用当前健康开发环境，打开 Launcher。");
+  log("已有开发环境在运行，直接复用。");
   return true;
 }
 
@@ -1092,7 +1096,7 @@ async function runCommand(label, command, args, { cwd, env = {}, logType, window
       const detail = hints.map((hint) => `提示：${hint}`).join("\n");
       const hidden = childHiddenOutputTails.get(child)?.().trim().split("\n").slice(-12).join("\n");
       if (hidden) terminal.write(hidden, { scope: logType || "build", level: "error", persist: false });
-      throw new Error(`${label}失败，退出码 ${exit.code}。日志：${relativePath(developmentLogs[logType || "build"].path)}${detail ? `\n${detail}` : ""}`);
+      throw new Error(`${label} 失败，退出码 ${exit.code}。日志：${relativePath(developmentLogs[logType || "build"].path)}${detail ? `\n${detail}` : ""}`);
     }
     task.finish();
   } catch (error) {
@@ -1220,8 +1224,9 @@ async function shutdown(code) {
     return;
   }
   shuttingDown = true;
-  log("正在关闭开发进程。");
+  log("正在停止开发进程…");
   await cleanup();
+  log("开发进程已全部停止。");
   await closeLogs();
   process.exit(code);
 }
@@ -1268,15 +1273,19 @@ function log(message, level = "info") {
 function reportStartup() {
   if (startupReported) return;
   startupReported = true;
+  // The addresses only stay valid while this process keeps the development runtime running.
+  const running = !shouldSkipLaunch() && resolveStartProfile(process.env) !== BUILD_PROFILE;
   terminal.summary({
     elapsedMs: Date.now() - startupStarted,
-    webURL: !shouldSkipLaunch() && resolveStartProfile(process.env) !== BUILD_PROFILE ? WEB_DEV_BASE_URL : undefined,
+    webURL: running ? WEB_DEV_BASE_URL : undefined,
+    serverURL: running ? summaryServerURL : undefined,
     skipLaunch: shouldSkipLaunch(),
   });
 }
 
+// Redaction rewrites a trailing JSON object and would drop the line break after it.
 function writeStartLog(chunk) {
-  developmentLogs.start.write(`[${formatUTCLogTimestamp()}] ${redactLogLine(chunk)}`);
+  developmentLogs.start.write(`[${formatUTCLogTimestamp()}] ${redactLogLine(chunk.replace(/\n$/, ""))}\n`);
 }
 
 async function closeLogs() {
