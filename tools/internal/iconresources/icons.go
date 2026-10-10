@@ -19,7 +19,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/tools/internal/repo"
 )
 
-var sizes = []int{16, 24, 32, 48, 64, 128, 256}
+var sizes = []int{16, 20, 24, 28, 32, 40, 48, 56, 64, 128, 256}
 
 type frame struct{ Directory, Payload []byte }
 type resourceGroup struct {
@@ -228,7 +228,7 @@ func verify(exe, ico, evidence string, out io.Writer) error {
 	if !r.Passed {
 		return fmt.Errorf("%s", strings.Join(r.Errors, "\n"))
 	}
-	fmt.Fprintf(out, "Verified %d RT_GROUP_ICON resource(s): 16,24,32,48,64,128,256px; every RT_ICON payload and directory matches source ICO.\nEXE SHA256: %s\n", len(r.Groups), r.EXESHA)
+	fmt.Fprintf(out, "Verified %d RT_GROUP_ICON resource(s): %vpx; every RT_ICON payload and directory matches source ICO.\nEXE SHA256: %s\n", len(r.Groups), sizes, r.EXESHA)
 	if evidence != "" {
 		absolute, err := filepath.Abs(evidence)
 		if err != nil {

@@ -14,54 +14,21 @@ import portraitlight160 from '../assets/brand/mark-light-160.png?no-inline'
 import portraitlight192 from '../assets/brand/mark-light-192.png?no-inline'
 import portraitlight256 from '../assets/brand/mark-light-256.png?no-inline'
 import portraitlight384 from '../assets/brand/mark-light-384.png?no-inline'
-import compactdark32 from '../assets/brand/mark-compact-dark-32.png?no-inline'
-import compactdark40 from '../assets/brand/mark-compact-dark-40.png?no-inline'
-import compactdark48 from '../assets/brand/mark-compact-dark-48.png?no-inline'
-import compactdark64 from '../assets/brand/mark-compact-dark-64.png?no-inline'
-import compactdark96 from '../assets/brand/mark-compact-dark-96.png?no-inline'
-import compactdark50 from '../assets/brand/mark-compact-dark-50.png?no-inline'
-import compactdark60 from '../assets/brand/mark-compact-dark-60.png?no-inline'
-import compactdark80 from '../assets/brand/mark-compact-dark-80.png?no-inline'
-import compactdark120 from '../assets/brand/mark-compact-dark-120.png?no-inline'
-import portraitdark128 from '../assets/brand/mark-dark-128.png?no-inline'
-import portraitdark160 from '../assets/brand/mark-dark-160.png?no-inline'
-import portraitdark192 from '../assets/brand/mark-dark-192.png?no-inline'
-import portraitdark256 from '../assets/brand/mark-dark-256.png?no-inline'
-import portraitdark384 from '../assets/brand/mark-dark-384.png?no-inline'
 
 export const rayleaMarkSources = {
-  light: {
-    32: {
-      artwork: 'compact',
-      src: compactlight32,
-      srcset: [`${compactlight32} 32w`, `${compactlight40} 40w`, `${compactlight48} 48w`, `${compactlight64} 64w`, `${compactlight96} 96w`].join(', '),
-    },
-    40: {
-      artwork: 'compact',
-      src: compactlight40,
-      srcset: [`${compactlight40} 40w`, `${compactlight50} 50w`, `${compactlight60} 60w`, `${compactlight80} 80w`, `${compactlight120} 120w`].join(', '),
-    },
-    128: {
-      artwork: 'portrait',
-      src: portraitlight128,
-      srcset: [`${portraitlight128} 128w`, `${portraitlight160} 160w`, `${portraitlight192} 192w`, `${portraitlight256} 256w`, `${portraitlight384} 384w`].join(', '),
-    },
+  32: {
+    artwork: 'compact',
+    src: compactlight32,
+    srcset: [`${compactlight32} 32w`, `${compactlight40} 40w`, `${compactlight48} 48w`, `${compactlight64} 64w`, `${compactlight96} 96w`].join(', '),
   },
-  dark: {
-    32: {
-      artwork: 'compact',
-      src: compactdark32,
-      srcset: [`${compactdark32} 32w`, `${compactdark40} 40w`, `${compactdark48} 48w`, `${compactdark64} 64w`, `${compactdark96} 96w`].join(', '),
-    },
-    40: {
-      artwork: 'compact',
-      src: compactdark40,
-      srcset: [`${compactdark40} 40w`, `${compactdark50} 50w`, `${compactdark60} 60w`, `${compactdark80} 80w`, `${compactdark120} 120w`].join(', '),
-    },
-    128: {
-      artwork: 'portrait',
-      src: portraitdark128,
-      srcset: [`${portraitdark128} 128w`, `${portraitdark160} 160w`, `${portraitdark192} 192w`, `${portraitdark256} 256w`, `${portraitdark384} 384w`].join(', '),
-    },
+  40: {
+    artwork: 'compact',
+    src: compactlight40,
+    srcset: [`${compactlight40} 40w`, `${compactlight50} 50w`, `${compactlight60} 60w`, `${compactlight80} 80w`, `${compactlight120} 120w`].join(', '),
+  },
+  128: {
+    artwork: 'portrait',
+    src: portraitlight128,
+    srcset: [`${portraitlight128} 128w`, `${portraitlight160} 160w`, `${portraitlight192} 192w`, `${portraitlight256} 256w`, `${portraitlight384} 384w`].join(', '),
   },
 } as const

@@ -41,10 +41,6 @@ watchEffect(() => {
   root.dataset.density = uiShellStore.preferences.density
   root.dataset.contentWidth = uiShellStore.preferences.contentWidth
 
-  const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
-  const faviconPath = uiShellStore.resolvedThemeMode === 'dark' ? '/favicon-compact-dark.svg' : '/favicon-compact.svg'
-  if (favicon && favicon.getAttribute('href') !== faviconPath) favicon.href = faviconPath
-
   for (const [key, value] of Object.entries(cssVariables)) {
     root.style.setProperty(key, value)
   }

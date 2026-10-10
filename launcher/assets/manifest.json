@@ -7,16 +7,20 @@
       },
       "compact": {
         "path": "design/mark-compact.json",
-        "sha256": "08986552897c577ecfa587abe72c5e1504c5a84e45bc09f4c62be7bad4e0b957"
+        "sha256": "0221b5dc44cee56bafdbded8959ef1a3d9005b8c160a3fd9ee9b8874c1f38bc3"
       }
     },
     "generator": {
       "path": "scripts/generate-launcher-icons.mjs",
-      "sha256": "ad5ca39f368bbded193c04176fba26c701fd43499e932f8c9d4820db77ee8933"
+      "sha256": "f84784a7de52551bdc01f7a9539ca1046eb13a539a338621b901a5e86c8585a1"
+    },
+    "renderer": {
+      "path": "scripts/launcher-icon-renderer.mjs",
+      "sha256": "b5b8aaed79affc8a2ab4bc63ae5dde48c2d42715ffffb2e91b846b16d773bfeb"
     },
     "markValidator": {
       "path": "scripts/design-mark.mjs",
-      "sha256": "ce7b187a71e54c3b7424d4b665861040503528a3fd6b896949a7fc53f64f470f"
+      "sha256": "5a071636dea233cca1ccb7c293657cb50d8bffed4c7cb213544bb518aa978be4"
     },
     "metadataWriter": {
       "path": "scripts/png-provenance.mjs",
@@ -26,7 +30,22 @@
       "module": "@napi-rs/canvas",
       "version": "1.0.9",
       "engine": "Skia"
-    }
+    },
+    "compactRendering": {
+      "samples": 4,
+      "fit": "viewBox"
+    },
+    "compactSizes": [
+      16,
+      20,
+      24,
+      28,
+      32,
+      40,
+      48,
+      56,
+      64
+    ]
   },
   "outputs": {
     "appicon.png": {
@@ -40,34 +59,94 @@
       "width": 32,
       "height": 32,
       "alpha": true,
-      "role": "light system tray",
-      "treatment": "compact light beret-and-bow design with a fine light outline and transparent background"
+      "role": "system tray",
+      "treatment": "fixed black-and-white geometric beret badge shared with Web, Launcher and taskbar icons"
     },
-    "tray-dark.png": {
-      "width": 32,
-      "height": 32,
+    "tray/16.png": {
+      "width": 16,
+      "height": 16,
       "alpha": true,
-      "role": "dark system tray",
-      "treatment": "compact dark beret-and-bow design with independent gray fills, silver details and transparent background"
+      "role": "Windows system tray",
+      "treatment": "fixed light artwork rendered for the native system metric"
+    },
+    "tray/20.png": {
+      "width": 20,
+      "height": 20,
+      "alpha": true,
+      "role": "Windows system tray",
+      "treatment": "fixed light artwork rendered for the native system metric"
+    },
+    "tray/24.png": {
+      "width": 24,
+      "height": 24,
+      "alpha": true,
+      "role": "Windows system tray",
+      "treatment": "fixed light artwork rendered for the native system metric"
+    },
+    "tray/28.png": {
+      "width": 28,
+      "height": 28,
+      "alpha": true,
+      "role": "Windows system tray",
+      "treatment": "fixed light artwork rendered for the native system metric"
+    },
+    "tray/40.png": {
+      "width": 40,
+      "height": 40,
+      "alpha": true,
+      "role": "Windows system tray",
+      "treatment": "fixed light artwork rendered for the native system metric"
+    },
+    "tray/48.png": {
+      "width": 48,
+      "height": 48,
+      "alpha": true,
+      "role": "Windows system tray",
+      "treatment": "fixed light artwork rendered for the native system metric"
+    },
+    "tray/56.png": {
+      "width": 56,
+      "height": 56,
+      "alpha": true,
+      "role": "Windows system tray",
+      "treatment": "fixed light artwork rendered for the native system metric"
+    },
+    "tray/64.png": {
+      "width": 64,
+      "height": 64,
+      "alpha": true,
+      "role": "Windows system tray",
+      "treatment": "fixed light artwork rendered for the native system metric"
     },
     "icon.ico": {
       "sizes": [
         16,
+        20,
         24,
+        28,
         32,
+        40,
         48,
+        56,
         64,
         128,
         256
       ],
       "role": "Windows executable resource",
-      "treatment": "compact beret-and-bow at 16/24/32/48/64px; original portrait at 128/256px; each frame rendered independently"
+      "treatment": "geometric beret badge at 16–64px shared with all compact entries; original light portrait at 128/256px"
     }
   },
   "sha256": {
-    "appicon.png": "c0262f13f79f3c728278afdea470d257a8d8004b80cf99207cf04086399247b5",
-    "tray.png": "bf6496b9122cf591041c688241d15f4bbe929ae005964a255fce30fff0c3b2f8",
-    "tray-dark.png": "81176f9d63a8a3364d30bb2a43c7f481df0ed6bbf33f3000310e2a0d0d0f65eb",
-    "icon.ico": "ddbaa3b09a33e815ec18764fc0961495f804d1fa26ba414387ff427b9ace1071"
+    "appicon.png": "be3628ee15ecbce6ce1b693b58ae767554b7ffc5841c2bdee7f37bd9880a3a3f",
+    "tray.png": "2ce351c881c6fbff812e0bac6d00bb798f15cd71a0b6d3a20df14efd6b3551c5",
+    "tray/16.png": "638d5966226db740eaeb7cb34c78a0370bbc7b5d9bb6f4d8b69690f31252d6e0",
+    "tray/20.png": "5506d00da41c1d142a61819dc22136fb08c41d1852eac3ad7b04a5a81eba36c3",
+    "tray/24.png": "51a7cf68902eaacb2c67ca452c2f04717241f5f91cc4f0489340b2826f46a121",
+    "tray/28.png": "70b8d12e8a7eb0326a0d25694b1d6be2484bb27e1e8e067c4aba1eb839ed87f7",
+    "tray/40.png": "c04cdb34684246e2148d1d1c471d57f0c951876b60218ce9fa082cbf1e913064",
+    "tray/48.png": "83dbdcdf147c3e16a2e364af9aefc59ae7daf20cc98ab3b1c318f6e47c049016",
+    "tray/56.png": "887953fa55d0bb38721bc7b258f698ccbcabe3d9fb58a1b2df45bd30d6f5ce97",
+    "tray/64.png": "10941e8d2d62d276c80ce005a4e5d14b6a563ba1903bf0a2dee8860489747c84",
+    "icon.ico": "acd87fa696704f5ca7e2ddb55e2167532466bfe0d5002f9a72d9237d4e79b841"
   }
 }

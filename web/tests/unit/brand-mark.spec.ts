@@ -5,10 +5,11 @@ import RayleaMark from '@/components/brand/RayleaMark.vue'
 describe('brand artwork selection', () => {
   it.each([32, 40] as const)('uses compact artwork for every density at %spx', size => {
     const wrapper = mount(RayleaMark, { props: { size } })
+    expect(wrapper.findAll('img')).toHaveLength(1)
     for (const image of wrapper.findAll('img')) {
-      expect(image.attributes('src')).toContain('mark-compact-')
+      expect(image.attributes('src')).toContain('mark-compact-light-')
       expect(image.attributes('sizes')).toBe(`${size}px`)
-      for (const candidate of image.attributes('srcset').split(', ')) expect(candidate).toContain('mark-compact-')
+      for (const candidate of image.attributes('srcset').split(', ')) expect(candidate).toContain('mark-compact-light-')
     }
   })
 
@@ -16,7 +17,7 @@ describe('brand artwork selection', () => {
     const wrapper = mount(RayleaMark, { props: { size: 40 } })
     await wrapper.setProps({ size: 128 })
     for (const image of wrapper.findAll('img')) {
-      expect(image.attributes('src')).toMatch(/mark-(light|dark)-128\.png/)
+      expect(image.attributes('src')).toMatch(/mark-light-128\.png/)
       expect(image.attributes('srcset')).not.toContain('mark-compact-')
       expect(image.attributes('sizes')).toBe('128px')
     }

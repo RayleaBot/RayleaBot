@@ -110,18 +110,6 @@ a {
   font-size: var(--app-font-size);
 }
 
-.raylea-mark__theme--dark {
-  display: none;
-}
-
-html[data-theme='dark'] .raylea-mark__theme--light {
-  display: none;
-}
-
-html[data-theme='dark'] .raylea-mark__theme--dark {
-  display: inline;
-}
-
 .skip-link,
 .sr-only {
   position: absolute;

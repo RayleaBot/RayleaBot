@@ -18,11 +18,8 @@ withDefaults(defineProps<{
     :style="{ width: `${size}px`, height: `${size}px` }"
   >
     <img
-      v-for="(source, mode) in rayleaMarkSources"
-      :key="mode"
-      :class="`raylea-mark__theme--${mode}`"
-      :src="source[size].src"
-      :srcset="source[size].srcset"
+      :src="rayleaMarkSources[size].src"
+      :srcset="rayleaMarkSources[size].srcset"
       :sizes="`${size}px`"
       :width="size"
       :height="size"

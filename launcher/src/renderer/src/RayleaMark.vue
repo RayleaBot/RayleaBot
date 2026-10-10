@@ -16,9 +16,6 @@ withDefaults(defineProps<{
     focusable="false"
     :viewBox="rayleaMark.viewBox"
   >
-    <g v-for="(theme, mode) in rayleaMark.themes" :key="mode" :class="`raylea-mark__theme--${mode}`">
-      <path :d="theme.paths[theme.outline.pathIndex].d" fill="none" :stroke="theme.outline.color" :stroke-width="theme.outline.width" stroke-linejoin="round" />
-      <path v-for="(part, index) in theme.paths" :key="index" :d="part.d" :fill="part.fill" :fill-rule="part.fillRule" :opacity="part.opacity" />
-    </g>
+    <path v-for="(part, index) in rayleaMark.paths" :key="index" :d="part.d" :fill="part.fill" :fill-rule="part.fillRule" :opacity="part.opacity" />
   </svg>
 </template>

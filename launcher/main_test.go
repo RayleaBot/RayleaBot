@@ -14,7 +14,6 @@ func TestEmbeddedLauncherIconsMatchNativeRoles(t *testing.T) {
 	}{
 		"application": {data: appIcon, want: 1024},
 		"tray":        {data: trayIcon, want: 32},
-		"tray-dark":   {data: trayDarkIcon, want: 32},
 	} {
 		t.Run(name, func(t *testing.T) {
 			image, err := png.Decode(bytes.NewReader(testCase.data))
@@ -25,6 +24,21 @@ func TestEmbeddedLauncherIconsMatchNativeRoles(t *testing.T) {
 				t.Fatalf("icon bounds = %v, want %dx%d", bounds, testCase.want, testCase.want)
 			}
 		})
+	}
+}
+
+func TestTrayIconsMatchWindowsPixelSizes(t *testing.T) {
+	for _, size := range []int{16, 20, 24, 28, 32, 40, 48, 56, 64} {
+		image, err := png.Decode(bytes.NewReader(trayIconForSize(size)))
+		if err != nil {
+			t.Fatalf("decode tray icon at %dpx: %v", size, err)
+		}
+		if bounds := image.Bounds(); bounds.Dx() != size || bounds.Dy() != size {
+			t.Fatalf("tray at %dpx would be resized by Windows: %v", size, bounds)
+		}
+	}
+	if !bytes.Equal(trayIconForSize(0), trayIconForSize(32)) {
+		t.Fatal("unavailable system metric must retain the default tray icon")
 	}
 }
 

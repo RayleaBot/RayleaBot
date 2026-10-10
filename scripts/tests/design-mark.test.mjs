@@ -7,8 +7,8 @@ const mark = JSON.parse(fs.readFileSync(new URL('../../design/mark.json', import
 const compactMark = JSON.parse(fs.readFileSync(new URL('../../design/mark-compact.json', import.meta.url), 'utf8'))
 const readSvg = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8').replaceAll('\r\n', '\n')
 
-test('both theme exports contain only self-contained vector paths', () => {
-  for (const [name, artwork] of [['mark', mark], ['mark-compact', compactMark]]) for (const mode of ['light', 'dark']) {
+test('all brand SVG exports contain only self-contained vector paths', () => {
+  for (const [name, artwork, modes] of [['mark', mark, ['light', 'dark']], ['mark-compact', compactMark, ['light']]]) for (const mode of modes) {
     const svg = renderMarkSvg(artwork, mode)
     assert.deepEqual([...new Set([...svg.matchAll(/<([a-zA-Z]+)/g)].map(match => match[1]))].sort(), ['path', 'svg'])
     assert.doesNotMatch(svg, /(?:href|url\(|data:|base64|<image|<foreignObject)/i)
@@ -17,8 +17,8 @@ test('both theme exports contain only self-contained vector paths', () => {
   }
 })
 
-test('dark artwork has its own grayscale palette instead of inverted light fills', () => {
-  for (const artwork of [mark, compactMark]) {
+test('archived portrait dark artwork retains its independent grayscale palette', () => {
+  for (const artwork of [mark]) {
     const lightColors = new Set(artwork.themes.light.paths.map(part => part.fill))
     assert.deepEqual([...lightColors].sort(), ['#000000', '#ffffff'])
     const darkColors = new Set(artwork.themes.dark.paths.map(part => part.fill))
@@ -32,11 +32,8 @@ test('dark artwork has its own grayscale palette instead of inverted light fills
 })
 
 test('compact favicons do not replace the existing portrait SVGs', () => {
+  assert.equal(readSvg('../../web/public/favicon-compact.svg'), renderMarkSvg(compactMark, 'light'))
   for (const mode of ['light', 'dark']) {
-    const filename = mode === 'light' ? 'favicon-compact.svg' : 'favicon-compact-dark.svg'
-    const svg = readSvg(`../../web/public/${filename}`)
-    assert.equal(svg, renderMarkSvg(compactMark, mode))
-    assert.notEqual(svg, renderMarkSvg(mark, mode))
     const portraitFilename = mode === 'light' ? 'favicon.svg' : 'favicon-dark.svg'
     assert.equal(readSvg(`../../web/public/${portraitFilename}`), renderMarkSvg(mark, mode))
   }
@@ -44,7 +41,7 @@ test('compact favicons do not replace the existing portrait SVGs', () => {
 
 test('invalid or image-based paint cannot enter the vector export', () => {
   for (const mutate of [
-    value => { delete value.themes.dark },
+    value => { delete value.themes.light },
     value => { value.viewBox = '0 0 NaN 0' },
     value => { value.themes.dark.paths[0].d = 'M0 0"/><image href="data:image/png;base64,x"/>' },
     value => { value.themes.light.paths[0].fill = 'url(image.png)' },

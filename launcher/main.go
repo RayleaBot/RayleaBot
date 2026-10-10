@@ -26,9 +26,6 @@ var appIcon []byte
 //go:embed assets/tray.png
 var trayIcon []byte
 
-//go:embed assets/tray-dark.png
-var trayDarkIcon []byte
-
 var singleInstanceKey = [32]byte{
 	0x52, 0x61, 0x79, 0x6c, 0x65, 0x61, 0x42, 0x6f,
 	0x74, 0x2d, 0x57, 0x61, 0x69, 0x6c, 0x73, 0x2d,
@@ -205,7 +202,10 @@ func main() {
 		showWindow()
 	})
 
-	tray.SetIcon(trayIcon).SetDarkModeIcon(trayDarkIcon)
+	setLauncherTrayIcons(tray)
+	window.OnWindowEvent(events.Common.WindowDPIChanged, func(*application.WindowEvent) {
+		setLauncherTrayIcons(tray)
+	})
 	tray.SetTooltip("RayleaBot 启动器")
 	tray.OnClick(host.toggleWindow)
 	// Linux exports the DBus menu path when the tray starts, so bind the menu before app.Run.

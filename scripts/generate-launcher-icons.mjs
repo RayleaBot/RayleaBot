@@ -4,14 +4,22 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { readPngProvenance, writePngProvenance } from "./png-provenance.mjs";
-import { validateMark } from "./design-mark.mjs";
+import { renderMarkSvg, validateMark } from "./design-mark.mjs";
+import { compactRendering, renderLauncherMark } from "./launcher-icon-renderer.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const assetsRoot = path.join(root, "launcher/assets");
 const manifestPath = path.join(assetsRoot, "manifest.json");
-const sizes = [16, 24, 32, 48, 64, 128, 256];
+const compactSizes = [16, 20, 24, 28, 32, 40, 48, 56, 64];
+const sizes = [...compactSizes, 128, 256];
 const appSize = 1024;
 const traySize = 32;
+const trayVariants = compactSizes.filter((size) => size !== traySize).map((size) => ({ file: `tray/${size}.png`, size, mode: "light" }));
+const pngAssets = [
+  { file: "appicon.png", size: appSize, mode: "light", artwork: "portrait" },
+  { file: "tray.png", size: traySize, mode: "light", artwork: "compact" },
+  ...trayVariants.map((variant) => ({ ...variant, artwork: "compact" })),
+];
 const arguments_ = process.argv.slice(2);
 assert(arguments_.every((argument) => argument === "--check" || argument === "--help"), "Unknown option");
 if (arguments_.includes("--help")) {
@@ -30,27 +38,30 @@ const canvasVersion = launcherRequire("@napi-rs/canvas/package.json").version;
 const inputs = {
   geometry: Object.fromEntries(Object.entries(markFiles).map(([artwork, file]) => [artwork, { path: file, sha256: sha256(markSources[artwork]) }])),
   generator: { path: "scripts/generate-launcher-icons.mjs", sha256: sha256(readText("scripts/generate-launcher-icons.mjs")) },
+  renderer: { path: "scripts/launcher-icon-renderer.mjs", sha256: sha256(readText("scripts/launcher-icon-renderer.mjs")) },
   markValidator: { path: "scripts/design-mark.mjs", sha256: sha256(readText("scripts/design-mark.mjs")) },
   metadataWriter: { path: "scripts/png-provenance.mjs", sha256: sha256(readText("scripts/png-provenance.mjs")) },
   rasterizer: { module: "@napi-rs/canvas", version: canvasVersion, engine: "Skia" },
+  compactRendering,
+  compactSizes,
 };
 
-const provenance = Object.fromEntries(["appicon.png", "tray.png", "tray-dark.png"].map((file) => {
-  const mode = file === "tray-dark.png" ? "dark" : "light";
-  const artwork = file === "appicon.png" ? "portrait" : "compact";
+const provenance = Object.fromEntries(pngAssets.map(({ file, mode, artwork, size }) => {
   const theme = marks[artwork].themes[mode];
   return [file, JSON.stringify({
     type: "source-provenance",
     method: "Deterministic Skia Canvas 2D rendering of theme-specific SVG path geometry.",
     artworkOrigin: artwork === "portrait"
       ? "User-approved light and dark character designs converted independently to pure Bezier vector paths."
-      : "User-approved light and dark beret-and-bow icon designs converted independently to pure Bezier vector paths.",
+      : "User-approved geometric beret badge: black rounded background, white scalloped beret, original circular bow knot and single ribbon tail; traced to pure Bezier paths.",
     geometry: inputs.geometry[artwork],
     colors: [...new Set(theme.paths.map((part) => part.fill))],
     outline: theme.outline,
     theme: mode,
     rasterizer: inputs.rasterizer,
     generator: inputs.generator,
+    renderer: inputs.renderer,
+    ...(artwork === "compact" ? { size, treatment: compactRendering } : {}),
     metadataWriter: inputs.metadataWriter,
   }, null, 2)];
 }));
@@ -82,44 +93,26 @@ function icoSizes() {
 }
 
 function fingerprints() {
-  return Object.fromEntries(["appicon.png", "tray.png", "tray-dark.png", "icon.ico"].map((file) => [file, sha256(fs.readFileSync(path.join(assetsRoot, file)))]));
+  return Object.fromEntries([...pngAssets.map(({ file }) => file), "icon.ico"].map((file) => [file, sha256(fs.readFileSync(path.join(assetsRoot, file)))]));
 }
 
 function verify() {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   assert.deepEqual(manifest.inputs, inputs, "Native icon inputs changed. Run node scripts/generate-launcher-icons.mjs");
-  assert.deepEqual(pngDimensions("appicon.png"), { width: appSize, height: appSize });
-  assert.deepEqual(pngDimensions("tray.png"), { width: traySize, height: traySize });
-  assert.deepEqual(pngDimensions("tray-dark.png"), { width: traySize, height: traySize });
+  for (const { file, size } of pngAssets) assert.deepEqual(pngDimensions(file), { width: size, height: size });
   for (const [file, expected] of Object.entries(provenance)) {
     const embedded = readPngProvenance(fs.readFileSync(path.join(assetsRoot, file)));
     assert.equal(embedded, expected, `${file} embedded source provenance is stale`);
   }
   assert.deepEqual(icoSizes(), sizes);
+  assert.equal(readText("design/mark-compact-light.svg"), renderMarkSvg(marks.compact, "light"), "Compact SVG is stale. Run node scripts/generate-design-tokens.mjs");
   assert.deepEqual(manifest.sha256, fingerprints(), "Native icon asset content differs from its generation manifest");
-  console.log(`Launcher icon inputs and hashes are current: appicon ${appSize}px, light/dark tray ${traySize}px, ICO ${sizes.join("/")}px.`);
+  console.log(`Launcher icon inputs and hashes are current: fixed light artwork, appicon ${appSize}px, tray ${compactSizes.join("/")}px, ICO ${sizes.join("/")}px.`);
 }
 
 function renderMark(canvasModule, size, mode = "light") {
-  const { createCanvas, Path2D } = canvasModule;
-  const mark = marks[size <= 64 ? "compact" : "portrait"];
-  const viewBox = mark.viewBox.trim().split(/[\s,]+/).map(Number);
-  const theme = mark.themes[mode];
-  const canvas = createCanvas(size, size);
-  const ctx = canvas.getContext("2d");
-  const scale = size / Math.max(viewBox[2], viewBox[3]);
-  ctx.translate((size - viewBox[2] * scale) / 2 - viewBox[0] * scale, (size - viewBox[3] * scale) / 2 - viewBox[1] * scale);
-  ctx.scale(scale, scale);
-  ctx.strokeStyle = theme.outline.color;
-  ctx.lineWidth = theme.outline.width;
-  ctx.lineJoin = "round";
-  ctx.stroke(new Path2D(theme.paths[theme.outline.pathIndex].d));
-  for (const part of theme.paths) {
-    ctx.fillStyle = part.fill;
-    ctx.globalAlpha = part.opacity;
-    ctx.fill(new Path2D(part.d), part.fillRule);
-  }
-  return canvas;
+  const compact = size <= 64;
+  return renderLauncherMark(canvasModule, marks[compact ? "compact" : "portrait"], size, mode, compact);
 }
 
 function encodeIco(frames) {
@@ -144,9 +137,8 @@ function encodeIco(frames) {
 if (!arguments_.includes("--check")) {
   const canvasModule = launcherRequire("@napi-rs/canvas");
   const png = (canvas) => canvas.toBuffer("image/png");
-  fs.writeFileSync(path.join(assetsRoot, "appicon.png"), png(renderMark(canvasModule, appSize)));
-  fs.writeFileSync(path.join(assetsRoot, "tray.png"), png(renderMark(canvasModule, traySize)));
-  fs.writeFileSync(path.join(assetsRoot, "tray-dark.png"), png(renderMark(canvasModule, traySize, "dark")));
+  fs.mkdirSync(path.join(assetsRoot, "tray"), { recursive: true });
+  for (const { file, size, mode } of pngAssets) fs.writeFileSync(path.join(assetsRoot, file), png(renderMark(canvasModule, size, mode)));
   fs.writeFileSync(path.join(assetsRoot, "icon.ico"), encodeIco(sizes.map((size) => ({ size, png: png(renderMark(canvasModule, size)) }))));
   for (const [file, sourceProvenance] of Object.entries(provenance)) {
     const assetPath = path.join(assetsRoot, file);
@@ -156,9 +148,9 @@ if (!arguments_.includes("--check")) {
     inputs,
     outputs: {
       "appicon.png": { width: appSize, height: appSize, alpha: true, role: "application", treatment: "approved light character design with opaque black-and-white fills and transparent padding" },
-      "tray.png": { width: traySize, height: traySize, alpha: true, role: "light system tray", treatment: "compact light beret-and-bow design with a fine light outline and transparent background" },
-      "tray-dark.png": { width: traySize, height: traySize, alpha: true, role: "dark system tray", treatment: "compact dark beret-and-bow design with independent gray fills, silver details and transparent background" },
-      "icon.ico": { sizes, role: "Windows executable resource", treatment: "compact beret-and-bow at 16/24/32/48/64px; original portrait at 128/256px; each frame rendered independently" },
+      "tray.png": { width: traySize, height: traySize, alpha: true, role: "system tray", treatment: "fixed black-and-white geometric beret badge shared with Web, Launcher and taskbar icons" },
+      ...Object.fromEntries(trayVariants.map(({ file, size }) => [file, { width: size, height: size, alpha: true, role: "Windows system tray", treatment: "fixed light artwork rendered for the native system metric" }])),
+      "icon.ico": { sizes, role: "Windows executable resource", treatment: "geometric beret badge at 16–64px shared with all compact entries; original light portrait at 128/256px" },
     },
     sha256: fingerprints(),
   }, null, 2) + "\n");

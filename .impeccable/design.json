@@ -1481,25 +1481,39 @@
       "generator": "scripts/generate-launcher-icons.mjs",
       "rasterizer": "@napi-rs/canvas (Skia Canvas 2D)",
       "directory": "launcher/assets/",
-      "provenance": "人物大图与贝雷帽小图标分别保存纯贝塞尔路径；两种造型均有独立浅色、暗色配色。小尺寸界面、浏览器图标、托盘及 ICO 的 16–64px 帧使用贝雷帽，大图与 ICO 的 128/256px 帧使用人物版。SVG 不嵌入位图，PNG 内嵌对应母版与主题来源元数据。",
+      "provenance": "所有小尺寸入口统一使用黑底白图的几何帽徽：波浪花边、圆形结心和单条缎尾。Web、Launcher、favicon、托盘及 ICO 的 16–64px 帧来自同一纯路径母版，不旋转或随主题换色；大图与 ICO 的 128/256px 帧保留原人物版。SVG 不嵌入位图，PNG 内嵌对应母版与来源元数据。",
       "applicationPng": "1024x1024",
       "trayPng": "32x32",
       "windowsIcoSizes": [
         16,
+        20,
         24,
+        28,
         32,
+        40,
         48,
+        56,
         64,
         128,
         256
       ],
       "windowsResourceVerification": "go run ./tools/cmd/verify-windows-icon-resources",
-      "trayDarkPng": "32x32",
       "lightSvg": "design/mark-light.svg",
       "darkSvg": "design/mark-dark.svg",
       "compactMaster": "design/mark-compact.json",
       "compactLightSvg": "design/mark-compact-light.svg",
-      "compactDarkSvg": "design/mark-compact-dark.svg"
+      "windowsTraySizes": [
+        16,
+        20,
+        24,
+        28,
+        32,
+        40,
+        48,
+        56,
+        64
+      ],
+      "iconTheme": "fixed-light"
     },
     "layers": {
       "sticky": 100,
@@ -1589,7 +1603,7 @@
     "overview": "RayleaBot 使用白色页面、浅灰盒子与柔和阴影组织管理任务，蓝色只用于主操作、链接与焦点。导航连接连续工作区，黑白人物标识提供品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；盒子只以阴影与页面分开，页面上的控件为浅灰、盒子里的控件为白色，普通文字、分隔线与选中背景保持中性。Web 与 Launcher 共享视觉语义；两端都在 Reka UI 原语上维护各自的产品组件。\n\nWeb 正式路由统一使用 Vue 3、Reka UI、自有 shadcn-vue 组件源码、Tailwind CSS 与 Motion for Vue，覆盖应用壳、认证、协议、插件、账号、治理、配置和诊断工作区。主题、字体与密度通过共享 CSS 变量和产品组件提供，页面复用统一的交互与反馈机制。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。\n\nWeb 工程约束见 [web/AGENTS.md](web/AGENTS.md)。独立插件 iframe 内部的组件库由各插件维护，Launcher 使用自己的原生组件体系。",
     "keyCharacteristics": [
       "白色页面、浅灰盒子与柔和阴影，不使用渐变、背景模糊或半透明材质。",
-      "蓝色主操作、链接与焦点，以及按亮暗主题切换独立黑白版与灰阶版的人物标识。",
+      "蓝色主操作、链接与焦点，以及不随主题切换的人物标识与黑底白色几何帽徽。",
       "随包的 HarmonyOS Sans SC 用于 Web 与 Launcher 的全部界面文字；字号、字重与间距形成克制层级。",
       "控件取所在容器相反的明暗：页面上是浅灰，盒子里是白色，都以轻阴影抬起。",
       "亮暗主题与键盘操作保持等价操作能力；桌面以 16:9 的 1920×1080 为最低分辨率与界面验证基准。"
@@ -1667,7 +1681,7 @@
       },
       {
         "name": "The Brand Mark Rule",
-        "body": "大尺寸展示使用人物版，小尺寸入口使用贝雷帽和蝴蝶结版；先按显示用途选造型，再按有效主题选独立亮暗配色。应用大 PNG 与 ICO 的大尺寸帧保留人物版。品牌不代替状态图标或导航文字。",
+        "body": "大尺寸展示保留人物版，所有小尺寸入口共用黑底白图的几何帽徽；按显示用途选造型，不随主题切换配色。应用大 PNG 与 ICO 的大尺寸帧保留人物版。品牌不代替状态图标或导航文字。",
         "section": "components"
       },
       {

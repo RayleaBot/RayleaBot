@@ -82,7 +82,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 
 Reka UI 提供无样式的交互原语，负责焦点约束、键盘操作与 ARIA 语义；外观全部由 `surfaces.css` 与主题 token 定义。按钮统一使用 `LauncherButton`，页面不另建同类控件。
 
-功能图标统一使用 Lucide 线性图标，默认 `20px`、`1.75` 线宽；状态透镜内的状态符号加粗为 `2.5` 线宽。窗口标题与关于页的小标识使用贝雷帽和蝴蝶结造型，浅色为黑白版，暗色为独立灰阶版，两版均来自纯矢量母版并保留透明背景；功能图标用于导航、状态与操作，两者不互相替代。
+功能图标统一使用 Lucide 线性图标，默认 `20px`、`1.75` 线宽；状态透镜内的状态符号加粗为 `2.5` 线宽。窗口标题与关于页的小标识使用黑色圆角底板与白色几何帽徽，来自与托盘相同的纯矢量母版，圆角外透明且不随主题切换；功能图标用于导航、状态与操作，两者不互相替代。
 
 ## 密度与层次
 
@@ -136,12 +136,12 @@ Launcher 与 Web 管理面使用同一套表面规则：窗口是画布，盒子
 
 ## 原生图标与打包
 
-- [`design/mark.json`](../../design/mark.json) 保存人物大图，[`design/mark-compact.json`](../../design/mark-compact.json) 保存贝雷帽与蝴蝶结小图标；两种造型均有独立亮暗配色及纯路径 SVG 导出。Launcher 界面使用帽子版路径。[`scripts/generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 用已有的 Skia Canvas 2D 包 `@napi-rs/canvas` 从对应母版光栅渲染 [`launcher/assets/`](../../launcher/assets/) 中的 PNG 与 ICO，生成不依赖主题 token、浏览器或 Wails CLI。
-- 应用 PNG 为 `1024×1024`，使用浅色人物版；`tray.png` 与 `tray-dark.png` 均为 `32×32`，使用独立的亮暗帽子版。Windows ICO 的 16/24/32/48/64px 帧使用浅色帽子版，128/256px 帧使用原有人物版。母版路径经 `Path2D` 逐尺寸独立绘制，PNG 内嵌对应母版、主题、配色、来源及确定性渲染元数据。
-- Windows ICO 包含 `16/24/32/48/64/128/256px` 七种尺寸，每种尺寸按目标像素独立渲染，Windows EXE 与应用文件图标固定使用原版。Go 宿主通过 Wails 的 `SetIcon` 与 `SetDarkModeIcon` 提供两种托盘 PNG，由系统托盘主题选择；Launcher 界面标识则跟随应用的有效主题。
+- [`design/mark.json`](../../design/mark.json) 保存人物大图，[`design/mark-compact.json`](../../design/mark-compact.json) 保存所有小尺寸入口共用的黑底白色几何帽徽；对应 [`mark-compact-light.svg`](../../design/mark-compact-light.svg) 只包含路径。[`scripts/generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 用已有的 Skia Canvas 2D 包 `@napi-rs/canvas` 生成 [`launcher/assets/`](../../launcher/assets/) 中的 PNG 与 ICO，生成不依赖主题 token、浏览器或 Wails CLI。
+- 应用 PNG 为 `1024×1024`，使用原人物版；`tray.png` 为 `32×32`，其他托盘尺寸位于 [`assets/tray/`](../../launcher/assets/tray/)。小图标按母版 viewBox 以四倍分辨率绘制，再按预乘 alpha 采样，不额外旋转、描边或简化图案。所有尺寸保留黑色圆角底板、白色贝雷帽、波浪花边、圆形结心和单条缎尾。PNG 内嵌对应母版、配色、来源及渲染参数。
+- Windows ICO 包含 `16/20/24/28/32/40/48/56/64/128/256px` 十一种尺寸；16–64px 帧与托盘使用相同帽徽，128/256px 帧保留原人物版。Windows 托盘按 `SM_CXSMICON` 选择同尺寸 PNG，在 DPI 变化时重新选取，避免先生成 32px 再由系统缩小。Go 宿主仅通过 Wails 的 `SetIcon` 设置统一图标，其他平台使用 32px 托盘 PNG；所有品牌标识均不随主题切换。
 - Windows 资源由 [`generate-windows-resources.mjs`](../../launcher/scripts/generate-windows-resources.mjs) 使用冻结的 Wails `v3.0.0-beta.9` 生成对应架构的 `rsrc_windows_<arch>.syso`；根目录开发启动、Launcher 独立开发与打包均在 Go 编译前调用。缓存核对 ICO、Windows manifest、Go 模块、生成器输入及产物，资源缺失或漂移时重新生成；Windows manifest 使用 `asInvoker` 普通用户权限。
 - 更新原生图标后需重新构建并启动 Launcher，由新进程载入窗口、托盘和 EXE 图标资源。
-- 在仓库根目录运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要。在 Windows 上运行 `go run ./tools/cmd/verify-windows-icon-resources`，验证默认打包 EXE 中的七尺寸图像负载与源 ICO 逐字节一致；其他产物通过 `--exe <path>` 指定。资源校验与实际窗口、任务栏、托盘显示检查分别承担不同验证职责。
+- 在仓库根目录运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要。在 Windows 上运行 `go run ./tools/cmd/verify-windows-icon-resources`，验证默认打包 EXE 中所有尺寸的图像负载与源 ICO 逐字节一致；其他产物通过 `--exe <path>` 指定。资源校验与实际窗口、任务栏、托盘显示检查分别承担不同验证职责。
 
 ## 小窗口策略
 

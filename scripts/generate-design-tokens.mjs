@@ -300,7 +300,7 @@ ${pad}}`
 }
 
 function renderMarkDefinition() {
-  return `export const rayleaMark = ${JSON.stringify(compactMark, null, 2)} as const\n`
+  return `export const rayleaMark = ${JSON.stringify({ viewBox: compactMark.viewBox, ...compactMark.themes.light }, null, 2)} as const\n`
 }
 
 function renderWebTokens() {
@@ -721,12 +721,18 @@ function updateImpeccable(current) {
   document.extensions.nativeAssets ??= {}
   document.extensions.nativeAssets.master = 'design/mark.json'
   document.extensions.nativeAssets.compactMaster = 'design/mark-compact.json'
-  document.extensions.nativeAssets.provenance = '人物大图与贝雷帽小图标分别保存纯贝塞尔路径；两种造型均有独立浅色、暗色配色。小尺寸界面、浏览器图标、托盘及 ICO 的 16–64px 帧使用贝雷帽，大图与 ICO 的 128/256px 帧使用人物版。SVG 不嵌入位图，PNG 内嵌对应母版与主题来源元数据。'
+  delete document.extensions.nativeAssets.systemMaster
+  document.extensions.nativeAssets.provenance = '所有小尺寸入口统一使用黑底白图的几何帽徽：波浪花边、圆形结心和单条缎尾。Web、Launcher、favicon、托盘及 ICO 的 16–64px 帧来自同一纯路径母版，不旋转或随主题换色；大图与 ICO 的 128/256px 帧保留原人物版。SVG 不嵌入位图，PNG 内嵌对应母版与来源元数据。'
   document.extensions.nativeAssets.lightSvg = 'design/mark-light.svg'
   document.extensions.nativeAssets.darkSvg = 'design/mark-dark.svg'
   document.extensions.nativeAssets.compactLightSvg = 'design/mark-compact-light.svg'
-  document.extensions.nativeAssets.compactDarkSvg = 'design/mark-compact-dark.svg'
-  document.extensions.nativeAssets.trayDarkPng = '32x32'
+  delete document.extensions.nativeAssets.compactDarkSvg
+  delete document.extensions.nativeAssets.systemLightSvg
+  delete document.extensions.nativeAssets.systemDarkSvg
+  delete document.extensions.nativeAssets.trayDarkPng
+  document.extensions.nativeAssets.iconTheme = 'fixed-light'
+  document.extensions.nativeAssets.windowsTraySizes = [16, 20, 24, 28, 32, 40, 48, 56, 64]
+  document.extensions.nativeAssets.windowsIcoSizes = [16, 20, 24, 28, 32, 40, 48, 56, 64, 128, 256]
   document.extensions.colorMeta = renderColorMeta()
   document.extensions.typographyMeta = {
     headline: { displayName: '页面标题', purpose: 'HarmonyOS Sans SC 紧凑页面标题。' },
@@ -866,11 +872,9 @@ stageOutput('web/src/styles/_breakpoints.generated.scss', '// Generated from des
 stageOutput('design/mark-light.svg', renderMarkSvg(mark, 'light'))
 stageOutput('design/mark-dark.svg', renderMarkSvg(mark, 'dark'))
 stageOutput('design/mark-compact-light.svg', renderMarkSvg(compactMark, 'light'))
-stageOutput('design/mark-compact-dark.svg', renderMarkSvg(compactMark, 'dark'))
 stageOutput('web/public/favicon.svg', renderMarkSvg(mark, 'light'))
 stageOutput('web/public/favicon-dark.svg', renderMarkSvg(mark, 'dark'))
 stageOutput('web/public/favicon-compact.svg', renderMarkSvg(compactMark, 'light'))
-stageOutput('web/public/favicon-compact-dark.svg', renderMarkSvg(compactMark, 'dark'))
 stageOutput('launcher/src/shared/launcher-theme-tokens.generated.ts', renderLauncherTokens())
 stageOutput('design/typography.generated.css', renderTypographyCss())
 const fontLicense = fs.readFileSync(path.join(repositoryRoot, uiFontDirectory, 'LICENSE.txt'), 'utf8')
