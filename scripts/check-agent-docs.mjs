@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/check-agent-docs.mjs
-// Checks AGENTS.md, CLAUDE.md, and .agents/skills/**/SKILL.md for structural issues.
+// Checks AGENTS.md and .agents/skills/**/SKILL.md for structural issues.
 
 import { spawnSync } from "child_process";
 import { readFileSync, existsSync } from "fs";
@@ -21,7 +21,6 @@ function addIssue(file, message) {
 // ── Collect target files ───────────────────────────────────────────────────
 
 const agentsFiles = [];
-const claudeFiles = [];
 const skillFiles = [];
 
 function listRepositoryCandidates() {
@@ -48,60 +47,12 @@ for (const candidate of listRepositoryCandidates()) {
   const fullPath = resolve(ROOT, candidate);
   if (!existsSync(fullPath)) continue;
   if (normalized === "AGENTS.md" || normalized.endsWith("/AGENTS.md")) agentsFiles.push(fullPath);
-  if (normalized === "CLAUDE.md" || normalized.endsWith("/CLAUDE.md")) claudeFiles.push(fullPath);
   if (normalized.startsWith(".agents/skills/") && normalized.endsWith("/SKILL.md")) {
     skillFiles.push(fullPath);
   }
 }
 
-// ── 1. Every AGENTS.md must have a sibling bridge importing that guide ──────
-
-function hasSiblingAgentImport(content) {
-  let fence = null;
-  let inComment = false;
-  for (const line of content.split(/\r?\n/)) {
-    const marker = !inComment && line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
-    if (marker) {
-      if (!fence) {
-        fence = { char: marker[1][0], length: marker[1].length };
-      } else if (marker[1][0] === fence.char && marker[1].length >= fence.length && !marker[2].trim()) {
-        fence = null;
-      }
-      continue;
-    }
-    if (fence || (!inComment && /^(?: {4}|\t)/.test(line))) continue;
-
-    // Comments in code examples are literal. Mask real comments without joining
-    // fragments into an import that was not present in the source.
-    let visible = "";
-    let remaining = line;
-    while (remaining) {
-      const delimiter = inComment ? "-->" : "<!--";
-      const index = remaining.indexOf(delimiter);
-      if (index === -1) {
-        if (!inComment) visible += remaining;
-        break;
-      }
-      if (!inComment) visible += remaining.slice(0, index);
-      visible += " ";
-      remaining = remaining.slice(index + delimiter.length);
-      inComment = !inComment;
-    }
-    if (/^ {0,3}@(?:\.\/)?AGENTS\.md[ \t]*$/.test(visible)) return true;
-  }
-  return false;
-}
-
-for (const file of agentsFiles) {
-  const bridge = join(dirname(file), "CLAUDE.md");
-  if (!existsSync(bridge)) {
-    addIssue(file, "missing sibling CLAUDE.md bridge");
-  } else if (!hasSiblingAgentImport(readFileSync(bridge, "utf-8"))) {
-    addIssue(bridge, "missing active import of sibling AGENTS.md");
-  }
-}
-
-// ── 2. Backtick path existence ───────────────────────────────────────────────
+// ── 1. Backtick path existence ───────────────────────────────────────────────
 
 const SHELL_CHARS = /[|&;<>$(){}[\]`\\]/;
 const URL_PROTOCOL = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
@@ -159,7 +110,7 @@ function extractBacktickPaths(content) {
   return paths;
 }
 
-for (const file of [...agentsFiles, ...claudeFiles, ...skillFiles]) {
+for (const file of [...agentsFiles, ...skillFiles]) {
   const content = readFileSync(file, "utf-8");
   const paths = extractBacktickPaths(content);
   for (const p of paths) {
@@ -173,7 +124,7 @@ for (const file of [...agentsFiles, ...claudeFiles, ...skillFiles]) {
   }
 }
 
-// ── 3. Secret-like strings ───────────────────────────────────────────────────
+// ── 2. Secret-like strings ───────────────────────────────────────────────────
 
 const SECRET_KEYWORDS = /\b(secret|token|cookie|password|api_key|credential|auth|ck)\b/i;
 const EXPLICIT_FAKE = /\b(fixture-only-secret|example-token|example-secret|fake-secret|test-secret|dummy-token|dummy-secret|placeholder-token|placeholder-secret|mock-token|mock-secret|sample-token|sample-secret|your-token|your-secret|xxx|xxxx|xxxxx|replace-me|changeme|not-set|unset|none|null|undefined|empty|string|number|boolean|true|false)\b/i;
@@ -197,7 +148,7 @@ function checkSecrets(file, content) {
   }
 }
 
-for (const file of [...agentsFiles, ...claudeFiles, ...skillFiles]) {
+for (const file of [...agentsFiles, ...skillFiles]) {
   const content = readFileSync(file, "utf-8");
   checkSecrets(file, content);
 }

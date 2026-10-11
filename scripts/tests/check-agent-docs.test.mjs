@@ -21,7 +21,6 @@ async function runCheck(t, overrides = {}) {
   });
   const files = {
     "AGENTS.md": "# Repository\n",
-    "CLAUDE.md": "@AGENTS.md\n",
     ...overrides,
   };
   for (const [name, content] of Object.entries(files)) {
@@ -41,57 +40,13 @@ async function runCheck(t, overrides = {}) {
   return { status: result.status, output: `${result.stdout}${result.stderr}`.replaceAll("\\", "/") };
 }
 
-test("discovers skills without a root index and accepts bridges with notes", async (t) => {
+test("discovers skills without a root index", async (t) => {
   const result = await runCheck(t, {
-    "CLAUDE.md": "# Client notes\r\n\r\n```md\r\n@other.md\r\n```\r\n\r\n@./AGENTS.md\r\n\r\nUse the repository guide.\r\n",
     "docs/CHANGELOGS/AGENTS.md": "# Archive\n",
-    "docs/CHANGELOGS/CLAUDE.md": "@AGENTS.md\n",
     [skillPath]: skill,
   });
   assert.equal(result.status, 0, result.output);
 });
-
-for (const [label, example] of [
-  ["fenced HTML", "```html\n<!--\n```\n"],
-  ["indented HTML", "    <!--\n"],
-]) {
-  test(`accepts a real import after a ${label} comment example`, async (t) => {
-    const result = await runCheck(t, { "CLAUDE.md": `${example}\n@AGENTS.md\n` });
-    assert.equal(result.status, 0, result.output);
-  });
-}
-
-for (const directory of ["", "docs/CHANGELOGS/"]) {
-  test(`requires a sibling bridge for ${directory || "root"} AGENTS`, async (t) => {
-    const result = await runCheck(t, {
-      [`${directory}AGENTS.md`]: "# Scoped guide\n",
-      [`${directory}CLAUDE.md`]: null,
-    });
-    assert.equal(result.status, 1, result.output);
-    assert.ok(result.output.includes(`${directory}AGENTS.md`), result.output);
-  });
-}
-
-const invalidImports = [
-  ["different file", "@other.md\n"],
-  ["ancestor guide", "@../AGENTS.md\n"],
-  ["fenced example", "```md\n@AGENTS.md\n```\n"],
-  ["tilde-fenced example", "~~~md\n@AGENTS.md\n~~~\n"],
-  ["HTML comment", "<!--\n@AGENTS.md\n-->\n"],
-  ["comment-split filename", "@AG<!-- omitted -->ENTS.md\n"],
-  ["indented example", "    @AGENTS.md\n"],
-];
-for (const [label, content] of invalidImports) {
-  test(`rejects a bridge containing only an import from ${label}`, async (t) => {
-    const result = await runCheck(t, {
-      "docs/AGENTS.md": "# Docs\n",
-      "docs/other.md": "# Other guide\n",
-      "docs/CLAUDE.md": content,
-    });
-    assert.equal(result.status, 1, result.output);
-    assert.ok(result.output.includes("docs/CLAUDE.md"), result.output);
-  });
-}
 
 test("reports missing referenced paths after removing the skill index gate", async (t) => {
   const result = await runCheck(t, {

@@ -7,8 +7,7 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 
 - 用户当前请求定义目标和交付范围。
 - 根到局部的 AGENTS 逐层叠加；局部规则补充或收窄根规则。
-- 每份 AGENTS 由同级 `CLAUDE.md` 导入，Claude 专属说明留在 bridge 中。
-- 项目自有 skill 位于 `.agents/skills/`，按任务需要使用；外部安装的 skill（如 Impeccable）由上游维护，不纳入项目修改。仓库只跟踪 `.agents/skills/` 中的副本，其他 agent 目录下的副本属于本机安装。
+- 项目自有 skill 位于 `.agents/skills/`，按任务需要使用；agent 未自动加载这些 skill 时，任务符合某个 skill 的描述就直接读取对应 `SKILL.md` 并按其执行。外部安装的 skill（如 Impeccable）由上游维护，不纳入项目修改。仓库只跟踪 `.agents/skills/` 中的副本，其他 agent 目录下的副本属于本机安装。
 
 ## Hard Rules
 
@@ -45,7 +44,7 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 
 ## Instruction Maintenance
 
-- 同一规则在最接近责任方的位置维护；改动指令时复核重复、冲突和引用，并运行 agent-docs 与文档链接检查脚本；前者校验 CLAUDE bridge、反引号路径存在性与疑似凭据。
+- 同一规则在最接近责任方的位置维护；改动指令时复核重复、冲突和引用，并运行 agent-docs 与文档链接检查脚本；前者校验反引号路径存在性与疑似凭据。
 - 重复问题优先修代码、测试或就近说明；只有跨任务反复出现且无法直接发现的稳定约束才进入 AGENTS。原因消失或已有可靠实现约束时，删除对应规则。
 
 ## Git and Review
