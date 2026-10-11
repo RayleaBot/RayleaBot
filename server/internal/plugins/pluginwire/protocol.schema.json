@@ -2215,6 +2215,12 @@
         "data": {
           "type": "object",
           "additionalProperties": true
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120000,
+          "description": "Optional total host action budget in milliseconds, starting when the action is accepted and covering template resolution, resource prefetch, queue wait and rendering. Expiration returns platform.render_timeout. The parent event deadline and existing resource, queue and render limits still apply. Omitting it retains those existing limits. Clients should reserve time for the action response and event finalization. When supplied, resource prefetch uses at most one third of the remaining action budget so unavailable resources can fall back before rendering."
         }
       }
     },
@@ -3513,7 +3519,9 @@
     "fixtures/plugin-protocol/invalid.event-detach-result.yaml",
     "fixtures/plugin-protocol/invalid.event-without-deadline.yaml",
     "fixtures/plugin-protocol/invalid.scheduler-trigger-without-task.yaml",
-    "fixtures/plugin-protocol/invalid.task-id-on-message.yaml"
+    "fixtures/plugin-protocol/invalid.task-id-on-message.yaml",
+    "fixtures/plugin-protocol/ok.render-image-timeout.yaml",
+    "fixtures/plugin-protocol/invalid.render-image-timeout.yaml"
   ],
   "$comment": "Protocol v4 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and exposes host actions to every trusted plugin process without manifest permissions.",
   "x-action-result-schemas": {

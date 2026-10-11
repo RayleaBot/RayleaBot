@@ -355,6 +355,7 @@ func (actions *Actions) SchedulerDelete(ctx context.Context, taskID string) (Act
 }
 
 type RenderImageRequest struct {
+	TimeoutMS    int                   `json:"timeout_ms,omitempty"`
 	Template     string                `json:"template"`
 	Data         map[string]any        `json:"data"`
 	Theme        string                `json:"theme,omitempty"`

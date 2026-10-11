@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/presentation"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -22,7 +23,18 @@ func renderImageRegistrar() registrar {
 	}
 }
 
-func executeRenderImage(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
+func executeRenderImage(ctx context.Context, deps Deps, req ActionRequest) (resultData map[string]any, resultErr error) {
+	if req.Action.RenderTimeoutMS > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(req.Action.RenderTimeoutMS)*time.Millisecond)
+		defer cancel()
+	}
+	defer func() {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			resultData = nil
+			resultErr = &plugins.Error{Code: errorcodes.PlatformRenderTimeout, Message: "render action timed out", Err: ctx.Err()}
+		}
+	}()
 	if deps.Renderer == nil {
 		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "render.image service is not available"}
 	}

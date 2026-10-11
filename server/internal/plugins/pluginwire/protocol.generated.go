@@ -371,6 +371,7 @@ type ProtocolActionRenderImageFrame struct {
 	FallbackText string                             `json:"fallback_text,omitempty"`
 	Resources    []ProtocolRenderImageResourceFrame `json:"resources,omitempty"`
 	Data         json.RawMessage                    `json:"data"`
+	TimeoutMs    int                                `json:"timeout_ms,omitempty"`
 }
 
 type ProtocolRenderImageResourceFrame struct {

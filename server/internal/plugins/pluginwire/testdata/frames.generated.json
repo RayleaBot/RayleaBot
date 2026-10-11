@@ -603,6 +603,23 @@
     ]
   },
   {
+    "name": "invalid.render-image-timeout.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "render-budget",
+        "parent_request_id": "fixture-event",
+        "action": "render.image",
+        "data": {
+          "template": "panel",
+          "data": {},
+          "timeout_ms": 0
+        }
+      }
+    ]
+  },
+  {
     "name": "invalid.scheduler-trigger-without-task.yaml",
     "valid": false,
     "frames": [
@@ -1454,6 +1471,23 @@
         "status": "success",
         "data": {
           "artifact_id": "render-fixture"
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.render-image-timeout.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "render-budget",
+        "parent_request_id": "fixture-event",
+        "action": "render.image",
+        "data": {
+          "template": "panel",
+          "data": {},
+          "timeout_ms": 12000
         }
       }
     ]

@@ -51,6 +51,7 @@ type Action struct {
 	SchedulerEventType        string
 	SchedulerPayload          map[string]any
 	RenderTemplate            string
+	RenderTimeoutMS           int
 	RenderTheme               string
 	RenderOutput              string
 	RenderFallbackText        string

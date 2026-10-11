@@ -3,11 +3,13 @@ package actions
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,6 +17,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
@@ -45,6 +48,50 @@ type renderImageResourceFetchResult struct {
 	prefetched *prefetchedRenderImageResource
 	reason     string
 	err        error
+	elapsed    time.Duration
+}
+
+type renderResourceUnavailable struct {
+	host, kind, operation string
+	status, osCode        int
+}
+
+func (*renderResourceUnavailable) Error() string { return errRenderImageResourceUnavailable.Error() }
+func (*renderResourceUnavailable) Unwrap() error { return errRenderImageResourceUnavailable }
+
+func describeResourceFailure(sourceURL string, status int, err error) error {
+	detail := &renderResourceUnavailable{status: status}
+	if target, parseErr := url.Parse(sourceURL); parseErr == nil {
+		detail.host = target.Hostname()
+	}
+	var dns *net.DNSError
+	var certificate *tls.CertificateVerificationError
+	var network net.Error
+	switch {
+	case err == nil:
+		detail.kind = "http_status"
+	case errors.Is(err, context.Canceled):
+		detail.kind = "canceled"
+	case errors.As(err, &dns):
+		detail.kind = "dns"
+	case errors.As(err, &certificate):
+		detail.kind = "tls"
+	case errors.Is(err, context.DeadlineExceeded) || errors.As(err, &network) && network.Timeout():
+		detail.kind = "timeout"
+	case errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF):
+		detail.kind = "eof"
+	default:
+		detail.kind = "transport"
+	}
+	var operation *net.OpError
+	if errors.As(err, &operation) {
+		detail.operation = operation.Op
+	}
+	var osError syscall.Errno
+	if errors.As(err, &osError) {
+		detail.osCode = int(osError)
+	}
+	return detail
 }
 
 func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequest) ([]RenderImageResource, func(), error) {
@@ -69,7 +116,13 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 		_ = os.RemoveAll(workspace)
 	}
 
-	resourceCtx, cancel := context.WithTimeout(ctx, renderImageResourceTimeout)
+	resourceBudget := renderImageResourceTimeout
+	if req.Action.RenderTimeoutMS > 0 {
+		if deadline, ok := ctx.Deadline(); ok {
+			resourceBudget = min(resourceBudget, time.Until(deadline)/3)
+		}
+	}
+	resourceCtx, cancel := context.WithTimeout(ctx, resourceBudget)
 	defer cancel()
 	client := newHTTPClient(renderImageResourceRequestTimeout, maxRenderImageResourceBytes)
 	defer client.close()
@@ -92,12 +145,14 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 	for index, spec := range req.Action.RenderResources {
 		wait.Add(1)
 		go func(index int, spec plugins.RenderImageResource) {
+			started := time.Now()
 			defer wait.Done()
 			select {
 			case semaphore <- struct{}{}:
 				defer func() { <-semaphore }()
 			case <-resourceCtx.Done():
 				results[index].reason = "timeout"
+				results[index].elapsed = time.Since(started)
 				return
 			}
 			var prefetched *prefetchedRenderImageResource
@@ -108,19 +163,19 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 			} else {
 				prefetched, reason, fetchErr = fetchRenderImageResource(resourceCtx, client, workspace, index, spec, 0, maxRenderImageResourceBytes)
 			}
-			results[index] = renderImageResourceFetchResult{prefetched: prefetched, reason: reason, err: fetchErr}
+			results[index] = renderImageResourceFetchResult{prefetched: prefetched, reason: reason, err: fetchErr, elapsed: time.Since(started)}
 		}(index, spec)
 	}
 	wait.Wait()
 
 	items := make([]prefetchedRenderImageResource, 0, len(results))
 	for index, result := range results {
-		if result.err != nil {
+		if result.err != nil && !errors.Is(result.err, errRenderImageResourceUnavailable) {
 			cleanup()
 			return nil, func() {}, renderImageResourceFetchError(result.err)
 		}
 		if result.prefetched == nil {
-			logRenderImageResourceUnavailable(deps, req, req.Action.RenderResources[index].ID, result.reason)
+			logRenderImageResourceUnavailable(deps, req, req.Action.RenderResources[index].ID, result.reason, result.err, result.elapsed)
 			continue
 		}
 		items = append(items, *result.prefetched)
@@ -142,6 +197,7 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 func fetchRenderImageResource(ctx context.Context, client *httpClient, workspace string, requestIndex int, spec plugins.RenderImageResource, startCandidate int, maxAcceptedBytes int64) (*prefetchedRenderImageResource, string, error) {
 	candidates := append([]string{spec.URL}, spec.FallbackURLs...)
 	lastReason := "unavailable"
+	var lastError error
 	for candidateIndex := startCandidate; candidateIndex < len(candidates); candidateIndex++ {
 		resource, reason, err := downloadRenderImageResourceCandidate(ctx, client, workspace, requestIndex, candidateIndex, spec.ID, candidates[candidateIndex], spec.Referer)
 		if err != nil {
@@ -149,11 +205,13 @@ func fetchRenderImageResource(ctx context.Context, client *httpClient, workspace
 				return nil, "", err
 			}
 			lastReason = reason
+			lastError = err
 			continue
 		}
 		if resource.Size > maxAcceptedBytes {
 			_ = os.Remove(resource.Path)
 			lastReason = "request_limit"
+			lastError = nil
 			continue
 		}
 		return &prefetchedRenderImageResource{
@@ -163,7 +221,7 @@ func fetchRenderImageResource(ctx context.Context, client *httpClient, workspace
 			requestIndex:   requestIndex,
 		}, "", nil
 	}
-	return nil, lastReason, nil
+	return nil, lastReason, lastError
 }
 
 func downloadRenderImageResourceCandidate(ctx context.Context, client *httpClient, workspace string, requestIndex, candidateIndex int, resourceID, sourceURL, referer string) (RenderImageResource, string, error) {
@@ -190,9 +248,9 @@ func downloadRenderImageResourceCandidate(ctx context.Context, client *httpClien
 				return RenderImageResource{}, "too_large", errRenderImageResourceUnavailable
 			}
 			if errors.Is(requestErr, context.DeadlineExceeded) || errors.Is(requestErr, context.Canceled) {
-				return RenderImageResource{}, "timeout", errRenderImageResourceUnavailable
+				return RenderImageResource{}, "timeout", describeResourceFailure(currentURL, 0, requestErr)
 			}
-			return RenderImageResource{}, "network", errRenderImageResourceUnavailable
+			return RenderImageResource{}, "network", describeResourceFailure(currentURL, 0, requestErr)
 		}
 		if closeErr != nil {
 			_ = os.Remove(downloadPath)
@@ -211,7 +269,7 @@ func downloadRenderImageResourceCandidate(ctx context.Context, client *httpClien
 		}
 		if response.StatusCode != http.StatusOK || response.BodyBytes <= 0 {
 			_ = os.Remove(downloadPath)
-			return RenderImageResource{}, "http_status", errRenderImageResourceUnavailable
+			return RenderImageResource{}, "http_status", describeResourceFailure(currentURL, response.StatusCode, nil)
 		}
 		return finishRenderImageResource(workspace, downloadPath, requestIndex, candidateIndex, resourceID, hex.EncodeToString(hash.Sum(nil)), response.BodyBytes)
 	}
@@ -318,7 +376,7 @@ func reduceRenderImageResourceSet(ctx context.Context, client *httpClient, works
 		for total > maxRenderImageResourceTotalBytes {
 			current := items[itemIndex]
 			replacement, _, err := fetchRenderImageResource(ctx, client, workspace, current.requestIndex, current.spec, current.candidateIndex+1, current.resource.Size-1)
-			if err != nil {
+			if err != nil && !errors.Is(err, errRenderImageResourceUnavailable) {
 				return nil, err
 			}
 			if replacement == nil {
@@ -430,17 +488,32 @@ func renderImageResourceFetchError(err error) error {
 	}
 }
 
-func logRenderImageResourceUnavailable(deps Deps, req ActionRequest, resourceID, reason string) {
+func logRenderImageResourceUnavailable(deps Deps, req ActionRequest, resourceID, reason string, cause error, elapsed time.Duration) {
 	if deps.Logger == nil {
 		return
 	}
 	trimmedResourceID := strings.TrimSpace(resourceID)
 	trimmedReason := strings.TrimSpace(reason)
-	deps.Logger.Warn("插件图片资源加载失败",
+	attrs := []any{
 		"component", "render",
 		"plugin_id", req.PluginID,
 		"request_id", req.RequestID,
 		"resource_id", trimmedResourceID,
 		"reason", trimmedReason,
-	)
+		"duration_ms", elapsed.Milliseconds(),
+	}
+	var detail *renderResourceUnavailable
+	if errors.As(cause, &detail) {
+		attrs = append(attrs, "resource_host", detail.host, "error_kind", detail.kind)
+		if detail.status != 0 {
+			attrs = append(attrs, "http_status", detail.status)
+		}
+		if detail.operation != "" {
+			attrs = append(attrs, "network_operation", detail.operation)
+		}
+		if detail.osCode != 0 {
+			attrs = append(attrs, "os_error_code", detail.osCode)
+		}
+	}
+	deps.Logger.Warn("插件图片资源加载失败", attrs...)
 }

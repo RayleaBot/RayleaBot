@@ -214,6 +214,8 @@ QQ 官方机器人事件的原生投影位于 `event.payload.qq_official`，包�
 
 ### 渲染资源
 
+`render.image.timeout_ms` 可设置 1～120000 毫秒的宿主动作总预算，覆盖模板解析、资源预取、排队与渲染，超时返回 `platform.render_timeout`。父事件截止时间和现有分阶段限制仍然有效；省略时使用现有分阶段限制。传入总预算时，资源预取最多使用剩余预算的三分之一，为模板降级和出图保留时间。调用方应在本地等待期限前预留动作回执与事件收尾时间；取消本地等待不会取消已发送的宿主动作。
+
 `render.image.resources` 中的每项图片或字体由宿主在渲染前解析，模板按资源 ID 引用：
 
 - 图片在整页根元素上提供 CSS 自定义属性 `--render-resource-<id>`（`url()` 值），模板样式可直接写 `background-image: var(--render-resource-bg)`；用于 `var()` 的 ID 不含 `.`。

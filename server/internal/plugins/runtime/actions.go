@@ -430,6 +430,13 @@ func parseRenderImageAction(raw json.RawMessage) (*plugins.Action, error) {
 	if err != nil {
 		return nil, err
 	}
+	payload, err := decodeAllowedActionKeys(raw, "render.image", "template", "data", "theme", "output", "fallback_text", "resources", "timeout_ms")
+	if err != nil {
+		return nil, err
+	}
+	if _, supplied := payload["timeout_ms"]; supplied && (frame.TimeoutMs < 1 || frame.TimeoutMs > 120000) {
+		return nil, errorf(codePluginProtocolViolation, "render.image timeout_ms must be between 1 and 120000", nil)
+	}
 
 	templateName := strings.TrimSpace(frame.Template)
 	if templateName == "" || len(frame.Data) == 0 {
@@ -456,6 +463,7 @@ func parseRenderImageAction(raw json.RawMessage) (*plugins.Action, error) {
 	return &plugins.Action{
 		Kind:               "render.image",
 		RenderTemplate:     templateName,
+		RenderTimeoutMS:    frame.TimeoutMs,
 		RenderTheme:        strings.TrimSpace(frame.Theme),
 		RenderOutput:       output,
 		RenderFallbackText: strings.TrimSpace(frame.FallbackText),

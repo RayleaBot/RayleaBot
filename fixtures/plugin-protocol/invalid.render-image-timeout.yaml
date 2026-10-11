@@ -1,0 +1,13 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: action
+    request_id: render-budget
+    parent_request_id: fixture-event
+    action: render.image
+    data:
+      template: panel
+      data: {}
+      timeout_ms: 0
+expect:
+  valid: false
