@@ -3,12 +3,15 @@ package qqofficial
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 )
+
+var errGatewayReconnect = errors.New("qqofficial: gateway asked for a reconnect")
 
 // Gateway opcodes, confirmed against the live platform.
 const (

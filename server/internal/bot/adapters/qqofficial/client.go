@@ -231,11 +231,19 @@ func (c *Client) Start(ctx context.Context) {
 					continue
 				}
 				if err != nil {
-					if state, _, _ := c.status.snapshot(); state != StateAuthFailed {
+					state, _, _ := c.status.snapshot()
+					if state == StateConnected {
+						attempt = 0
+					}
+					if state != StateAuthFailed {
 						c.setState(StateReconnecting, err.Error())
 					}
-					c.logger.Warn("QQ 官方机器人连接中断，准备重连。",
-						"component", SourceAdapter, "error", err.Error())
+					if errors.Is(err, errGatewayReconnect) {
+						c.logger.Info("QQ 官方网关要求重新连接，正在恢复会话。", "component", SourceAdapter)
+					} else {
+						c.logger.Warn("QQ 官方机器人连接中断，准备重连。",
+							"component", SourceAdapter, "error", err.Error())
+					}
 				}
 
 				delay := c.backoff.Duration(attempt)
@@ -421,7 +429,7 @@ func (c *Client) readLoop(ctx context.Context, conn wsConn, profile botProfile) 
 			c.session.invalidate()
 			return errors.New("qqofficial: gateway rejected the session")
 		case opReconnect:
-			return errors.New("qqofficial: gateway asked for a reconnect")
+			return errGatewayReconnect
 		case opHeartbeatACK, opHello:
 		}
 	}
