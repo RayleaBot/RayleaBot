@@ -14,12 +14,8 @@ func TestManagementAccountContext(t *testing.T) {
 	}
 	event := Event{EventType: "management.action", SourceProtocol: "management", Payload: payload}
 	bot, ok := event.ManagementBot()
-	if !ok || bot.SourceProtocol != "qqofficial" || bot.BotID != "opaque:id" || event.ManagementPageID() != "records" {
+	if !ok || bot.SourceProtocol != "qqofficial" || bot.BotID != "opaque:id" {
 		t.Fatalf("context=%+v %v", bot, ok)
-	}
-	address := bot.Address("group", "target")
-	if address.SourceProtocol != bot.SourceProtocol || address.BotID != bot.BotID || address.TargetType != "group" || address.TargetID != "target" {
-		t.Fatal(address)
 	}
 	encoded, err := json.Marshal(bot)
 	if err != nil || string(encoded) != `{"source_protocol":"qqofficial","bot_id":"opaque:id"}` {

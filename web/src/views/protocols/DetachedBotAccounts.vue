@@ -14,7 +14,6 @@ import { formatDateTime } from '@/lib/format'
 import { apiRequest } from '@/lib/http'
 import { useBotAccountsStore } from '@/stores/bot-accounts'
 import type { BotAccount, BotAccountListResponse } from '@/types/api'
-import BotAccountPluginPages from './BotAccountPluginPages.vue'
 
 const botAccountsStore = useBotAccountsStore()
 const { revision } = storeToRefs(botAccountsStore)
@@ -74,7 +73,6 @@ async function remove() {
           <span>{{ row.detail }}</span>
         </div>
         <div class="detached-accounts__actions">
-          <BotAccountPluginPages :account="row.account" :disabled="removing" />
           <AppButton size="sm" variant="ghost" class="detached-accounts__remove" :aria-label="t('protocols.detachedAccounts.removeNamed', { name: row.name })" :disabled="removing" data-testid="detached-bot-account-remove" @click="removeTarget = row.account">{{ t('protocols.detachedAccounts.remove') }}</AppButton>
         </div>
       </li>
