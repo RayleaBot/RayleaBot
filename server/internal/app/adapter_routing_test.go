@@ -134,7 +134,7 @@ func TestOneBotPlatformActionsSelectConnectedAccount(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		defer conn.CloseNow()
+		defer func() { _ = conn.CloseNow() }()
 		if err := wsjson.Write(r.Context(), conn, map[string]any{"post_type": "meta_event", "meta_event_type": "lifecycle", "sub_type": "connect", "self_id": 10001}); err != nil {
 			return
 		}

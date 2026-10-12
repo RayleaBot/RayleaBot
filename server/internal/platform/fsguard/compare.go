@@ -97,12 +97,12 @@ func equalFileContents(ctx context.Context, left, right string, a, b []byte) (bo
 	if err != nil {
 		return false, err
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 	r, err := os.Open(right)
 	if err != nil {
 		return false, err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	for _, file := range []*os.File{l, r} {
 		info, err := file.Stat()
 		if err != nil {
