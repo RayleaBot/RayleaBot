@@ -136,7 +136,7 @@ func TestAppCompositionSharesSettingsAcrossHTTPRuntimeAndIngress(t *testing.T) {
 
 	request(http.MethodPost, "/api/governance/blacklist/entries", map[string]any{
 		"entry_type": "user", "target_id": event.SenderID, "reason": "fixture",
-		"scope": map[string]any{"kind": "global", "source_protocol": "onebot11", "source_adapter": "", "bot_id": ""},
+		"scope": map[string]any{"kind": "global", "source_protocol": "onebot11", "bot_id": ""},
 	})
 	event.EventID = "composition-blocked"
 	event.PlainText = "!say write blocked"
