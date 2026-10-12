@@ -20,7 +20,7 @@ export const botAccounts = {
     invalidTitle: '页面地址中的机器人账号无效',
     invalidDescription: '请重新选择一个机器人账号。',
     missingTitle: '机器人账号 {account} 不在账号目录中',
-    missingDescription: '它可能已被移除。请重新选择一个账号；它原有的数据仍可在插件的全局页面中查看。',
+    missingDescription: '它可能已被移除。请重新选择一个账号；同一账号重新登录后，插件为它保存的数据会恢复。',
     lookupFailed: '读取当前机器人账号失败',
     emptyNoConnectionTitle: '还没有机器人连接',
     emptyNoConnectionDescription: '添加连接并让机器人登录后，就能按机器人账号管理这一页的数据。',

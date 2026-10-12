@@ -33,7 +33,7 @@ export const protocols = {
     remove: '从目录移除',
     removeNamed: '从账号目录移除 {name}',
     removeTitle: '从账号目录移除？',
-    removeDescription: '移除 {name} 后，插件中它的账号页将无法打开；插件保存的数据不会删除，可在插件的全局页面查看。同一账号重新登录后会重新出现在目录中。',
+    removeDescription: '移除 {name} 后，插件中它的账号页将无法打开；插件保存的数据不会删除，同一账号重新登录后会重新出现在目录中，数据随之恢复。需要清理数据时，请在移除前到它的账号页删除。',
     removed: '已从账号目录移除。',
   },
   removeAdapterAction: '删除',
