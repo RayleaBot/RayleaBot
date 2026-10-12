@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
@@ -50,10 +49,10 @@ func (h *GovernanceHandlers) handleGovernanceCommandPolicy() http.HandlerFunc {
 }
 
 type governanceEntryUpsertRequest struct {
-	Scope     chatevent.IdentityScope `json:"scope"`
-	EntryType string                  `json:"entry_type"`
-	TargetID  string                  `json:"target_id"`
-	Reason    string                  `json:"reason"`
+	Scope     permission.Scope `json:"scope"`
+	EntryType string           `json:"entry_type"`
+	TargetID  string           `json:"target_id"`
+	Reason    string           `json:"reason"`
 }
 
 type governanceWhitelistStateUpdateRequest struct {
@@ -78,7 +77,7 @@ func governancePageHandler[T any](read func(context.Context, pagination.Query, s
 	}
 }
 
-func governanceEntryUpsertHandler(upsert func(context.Context, chatevent.IdentityScope, string, string, string) (governance.EntryResponse, error)) http.HandlerFunc {
+func governanceEntryUpsertHandler(upsert func(context.Context, permission.Scope, string, string, string) (governance.EntryResponse, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		request, ok := decodeGovernanceEntryUpsertRequest(w, r)
 		if !ok {
@@ -93,7 +92,7 @@ func governanceEntryUpsertHandler(upsert func(context.Context, chatevent.Identit
 	}
 }
 
-func governanceEntryDeleteHandler(remove func(context.Context, chatevent.IdentityScope, string, string) error) http.HandlerFunc {
+func governanceEntryDeleteHandler(remove func(context.Context, permission.Scope, string, string) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		scope, entryType, targetID, ok := readGovernanceEntryPath(w, r)
 		if !ok {
@@ -143,11 +142,11 @@ func decodeGovernanceEntryUpsertRequest(w http.ResponseWriter, r *http.Request) 
 	return request, true
 }
 
-func readGovernanceEntryPath(w http.ResponseWriter, r *http.Request) (chatevent.IdentityScope, string, string, bool) {
-	scope := chatevent.IdentityScope{Kind: r.URL.Query().Get("kind"), SourceProtocol: r.URL.Query().Get("source_protocol"), SourceAdapter: r.URL.Query().Get("source_adapter"), BotID: r.URL.Query().Get("bot_id")}
+func readGovernanceEntryPath(w http.ResponseWriter, r *http.Request) (permission.Scope, string, string, bool) {
+	scope := permission.Scope{Kind: r.URL.Query().Get("kind"), SourceProtocol: r.URL.Query().Get("source_protocol"), BotID: r.URL.Query().Get("bot_id")}
 	entryType := strings.TrimSpace(chi.URLParam(r, "entry_type"))
 	targetID := strings.TrimSpace(chi.URLParam(r, "target_id"))
-	if !scope.Valid() || !governance.IsEntryType(entryType) || targetID == "" {
+	if r.URL.Query().Has("source_adapter") || !scope.Valid() || !governance.IsEntryType(entryType) || targetID == "" {
 		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return scope, "", "", false
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 )
@@ -12,7 +11,7 @@ import (
 func TestAccessListPagesTraverseAllRowsAndFilterBeforeLimit(t *testing.T) {
 	store := openPermissionTestStore(t)
 	repo := NewAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
-	scope := chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}
+	scope := permission.Scope{Kind: "global", SourceProtocol: "onebot11"}
 	for index := range 205 {
 		kind, reason := "user", "ordinary"
 		if index%2 == 0 {

@@ -63,8 +63,8 @@ func TestLegacyBackupRestoreMigratesSecretsAndRevokesSessions(t *testing.T) {
 	restored := newPersistentTestApp(t, targetConfig, now, "legacy-restored")
 	defer closePersistentTestApp(t, restored)
 	metadata, err := restored.Storage().SchemaMetadata(context.Background())
-	if err != nil || metadata.Version != "000008" {
-		t.Fatalf("restored schema = %#v, %v; want 000008", metadata, err)
+	if err != nil || metadata.Version != "000009" {
+		t.Fatalf("restored schema = %#v, %v; want 000009", metadata, err)
 	}
 	var legacyRows int
 	if err := restored.Storage().Read.QueryRow(

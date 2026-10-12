@@ -10,7 +10,6 @@ request:
     reason: 核心服务群
     scope: &a1
       source_protocol: onebot11
-      source_adapter: ""
       bot_id: ""
       kind: global
 response:

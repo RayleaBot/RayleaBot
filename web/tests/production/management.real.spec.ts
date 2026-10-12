@@ -15,7 +15,7 @@ test('real Server serves the built UI, authenticates and persists a configuratio
   })
   expect(setup.status()).toBe(200)
   const headers = { Authorization: `Bearer ${(await setup.json()).session_token}` }
-  const firstScope = { kind: 'instance', source_protocol: 'qqofficial', source_adapter: 'qq', bot_id: 'bot-a' }
+  const firstScope = { kind: 'account', source_protocol: 'qqofficial', bot_id: 'bot-a' }
   const secondScope = { ...firstScope, bot_id: 'bot-b' }
   for (const scope of [firstScope, secondScope]) {
     const added = await request.post('/api/governance/blacklist/entries', { headers, data: { scope, entry_type: 'user', target_id: 'shared-id', reason: 'scope fixture' } })
@@ -41,9 +41,8 @@ test('real Server serves the built UI, authenticates and persists a configuratio
   await page.getByTestId('blacklist-draft-target-id').fill('shared-id')
   await page.getByTestId('blacklist-draft-reason').fill('created through UI')
   await page.getByTestId('blacklist-draft-save').click()
-  await expect(blacklist.getByRole('alert')).toContainText('请输入连接标识与机器人 ID')
-  await blacklist.getByRole('textbox', { name: '连接标识' }).fill('qq')
-  await blacklist.getByRole('textbox', { name: '机器人 ID' }).fill('bot-a')
+  await expect(blacklist.getByRole('alert')).toContainText('请输入机器人账号')
+  await blacklist.getByRole('textbox', { name: '机器人账号' }).fill('bot-a')
   const scopedSave = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/api/governance/blacklist/entries'))
   await page.getByTestId('blacklist-draft-save').click()
   const scopedResponse = await scopedSave

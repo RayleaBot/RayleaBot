@@ -1,8 +1,10 @@
 package runtime
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"maps"
 	"net/url"
 	"path"
@@ -11,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/browser"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -260,12 +263,12 @@ func parseGovernanceBlacklistReadAction(raw json.RawMessage) (*plugins.Action, e
 }
 
 func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*plugins.Action, error) {
-	frame, err := decodeActionFrame[pluginwire.ProtocolActionGovernanceBlacklistWriteFrame](raw, "governance.blacklist.write")
+	frame, err := decodeStrictActionFrame[pluginwire.ProtocolActionGovernanceBlacklistWriteFrame](raw, "governance.blacklist.write")
 	if err != nil {
 		return nil, err
 	}
 
-	scope := chatevent.IdentityScope{Kind: frame.Scope.Kind, SourceProtocol: frame.Scope.SourceProtocol, SourceAdapter: frame.Scope.SourceAdapter, BotID: frame.Scope.BotID}
+	scope := permission.Scope{Kind: frame.Scope.Kind, SourceProtocol: frame.Scope.SourceProtocol, BotID: frame.Scope.BotID}
 	operation := strings.TrimSpace(frame.Operation)
 	if !scope.Valid() {
 		return nil, errorf(codePluginProtocolViolation, "governance entry requires a valid identity scope", nil)
@@ -318,14 +321,14 @@ func parseGovernanceWhitelistReadAction(raw json.RawMessage) (*plugins.Action, e
 }
 
 func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*plugins.Action, error) {
-	frame, err := decodeActionFrame[pluginwire.ProtocolActionGovernanceWhitelistWriteFrame](raw, "governance.whitelist.write")
+	frame, err := decodeStrictActionFrame[pluginwire.ProtocolActionGovernanceWhitelistWriteFrame](raw, "governance.whitelist.write")
 	if err != nil {
 		return nil, err
 	}
 
-	scope := chatevent.IdentityScope{Kind: frame.Scope.Kind, SourceProtocol: frame.Scope.SourceProtocol, SourceAdapter: frame.Scope.SourceAdapter, BotID: frame.Scope.BotID}
+	scope := permission.Scope{Kind: frame.Scope.Kind, SourceProtocol: frame.Scope.SourceProtocol, BotID: frame.Scope.BotID}
 	operation := strings.TrimSpace(frame.Operation)
-	if operation != "set_enabled" && !scope.Valid() {
+	if (operation != "set_enabled" || scope != (permission.Scope{})) && !scope.Valid() {
 		return nil, errorf(codePluginProtocolViolation, "governance entry requires a valid identity scope", nil)
 	}
 	switch operation {
@@ -712,6 +715,19 @@ func decodeAllowedActionKeys(raw json.RawMessage, actionKind string, allowed ...
 		}
 	}
 	return payload, nil
+}
+
+func decodeStrictActionFrame[T any](raw json.RawMessage, actionKind string) (T, error) {
+	var frame T
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&frame); err != nil {
+		return frame, errorf(codePluginProtocolViolation, "plugin returned malformed "+actionKind+" data", err)
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		return frame, errorf(codePluginProtocolViolation, "plugin returned malformed "+actionKind+" data", err)
+	}
+	return frame, nil
 }
 
 func parseEmptyObjectAction(raw json.RawMessage, actionKind string) error {

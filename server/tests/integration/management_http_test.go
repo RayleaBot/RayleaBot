@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	permissionsqlite "github.com/RayleaBot/RayleaBot/server/internal/bot/permission/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
@@ -265,10 +264,10 @@ func TestGovernanceBlacklistHandler(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	repo := permissionsqlite.NewAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListBlacklist)
-	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001", "反复触发垃圾消息"); err != nil {
+	if err := repo.Add(context.Background(), permission.Scope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001", "反复触发垃圾消息"); err != nil {
 		t.Fatalf("seed user blacklist entry: %v", err)
 	}
-	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "group", "20002", "风险群已封禁"); err != nil {
+	if err := repo.Add(context.Background(), permission.Scope{Kind: "global", SourceProtocol: "onebot11"}, "group", "20002", "风险群已封禁"); err != nil {
 		t.Fatalf("seed group blacklist entry: %v", err)
 	}
 
@@ -323,10 +322,10 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	repo := permissionsqlite.NewAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListBlacklist)
-	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001", "旧原因"); err != nil {
+	if err := repo.Add(context.Background(), permission.Scope{Kind: "account", SourceProtocol: "onebot11", BotID: "bot"}, "user", "10001", "旧原因"); err != nil {
 		t.Fatalf("seed blacklist entry: %v", err)
 	}
-	seeded, err := repo.Get(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001")
+	seeded, err := repo.Get(context.Background(), permission.Scope{Kind: "account", SourceProtocol: "onebot11", BotID: "bot"}, "user", "10001")
 	if err != nil {
 		t.Fatalf("get seeded blacklist entry: %v", err)
 	}
@@ -339,10 +338,9 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
   "target_id": "10001",
   "reason": "新原因",
   "scope": {
-    "kind":"global",
+    "kind":"account",
     "source_protocol": "onebot11",
-    "source_adapter": "",
-    "bot_id": ""
+    "bot_id": "bot"
   }
 }`))
 	if err != nil {
@@ -373,10 +371,9 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
   "target_id": "10001",
   "reason": "",
   "scope": {
-    "kind":"global",
+    "kind":"account",
     "source_protocol": "onebot11",
-    "source_adapter": "",
-    "bot_id": ""
+    "bot_id": "bot"
   }
 }`))
 	if err != nil {
@@ -394,7 +391,7 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 		t.Fatalf("unexpected invalid blacklist upsert status: got %d want 400", invalidResp.StatusCode)
 	}
 
-	deleteReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/blacklist/entries/user/10001?kind=global&source_protocol=onebot11", nil)
+	deleteReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/blacklist/entries/user/10001?kind=account&source_protocol=onebot11&bot_id=bot", nil)
 	if err != nil {
 		t.Fatalf("create blacklist delete request: %v", err)
 	}
@@ -409,7 +406,7 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 		t.Fatalf("unexpected blacklist delete status: got %d want 204", deleteResp.StatusCode)
 	}
 
-	missingReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/blacklist/entries/user/10001?kind=global&source_protocol=onebot11", nil)
+	missingReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/blacklist/entries/user/10001?kind=account&source_protocol=onebot11&bot_id=bot", nil)
 	if err != nil {
 		t.Fatalf("create missing blacklist delete request: %v", err)
 	}

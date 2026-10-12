@@ -265,6 +265,29 @@
     ]
   },
   {
+    "name": "invalid.governance-instance-scope.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-governance-instance-scope",
+        "action": "governance.blacklist.write",
+        "data": {
+          "operation": "upsert",
+          "scope": {
+            "kind": "instance",
+            "source_protocol": "onebot11",
+            "source_adapter": "napcat-home",
+            "bot_id": "10001"
+          },
+          "entry_type": "user",
+          "target_id": "30001",
+          "reason": "fixture-only"
+        }
+      }
+    ]
+  },
+  {
     "name": "invalid.governance-write-without-scope.yaml",
     "valid": false,
     "frames": [
@@ -1179,9 +1202,8 @@
         "data": {
           "operation": "upsert",
           "scope": {
-            "kind": "instance",
+            "kind": "account",
             "source_protocol": "qqofficial",
-            "source_adapter": "qq-main",
             "bot_id": "fixture-bot"
           },
           "entry_type": "user",

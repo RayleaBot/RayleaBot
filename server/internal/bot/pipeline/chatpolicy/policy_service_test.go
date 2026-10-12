@@ -19,19 +19,19 @@ type stubBlacklistRepo struct {
 	blockedType string
 }
 
-func (r *stubBlacklistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, _ string) (bool, error) {
+func (r *stubBlacklistRepo) Contains(_ context.Context, scope permission.Scope, entryType, _ string) (bool, error) {
 	return entryType == r.blockedType, nil
 }
 
-func (r *stubBlacklistRepo) Get(context.Context, chatevent.IdentityScope, string, string) (permission.Entry, error) {
+func (r *stubBlacklistRepo) Get(context.Context, permission.Scope, string, string) (permission.Entry, error) {
 	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
-func (r *stubBlacklistRepo) Add(context.Context, chatevent.IdentityScope, string, string, string) error {
+func (r *stubBlacklistRepo) Add(context.Context, permission.Scope, string, string, string) error {
 	return nil
 }
 
-func (r *stubBlacklistRepo) Remove(context.Context, chatevent.IdentityScope, string, string) error {
+func (r *stubBlacklistRepo) Remove(context.Context, permission.Scope, string, string) error {
 	return nil
 }
 

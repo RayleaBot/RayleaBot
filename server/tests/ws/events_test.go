@@ -233,7 +233,6 @@ func TestEventsWebSocketPublishesGovernanceChangedAfterGovernanceWrite(t *testin
   "scope": {
     "kind":"global",
     "source_protocol": "onebot11",
-    "source_adapter": "",
     "bot_id": ""
   }
 }`))

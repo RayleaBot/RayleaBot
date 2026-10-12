@@ -246,14 +246,14 @@ func (s *stubBlacklistRepo) blockUser(targetID string) {
 	s.blocked[entryType][targetID] = true
 }
 
-func (s *stubBlacklistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
+func (s *stubBlacklistRepo) Contains(_ context.Context, scope permission.Scope, entryType, targetID string) (bool, error) {
 	if entries, ok := s.blocked[entryType]; ok {
 		return entries[targetID], nil
 	}
 	return false, nil
 }
 
-func (s *stubBlacklistRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
+func (s *stubBlacklistRepo) Get(_ context.Context, scope permission.Scope, entryType, targetID string) (permission.Entry, error) {
 	if blocked, _ := s.Contains(context.Background(), scope, entryType, targetID); blocked {
 		return permission.Entry{
 			EntryType: entryType,
@@ -265,11 +265,11 @@ func (s *stubBlacklistRepo) Get(_ context.Context, scope chatevent.IdentityScope
 	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
-func (s *stubBlacklistRepo) Add(context.Context, chatevent.IdentityScope, string, string, string) error {
+func (s *stubBlacklistRepo) Add(context.Context, permission.Scope, string, string, string) error {
 	return nil
 }
 
-func (s *stubBlacklistRepo) Remove(context.Context, chatevent.IdentityScope, string, string) error {
+func (s *stubBlacklistRepo) Remove(context.Context, permission.Scope, string, string) error {
 	return nil
 }
 
@@ -285,19 +285,19 @@ func newStubWhitelistRepo() *stubWhitelistRepo {
 	return &stubWhitelistRepo{}
 }
 
-func (s *stubWhitelistRepo) Contains(context.Context, chatevent.IdentityScope, string, string) (bool, error) {
+func (s *stubWhitelistRepo) Contains(context.Context, permission.Scope, string, string) (bool, error) {
 	return false, nil
 }
 
-func (s *stubWhitelistRepo) Get(context.Context, chatevent.IdentityScope, string, string) (permission.Entry, error) {
+func (s *stubWhitelistRepo) Get(context.Context, permission.Scope, string, string) (permission.Entry, error) {
 	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
-func (s *stubWhitelistRepo) Add(context.Context, chatevent.IdentityScope, string, string, string) error {
+func (s *stubWhitelistRepo) Add(context.Context, permission.Scope, string, string, string) error {
 	return nil
 }
 
-func (s *stubWhitelistRepo) Remove(context.Context, chatevent.IdentityScope, string, string) error {
+func (s *stubWhitelistRepo) Remove(context.Context, permission.Scope, string, string) error {
 	return nil
 }
 

@@ -44,7 +44,7 @@ export function useAccessListEditor(options: {
   async function save() {
     const targetID = draft.target_id.trim()
     const reason = draft.reason.trim()
-    draftErrors.scope = draft.scope.kind === 'instance' && (!draft.scope.source_adapter.trim() || !draft.scope.bot_id.trim()) ? t('accessLists.namespace.required') : ''
+    draftErrors.scope = draft.scope.kind === 'account' && !draft.scope.bot_id.trim() ? t('accessLists.namespace.required') : ''
     draftErrors.target_id = targetID ? '' : t('accessLists.validation.entryRequired')
     draftErrors.reason = reason ? '' : t('accessLists.validation.entryRequired')
     if (Object.values(draftErrors).some(Boolean)) return

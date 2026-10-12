@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/tests/testenv"
 )
@@ -284,10 +285,9 @@ func TestParseGovernanceBlacklistWriteAction(t *testing.T) {
   "target_id": "10001",
   "reason": "manual_review",
   "scope": {
-    "kind":"global",
+    "kind":"account",
     "source_protocol": "onebot11",
-    "source_adapter": "",
-    "bot_id": ""
+    "bot_id": "bot"
   }
 }`))
 	if err != nil {
@@ -295,6 +295,33 @@ func TestParseGovernanceBlacklistWriteAction(t *testing.T) {
 	}
 	if action.Kind != "governance.blacklist.write" || action.GovernanceOperation != "upsert" || action.GovernanceTargetID != "10001" {
 		t.Fatalf("unexpected governance.blacklist.write action: %#v", action)
+	}
+	if action.GovernanceScope != (permission.Scope{Kind: "account", SourceProtocol: "onebot11", BotID: "bot"}) {
+		t.Fatalf("unexpected scope: %+v", action.GovernanceScope)
+	}
+}
+
+func TestGovernanceActionsRejectLegacyScopes(t *testing.T) {
+	t.Parallel()
+	for _, action := range []string{"governance.blacklist.write", "governance.whitelist.write"} {
+		operations := []string{"upsert", "delete"}
+		if action == "governance.whitelist.write" {
+			operations = append(operations, "set_enabled")
+		}
+		for _, operation := range operations {
+			for _, scope := range []string{
+				`{"kind":"instance","source_protocol":"onebot11","bot_id":"bot"}`,
+				`{"kind":"account","source_protocol":"onebot11","bot_id":"bot","source_adapter":""}`,
+			} {
+				payload := `{"operation":"` + operation + `","scope":` + scope + `,"entry_type":"user","target_id":"target","reason":"reviewed"`
+				if operation == "set_enabled" {
+					payload += `,"enabled":true`
+				}
+				raw := json.RawMessage(payload + `}`)
+				_, err := ParseLocalAction(action, raw)
+				assertRuntimeErrorCode(t, err, codePluginProtocolViolation)
+			}
+		}
 	}
 }
 

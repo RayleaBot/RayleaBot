@@ -12,7 +12,6 @@ type AccessListEntry struct {
 	ID             int64
 	ListKind       string
 	SourceProtocol string
-	SourceAdapter  string
 	BotID          string
 	EntryType      string
 	TargetID       string

@@ -1,20 +1,20 @@
 -- name: AccessListContains :one
 SELECT EXISTS(SELECT 1 FROM access_list_entries
 WHERE list_kind = ? AND entry_type = ? AND target_id = ? AND source_protocol = ?
-AND ((source_adapter = ? AND bot_id = ?) OR (source_protocol = 'onebot11' AND source_adapter = '' AND bot_id = '')));
+AND (bot_id = ? OR (source_protocol = 'onebot11' AND bot_id = '')));
 
 -- name: AccessListGet :one
 SELECT * FROM access_list_entries
-WHERE list_kind = ? AND source_protocol = ? AND source_adapter = ? AND bot_id = ? AND entry_type = ? AND target_id = ?;
+WHERE list_kind = ? AND source_protocol = ? AND bot_id = ? AND entry_type = ? AND target_id = ?;
 
 -- name: AccessListAdd :exec
-INSERT INTO access_list_entries (list_kind, source_protocol, source_adapter, bot_id, entry_type, target_id, reason, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (list_kind, source_protocol, source_adapter, bot_id, entry_type, target_id) DO UPDATE SET reason = excluded.reason;
+INSERT INTO access_list_entries (list_kind, source_protocol, bot_id, entry_type, target_id, reason, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (list_kind, source_protocol, bot_id, entry_type, target_id) DO UPDATE SET reason = excluded.reason;
 
 -- name: AccessListRemove :execrows
 DELETE FROM access_list_entries
-WHERE list_kind = ? AND source_protocol = ? AND source_adapter = ? AND bot_id = ? AND entry_type = ? AND target_id = ?;
+WHERE list_kind = ? AND source_protocol = ? AND bot_id = ? AND entry_type = ? AND target_id = ?;
 
 -- name: AccessListList :many
 SELECT * FROM access_list_entries WHERE list_kind = ? AND entry_type = ? ORDER BY created_at DESC, id DESC;

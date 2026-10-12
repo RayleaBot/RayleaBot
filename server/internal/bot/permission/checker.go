@@ -67,6 +67,7 @@ func (c *Checker) Check(ctx context.Context, scope chatevent.IdentityScope, acto
 		return Verdict{Allowed: true}
 	}
 
+	listScope := Scope{Kind: "account", SourceProtocol: scope.SourceProtocol, BotID: scope.BotID}
 	skipBlacklist := false
 	if cmd != nil && c.whitelistStateRepo != nil {
 		enabled, err := c.whitelistStateRepo.Enabled(ctx)
@@ -74,7 +75,7 @@ func (c *Checker) Check(ctx context.Context, scope chatevent.IdentityScope, acto
 			return unavailableVerdict(err)
 		}
 		if enabled {
-			matched, err := c.matchesWhitelist(ctx, scope, actorID, groupID)
+			matched, err := c.matchesWhitelist(ctx, listScope, actorID, groupID)
 			if err != nil {
 				return unavailableVerdict(err)
 			}
@@ -87,7 +88,7 @@ func (c *Checker) Check(ctx context.Context, scope chatevent.IdentityScope, acto
 
 	// 2. Blacklist check.
 	if !skipBlacklist && c.blacklistRepo != nil {
-		blocked, err := c.blacklistRepo.Contains(ctx, scope, "user", actorID)
+		blocked, err := c.blacklistRepo.Contains(ctx, listScope, "user", actorID)
 		if err != nil {
 			return unavailableVerdict(err)
 		}
@@ -95,7 +96,7 @@ func (c *Checker) Check(ctx context.Context, scope chatevent.IdentityScope, acto
 			return Verdict{Allowed: false, Reason: "用户在黑名单中", ErrorCode: errorcodes.PermissionBlacklisted, Scope: ScopeUser}
 		}
 		if groupID != "" {
-			blocked, err := c.blacklistRepo.Contains(ctx, scope, "group", groupID)
+			blocked, err := c.blacklistRepo.Contains(ctx, listScope, "group", groupID)
 			if err != nil {
 				return unavailableVerdict(err)
 			}
@@ -133,7 +134,7 @@ func unavailableVerdict(err error) Verdict {
 	return Verdict{Reason: "暂时无法确认权限，本次操作未执行", ErrorCode: errorcodes.PermissionUnavailable, Err: err}
 }
 
-func (c *Checker) matchesWhitelist(ctx context.Context, scope chatevent.IdentityScope, actorID, groupID string) (bool, error) {
+func (c *Checker) matchesWhitelist(ctx context.Context, scope Scope, actorID, groupID string) (bool, error) {
 	if c.whitelistRepo == nil {
 		return false, errors.New("whitelist repository is unavailable")
 	}

@@ -2788,10 +2788,10 @@
     "governance_scope": {
       "type": "object",
       "additionalProperties": false,
+      "description": "OneBot global rules use an empty bot_id and apply to every OneBot11 bot account. Account rules bind one bot account and match events that account receives through any adapter instance. QQ official rules always bind an account.",
       "required": [
         "kind",
         "source_protocol",
-        "source_adapter",
         "bot_id"
       ],
       "properties": {
@@ -2801,16 +2801,13 @@
             "qqofficial"
           ]
         },
-        "source_adapter": {
-          "type": "string"
-        },
         "bot_id": {
           "type": "string"
         },
         "kind": {
           "enum": [
             "global",
-            "instance"
+            "account"
           ]
         }
       },
@@ -2819,9 +2816,6 @@
           "properties": {
             "source_protocol": {
               "const": "onebot11"
-            },
-            "source_adapter": {
-              "const": ""
             },
             "bot_id": {
               "const": ""
@@ -2833,14 +2827,11 @@
         },
         {
           "properties": {
-            "source_adapter": {
-              "minLength": 1
-            },
             "bot_id": {
               "minLength": 1
             },
             "kind": {
-              "const": "instance"
+              "const": "account"
             }
           }
         }
@@ -3493,6 +3484,7 @@
     "fixtures/plugin-protocol/ok.governance-blacklist-read.yaml",
     "fixtures/plugin-protocol/ok.governance-scoped-write.yaml",
     "fixtures/plugin-protocol/invalid.governance-write-without-scope.yaml",
+    "fixtures/plugin-protocol/invalid.governance-instance-scope.yaml",
     "fixtures/plugin-protocol/ok.scheduler-create.yaml",
     "fixtures/plugin-protocol/ok.scheduler-delete.yaml",
     "fixtures/plugin-protocol/ok.render-image.yaml",

@@ -10,15 +10,14 @@ import (
 )
 
 const accessListAdd = `-- name: AccessListAdd :exec
-INSERT INTO access_list_entries (list_kind, source_protocol, source_adapter, bot_id, entry_type, target_id, reason, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (list_kind, source_protocol, source_adapter, bot_id, entry_type, target_id) DO UPDATE SET reason = excluded.reason
+INSERT INTO access_list_entries (list_kind, source_protocol, bot_id, entry_type, target_id, reason, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (list_kind, source_protocol, bot_id, entry_type, target_id) DO UPDATE SET reason = excluded.reason
 `
 
 type AccessListAddParams struct {
 	ListKind       string
 	SourceProtocol string
-	SourceAdapter  string
 	BotID          string
 	EntryType      string
 	TargetID       string
@@ -30,7 +29,6 @@ func (q *Queries) AccessListAdd(ctx context.Context, arg AccessListAddParams) er
 	_, err := q.db.ExecContext(ctx, accessListAdd,
 		arg.ListKind,
 		arg.SourceProtocol,
-		arg.SourceAdapter,
 		arg.BotID,
 		arg.EntryType,
 		arg.TargetID,
@@ -43,7 +41,7 @@ func (q *Queries) AccessListAdd(ctx context.Context, arg AccessListAddParams) er
 const accessListContains = `-- name: AccessListContains :one
 SELECT EXISTS(SELECT 1 FROM access_list_entries
 WHERE list_kind = ? AND entry_type = ? AND target_id = ? AND source_protocol = ?
-AND ((source_adapter = ? AND bot_id = ?) OR (source_protocol = 'onebot11' AND source_adapter = '' AND bot_id = '')))
+AND (bot_id = ? OR (source_protocol = 'onebot11' AND bot_id = '')))
 `
 
 type AccessListContainsParams struct {
@@ -51,7 +49,6 @@ type AccessListContainsParams struct {
 	EntryType      string
 	TargetID       string
 	SourceProtocol string
-	SourceAdapter  string
 	BotID          string
 }
 
@@ -61,7 +58,6 @@ func (q *Queries) AccessListContains(ctx context.Context, arg AccessListContains
 		arg.EntryType,
 		arg.TargetID,
 		arg.SourceProtocol,
-		arg.SourceAdapter,
 		arg.BotID,
 	)
 	var exists bool
@@ -90,14 +86,13 @@ func (q *Queries) AccessListCount(ctx context.Context, arg AccessListCountParams
 }
 
 const accessListGet = `-- name: AccessListGet :one
-SELECT id, list_kind, source_protocol, source_adapter, bot_id, entry_type, target_id, reason, created_at FROM access_list_entries
-WHERE list_kind = ? AND source_protocol = ? AND source_adapter = ? AND bot_id = ? AND entry_type = ? AND target_id = ?
+SELECT id, list_kind, source_protocol, bot_id, entry_type, target_id, reason, created_at FROM access_list_entries
+WHERE list_kind = ? AND source_protocol = ? AND bot_id = ? AND entry_type = ? AND target_id = ?
 `
 
 type AccessListGetParams struct {
 	ListKind       string
 	SourceProtocol string
-	SourceAdapter  string
 	BotID          string
 	EntryType      string
 	TargetID       string
@@ -107,7 +102,6 @@ func (q *Queries) AccessListGet(ctx context.Context, arg AccessListGetParams) (A
 	row := q.db.QueryRowContext(ctx, accessListGet,
 		arg.ListKind,
 		arg.SourceProtocol,
-		arg.SourceAdapter,
 		arg.BotID,
 		arg.EntryType,
 		arg.TargetID,
@@ -117,7 +111,6 @@ func (q *Queries) AccessListGet(ctx context.Context, arg AccessListGetParams) (A
 		&i.ID,
 		&i.ListKind,
 		&i.SourceProtocol,
-		&i.SourceAdapter,
 		&i.BotID,
 		&i.EntryType,
 		&i.TargetID,
@@ -128,7 +121,7 @@ func (q *Queries) AccessListGet(ctx context.Context, arg AccessListGetParams) (A
 }
 
 const accessListList = `-- name: AccessListList :many
-SELECT id, list_kind, source_protocol, source_adapter, bot_id, entry_type, target_id, reason, created_at FROM access_list_entries WHERE list_kind = ? AND entry_type = ? ORDER BY created_at DESC, id DESC
+SELECT id, list_kind, source_protocol, bot_id, entry_type, target_id, reason, created_at FROM access_list_entries WHERE list_kind = ? AND entry_type = ? ORDER BY created_at DESC, id DESC
 `
 
 type AccessListListParams struct {
@@ -149,7 +142,6 @@ func (q *Queries) AccessListList(ctx context.Context, arg AccessListListParams) 
 			&i.ID,
 			&i.ListKind,
 			&i.SourceProtocol,
-			&i.SourceAdapter,
 			&i.BotID,
 			&i.EntryType,
 			&i.TargetID,
@@ -170,7 +162,7 @@ func (q *Queries) AccessListList(ctx context.Context, arg AccessListListParams) 
 }
 
 const accessListPage = `-- name: AccessListPage :many
-SELECT id, list_kind, source_protocol, source_adapter, bot_id, entry_type, target_id, reason, created_at FROM access_list_entries
+SELECT id, list_kind, source_protocol, bot_id, entry_type, target_id, reason, created_at FROM access_list_entries
 WHERE list_kind = ?1
 AND (?2 = '' OR entry_type = ?2)
 AND (?3 = '' OR instr(lower(target_id), lower(?3)) > 0 OR instr(lower(reason), lower(?3)) > 0)
@@ -205,7 +197,6 @@ func (q *Queries) AccessListPage(ctx context.Context, arg AccessListPageParams) 
 			&i.ID,
 			&i.ListKind,
 			&i.SourceProtocol,
-			&i.SourceAdapter,
 			&i.BotID,
 			&i.EntryType,
 			&i.TargetID,
@@ -227,13 +218,12 @@ func (q *Queries) AccessListPage(ctx context.Context, arg AccessListPageParams) 
 
 const accessListRemove = `-- name: AccessListRemove :execrows
 DELETE FROM access_list_entries
-WHERE list_kind = ? AND source_protocol = ? AND source_adapter = ? AND bot_id = ? AND entry_type = ? AND target_id = ?
+WHERE list_kind = ? AND source_protocol = ? AND bot_id = ? AND entry_type = ? AND target_id = ?
 `
 
 type AccessListRemoveParams struct {
 	ListKind       string
 	SourceProtocol string
-	SourceAdapter  string
 	BotID          string
 	EntryType      string
 	TargetID       string
@@ -243,7 +233,6 @@ func (q *Queries) AccessListRemove(ctx context.Context, arg AccessListRemovePara
 	result, err := q.db.ExecContext(ctx, accessListRemove,
 		arg.ListKind,
 		arg.SourceProtocol,
-		arg.SourceAdapter,
 		arg.BotID,
 		arg.EntryType,
 		arg.TargetID,

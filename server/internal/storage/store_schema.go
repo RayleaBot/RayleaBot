@@ -11,7 +11,7 @@ import (
 )
 
 // currentSchemaVersion identifies the structure in schema.sql.
-const currentSchemaVersion = "000008"
+const currentSchemaVersion = "000009"
 
 // schemaMigration runs sql, then apply when set, in one transaction.
 type schemaMigration struct {
@@ -40,6 +40,7 @@ CREATE TABLE admin_sessions (
 CREATE INDEX idx_admin_sessions_expires_at ON admin_sessions (expires_at);
 ALTER TABLE auth_bootstrap_state DROP COLUMN signing_key;
 DELETE FROM secret_store WHERE key = 'platform.auth.session_signing_key';`},
+		{from: "000008", to: "000009", sql: accessListAccountsSchema},
 	}
 }
 

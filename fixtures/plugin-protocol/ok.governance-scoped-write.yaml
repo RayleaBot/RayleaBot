@@ -7,9 +7,8 @@ frames:
     data:
       operation: upsert
       scope:
-        kind: instance
+        kind: account
         source_protocol: qqofficial
-        source_adapter: qq-main
         bot_id: fixture-bot
       entry_type: user
       target_id: fixture-openid

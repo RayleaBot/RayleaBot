@@ -76,6 +76,7 @@ x-fixtures:
   - fixtures/web-api/ok.system-diagnostics-export.yaml
   - fixtures/web-api/ok.governance-blacklist-response.yaml
   - fixtures/web-api/ok.governance-blacklist-entry-upsert.yaml
+  - fixtures/web-api/ok.governance-blacklist-entry-upsert-account.yaml
   - fixtures/web-api/ok.governance-blacklist-entry-delete.yaml
   - fixtures/web-api/ok.governance-command-policy-response.yaml
   - fixtures/web-api/ok.governance-whitelist-response.yaml
@@ -158,6 +159,7 @@ x-fixtures:
   - fixtures/web-api/invalid.governance-blacklist-entry-unauthorized.yaml
   - fixtures/web-api/invalid.governance-whitelist-unauthorized.yaml
   - fixtures/web-api/invalid.governance-entry-upsert-invalid.yaml
+  - fixtures/web-api/invalid.governance-entry-upsert-instance-scope.yaml
   - fixtures/web-api/invalid.system-render-template-not-found.yaml
   - fixtures/web-api/invalid.system-render-template-preview-html-invalid.yaml
   - fixtures/web-api/invalid.system-render-template-preview-html-not-found.yaml
@@ -630,14 +632,11 @@ paths:
         - name: kind
           in: query
           required: true
-          schema: { type: string, enum: [global, instance] }
+          schema: { type: string, enum: [global, account] }
         - name: source_protocol
           in: query
           required: true
           schema: { type: string, enum: [onebot11, qqofficial] }
-        - name: source_adapter
-          in: query
-          schema: { type: string }
         - name: bot_id
           in: query
           schema: { type: string }
@@ -747,14 +746,11 @@ paths:
         - name: kind
           in: query
           required: true
-          schema: { type: string, enum: [global, instance] }
+          schema: { type: string, enum: [global, account] }
         - name: source_protocol
           in: query
           required: true
           schema: { type: string, enum: [onebot11, qqofficial] }
-        - name: source_adapter
-          in: query
-          schema: { type: string }
         - name: bot_id
           in: query
           schema: { type: string }
@@ -3844,26 +3840,22 @@ components:
     GovernanceScope:
       type: object
       additionalProperties: false
-      required: [kind, source_protocol, source_adapter, bot_id]
-      description: OneBot global rules use empty source_adapter and bot_id; instance rules require both. QQ official rules always bind both fields. Identities never cross protocols or bot namespaces.
+      required: [kind, source_protocol, bot_id]
+      description: OneBot global rules use an empty bot_id and apply to every OneBot11 bot account. Account rules bind one bot account and match events that account receives through any adapter instance, so replacing or renaming the instance keeps them. QQ official rules always bind an account. Identities never cross protocols or bot accounts.
       properties:
-        kind: { type: string, enum: [global, instance] }
+        kind: { type: string, enum: [global, account] }
         source_protocol:
           type: string
           enum: [onebot11, qqofficial]
-        source_adapter:
-          type: string
         bot_id:
           type: string
       oneOf:
         - properties:
             kind: { const: global }
             source_protocol: { const: onebot11 }
-            source_adapter: { const: '' }
             bot_id: { const: '' }
         - properties:
-            kind: { const: instance }
-            source_adapter: { minLength: 1 }
+            kind: { const: account }
             bot_id: { minLength: 1 }
 
     GovernanceEntryType:

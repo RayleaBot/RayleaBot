@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -30,11 +29,11 @@ type Deps struct {
 }
 
 type EntryResponse struct {
-	Scope     chatevent.IdentityScope `json:"scope"`
-	EntryType string                  `json:"entry_type"`
-	TargetID  string                  `json:"target_id"`
-	Reason    string                  `json:"reason"`
-	CreatedAt string                  `json:"created_at"`
+	Scope     permission.Scope `json:"scope"`
+	EntryType string           `json:"entry_type"`
+	TargetID  string           `json:"target_id"`
+	Reason    string           `json:"reason"`
+	CreatedAt string           `json:"created_at"`
 }
 
 type BlacklistSnapshot struct {
@@ -164,7 +163,7 @@ func (s *Service) ReadBlacklist(ctx context.Context) (BlacklistSnapshot, error) 
 	}, nil
 }
 
-func (s *Service) UpsertBlacklistEntry(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) (EntryResponse, error) {
+func (s *Service) UpsertBlacklistEntry(ctx context.Context, scope permission.Scope, entryType, targetID, reason string) (EntryResponse, error) {
 	entryType = strings.TrimSpace(entryType)
 	targetID = strings.TrimSpace(targetID)
 	reason = strings.TrimSpace(reason)
@@ -186,7 +185,7 @@ func (s *Service) UpsertBlacklistEntry(ctx context.Context, scope chatevent.Iden
 	return buildEntryResponse(entry), nil
 }
 
-func (s *Service) DeleteBlacklistEntry(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
+func (s *Service) DeleteBlacklistEntry(ctx context.Context, scope permission.Scope, entryType, targetID string) error {
 	entryType = strings.TrimSpace(entryType)
 	targetID = strings.TrimSpace(targetID)
 	if !scope.Valid() || !validEntryDeleteInput(entryType, targetID) {
@@ -244,7 +243,7 @@ func (s *Service) SetWhitelistEnabled(ctx context.Context, enabled bool) (Whitel
 	return WhitelistStateResponse{Enabled: enabled}, nil
 }
 
-func (s *Service) UpsertWhitelistEntry(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) (EntryResponse, error) {
+func (s *Service) UpsertWhitelistEntry(ctx context.Context, scope permission.Scope, entryType, targetID, reason string) (EntryResponse, error) {
 	entryType = strings.TrimSpace(entryType)
 	targetID = strings.TrimSpace(targetID)
 	reason = strings.TrimSpace(reason)
@@ -266,7 +265,7 @@ func (s *Service) UpsertWhitelistEntry(ctx context.Context, scope chatevent.Iden
 	return buildEntryResponse(entry), nil
 }
 
-func (s *Service) DeleteWhitelistEntry(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
+func (s *Service) DeleteWhitelistEntry(ctx context.Context, scope permission.Scope, entryType, targetID string) error {
 	entryType = strings.TrimSpace(entryType)
 	targetID = strings.TrimSpace(targetID)
 	if !scope.Valid() || !validEntryDeleteInput(entryType, targetID) {

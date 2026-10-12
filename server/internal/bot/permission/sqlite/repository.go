@@ -6,7 +6,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
@@ -56,24 +55,24 @@ func (r *AccessListRepository) Page(ctx context.Context, query pagination.Query,
 	return page, nil
 }
 
-func (r *AccessListRepository) Contains(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
-	return r.read.AccessListContains(ctx, sqlcgen.AccessListContainsParams{ListKind: r.kind, SourceProtocol: scope.SourceProtocol, SourceAdapter: scope.SourceAdapter, BotID: scope.BotID, EntryType: entryType, TargetID: targetID})
+func (r *AccessListRepository) Contains(ctx context.Context, scope permission.Scope, entryType, targetID string) (bool, error) {
+	return r.read.AccessListContains(ctx, sqlcgen.AccessListContainsParams{ListKind: r.kind, SourceProtocol: scope.SourceProtocol, BotID: scope.BotID, EntryType: entryType, TargetID: targetID})
 }
 
-func (r *AccessListRepository) Get(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
-	entry, err := r.read.AccessListGet(ctx, sqlcgen.AccessListGetParams{ListKind: r.kind, SourceProtocol: scope.SourceProtocol, SourceAdapter: scope.SourceAdapter, BotID: scope.BotID, EntryType: entryType, TargetID: targetID})
+func (r *AccessListRepository) Get(ctx context.Context, scope permission.Scope, entryType, targetID string) (permission.Entry, error) {
+	entry, err := r.read.AccessListGet(ctx, sqlcgen.AccessListGetParams{ListKind: r.kind, SourceProtocol: scope.SourceProtocol, BotID: scope.BotID, EntryType: entryType, TargetID: targetID})
 	if errors.Is(err, sql.ErrNoRows) {
 		return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 	}
 	return fromStoredEntry(entry), err
 }
 
-func (r *AccessListRepository) Add(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) error {
-	return r.write.AccessListAdd(ctx, sqlcgen.AccessListAddParams{ListKind: r.kind, SourceProtocol: scope.SourceProtocol, SourceAdapter: scope.SourceAdapter, BotID: scope.BotID, EntryType: entryType, TargetID: targetID, Reason: reason, CreatedAt: time.Now().UTC().Format(time.RFC3339)})
+func (r *AccessListRepository) Add(ctx context.Context, scope permission.Scope, entryType, targetID, reason string) error {
+	return r.write.AccessListAdd(ctx, sqlcgen.AccessListAddParams{ListKind: r.kind, SourceProtocol: scope.SourceProtocol, BotID: scope.BotID, EntryType: entryType, TargetID: targetID, Reason: reason, CreatedAt: time.Now().UTC().Format(time.RFC3339)})
 }
 
-func (r *AccessListRepository) Remove(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
-	affected, err := r.write.AccessListRemove(ctx, sqlcgen.AccessListRemoveParams{ListKind: r.kind, SourceProtocol: scope.SourceProtocol, SourceAdapter: scope.SourceAdapter, BotID: scope.BotID, EntryType: entryType, TargetID: targetID})
+func (r *AccessListRepository) Remove(ctx context.Context, scope permission.Scope, entryType, targetID string) error {
+	affected, err := r.write.AccessListRemove(ctx, sqlcgen.AccessListRemoveParams{ListKind: r.kind, SourceProtocol: scope.SourceProtocol, BotID: scope.BotID, EntryType: entryType, TargetID: targetID})
 	if err != nil {
 		return err
 	}
@@ -96,11 +95,11 @@ func (r *AccessListRepository) List(ctx context.Context, entryType string) ([]pe
 }
 
 func fromStoredEntry(entry sqlcgen.AccessListEntry) permission.Entry {
-	kind := "instance"
-	if entry.SourceAdapter == "" {
+	kind := "account"
+	if entry.BotID == "" {
 		kind = "global"
 	}
-	return permission.Entry{ID: entry.ID, Scope: chatevent.IdentityScope{Kind: kind, SourceProtocol: entry.SourceProtocol, SourceAdapter: entry.SourceAdapter, BotID: entry.BotID}, EntryType: entry.EntryType, TargetID: entry.TargetID, Reason: entry.Reason, CreatedAt: entry.CreatedAt}
+	return permission.Entry{ID: entry.ID, Scope: permission.Scope{Kind: kind, SourceProtocol: entry.SourceProtocol, BotID: entry.BotID}, EntryType: entry.EntryType, TargetID: entry.TargetID, Reason: entry.Reason, CreatedAt: entry.CreatedAt}
 }
 
 type WhitelistStateRepository struct{ read, write *sqlcgen.Queries }

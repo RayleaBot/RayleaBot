@@ -41,8 +41,8 @@ func handle(ctx context.Context, event *rayleabot.EventContext) error {
 			return event.SendText("当前连接的机器人身份尚未就绪。")
 		}
 		scope := rayleabot.GovernanceScope{
-			Kind: "instance", SourceProtocol: event.Bot.SourceProtocol,
-			SourceAdapter: event.Bot.SourceAdapter, BotID: event.Bot.ID,
+			Kind: "account", SourceProtocol: event.Bot.SourceProtocol,
+			BotID: event.Bot.ID,
 		}
 		_, err := event.Actions().GovernanceBlacklistWrite(ctx, rayleabot.GovernanceBlacklistWriteRequest{Scope: scope, Operation: "upsert", EntryType: "user", TargetID: args[0], Reason: "example_plugin_demo"})
 		if err != nil {

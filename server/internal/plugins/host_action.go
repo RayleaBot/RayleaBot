@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 )
 
 // Action contains decoded host capability arguments. Message delivery receives
@@ -31,7 +32,7 @@ type Action struct {
 	BrowserSessionID          string
 	BrowserLifetimeSeconds    int
 	ConfigValues              map[string]any
-	GovernanceScope           chatevent.IdentityScope
+	GovernanceScope           permission.Scope
 	GovernanceOperation       string
 	GovernanceEntryType       string
 	GovernanceTargetID        string

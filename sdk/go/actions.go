@@ -306,12 +306,12 @@ func (actions *Actions) GovernanceBlacklistRead(ctx context.Context) (ActionResu
 	return actions.callResult(ctx, "governance.blacklist.read", struct{}{})
 }
 
-// GovernanceScope binds IDs to their protocol and receiving bot.
-// Only OneBot global rules use empty SourceAdapter and BotID.
+// GovernanceScope binds IDs to their protocol and receiving bot account.
+// Kind is "account" for rules matching that account through any adapter instance,
+// or "global" for OneBot11 rules with an empty BotID.
 type GovernanceScope struct {
 	Kind           string `json:"kind"`
 	SourceProtocol string `json:"source_protocol"`
-	SourceAdapter  string `json:"source_adapter"`
 	BotID          string `json:"bot_id"`
 }
 

@@ -228,7 +228,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	blacklistWrite, err := application.Execute(context.Background(), "governance-helper", "req_governance_blacklist_upsert", plugins.Action{
 		Kind:                "governance.blacklist.write",
 		GovernanceOperation: "upsert",
-		GovernanceScope:     chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"},
+		GovernanceScope:     permission.Scope{Kind: "account", SourceProtocol: "qqofficial", BotID: "bot"},
 		GovernanceEntryType: "user",
 		GovernanceTargetID:  "1001",
 		GovernanceReason:    "spam",
@@ -266,7 +266,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	if _, err := application.Execute(context.Background(), "governance-helper", "req_governance_whitelist_upsert", plugins.Action{
 		Kind:                "governance.whitelist.write",
 		GovernanceOperation: "upsert",
-		GovernanceScope:     chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"},
+		GovernanceScope:     permission.Scope{Kind: "account", SourceProtocol: "qqofficial", BotID: "bot"},
 		GovernanceEntryType: "group",
 		GovernanceTargetID:  "2001",
 		GovernanceReason:    "approved",
@@ -304,7 +304,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	if _, err := application.Execute(context.Background(), "governance-helper", "req_governance_blacklist_delete", plugins.Action{
 		Kind:                "governance.blacklist.write",
 		GovernanceOperation: "delete",
-		GovernanceScope:     chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"},
+		GovernanceScope:     permission.Scope{Kind: "account", SourceProtocol: "qqofficial", BotID: "bot"},
 		GovernanceEntryType: "user",
 		GovernanceTargetID:  "1001",
 	}, chatevent.Event{}); err != nil {

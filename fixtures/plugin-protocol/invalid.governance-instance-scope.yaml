@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: action
+    request_id: action-governance-instance-scope
+    action: governance.blacklist.write
+    data:
+      operation: upsert
+      scope:
+        kind: instance
+        source_protocol: onebot11
+        source_adapter: napcat-home
+        bot_id: "10001"
+      entry_type: user
+      target_id: "30001"
+      reason: fixture-only
+expect:
+  valid: false

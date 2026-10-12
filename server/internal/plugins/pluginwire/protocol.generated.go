@@ -197,7 +197,6 @@ type BotIdentity struct {
 
 type GovernanceScope struct {
 	SourceProtocol string `json:"source_protocol"`
-	SourceAdapter  string `json:"source_adapter"`
 	BotID          string `json:"bot_id"`
 	Kind           string `json:"kind"`
 }

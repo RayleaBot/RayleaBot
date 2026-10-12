@@ -14,23 +14,21 @@ func TestAccessListNamespacesDoNotShareIDs(t *testing.T) {
 	for _, list := range []string{permission.ListBlacklist, permission.ListWhitelist} {
 		t.Run(list, func(t *testing.T) {
 			repo := NewAccessListRepository(store.Read, store.Write, list)
-			first := chatevent.IdentityScope{Kind: "instance", SourceProtocol: "qqofficial", SourceAdapter: "qq-a", BotID: "bot-a"}
+			first := permission.Scope{Kind: "account", SourceProtocol: "qqofficial", BotID: "bot-a"}
 			if err := repo.Add(t.Context(), first, "user", "shared-id", "reviewed"); err != nil {
 				t.Fatal(err)
 			}
-			otherAdapter := first
-			otherAdapter.SourceAdapter = "qq-b"
 			otherBot := first
 			otherBot.BotID = "bot-b"
 			otherProtocol := first
 			otherProtocol.SourceProtocol = "onebot11"
-			for _, scope := range []chatevent.IdentityScope{first, otherAdapter, otherBot, otherProtocol} {
+			for _, scope := range []permission.Scope{first, otherBot, otherProtocol} {
 				matched, err := repo.Contains(t.Context(), scope, "user", "shared-id")
 				if err != nil || matched != (scope == first) {
 					t.Fatalf("scope=%+v matched=%v error=%v", scope, matched, err)
 				}
 			}
-			global := chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}
+			global := permission.Scope{Kind: "global", SourceProtocol: "onebot11"}
 			if err := repo.Add(t.Context(), global, "user", "shared-id", "all QQ accounts"); err != nil {
 				t.Fatal(err)
 			}
@@ -42,6 +40,36 @@ func TestAccessListNamespacesDoNotShareIDs(t *testing.T) {
 			}
 			if _, err := repo.Get(t.Context(), first, "user", "shared-id"); err != nil {
 				t.Fatalf("deleting another scope removed the QQ entry: %v", err)
+			}
+		})
+	}
+}
+
+func TestAccountListsMatchEventsAcrossInstances(t *testing.T) {
+	store := openPermissionTestStore(t)
+	for _, list := range []string{permission.ListBlacklist, permission.ListWhitelist} {
+		t.Run(list, func(t *testing.T) {
+			repo := NewAccessListRepository(store.Read, store.Write, list)
+			for _, protocol := range []string{"onebot11", "qqofficial"} {
+				scope := permission.Scope{Kind: "account", SourceProtocol: protocol, BotID: "bot-a"}
+				if err := repo.Add(t.Context(), scope, "user", "user", "reviewed"); err != nil {
+					t.Fatal(err)
+				}
+				checker := permission.NewChecker(permission.CheckerConfig{}, nil, nil, repo, nil)
+				if list == permission.ListWhitelist {
+					state := NewWhitelistStateRepository(store.Read, store.Write)
+					if err := state.SetEnabled(t.Context(), true); err != nil {
+						t.Fatal(err)
+					}
+					checker = permission.NewChecker(permission.CheckerConfig{}, repo, state, nil, nil)
+				}
+				for _, adapter := range []string{"original", "replacement"} {
+					event := chatevent.NormalizedEvent{SourceProtocol: protocol, SourceAdapter: adapter, BotID: "bot-a"}
+					verdict := checker.Check(t.Context(), event.IdentityScope(), "user", "member", "", &permission.CommandInfo{Permission: "everyone"})
+					if list == permission.ListBlacklist && verdict.ErrorCode != "permission.blacklisted" || list == permission.ListWhitelist && !verdict.Allowed {
+						t.Fatalf("%s via %s: %+v", protocol, adapter, verdict)
+					}
+				}
 			}
 		})
 	}

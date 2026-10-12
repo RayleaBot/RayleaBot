@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil/permissiontest"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -29,12 +29,12 @@ func newStubGovernanceEntryRepo() *stubGovernanceEntryRepo {
 	return &stubGovernanceEntryRepo{entries: make(map[string]map[string]permission.Entry)}
 }
 
-func (s *stubGovernanceEntryRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
+func (s *stubGovernanceEntryRepo) Contains(_ context.Context, scope permission.Scope, entryType, targetID string) (bool, error) {
 	_, err := s.Get(context.Background(), scope, entryType, targetID)
 	return err == nil, nil
 }
 
-func (s *stubGovernanceEntryRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
+func (s *stubGovernanceEntryRepo) Get(_ context.Context, scope permission.Scope, entryType, targetID string) (permission.Entry, error) {
 	if items, ok := s.entries[entryType]; ok {
 		if entry, ok := items[targetID]; ok {
 			return entry, nil
@@ -43,7 +43,7 @@ func (s *stubGovernanceEntryRepo) Get(_ context.Context, scope chatevent.Identit
 	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
-func (s *stubGovernanceEntryRepo) Add(_ context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) error {
+func (s *stubGovernanceEntryRepo) Add(_ context.Context, scope permission.Scope, entryType, targetID, reason string) error {
 	if s.entries[entryType] == nil {
 		s.entries[entryType] = make(map[string]permission.Entry)
 	}
@@ -57,7 +57,7 @@ func (s *stubGovernanceEntryRepo) Add(_ context.Context, scope chatevent.Identit
 	return nil
 }
 
-func (s *stubGovernanceEntryRepo) Remove(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
+func (s *stubGovernanceEntryRepo) Remove(_ context.Context, scope permission.Scope, entryType, targetID string) error {
 	if _, ok := s.entries[entryType][targetID]; !ok {
 		return permission.ErrGovernanceEntryNotFound
 	}
@@ -109,6 +109,45 @@ func TestGovernanceWhitelistStateRejectsInvalidRequest(t *testing.T) {
 
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body=%s", resp.Code, resp.Body.String())
+	}
+}
+
+func TestGovernanceEntriesRejectLegacyScopes(t *testing.T) {
+	t.Parallel()
+	router := newGovernanceRouter(config.Config{}, newStubGovernanceEntryRepo(), newStubGovernanceEntryRepo(), &stubWhitelistStateRepo{}, plugincatalog.New(nil))
+	for _, list := range []string{"blacklist", "whitelist"} {
+		for _, scope := range []struct {
+			name, body, query string
+		}{
+			{"instance", `{"kind":"instance","source_protocol":"onebot11","bot_id":"bot"}`, "kind=instance&source_protocol=onebot11&bot_id=bot"},
+			{"adapter", `{"kind":"account","source_protocol":"onebot11","bot_id":"bot","source_adapter":""}`, "kind=account&source_protocol=onebot11&bot_id=bot&source_adapter="},
+		} {
+			for _, method := range []string{http.MethodPost, http.MethodDelete} {
+				t.Run(list+"/"+scope.name+"/"+method, func(t *testing.T) {
+					path := "/api/governance/" + list + "/entries"
+					body := `{"scope":` + scope.body + `,"entry_type":"user","target_id":"target","reason":"reviewed"}`
+					if method == http.MethodDelete {
+						path += "/user/target?" + scope.query
+						body = ""
+					}
+					req := httptest.NewRequest(method, path, strings.NewReader(body))
+					req.Header.Set("Content-Type", "application/json")
+					resp := httptest.NewRecorder()
+					router.ServeHTTP(resp, req)
+					var payload struct {
+						Error struct {
+							Code string `json:"code"`
+						} `json:"error"`
+					}
+					if err := json.Unmarshal(resp.Body.Bytes(), &payload); err != nil {
+						t.Fatal(err)
+					}
+					if resp.Code != http.StatusBadRequest || payload.Error.Code != "platform.invalid_request" {
+						t.Fatalf("status = %d, body = %s", resp.Code, resp.Body.String())
+					}
+				})
+			}
+		}
 	}
 }
 

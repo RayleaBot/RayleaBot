@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
@@ -34,12 +33,12 @@ func governanceRegistrar(action string, execute func(context.Context, Deps, Acti
 
 type GovernanceService interface {
 	ReadBlacklist(context.Context) (governance.BlacklistSnapshot, error)
-	UpsertBlacklistEntry(context.Context, chatevent.IdentityScope, string, string, string) (governance.EntryResponse, error)
-	DeleteBlacklistEntry(context.Context, chatevent.IdentityScope, string, string) error
+	UpsertBlacklistEntry(context.Context, permission.Scope, string, string, string) (governance.EntryResponse, error)
+	DeleteBlacklistEntry(context.Context, permission.Scope, string, string) error
 	ReadWhitelist(context.Context) (governance.WhitelistSnapshot, error)
 	SetWhitelistEnabled(context.Context, bool) (governance.WhitelistStateResponse, error)
-	UpsertWhitelistEntry(context.Context, chatevent.IdentityScope, string, string, string) (governance.EntryResponse, error)
-	DeleteWhitelistEntry(context.Context, chatevent.IdentityScope, string, string) error
+	UpsertWhitelistEntry(context.Context, permission.Scope, string, string, string) (governance.EntryResponse, error)
+	DeleteWhitelistEntry(context.Context, permission.Scope, string, string) error
 	ReadCommandPolicy(context.Context) (governance.CommandPolicyResponse, error)
 }
 

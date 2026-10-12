@@ -12,7 +12,6 @@ request:
     reason: 反复触发垃圾消息
     scope:
       source_protocol: onebot11
-      source_adapter: ""
       bot_id: ""
       kind: global
 response:

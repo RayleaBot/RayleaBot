@@ -1,0 +1,28 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Scopes no longer name an adapter instance; the former instance kind is rejected.
+request:
+  method: POST
+  path: /api/governance/blacklist/entries
+  body:
+    entry_type: user
+    target_id: "30001"
+    reason: 旧的实例作用域
+    scope:
+      source_protocol: onebot11
+      source_adapter: napcat-home
+      bot_id: "10001"
+      kind: instance
+response:
+  status: 200
+  body:
+    entry_type: user
+    target_id: "30001"
+    reason: 旧的实例作用域
+    created_at: 2026-04-17T09:00:00Z
+    scope:
+      source_protocol: onebot11
+      bot_id: "10001"
+      kind: account
+expect:
+  valid: false

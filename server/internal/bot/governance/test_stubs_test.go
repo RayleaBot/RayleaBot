@@ -2,7 +2,6 @@ package governance
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil/permissiontest"
 
@@ -19,12 +18,12 @@ func newStubEntryRepo() *stubEntryRepo {
 	return &stubEntryRepo{entries: make(map[string]map[string]permission.Entry)}
 }
 
-func (s *stubEntryRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
+func (s *stubEntryRepo) Contains(_ context.Context, scope permission.Scope, entryType, targetID string) (bool, error) {
 	_, err := s.Get(context.Background(), scope, entryType, targetID)
 	return err == nil, nil
 }
 
-func (s *stubEntryRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
+func (s *stubEntryRepo) Get(_ context.Context, scope permission.Scope, entryType, targetID string) (permission.Entry, error) {
 	if items, ok := s.entries[entryType]; ok {
 		if entry, ok := items[targetID]; ok {
 			return entry, nil
@@ -33,7 +32,7 @@ func (s *stubEntryRepo) Get(_ context.Context, scope chatevent.IdentityScope, en
 	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
-func (s *stubEntryRepo) Add(_ context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) error {
+func (s *stubEntryRepo) Add(_ context.Context, scope permission.Scope, entryType, targetID, reason string) error {
 	if s.entries[entryType] == nil {
 		s.entries[entryType] = make(map[string]permission.Entry)
 	}
@@ -47,7 +46,7 @@ func (s *stubEntryRepo) Add(_ context.Context, scope chatevent.IdentityScope, en
 	return nil
 }
 
-func (s *stubEntryRepo) Remove(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
+func (s *stubEntryRepo) Remove(_ context.Context, scope permission.Scope, entryType, targetID string) error {
 	if _, ok := s.entries[entryType][targetID]; !ok {
 		return permission.ErrGovernanceEntryNotFound
 	}

@@ -213,8 +213,8 @@ QQ 官方机器人事件的原生投影位于 `event.payload.qq_official`，包�
 
 `governance.blacklist.write` 与 `governance.whitelist.write` 的增删操作必须提供 `scope`，与管理 API 共用相同规则：
 
-- OneBot 全局规则为 `{"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""}`。
-- 实例规则使用 `kind: "instance"`，填写 `source_protocol`、`source_adapter` 和 `bot_id`。Go SDK 可从 `EventContext.Bot` 取得实例身份，使用 `GovernanceScope` 传入写请求；身份未知时不能猜测 bot ID。
+- OneBot 全局规则为 `{"kind":"global","source_protocol":"onebot11","bot_id":""}`。
+- 账号规则使用 `kind: "account"`，填写 `source_protocol` 和 `bot_id`，对该账号经任何实例收到的事件生效。Go SDK 可从 `EventContext.Bot` 取得账号，使用 `GovernanceScope` 传入写请求；账号未知时不能猜测 bot ID。
 - 读取返回所有作用域的条目；删除需要原样提供目标条目的 scope，相同目标在其他作用域的规则不受影响。
 - 白名单 `set_enabled` 不要求 scope，它修改服务级开关。
 

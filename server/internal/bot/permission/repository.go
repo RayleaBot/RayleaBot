@@ -3,8 +3,6 @@ package permission
 import (
 	"context"
 	"errors"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 )
 
 const (
@@ -16,7 +14,7 @@ var ErrGovernanceEntryNotFound = errors.New("governance entry not found")
 
 type Entry struct {
 	ID        int64
-	Scope     chatevent.IdentityScope
+	Scope     Scope
 	EntryType string
 	TargetID  string
 	Reason    string
@@ -24,10 +22,10 @@ type Entry struct {
 }
 
 type EntryRepository interface {
-	Contains(context.Context, chatevent.IdentityScope, string, string) (bool, error)
-	Get(context.Context, chatevent.IdentityScope, string, string) (Entry, error)
-	Add(context.Context, chatevent.IdentityScope, string, string, string) error
-	Remove(context.Context, chatevent.IdentityScope, string, string) error
+	Contains(context.Context, Scope, string, string) (bool, error)
+	Get(context.Context, Scope, string, string) (Entry, error)
+	Add(context.Context, Scope, string, string, string) error
+	Remove(context.Context, Scope, string, string) error
 	List(context.Context, string) ([]Entry, error)
 }
 

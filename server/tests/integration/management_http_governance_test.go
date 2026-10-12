@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	permissionsqlite "github.com/RayleaBot/RayleaBot/server/internal/bot/permission/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -57,7 +56,6 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
   "scope": {
     "kind":"global",
     "source_protocol": "onebot11",
-    "source_adapter": "",
     "bot_id": ""
   }
 }`))
@@ -87,7 +85,6 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
   "scope": {
     "kind":"global",
     "source_protocol": "onebot11",
-    "source_adapter": "",
     "bot_id": ""
   }
 }`))
@@ -191,7 +188,7 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 		t.Fatalf("unexpected whitelist delete status: got %d want 204", deleteResp.StatusCode)
 	}
 
-	if _, err := entryRepo.Get(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "group", "20002"); err != permission.ErrGovernanceEntryNotFound {
+	if _, err := entryRepo.Get(context.Background(), permission.Scope{Kind: "global", SourceProtocol: "onebot11"}, "group", "20002"); err != permission.ErrGovernanceEntryNotFound {
 		t.Fatalf("group whitelist entry should be removed, got err=%v", err)
 	}
 }

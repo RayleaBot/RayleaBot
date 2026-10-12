@@ -16,7 +16,7 @@ type failingEntryRepo struct {
 	entryType string
 }
 
-func (r failingEntryRepo) Contains(ctx context.Context, scope chatevent.IdentityScope, kind, id string) (bool, error) {
+func (r failingEntryRepo) Contains(ctx context.Context, scope Scope, kind, id string) (bool, error) {
 	if kind == r.entryType {
 		return false, context.DeadlineExceeded
 	}
@@ -79,26 +79,26 @@ func (s *stubBlacklistRepo) block(entryType, targetID string) {
 	s.blocked[entryType][targetID] = true
 }
 
-func (s *stubBlacklistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
+func (s *stubBlacklistRepo) Contains(_ context.Context, scope Scope, entryType, targetID string) (bool, error) {
 	if m, ok := s.blocked[entryType]; ok {
 		return m[targetID], nil
 	}
 	return false, nil
 }
 
-func (s *stubBlacklistRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (Entry, error) {
+func (s *stubBlacklistRepo) Get(_ context.Context, scope Scope, entryType, targetID string) (Entry, error) {
 	if blocked, _ := s.Contains(context.Background(), scope, entryType, targetID); blocked {
 		return Entry{EntryType: entryType, TargetID: targetID, Reason: "blocked", CreatedAt: "2026-04-19T00:00:00Z"}, nil
 	}
 	return Entry{}, ErrGovernanceEntryNotFound
 }
 
-func (s *stubBlacklistRepo) Add(_ context.Context, scope chatevent.IdentityScope, entryType, targetID, _ string) error {
+func (s *stubBlacklistRepo) Add(_ context.Context, scope Scope, entryType, targetID, _ string) error {
 	s.block(entryType, targetID)
 	return nil
 }
 
-func (s *stubBlacklistRepo) Remove(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
+func (s *stubBlacklistRepo) Remove(_ context.Context, scope Scope, entryType, targetID string) error {
 	if m, ok := s.blocked[entryType]; ok {
 		delete(m, targetID)
 	}
@@ -124,26 +124,26 @@ func (s *stubWhitelistRepo) allow(entryType, targetID string) {
 	s.allowed[entryType][targetID] = true
 }
 
-func (s *stubWhitelistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
+func (s *stubWhitelistRepo) Contains(_ context.Context, scope Scope, entryType, targetID string) (bool, error) {
 	if m, ok := s.allowed[entryType]; ok {
 		return m[targetID], nil
 	}
 	return false, nil
 }
 
-func (s *stubWhitelistRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (Entry, error) {
+func (s *stubWhitelistRepo) Get(_ context.Context, scope Scope, entryType, targetID string) (Entry, error) {
 	if allowed, _ := s.Contains(context.Background(), scope, entryType, targetID); allowed {
 		return Entry{EntryType: entryType, TargetID: targetID, Reason: "allowed", CreatedAt: "2026-04-19T00:00:00Z"}, nil
 	}
 	return Entry{}, ErrGovernanceEntryNotFound
 }
 
-func (s *stubWhitelistRepo) Add(_ context.Context, scope chatevent.IdentityScope, entryType, targetID, _ string) error {
+func (s *stubWhitelistRepo) Add(_ context.Context, scope Scope, entryType, targetID, _ string) error {
 	s.allow(entryType, targetID)
 	return nil
 }
 
-func (s *stubWhitelistRepo) Remove(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
+func (s *stubWhitelistRepo) Remove(_ context.Context, scope Scope, entryType, targetID string) error {
 	if m, ok := s.allowed[entryType]; ok {
 		delete(m, targetID)
 	}

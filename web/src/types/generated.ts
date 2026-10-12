@@ -1781,13 +1781,12 @@ export interface components {
         SchedulerJobListResponse: {
             items: components["schemas"]["SchedulerJobSummary"][];
         } & components["schemas"]["CollectionPage"];
-        /** @description OneBot global rules use empty source_adapter and bot_id; instance rules require both. QQ official rules always bind both fields. Identities never cross protocols or bot namespaces. */
+        /** @description OneBot global rules use an empty bot_id and apply to every OneBot11 bot account. Account rules bind one bot account and match events that account receives through any adapter instance, so replacing or renaming the instance keeps them. QQ official rules always bind an account. Identities never cross protocols or bot accounts. */
         GovernanceScope: {
             /** @enum {string} */
-            kind: "global" | "instance";
+            kind: "global" | "account";
             /** @enum {string} */
             source_protocol: "onebot11" | "qqofficial";
-            source_adapter: string;
             bot_id: string;
         } & ({
             /** @constant */
@@ -1795,13 +1794,10 @@ export interface components {
             /** @constant */
             source_protocol?: "onebot11";
             /** @constant */
-            source_adapter?: "";
-            /** @constant */
             bot_id?: "";
         } | {
             /** @constant */
-            kind?: "instance";
-            source_adapter?: unknown;
+            kind?: "account";
             bot_id?: unknown;
         });
         /** @enum {string} */
@@ -3357,9 +3353,8 @@ export interface operations {
     deleteGovernanceBlacklistEntry: {
         parameters: {
             query: {
-                kind: "global" | "instance";
+                kind: "global" | "account";
                 source_protocol: "onebot11" | "qqofficial";
-                source_adapter?: string;
                 bot_id?: string;
             };
             header?: never;
@@ -3470,9 +3465,8 @@ export interface operations {
     deleteGovernanceWhitelistEntry: {
         parameters: {
             query: {
-                kind: "global" | "instance";
+                kind: "global" | "account";
                 source_protocol: "onebot11" | "qqofficial";
-                source_adapter?: string;
                 bot_id?: string;
             };
             header?: never;
