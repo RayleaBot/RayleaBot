@@ -18,6 +18,7 @@ export const protocols = {
   connectionsEmptyDescription: "添加一个连接，填写配置后即可接入机器人。",
   removeConnectionTitle: "删除连接？",
   removeAdapterConfirm: '删除「{name}」？这个连接的设置以及已保存的密钥和令牌都会被移除。',
+  removeAdapterAccountNote: '插件推送和黑白名单按机器人账号保存，新建连接并登录 {account} 后会继续生效。',
   removeAdapterAction: '删除',
   adapterDisabled: '已停用',
   summary: {

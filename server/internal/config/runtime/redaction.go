@@ -61,21 +61,10 @@ func restoreRedactedConfigSecrets(request, current map[string]any) map[string]an
 	return cloned
 }
 
-// sectionPresent reports whether the request holds the section the secret
-// lives in. For a secret inside a collection entry that section is the entry's
-// settings block; otherwise it is the top-level section.
+// sectionPresent checks the immediate parent so an omitted transport does not
+// inherit its old credential and get recreated by secret restoration.
 func (d *configDocumentIndex) sectionPresent(path []string) bool {
-	sectionEnd := 1
-	for index := 1; index < len(path); index++ {
-		if _, ok := ConfigCollectionKey(ConfigShapePath(strings.Join(path[:index], "."))); ok {
-			// path[index] names an entry, so the section is the block inside it.
-			sectionEnd = index + 2
-		}
-	}
-	if sectionEnd >= len(path) {
-		return d.document != nil
-	}
-	section, ok := d.lookup(path[:sectionEnd])
+	section, ok := d.lookup(path[:len(path)-1])
 	if !ok {
 		return false
 	}

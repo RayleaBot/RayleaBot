@@ -6,12 +6,45 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 )
 
 const configSecretReferencePrefix = "secret://"
+
+func removedConfigSecretKeys(previous, next map[string]any) []string {
+	previousIndex := configDocumentIndex{document: previous}
+	nextIndex := configDocumentIndex{document: next}
+	var keys []string
+	for _, path := range previousIndex.secretPaths() {
+		if _, exists := previousIndex.lookup(path); !exists {
+			continue
+		}
+		if _, exists := nextIndex.lookup(path); !exists {
+			keys = append(keys, configSecretKey(path))
+		}
+	}
+	return keys
+}
+
+func (s *Service) deleteRemovedConfigSecrets(ctx context.Context, keys []string) {
+	if s.secrets == nil || len(keys) == 0 {
+		return
+	}
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	for _, key := range keys {
+		if err := s.secrets.Delete(cleanupCtx, key); err != nil && s.logger != nil {
+			s.logger.Warn("配置已保存，但旧密钥清理失败",
+				"component", "config",
+				"key", key,
+				"err", err.Error(),
+			)
+		}
+	}
+}
 
 func StoreConfigSecrets(ctx context.Context, store secrets.Store, document map[string]any) (map[string]any, error) {
 	cloned := internalconfig.CloneDocument(document)

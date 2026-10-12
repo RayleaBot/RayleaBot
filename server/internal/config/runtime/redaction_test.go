@@ -98,7 +98,9 @@ func TestRestoreRedactedConfigSecretsRetainsReplacesAndClears(t *testing.T) {
 	assertStringAtPath(t, restored, onebotSecretPath("onebot11", "forward_ws"), "new-forward")
 	assertStringAtPath(t, restored, onebotSecretPath("onebot11", "http_api"), "")
 	assertStringAtPath(t, restored, onebotSecretPath("onebot11", "reverse_ws"), "old-reverse")
-	assertStringAtPath(t, restored, onebotSecretPath("onebot11", "webhook"), "old-webhook")
+	if _, exists := lookupConfigPath(restored, []string{"adapters", "onebot11", "onebot11", "webhook"}); exists {
+		t.Fatal("restoration recreated the omitted transport")
+	}
 }
 
 // Secrets belong to the instance that holds them: a redacted marker under one

@@ -38,6 +38,16 @@ const editorId = computed(() => typeof route.query.adapter === 'string' ? route.
 const editorOpen = computed(() => route.path === '/protocols' && (Boolean(editorId.value) || route.query.view === 'add'))
 const editorSession = ref<{ id?: string } | null>(null)
 const removeTarget = ref<AdapterInstanceDocument | null>(null)
+// Plugins and access lists keep the bot account, not the connection, so naming it tells the user what survives the removal.
+const removeDescription = computed(() => {
+  const target = removeTarget.value
+  if (!target) return ''
+  const description = t('protocols.removeAdapterConfirm', { name: target.id })
+  const identity = rows.value.find((row) => row.config.id === target.id)?.runtime?.identity
+  if (!identity?.id) return description
+  const account = identity.name ? `${identity.name}（${identity.id}）` : identity.id
+  return `${description}${t('protocols.removeAdapterAccountNote', { account })}`
+})
 watch([editorOpen, editorId], ([open, id]) => {
   if (open) editorSession.value = { id }
 }, { immediate: true })
@@ -118,7 +128,7 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
       </section>
     </div>
     <AdapterConfigDialog v-if="editorSession" :key="editorSession.id || 'add'" :open="editorOpen" :adapter-id="editorSession.id" @close="closeDialog" @after-close="editorClosed" @saved="saved" />
-    <AppConfirmDialog :open="Boolean(removeTarget)" :title="t('protocols.removeConnectionTitle')" :description="t('protocols.removeAdapterConfirm', { name: removeTarget?.id || '' })" :confirm-text="t('protocols.removeAdapterAction')" danger :busy="Boolean(removingId)" @cancel="removeTarget = null" @confirm="removeTarget && removeAdapter(removeTarget)" />
+    <AppConfirmDialog :open="Boolean(removeTarget)" :title="t('protocols.removeConnectionTitle')" :description="removeDescription" :confirm-text="t('protocols.removeAdapterAction')" danger :busy="Boolean(removingId)" @cancel="removeTarget = null" @confirm="removeTarget && removeAdapter(removeTarget)" />
   </AppPage>
 </template>
 

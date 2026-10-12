@@ -67,7 +67,9 @@ func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]a
 	}
 
 	summary := s.summary()
-	request = restoreRedactedConfigSecrets(request, ConfigDocumentFromTyped(s.desired()))
+	previous := ConfigDocumentFromTyped(s.desired())
+	request = restoreRedactedConfigSecrets(request, previous)
+	removedSecretKeys := removedConfigSecretKeys(previous, request)
 	validated, _, request, err := internalconfig.NormalizeDocument(summary.ConfigPath, summary.SchemaPath, request)
 	if err != nil {
 		return UpdateResult{}, err
@@ -81,6 +83,13 @@ func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]a
 	storedRequest, err := StoreConfigSecrets(ctx, store, request)
 	if err != nil {
 		return UpdateResult{}, &PersistenceError{Err: err}
+	}
+	if staged != nil {
+		// Normalization recreates omitted transports with empty credentials.
+		// Their old keys must survive until the configuration file is saved.
+		for _, key := range removedSecretKeys {
+			delete(staged.pending, key)
+		}
 	}
 	newCfg, err := ResolveConfigSecretRefs(ctx, store, validated)
 	if err != nil {
@@ -110,6 +119,7 @@ func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]a
 	if s.setSummary != nil {
 		s.setSummary(newSummary)
 	}
+	s.deleteRemovedConfigSecrets(ctx, removedSecretKeys)
 
 	document, redactedFields := sanitizeOwnedConfigDocument(internalconfig.CanonicalJSONDocumentFromTyped(newCfg))
 	return UpdateResult{

@@ -9,7 +9,98 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 )
+
+func TestConfigUpdateRemovesObsoleteSecretsAfterPersistence(t *testing.T) {
+	for _, mode := range []string{"delete instances", "rename instances", "save failure"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := context.Background()
+			root := t.TempDir()
+			path := filepath.Join(root, "user.yaml")
+			cfg, _, err := config.Init(path, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.Adapters = []config.AdapterInstance{
+				{ID: "onebot", Type: config.AdapterTypeOneBot11, OneBot11: &config.OneBotConfig{
+					ForwardWS: config.OneBotTransportConfig{AccessToken: "fixture-forward"},
+					ReverseWS: config.OneBotTransportConfig{AccessToken: "fixture-reverse"},
+					HTTPAPI:   config.OneBotTransportConfig{AccessToken: "fixture-http"},
+					Webhook:   config.OneBotTransportConfig{AccessToken: "fixture-webhook"},
+				}},
+				{ID: "qq", Type: config.AdapterTypeQQOfficial, QQOfficial: &config.QQOfficialConfig{
+					AppID: "123456", AppSecret: "fixture-app-secret",
+				}},
+			}
+			store := newMemorySecretStore()
+			stored, err := StoreConfigSecrets(ctx, store, ConfigDocumentFromTyped(cfg))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, summary, err := config.SaveDocument(path, "", stored)
+			if err != nil {
+				t.Fatal(err)
+			}
+			oldKeys, err := store.List(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := ConfigDocumentFromTyped(cfg)
+			if mode == "rename instances" {
+				for _, entry := range request["adapters"].([]any) {
+					adapter := entry.(map[string]any)
+					adapter["id"] = adapter["id"].(string) + "-renamed"
+				}
+			} else {
+				request["adapters"] = []any{}
+			}
+			if mode == "save failure" {
+				occupied := filepath.Join(root, "occupied")
+				if err := os.WriteFile(occupied, []byte("fixture"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				summary.ConfigPath = filepath.Join(occupied, "user.yaml")
+			}
+			service := NewService(Deps{CurrentConfig: func() config.Config { return cfg },
+				CurrentSummary: func() config.Summary { return summary }, Secrets: store})
+			_, err = service.UpdateConfigDocument(ctx, request)
+			if mode == "save failure" {
+				var persistenceError *PersistenceError
+				if !errors.As(err, &persistenceError) {
+					t.Fatalf("expected persistence failure, got %v", err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			for _, key := range oldKeys {
+				if _, err := store.Get(ctx, key); mode == "save failure" {
+					if err != nil {
+						t.Fatalf("failed save removed %s: %v", key, err)
+					}
+				} else if !errors.Is(err, secrets.ErrNotFound) {
+					t.Fatalf("obsolete key %s remains: %v", key, err)
+				}
+			}
+			saved, _, err := config.Load(path, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			resolved, err := ResolveConfigSecretRefs(ctx, store, saved)
+			if err != nil {
+				t.Fatalf("saved config has unresolved secrets: %v", err)
+			}
+			if mode == "delete instances" {
+				if len(resolved.Adapters) != 0 {
+					t.Fatal("deleted instances remain in the saved config")
+				}
+			} else if resolved.Adapters[0].OneBot11.ForwardWS.AccessToken != "fixture-forward" ||
+				resolved.Adapters[1].QQOfficial.AppSecret != "fixture-app-secret" {
+				t.Fatal("saved config lost credentials")
+			}
+		})
+	}
+}
 
 func TestFailedConfigPersistenceRestoresCredentialsAndRevision(t *testing.T) {
 	ctx := context.Background()
