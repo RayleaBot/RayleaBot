@@ -62,6 +62,7 @@ func buildHTTP(deps httpBuildDeps) (appHTTPState, error) {
 		Plugins:       pluginState.Plugins,
 		Settings:      services.PluginSettings,
 		ActionInvoker: services.PluginLifecycle,
+		BotAccounts:   services.BotAccounts,
 	})
 
 	managementRoutes, err := buildManagementRoutes(deps, configService, pluginManagementUIHandler)

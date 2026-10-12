@@ -24,7 +24,7 @@
 }
 ```
 
-`management_ui.entry` 是所有页面共用、且必须实际存在于 artifact 中的相对 HTML 路径。`pages[].id` 是稳定页面标识，`label` 是宿主标题；当前页面 ID 通过 iframe 地址的 `page` 参数传递。
+`management_ui.entry` 是所有页面共用、且必须实际存在于 artifact 中的相对 HTML 路径。`pages[].id` 是稳定页面标识，`label` 是宿主标题，`scope` 是页面范围，见[按机器人账号的页面](#按机器人账号的页面)；当前页面 ID 通过 iframe 地址的 `page` 参数传递。
 
 ## 同源加载与 CSP
 
@@ -44,13 +44,42 @@
 | `reloadSecretStatus` | `GET /api/plugins/{plugin_id}/secrets` | 只读取是否已配置 |
 | `setSecrets` | `PUT /api/plugins/{plugin_id}/secrets` | 覆盖选定密钥，不回显明文 |
 | `deleteSecrets` | `DELETE /api/plugins/{plugin_id}/secrets` | 显式删除选定密钥 |
-| `invokeAction` | `POST /api/plugins/{plugin_id}/management/actions` | 把页面动作发送给所属插件 |
+| `invokeAction` | `POST /api/plugins/{plugin_id}/management/actions` | 把页面动作发送给所属插件；按账号的页面自动附带页面与账号 |
+| `reloadBotAccount` | `GET /api/bot-accounts/{source_protocol}/{bot_id}` | 读取当前账号的资料、所在连接与状态 |
 
 已保存的密钥明文不会出现在 GET 响应或其他网络回包中。运行中的插件可通过 `secret.read` local action 读取自身命名空间中的单个值。
 
 设置按顶层键保存覆盖值；显式保存与默认值相同的值仍会形成持久化覆盖。`changed_keys` 只包含有效 JSON 值发生变化的键，按键排序。普通同值保存返回空数组，不刷新命令、不发送 `config.changed`。密钥批量替换和删除是原子操作；同值替换和删除不存在的密钥不计入改动，密钥内容不进入设置事件。
 
 设置已保存而命令刷新或事件入队失败时，保存返回 `plugin.settings_apply_failed`，`details` 包含 `committed: true`、失败的 `stage` 和待应用的 `changed_keys`。再次保存相同值会继续处理待应用的改动，也可重载插件以读取完整已保存设置；错误不表示设置被回滚。
+
+## 按机器人账号的页面
+
+`pages[].scope` 声明页面范围：
+
+- `global`：缺省值，页面管理插件级的设置与数据。
+- `bot_account`：页面管理归属某个机器人账号的数据，例如该账号的订阅、群设置或提醒。
+
+```json
+{ "id": "subscriptions", "label": "订阅设置", "scope": "bot_account" }
+```
+
+宿主在 `bot_account` 页面上方显示账号切换栏，账号来自服务端的机器人账号目录。一个账号同一时间只登录在一条连接上，切换栏按“连接名 · 昵称（账号）”列出账号；连接被删除或改登其他账号后，该账号标为无连接，仍可选择，它的数据不会消失。当前账号以 `bot=<source_protocol>:<bot_id>` 写在 iframe 地址中，账号部分按原样使用；切换账号时宿主用新地址重新加载页面。
+
+`@rayleabot/plugin-ui` 的 `usePluginHost` 提供：
+
+- `page`：页面 ID 与范围。
+- `bot`：当前账号在目录中的资料，包括昵称、当前连接与在线状态；`global` 页面为 `null`。资料可能在页面打开期间变化，只用于显示。
+- `refreshBot()`：重新读取账号资料，例如在需要当前连接的在线查询之前；账号本身在页面生命周期内不变。
+- `client.invokeAction`：在 `bot_account` 页面自动附带 `page_id` 与 `bot`。宿主核对页面已声明为按账号、账号在目录中（离线或无连接也可以）后，把两者写入 `management.action` 事件，插件后端用 Go SDK 的 `event.Event.ManagementBot()` 读取。`global` 页面不附带。
+
+页面范围与账号选择不是权限隔离：同源页面和已登录的客户端可以自行构造任意请求，包括省略 `page_id` 的请求。插件后端需要：
+
+- 按事件中的账号过滤读取、新建、修改、删除与批量操作；按记录 ID 修改或删除时核对记录属于该账号，账号缺失时拒绝需要账号的动作。
+- 账号页的写入只合并当前账号的数据。不能在页面上过滤后用 `saveSettings` 回写整份设置，否则会清掉其他账号的数据。
+- 页面的缓存、草稿与未完成请求按账号区分；切换账号后不复用旧账号的结果。
+
+账号离线或无连接时，页面仍可读取和编辑已保存的数据；需要在线连接的查询（例如群列表）提示不可用，不能把查询不到当作清空数据。账号从目录移除后，它的账号页不能再打开，插件应在 `global` 页面提供查看和清理这些记录的入口；同一账号重新登录后会重新进入目录，原有数据的归属不变。
 
 ## 其他能力
 

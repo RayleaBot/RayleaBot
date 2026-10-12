@@ -1,0 +1,23 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "subscription-panel",
+    "name": "Subscription Panel",
+    "version": "1.0.0",
+    "manifest_version": "4",
+    "license": "MIT",
+    "min_core_version": "0.4.0",
+    "management_ui": {
+      "entry": "ui/index.html",
+      "pages": [
+        { "id": "settings", "label": "全局设置" },
+        { "id": "subscriptions", "label": "订阅设置", "scope": "bot_account" },
+        { "id": "accounts", "label": "平台账号", "scope": "global" }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

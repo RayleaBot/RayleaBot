@@ -54,6 +54,9 @@ export interface SocketFrameRouterDependencies {
   governance: {
     refresh: (signal?: AbortSignal) => Promise<unknown>
   }
+  botAccounts: {
+    refresh: () => Promise<unknown>
+  }
   adapters: {
     applySnapshot: (adapters: AdaptersSnapshotEvent['adapters']) => void
   }

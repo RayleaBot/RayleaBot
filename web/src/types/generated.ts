@@ -577,6 +577,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bot-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 列出机器人账号目录
+         * @description 返回服务端持久化的机器人账号及其当前关联的连接。账号在运行实例确认登录身份时写入目录， 连接删除或改登其他账号后保留为 no_connection，不按时间自动淘汰。排序固定为 state （online、offline、no_connection），再按 source_protocol、bot_id 的字符串升序； query 匹配账号、昵称以及当前或最后连接的标识与展示名。空目录返回 items 为 []、total 为 0。 目录变化后服务端在 /ws/events 发送 event_type 为 bot_accounts.changed 的管理事件，客户端据此回拉。 目录只用于管理面展示与校验；消息投递仍按运行实例的实时身份选择连接。
+         */
+        get: operations["listBotAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bot-accounts/{source_protocol}/{bot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_protocol: components["parameters"]["BotAccountProtocol"];
+                /** @description 机器人账号，属于 source_protocol 的身份命名空间，按字符串原样匹配。 */
+                bot_id: components["parameters"]["BotAccountID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * 读取一个机器人账号
+         * @description 账号不在目录中时返回 404 与 platform.resource_not_found。
+         */
+        get: operations["getBotAccount"];
+        put?: never;
+        post?: never;
+        /**
+         * 从目录移除一个无连接的机器人账号
+         * @description 只允许移除 state 为 no_connection 的账号；账号仍关联连接时返回 409 与 platform.state_conflict。 移除只删除目录记录，不删除插件数据，不改变黑白名单或插件保存的投递地址； 同一协议和账号重新登录后重新进入目录。不在目录中时返回 404 与 platform.resource_not_found。
+         */
+        delete: operations["deleteBotAccount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/runtime/bootstrap": {
         parameters: {
             query?: never;
@@ -1439,6 +1487,46 @@ export interface components {
              */
             avatar_url?: string;
         };
+        /** @description 机器人账号标识，与插件投递地址和黑白名单账号作用域一致。 */
+        BotAccountRef: {
+            source_protocol: components["schemas"]["AdapterProtocol"];
+            /** @description 平台确认的机器人账号：OneBot11 为 QQ 号，QQ 官方为 READY 中的机器人 user id；按字符串原样使用。 */
+            bot_id: string;
+        };
+        /**
+         * @description online：关联的连接已连接，且其运行实例已确认登录此账号。 offline：账号仍关联一条已配置的连接，但该连接已停用、断开、重连中或尚未重新确认身份。 no_connection：账号没有关联连接，原连接已删除或已改登其他账号。
+         * @enum {string}
+         */
+        BotAccountState: "online" | "offline" | "no_connection";
+        /** @description 机器人账号目录中的一项。一个账号同一时间关联一条连接。 */
+        BotAccount: {
+            source_protocol: components["schemas"]["AdapterProtocol"];
+            bot_id: string;
+            /** @description 最近一次确认的平台昵称；未知时省略。 */
+            nickname?: string;
+            /**
+             * Format: uri
+             * @description 机器人头像的 HTTPS 地址，规则同 AdapterIdentity.avatar_url；未知时省略。
+             */
+            avatar_url?: string;
+            state: components["schemas"]["BotAccountState"];
+            /** @description 当前关联的连接；state 为 no_connection 时省略。 */
+            adapter_id?: string;
+            /** @description 当前关联连接的管理面展示名，与 AdapterDescriptor.display_name 一致。 */
+            adapter_display_name?: string;
+            /** @description 解除关联前最后所在的连接，仅在 state 为 no_connection 时出现，用于说明来源，不参与寻址。 */
+            last_adapter_id?: string;
+            /** @description 解除关联时该连接的展示名。 */
+            last_adapter_display_name?: string;
+            /**
+             * Format: date-time
+             * @description 最近一次在有效运行实例中确认在线的 UTC 时间；重复确认最多每分钟更新一次，不表示最近消息时间。
+             */
+            last_seen_at: string;
+        } & unknown;
+        BotAccountListResponse: {
+            items: components["schemas"]["BotAccount"][];
+        } & components["schemas"]["CollectionPage"];
         AdapterDescriptor: {
             /**
              * @description 适配器实例标识，与配置 adapters[].id 一致。它决定出站路由、密钥存储键
@@ -2051,6 +2139,11 @@ export interface components {
         PluginManagementUIPage: {
             id: string;
             label: string;
+            /**
+             * @description 页面范围，来自 manifest 的 management_ui.pages[].scope，未声明时为 global。 bot_account 页面由管理面提供账号切换，并在页面地址与管理动作中携带当前账号。
+             * @enum {string}
+             */
+            scope: "global" | "bot_account";
         };
         PluginDetail: {
             license?: string;
@@ -2088,11 +2181,15 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** @description page_id 必须是插件已声明的管理页。bot_account 页面的动作必须携带 bot，global 页面的动作不能携带 bot； bot 必须存在于机器人账号目录，离线或无连接不构成拒绝理由。不满足时返回 400 与 platform.invalid_request， 不投递给插件。省略两者的请求按原有行为投递。服务端把 page_id 与 bot 写入 management.action 事件 payload 的同级字段，不从业务 payload 读取或合并。页面范围与账号选择不是权限隔离： 插件后端仍须按动作语义要求账号并核对记录归属。 */
         PluginManagementActionRequest: {
             action: string;
             payload?: {
                 [key: string]: unknown;
             };
+            /** @description 发起动作的管理页 ID。 */
+            page_id?: string;
+            bot?: components["schemas"]["BotAccountRef"];
         };
         PluginManagementActionResponse: {
             plugin_id: string;
@@ -2199,8 +2296,9 @@ export interface components {
         };
         ManagementEvent: {
             /**
-             * @description Generic management event type. Unrecognized types remain displayable without triggering domain refresh.
+             * @description Generic management event type. Unrecognized types remain displayable without triggering domain refresh. bot_accounts.changed means the bot account directory changed; clients refetch loaded pages and the current account instead of reading summary.
              * @example governance.changed
+             * @example bot_accounts.changed
              */
             event_type: string;
             summary: string;
@@ -2906,6 +3004,9 @@ export interface components {
         CollectionCursor: number;
         /** @description Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination. */
         CollectionQuery: string;
+        BotAccountProtocol: components["schemas"]["AdapterProtocol"];
+        /** @description 机器人账号，属于 source_protocol 的身份命名空间，按字符串原样匹配。 */
+        BotAccountID: string;
         /** @description 适配器实例标识，与配置 adapters[].id 一致。 */
         AdapterID: string;
         /** @description Select cookie for the browser session flow or bearer for API clients. Defaults to bearer. */
@@ -3772,6 +3873,91 @@ export interface operations {
             };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listBotAccounts: {
+        parameters: {
+            query?: {
+                /** @description Maximum entries in this response. Changing a query starts at cursor 0. */
+                limit?: components["parameters"]["CollectionLimit"];
+                /** @description Decimal offset in the stable endpoint order; reset after a collection change. Not an immutable database snapshot. */
+                cursor?: components["parameters"]["CollectionCursor"];
+                /** @description Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination. */
+                query?: components["parameters"]["CollectionQuery"];
+                source_protocol?: components["schemas"]["AdapterProtocol"];
+                state?: components["schemas"]["BotAccountState"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 机器人账号目录的一页 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotAccountListResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getBotAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_protocol: components["parameters"]["BotAccountProtocol"];
+                /** @description 机器人账号，属于 source_protocol 的身份命名空间，按字符串原样匹配。 */
+                bot_id: components["parameters"]["BotAccountID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 机器人账号 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotAccount"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteBotAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_protocol: components["parameters"]["BotAccountProtocol"];
+                /** @description 机器人账号，属于 source_protocol 的身份命名空间，按字符串原样匹配。 */
+                bot_id: components["parameters"]["BotAccountID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 账号已从目录移除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

@@ -161,6 +161,16 @@ func buildEventPayload(event chatevent.Event) (*pluginwire.ProtocolPayloadFrame,
 		hasPayload = true
 	}
 	if event.PayloadFields != nil {
+		if event.EventType == "management.action" && event.SourceProtocol == "management" {
+			if page, ok := event.PayloadFields["page_id"].(string); ok {
+				payload.PageID = page
+				hasPayload = true
+			}
+			if bot, ok := event.PayloadFields["bot"].(pluginwire.BotAccountRef); ok {
+				payload.Bot = &bot
+				hasPayload = true
+			}
+		}
 		if request, ok := event.PayloadFields["service_request"].(pluginwire.ProtocolServiceRequestFrame); ok && event.EventType == "plugin.request" {
 			payload.ServiceRequest = &request
 			hasPayload = true

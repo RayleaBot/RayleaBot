@@ -43,6 +43,7 @@ const (
 )
 
 type TransportSnapshot struct {
+	AccountID        string
 	Enabled          bool
 	Configured       bool
 	Endpoint         string
@@ -197,6 +198,37 @@ func (s *Shell) CurrentBotID() string {
 		return ""
 	}
 	return strings.TrimSpace(s.snapshot.BotID)
+}
+
+// ConfirmedAccount is the current transport identity used by the management
+// directory. HTTP login information and valid Webhook self_id are sufficient;
+// the plugin identity list and outbound routing keep CurrentBotID semantics.
+func (s *Shell) ConfirmedAccount() (string, string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for index, transport := range []TransportSnapshot{s.snapshot.ReverseWS, s.snapshot.ForwardWS, s.snapshot.HTTPAPI, s.snapshot.Webhook} {
+		// A webhook never connects; while it listens, a valid self_id confirms the account.
+		active := transport.State == TransportStateConnected || index == 3 && transport.State == TransportStateListening
+		if !transport.Enabled || !active {
+			continue
+		}
+		id := transport.AccountID
+		if id == "" {
+			id = transport.RuntimeInfo.UserID
+		}
+		if id == "" {
+			continue
+		}
+		name := ""
+		for _, profile := range []TransportSnapshot{s.snapshot.ReverseWS, s.snapshot.ForwardWS, s.snapshot.HTTPAPI} {
+			if profile.Enabled && profile.State == TransportStateConnected && profile.RuntimeInfo.UserID == id && profile.RuntimeInfo.Nickname != "" {
+				name = profile.RuntimeInfo.Nickname
+				break
+			}
+		}
+		return id, name
+	}
+	return "", ""
 }
 
 func (s *Shell) DetectedProvider() string {

@@ -63,8 +63,8 @@ func TestLegacyBackupRestoreMigratesSecretsAndRevokesSessions(t *testing.T) {
 	restored := newPersistentTestApp(t, targetConfig, now, "legacy-restored")
 	defer closePersistentTestApp(t, restored)
 	metadata, err := restored.Storage().SchemaMetadata(context.Background())
-	if err != nil || metadata.Version != "000009" {
-		t.Fatalf("restored schema = %#v, %v; want 000009", metadata, err)
+	if err != nil || metadata.Version != "000010" {
+		t.Fatalf("restored schema = %#v, %v; want 000010", metadata, err)
 	}
 	var legacyRows int
 	if err := restored.Storage().Read.QueryRow(
@@ -143,6 +143,7 @@ func sealSecretsAsSchema000002(t *testing.T, databasePath string) {
 		ALTER TABLE auth_bootstrap_state ADD COLUMN signing_key BLOB NOT NULL DEFAULT X'07';
 		INSERT INTO secret_store VALUES ('platform.auth.session_signing_key', X'07', '2026-09-14T09:00:00Z', '2026-09-14T09:00:00Z');
 		INSERT INTO secret_store VALUES ('plugin:fixture:secret:token', 'fixture-only-token', '2026-09-14T09:00:00Z', '2026-09-14T09:00:00Z');
+		DROP TABLE bot_accounts;
 		DROP TABLE message_stats_offline; DROP TABLE message_stats_runs;
 		DROP INDEX idx_plugin_kv_metadata; DROP INDEX idx_plugin_kv_size_anomaly;
 		CREATE INDEX idx_plugin_kv_plugin_id ON plugin_kv(plugin_id);

@@ -48,6 +48,19 @@ test('built plugin pages load from the plugin path and call the management API d
   await expect(plugin.getByTestId('default-city-input')).toHaveValue('广州')
 })
 
+test('an account page waits for a confirmed bot account before loading the plugin page', async ({ page }) => {
+  await openPluginPage(page)
+  await page.goto('/plugins/example-config-panel?panel=management-ui&management_page=notes')
+  // The test server has no connection, so the directory is empty: the page guides to the protocol center.
+  await expect(page.getByTestId('plugin-bot-account-empty')).toBeVisible()
+  await expect(page.getByTestId('plugin-management-ui-frame')).toHaveCount(0)
+  expect(new URL(page.url()).searchParams.has('bot')).toBe(false)
+  // An account the directory does not hold is reported, not replaced by another account.
+  await page.goto('/plugins/example-config-panel?panel=management-ui&management_page=notes&bot=onebot11:10001')
+  await expect(page.getByTestId('plugin-management-ui-frame')).toHaveCount(0)
+  expect(new URL(page.url()).searchParams.get('bot')).toBe('onebot11:10001')
+})
+
 test('a failed frame shows a contained recovery state and retry loads a new session', async ({ page }) => {
   const frameURL = /\/plugin-ui\/example-config-panel\/index\.html/
   await page.route(frameURL, (route) => route.abort())

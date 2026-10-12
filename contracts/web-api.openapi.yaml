@@ -173,6 +173,13 @@ x-fixtures:
   - fixtures/web-api/ok.plugins-recover-response.yaml
   - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
   - fixtures/web-api/ok.plugin-management-action.yaml
+  - fixtures/web-api/ok.plugin-management-action-bot-account.yaml
+  - fixtures/web-api/invalid.plugin-management-action-bot-without-page.yaml
+  - fixtures/web-api/ok.bot-accounts-list-response.yaml
+  - fixtures/web-api/edge.bot-accounts-empty-response.yaml
+  - fixtures/web-api/invalid.bot-account-no-connection-current-adapter.yaml
+  - fixtures/web-api/ok.bot-account-delete.yaml
+  - fixtures/web-api/edge.bot-account-delete-connected.yaml
   - fixtures/web-api/ok.update-status.yaml
   - fixtures/web-api/ok.update-check.yaml
   - fixtures/web-api/ok.update-releases.yaml
@@ -1062,6 +1069,99 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/bot-accounts:
+    get:
+      summary: 列出机器人账号目录
+      description: >
+        返回服务端持久化的机器人账号及其当前关联的连接。账号在运行实例确认登录身份时写入目录，
+        连接删除或改登其他账号后保留为 no_connection，不按时间自动淘汰。排序固定为 state
+        （online、offline、no_connection），再按 source_protocol、bot_id 的字符串升序；
+        query 匹配账号、昵称以及当前或最后连接的标识与展示名。空目录返回 items 为 []、total 为 0。
+        目录变化后服务端在 /ws/events 发送 event_type 为 bot_accounts.changed 的管理事件，客户端据此回拉。
+        目录只用于管理面展示与校验；消息投递仍按运行实例的实时身份选择连接。
+      operationId: listBotAccounts
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      tags:
+        - protocols
+      parameters:
+        - $ref: '#/components/parameters/CollectionLimit'
+        - $ref: '#/components/parameters/CollectionCursor'
+        - $ref: '#/components/parameters/CollectionQuery'
+        - name: source_protocol
+          in: query
+          schema:
+            $ref: '#/components/schemas/AdapterProtocol'
+        - name: state
+          in: query
+          schema:
+            $ref: '#/components/schemas/BotAccountState'
+      responses:
+        '200':
+          description: 机器人账号目录的一页
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BotAccountListResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/bot-accounts/{source_protocol}/{bot_id}:
+    parameters:
+      - $ref: '#/components/parameters/BotAccountProtocol'
+      - $ref: '#/components/parameters/BotAccountID'
+    get:
+      summary: 读取一个机器人账号
+      description: 账号不在目录中时返回 404 与 platform.resource_not_found。
+      operationId: getBotAccount
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      tags:
+        - protocols
+      responses:
+        '200':
+          description: 机器人账号
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BotAccount'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+    delete:
+      summary: 从目录移除一个无连接的机器人账号
+      description: >
+        只允许移除 state 为 no_connection 的账号；账号仍关联连接时返回 409 与 platform.state_conflict。
+        移除只删除目录记录，不删除插件数据，不改变黑白名单或插件保存的投递地址；
+        同一协议和账号重新登录后重新进入目录。不在目录中时返回 404 与 platform.resource_not_found。
+      operationId: deleteBotAccount
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
+      tags:
+        - protocols
+      responses:
+        '204':
+          description: 账号已从目录移除
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -2320,6 +2420,20 @@ components:
       in: query
       description: Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination.
       schema: {type: string, maxLength: 200}
+    BotAccountProtocol:
+      name: source_protocol
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/AdapterProtocol'
+    BotAccountID:
+      name: bot_id
+      in: path
+      required: true
+      description: 机器人账号，属于 source_protocol 的身份命名空间，按字符串原样匹配。
+      schema:
+        type: string
+        minLength: 1
     AdapterID:
       name: adapterID
       in: path
@@ -3061,6 +3175,98 @@ components:
           pattern: '^https://'
           maxLength: 2048
           description: 机器人头像的 HTTPS 地址；OneBot11 使用已确认 QQ 号的头像地址，QQ 官方机器人使用平台账号资料。未知或不可用时省略，客户端加载失败时显示默认头像。
+    BotAccountRef:
+      type: object
+      additionalProperties: false
+      required: [source_protocol, bot_id]
+      description: 机器人账号标识，与插件投递地址和黑白名单账号作用域一致。
+      properties:
+        source_protocol:
+          $ref: '#/components/schemas/AdapterProtocol'
+        bot_id:
+          type: string
+          minLength: 1
+          description: 平台确认的机器人账号：OneBot11 为 QQ 号，QQ 官方为 READY 中的机器人 user id；按字符串原样使用。
+    BotAccountState:
+      type: string
+      enum: [online, offline, no_connection]
+      description: >
+        online：关联的连接已连接，且其运行实例已确认登录此账号。
+        offline：账号仍关联一条已配置的连接，但该连接已停用、断开、重连中或尚未重新确认身份。
+        no_connection：账号没有关联连接，原连接已删除或已改登其他账号。
+    BotAccount:
+      type: object
+      additionalProperties: false
+      required: [source_protocol, bot_id, state, last_seen_at]
+      description: 机器人账号目录中的一项。一个账号同一时间关联一条连接。
+      properties:
+        source_protocol:
+          $ref: '#/components/schemas/AdapterProtocol'
+        bot_id:
+          type: string
+          minLength: 1
+        nickname:
+          type: string
+          minLength: 1
+          description: 最近一次确认的平台昵称；未知时省略。
+        avatar_url:
+          type: string
+          format: uri
+          pattern: '^https://'
+          maxLength: 2048
+          description: 机器人头像的 HTTPS 地址，规则同 AdapterIdentity.avatar_url；未知时省略。
+        state:
+          $ref: '#/components/schemas/BotAccountState'
+        adapter_id:
+          type: string
+          pattern: '^[a-z0-9][a-z0-9-]*$'
+          maxLength: 64
+          description: 当前关联的连接；state 为 no_connection 时省略。
+        adapter_display_name:
+          type: string
+          minLength: 1
+          description: 当前关联连接的管理面展示名，与 AdapterDescriptor.display_name 一致。
+        last_adapter_id:
+          type: string
+          pattern: '^[a-z0-9][a-z0-9-]*$'
+          maxLength: 64
+          description: 解除关联前最后所在的连接，仅在 state 为 no_connection 时出现，用于说明来源，不参与寻址。
+        last_adapter_display_name:
+          type: string
+          minLength: 1
+          description: 解除关联时该连接的展示名。
+        last_seen_at:
+          type: string
+          format: date-time
+          description: 最近一次在有效运行实例中确认在线的 UTC 时间；重复确认最多每分钟更新一次，不表示最近消息时间。
+      allOf:
+        - if:
+            properties:
+              state:
+                const: no_connection
+          then:
+            required: [last_adapter_id, last_adapter_display_name]
+            not:
+              anyOf:
+                - required: [adapter_id]
+                - required: [adapter_display_name]
+          else:
+            required: [adapter_id, adapter_display_name]
+            not:
+              anyOf:
+                - required: [last_adapter_id]
+                - required: [last_adapter_display_name]
+    BotAccountListResponse:
+      allOf:
+        - $ref: '#/components/schemas/CollectionPage'
+      type: object
+      unevaluatedProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BotAccount'
     AdapterDescriptor:
       type: object
       additionalProperties: false
@@ -4497,13 +4703,19 @@ components:
     PluginManagementUIPage:
       type: object
       additionalProperties: false
-      required: [id, label]
+      required: [id, label, scope]
       properties:
         id:
           type: string
           pattern: '^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$'
         label:
           type: string
+        scope:
+          type: string
+          enum: [global, bot_account]
+          description: >
+            页面范围，来自 manifest 的 management_ui.pages[].scope，未声明时为 global。
+            bot_account 页面由管理面提供账号切换，并在页面地址与管理动作中携带当前账号。
 
     PluginDetail:
       allOf:
@@ -4598,6 +4810,12 @@ components:
       type: object
       additionalProperties: false
       required: [action]
+      description: >
+        page_id 必须是插件已声明的管理页。bot_account 页面的动作必须携带 bot，global 页面的动作不能携带 bot；
+        bot 必须存在于机器人账号目录，离线或无连接不构成拒绝理由。不满足时返回 400 与 platform.invalid_request，
+        不投递给插件。省略两者的请求按原有行为投递。服务端把 page_id 与 bot 写入 management.action
+        事件 payload 的同级字段，不从业务 payload 读取或合并。页面范围与账号选择不是权限隔离：
+        插件后端仍须按动作语义要求账号并核对记录归属。
       properties:
         action:
           type: string
@@ -4605,6 +4823,14 @@ components:
         payload:
           type: object
           additionalProperties: true
+        page_id:
+          type: string
+          pattern: '^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$'
+          description: 发起动作的管理页 ID。
+        bot:
+          $ref: '#/components/schemas/BotAccountRef'
+      dependentRequired:
+        bot: [page_id]
 
     PluginManagementActionResponse:
       type: object
@@ -4872,8 +5098,11 @@ components:
       properties:
         event_type:
           type: string
-          description: Generic management event type. Unrecognized types remain displayable without triggering domain refresh.
-          examples: [governance.changed]
+          description: >
+            Generic management event type. Unrecognized types remain displayable without triggering domain refresh.
+            bot_accounts.changed means the bot account directory changed; clients refetch loaded pages and the
+            current account instead of reading summary.
+          examples: [governance.changed, bot_accounts.changed]
         summary:
           type: string
     AdaptersSnapshotEvent:

@@ -12,6 +12,12 @@ examples:
     status: 200
     media_type: application/json
     representation: body
+  bot-accounts.response.json:
+    operationId: listBotAccounts
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
   governance-blacklist.response.json:
     operationId: getGovernanceBlacklist
     direction: response

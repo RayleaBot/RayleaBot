@@ -136,7 +136,7 @@ func TestManagementActionDoesNotStartUnavailablePlugin(t *testing.T) {
 		t.Run(state, func(t *testing.T) {
 			cat := catalog.New([]plugins.Snapshot{{PluginID: "fixture", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: state}})
 			controller := newTestController(t, Deps{Plugins: cat})
-			_, err := controller.InvokeManagementAction(t.Context(), "fixture", "snapshot", nil)
+			_, err := controller.InvokeManagementAction(t.Context(), "fixture", "snapshot", nil, plugins.ManagementActionContext{})
 			var unavailable *plugins.NotRunningError
 			if !errors.As(err, &unavailable) {
 				t.Fatalf("error=%v", err)

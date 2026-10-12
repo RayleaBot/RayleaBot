@@ -425,6 +425,15 @@
                       "type": "object",
                       "additionalProperties": true
                     },
+                    "page_id": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$",
+                      "description": "Management page that invoked a management.action, copied by the host from the accepted management request and always one of the plugin's declared pages. Present only on management.action."
+                    },
+                    "bot": {
+                      "$ref": "#/$defs/bot_account_ref",
+                      "description": "Bot account selected on a bot_account management page, copied by the host after checking that the page declares that scope and the account is in the host's bot account directory. Present only on management.action and always with page_id. The account may be offline. It is not an authorization boundary: the plugin still requires the account where its action needs one and checks record ownership."
+                    },
                     "task_id": {
                       "type": "string",
                       "minLength": 1,
@@ -682,6 +691,54 @@
                 }
               },
               "allOf": [
+                {
+                  "if": {
+                    "required": [
+                      "event_type"
+                    ],
+                    "properties": {
+                      "event_type": {
+                        "const": "management.action"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "payload": {
+                        "if": {
+                          "required": [
+                            "bot"
+                          ]
+                        },
+                        "then": {
+                          "required": [
+                            "page_id"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "payload": {
+                        "not": {
+                          "anyOf": [
+                            {
+                              "required": [
+                                "page_id"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "bot"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
                 {
                   "if": {
                     "required": [
@@ -2755,6 +2812,27 @@
       ],
       "unevaluatedProperties": false
     },
+    "bot_account_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_protocol",
+        "bot_id"
+      ],
+      "properties": {
+        "source_protocol": {
+          "type": "string",
+          "enum": [
+            "onebot11",
+            "qqofficial"
+          ]
+        },
+        "bot_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "bot_identity": {
       "type": "object",
       "additionalProperties": false,
@@ -3296,7 +3374,26 @@
         "source_protocol",
         "source_adapter"
       ],
+      "if": {
+        "required": [
+          "bot"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source_protocol": {
+            "const": "management"
+          },
+          "event_type": {
+            "const": "management.action"
+          }
+        }
+      },
       "properties": {
+        "bot": {
+          "$ref": "#/$defs/bot_account_ref",
+          "description": "Bot account of the bot_account management page whose management.action started the call, copied by the host from that event's payload.bot and kept after event.detach. Present only for management origins; the caller cannot set it through params. Chat and scheduler origins keep their existing fields."
+        },
         "event_id": {
           "type": "string",
           "minLength": 1
@@ -3485,6 +3582,10 @@
     "fixtures/plugin-protocol/ok.governance-scoped-write.yaml",
     "fixtures/plugin-protocol/invalid.governance-write-without-scope.yaml",
     "fixtures/plugin-protocol/invalid.governance-instance-scope.yaml",
+    "fixtures/plugin-protocol/ok.management-action-bot-account.yaml",
+    "fixtures/plugin-protocol/invalid.management-action-bot-without-page.yaml",
+    "fixtures/plugin-protocol/invalid.message-event-management-bot.yaml",
+    "fixtures/plugin-protocol/invalid.service-origin-bot-chat.yaml",
     "fixtures/plugin-protocol/ok.scheduler-create.yaml",
     "fixtures/plugin-protocol/ok.scheduler-delete.yaml",
     "fixtures/plugin-protocol/ok.render-image.yaml",

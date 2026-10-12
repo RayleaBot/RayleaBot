@@ -19,6 +19,23 @@ export const protocols = {
   removeConnectionTitle: "删除连接？",
   removeAdapterConfirm: '删除「{name}」？这个连接的设置以及已保存的密钥和令牌都会被移除。',
   removeAdapterAccountNote: '插件推送和黑白名单按机器人账号保存，新建连接并登录 {account} 后会继续生效。',
+  botAccountPages: {
+    label: '插件页面',
+    loading: '正在读取插件页面…',
+    failed: '插件页面读取失败',
+    empty: '没有按机器人账号划分的插件页面',
+  },
+  detachedAccounts: {
+    title: '无连接的机器人账号',
+    description: '这些账号的连接已删除，或连接改登了其他账号。它们在插件中的数据仍然保留，新建连接并登录同一账号后继续使用。',
+    lastConnection: '上次经 {connection}',
+    lastSeen: '上次在线 {time}',
+    remove: '从目录移除',
+    removeNamed: '从账号目录移除 {name}',
+    removeTitle: '从账号目录移除？',
+    removeDescription: '移除 {name} 后，插件中它的账号页将无法打开；插件保存的数据不会删除，可在插件的全局页面查看。同一账号重新登录后会重新出现在目录中。',
+    removed: '已从账号目录移除。',
+  },
   removeAdapterAction: '删除',
   adapterDisabled: '已停用',
   summary: {

@@ -193,7 +193,11 @@
             "type": "object", "additionalProperties": false, "required": ["id", "label"],
             "properties": {
               "id": { "$ref": "#/$defs/stable_id" },
-              "label": { "type": "string", "minLength": 1 }
+              "label": { "type": "string", "minLength": 1 },
+              "scope": {
+                "type": "string", "enum": ["global", "bot_account"], "default": "global",
+                "description": "global pages hold plugin-wide data. bot_account pages hold data owned by one bot account: the host shows an account switcher above the page, passes the selected account in the page URL and attaches it to management actions. Omitted means global."
+              }
             }
           }
         }
@@ -270,6 +274,8 @@
     "fixtures/plugin-info/ok.minimal-native.json",
     "fixtures/plugin-info/ok.commands.json",
     "fixtures/plugin-info/ok.management-ui-and-webhook.json",
+    "fixtures/plugin-info/ok.management-ui-page-scope.json",
+    "fixtures/plugin-info/invalid.management-ui-page-scope.json",
     "fixtures/plugin-info/edge.empty-events.json",
     "fixtures/plugin-info/invalid.legacy-v3.json",
     "fixtures/plugin-info/invalid.command-group-reference.json",

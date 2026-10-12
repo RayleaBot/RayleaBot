@@ -216,9 +216,14 @@ func (s *Shell) AttachReverseWS(conn *websocket.Conn) {
 	}
 	s.reverseConn = conn
 	s.reverseDone = done
+	s.clearTransportRuntimeInfoLocked(TransportReverseWS)
+	s.snapshot.ReverseWS.State = TransportStateListening
+	s.refreshAggregateStateLocked()
+	snapshot, handler := cloneSnapshot(s.snapshot), s.stateHandler
 	ctx := s.runCtx
 	s.workers.Add(1)
 	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
 
 	if previous != nil {
 		_ = previous.CloseNow()
@@ -266,11 +271,15 @@ func (s *Shell) handleReverseSession(ctx context.Context, conn *websocket.Conn, 
 		if ctx.Err() != nil || s.isStopping() {
 			return
 		}
-		s.markTransportFailure(TransportReverseWS, TransportStateListening, errorCodeConnectionLost, err)
+		s.markReverseSessionFailure(conn, err)
 		return
 	}
 
 	s.mu.Lock()
+	if s.reverseConn != conn {
+		s.mu.Unlock()
+		return
+	}
 	s.snapshot.ReverseWS.State = TransportStateConnected
 	s.snapshot.ReverseWS.LastErrorCode = ""
 	s.snapshot.ReverseWS.LastErrorMessage = ""
@@ -289,8 +298,20 @@ func (s *Shell) handleReverseSession(ctx context.Context, conn *websocket.Conn, 
 	}
 
 	if err := s.readLoop(ctx, TransportReverseWS, conn); ctx.Err() == nil && !s.isStopping() {
-		s.markTransportFailure(TransportReverseWS, TransportStateListening, errorCodeConnectionLost, err)
+		s.markReverseSessionFailure(conn, err)
 	}
+}
+
+func (s *Shell) markReverseSessionFailure(conn *websocket.Conn, err error) {
+	s.mu.Lock()
+	if s.reverseConn != conn {
+		s.mu.Unlock()
+		return
+	}
+	s.markTransportFailureLocked(TransportReverseWS, TransportStateListening, errorCodeConnectionLost, err)
+	snapshot, handler := cloneSnapshot(s.snapshot), s.stateHandler
+	s.mu.Unlock()
+	s.emitStateSnapshot(handler, snapshot)
 }
 
 func (s *Shell) isStopping() bool {

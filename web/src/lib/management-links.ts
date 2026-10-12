@@ -7,7 +7,9 @@ import type {
 } from 'vue-router'
 
 import { t } from '@/i18n'
+import { formatBotAccountKey, parseBotAccountKey } from '@/lib/bot-accounts'
 import type {
+  BotAccountRef,
   EventsPayload,
   LogSummary,
 } from '@/types/api'
@@ -145,6 +147,13 @@ export function readPluginManagementPage(query: LocationQuery) {
   return normalizeSingleQueryValue(query.management_page)
 }
 
+// present distinguishes an absent account from a malformed or repeated one: only an
+// absent account may be filled in automatically.
+export function readPluginBotAccount(query: LocationQuery): { present: boolean; account: BotAccountRef | null } {
+  const values = normalizeQueryValue(query.bot)
+  return { present: values.length > 0, account: values.length === 1 ? parseBotAccountKey(values[0]) : null }
+}
+
 export function buildCommandsLocation(pluginIds?: string[] | string | null) {
   const normalizedPluginIds = normalizePluginIds(pluginIds)
 
@@ -214,9 +223,14 @@ export function buildLogsLocation(options: LogsLocationOptions = {}) {
   } satisfies RouteLocationRaw
 }
 
-export function buildPluginDetailLocation(pluginId: string, options: { panel?: PluginDetailPanel | null; managementPage?: string | null } = {}) {
+// bot takes an account, or the raw query value so that rewriting other parameters
+// keeps a malformed account visible instead of silently dropping it.
+export function buildPluginDetailLocation(pluginId: string, options: { panel?: PluginDetailPanel | null; managementPage?: string | null; bot?: BotAccountRef | string | null } = {}) {
   const panel = options.panel ?? undefined
   const managementPage = panel === 'management-ui' ? normalizeString(options.managementPage ?? undefined) : undefined
+  const bot = panel === 'management-ui' && options.bot
+    ? typeof options.bot === 'string' ? options.bot : formatBotAccountKey(options.bot)
+    : undefined
 
   return {
     name: 'plugin-detail',
@@ -224,6 +238,7 @@ export function buildPluginDetailLocation(pluginId: string, options: { panel?: P
     query: createLocationQuery([
       ['panel', panel],
       ['management_page', managementPage],
+      ['bot', bot],
     ]),
   } satisfies RouteLocationRaw
 }

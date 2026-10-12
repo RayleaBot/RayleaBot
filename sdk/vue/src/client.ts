@@ -5,8 +5,35 @@ export interface PluginDescriptor {
   state: string
 }
 
+export type PluginPageScope = 'global' | 'bot_account'
+
 export interface PluginPageDescriptor {
   id: string
+  scope: PluginPageScope
+}
+
+export type BotAccountProtocol = 'onebot11' | 'qqofficial'
+
+// BotAccountRef names a bot account the way delivery addresses and access
+// rules do. It is the only account data the page URL and actions carry.
+export interface BotAccountRef {
+  source_protocol: BotAccountProtocol
+  bot_id: string
+}
+
+export type BotAccountState = 'online' | 'offline' | 'no_connection'
+
+// BotAccount is the host's directory entry. Its profile and connection can
+// change while the page is open, so pages display it but never deliver by it.
+export interface BotAccount extends BotAccountRef {
+  nickname?: string
+  avatar_url?: string
+  state: BotAccountState
+  adapter_id?: string
+  adapter_display_name?: string
+  last_adapter_id?: string
+  last_adapter_display_name?: string
+  last_seen_at: string
 }
 
 export interface PluginTheme {
@@ -17,6 +44,8 @@ export interface PluginTheme {
 export interface HostInitPayload {
   plugin: PluginDescriptor
   page: PluginPageDescriptor
+  // The selected account on a bot_account page; null on global pages.
+  bot: BotAccount | null
   config: Record<string, unknown>
   secrets_configured: Record<string, boolean>
   theme: PluginTheme
@@ -34,10 +63,20 @@ export interface SecretsStatusPayload {
 export interface PluginUIClientOptions {
   pluginId?: string
   pageId?: string
+  // The selected account; read from the page URL when omitted.
+  bot?: BotAccountRef | null
   fetch?: typeof fetch
 }
 
+interface PluginDetailPages {
+  plugin: Partial<PluginDescriptor> & {
+    id: string
+    management_ui?: { pages?: Array<{ id: string, scope?: PluginPageScope }> }
+  }
+}
+
 const pluginUIPath = /^\/plugin-ui\/([^/]+)\//
+const botAccountProtocols: readonly string[] = ['onebot11', 'qqofficial']
 const csrfHeader = 'X-Raylea-CSRF'
 
 export class PluginUIError extends Error {
@@ -57,21 +96,30 @@ export class PluginUIError extends Error {
 export class PluginUIClient {
   readonly pluginId: string
   readonly pageId: string
+  // The account the page was opened for. It never changes: the host reloads
+  // the page to switch accounts.
+  readonly botAccount: BotAccountRef | null
   private readonly fetcher: typeof fetch
   private csrfToken = ''
+  private pageScope: Promise<PluginPageScope> | null = null
 
   constructor(options: PluginUIClientOptions = {}) {
+    const search = new URLSearchParams(globalThis.location?.search ?? '')
     this.pluginId = options.pluginId ?? pluginIdFromLocation()
-    this.pageId = options.pageId ?? new URLSearchParams(globalThis.location?.search ?? '').get('page') ?? ''
+    this.pageId = options.pageId ?? search.get('page') ?? ''
+    this.botAccount = options.bot !== undefined ? options.bot : parseBotAccountKey(search.getAll('bot'))
     this.fetcher = options.fetch ?? globalThis.fetch.bind(globalThis)
   }
 
   async loadContext(): Promise<HostInitPayload> {
     const [detail, settings, secrets] = await Promise.all([
-      this.pluginRequest<{ plugin: Partial<PluginDescriptor> & { id: string } }>('GET', ''),
+      this.pluginRequest<PluginDetailPages>('GET', ''),
       this.reloadSettings(),
       this.reloadSecretStatus(),
     ])
+    const scope = declaredPageScope(detail, this.pageId)
+    this.pageScope = Promise.resolve(scope)
+    const bot = scope === 'bot_account' ? await this.reloadBotAccount() : null
     return {
       plugin: {
         id: detail.plugin.id,
@@ -79,7 +127,8 @@ export class PluginUIClient {
         version: detail.plugin.version ?? '0.0.0',
         state: detail.plugin.state ?? '',
       },
-      page: { id: this.pageId },
+      page: { id: this.pageId, scope },
+      bot,
       config: settings.config,
       secrets_configured: secrets.configured,
       theme: readHostTheme(),
@@ -112,8 +161,25 @@ export class PluginUIClient {
     return { configured: response.configured }
   }
 
+  // reloadBotAccount reads the selected account from the host directory, for
+  // example before an online lookup that needs its current connection.
+  async reloadBotAccount(): Promise<BotAccount> {
+    const account = this.requireBotAccount()
+    return this.apiRequest<BotAccount>(
+      'GET',
+      `/api/bot-accounts/${encodeURIComponent(account.source_protocol)}/${encodeURIComponent(account.bot_id)}`,
+    )
+  }
+
+  // invokeAction sends the page and the selected account with every action of
+  // a bot_account page; global pages send the action unchanged.
   async invokeAction(action: string, payload: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-    const response = await this.pluginRequest<{ result: Record<string, unknown> }>('POST', '/management/actions', { action, payload })
+    const body: Record<string, unknown> = { action, payload }
+    if (await this.resolvePageScope() === 'bot_account') {
+      body.page_id = this.pageId
+      body.bot = this.requireBotAccount()
+    }
+    const response = await this.pluginRequest<{ result: Record<string, unknown> }>('POST', '/management/actions', body)
     return response.result
   }
 
@@ -156,6 +222,43 @@ export class PluginUIClient {
   private pluginRequest<T>(method: string, suffix: string, body?: unknown): Promise<T> {
     return this.apiRequest<T>(method, `/api/plugins/${encodeURIComponent(this.pluginId)}${suffix}`, body)
   }
+
+  private resolvePageScope(): Promise<PluginPageScope> {
+    this.pageScope ??= this.pluginRequest<PluginDetailPages>('GET', '').then(detail => declaredPageScope(detail, this.pageId))
+    return this.pageScope
+  }
+
+  private requireBotAccount(): BotAccountRef {
+    if (!this.botAccount) {
+      throw new PluginUIError('plugin.ui_bot_account_missing', 'This page belongs to a bot account, but no valid account was selected.')
+    }
+    return this.botAccount
+  }
+}
+
+// parseBotAccountKey reads the host's "<source_protocol>:<bot_id>" value. The
+// account part is used verbatim, so only the first colon separates the two.
+export function parseBotAccountKey(values: string | readonly string[] | null): BotAccountRef | null {
+  const list = typeof values === 'string' ? [values] : values ?? []
+  if (list.length !== 1) {
+    return null
+  }
+  const value = list[0]
+  const separator = value.indexOf(':')
+  const protocol = value.slice(0, separator)
+  const botID = value.slice(separator + 1)
+  if (separator <= 0 || !botID || !botAccountProtocols.includes(protocol)) {
+    return null
+  }
+  return { source_protocol: protocol as BotAccountProtocol, bot_id: botID }
+}
+
+export function formatBotAccountKey(account: BotAccountRef): string {
+  return `${account.source_protocol}:${account.bot_id}`
+}
+
+function declaredPageScope(detail: PluginDetailPages, pageId: string): PluginPageScope {
+  return detail.plugin.management_ui?.pages?.find(page => page.id === pageId)?.scope ?? 'global'
 }
 
 export function readHostTheme(): PluginTheme {

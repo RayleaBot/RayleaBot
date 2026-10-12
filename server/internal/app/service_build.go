@@ -49,6 +49,8 @@ type serviceBuildDeps struct {
 }
 
 type Services struct {
+	BotAccounts        *adapterservice.BotAccountDirectory
+	BotAccountEvents   *managementevents.BotAccountsService
 	LocalActions       *actions.Service
 	PluginSettings     *settings.Service
 	PluginLifecycle    *pluginservice.Controller
@@ -93,6 +95,14 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	policyRepos := buildPolicyRepositories(platform)
 	governanceEvents := managementevents.NewGovernanceService()
 	governanceService := buildGovernanceService(runtimeState, pluginStack, policyRepos, governanceEvents)
+	botAccountEvents := managementevents.NewBotAccountsService()
+	botAccounts, err := adapterservice.NewBotAccountDirectory(context.Background(), adapterservice.BotAccountDirectoryDeps{
+		Store: platform.Storage, Connections: eventStack.Adapters.BotAccountConnections,
+		Changed: botAccountEvents.PublishChanged, Logger: runtimeState.RuntimeLogger(),
+	})
+	if err != nil {
+		return serviceBuildResult{}, err
+	}
 	browserManager := buildBrowserManager(browserWiringDeps{
 		Config:   runtimeState.CurrentConfig(),
 		Renderer: renderer,
@@ -117,6 +127,20 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	var eventIngress *chatpolicy.Ingress
 	var publishAdapterState func()
 	var publishRuntimeState func()
+	oneBotPublisher := func(id string, shell *onebot11.Shell) func() {
+		return func() {
+			if eventStack.Adapters.Snapshot().OneBot11(id) == shell {
+				publishAdapterState()
+			}
+		}
+	}
+	qqPublisher := func(id string, client *qqofficial.Client) func() {
+		return func() {
+			if eventStack.Adapters.Snapshot().QQOfficial(id) == client {
+				publishAdapterState()
+			}
+		}
+	}
 	protocolService, err := adapterservice.NewService(runtimeState, adapterservice.Instances{
 		Observe: func(view adapterservice.AdaptersView) {
 			items := make([]messagestats.Adapter, 0, len(view.Adapters))
@@ -130,12 +154,12 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		Registry:  eventStack.Adapters,
 		NewOneBot11: func(id string, settings config.OneBotConfig, adapter config.AdapterConfig) *onebot11.Shell {
 			shell := onebot11.New(id, settings, adapter, runtimeState.RuntimeLogger())
-			configureOneBotRuntime(shell, eventIngress, publishAdapterState)
+			configureOneBotRuntime(shell, eventIngress, oneBotPublisher(id, shell))
 			return shell
 		},
 		NewQQOfficial: func(id string, settings config.QQOfficialConfig, adapter config.AdapterConfig) adapterservice.QQOfficialAdapter {
 			client := qqofficial.New(id, settings, adapter, runtimeState.RuntimeLogger())
-			configureQQRuntime(client, eventIngress, publishAdapterState)
+			configureQQRuntime(client, eventIngress, qqPublisher(id, client))
 			return client
 		},
 	})
@@ -200,21 +224,24 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	})
 	publishAdapterState = protocolService.PublishSnapshot
 	publishRuntimeState = func() {
+		_ = botAccounts.Observe(context.Background())
 		systemService.PublishStatusSnapshot()
 		pluginServices.PluginLifecycle.SyncBotIdentities(context.Background())
 	}
 	initial := eventStack.Adapters.Snapshot()
 	for _, instance := range initial.Config().Adapters {
 		if shell := initial.OneBot11(instance.ID); shell != nil {
-			configureOneBotRuntime(shell, eventIngress, publishAdapterState)
+			configureOneBotRuntime(shell, eventIngress, oneBotPublisher(instance.ID, shell))
 		}
 		if client, ok := initial.QQOfficial(instance.ID).(*qqofficial.Client); ok {
-			configureQQRuntime(client, eventIngress, publishAdapterState)
+			configureQQRuntime(client, eventIngress, qqPublisher(instance.ID, client))
 		}
 	}
 
 	return serviceBuildResult{
 		Services: Services{
+			BotAccounts:        botAccounts,
+			BotAccountEvents:   botAccountEvents,
 			LocalActions:       pluginRuntime.LocalActions,
 			PluginSettings:     pluginRuntime.Settings,
 			PluginLifecycle:    pluginServices.PluginLifecycle,

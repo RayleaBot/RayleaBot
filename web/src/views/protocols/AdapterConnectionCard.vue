@@ -7,7 +7,8 @@ import AppButton from '@/components/AppButton.vue'
 import { t } from '@/i18n'
 import type { AdapterInstanceDocument } from '@/lib/adapters'
 import type { StatusTone } from '@/lib/status-tone'
-import type { AdapterDescriptor } from '@/types/api'
+import type { AdapterDescriptor, BotAccount } from '@/types/api'
+import BotAccountPluginPages from './BotAccountPluginPages.vue'
 
 const props = defineProps<{
   config: AdapterInstanceDocument
@@ -16,6 +17,8 @@ const props = defineProps<{
   statusTone: StatusTone
   busy: boolean
   removing: boolean
+  // The account the directory binds to this connection; plugin pages of that account open from here.
+  account?: BotAccount | null
 }>()
 defineEmits<{ configure: []; remove: [] }>()
 
@@ -53,6 +56,7 @@ const attentionTone = computed(() => props.statusTone === 'danger' || props.stat
     <footer class="connection-footer">
       <div class="connection-instance"><span>{{ t('protocols.connectionDialog.instanceField') }}</span><code>{{ config.id }}</code></div>
       <div class="connection-actions">
+        <BotAccountPluginPages v-if="account" :account="account" :disabled="busy" />
         <AppButton size="sm" :data-testid="`adapter-${config.id}`" :disabled="busy" @click="$emit('configure')"><template #icon><Settings2Icon /></template>{{ t('protocols.connectionCard.configure') }}</AppButton>
         <AppButton size="sm" variant="ghost" class="connection-remove" :loading="removing" :disabled="busy" :aria-label="t('protocols.connectionCard.removeNamed', { id: config.id })" :title="t('protocols.connectionCard.remove')" @click="$emit('remove')"><Trash2Icon /></AppButton>
       </div>

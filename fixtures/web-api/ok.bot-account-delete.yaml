@@ -1,0 +1,10 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Removing a no-connection account deletes only its directory entry.
+request:
+  method: DELETE
+  path: /api/bot-accounts/onebot11/10003
+response:
+  status: 204
+expect:
+  valid: true

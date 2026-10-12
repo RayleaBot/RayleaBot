@@ -1,0 +1,38 @@
+export const botAccounts = {
+  label: {
+    offline: '{label} · 离线',
+    noConnection: '{name} · 无连接',
+  },
+  qqNumber: 'QQ {id}',
+  qqOfficialId: '机器人 ID {id}',
+  state: {
+    online: '在线',
+    offline: '离线',
+    noConnection: '无连接',
+    lastConnection: '无连接，上次经 {connection}',
+  },
+  bar: {
+    label: '机器人账号',
+    all: '全部账号',
+    summary: '本页数据属于 {label}',
+    loadFailed: '机器人账号读取失败',
+    retry: '重试',
+    invalidTitle: '页面地址中的机器人账号无效',
+    invalidDescription: '请重新选择一个机器人账号。',
+    missingTitle: '机器人账号 {account} 不在账号目录中',
+    missingDescription: '它可能已被移除。请重新选择一个账号；它原有的数据仍可在插件的全局页面中查看。',
+    lookupFailed: '读取当前机器人账号失败',
+    emptyNoConnectionTitle: '还没有机器人连接',
+    emptyNoConnectionDescription: '添加连接并让机器人登录后，就能按机器人账号管理这一页的数据。',
+    emptyPendingTitle: '还没有确认登录的机器人账号',
+    emptyPendingDescription: '连接登录成功后，机器人账号会自动出现在这里。',
+    openProtocols: '前往协议中心',
+  },
+  picker: {
+    title: '选择机器人账号',
+    description: '本页只显示所选账号的数据。',
+    search: '搜索账号、昵称或连接',
+    empty: '没有匹配的机器人账号',
+    current: '当前',
+  },
+} as const

@@ -65,7 +65,7 @@ func TestUnavailableWebhookUsesTransportUnavailable(t *testing.T) {
 
 type failedActionInvoker struct{}
 
-func (failedActionInvoker) InvokeManagementAction(context.Context, string, string, map[string]any) (map[string]any, error) {
+func (failedActionInvoker) InvokeManagementAction(context.Context, string, string, map[string]any, plugins.ManagementActionContext) (map[string]any, error) {
 	return nil, errors.New("fixture-only-secret")
 }
 
@@ -83,7 +83,7 @@ func TestPluginManagementActionFailureIsGatewayFailureWithoutPrivateCause(t *tes
 
 type notRunningActionInvoker struct{ state string }
 
-func (i notRunningActionInvoker) InvokeManagementAction(context.Context, string, string, map[string]any) (map[string]any, error) {
+func (i notRunningActionInvoker) InvokeManagementAction(context.Context, string, string, map[string]any, plugins.ManagementActionContext) (map[string]any, error) {
 	return nil, &plugins.NotRunningError{PluginID: "fixture", State: i.state}
 }
 func TestPluginManagementActionAdmissionIsConflict(t *testing.T) {
@@ -102,7 +102,7 @@ func TestPluginManagementActionAdmissionIsConflict(t *testing.T) {
 
 type pluginSuppliedNotRunningInvoker struct{}
 
-func (pluginSuppliedNotRunningInvoker) InvokeManagementAction(context.Context, string, string, map[string]any) (map[string]any, error) {
+func (pluginSuppliedNotRunningInvoker) InvokeManagementAction(context.Context, string, string, map[string]any, plugins.ManagementActionContext) (map[string]any, error) {
 	return nil, &plugins.Error{Code: errorcodes.PluginNotRunning, Message: "fixture-only-secret"}
 }
 func TestPluginSuppliedAdmissionCodeRemainsExecutionFailure(t *testing.T) {

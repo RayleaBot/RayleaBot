@@ -36,6 +36,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			pluginUI,
 		},
 		ProtectedRoutes: []ProtectedRouteModule{
+			NewBotAccountHandlers(nil),
 			NewAuthHandlers(AuthDeps{}),
 			NewCoreHandlers(CoreDeps{}),
 			NewConfigHandlers(nil),

@@ -1,7 +1,7 @@
 import { computed, onUnmounted, readonly, ref, shallowRef } from 'vue'
 
 import { hostDocument, PluginUIClient, readHostTheme } from './client'
-import type { HostInitPayload } from './client'
+import type { BotAccount, HostInitPayload } from './client'
 
 export function usePluginHost(client = new PluginUIClient()) {
   const init = shallowRef<HostInitPayload | null>(null)
@@ -28,12 +28,25 @@ export function usePluginHost(client = new PluginUIClient()) {
   })
   onUnmounted(stopThemeSync)
 
+  // refreshBot rereads the selected account's profile and connection; the
+  // account itself stays fixed for the lifetime of the page.
+  async function refreshBot(): Promise<BotAccount> {
+    const bot = await client.reloadBotAccount()
+    if (init.value) {
+      init.value = { ...init.value, bot }
+    }
+    return bot
+  }
+
   return {
     client,
     ready,
     init: readonly(init),
     loading: readonly(loading),
     error: readonly(error),
+    page: computed(() => init.value?.page ?? null),
+    bot: computed(() => init.value?.bot ?? null),
+    refreshBot,
     config: computed(() => init.value?.config ?? {}),
     secretsConfigured: computed(() => init.value?.secrets_configured ?? {}),
   }

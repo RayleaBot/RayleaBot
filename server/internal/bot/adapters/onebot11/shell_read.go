@@ -73,7 +73,7 @@ func (s *Shell) waitForReadyFrame(ctx context.Context, transport TransportKey, c
 			return FrameSummary{}, err
 		}
 
-		if err := s.recordAndValidateFrame(transport, frame); err != nil {
+		if err := s.recordAndValidateFrame(transport, frame, conn); err != nil {
 			return FrameSummary{}, err
 		}
 		if isReadySummary(frame.Summary) {
@@ -92,7 +92,7 @@ func (s *Shell) readLoop(ctx context.Context, transport TransportKey, conn *webs
 			return err
 		}
 
-		if err := s.recordAndValidateFrame(transport, frame); err != nil {
+		if err := s.recordAndValidateFrame(transport, frame, conn); err != nil {
 			return err
 		}
 
@@ -198,8 +198,11 @@ func (s *Shell) readContext(ctx context.Context) (context.Context, context.Cance
 	timeout := s.provisionalReadTimeout(snapshot)
 	return context.WithTimeout(ctx, timeout)
 }
-func (s *Shell) recordAndValidateFrame(transport TransportKey, frame ClassifiedFrame) error {
-	snapshot := s.recordFrame(frame)
+func (s *Shell) recordAndValidateFrame(transport TransportKey, frame ClassifiedFrame, conn *websocket.Conn) error {
+	snapshot, err := s.recordFrame(transport, frame, conn)
+	if err != nil {
+		return err
+	}
 
 	switch {
 	case isIgnoredAPIResponse(frame):

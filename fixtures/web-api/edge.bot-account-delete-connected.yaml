@@ -1,0 +1,15 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: An account that still has a connection cannot be removed from the directory.
+request:
+  method: DELETE
+  path: /api/bot-accounts/onebot11/10001
+response:
+  status: 409
+  body:
+    error:
+      code: platform.state_conflict
+      message: "当前状态不允许执行该操作"
+      request_id: req_bot_account_connected
+expect:
+  valid: true

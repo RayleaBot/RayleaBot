@@ -2,9 +2,12 @@
 import { ref } from 'vue'
 import { usePluginHost } from '@rayleabot/plugin-ui'
 
+import NotesPage from './NotesPage.vue'
 import { normalizeSettings } from './model'
 
 const host = usePluginHost()
+// One entry serves every declared page; the page ID in the address picks the view.
+const notesPage = host.client.pageId === 'notes'
 const draft = ref(normalizeSettings({}))
 const status = ref('正在连接宿主…')
 const secretDraft = ref('')
@@ -12,6 +15,7 @@ const secretConfigured = ref(false)
 const secretStatus = ref('正在读取密钥状态…')
 
 void host.ready.then((init) => {
+  if (notesPage) return
   draft.value = normalizeSettings(init.config)
   secretConfigured.value = Boolean(init.secrets_configured.api_key)
   status.value = '配置已加载'
@@ -46,7 +50,8 @@ async function deleteSecret() {
 </script>
 
 <template>
-  <main>
+  <NotesPage v-if="notesPage" :host="host" />
+  <main v-else>
     <h1>配置面板示例</h1>
     <p class="intro">页面与管理面同源加载，通过 @rayleabot/plugin-ui 直接调用管理 API 读写自身配置。</p>
     <section>

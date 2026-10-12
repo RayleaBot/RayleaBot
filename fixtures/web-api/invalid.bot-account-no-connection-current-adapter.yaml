@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: A no-connection account cannot also report a current connection.
+request:
+  method: GET
+  path: /api/bot-accounts/onebot11/10003
+response:
+  status: 200
+  body:
+    source_protocol: onebot11
+    bot_id: "10003"
+    state: no_connection
+    adapter_id: napcat-old
+    adapter_display_name: OneBot11（napcat-old）
+    last_adapter_id: napcat-old
+    last_adapter_display_name: OneBot11（napcat-old）
+    last_seen_at: 2026-10-10T12:00:00Z
+expect:
+  valid: false

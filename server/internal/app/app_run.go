@@ -126,6 +126,9 @@ func (a *App) Run(ctx context.Context) error {
 		storage.RunSnapshotLoop(ctx, a.platform.Storage, a.state.Logger, a.state.RepoRoot())
 		return nil
 	})
+	if a.services.BotAccounts != nil {
+		supervisor.Go(func(ctx context.Context) error { a.services.BotAccounts.Run(ctx); return nil })
+	}
 	supervisor.Go(func(ctx context.Context) error {
 		a.platform.Logs.RunRetentionLoop(ctx)
 		return nil

@@ -1,0 +1,23 @@
+{
+  "items": [
+    {
+      "source_protocol": "onebot11",
+      "bot_id": "10001",
+      "nickname": "小雷",
+      "avatar_url": "https://q1.qlogo.cn/g?b=qq&nk=10001&s=640",
+      "state": "online",
+      "adapter_id": "napcat-home",
+      "adapter_display_name": "OneBot11（napcat-home）",
+      "last_seen_at": "2026-10-12T08:00:00Z"
+    },
+    {
+      "source_protocol": "onebot11",
+      "bot_id": "10003",
+      "state": "no_connection",
+      "last_adapter_id": "napcat-old",
+      "last_adapter_display_name": "OneBot11（napcat-old）",
+      "last_seen_at": "2026-10-10T12:00:00Z"
+    }
+  ],
+  "total": 2
+}

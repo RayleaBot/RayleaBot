@@ -78,6 +78,12 @@ SDK 在调用事件 handler 前原子替换配置快照。每个 `EventContext.C
 
 Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根据聊天事件的 `source_adapter` 和 `source_protocol` 选择对应身份。平台内部事件仅在列表恰好有一个身份时提供该便利值，多实例时为空；插件应明确选择目标账号。同一协议下 ID 相同即为同一账号，几个实例登录同一账号时各有一条。
 
+### 管理动作
+
+`management.action` 来自插件管理页，来源固定为 `management` / `management.ui`。`payload.action` 是动作名，`payload.payload` 是页面提交的业务参数。
+
+按机器人账号的管理页（manifest 中 `scope` 为 `bot_account` 的页面）发起的动作另带 `payload.page_id` 与 `payload.bot`（`source_protocol`、`bot_id`）。宿主转发前已核对页面确实声明为按账号、账号在机器人账号目录中；账号可能离线或无连接。两个字段只由宿主写入，业务参数中的同名字段不会覆盖它们，其他事件不带这两个字段。页面范围不是权限隔离：插件按动作语义要求账号，并核对读写的记录属于该账号。
+
 宿主只接受协议 v4 握手，旧协议版本的 SDK 不能与当前宿主通信；插件须用当前 SDK 重新构建，其他语言实现按 `contracts/plugin-protocol.schema.json` 更新。
 
 ## Action RPC
@@ -112,7 +118,7 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 
 `plugin.call` 必须携带 `parent_request_id`。参数为 `target_plugin_id`、`service`、`service_version`、`method`、对象类型的 `params`；宿主不解释业务参数。
 
-宿主向已运行的目标投递 `plugin.request`，`payload.service_request` 包含服务/版本/方法/参数、`caller_plugin_id`、`deadline_at_ms` 和 `origin`。origin 保存实际父事件的来源、可用的 bot/actor/target 及调度任务标识，不包含聊天正文或任意原始上报。调用者不能在 action 参数中自报 caller。
+宿主向已运行的目标投递 `plugin.request`，`payload.service_request` 包含服务/版本/方法/参数、`caller_plugin_id`、`deadline_at_ms` 和 `origin`。origin 保存实际父事件的来源、可用的 bot/actor/target 及调度任务标识，不包含聊天正文或任意原始上报。调用者不能在 action 参数中自报 caller。由按账号的管理动作发起的调用，origin 另带同一个 `bot`，事件转入后台后保持不变；调用方无法通过参数设置它，服务提供者据此把账号级的读取和修改限制在该账号内。
 
 提供者使用该新事件自己的上下文，可调用自身存储和其他普通宿主动作，以 `result` 或 `error` 完成。宿主将结果关联回原调用；提供者的结构化错误保留 code、message 和 details，路由不按业务消息文案分支。首版只支持一跳：自调用和服务处理器继续发起 `plugin.call` 返回 `plugin.call_chain_rejected`。
 

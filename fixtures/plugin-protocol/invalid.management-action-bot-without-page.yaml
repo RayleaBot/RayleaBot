@@ -1,0 +1,20 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: event
+    request_id: management-event-1
+    deadline_at_ms: 1789730030000
+    event:
+      event_id: management-1
+      source_protocol: management
+      source_adapter: management.ui
+      event_type: management.action
+      timestamp: 1789730000000
+      payload:
+        action: records.list
+        bot:
+          source_protocol: onebot11
+          bot_id: "10001"
+        payload: {}
+expect:
+  valid: false

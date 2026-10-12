@@ -26,7 +26,7 @@ type requestBoundaryActionInvoker struct {
 	payload map[string]any
 }
 
-func (invoker *requestBoundaryActionInvoker) InvokeManagementAction(_ context.Context, _, _ string, payload map[string]any) (map[string]any, error) {
+func (invoker *requestBoundaryActionInvoker) InvokeManagementAction(_ context.Context, _, _ string, payload map[string]any, _ plugins.ManagementActionContext) (map[string]any, error) {
 	invoker.payload = payload
 	return payload, nil
 }

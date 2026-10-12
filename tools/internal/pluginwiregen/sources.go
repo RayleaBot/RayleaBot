@@ -25,6 +25,7 @@ var models = [][2]string{
 	{"ProtocolOneBotSenderFrame", "/$defs/event/allOf/1/properties/event/properties/payload" + "/properties/onebot/properties/sender"},
 	{"ProtocolQQOfficialPayloadFrame", "/$defs/event/allOf/1/properties/event/properties/payload" + "/properties/qq_official"},
 	{"BotIdentity", "/$defs/bot_identity"},
+	{"BotAccountRef", "/$defs/bot_account_ref"},
 	{"GovernanceScope", "/$defs/governance_scope"},
 	{"ProtocolSegmentFrame", "/$defs/outbound_message_segment"},
 	{"ProtocolOutboundMessageFrame", "/$defs/outbound_message"},

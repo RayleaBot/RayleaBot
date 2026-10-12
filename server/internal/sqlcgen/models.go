@@ -33,6 +33,19 @@ type AuthBootstrapState struct {
 	InitializedAt string
 }
 
+type BotAccount struct {
+	SourceProtocol         string
+	BotID                  string
+	Nickname               string
+	AvatarUrl              string
+	AdapterID              sql.NullString
+	AdapterDisplayName     string
+	AdapterAppID           string
+	LastAdapterID          string
+	LastAdapterDisplayName string
+	LastSeenAt             string
+}
+
 type ManagementLog struct {
 	ID          int64
 	LogID       string

@@ -21,12 +21,14 @@ export function createSocketFrameRouter(
 ): SocketFrameRouter {
   const statusRefresh = createRefreshScheduler(dependencies.system.refreshStatus, statusRefreshDebounceMs)
   const governanceRefresh = createRefreshScheduler(dependencies.governance.refresh, statusRefreshDebounceMs)
+  const botAccountsRefresh = createRefreshScheduler(dependencies.botAccounts.refresh, statusRefreshDebounceMs)
   let pendingLiveLogs: LogSummary[] = []
   let liveLogsTimer: ReturnType<typeof setTimeout> | undefined
 
   function clearPendingStatusRefresh() {
     statusRefresh.cancel()
     governanceRefresh.cancel()
+    botAccountsRefresh.cancel()
     dependencies.schedulerJobs.cancelPendingRefresh?.()
     dependencies.plugins.cancelPendingRefresh?.()
     clearPendingLiveLogs()
@@ -55,6 +57,11 @@ export function createSocketFrameRouter(
 
     if (isGovernanceChangedEvent(frame.data)) {
       governanceRefresh.schedule()
+      return
+    }
+
+    if (isBotAccountsChangedEvent(frame.data)) {
+      botAccountsRefresh.schedule()
       return
     }
 
@@ -144,6 +151,10 @@ function isAdaptersSnapshotEvent(payload: EventsPayload): payload is AdaptersSna
 
 function isGovernanceChangedEvent(payload: EventsPayload): payload is Extract<EventsPayload, { event_type: string }> {
   return 'event_type' in payload && payload.event_type === managementEventTypes.governanceChanged
+}
+
+function isBotAccountsChangedEvent(payload: EventsPayload): payload is Extract<EventsPayload, { event_type: string }> {
+  return 'event_type' in payload && payload.event_type === managementEventTypes.botAccountsChanged
 }
 
 function isSchedulerLog(log: LogSummary) {

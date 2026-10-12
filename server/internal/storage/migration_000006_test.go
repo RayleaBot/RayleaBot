@@ -80,7 +80,7 @@ func TestKVIndexMigrationPreservesRowsAndInitialization(t *testing.T) {
 		t.Fatal("KV migration changed historical row values, types or deadlines")
 	}
 	metadata, err := store.SchemaMetadata(t.Context())
-	if err != nil || metadata.Version != "000009" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
+	if err != nil || metadata.Version != CurrentSchemaVersion() || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
 		t.Fatalf("migration metadata = %+v, %v", metadata, err)
 	}
 	fresh := openTestStore(t)

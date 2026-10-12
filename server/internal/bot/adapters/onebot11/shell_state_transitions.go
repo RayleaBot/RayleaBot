@@ -1,18 +1,42 @@
 package onebot11
 
 import (
+	"context"
 	"strings"
 	"time"
 
 	"github.com/coder/websocket"
 )
 
-func (s *Shell) recordFrame(frame ClassifiedFrame) Snapshot {
+func (s *Shell) recordFrame(transport TransportKey, frame ClassifiedFrame, conn *websocket.Conn) (Snapshot, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	if (transport == TransportForwardWS && s.conn != conn) || (transport == TransportReverseWS && s.reverseConn != conn) {
+		s.mu.Unlock()
+		return Snapshot{}, context.Canceled
+	}
 
 	applyFrameSummary(&s.snapshot, frame)
-	return cloneSnapshot(s.snapshot)
+	var current *TransportSnapshot
+	switch transport {
+	case TransportForwardWS:
+		current = &s.snapshot.ForwardWS
+	case TransportReverseWS:
+		current = &s.snapshot.ReverseWS
+	case TransportWebhook:
+		current = &s.snapshot.Webhook
+	}
+	changed := false
+	if current != nil && frame.Summary.Category != FrameCategoryInvalid && frame.Frame.SelfID > 0 {
+		id := s.snapshot.BotID
+		changed = current.AccountID != id
+		current.AccountID = id
+	}
+	snapshot, handler := cloneSnapshot(s.snapshot), s.stateHandler
+	s.mu.Unlock()
+	if changed {
+		s.emitStateSnapshot(handler, snapshot)
+	}
+	return snapshot, nil
 }
 func (s *Shell) setConn(conn *websocket.Conn) {
 	s.mu.Lock()
@@ -32,6 +56,7 @@ func (s *Shell) markConnecting() {
 	s.snapshot.ForwardWS.LastErrorCode = ""
 	s.snapshot.ForwardWS.LastErrorMessage = ""
 	s.snapshot.ForwardWS.RuntimeInfo = TransportRuntimeInfo{}
+	s.snapshot.ForwardWS.AccountID = ""
 	s.snapshot.LastErrorCode = ""
 	s.snapshot.LastErrorMessage = ""
 	s.snapshot.ReadyFrameSeen = false
@@ -69,6 +94,7 @@ func (s *Shell) markAuthFailed(err error) {
 	s.snapshot.ForwardWS.LastErrorCode = errorCodeForwardWSConnectFail
 	s.snapshot.ForwardWS.LastErrorMessage = summarizeError(err)
 	s.snapshot.ForwardWS.RuntimeInfo = TransportRuntimeInfo{}
+	s.snapshot.ForwardWS.AccountID = ""
 	s.snapshot.LastErrorCode = errorCodeForwardWSConnectFail
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.snapshot.ReadyFrameSeen = false
@@ -85,6 +111,7 @@ func (s *Shell) markReconnecting(code string, err error) {
 	s.snapshot.ForwardWS.LastErrorCode = code
 	s.snapshot.ForwardWS.LastErrorMessage = summarizeError(err)
 	s.snapshot.ForwardWS.RuntimeInfo = TransportRuntimeInfo{}
+	s.snapshot.ForwardWS.AccountID = ""
 	s.snapshot.LastErrorCode = code
 	s.snapshot.LastErrorMessage = summarizeError(err)
 	s.snapshot.ReadyFrameSeen = false
@@ -99,24 +126,28 @@ func (s *Shell) markStopped() {
 	s.mu.Lock()
 	s.snapshot.ForwardWS.State = TransportStateStopped
 	s.snapshot.ForwardWS.RuntimeInfo = TransportRuntimeInfo{}
+	s.snapshot.ForwardWS.AccountID = ""
 	if s.snapshot.ReverseWS.Configured && s.snapshot.ReverseWS.Enabled {
 		s.snapshot.ReverseWS.State = TransportStateStopped
 	} else {
 		s.snapshot.ReverseWS.State = TransportStateIdle
 	}
 	s.snapshot.ReverseWS.RuntimeInfo = TransportRuntimeInfo{}
+	s.snapshot.ReverseWS.AccountID = ""
 	if s.snapshot.Webhook.Configured && s.snapshot.Webhook.Enabled {
 		s.snapshot.Webhook.State = TransportStateStopped
 	} else {
 		s.snapshot.Webhook.State = TransportStateIdle
 	}
 	s.snapshot.Webhook.RuntimeInfo = TransportRuntimeInfo{}
+	s.snapshot.Webhook.AccountID = ""
 	if s.snapshot.HTTPAPI.Configured && s.snapshot.HTTPAPI.Enabled {
 		s.snapshot.HTTPAPI.State = TransportStateStopped
 	} else {
 		s.snapshot.HTTPAPI.State = TransportStateIdle
 	}
 	s.snapshot.HTTPAPI.RuntimeInfo = TransportRuntimeInfo{}
+	s.snapshot.HTTPAPI.AccountID = ""
 	s.snapshot.ReadyFrameSeen = false
 	s.snapshot.ConnectedAt = nil
 	s.refreshAggregateStateLocked()

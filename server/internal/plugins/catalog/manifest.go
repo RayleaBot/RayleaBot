@@ -144,6 +144,9 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 	var managementUI *plugins.ManagementUI
 	if manifest.ManagementUI != nil {
 		managementUI = &plugins.ManagementUI{Entry: manifest.ManagementUI.Entry, Pages: append([]plugins.ManagementUIPage(nil), manifest.ManagementUI.Pages...)}
+		for i := range managementUI.Pages {
+			managementUI.Pages[i].Scope = managementUI.Pages[i].EffectiveScope()
+		}
 	}
 	var help *plugins.Help
 	if manifest.Help != nil {

@@ -66,6 +66,14 @@ type ManagementUI struct {
 type ManagementUIPage struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
+	Scope string `json:"scope"`
+}
+
+func (p ManagementUIPage) EffectiveScope() string {
+	if p.Scope == "" {
+		return "global"
+	}
+	return p.Scope
 }
 
 type RenderTemplate struct {

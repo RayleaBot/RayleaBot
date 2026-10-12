@@ -1,0 +1,22 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: A bot_account management page sends its page and the selected account with the action.
+request:
+  method: POST
+  path: /api/plugins/raylea.subscription-hub/management/actions
+  body:
+    action: subscriptions.list
+    page_id: subscriptions
+    bot:
+      source_protocol: onebot11
+      bot_id: "10001"
+    payload: {}
+response:
+  status: 200
+  body:
+    plugin_id: raylea.subscription-hub
+    action: subscriptions.list
+    result:
+      items: []
+expect:
+  valid: true

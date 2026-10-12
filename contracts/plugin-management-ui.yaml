@@ -55,3 +55,37 @@ static_route:
     missing_management_ui: 404
     invalid_asset_path: 404
     method_not_allowed: 404
+
+page_context:
+  description: >
+    The host embeds each management page with query parameters on its iframe
+    URL. They identify the page and, on bot_account pages, the selected bot
+    account; they never carry profile data. Other query parameters are host
+    cache and reload keys that pages must not depend on.
+  query_parameters:
+    page:
+      required: true
+      description: Declared page ID from management_ui.pages[].id.
+    bot:
+      required_when: page scope is bot_account
+      format: "<source_protocol>:<bot_id>"
+      description: >
+        Selected bot account, split at the first colon. source_protocol is
+        onebot11 or qqofficial and bot_id is used verbatim. Absent on global
+        pages. Switching accounts reloads the iframe with the new value, so
+        pages keep caches, drafts and pending results per account and never
+        apply a result to another account.
+  account_profile: >
+    Pages read nickname, current connection and state from
+    GET /api/bot-accounts/{source_protocol}/{bot_id}. The profile can change
+    while the page is open; delivery never depends on it.
+  management_actions: >
+    Actions from a bot_account page send page_id and bot in the request to
+    POST /api/plugins/{plugin_id}/management/actions; global pages may send
+    page_id and never send bot. The host rejects an undeclared page, a missing
+    or unexpected bot and an account outside the directory before delivery.
+  trust: >
+    Page scope and the selected account are not an authorization boundary.
+    Same-origin pages and signed-in clients can build any request, including
+    one without page_id. Plugins require the account wherever an action needs
+    one and check that every record they read or change belongs to it.

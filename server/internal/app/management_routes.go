@@ -79,6 +79,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		Bridge: eventState.Bridge, Plugins: pluginState.Plugins, Adapters: services.Protocol,
 		Status: deps.ServiceBuild.Status, Governance: services.GovernanceEvents,
 		MessageStats: services.MessageStatsEvents,
+		BotAccounts:  services.BotAccountEvents,
 	})
 	if err != nil {
 		return managementRouteState{}, err
@@ -131,6 +132,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 				pluginManagementUI,
 			},
 			ProtectedRoutes: []managementapi.ProtectedRouteModule{
+				managementapi.NewBotAccountHandlers(services.BotAccounts),
 				authHandler,
 				managementHandler,
 				configHandler,

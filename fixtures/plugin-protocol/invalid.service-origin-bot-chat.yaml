@@ -1,0 +1,31 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: event
+    request_id: provider-event-1
+    deadline_at_ms: 1789730030000
+    event:
+      event_id: service-event-1
+      source_protocol: platform
+      source_adapter: plugins.internal
+      event_type: plugin.request
+      timestamp: 1789730000000
+      payload:
+        service_request:
+          caller_plugin_id: consumer-a
+          service: resource
+          service_version: 1
+          method: list
+          params: {}
+          deadline_at_ms: 1789730030000
+          origin:
+            event_id: origin-1
+            event_type: message.private
+            source_protocol: onebot11
+            source_adapter: napcat-home
+            bot_id: "10001"
+            bot:
+              source_protocol: onebot11
+              bot_id: "10001"
+expect:
+  valid: false

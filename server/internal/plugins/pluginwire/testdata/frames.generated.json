@@ -437,6 +437,62 @@
     ]
   },
   {
+    "name": "invalid.management-action-bot-without-page.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "management-event-1",
+        "deadline_at_ms": 1789730030000,
+        "event": {
+          "event_id": "management-1",
+          "source_protocol": "management",
+          "source_adapter": "management.ui",
+          "event_type": "management.action",
+          "timestamp": 1789730000000,
+          "payload": {
+            "action": "records.list",
+            "bot": {
+              "source_protocol": "onebot11",
+              "bot_id": "10001"
+            },
+            "payload": {}
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.message-event-management-bot.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "message-event-1",
+        "deadline_at_ms": 1789730030000,
+        "event": {
+          "event_id": "onebot-message-1",
+          "source_protocol": "onebot11",
+          "source_adapter": "napcat-home",
+          "bot_id": "10001",
+          "event_type": "message.group",
+          "timestamp": 1789730000000,
+          "target": {
+            "type": "group",
+            "id": "20001"
+          },
+          "payload": {
+            "page_id": "records",
+            "bot": {
+              "source_protocol": "onebot11",
+              "bot_id": "10001"
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
     "name": "invalid.message-send-bot-with-adapter.yaml",
     "valid": false,
     "frames": [
@@ -730,6 +786,45 @@
           "payload": {
             "payload": {
               "scope": "all"
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.service-origin-bot-chat.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "provider-event-1",
+        "deadline_at_ms": 1789730030000,
+        "event": {
+          "event_id": "service-event-1",
+          "source_protocol": "platform",
+          "source_adapter": "plugins.internal",
+          "event_type": "plugin.request",
+          "timestamp": 1789730000000,
+          "payload": {
+            "service_request": {
+              "caller_plugin_id": "consumer-a",
+              "service": "resource",
+              "service_version": 1,
+              "method": "list",
+              "params": {},
+              "deadline_at_ms": 1789730030000,
+              "origin": {
+                "event_id": "origin-1",
+                "event_type": "message.private",
+                "source_protocol": "onebot11",
+                "source_adapter": "napcat-home",
+                "bot_id": "10001",
+                "bot": {
+                  "source_protocol": "onebot11",
+                  "bot_id": "10001"
+                }
+              }
             }
           }
         }
@@ -1294,6 +1389,102 @@
         "status": "success",
         "data": {
           "expires_at_ms": 1789300000000
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.management-action-bot-account.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "management-event-1",
+        "deadline_at_ms": 1789730030000,
+        "event": {
+          "event_id": "management-1",
+          "source_protocol": "management",
+          "source_adapter": "management.ui",
+          "event_type": "management.action",
+          "timestamp": 1789730000000,
+          "payload": {
+            "action": "records.list",
+            "page_id": "records",
+            "bot": {
+              "source_protocol": "onebot11",
+              "bot_id": "10001"
+            },
+            "payload": {}
+          }
+        }
+      },
+      {
+        "type": "action",
+        "request_id": "call-from-management",
+        "parent_request_id": "management-event-1",
+        "action": "plugin.call",
+        "data": {
+          "target_plugin_id": "provider-a",
+          "service": "resource",
+          "service_version": 1,
+          "method": "list",
+          "params": {}
+        }
+      },
+      {
+        "type": "event",
+        "request_id": "provider-event-1",
+        "deadline_at_ms": 1789730030000,
+        "event": {
+          "event_id": "service-event-1",
+          "source_protocol": "platform",
+          "source_adapter": "plugins.internal",
+          "event_type": "plugin.request",
+          "timestamp": 1789730000000,
+          "payload": {
+            "service_request": {
+              "caller_plugin_id": "consumer-a",
+              "service": "resource",
+              "service_version": 1,
+              "method": "list",
+              "params": {},
+              "deadline_at_ms": 1789730030000,
+              "origin": {
+                "event_id": "management-1",
+                "event_type": "management.action",
+                "source_protocol": "management",
+                "source_adapter": "management.ui",
+                "bot": {
+                  "source_protocol": "onebot11",
+                  "bot_id": "10001"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "provider-event-1",
+        "status": "success",
+        "data": {
+          "items": []
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "call-from-management",
+        "status": "success",
+        "data": {
+          "items": []
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "management-event-1",
+        "status": "success",
+        "data": {
+          "items": []
         }
       }
     ]

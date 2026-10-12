@@ -78,3 +78,30 @@ func TestNewQQInstanceStartsAndStopsOnReload(t *testing.T) {
 		t.Fatal("removed QQ runtime survived")
 	}
 }
+
+func TestQQAppIDChangeReplacesRuntimeGeneration(t *testing.T) {
+	old := &lifecycleQQ{stop: func(context.Context) error { return nil }}
+	replacement := &lifecycleQQ{stop: func(context.Context) error { return nil }}
+	settings := config.QQOfficialConfig{AppID: "old-app"}
+	cfg := config.Config{Adapters: []config.AdapterInstance{{ID: "qq", Type: "qqofficial", Enabled: true, QQOfficial: &settings}}}
+	service := newTestService(t, adapterConfigSource{cfg: cfg}, Instances{
+		QQOfficial:    map[string]QQOfficialAdapter{"qq": old},
+		NewQQOfficial: func(string, config.QQOfficialConfig, config.AdapterConfig) QQOfficialAdapter { return replacement },
+	})
+	if err := service.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := service.Stop(context.Background()); err != nil {
+			t.Error(err)
+		}
+	})
+	next := config.QQOfficialConfig{AppID: "new-app"}
+	cfg.Adapters[0].QQOfficial = &next
+	if err := service.ApplyConfigReload(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if service.registry.Snapshot().QQOfficial("qq") != replacement || old.stops.Load() != 1 || replacement.starts.Load() != 1 {
+		t.Fatal("AppID change reused the retired runtime")
+	}
+}

@@ -21,8 +21,10 @@ response:
         pages:
           - id: config
             label: 配置页面
+            scope: global
           - id: secrets
             label: 密钥设置
+            scope: global
       state: disabled
       source:
         root: examples/plugins

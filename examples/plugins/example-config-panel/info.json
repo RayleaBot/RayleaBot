@@ -10,6 +10,11 @@
       {
         "id": "config",
         "label": "配置页面"
+      },
+      {
+        "id": "notes",
+        "label": "账号备注",
+        "scope": "bot_account"
       }
     ]
   },

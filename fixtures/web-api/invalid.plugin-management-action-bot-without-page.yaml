@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: A management action that names an account must also name the page that selected it.
+request:
+  method: POST
+  path: /api/plugins/raylea.subscription-hub/management/actions
+  body:
+    action: subscriptions.list
+    bot:
+      source_protocol: onebot11
+      bot_id: "10001"
+response:
+  status: 200
+  body:
+    plugin_id: raylea.subscription-hub
+    action: subscriptions.list
+    result: {}
+expect:
+  valid: false

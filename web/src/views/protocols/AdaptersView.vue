@@ -17,6 +17,9 @@ import { cloneConfig } from '@/lib/config-form'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { buildProtocolsLocation } from '@/lib/management-links'
 import { useAdaptersStore } from '@/stores/adapters'
+import { useBotAccountsStore } from '@/stores/bot-accounts'
+import { botAccountName } from '@/lib/bot-accounts'
+import DetachedBotAccounts from './DetachedBotAccounts.vue'
 import { useConfigStore } from '@/stores/config'
 import type { AdapterDescriptor, ConfigUpdateResponse } from '@/types/api'
 import AdapterConfigDialog from './AdapterConfigDialog.vue'
@@ -26,6 +29,7 @@ const router = useRouter()
 const route = useRoute()
 const adaptersStore = useAdaptersStore()
 const configStore = useConfigStore()
+const botAccountsStore = useBotAccountsStore()
 const loading = ref(true)
 const removingId = ref<string | null>(null)
 const restartPending = ref(false)
@@ -33,6 +37,7 @@ const pageError = computed(() => configStore.error || adaptersStore.error)
 const rows = computed(() => readAdapterInstances(configStore.document).map((config) => ({
   config,
   runtime: adaptersStore.adapters.find((item) => item.id === config.id),
+  account: botAccountsStore.accounts.find((account) => account.adapter_id === config.id) ?? null,
 })))
 const editorId = computed(() => typeof route.query.adapter === 'string' ? route.query.adapter : undefined)
 const editorOpen = computed(() => route.path === '/protocols' && (Boolean(editorId.value) || route.query.view === 'add'))
@@ -43,10 +48,8 @@ const removeDescription = computed(() => {
   const target = removeTarget.value
   if (!target) return ''
   const description = t('protocols.removeAdapterConfirm', { name: target.id })
-  const identity = rows.value.find((row) => row.config.id === target.id)?.runtime?.identity
-  if (!identity?.id) return description
-  const account = identity.name ? `${identity.name}（${identity.id}）` : identity.id
-  return `${description}${t('protocols.removeAdapterAccountNote', { account })}`
+  const account = rows.value.find((row) => row.config.id === target.id)?.account
+  return account ? `${description}${t('protocols.removeAdapterAccountNote', { account: botAccountName(account) })}` : description
 })
 watch([editorOpen, editorId], ([open, id]) => {
   if (open) editorSession.value = { id }
@@ -54,7 +57,7 @@ watch([editorOpen, editorId], ([open, id]) => {
 function editorClosed() { if (!editorOpen.value) editorSession.value = null }
 async function refresh() {
   loading.value = true
-  await Promise.allSettled([configStore.fetchConfig(), adaptersStore.refresh()])
+  await Promise.allSettled([configStore.fetchConfig(), adaptersStore.refresh(), botAccountsStore.fetchAccounts()])
   loading.value = false
 }
 onMounted(() => { void refresh() })
@@ -120,12 +123,13 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
           <p>{{ t('protocols.connectionsEmptyDescription') }}</p>
         </div>
         <ul v-else class="connections-grid">
-          <AdapterConnectionCard v-for="{ config, runtime } in rows" :key="config.id"
-            :config="config" :runtime="runtime" :status-label="status(runtime, config).label" :status-tone="status(runtime, config).tone"
+          <AdapterConnectionCard v-for="{ config, runtime, account } in rows" :key="config.id"
+            :config="config" :runtime="runtime" :account="account" :status-label="status(runtime, config).label" :status-tone="status(runtime, config).tone"
             :busy="Boolean(removingId) || configStore.saving" :removing="removingId === config.id"
             @configure="router.push(buildProtocolsLocation({ adapterId: config.id }))" @remove="removeTarget = config" />
         </ul>
       </section>
+      <DetachedBotAccounts />
     </div>
     <AdapterConfigDialog v-if="editorSession" :key="editorSession.id || 'add'" :open="editorOpen" :adapter-id="editorSession.id" @close="closeDialog" @after-close="editorClosed" @saved="saved" />
     <AppConfirmDialog :open="Boolean(removeTarget)" :title="t('protocols.removeConnectionTitle')" :description="removeDescription" :confirm-text="t('protocols.removeAdapterAction')" danger :busy="Boolean(removingId)" @cancel="removeTarget = null" @confirm="removeTarget && removeAdapter(removeTarget)" />

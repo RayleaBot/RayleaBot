@@ -91,6 +91,11 @@ func (r *Registry) CallService(ctx context.Context, caller string, call plugins.
 		EventID: origin.EventID, EventType: origin.EventType,
 		SourceProtocol: origin.SourceProtocol, SourceAdapter: origin.SourceAdapter, BotID: origin.BotID,
 	}
+	if origin.EventType == "management.action" && origin.SourceProtocol == "management" {
+		if bot, ok := origin.PayloadFields["bot"].(pluginwire.BotAccountRef); ok {
+			source.Bot = &bot
+		}
+	}
 	if origin.Actor != nil && origin.Actor.ID != "" {
 		source.Actor = &pluginwire.ProtocolActorFrame{ID: origin.Actor.ID, Nickname: origin.Actor.Nickname, Role: origin.Actor.Role}
 	}

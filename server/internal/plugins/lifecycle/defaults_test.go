@@ -160,7 +160,7 @@ func TestInitializationDefaultsAndExplicitOverridesMatchHTTPAndActions(t *testin
 	if err := controller.StartInstalled(ctx, "settings-defaults"); err != nil {
 		t.Fatal(err)
 	}
-	initial, err := controller.InvokeManagementAction(ctx, "settings-defaults", "snapshot", nil)
+	initial, err := controller.InvokeManagementAction(ctx, "settings-defaults", "snapshot", nil, plugins.ManagementActionContext{})
 	if err != nil || initial["fallback"] != "old" {
 		t.Fatalf("first init: %#v %v", initial, err)
 	}
@@ -188,7 +188,7 @@ func TestInitializationDefaultsAndExplicitOverridesMatchHTTPAndActions(t *testin
 	if err := controller.StartInstalled(ctx, "settings-defaults"); err != nil {
 		t.Fatal(err)
 	}
-	restarted, err := controller.InvokeManagementAction(ctx, "settings-defaults", "snapshot", nil)
+	restarted, err := controller.InvokeManagementAction(ctx, "settings-defaults", "snapshot", nil, plugins.ManagementActionContext{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -34,6 +34,7 @@ type Sources struct {
 	Status       StatusSource
 	Governance   ChangeSource
 	MessageStats ChangeSource
+	BotAccounts  ChangeSource
 }
 
 // Stream owns event subscriptions and cancels active transports on shutdown.
@@ -153,6 +154,12 @@ func (s *Stream) Run(ctx context.Context, write func(context.Context, any) error
 		messageStatsFrames, unsubscribe = sources.MessageStats.Subscribe(1)
 		defer unsubscribe()
 	}
+	var botAccountFrames <-chan Frame
+	if sources.BotAccounts != nil {
+		var unsubscribe func()
+		botAccountFrames, unsubscribe = sources.BotAccounts.Subscribe(1)
+		defer unsubscribe()
+	}
 	for _, frame := range []Frame{initialStatus, AdaptersSnapshotFrame(initialAdapters)} {
 		if err := writeFrame(ctx, frame); err != nil {
 			return err
@@ -198,6 +205,13 @@ func (s *Stream) Run(ctx context.Context, write func(context.Context, any) error
 				return err
 			}
 		case frame, ok := <-messageStatsFrames:
+			if !ok {
+				return nil
+			}
+			if err := write(ctx, frame); err != nil {
+				return err
+			}
+		case frame, ok := <-botAccountFrames:
 			if !ok {
 				return nil
 			}

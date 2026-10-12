@@ -200,7 +200,9 @@ func (s *Service) ApplyConfigReload(cfg config.Config) error {
 		}
 	}
 	for id, client := range previous.qqOfficial {
-		if instance, ok := cfg.AdapterByID(id); ok && instance.Type == config.AdapterTypeQQOfficial {
+		instance, ok := cfg.AdapterByID(id)
+		old, _ := previous.cfg.AdapterByID(id)
+		if ok && instance.Type == config.AdapterTypeQQOfficial && strings.TrimSpace(instance.QQOfficial.AppID) == strings.TrimSpace(old.QQOfficial.AppID) {
 			qqClients[id] = client
 		} else {
 			retired = append(retired, stopEntry{id: id, stop: client.Stop})

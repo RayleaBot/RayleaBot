@@ -34,6 +34,9 @@ describe('socket frame router', () => {
       governance: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
+      botAccounts: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
       adapters: {
         applySnapshot: vi.fn(),
       },
@@ -91,6 +94,9 @@ describe('socket frame router', () => {
         appendBatch: vi.fn(),
       },
       governance: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
+      botAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
       adapters: {
@@ -175,6 +181,9 @@ describe('socket frame router', () => {
       governance: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
+      botAccounts: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
       adapters: {
         applySnapshot: vi.fn(),
       },
@@ -256,6 +265,9 @@ describe('socket frame router', () => {
       governance: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
+      botAccounts: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
       adapters: {
         applySnapshot: vi.fn(),
       },
@@ -314,6 +326,9 @@ describe('socket frame router', () => {
       governance: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
+      botAccounts: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
       adapters: {
         applySnapshot: vi.fn(),
       },
@@ -359,6 +374,9 @@ describe('socket frame router', () => {
       governance: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
+      botAccounts: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
       adapters: {
         applySnapshot: vi.fn(),
       },
@@ -392,6 +410,33 @@ describe('socket frame router', () => {
     expect(dependencies.governance.refresh).toHaveBeenCalledTimes(1)
   })
 
+  it('refreshes the bot account directory, not governance, on bot_accounts.changed', async () => {
+    const dependencies = {
+      system: { applyEvent: vi.fn(), refreshStatus: vi.fn().mockResolvedValue(undefined) },
+      plugins: { upsert: vi.fn() },
+      pluginConsole: { appendOutboundLog: vi.fn(), appendConsole: vi.fn() },
+      schedulerJobs: { scheduleDataSourceRefresh: vi.fn() },
+      logs: { appendBatch: vi.fn() },
+      governance: { refresh: vi.fn().mockResolvedValue(undefined) },
+      botAccounts: { refresh: vi.fn().mockResolvedValue(undefined) },
+      adapters: { applySnapshot: vi.fn() },
+    }
+    const router = createSocketFrameRouter(dependencies)
+
+    for (const second of ['00', '01']) {
+      router.handleEventsFrame({
+        channel: 'events',
+        type: 'events.received',
+        timestamp: `2026-10-12T08:00:${second}Z`,
+        data: { event_type: 'bot_accounts.changed', summary: '机器人账号目录已更新' },
+      })
+    }
+    await vi.advanceTimersByTimeAsync(120)
+
+    expect(dependencies.botAccounts.refresh).toHaveBeenCalledTimes(1)
+    expect(dependencies.governance.refresh).not.toHaveBeenCalled()
+  })
+
   it('runs one more governance refresh when another governance.changed arrives mid-refresh', async () => {
     let resolveRefresh: (() => void) | null = null
     const refreshSpy = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
@@ -417,6 +462,9 @@ describe('socket frame router', () => {
       },
       governance: {
         refresh: refreshSpy,
+      },
+      botAccounts: {
+        refresh: vi.fn().mockResolvedValue(undefined),
       },
       adapters: {
         applySnapshot: vi.fn(),
@@ -476,6 +524,9 @@ describe('socket frame router', () => {
         appendBatch: vi.fn(),
       },
       governance: {
+        refresh: vi.fn().mockResolvedValue(undefined),
+      },
+      botAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
       adapters: {

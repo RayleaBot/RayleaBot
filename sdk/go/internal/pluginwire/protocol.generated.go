@@ -84,6 +84,8 @@ type ProtocolPayloadFrame struct {
 	Args           []string                        `json:"args,omitempty"`
 	Action         string                          `json:"action,omitempty"`
 	Payload        map[string]any                  `json:"payload,omitempty"`
+	PageID         string                          `json:"page_id,omitempty"`
+	Bot            *BotAccountRef                  `json:"bot,omitempty"`
 	TaskID         string                          `json:"task_id,omitempty"`
 	MessageID      string                          `json:"message_id,omitempty"`
 	SubType        string                          `json:"sub_type,omitempty"`
@@ -195,6 +197,11 @@ type BotIdentity struct {
 	Nickname       string `json:"nickname,omitempty"`
 }
 
+type BotAccountRef struct {
+	SourceProtocol string `json:"source_protocol"`
+	BotID          string `json:"bot_id"`
+}
+
 type GovernanceScope struct {
 	SourceProtocol string `json:"source_protocol"`
 	BotID          string `json:"bot_id"`
@@ -299,6 +306,7 @@ type ProtocolServiceRequestFrame struct {
 }
 
 type ProtocolServiceOriginFrame struct {
+	Bot            *BotAccountRef       `json:"bot,omitempty"`
 	EventID        string               `json:"event_id"`
 	EventType      string               `json:"event_type"`
 	SourceProtocol string               `json:"source_protocol"`

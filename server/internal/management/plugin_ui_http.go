@@ -1,7 +1,9 @@
 package management
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -16,6 +18,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 )
 
@@ -23,12 +26,18 @@ type PluginManagementUIDeps struct {
 	Plugins       plugins.CatalogView
 	Settings      *settings.Service
 	ActionInvoker PluginManagementActionInvoker
+	BotAccounts   interface {
+		Contains(pluginwire.BotAccountRef) bool
+	}
 }
 
 type PluginManagementUIHandlers struct {
 	plugins       plugins.CatalogView
 	settings      *settings.Service
 	actionInvoker PluginManagementActionInvoker
+	botAccounts   interface {
+		Contains(pluginwire.BotAccountRef) bool
+	}
 }
 
 const pluginUIPathPrefix = "/plugin-ui/"
@@ -36,12 +45,14 @@ const pluginUIPathPrefix = "/plugin-ui/"
 var hashedPluginUIAssetPattern = regexp.MustCompile(`(?i)\.[0-9a-f]{8,}\.[a-z0-9]+$`)
 
 type PluginManagementActionInvoker interface {
-	InvokeManagementAction(context.Context, string, string, map[string]any) (map[string]any, error)
+	InvokeManagementAction(context.Context, string, string, map[string]any, plugins.ManagementActionContext) (map[string]any, error)
 }
 
 type pluginManagementActionRequest struct {
-	Action  string         `json:"action"`
-	Payload map[string]any `json:"payload,omitempty"`
+	Action  string          `json:"action"`
+	Payload map[string]any  `json:"payload,omitempty"`
+	PageID  json.RawMessage `json:"page_id,omitempty"`
+	Bot     json.RawMessage `json:"bot,omitempty"`
 }
 
 type PluginManagementActionResponse struct {
@@ -55,6 +66,7 @@ func NewPluginManagementUIHandlers(deps PluginManagementUIDeps) *PluginManagemen
 		plugins:       deps.Plugins,
 		settings:      deps.Settings,
 		actionInvoker: deps.ActionInvoker,
+		botAccounts:   deps.BotAccounts,
 	}
 }
 
@@ -86,7 +98,8 @@ func (h *PluginManagementUIHandlers) HandlePluginManagementAction() http.Handler
 			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
-		if _, ok := h.resolveSettingsSnapshot(w, r); !ok {
+		snapshot, ok := h.resolveSettingsSnapshot(w, r)
+		if !ok {
 			return
 		}
 		if actionInvoker == nil {
@@ -107,8 +120,13 @@ func (h *PluginManagementUIHandlers) HandlePluginManagementAction() http.Handler
 		if request.Payload == nil {
 			request.Payload = map[string]any{}
 		}
+		page, valid := h.actionPage(snapshot, request)
+		if !valid {
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
+			return
+		}
 
-		result, err := actionInvoker.InvokeManagementAction(r.Context(), pluginID, action, request.Payload)
+		result, err := actionInvoker.InvokeManagementAction(r.Context(), pluginID, action, request.Payload, page)
 		if err != nil {
 			var unavailable *plugins.NotRunningError
 			if errors.As(err, &unavailable) {
@@ -129,6 +147,43 @@ func (h *PluginManagementUIHandlers) HandlePluginManagementAction() http.Handler
 			Result:   result,
 		})
 	}
+}
+
+func (h *PluginManagementUIHandlers) actionPage(snapshot plugins.Snapshot, request pluginManagementActionRequest) (plugins.ManagementActionContext, bool) {
+	page := plugins.ManagementActionContext{}
+	if len(request.PageID) == 0 {
+		return page, len(request.Bot) == 0
+	}
+	if json.Unmarshal(request.PageID, &page.PageID) != nil || page.PageID == "" || snapshot.ManagementUI == nil {
+		return page, false
+	}
+	var declared *plugins.ManagementUIPage
+	for _, candidate := range snapshot.ManagementUI.Pages {
+		if candidate.ID == page.PageID {
+			declared = &candidate
+			break
+		}
+	}
+	if declared == nil {
+		return page, false
+	}
+	if declared.EffectiveScope() == "global" {
+		return page, len(request.Bot) == 0
+	}
+	if len(request.Bot) == 0 {
+		return page, false
+	}
+	decoder := json.NewDecoder(bytes.NewReader(request.Bot))
+	decoder.DisallowUnknownFields()
+	var bot pluginwire.BotAccountRef
+	if decoder.Decode(&bot) != nil || (bot.SourceProtocol != "onebot11" && bot.SourceProtocol != "qqofficial") || bot.BotID == "" {
+		return page, false
+	}
+	if h.botAccounts == nil || !h.botAccounts.Contains(bot) {
+		return page, false
+	}
+	page.Bot = &bot
+	return page, true
 }
 
 func (h *PluginManagementUIHandlers) HandlePluginUIAsset() http.HandlerFunc {

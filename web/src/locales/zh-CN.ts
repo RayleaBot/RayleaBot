@@ -6,6 +6,7 @@ import { builtinFeatures } from './zh-CN/builtin-features'
 import { permissionPolicy } from './zh-CN/permission-policy'
 import { rateLimits } from './zh-CN/rate-limits'
 import { accessLists } from './zh-CN/access-lists'
+import { botAccounts } from './zh-CN/bot-accounts'
 import { plugins } from './zh-CN/plugins'
 import { scheduler } from './zh-CN/scheduler'
 import { logs } from './zh-CN/logs'
@@ -28,6 +29,7 @@ export const zhCN = {
   permissionPolicy,
   rateLimits,
   accessLists,
+  botAccounts,
   plugins,
   scheduler,
   logs,

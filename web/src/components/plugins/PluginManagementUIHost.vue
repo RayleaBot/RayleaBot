@@ -9,12 +9,15 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
 import { formatPluginVersion, getPluginInstallMethodLabel } from '@/lib/display'
-import type { PluginDetail, PluginManagementUIPage } from '@/types/api'
+import { formatBotAccountKey } from '@/lib/bot-accounts'
+import type { BotAccountRef, PluginDetail, PluginManagementUIPage } from '@/types/api'
 
 const props = defineProps<{
   plugin: PluginDetail
   title: string
   page: PluginManagementUIPage
+  // The selected account of a bot_account page; the page reloads when it changes.
+  bot?: BotAccountRef | null
 }>()
 
 const iframeRef = ref<HTMLIFrameElement | null>(null)
@@ -26,6 +29,7 @@ let restartFrameWhenRuntimeReady = props.plugin.state === 'starting'
 let loadTimer: ReturnType<typeof setTimeout> | null = null
 
 const managementEntry = computed(() => props.plugin.management_ui?.entry?.trim() ?? '')
+const botKey = computed(() => props.bot ? formatBotAccountKey(props.bot) : '')
 const requiresConfirmation = computed(() => props.plugin.trust?.level === 'unverified')
 const confirmationStorageKey = computed(() => (
   `rayleabot.plugin-management-ui.confirmed:${props.plugin.id}:${props.plugin.version ?? ''}:${props.plugin.source?.package_source_ref ?? ''}`
@@ -36,6 +40,7 @@ const frameSrc = computed(() => {
   }
   const relativeEntry = managementEntry.value.slice('ui/'.length).split('/').map(encodeURIComponent).join('/')
   const search = new URLSearchParams({ page: props.page.id, version: props.plugin.version ?? '', frame: String(iframeKey.value) })
+  if (botKey.value) search.set('bot', botKey.value)
   return `/plugin-ui/${encodeURIComponent(props.plugin.id)}/${relativeEntry}?${search.toString()}`
 })
 const canRenderIframe = computed(() => Boolean(frameSrc.value) && iframeKey.value > 0 && (!requiresConfirmation.value || confirmed.value))
@@ -123,6 +128,8 @@ watch([
   () => props.plugin.version ?? '',
   () => props.plugin.source?.package_source_ref ?? '',
   () => props.page.id,
+  () => props.page.scope,
+  botKey,
   () => props.plugin.management_ui?.entry ?? '',
   () => props.plugin.trust?.level ?? '',
 ], () => {

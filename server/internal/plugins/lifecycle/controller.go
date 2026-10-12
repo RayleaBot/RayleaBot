@@ -258,7 +258,7 @@ func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snap
 	return updated, nil
 }
 
-func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, action string, payload map[string]any) (map[string]any, error) {
+func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, action string, payload map[string]any, page plugins.ManagementActionContext) (map[string]any, error) {
 	pluginID = strings.TrimSpace(pluginID)
 	action = strings.TrimSpace(action)
 	if pluginID == "" || action == "" {
@@ -280,16 +280,20 @@ func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, actio
 	}
 
 	now := time.Now()
+	fields := map[string]any{"action": action, "payload": payload}
+	if page.PageID != "" {
+		fields["page_id"] = page.PageID
+	}
+	if page.Bot != nil {
+		fields["bot"] = *page.Bot
+	}
 	delivery, err := manager.DeliverEvent(ctx, chatevent.Event{
 		EventID:        fmt.Sprintf("management-action-%s-%d", action, now.UnixNano()),
 		SourceProtocol: "management",
 		SourceAdapter:  "management.ui",
 		EventType:      "management.action",
 		Timestamp:      now.Unix(),
-		PayloadFields: map[string]any{
-			"action":  action,
-			"payload": payload,
-		},
+		PayloadFields:  fields,
 	})
 	if err != nil {
 		if errors.Is(err, plugins.ErrRuntimeNotRunning) {

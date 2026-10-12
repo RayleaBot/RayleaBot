@@ -4,6 +4,7 @@ import { useConfigStore } from '@/stores/config'
 
 import { createSocketController } from '@/stores/socket-controller'
 import { useGovernanceStore } from '@/stores/governance'
+import { useBotAccountsStore } from '@/stores/bot-accounts'
 import { createSocketFrameRouter } from '@/stores/socket-router'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
@@ -22,6 +23,7 @@ export const useSocketStore = defineStore('sockets', () => {
   const schedulerJobsStore = useSchedulerJobsStore()
   const logsStore = useLogsStore()
   const governanceStore = useGovernanceStore()
+  const botAccountsStore = useBotAccountsStore()
   const adaptersStore = useAdaptersStore()
   const systemStore = useSystemStore()
   const messageStatsLive = useMessageStatsLiveStore()
@@ -49,6 +51,9 @@ export const useSocketStore = defineStore('sockets', () => {
     governance: {
       refresh: governanceStore.refresh,
     },
+    botAccounts: {
+      refresh: botAccountsStore.refresh,
+    },
     adapters: {
       applySnapshot: adaptersStore.applySnapshot,
     },
@@ -65,8 +70,11 @@ export const useSocketStore = defineStore('sockets', () => {
     router,
   })
 
+  // Change notices are not replayed, so a reconnected stream rereads what may have changed meanwhile.
   watch(() => controller.snapshots.events.status, status => {
-    if (status === 'authenticated') void configStore.refreshSharedSettings().catch(() => undefined)
+    if (status !== 'authenticated') return
+    void configStore.refreshSharedSettings().catch(() => undefined)
+    void botAccountsStore.refresh().catch(() => undefined)
   })
 
   watch(() => controller.snapshots.logs.status, status => {

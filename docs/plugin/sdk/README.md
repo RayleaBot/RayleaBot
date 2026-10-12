@@ -47,6 +47,8 @@ err := rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(
 
 定时推送、订阅通知这类以后才发的消息，在收到聊天事件时用 `event.Address()` 取得投递地址并保存，之后用 `event.Actions().SendTo` 发送。地址由协议、机器人账号和目标组成，可以直接序列化为 JSON；宿主发送时选择当前登录着该账号的连接，删除重建连接或修改连接标识都不影响已保存的地址。账号当前没有已连接的实例时返回 `adapter.transport_unavailable`，由插件按自己的策略稍后重试。不要把 `source_adapter` 当作投递地址保存。
 
+按机器人账号的管理页发来的 `management.action`，用 `event.Event.ManagementBot()` 读取宿主核对过的账号，`ManagementPageID()` 读取页面 ID；二者只认宿主写入的字段，不从业务参数或 `Bots` 推测，账号可能离线或无连接。`BotAccount.Address(targetType, targetID)` 为该账号的新记录生成投递地址。这类动作发起的 `CallService`，服务提供者从 `ServiceRequest` 的来源 `Bot` 读到同一账号，调用方无法通过参数设置它。
+
 OneBot 和 provider typed helpers 默认由宿主按当前聊天事件选择实例。定时任务等平台事件需要主动指定时，用 `event.Actions().ForOneBotAccount(botID).GroupInfoGet(ctx, groupID)` 按机器人账号选择，或用 `ForOneBotAdapter("second-bot")` 按实例选择；返回的动作视图不会改变其他调用的选路，后设置的选择替换先前的选择。显式选择仍须与聊天父事件一致，多实例且没有选择信息时宿主拒绝调用。
 
 SDK 串行写 stdout JSONL，日志写 stderr；负责 request 关联、并发、ping/pong、关闭、panic 隔离和配置快照原子替换。
@@ -154,8 +156,8 @@ plugin-example/
 
 `sdk/vue` 提供私有 workspace package `@rayleabot/plugin-ui`：
 
-- `PluginUIClient` 从 `/plugin-ui/{plugin_id}/` 路径识别插件、从 `page` 参数读取页面 ID，并以当前会话直接调用插件范围的管理 API；写操作沿用管理面的 CSRF 头。
-- `usePluginHost` 暴露初始化状态、配置、secret configured-state 和客户端。
+- `PluginUIClient` 从 `/plugin-ui/{plugin_id}/` 路径识别插件、从 `page` 参数读取页面 ID，按账号的页面另从 `bot` 参数读取机器人账号，并以当前会话直接调用插件范围的管理 API；写操作沿用管理面的 CSRF 头。按账号的页面里 `invokeAction` 自动附带 `page_id` 与 `bot`。
+- `usePluginHost` 暴露初始化状态、页面范围、当前机器人账号的资料与 `refreshBot`、配置、secret configured-state 和客户端，见[按机器人账号的页面](../management-ui.md#按机器人账号的页面)。
 - `invokeAction` 等待管理动作结果；`apiRequest` 调用其他管理接口，失败时抛出带稳定 `code` 的 `PluginUIError`。
 - `applyTheme` 把宿主主题变量映射为插件 CSS variables，`usePluginHost` 在宿主切换主题时同步更新。
 

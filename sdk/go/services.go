@@ -12,6 +12,10 @@ import (
 
 type ServiceCallRequest = pluginwire.ProtocolActionPluginCallFrame
 type ServiceRequest = pluginwire.ProtocolServiceRequestFrame
+
+// ServiceOrigin is assigned by the host. Bot carries the selected account for
+// management actions, including calls made after detaching the event; chat and
+// scheduler origins keep their own source fields. CallService params cannot set it.
 type ServiceOrigin = pluginwire.ProtocolServiceOriginFrame
 
 type ServiceHandler func(context.Context, *EventContext, ServiceRequest) (map[string]any, error)

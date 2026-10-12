@@ -20,9 +20,7 @@ func TestProtectedManagementRoutesDeclareOpenAPISecurity(t *testing.T) {
 		t.Fatal(err)
 	}
 	var contract struct {
-		Paths map[string]map[string]struct {
-			Security []map[string][]string `yaml:"security"`
-		} `yaml:"paths"`
+		Paths map[string]map[string]yaml.Node `yaml:"paths"`
 	}
 	if err := yaml.Unmarshal(data, &contract); err != nil {
 		t.Fatal(err)
@@ -30,7 +28,18 @@ func TestProtectedManagementRoutesDeclareOpenAPISecurity(t *testing.T) {
 	parameter := regexp.MustCompile(`\{[^}]+\}`)
 	declared := map[string]bool{}
 	for path, operations := range contract.Paths {
-		for method, operation := range operations {
+		for method, node := range operations {
+			switch method {
+			case "get", "post", "put", "delete", "patch", "head", "options", "trace":
+			default:
+				continue
+			}
+			var operation struct {
+				Security []map[string][]string `yaml:"security"`
+			}
+			if err := node.Decode(&operation); err != nil {
+				t.Fatal(err)
+			}
 			declared[method+" "+parameter.ReplaceAllString(path, "{parameter}")] = len(operation.Security) > 0
 		}
 	}

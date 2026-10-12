@@ -42,7 +42,7 @@ func TestOpaqueSessionMigrationMatchesFreshSchema(t *testing.T) {
 		t.Fatal("fresh and migrated schemas differ")
 	}
 	metadata, err := store.SchemaMetadata(t.Context())
-	if err != nil || metadata.Version != "000009" || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
+	if err != nil || metadata.Version != CurrentSchemaVersion() || metadata.InitializedAt != "2026-09-13T00:00:00Z" {
 		t.Fatalf("metadata = %+v, %v", metadata, err)
 	}
 	// Signed sessions cannot be validated without their key, so the migration ends them and drops the key.

@@ -9,7 +9,7 @@ import AppCard from '@/components/AppCard.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppAlert from '@/components/AppAlert.vue'
 import { ArrowLeftIcon, BlocksIcon, ScrollTextIcon, TerminalIcon } from '@lucide/vue'
-import { computed, ref, type Component } from 'vue'
+import { computed, ref, watch, type Component } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 
@@ -18,10 +18,12 @@ import PluginConsolePane from '@/components/plugins/PluginConsolePane.vue'
 import PluginDetailHero from '@/components/plugins/PluginDetailHero.vue'
 import PluginDetailSummary from '@/components/plugins/PluginDetailSummary.vue'
 import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.vue'
+import PluginBotAccountBar from '@/components/plugins/PluginBotAccountBar.vue'
 import PluginPowerButton from '@/components/plugins/PluginPowerButton.vue'
 import PluginCommandsPanel from '@/components/plugins/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getPluginCommandPrefixes } from '@/lib/command-usage'
+import { formatBotAccountKey } from '@/lib/bot-accounts'
 import { canTogglePluginPower, getPluginReloadBlocker } from '@/lib/plugin-lifecycle'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
@@ -32,6 +34,7 @@ import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import { usePluginDetail } from './usePluginDetail'
 import { usePluginDetailPanels } from './usePluginDetailPanels'
+import type { BotAccount } from '@/types/api'
 
 type DetailTab = 'summary' | 'commands' | 'console'
 
@@ -56,12 +59,24 @@ const {
 } = usePluginDetail(pluginId)
 const {
   activeManagementPage,
+  activePageScope,
   activePanel,
   activePanelKey,
   managementPanelTitle,
   panelOptions,
+  requestedBotAccount,
+  selectBotAccount,
   setActivePanelKey,
 } = usePluginDetailPanels(pluginId, currentPlugin)
+// A bot_account page loads only for the account the address names and the directory confirms,
+// so a stale result can never show one account's page under another account's address.
+const resolvedBotAccount = ref<BotAccount | null>(null)
+const pageBotAccount = computed(() => {
+  const requested = requestedBotAccount.value.account
+  const resolved = resolvedBotAccount.value
+  return requested && resolved && formatBotAccountKey(requested) === formatBotAccountKey(resolved) ? resolved : null
+})
+watch(() => activeManagementPage.value?.id, () => { resolvedBotAccount.value = null })
 const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
 
 const activeDetailTab = ref<DetailTab>('summary')
@@ -215,12 +230,21 @@ function returnToPluginList() {
       </AppTabs>
     </div>
 
-    <PluginManagementUIHost
-      v-else-if="currentPlugin?.management_ui && activeManagementPage"
-      :plugin="currentPlugin"
-      :title="managementPanelTitle"
-      :page="activeManagementPage"
-    />
+    <div v-else-if="currentPlugin?.management_ui && activeManagementPage" class="plugin-management-panel">
+      <PluginBotAccountBar
+        v-if="activePageScope === 'bot_account'"
+        :requested="requestedBotAccount"
+        @select="(account, options) => selectBotAccount(account, options)"
+        @resolved="resolvedBotAccount = $event"
+      />
+      <PluginManagementUIHost
+        v-if="activePageScope !== 'bot_account' || pageBotAccount"
+        :plugin="currentPlugin"
+        :title="managementPanelTitle"
+        :page="activeManagementPage"
+        :bot="activePageScope === 'bot_account' ? pageBotAccount : null"
+      />
+    </div>
 
     <AppCard v-else borderless :loading="detailLoading">
       <template #title>
@@ -237,6 +261,14 @@ function returnToPluginList() {
 <style scoped lang="scss">
 .plugin-detail-panel-switch {
   flex: 0 0 auto;
+}
+
+// The account switcher sits above the plugin page, which still fills the rest of the height.
+.plugin-management-panel {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .plugin-detail-panel-switch--sidebar-owned {

@@ -21,6 +21,7 @@ x-fixtures:
   - fixtures/websocket/ok.events-received-service-restarting.json
   - fixtures/websocket/invalid.events-received-running-stop-intent.json
   - fixtures/websocket/ok.events-received-governance-changed.json
+  - fixtures/websocket/ok.events-received-bot-accounts-changed.json
   - fixtures/websocket/ok.events-received-message-stats-changed.json
   - fixtures/websocket/invalid.events-received-message-stats-counts.json
   - fixtures/websocket/edge.events-received-degraded.json

@@ -26,6 +26,7 @@ type ManagementUIResponse struct {
 type ManagementUIPageResponse struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
+	Scope string `json:"scope"`
 }
 
 type DetailPluginResponse struct {
@@ -94,6 +95,7 @@ func buildPluginManagementUI(snapshot plugins.Snapshot) *ManagementUIResponse {
 		response.Pages = append(response.Pages, ManagementUIPageResponse{
 			ID:    pageID,
 			Label: pageLabel,
+			Scope: page.EffectiveScope(),
 		})
 	}
 	if response.Entry == "" || len(response.Pages) == 0 {
