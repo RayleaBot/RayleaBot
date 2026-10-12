@@ -6,6 +6,25 @@ import (
 	"time"
 )
 
+// Address names a conversation by chat protocol, bot account and target.
+// It stays valid when the adapter instance serving the account is replaced
+// or renamed, so plugins store it for later delivery.
+type Address struct {
+	SourceProtocol string `json:"source_protocol"`
+	BotID          string `json:"bot_id"`
+	TargetType     string `json:"target_type"`
+	TargetID       string `json:"target_id"`
+}
+
+// Address returns the current chat event's persistent delivery address.
+func (event *EventContext) Address() (Address, bool) {
+	current := event.Event
+	if (current.SourceProtocol != "onebot11" && current.SourceProtocol != "qqofficial") || current.BotID == "" || current.Target.Type == "" || current.Target.ID == "" {
+		return Address{}, false
+	}
+	return Address{SourceProtocol: current.SourceProtocol, BotID: current.BotID, TargetType: current.Target.Type, TargetID: current.Target.ID}, true
+}
+
 func (event *EventContext) finishAction(id string) {
 	event.actionMu.Lock()
 	defer event.actionMu.Unlock()

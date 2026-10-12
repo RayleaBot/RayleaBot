@@ -242,7 +242,7 @@ func (state *runtimeState) decodeEvent(frame protocolFrame) (Event, error) {
 			return Event{}, protocolError("invalid service event payload")
 		}
 	}
-	event := Event{EventID: wire.EventID, SourceProtocol: wire.SourceProtocol, SourceAdapter: wire.SourceAdapter, EventType: wire.EventType, Timestamp: wire.Timestamp, Webhook: wire.Webhook, Raw: append(json.RawMessage(nil), frame.Event...)}
+	event := Event{EventID: wire.EventID, SourceProtocol: wire.SourceProtocol, SourceAdapter: wire.SourceAdapter, BotID: wire.BotID, EventType: wire.EventType, Timestamp: wire.Timestamp, Webhook: wire.Webhook, Raw: append(json.RawMessage(nil), frame.Event...)}
 	if wire.Actor != nil {
 		event.Actor = *wire.Actor
 	}

@@ -93,10 +93,7 @@ func buildEvents(deps eventDeps) EventState {
 	conversationRegistry := conversation.New(conversation.Options{NotifyExpired: func(owner conversation.Owner, event chatevent.Event) {
 		eventDispatcher.DispatchToProcess(context.Background(), owner.PluginID, owner.Done, event)
 	}})
-	outboundPolicy := outbound.NewMessagePolicy(deps.Config, func(scope chatevent.IdentityScope) chatevent.IdentityScope {
-		if scope.BotID != "" {
-			return scope
-		}
+	outboundPolicy := outbound.NewMessagePolicy(deps.Config, func(scope chatevent.IdentityScope) (chatevent.IdentityScope, error) {
 		return outboundSender.ResolveScope(scope, identity.BotIdentities())
 	})
 	eventDispatcher.SetOutboundPolicy(outboundPolicy)
@@ -138,14 +135,19 @@ func (s *EventState) Close() {
 
 func adapterRoutes(snapshot *adapterservice.RuntimeSnapshot) outbound.Routes {
 	cfg := snapshot.Config()
-	routes := outbound.Routes{Config: &cfg, Senders: make(map[string]outbound.ActionSender), Protocols: make(map[string]string)}
+	routes := outbound.Routes{Config: &cfg, Senders: make(map[string]outbound.ActionSender), Protocols: make(map[string]string), ConnectedBotIDs: make(map[string]string)}
 	for _, instance := range cfg.Adapters {
 		if shell := snapshot.OneBot11(instance.ID); shell != nil {
 			routes.Senders[instance.ID] = shell
 			routes.Protocols[instance.ID] = config.AdapterTypeOneBot11
+			routes.ConnectedBotIDs[instance.ID] = shell.CurrentBotID()
 		} else if client, ok := snapshot.QQOfficial(instance.ID).(outbound.ActionSender); ok {
 			routes.Senders[instance.ID] = client
 			routes.Protocols[instance.ID] = config.AdapterTypeQQOfficial
+			status := snapshot.QQOfficial(instance.ID).Status()
+			if status.State == qqofficial.StateConnected {
+				routes.ConnectedBotIDs[instance.ID] = status.BotID
+			}
 		}
 	}
 	return routes

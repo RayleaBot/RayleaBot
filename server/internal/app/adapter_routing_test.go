@@ -6,9 +6,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
@@ -50,7 +54,7 @@ func oneBotRoutingEndpoint(t *testing.T, name string) (config.AdapterInstance, *
 
 func TestOneBotActionsUseConfiguredInstanceAndParent(t *testing.T) {
 	t.Parallel()
-	parent := chatevent.Event{SourceProtocol: "onebot11", SourceAdapter: "second"}
+	parent := chatevent.Event{SourceProtocol: "onebot11", SourceAdapter: "second", BotID: "10001"}
 	for _, tc := range []struct {
 		name   string
 		data   string
@@ -62,6 +66,9 @@ func TestOneBotActionsUseConfiguredInstanceAndParent(t *testing.T) {
 		{name: "matching explicit selector", parent: parent, data: `{"source_adapter":"second","source_protocol":"onebot11","group_id":"200"}`, want: "second"},
 		{name: "platform explicit selector", parent: chatevent.Event{SourceProtocol: "scheduler", SourceAdapter: "scheduler.internal"}, data: `{"source_adapter":"second","group_id":"200"}`, want: "second"},
 		{name: "parent selector conflict", parent: parent, data: `{"source_adapter":"first","group_id":"200"}`},
+		{name: "matching parent account retains instance", parent: parent, data: `{"bot_id":"10001","group_id":"200"}`, want: "second"},
+		{name: "parent account conflict", parent: parent, data: `{"bot_id":"10002","group_id":"200"}`},
+		{name: "QQ parent rejects account selector", parent: chatevent.Event{SourceProtocol: "qqofficial", BotID: "10001"}, data: `{"bot_id":"10001","group_id":"200"}`},
 		{name: "no context is ambiguous"},
 		{name: "protocol only is ambiguous", data: `{"source_protocol":"onebot11","group_id":"200"}`},
 		{name: "unknown instance", data: `{"source_adapter":"unknown","group_id":"200"}`},
@@ -116,6 +123,96 @@ func TestOneBotActionsUseConfiguredInstanceAndParent(t *testing.T) {
 				t.Fatalf("API calls = first:%d second:%d, want first:%d second:%d", firstCalls.Load(), secondCalls.Load(), wantFirst, wantSecond)
 			}
 		})
+	}
+}
+
+func TestOneBotPlatformActionsSelectConnectedAccount(t *testing.T) {
+	var calls atomic.Int32
+	peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer conn.CloseNow()
+		if err := wsjson.Write(r.Context(), conn, map[string]any{"post_type": "meta_event", "meta_event_type": "lifecycle", "sub_type": "connect", "self_id": 10001}); err != nil {
+			return
+		}
+		for {
+			var request onebot11.APICallRequest
+			if err := wsjson.Read(r.Context(), conn, &request); err != nil {
+				return
+			}
+			var data any
+			switch request.Action {
+			case "get_version_info":
+				data = map[string]any{"app_name": "NapCat.Onebot", "protocol_version": "v11"}
+			case "get_login_info":
+				data = map[string]any{"user_id": 10001, "nickname": "fixture"}
+			case "get_group_info", "set_group_sign":
+				calls.Add(1)
+				for _, field := range []string{"bot_id", "source_adapter", "source_protocol"} {
+					if _, present := request.Params[field]; present {
+						t.Errorf("selector %s reached provider", field)
+					}
+				}
+				data = map[string]any{"group_name": "account group"}
+			default:
+				t.Errorf("unexpected API action: %s", request.Action)
+			}
+			if err := wsjson.Write(r.Context(), conn, map[string]any{"status": "ok", "retcode": 0, "echo": request.Echo, "data": data}); err != nil {
+				return
+			}
+		}
+	}))
+	t.Cleanup(peer.Close)
+	cfg := config.Config{Adapters: []config.AdapterInstance{
+		{ID: "offline", Type: "onebot11", Enabled: true, OneBot11: &config.OneBotConfig{}},
+		{ID: "connected", Type: "onebot11", Enabled: true, OneBot11: &config.OneBotConfig{ForwardWS: config.OneBotTransportConfig{Enabled: true, URL: "ws" + strings.TrimPrefix(peer.URL, "http")}}},
+	}}
+	state := buildEvents(eventDeps{Config: cfg, Logger: discardLogger()})
+	t.Cleanup(state.Close)
+	shell := state.Adapters.Snapshot().OneBot11("connected")
+	ready := make(chan struct{}, 1)
+	shell.SetStateHandler(func(snapshot onebot11.Snapshot) {
+		if snapshot.State == onebot11.StateConnected && snapshot.BotID == "10001" && snapshot.DetectedProvider() == "napcat" {
+			select {
+			case ready <- struct{}{}:
+			default:
+			}
+		}
+	})
+	shell.Start(t.Context())
+	t.Cleanup(func() {
+		if err := shell.Stop(context.Background()); err != nil {
+			t.Error(err)
+		}
+	})
+	select {
+	case <-ready:
+	case <-time.After(3 * time.Second):
+		t.Fatal("account did not connect")
+	}
+	service := actions.New(actions.Deps{ResolveOneBotAdapter: state.ResolveOneBotAdapter})
+	for _, kind := range []string{"group.info.get", "provider.napcat.group.sign.set"} {
+		for _, account := range []string{"10001", "10002"} {
+			action, err := pluginruntime.ParseLocalAction(kind, json.RawMessage(`{"bot_id":"`+account+`","source_protocol":"onebot11","group_id":"200"}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			before := calls.Load()
+			_, err = service.Execute(t.Context(), "fixture", "request", *action, chatevent.Event{SourceProtocol: "platform"})
+			if account == "10001" {
+				if err != nil || calls.Load() != before+1 {
+					t.Fatalf("account action: err=%v calls=%d", err, calls.Load())
+				}
+			} else {
+				var coded *plugins.Error
+				if !errors.As(err, &coded) || coded.Code != "adapter.transport_unavailable" || calls.Load() != before {
+					t.Fatalf("unavailable account: err=%v calls=%d", err, calls.Load())
+				}
+			}
+		}
 	}
 }
 

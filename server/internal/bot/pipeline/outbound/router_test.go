@@ -6,8 +6,51 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
+
+func TestAdapterRouterSelectsConnectedBotAccountInConfigurationOrder(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name      string
+		connected map[string]string
+		want      string
+	}{
+		{name: "connected instance", connected: map[string]string{"a": "10001"}, want: "a"},
+		{name: "configuration order", connected: map[string]string{"z": "10001", "a": "10001"}, want: "z"},
+		{name: "unavailable account", connected: map[string]string{"z": "10002", "disabled": "10001", "qq": "10001"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var sent, observed []string
+			cfg := config.Config{Adapters: []config.AdapterInstance{
+				{ID: "disabled", Type: "onebot11"},
+				{ID: "qq", Type: "qqofficial", Enabled: true},
+				{ID: "z", Type: "onebot11", Enabled: true},
+				{ID: "a", Type: "onebot11", Enabled: true},
+			}}
+			senders := make(map[string]ActionSender)
+			protocols := make(map[string]string)
+			for _, instance := range cfg.Adapters {
+				senders[instance.ID] = recordingSender{name: instance.ID, sent: &sent}
+				protocols[instance.ID] = instance.Type
+			}
+			router := NewLiveRouter(func() Routes {
+				return Routes{Config: &cfg, Senders: senders, Protocols: protocols, ConnectedBotIDs: tc.connected}
+			}, func(id, _ string) { observed = append(observed, id) })
+			result, err := SendAction(t.Context(), router, nil, chatevent.Event{SourceAdapter: "qq", SourceProtocol: "qqofficial", BotID: "parent"},
+				chatevent.MessageCommand{Kind: "message.send", SourceProtocol: "onebot11", BotID: "10001", TargetType: "group", TargetID: "200"})
+			if tc.want == "" {
+				var sendErr *chatevent.SendError
+				if !errors.As(err, &sendErr) || sendErr.Code != errorcodes.AdapterTransportUnavailable || len(sent) != 0 || len(observed) != 0 {
+					t.Fatalf("unavailable account: result=%+v err=%v sent=%v observed=%v", result, err, sent, observed)
+				}
+			} else if err != nil || result.SourceAdapter != tc.want || len(sent) != 1 || sent[0] != tc.want || len(observed) != 1 || observed[0] != tc.want {
+				t.Fatalf("account route: result=%+v err=%v sent=%v observed=%v", result, err, sent, observed)
+			}
+		})
+	}
+}
 
 type recordingSender struct {
 	name string

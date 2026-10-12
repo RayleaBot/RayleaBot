@@ -1,0 +1,56 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: event
+    request_id: subscribe-event
+    deadline_at_ms: 1789300060000
+    event:
+      event_id: onebot-group-subscribe
+      source_protocol: onebot11
+      source_adapter: napcat-home
+      bot_id: "10001"
+      event_type: message.group
+      timestamp: 1788752625
+      actor:
+        id: "30001"
+      target:
+        type: group
+        id: "20001"
+      message:
+        plain_text: 订阅
+        segments:
+          - type: text
+            data:
+              text: 订阅
+  - type: result
+    request_id: subscribe-event
+    status: success
+    data: {}
+  - type: action
+    request_id: push-onebot-account
+    action: message.send
+    data:
+      source_protocol: onebot11
+      bot_id: "10001"
+      target_type: group
+      target_id: "20001"
+      message:
+        segments:
+          - type: text
+            data:
+              text: 按账号推送示例
+  - type: action
+    request_id: push-qq-official-account
+    action: message.send
+    data:
+      source_protocol: qqofficial
+      bot_id: "1000000000000000001"
+      target_type: group
+      target_id: "1111111111111111111111111111BBBB"
+      message:
+        segments:
+          - type: text
+            data:
+              text: 按账号推送示例
+expect:
+  valid: true

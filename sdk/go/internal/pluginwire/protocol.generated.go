@@ -46,6 +46,7 @@ type ProtocolEventFrame struct {
 	EventID        string                `json:"event_id"`
 	SourceProtocol string                `json:"source_protocol"`
 	SourceAdapter  string                `json:"source_adapter"`
+	BotID          string                `json:"bot_id,omitempty"`
 	EventType      string                `json:"event_type"`
 	Timestamp      int64                 `json:"timestamp"`
 	Actor          *ProtocolActorFrame   `json:"actor,omitempty"`
@@ -253,6 +254,7 @@ type ActionFrame struct {
 
 type ProtocolActionMessageSendFrame struct {
 	SourceProtocol          string                        `json:"source_protocol,omitempty"`
+	BotID                   string                        `json:"bot_id,omitempty"`
 	SourceAdapter           *string                       `json:"source_adapter,omitempty"`
 	TargetType              string                        `json:"target_type"`
 	TargetID                string                        `json:"target_id"`

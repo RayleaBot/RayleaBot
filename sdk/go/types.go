@@ -48,6 +48,7 @@ type Event struct {
 	EventID        string
 	SourceProtocol string
 	SourceAdapter  string
+	BotID          string
 	EventType      string
 	Timestamp      int64
 	Actor          Actor

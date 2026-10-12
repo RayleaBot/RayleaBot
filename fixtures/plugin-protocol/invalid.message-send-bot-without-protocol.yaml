@@ -1,0 +1,17 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: action
+    request_id: push-account-without-protocol
+    action: message.send
+    data:
+      bot_id: "10001"
+      target_type: group
+      target_id: "20001"
+      message:
+        segments:
+          - type: text
+            data:
+              text: 缺少协议
+expect:
+  valid: false

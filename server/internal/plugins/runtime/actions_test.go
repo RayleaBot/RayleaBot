@@ -61,6 +61,20 @@ func TestMessageSendActionCarriesTheNamedProtocol(t *testing.T) {
 	}
 }
 
+func TestMessageSendAccountSelectorReachesOutboundCommand(t *testing.T) {
+	action, err := ParseTerminalAction("message.send", json.RawMessage(`{"source_protocol":"onebot11","bot_id":"10001","target_type":"group","target_id":"200","message":{"segments":[{"type":"text","data":{"text":"hello"}}]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if action.BotID != "10001" || action.SourceProtocol != "onebot11" || action.SourceAdapter != "" {
+		t.Fatalf("command=%+v", action)
+	}
+	for _, selectors := range []string{`"bot_id":"10001"`, `"bot_id":"10001","source_protocol":"onebot11","source_adapter":"bot"`} {
+		_, err := ParseLocalAction("message.send", json.RawMessage(`{`+selectors+`,"target_type":"group","target_id":"200","message":{"segments":[{"type":"text","data":{"text":"hello"}}]}}`))
+		assertProtocolViolation(t, err)
+	}
+}
+
 func TestMessageSendActionSelectsAndValidatesAdapterInstance(t *testing.T) {
 	for _, testCase := range []struct {
 		id    string

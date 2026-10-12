@@ -414,6 +414,60 @@
     ]
   },
   {
+    "name": "invalid.message-send-bot-with-adapter.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "push-account-and-instance",
+        "action": "message.send",
+        "data": {
+          "source_protocol": "onebot11",
+          "source_adapter": "napcat-home",
+          "bot_id": "10001",
+          "target_type": "group",
+          "target_id": "20001",
+          "message": {
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "账号与实例同时指定"
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.message-send-bot-without-protocol.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "push-account-without-protocol",
+        "action": "message.send",
+        "data": {
+          "bot_id": "10001",
+          "target_type": "group",
+          "target_id": "20001",
+          "message": {
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "缺少协议"
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
     "name": "invalid.message-send-unknown-target-type.yaml",
     "valid": false,
     "frames": [
@@ -458,6 +512,23 @@
         "action": "provider.napcat.group.sign.set",
         "data": {
           "source_adapter": 12,
+          "group_id": "20001"
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.onebot-bot-with-adapter.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "group-info-account-and-instance",
+        "parent_request_id": "scheduler-event",
+        "action": "group.info.get",
+        "data": {
+          "bot_id": "10001",
+          "source_adapter": "napcat-home",
           "group_id": "20001"
         }
       }
@@ -1233,6 +1304,91 @@
     ]
   },
   {
+    "name": "ok.message-send-bot-account.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "subscribe-event",
+        "deadline_at_ms": 1789300060000,
+        "event": {
+          "event_id": "onebot-group-subscribe",
+          "source_protocol": "onebot11",
+          "source_adapter": "napcat-home",
+          "bot_id": "10001",
+          "event_type": "message.group",
+          "timestamp": 1788752625,
+          "actor": {
+            "id": "30001"
+          },
+          "target": {
+            "type": "group",
+            "id": "20001"
+          },
+          "message": {
+            "plain_text": "订阅",
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "订阅"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "subscribe-event",
+        "status": "success",
+        "data": {}
+      },
+      {
+        "type": "action",
+        "request_id": "push-onebot-account",
+        "action": "message.send",
+        "data": {
+          "source_protocol": "onebot11",
+          "bot_id": "10001",
+          "target_type": "group",
+          "target_id": "20001",
+          "message": {
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "按账号推送示例"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "action",
+        "request_id": "push-qq-official-account",
+        "action": "message.send",
+        "data": {
+          "source_protocol": "qqofficial",
+          "bot_id": "1000000000000000001",
+          "target_type": "group",
+          "target_id": "1111111111111111111111111111BBBB",
+          "message": {
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "按账号推送示例"
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
     "name": "ok.message-send.yaml",
     "valid": true,
     "frames": [
@@ -1290,6 +1446,33 @@
         "action": "provider.napcat.group.sign.set",
         "data": {
           "source_adapter": "second-bot",
+          "group_id": "20001"
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.onebot-bot-account.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "group-info-account",
+        "parent_request_id": "scheduler-event",
+        "action": "group.info.get",
+        "data": {
+          "bot_id": "10001",
+          "group_id": "20001"
+        }
+      },
+      {
+        "type": "action",
+        "request_id": "sign-account",
+        "parent_request_id": "scheduler-event",
+        "action": "provider.napcat.group.sign.set",
+        "data": {
+          "bot_id": "10001",
+          "source_protocol": "onebot11",
           "group_id": "20001"
         }
       }

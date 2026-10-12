@@ -22,7 +22,7 @@ type Deps struct {
 	SchedulerDelete      SchedulerDeleteFunc
 	MessageSender        MessageSendFunc
 	Renderer             Renderer
-	ResolveOneBotAdapter func(sourceAdapter, sourceProtocol string) (OneBotAdapter, error)
+	ResolveOneBotAdapter func(sourceAdapter, sourceProtocol, botID string) (OneBotAdapter, error)
 	Governance           GovernanceService
 	// PluginDataRoot holds each plugin's data directory, <root>/<plugin_id>;
 	// render.image reads path resources from the caller's directory.

@@ -887,7 +887,7 @@ codes:
     code: adapter.transport_unavailable
     domain: adapter
     message: 适配器传输当前不可用
-    description: The addressed adapter transport is disabled or stopped and cannot accept requests. The payload itself has not been classified as invalid.
+    description: The addressed adapter transport is disabled or stopped and cannot accept requests, or no connected adapter instance is logged in as the addressed bot account. The payload itself has not been classified as invalid.
     http_status: 503
     retryable: false
     applies_to: [http, websocket, logs, plugin_protocol]

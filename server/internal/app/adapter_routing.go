@@ -11,14 +11,14 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 )
 
-func (s EventState) ResolveOneBotAdapter(sourceAdapter, sourceProtocol string) (actions.OneBotAdapter, error) {
+func (s EventState) ResolveOneBotAdapter(sourceAdapter, sourceProtocol, botID string) (actions.OneBotAdapter, error) {
 	if s.Adapters == nil {
 		return nil, fmt.Errorf("OneBot adapter registry is unavailable")
 	}
 	snapshot := s.Adapters.Snapshot()
 	routes := adapterRoutes(snapshot)
-	router := outbound.NewRouter(routes.Senders, routes.Protocols, func() config.Config { return *routes.Config })
-	id, err := router.ResolveAdapterID(sourceAdapter, sourceProtocol)
+	router := outbound.NewLiveRouter(func() outbound.Routes { return routes })
+	id, err := router.ResolveAdapterID(sourceAdapter, sourceProtocol, botID)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (s EventState) EnrichEventMetadata(ctx context.Context, event chatevent.Nor
 	snapshot := s.Adapters.Snapshot()
 	routes := adapterRoutes(snapshot)
 	router := outbound.NewRouter(routes.Senders, routes.Protocols, func() config.Config { return *routes.Config })
-	id, err := router.ResolveAdapterID(event.SourceAdapter, event.SourceProtocol)
+	id, err := router.ResolveAdapterID(event.SourceAdapter, event.SourceProtocol, "")
 	if err != nil {
 		return event
 	}

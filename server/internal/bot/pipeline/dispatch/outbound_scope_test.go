@@ -1,7 +1,9 @@
 package dispatch
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"testing"
@@ -16,6 +18,81 @@ type outboundPolicyFunc func(context.Context, outbound.MessageLimitRequest) (out
 
 func (f outboundPolicyFunc) Begin(ctx context.Context, request outbound.MessageLimitRequest) (outbound.MessageAdmission, error) {
 	return f(ctx, request)
+}
+
+func TestOutboundAccountAdmissionBindsDeliveryToTheSelectedInstance(t *testing.T) {
+	for _, change := range []string{"none", "reorder", "account changed", "disconnected", "unavailable"} {
+		t.Run(change, func(t *testing.T) {
+			first, second := &fakeSender{}, &fakeSender{}
+			cfg := config.Config{Adapters: []config.AdapterInstance{
+				{ID: "z", Type: "onebot11", Enabled: true}, {ID: "a", Type: "onebot11", Enabled: true},
+			}}
+			connected := map[string]string{"z": "10001", "a": "10001"}
+			if change == "unavailable" {
+				connected = nil
+			}
+			router := outbound.NewLiveRouter(func() outbound.Routes {
+				return outbound.Routes{Config: &cfg, Senders: map[string]outbound.ActionSender{"z": first, "a": second}, Protocols: map[string]string{"z": "onebot11", "a": "onebot11"}, ConnectedBotIDs: connected}
+			})
+			policy := outbound.NewMessagePolicy(cfg, func(scope chatevent.IdentityScope) (chatevent.IdentityScope, error) {
+				return router.ResolveScope(scope, nil)
+			})
+			var logs bytes.Buffer
+			d := New(slog.New(slog.NewJSONHandler(&logs, nil)), router, nil, 1)
+			t.Cleanup(d.Close)
+			d.SetOutboundPolicy(outboundPolicyFunc(func(ctx context.Context, request outbound.MessageLimitRequest) (outbound.MessageAdmission, error) {
+				admission, err := policy.Begin(ctx, request)
+				if change == "unavailable" {
+					var sendErr *chatevent.SendError
+					if !errors.As(err, &sendErr) || sendErr.Code != errorcodes.AdapterTransportUnavailable {
+						t.Fatalf("admitted an unavailable account: %+v, %v", admission, err)
+					}
+					return admission, err
+				}
+				if err != nil || admission.Scope.SourceAdapter != "z" || admission.Scope.BotID != "10001" {
+					t.Fatalf("quota scope=%+v err=%v", admission.Scope, err)
+				}
+				switch change {
+				case "reorder":
+					cfg.Adapters[0], cfg.Adapters[1] = cfg.Adapters[1], cfg.Adapters[0]
+				case "account changed":
+					connected["z"] = "10002"
+				case "disconnected":
+					delete(connected, "z")
+				}
+				return admission, nil
+			}))
+			result, err := d.ExecuteOutboundAction(t.Context(), "fixture", "request", chatevent.Event{SourceProtocol: "onebot11", SourceAdapter: "a", BotID: "parent"},
+				chatevent.MessageCommand{Kind: "message.send", SourceProtocol: "onebot11", BotID: "10001", TargetType: "group", TargetID: "200"})
+			var entry struct {
+				SourceAdapter string `json:"source_adapter"`
+				BotID         string `json:"self_id"`
+			}
+			if err := json.Unmarshal(logs.Bytes(), &entry); err != nil {
+				t.Fatal(err)
+			}
+			wantAdapter := "z"
+			if change == "unavailable" {
+				wantAdapter = ""
+			}
+			if entry.SourceAdapter != wantAdapter || entry.BotID != "10001" {
+				t.Fatalf("observation used another route: %+v", entry)
+			}
+			if len(second.messages) != 0 {
+				t.Fatal("delivery switched away from the admitted instance")
+			}
+			if change == "none" || change == "reorder" {
+				if err != nil || result.SourceAdapter != "z" || len(first.messages) != 1 {
+					t.Fatalf("delivery=%+v err=%v messages=%v", result, err, first.messages)
+				}
+			} else {
+				var sendErr *chatevent.SendError
+				if !errors.As(err, &sendErr) || sendErr.Code != errorcodes.AdapterTransportUnavailable || len(first.messages) != 0 {
+					t.Fatalf("unavailable route: err=%v messages=%v", err, first.messages)
+				}
+			}
+		})
+	}
 }
 
 func TestOutboundAdmissionDoesNotRerouteAfterAdapterSwitch(t *testing.T) {
@@ -62,7 +139,7 @@ func TestOutboundAdmissionPreservesChatParentAdapter(t *testing.T) {
 				map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"}, func() config.Config { return cfg })
 			d := New(slog.Default(), router, nil, 1)
 			t.Cleanup(d.Close)
-			d.SetOutboundPolicy(outbound.NewMessagePolicy(cfg, func(scope chatevent.IdentityScope) chatevent.IdentityScope {
+			d.SetOutboundPolicy(outbound.NewMessagePolicy(cfg, func(scope chatevent.IdentityScope) (chatevent.IdentityScope, error) {
 				if scope.SourceAdapter != "qq-official" || scope.SourceProtocol != "qqofficial" {
 					t.Errorf("quota admission lost the parent adapter: %+v", scope)
 				}

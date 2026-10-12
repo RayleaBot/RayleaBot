@@ -17,6 +17,13 @@ func TestParseOneBotFamilyActionRejectsNonObjectData(t *testing.T) {
 func TestParseOneBotFamilyActionSeparatesRoutingFromProviderArguments(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"group.info.get", "provider.napcat.group.sign.set"} {
+		account, err := ParseLocalAction(kind, json.RawMessage(`{"bot_id":"10001","source_protocol":"onebot11","group_id":"20001"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if account.BotID != "10001" || account.SourceAdapter != "" || account.SourceProtocol != "onebot11" || len(account.RawData) != 1 || account.RawData["group_id"] != "20001" {
+			t.Fatalf("account selector leaked into provider arguments: %#v", account)
+		}
 		action, err := ParseLocalAction(kind, json.RawMessage(`{"source_adapter":"second-bot","source_protocol":"onebot11","group_id":"20001"}`))
 		if err != nil {
 			t.Fatal(err)
@@ -32,6 +39,7 @@ func TestParseOneBotFamilyActionRejectsInvalidSelectors(t *testing.T) {
 	for _, raw := range []string{
 		`{"source_adapter":null}`, `{"source_adapter":12}`, `{"source_adapter":""}`, `{"source_adapter":"invalid.id"}`,
 		`{"source_protocol":null}`, `{"source_protocol":12}`, `{"source_protocol":""}`, `{"source_protocol":"qqofficial"}`,
+		`{"bot_id":null}`, `{"bot_id":12}`, `{"bot_id":""}`, `{"bot_id":"10001","source_adapter":"second-bot"}`,
 	} {
 		for _, kind := range []string{"group.info.get", "provider.napcat.group.sign.set"} {
 			_, err := ParseLocalAction(kind, json.RawMessage(raw))

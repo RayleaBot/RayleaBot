@@ -99,14 +99,16 @@ type OutboundMessageSend struct {
 	// Origin is host-only context for adapter routing and passive delivery.
 	Origin *Event
 	// SourceAdapter names the adapter instance that must deliver this message,
-	// and SourceProtocol the protocol it speaks. When both are empty, routing
+	// and SourceProtocol the protocol it speaks. When all selectors are empty, routing
 	// inherits the chat origin's instance, or requires one enabled instance
 	// when there is no chat origin.
 	SourceAdapter  string
 	SourceProtocol string
-	TargetType     string
-	TargetID       string
-	Segments       []MessageSegment
+	// BotID selects a currently connected account within SourceProtocol.
+	BotID      string
+	TargetType string
+	TargetID   string
+	Segments   []MessageSegment
 }
 
 type OutboundMessageReply struct {

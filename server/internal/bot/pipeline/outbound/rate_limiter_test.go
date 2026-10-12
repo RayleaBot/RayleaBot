@@ -12,9 +12,9 @@ import (
 
 func TestOutboundQuotaUsesResolvedBotNamespace(t *testing.T) {
 	botID := "bot-a"
-	policy := NewMessagePolicy(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "3/1h"}}, func(scope chatevent.IdentityScope) chatevent.IdentityScope {
+	policy := NewMessagePolicy(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "3/1h"}}, func(scope chatevent.IdentityScope) (chatevent.IdentityScope, error) {
 		scope.BotID = botID
-		return scope
+		return scope, nil
 	})
 	request := MessageLimitRequest{Scope: chatevent.IdentityScope{Kind: "instance", SourceProtocol: "qqofficial", SourceAdapter: "qq"}, TargetType: "group", TargetID: "same-id"}
 	for range 3 {

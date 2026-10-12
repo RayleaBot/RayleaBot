@@ -12,6 +12,7 @@ type Action struct {
 	RawData                   map[string]any
 	SourceProtocol            string
 	SourceAdapter             string
+	BotID                     string
 	TargetType                string
 	TargetID                  string
 	ReplyToEventID            string
@@ -70,6 +71,7 @@ func (a Action) MessageCommand() chatevent.MessageCommand {
 		Kind:                    kind,
 		SourceProtocol:          a.SourceProtocol,
 		SourceAdapter:           a.SourceAdapter,
+		BotID:                   a.BotID,
 		TargetType:              a.TargetType,
 		TargetID:                a.TargetID,
 		ReplyToEventID:          a.ReplyToEventID,

@@ -1,0 +1,20 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: action
+    request_id: group-info-account
+    parent_request_id: scheduler-event
+    action: group.info.get
+    data:
+      bot_id: "10001"
+      group_id: "20001"
+  - type: action
+    request_id: sign-account
+    parent_request_id: scheduler-event
+    action: provider.napcat.group.sign.set
+    data:
+      bot_id: "10001"
+      source_protocol: onebot11
+      group_id: "20001"
+expect:
+  valid: true

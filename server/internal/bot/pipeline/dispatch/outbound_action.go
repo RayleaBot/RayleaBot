@@ -23,7 +23,7 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		}
 	}
 
-	if action.Kind == "message.send" {
+	if action.Kind == "message.send" && action.BotID == "" {
 		action.SourceAdapter, action.SourceProtocol = outbound.InheritChatSource(action.SourceAdapter, action.SourceProtocol, &event)
 	}
 	commandName := commandNameForEvent(event)
@@ -45,7 +45,6 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		TargetID:       targetID,
 		Segments:       chatevent.CloneMessageSegments(action.MessageSegments),
 	}
-	targetLabel := buildOutboundTargetLabel(ctx, event, targetType, targetID, d.sender)
 	limitTargetType, limitTargetID, limitScope := d.limitTargetForAction(action)
 	if strings.TrimSpace(limitTargetType) == "" {
 		limitTargetType = targetType
@@ -63,13 +62,25 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 	if admission.Scope.SourceAdapter != "" {
 		attempt.SourceAdapter, attempt.SourceProtocol = admission.Scope.SourceAdapter, admission.Scope.SourceProtocol
 	}
+	logEvent := event
+	if action.Kind == "message.send" && action.BotID != "" {
+		logEvent = chatevent.Event{SourceAdapter: attempt.SourceAdapter, SourceProtocol: attempt.SourceProtocol, BotID: action.BotID}
+	}
+	targetLabel := buildOutboundTargetLabel(ctx, logEvent, targetType, targetID, d.sender)
+	logIdentity := func(adapterID string) (string, string) {
+		botID, nickname := buildOutboundBotIdentity(adapterID, logEvent, d.sender)
+		if action.Kind == "message.send" && action.BotID != "" && botID != action.BotID {
+			return action.BotID, ""
+		}
+		return botID, nickname
+	}
 	if err != nil {
 		result := outbound.SendResult{
 			DeliveryKind: action.Kind,
 			TargetType:   limitTargetType,
 			TargetID:     limitTargetID,
 		}
-		botID, botNickname := buildOutboundBotIdentity(attempt.SourceAdapter, event, d.sender)
+		botID, botNickname := logIdentity(attempt.SourceAdapter)
 		outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 			PluginID:    pluginID,
 			RequestID:   requestID,
@@ -89,7 +100,7 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 	if deliveredBy == "" {
 		deliveredBy = attempt.SourceAdapter
 	}
-	botID, botNickname := buildOutboundBotIdentity(deliveredBy, event, d.sender)
+	botID, botNickname := logIdentity(deliveredBy)
 	outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 		PluginID:    pluginID,
 		RequestID:   requestID,
@@ -117,7 +128,7 @@ func (d *Dispatcher) limitTargetForAction(action chatevent.MessageCommand) (stri
 			return target.TargetType, target.TargetID, chatevent.IdentityScope{Kind: "instance", SourceAdapter: target.SourceAdapter, SourceProtocol: target.SourceProtocol, BotID: target.BotID}
 		}
 	}
-	return action.TargetType, action.TargetID, chatevent.IdentityScope{Kind: "instance", SourceAdapter: action.SourceAdapter, SourceProtocol: action.SourceProtocol}
+	return action.TargetType, action.TargetID, chatevent.IdentityScope{Kind: "instance", SourceAdapter: action.SourceAdapter, SourceProtocol: action.SourceProtocol, BotID: action.BotID}
 }
 
 func commandNameForEvent(event chatevent.Event) string {

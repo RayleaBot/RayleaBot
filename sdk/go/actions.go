@@ -15,6 +15,7 @@ type ActionResult map[string]any
 type Actions struct {
 	event         *EventContext
 	oneBotAdapter *string
+	oneBotAccount *string
 }
 
 func (actions *Actions) TimeLocation() *time.Location { return actions.event.Location }
@@ -142,6 +143,9 @@ type MessageSendRequest struct {
 	// SourceAdapter selects a configured instance, including when several
 	// enabled instances speak the same protocol.
 	SourceAdapter string `json:"source_adapter,omitempty"`
+	// BotID selects a bot account. It requires SourceProtocol and cannot be
+	// combined with SourceAdapter.
+	BotID string `json:"bot_id,omitempty"`
 	// SourceProtocol constrains the protocol of SourceAdapter. On its own it
 	// must select exactly one enabled instance; replies use their event ID.
 	SourceProtocol          string     `json:"source_protocol,omitempty"`
@@ -158,6 +162,17 @@ type MessageOut struct {
 
 func (actions *Actions) MessageSend(ctx context.Context, request MessageSendRequest) (ActionResult, error) {
 	return actions.callResult(ctx, "message.send", request)
+}
+
+// SendTo delivers through the currently connected instance serving the address's account.
+func (actions *Actions) SendTo(ctx context.Context, address Address, segments ...Segment) (ActionResult, error) {
+	return actions.MessageSend(ctx, MessageSendRequest{
+		SourceProtocol: address.SourceProtocol,
+		BotID:          address.BotID,
+		TargetType:     address.TargetType,
+		TargetID:       address.TargetID,
+		Message:        MessageOut{Segments: segments},
+	})
 }
 
 type LoggerWriteRequest struct {

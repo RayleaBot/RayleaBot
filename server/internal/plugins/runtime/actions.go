@@ -392,6 +392,9 @@ func parseMessageSendAction(raw json.RawMessage) (*plugins.Action, error) {
 	if frame.SourceAdapter != nil && !adapterInstanceIDPattern.MatchString(*frame.SourceAdapter) {
 		return nil, errorf(codePluginProtocolViolation, "message.send source_adapter must be a configured instance ID", nil)
 	}
+	if frame.BotID != "" && (strings.TrimSpace(frame.SourceProtocol) == "" || frame.SourceAdapter != nil) {
+		return nil, errorf(codePluginProtocolViolation, "message.send bot_id requires source_protocol and excludes source_adapter", nil)
+	}
 
 	targetType, targetID, err := validateActionTarget(frame.TargetType, frame.TargetID, "message.send")
 	if err != nil {
@@ -410,6 +413,7 @@ func parseMessageSendAction(raw json.RawMessage) (*plugins.Action, error) {
 		Kind:                    "message.send",
 		SourceProtocol:          strings.TrimSpace(frame.SourceProtocol),
 		SourceAdapter:           stringValue(frame.SourceAdapter),
+		BotID:                   frame.BotID,
 		TargetType:              targetType,
 		TargetID:                targetID,
 		ReplyToEventID:          replyToEventID,

@@ -84,7 +84,7 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
-	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return shell, nil }
+	deps.ResolveOneBotAdapter = func(string, string, string) (localaction.OneBotAdapter, error) { return shell, nil }
 	application := localaction.New(deps)
 
 	result, err := application.Execute(context.Background(), "weather", "req_hist", plugins.Action{
@@ -138,7 +138,7 @@ func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
+	deps.ResolveOneBotAdapter = func(string, string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
 	application := localaction.New(deps)
 
 	_, err := application.Execute(context.Background(), "weather", "req_provider", plugins.Action{
@@ -242,7 +242,7 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return shell, nil }
+	deps.ResolveOneBotAdapter = func(string, string, string) (localaction.OneBotAdapter, error) { return shell, nil }
 	application := localaction.New(deps)
 
 	_, err := application.Execute(context.Background(), "weather", "req_provider", plugins.Action{
@@ -279,7 +279,7 @@ func TestExecuteOneBotLocalActionConnectionLossReturnsConnectionLost(t *testing.
 
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
+	deps.ResolveOneBotAdapter = func(string, string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
 	application := localaction.New(deps)
 
 	_, err := application.Execute(context.Background(), "weather", "req_hist_disconnected", plugins.Action{

@@ -5,6 +5,7 @@ type MessageCommand struct {
 	Kind                    string
 	SourceProtocol          string
 	SourceAdapter           string
+	BotID                   string
 	TargetType              string
 	TargetID                string
 	ReplyToEventID          string

@@ -13,22 +13,26 @@ import (
 )
 
 type routingTable struct {
-	messageSent   func(string, string)
-	senders       map[string]ActionSender
-	protocols     map[string]string
-	currentConfig func() config.Config
+	messageSent     func(string, string)
+	senders         map[string]ActionSender
+	protocols       map[string]string
+	connectedBotIDs map[string]string
+	currentConfig   func() config.Config
 }
 
 // Routes is a consistent membership and configuration snapshot for one operation.
 type Routes struct {
 	Senders   map[string]ActionSender
 	Protocols map[string]string
-	Config    *config.Config
+	// ConnectedBotIDs contains only currently connected, confirmed accounts.
+	ConnectedBotIDs map[string]string
+	Config          *config.Config
 }
 
 // Router sends each outbound message through the adapter instance that
 // owns the conversation. Replies and sends without source fields inherit their
-// chat event's instance. Other sends must select exactly one enabled instance.
+// chat event's instance. Account sends select the first connected instance in
+// configuration order; other sends must select exactly one enabled instance.
 type Router struct {
 	snapshot func() *routingTable
 }
@@ -53,7 +57,7 @@ func NewLiveRouter(source func() Routes, observers ...func(string, string)) *Rou
 	}
 	return &Router{snapshot: func() *routingTable {
 		routes := source()
-		table := &routingTable{senders: routes.Senders, protocols: routes.Protocols, messageSent: messageSent}
+		table := &routingTable{senders: routes.Senders, protocols: routes.Protocols, connectedBotIDs: routes.ConnectedBotIDs, messageSent: messageSent}
 		if routes.Config != nil {
 			table.currentConfig = func() config.Config { return *routes.Config }
 		}
@@ -67,8 +71,8 @@ func (r *Router) SendMessage(ctx context.Context, message chatevent.OutboundMess
 func (r *Router) SendReply(ctx context.Context, message chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
 	return r.snapshot().SendReply(ctx, message)
 }
-func (r *Router) ResolveAdapterID(adapter, protocol string) (string, error) {
-	return r.snapshot().ResolveAdapterID(adapter, protocol)
+func (r *Router) ResolveAdapterID(adapter, protocol, botID string) (string, error) {
+	return r.snapshot().ResolveAdapterID(adapter, protocol, botID)
 }
 func (r *Router) ResolveTargetName(ctx context.Context, adapter, targetType, targetID string) string {
 	return r.snapshot().ResolveTargetName(ctx, adapter, targetType, targetID)
@@ -76,13 +80,15 @@ func (r *Router) ResolveTargetName(ctx context.Context, adapter, targetType, tar
 func (r *Router) ResolveBotDisplay(adapter string) (string, string) {
 	return r.snapshot().ResolveBotDisplay(adapter)
 }
-func (r *Router) ResolveScope(scope chatevent.IdentityScope, identities []chatevent.BotIdentity) chatevent.IdentityScope {
+func (r *Router) ResolveScope(scope chatevent.IdentityScope, identities []chatevent.BotIdentity) (chatevent.IdentityScope, error) {
 	return r.snapshot().ResolveScope(scope, identities)
 }
 
 func (r *routingTable) SendMessage(ctx context.Context, message chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
-	message.SourceAdapter, message.SourceProtocol = InheritChatSource(message.SourceAdapter, message.SourceProtocol, message.Origin)
-	id, err := r.ResolveAdapterID(message.SourceAdapter, message.SourceProtocol)
+	if message.BotID == "" {
+		message.SourceAdapter, message.SourceProtocol = InheritChatSource(message.SourceAdapter, message.SourceProtocol, message.Origin)
+	}
+	id, err := r.ResolveAdapterID(message.SourceAdapter, message.SourceProtocol, message.BotID)
 	if err != nil {
 		return chatevent.SendMessageResult{SourceAdapter: message.SourceAdapter, SourceProtocol: message.SourceProtocol}, err
 	}
@@ -107,7 +113,7 @@ func InheritChatSource(adapter, protocol string, origin *chatevent.Event) (strin
 }
 
 func (r *routingTable) SendReply(ctx context.Context, message chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
-	id, err := r.ResolveAdapterID(message.SourceAdapter, message.SourceProtocol)
+	id, err := r.ResolveAdapterID(message.SourceAdapter, message.SourceProtocol, "")
 	if err != nil {
 		return chatevent.SendMessageResult{SourceAdapter: message.SourceAdapter, SourceProtocol: message.SourceProtocol}, err
 	}
@@ -124,7 +130,23 @@ func (r *routingTable) SendReply(ctx context.Context, message chatevent.Outbound
 // Target identifiers are namespaced per adapter, so
 // delivering to the wrong one would either fail confusingly or reach an
 // unrelated conversation that happens to share an id.
-func (r *routingTable) ResolveAdapterID(sourceAdapter, sourceProtocol string) (string, error) {
+func (r *routingTable) ResolveAdapterID(sourceAdapter, sourceProtocol, botID string) (string, error) {
+	if botID != "" {
+		if r.currentConfig != nil {
+			for _, instance := range r.currentConfig().Adapters {
+				// An adapter bound during quota admission must still serve this account.
+				if sourceAdapter != "" && sourceAdapter != instance.ID {
+					continue
+				}
+				if instance.Enabled && instance.Type == sourceProtocol && r.protocols[instance.ID] == sourceProtocol && r.connectedBotIDs[instance.ID] == botID {
+					if _, ok := r.senders[instance.ID]; ok {
+						return instance.ID, nil
+					}
+				}
+			}
+		}
+		return "", routeFailure(errorcodes.AdapterTransportUnavailable, "outbound: no connected %s adapter is logged in as bot %q", sourceProtocol, botID)
+	}
 	if adapterID := strings.TrimSpace(sourceAdapter); adapterID != "" {
 		_, ok := r.activeSender(adapterID)
 		if !ok {
@@ -245,22 +267,28 @@ func (r *routingTable) activeSenders() map[string]ActionSender {
 
 // ResolveScope uses the same adapter selection as delivery; unknown or
 // ambiguous routes remain isolated from valid target quotas.
-func (r *routingTable) ResolveScope(scope chatevent.IdentityScope, identities []chatevent.BotIdentity) chatevent.IdentityScope {
-	if scope.BotID != "" {
-		return scope
+func (r *routingTable) ResolveScope(scope chatevent.IdentityScope, identities []chatevent.BotIdentity) (chatevent.IdentityScope, error) {
+	if scope.BotID != "" && scope.SourceAdapter != "" {
+		return scope, nil
 	}
-	id, err := r.ResolveAdapterID(scope.SourceAdapter, scope.SourceProtocol)
+	id, err := r.ResolveAdapterID(scope.SourceAdapter, scope.SourceProtocol, scope.BotID)
 	if err != nil {
-		return scope
+		if scope.BotID != "" {
+			return scope, err
+		}
+		return scope, nil
 	}
 	scope.Kind, scope.SourceAdapter, scope.SourceProtocol = "instance", id, r.protocols[id]
+	if scope.BotID != "" {
+		return scope, nil
+	}
 	for _, identity := range identities {
 		if identity.SourceAdapter == id && identity.SourceProtocol == scope.SourceProtocol {
 			scope.BotID = identity.ID
 			break
 		}
 	}
-	return scope
+	return scope, nil
 }
 
 func routeFailure(code, format string, args ...any) error {

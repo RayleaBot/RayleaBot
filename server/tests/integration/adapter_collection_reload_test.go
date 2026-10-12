@@ -118,7 +118,7 @@ func TestAdapterCollectionReloadKeepsIngressAndOutboundTogether(t *testing.T) {
 		if _, ok := service.OneBot11Ingress(id); ok {
 			t.Fatalf("removed ingress %s survived", id)
 		}
-		if _, err := router.ResolveAdapterID(id, "onebot11"); err == nil {
+		if _, err := router.ResolveAdapterID(id, "onebot11", ""); err == nil {
 			t.Fatalf("removed route %s survived", id)
 		}
 		if old.Snapshot().State != onebot11.StateStopped {
@@ -164,7 +164,7 @@ func TestAdapterCollectionReloadKeepsIngressAndOutboundTogether(t *testing.T) {
 			}
 			service.Adapters()
 			service.OneBot11Ingress("added")
-			if id, err := router.ResolveAdapterID("steady", "onebot11"); err != nil || id != "steady" {
+			if id, err := router.ResolveAdapterID("steady", "onebot11", ""); err != nil || id != "steady" {
 				t.Errorf("unchanged route = %q, %v", id, err)
 				return
 			}

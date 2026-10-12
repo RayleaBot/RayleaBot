@@ -154,6 +154,7 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 		result, err := sender.SendMessage(ctx, chatevent.OutboundMessageSend{
 			Origin:         &origin,
 			SourceAdapter:  action.SourceAdapter,
+			BotID:          action.BotID,
 			SourceProtocol: action.SourceProtocol,
 			TargetType:     action.TargetType,
 			TargetID:       action.TargetID,

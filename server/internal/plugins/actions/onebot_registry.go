@@ -139,7 +139,7 @@ type oneBotActionRequest struct {
 	PluginID       string
 	Action         plugins.Action
 	ParentEvent    chatevent.Event
-	ResolveAdapter func(string, string) (OneBotAdapter, error)
+	ResolveAdapter func(string, string, string) (OneBotAdapter, error)
 }
 
 func executeOneBotAction(ctx context.Context, req oneBotActionRequest) (map[string]any, error) {
@@ -161,8 +161,16 @@ func executeOneBotAction(ctx context.Context, req oneBotActionRequest) (map[stri
 			Message: "OneBot adapter 不可用",
 		}
 	}
-	adapter, err := req.ResolveAdapter(sourceAdapter, "onebot11")
+	botID := req.Action.BotID
+	if sourceAdapter != "" {
+		botID = ""
+	}
+	adapter, err := req.ResolveAdapter(sourceAdapter, "onebot11", botID)
 	if err != nil {
+		var sendErr *chatevent.SendError
+		if botID != "" && errors.As(err, &sendErr) && sendErr.Code == errorcodes.AdapterTransportUnavailable {
+			return nil, &plugins.Error{Code: sendErr.Code, Message: sendErr.Message}
+		}
 		return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: err.Error()}
 	}
 	if adapter == nil {
@@ -191,6 +199,9 @@ func oneBotActionSource(action plugins.Action, parent chatevent.Event) (string, 
 	sourceAdapter := strings.TrimSpace(action.SourceAdapter)
 	switch parent.SourceProtocol {
 	case "onebot11":
+		if action.BotID != "" && action.BotID != parent.BotID {
+			return invalid("OneBot action bot_id conflicts with its parent event")
+		}
 		parentAdapter := strings.TrimSpace(parent.SourceAdapter)
 		if parentAdapter == "" {
 			return invalid("OneBot parent event is missing source_adapter")

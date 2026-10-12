@@ -14,7 +14,7 @@
 - Launcher 检测到 `user.yaml` 缺失且服务端程序可用时，会执行配置初始化并重新检查环境，再启动服务。
 - 日志和诊断输出会过滤 `Authorization`、`access_token`、`token` 等敏感键。
 - `adapters` 是已配置的聊天适配器实例列表，缺省为空表示不接收任何聊天流量。每个实例由 `id` 命名，`type` 决定生效的设置块（`onebot11` 或 `qqofficial`）；同一协议可以配置多个实例，各自持有自己的凭据与入站地址。
-- `id` 决定实例的对外身份：它出现在事件的 `source_adapter`、出站路由、secret store 键名以及入站地址 `/api/adapters/{id}/reverse-ws`。重命名实例等于重新标识该适配器，并改变上述地址，需要同步修改协议端的回连配置。
+- `id` 决定实例的对外身份：它出现在事件的 `source_adapter`、出站路由、secret store 键名以及入站地址 `/api/adapters/{id}/reverse-ws`。重命名实例等于重新标识该适配器，并改变上述地址，需要同步修改协议端的回连配置。插件按协议和机器人账号保存的投递地址不依赖实例 id：删除连接后新建一条并登录同一账号，这些投递继续有效。
 - 通过管理端保存 OneBot11 访问令牌时，明文值写入本地 secret store，`user.yaml` 只保存 `secret://adapters/<实例 id>/onebot11/<transport>/access_token` 引用。
 - QQ 开放平台官方机器人以 `type: qqofficial` 的实例接入。`app_id` 不是机密；`app_secret` 与 OneBot 访问令牌同样处理，明文写入 secret store，`user.yaml` 只保存 `secret://adapters/<实例 id>/qqofficial/app_secret` 引用。
 - `qqofficial.intents` 按名称声明订阅的事件族，适配器负责映射为网关位掩码；名称集合由 schema 约束，写入未知名称会被拒绝。

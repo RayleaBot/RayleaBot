@@ -1,0 +1,13 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: action
+    request_id: group-info-account-and-instance
+    parent_request_id: scheduler-event
+    action: group.info.get
+    data:
+      bot_id: "10001"
+      source_adapter: napcat-home
+      group_id: "20001"
+expect:
+  valid: false

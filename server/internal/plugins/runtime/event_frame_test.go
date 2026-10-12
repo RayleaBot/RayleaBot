@@ -9,6 +9,24 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
+func TestBuildEventFrameCarriesBotAccountWhenKnown(t *testing.T) {
+	for _, botID := range []string{"10001", ""} {
+		frame := BuildEventFrame(chatevent.Event{BotID: botID}, "request", time.Now())
+		encoded, err := json.Marshal(frame.Event)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fields map[string]any
+		if err := json.Unmarshal(encoded, &fields); err != nil {
+			t.Fatal(err)
+		}
+		value, present := fields["bot_id"]
+		if present != (botID != "") || present && value != botID {
+			t.Fatalf("bot_id=%v present=%v, want %q", value, present, botID)
+		}
+	}
+}
+
 func TestBuildEventFramePreservesEmptyIdentitySnapshot(t *testing.T) {
 	t.Parallel()
 	frame := BuildEventFrame(chatevent.Event{

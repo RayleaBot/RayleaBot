@@ -84,6 +84,13 @@ func (actions *Actions) ForOneBotAdapter(adapterID string) *Actions {
 	return &Actions{event: actions.event, oneBotAdapter: &adapterID}
 }
 
+// ForOneBotAccount returns an independent view whose typed OneBot and provider
+// helpers select the account, replacing any adapter selector. A OneBot chat
+// parent must belong to the same account and retains its adapter instance.
+func (actions *Actions) ForOneBotAccount(botID string) *Actions {
+	return &Actions{event: actions.event, oneBotAccount: &botID}
+}
+
 func (actions *Actions) oneBotResult(ctx context.Context, action OneBotAction, request any) (ActionResult, error) {
 	return actions.routedOneBotResult(ctx, string(action), request)
 }
@@ -93,7 +100,7 @@ func (actions *Actions) providerResult(ctx context.Context, action ProviderActio
 }
 
 func (actions *Actions) routedOneBotResult(ctx context.Context, action string, request any) (ActionResult, error) {
-	if actions == nil || actions.oneBotAdapter == nil {
+	if actions == nil || (actions.oneBotAdapter == nil && actions.oneBotAccount == nil) {
 		return actions.callResult(ctx, action, request)
 	}
 	data, err := json.Marshal(request)
@@ -107,7 +114,11 @@ func (actions *Actions) routedOneBotResult(ctx context.Context, action string, r
 	if fields == nil {
 		fields = make(map[string]json.RawMessage)
 	}
-	fields["source_adapter"], _ = json.Marshal(*actions.oneBotAdapter)
+	if actions.oneBotAccount != nil {
+		fields["bot_id"], _ = json.Marshal(*actions.oneBotAccount)
+	} else {
+		fields["source_adapter"], _ = json.Marshal(*actions.oneBotAdapter)
+	}
 	fields["source_protocol"] = json.RawMessage(`"onebot11"`)
 	return actions.callResult(ctx, action, fields)
 }

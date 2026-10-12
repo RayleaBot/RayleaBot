@@ -9,11 +9,11 @@ import (
 
 // MessagePolicy resolves the sending identity before applying outbound limits.
 type MessagePolicy struct {
-	resolveScope func(chatevent.IdentityScope) chatevent.IdentityScope
+	resolveScope func(chatevent.IdentityScope) (chatevent.IdentityScope, error)
 	Limiter      *MessageRateLimiter
 }
 
-func NewMessagePolicy(cfg config.Config, resolveScope func(chatevent.IdentityScope) chatevent.IdentityScope) *MessagePolicy {
+func NewMessagePolicy(cfg config.Config, resolveScope func(chatevent.IdentityScope) (chatevent.IdentityScope, error)) *MessagePolicy {
 	return &MessagePolicy{resolveScope: resolveScope, Limiter: NewMessageRateLimiter(cfg)}
 }
 
@@ -24,25 +24,37 @@ func (p *MessagePolicy) ApplyConfig(cfg config.Config) {
 }
 
 func (p *MessagePolicy) Wait(ctx context.Context, request MessageLimitRequest) error {
-	return p.Limiter.Wait(ctx, p.resolve(request))
+	request, err := p.resolve(request)
+	if err != nil {
+		return err
+	}
+	return p.Limiter.Wait(ctx, request)
 }
 
 func (p *MessagePolicy) TryAdmit(request MessageLimitRequest) error {
-	return p.Limiter.TryAdmit(p.resolve(request))
+	request, err := p.resolve(request)
+	if err != nil {
+		return err
+	}
+	return p.Limiter.TryAdmit(request)
 }
 
-func (p *MessagePolicy) resolve(request MessageLimitRequest) MessageLimitRequest {
+func (p *MessagePolicy) resolve(request MessageLimitRequest) (MessageLimitRequest, error) {
+	var err error
 	if p.resolveScope != nil {
-		request.Scope = p.resolveScope(request.Scope)
+		request.Scope, err = p.resolveScope(request.Scope)
 	}
-	return request
+	return request, err
 }
 
 // Begin binds quota admission to one identity snapshot, even if the adapter
 // reconnects while the send is in flight.
 func (p *MessagePolicy) Begin(ctx context.Context, request MessageLimitRequest) (MessageAdmission, error) {
-	request = p.resolve(request)
-	err := p.Limiter.Wait(ctx, request)
+	request, err := p.resolve(request)
+	if err != nil {
+		return MessageAdmission{Scope: request.Scope}, err
+	}
+	err = p.Limiter.Wait(ctx, request)
 	return MessageAdmission{Scope: request.Scope}, err
 }
 

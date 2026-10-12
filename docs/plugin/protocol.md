@@ -55,7 +55,9 @@ manifest 的 `events` 是唯一普通事件订阅来源。省略或空数组表�
 
 OneBot 消息、notice、request 与 meta 事件继续使用正式 `event_type` 枚举。消息文本位于 `event.message.plain_text`，结构化段位于 `event.message.segments`。
 
-平台原生字段位于 `event.payload.onebot`，它是形状闭合的归一化投影而非原始上报帧透传，只在 `event.source_protocol` 为 `onebot11` 时出现；读取前先判断 `source_protocol`。`event.actor.id` 与 `event.target.id` 属于该协议的身份命名空间，并限定于接收事件的 bot 身份，不能当作跨协议的全局标识。
+平台原生字段位于 `event.payload.onebot`，它是形状闭合的归一化投影而非原始上报帧透传，只在 `event.source_protocol` 为 `onebot11` 时出现；读取前先判断 `source_protocol`。`event.actor.id` 与 `event.target.id` 属于该协议的身份命名空间，并限定于接收事件的机器人账号，不能当作跨协议的全局标识。
+
+聊天事件在账号已知时携带 `event.bot_id`，即接收事件的机器人账号：OneBot11 为 QQ 号，QQ 官方为机器人的 user id；平台事件不带。`source_protocol`、`bot_id` 与 `target` 组成投递地址，连接被删除重建或改名后仍然有效。插件需要以后再往同一会话发消息时，保存这个地址而不是 `source_adapter`。
 
 ### 计划任务触发
 
@@ -74,7 +76,7 @@ SDK 在调用事件 handler 前原子替换配置快照。每个 `EventContext.C
 
 `bot.identities.changed` 是来源为 `platform` / `adapters.internal` 的控制事件，`payload.bots` 是完整身份列表。SDK 在执行 handler 前替换列表；空数组清除旧身份。列表按 `source_adapter` 排序，每个适配器实例最多一个身份，停用实例从列表移除。暂时重连与已确认身份是不同状态，连接失败仍通过对应动作结果表达。
 
-Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根据聊天事件的 `source_adapter` 和 `source_protocol` 选择对应身份。平台内部事件仅在列表恰好有一个身份时提供该便利值，多实例时为空；插件应明确选择目标实例。相同字符串 ID 在不同实例中属于不同身份。
+Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根据聊天事件的 `source_adapter` 和 `source_protocol` 选择对应身份。平台内部事件仅在列表恰好有一个身份时提供该便利值，多实例时为空；插件应明确选择目标账号。同一协议下 ID 相同即为同一账号，几个实例登录同一账号时各有一条。
 
 宿主只接受协议 v4 握手，旧协议版本的 SDK 不能与当前宿主通信；插件须用当前 SDK 重新构建，其他语言实现按 `contracts/plugin-protocol.schema.json` 更新。
 
@@ -168,16 +170,20 @@ Go SDK 的 `CallService` 在本地 context 结束时返回错误，并保留响�
 
 ### OneBot 与 provider 实例选择
 
-OneBot 和 provider 扩展动作从 OneBot 父事件继承 `source_adapter`。主动动作可以在 `data` 中指定 `source_adapter`，可选的 `source_protocol` 只允许 `onebot11`；这些字段只供宿主选路，不转发给 provider。
+OneBot 和 provider 扩展动作从 OneBot 父事件继承 `source_adapter`。主动动作可以在 `data` 中用 `bot_id` 指定机器人账号（QQ 号），或用 `source_adapter` 指定实例，两者不能同时出现；可选的 `source_protocol` 只允许 `onebot11`。这些字段只供宿主选路，不转发给 provider。
 
-平台内部事件不指定聊天实例。没有实例选择信息时，必须恰好有一个已启用的 OneBot11 实例。实例未知、停用、已移除、协议不匹配、选择存在歧义，或显式选择与聊天父事件冲突时，宿主返回 `plugin.protocol_violation`，不会发出 API 请求。其他聊天协议的父事件不能调用 OneBot 动作。
+按账号选择时，宿主使用当前已连接且登录着该账号的 OneBot11 实例，有多个时取配置中的第一个；没有时返回 `adapter.transport_unavailable`，不会发出 API 请求。聊天父事件来自 OneBot 时，`bot_id` 必须等于父事件的账号。
+
+平台内部事件不指定聊天实例。没有选择信息时，必须恰好有一个已启用的 OneBot11 实例。实例未知、停用、已移除、协议不匹配、选择存在歧义，或显式选择与聊天父事件冲突时，宿主返回 `plugin.protocol_violation`，不会发出 API 请求。其他聊天协议的父事件不能调用 OneBot 动作。
 
 ### 消息发送与回复
 
 插件只发送 `message.send` action：
 
-- 普通发送提供目标和 segments；`source_adapter` 指定配置中的适配器实例 ID。
-- 只提供 `source_protocol` 时，该协议必须恰好有一个已启用实例。两个字段都不提供时，动作的父事件来自聊天适配器（插件正在处理的消息或通知）则沿用该事件的实例，否则必须全局恰好有一个已启用实例。两个字段同时提供时，实例与协议必须匹配。
+- 普通发送提供目标和 segments，并用以下方式之一选路。
+- 按账号：同时提供 `source_protocol` 和 `bot_id`，不能再带 `source_adapter`。宿主通过当前已连接且登录着该账号的实例发送，有多个时取配置中的第一个；没有时返回 `adapter.transport_unavailable`，不发送。定时推送、订阅通知这类以后才发的消息使用这种方式，地址取自当初事件的 `source_protocol`、`bot_id` 与 `target`。
+- 按实例：`source_adapter` 指定配置中的适配器实例 ID；同时提供 `source_protocol` 时，实例与协议必须匹配。
+- 只提供 `source_protocol` 时，该协议必须恰好有一个已启用实例。三个字段都不提供时，动作的父事件来自聊天适配器（插件正在处理的消息或通知）则沿用该事件的实例，否则必须全局恰好有一个已启用实例。
 - 回复当前事件时原样提供宿主的 `event_id` 作为 `reply_to_event_id`，宿主据此定位实例。事件 ID 是不透明标识，不应从平台消息 ID 构造或解析。
 - 回复指定消息时使用首个 `reply` segment 或相应回复字段。
 

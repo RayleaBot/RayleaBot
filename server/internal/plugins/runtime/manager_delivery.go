@@ -108,6 +108,7 @@ func BuildEventFrame(event chatevent.Event, requestID string, deadline time.Time
 			EventID:        event.EventID,
 			SourceProtocol: event.SourceProtocol,
 			SourceAdapter:  event.SourceAdapter,
+			BotID:          event.BotID,
 			EventType:      event.EventType,
 			Timestamp:      event.Timestamp,
 		},

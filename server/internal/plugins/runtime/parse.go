@@ -149,11 +149,21 @@ func parseOneBotFamilyAction(actionKind string, raw json.RawMessage) (*plugins.A
 		}
 		delete(payload, "source_protocol")
 	}
+	botID := ""
+	if value, present := payload["bot_id"]; present {
+		var ok bool
+		botID, ok = value.(string)
+		if !ok || botID == "" || sourceAdapter != "" {
+			return nil, errorf(codePluginProtocolViolation, "OneBot action bot_id must be a nonempty account without source_adapter", nil)
+		}
+		delete(payload, "bot_id")
+	}
 	return &plugins.Action{
 		Kind:           actionKind,
 		RawData:        payload,
 		SourceAdapter:  sourceAdapter,
 		SourceProtocol: sourceProtocol,
+		BotID:          botID,
 	}, nil
 }
 

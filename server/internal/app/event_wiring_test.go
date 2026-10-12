@@ -2,14 +2,57 @@ package app
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"strings"
 	"testing"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/qqofficial"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
+
+type accountQQAdapter struct {
+	adapterservice.QQOfficialAdapter
+	status qqofficial.Status
+	sent   int
+}
+
+func (a *accountQQAdapter) Status() qqofficial.Status { return a.status }
+func (a *accountQQAdapter) SendMessage(context.Context, chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
+	a.sent++
+	return chatevent.SendMessageResult{}, nil
+}
+func (a *accountQQAdapter) SendReply(context.Context, chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
+	return chatevent.SendMessageResult{}, nil
+}
+
+func TestEventWiringRoutesQQAccountOnlyWhileConnectedAndConfirmed(t *testing.T) {
+	for _, status := range []qqofficial.Status{
+		{State: qqofficial.StateConnected, BotID: "ready-user-id"},
+		{State: qqofficial.StateReconnecting, BotID: "ready-user-id"},
+		{State: qqofficial.StateConnected},
+	} {
+		adapter := &accountQQAdapter{status: status}
+		cfg := config.Config{Adapters: []config.AdapterInstance{{ID: "qq", Type: "qqofficial", Enabled: true}}}
+		registry := adapterservice.NewRegistry(cfg, nil, map[string]adapterservice.QQOfficialAdapter{"qq": adapter})
+		router := outbound.NewLiveRouter(func() outbound.Routes { return adapterRoutes(registry.Snapshot()) })
+		_, err := router.SendMessage(t.Context(), chatevent.OutboundMessageSend{SourceProtocol: "qqofficial", BotID: "ready-user-id", TargetType: "group", TargetID: "openid"})
+		if status.State == qqofficial.StateConnected && status.BotID != "" {
+			if err != nil || adapter.sent != 1 {
+				t.Fatalf("connected account: sent=%d err=%v", adapter.sent, err)
+			}
+		} else {
+			var coded *chatevent.SendError
+			if !errors.As(err, &coded) || coded.Code != "adapter.transport_unavailable" || adapter.sent != 0 {
+				t.Fatalf("unavailable account: sent=%d err=%v", adapter.sent, err)
+			}
+		}
+	}
+}
 
 func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))

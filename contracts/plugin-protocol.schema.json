@@ -198,7 +198,7 @@
                 "$ref": "#/$defs/bot_identity"
               },
               "uniqueItems": true,
-              "description": "Confirmed identities of enabled adapter instances, sorted by source_adapter with one entry per instance. IDs are scoped to that instance. Empty means no identity is known. The snapshot replaces previous identities; connection readiness is separate from a confirmed identity."
+              "description": "Confirmed identities of enabled adapter instances, sorted by source_adapter with one entry per instance. An ID names a bot account within source_protocol; instances logged in as the same account each have an entry. Empty means no identity is known. The snapshot replaces previous identities; connection readiness is separate from a confirmed identity."
             }
           }
         }
@@ -306,6 +306,11 @@
                   "minLength": 1,
                   "description": "Adapter instance that produced the event. Distinct from source_protocol because one protocol may be served by more than one adapter build."
                 },
+                "bot_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Bot account that received the event, in the identity namespace of source_protocol: the QQ number for onebot11 and the bot user ID for qqofficial. Present on chat events whose account is known; platform events omit it. source_protocol, bot_id and target form a delivery address that stays valid when the adapter instance is replaced or renamed."
+                },
                 "event_type": {
                   "type": "string",
                   "description": "Normalized event semantic. Host-owned vocabulary: entries pair an event source with a normalized meaning, and formally adding a chat adapter adds entries. A plugin manifest may subscribe to a name it never receives, because manifest subscription is an open pattern while host emission is closed to this set.",
@@ -363,7 +368,7 @@
                     "id": {
                       "type": "string",
                       "minLength": 1,
-                      "description": "Sender identifier in the identity namespace of source_protocol, scoped to the bot identity that received the event. Not portable across protocols or across bot identities, and not usable as a global correlation key."
+                      "description": "Sender identifier in the identity namespace of source_protocol, scoped to the bot account that received the event. Not portable across protocols or across bot accounts, and not usable as a global correlation key."
                     },
                     "nickname": {
                       "type": "string"
@@ -389,7 +394,7 @@
                     "id": {
                       "type": "string",
                       "minLength": 1,
-                      "description": "Conversation identifier in the identity namespace of source_protocol. Not portable across protocols or across bot identities, and not usable as a global correlation key."
+                      "description": "Conversation identifier in the identity namespace of source_protocol. Not portable across protocols or across bot accounts, and not usable as a global correlation key."
                     },
                     "name": {
                       "type": "string"
@@ -585,7 +590,7 @@
                         "$ref": "#/$defs/bot_identity"
                       },
                       "uniqueItems": true,
-                      "description": "Confirmed identities of enabled adapter instances, sorted by source_adapter with one entry per instance. IDs are scoped to that instance. Empty means no identity is known. The snapshot replaces previous identities; connection readiness is separate from a confirmed identity."
+                      "description": "Confirmed identities of enabled adapter instances, sorted by source_adapter with one entry per instance. An ID names a bot account within source_protocol; instances logged in as the same account each have an entry. Empty means no identity is known. The snapshot replaces previous identities; connection readiness is separate from a confirmed identity."
                     },
                     "session": {
                       "$ref": "#/$defs/session_context"
@@ -1200,10 +1205,30 @@
         "target_id",
         "message"
       ],
+      "if": {
+        "required": [
+          "bot_id"
+        ]
+      },
+      "then": {
+        "required": [
+          "source_protocol"
+        ],
+        "not": {
+          "required": [
+            "source_adapter"
+          ]
+        }
+      },
       "properties": {
         "source_protocol": {
           "type": "string",
-          "description": "Optional protocol constraint for active delivery. Without source_adapter it must select exactly one enabled adapter instance of this protocol. When both fields are supplied, the named instance must speak this protocol. A reply resolves its adapter from reply_to_event_id; an action that supplies neither field inherits the adapter instance of its chat parent event."
+          "description": "Protocol constraint for active delivery, required with bot_id. Without source_adapter or bot_id it must select exactly one enabled adapter instance of this protocol. When source_adapter is supplied, the named instance must speak this protocol. A reply resolves its adapter from reply_to_event_id; an action that supplies none of the routing fields inherits the adapter instance of its chat parent event."
+        },
+        "bot_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Bot account for active delivery, matching event.bot_id and bots[].id. Requires source_protocol and excludes source_adapter. The host delivers through an enabled, connected adapter instance of source_protocol currently logged in as this account, the first in configuration order when several are; when none is, the action fails with adapter.transport_unavailable without sending. Replacing or renaming the adapter instance does not change the address."
         },
         "source_adapter": {
           "type": "string",
@@ -1311,8 +1336,19 @@
     "action_onebot_family_data": {
       "type": "object",
       "additionalProperties": true,
-      "description": "OneBot API arguments plus host-only routing selectors. OneBot and provider actions inherit source_adapter from a OneBot parent event. An explicit selector must agree with a chat parent event; a parent from another chat protocol is rejected. Platform events do not imply a chat adapter. Without an instance selector, exactly one enabled OneBot11 instance must exist. Missing, disabled, unknown, ambiguous or protocol-mismatched routes and conflicting selectors fail with plugin.protocol_violation before any API call. Selectors are removed before forwarding arguments to the provider.",
+      "description": "OneBot API arguments plus host-only routing selectors. OneBot and provider actions inherit source_adapter from a OneBot parent event. An explicit selector must agree with a chat parent event; a parent from another chat protocol is rejected. Platform events do not imply a chat adapter. Without a selector, exactly one enabled OneBot11 instance must exist. Missing, disabled, unknown, ambiguous or protocol-mismatched instance routes and conflicting selectors fail with plugin.protocol_violation before any API call; a bot_id with no connected instance fails with adapter.transport_unavailable. Selectors are removed before forwarding arguments to the provider.",
+      "not": {
+        "required": [
+          "bot_id",
+          "source_adapter"
+        ]
+      },
       "properties": {
+        "bot_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "OneBot11 bot account (QQ number), matching event.bot_id. Excludes source_adapter. Selects an enabled, connected OneBot11 instance currently logged in as this account, the first in configuration order when several are. With a OneBot parent event it must equal the parent's account."
+        },
         "source_adapter": {
           "type": "string",
           "minLength": 1,
@@ -3474,6 +3510,11 @@
     "fixtures/plugin-protocol/ok.message-send-adapter-instance.yaml",
     "fixtures/plugin-protocol/ok.onebot-adapter-instance.yaml",
     "fixtures/plugin-protocol/invalid.onebot-adapter-selector.yaml",
+    "fixtures/plugin-protocol/ok.message-send-bot-account.yaml",
+    "fixtures/plugin-protocol/invalid.message-send-bot-without-protocol.yaml",
+    "fixtures/plugin-protocol/invalid.message-send-bot-with-adapter.yaml",
+    "fixtures/plugin-protocol/ok.onebot-bot-account.yaml",
+    "fixtures/plugin-protocol/invalid.onebot-bot-with-adapter.yaml",
     "fixtures/plugin-protocol/ok.qq-official-bot-added.yaml",
     "fixtures/plugin-protocol/invalid.legacy-envelope.yaml",
     "fixtures/plugin-protocol/invalid.message-send-unknown-target-type.yaml",
