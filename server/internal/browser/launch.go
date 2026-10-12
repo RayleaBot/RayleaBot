@@ -235,19 +235,19 @@ func reserveBrowserPort() (int, error) {
 	return port, nil
 }
 
+// waitBrowserDevTools uses the caller's deadline as the startup budget,
+// falling back to browserDevToolsWait only without a deadline.
 func waitBrowserDevTools(ctx context.Context, port int) (string, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, browserDevToolsWait)
+		defer cancel()
+	}
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d", port)
-	deadline := time.Now().Add(browserDevToolsWait)
 	for {
 		wsURL, err := resolveRemoteDebuggingURL(ctx, endpoint)
 		if err == nil {
 			return wsURL, nil
-		}
-		if ctx.Err() != nil {
-			return "", ctx.Err()
-		}
-		if time.Now().After(deadline) {
-			return "", fmt.Errorf("browser debugging endpoint did not become ready")
 		}
 		select {
 		case <-ctx.Done():

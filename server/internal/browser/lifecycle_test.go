@@ -99,7 +99,9 @@ func TestManagedBrowserProfileAndProcessLifetime(t *testing.T) {
 		t.Setenv(key, blocked)
 	}
 	owner := make(chan struct{})
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	// Launch shares this budget because Chromium cold starts on busy Windows CI
+	// runners can exceed browserDevToolsWait.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	info, err := manager.Launch(ctx, "fixture", LaunchRequest{Profile: "login", Mode: ModeHeadless, OwnerDone: owner})
 	if err != nil {
